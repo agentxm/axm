@@ -1,76 +1,115 @@
 /**
- * Version resolution logic for CLI self-upgrade.
- *
- * Fetches the latest CLI version from GitHub Releases, strips the `cli-v`
- * prefix, and compares it against the local version using semver.
+ * GitHub release selection and version comparison for CLI self-upgrade.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 
 import { makeAppError } from "../app-error/index.js";
 
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
 const CLI_TAG_PREFIX = "cli-v";
+const RELEASE_PAGE_SIZE = 100;
+const MAX_RELEASE_PAGES = 100;
+const CHECKSUM_ASSET_NAME = "SHA256SUMS";
 
 /** Default GitHub repository for CLI releases. */
 export const DEFAULT_GITHUB_REPO = "agentxm/axm";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
+export type VersionRelation = "upgrade-available" | "current" | "local-newer" | "unknown-local";
 
-/**
- * Result of resolving the latest CLI version from GitHub Releases.
- */
-export interface VersionResolutionResult {
-  /** The remote version string (semver, no prefix). */
-  readonly remoteVersion: string;
-  /** The local version string that was compared against. */
-  readonly localVersion: string;
-  /** Whether the local version is older than the remote version. */
-  readonly isStale: boolean;
+export interface ResolvedRelease {
+  readonly tagName: string;
+  readonly binaryAssetUrl: string | null;
+  readonly checksumAssetUrl: string | null;
 }
 
-// -----------------------------------------------------------------------------
-// Schemas
-// -----------------------------------------------------------------------------
+export interface VersionResolutionResult {
+  /** Selected target version without the `cli-v` prefix. */
+  readonly targetVersion: string;
+  /** @deprecated Use `targetVersion`. Retained for one compatibility window. */
+  readonly remoteVersion: string;
+  /** Valid observed local version, or null when it cannot be determined. */
+  readonly localVersion: string | null;
+  readonly versionRelation: VersionRelation;
+  /** @deprecated Use `versionRelation`. */
+  readonly isStale: boolean;
+  readonly release: ResolvedRelease;
+}
 
-/** Minimal GitHub release shape needed for version resolution. */
-const GitHubReleaseSchema = Schema.Struct({ tag_name: Schema.String });
+const GitHubReleaseAssetSchema = Schema.Struct({
+  name: Schema.String,
+  browser_download_url: Schema.optional(Schema.String),
+});
+
+const GitHubReleaseSchema = Schema.Struct({
+  tag_name: Schema.String,
+  draft: Schema.optional(Schema.Boolean),
+  prerelease: Schema.optional(Schema.Boolean),
+  assets: Schema.optional(Schema.Array(GitHubReleaseAssetSchema)),
+});
 
 const GitHubReleaseArraySchema = Schema.Array(GitHubReleaseSchema);
+type GitHubRelease = typeof GitHubReleaseSchema.Type;
 
-const decodeRelease = Schema.decodeUnknownEffect(GitHubReleaseSchema);
 const decodeReleaseArray = Schema.decodeUnknownEffect(GitHubReleaseArraySchema);
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+const githubErrorForStatus = (status: number) => {
+  if (status === 403 || status === 429) {
+    return makeAppError({
+      code: "rate_limit",
+      detail: "GitHub API rate limit prevented release resolution",
+      suggestions: [{ description: "Wait for the rate limit to reset and try again." }],
+    });
+  }
+  if (status === 404) {
+    return makeAppError({
+      code: "not_found",
+      detail: "GitHub release repository was not found",
+      suggestions: [{ description: "Check the configured GitHub repository and try again." }],
+    });
+  }
+  if (status >= 500) {
+    return makeAppError({
+      code: "unavailable",
+      detail: `GitHub API is temporarily unavailable (status ${String(status)})`,
+      suggestions: [{ description: "Try again shortly." }],
+    });
+  }
+  return makeAppError({
+    code: "internal",
+    detail: `GitHub API returned unexpected status ${String(status)}`,
+    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+  });
+};
 
-/**
- * Strip the `cli-v` prefix from a tag name, returning `Option.none()` if the
- * prefix is missing.
- */
-const stripCliPrefix = (tagName: string): Option.Option<string> =>
-  tagName.startsWith(CLI_TAG_PREFIX)
-    ? Option.some(tagName.slice(CLI_TAG_PREFIX.length))
-    : Option.none();
+const mapDecodeError = (cause: Schema.SchemaError) =>
+  makeAppError({
+    code: "validation",
+    detail: "GitHub API returned an unexpected release response",
+    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+    cause,
+  });
 
-/**
- * Fetch a JSON response from the GitHub API, mapping transport errors to
- * `AppError`. Returns the parsed JSON value.
- */
-const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
+const nextLink = (header: string | undefined): string | null => {
+  if (header === undefined) return null;
+  for (const part of header.split(",")) {
+    const match = /^\s*<([^>]+)>\s*;\s*rel="next"\s*$/u.exec(part);
+    if (match?.[1] !== undefined) return match[1];
+  }
+  return null;
+};
+
+interface ReleasePage {
+  readonly releases: ReadonlyArray<GitHubRelease>;
+  readonly next: string | null;
+}
+
+const fetchReleasePage = (httpClient: HttpClient.HttpClient, url: string) =>
   Effect.gen(function* () {
     const response = yield* httpClient
       .get(url, {
@@ -90,149 +129,168 @@ const fetchGitHubJson = (httpClient: HttpClient.HttpClient, url: string) =>
         ),
       );
 
-    if (response.status !== 200) {
-      return yield* makeAppError({
-        code: "internal",
-        detail: `GitHub API returned status ${String(response.status)}`,
-        suggestions: [
-          {
-            description:
-              "Check your network connection and try again. If the problem persists, GitHub may be experiencing issues.",
-          },
-        ],
-      });
-    }
+    if (response.status !== 200) return yield* githubErrorForStatus(response.status);
 
-    return yield* response.json.pipe(
+    const json = yield* response.json.pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
           detail: "GitHub API response was not valid JSON",
-          suggestions: [
-            {
-              description:
-                "This may indicate a GitHub API change. Please try again or report the issue.",
-            },
-          ],
+          suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
           cause,
         }),
       ),
     );
+    const releases = yield* decodeReleaseArray(json).pipe(Effect.mapError(mapDecodeError));
+
+    return {
+      releases,
+      next: nextLink(response.headers["link"] ?? response.headers["Link"]),
+    } satisfies ReleasePage;
   });
 
-/**
- * Map schema decode errors to `AppError`.
- */
-const mapDecodeError = (_url: string) =>
-  Effect.mapError((cause: Schema.SchemaError) =>
-    makeAppError({
-      code: "validation",
-      detail: "GitHub API returned an unexpected response shape",
-      suggestions: [
-        {
-          description:
-            "This may indicate a GitHub API change. Please try again or report the issue.",
-        },
-      ],
-      cause,
-    }),
-  );
-
-/**
- * Fetch the latest release from `GET /repos/{repo}/releases/latest`.
- */
-const fetchLatestRelease = (httpClient: HttpClient.HttpClient, repo: string) => {
-  const url = `https://api.github.com/repos/${repo}/releases/latest`;
-  return Effect.flatMap(fetchGitHubJson(httpClient, url), (json) =>
-    decodeRelease(json).pipe(mapDecodeError(url)),
-  );
-};
-
-/**
- * Fetch the list of releases from `GET /repos/{repo}/releases`.
- */
-const RELEASES_PER_PAGE = 100;
-const MAX_RELEASE_PAGES = 10;
-
-const fetchReleases = (httpClient: HttpClient.HttpClient, repo: string, page: number) => {
-  const url = `https://api.github.com/repos/${repo}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`;
-  return Effect.flatMap(fetchGitHubJson(httpClient, url), (json) =>
-    decodeReleaseArray(json).pipe(mapDecodeError(url)),
-  );
-};
-
-/**
- * Resolve the latest CLI version from GitHub Releases.
- *
- * 1. Try `releases/latest` — if its tag starts with `cli-v`, strip and use it.
- * 2. Otherwise, list releases and find the first with a `cli-v` prefix.
- * 3. If no CLI release is found, fail.
- */
-const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =>
+const fetchAllReleases = (httpClient: HttpClient.HttpClient, repo: string, apiBaseUrl: string) =>
   Effect.gen(function* () {
-    const release = yield* fetchLatestRelease(httpClient, repo);
-    const version = stripCliPrefix(release.tag_name);
-    if (Option.isSome(version)) {
-      return version.value;
-    }
-    // Latest release is not a CLI release — page through the release list
-    // (not just the first page) looking for the newest `cli-v` tag.
-    for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {
-      const releases = yield* fetchReleases(httpClient, repo, page);
-      for (const r of releases) {
-        const v = stripCliPrefix(r.tag_name);
-        if (Option.isSome(v)) {
-          return v.value;
-        }
+    let url: string | null =
+      `${apiBaseUrl.replace(/\/$/u, "")}/repos/${repo}/releases?per_page=${String(RELEASE_PAGE_SIZE)}`;
+    const releases: Array<GitHubRelease> = [];
+    const visited = new Set<string>();
+
+    while (url !== null) {
+      if (visited.has(url) || visited.size >= MAX_RELEASE_PAGES) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "GitHub release pagination was cyclic or exceeded the safety limit",
+          suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+        });
       }
-      if (releases.length < RELEASES_PER_PAGE) break;
+      visited.add(url);
+      const page: ReleasePage = yield* fetchReleasePage(httpClient, url);
+      releases.push(...page.releases);
+      url = page.next;
     }
-    return yield* makeAppError({
-      code: "not_found",
-      detail: "No CLI release found on GitHub",
-      suggestions: [
-        {
-          description:
-            "Ensure the repository has at least one release tagged with the 'cli-v' prefix.",
-        },
-      ],
-    });
+
+    return releases;
   });
 
-/**
- * Compare local and remote versions.
- *
- * - If `localVersion` is `"unknown"`, treat as always stale.
- * - Otherwise, use semver comparison.
- */
-const compareVersions = (localVersion: string, remoteVersion: string): boolean => {
-  if (localVersion === "unknown") return true;
-  const local = semver.valid(localVersion);
-  const remote = semver.valid(remoteVersion);
-  if (local === null || remote === null) return true;
-  return semver.lt(local, remote);
+interface StableCandidate {
+  readonly release: GitHubRelease;
+  readonly version: string;
+}
+
+const selectTarget = (releases: ReadonlyArray<GitHubRelease>) =>
+  Effect.gen(function* () {
+    const cliTagged = releases.filter((release) => release.tag_name.startsWith(CLI_TAG_PREFIX));
+    if (cliTagged.length === 0) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: "No CLI-tagged GitHub release exists",
+        suggestions: [{ description: "Try again after a CLI release is published." }],
+      });
+    }
+
+    const stableSemver: Array<StableCandidate> = [];
+    for (const release of cliTagged) {
+      const rawVersion = release.tag_name.slice(CLI_TAG_PREFIX.length);
+      const validVersion = semver.valid(rawVersion);
+      if (validVersion === null || semver.prerelease(validVersion) !== null) continue;
+      stableSemver.push({ release, version: validVersion });
+    }
+
+    if (stableSemver.length === 0) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "CLI-tagged releases exist, but none has a valid stable semantic version",
+        suggestions: [{ description: "Publish a stable release tagged cli-v<semver>." }],
+      });
+    }
+
+    const eligible = stableSemver.filter(
+      ({ release }) => release.draft !== true && release.prerelease !== true,
+    );
+    if (eligible.length === 0) {
+      return yield* makeAppError({
+        code: "unavailable",
+        detail: "No published stable CLI release is currently available",
+        suggestions: [{ description: "Try again after release publication completes." }],
+      });
+    }
+
+    eligible.sort((left, right) => semver.rcompare(left.version, right.version));
+    const selected = eligible[0];
+    if (selected === undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: "Release selection produced no target",
+      });
+    }
+    return selected;
+  });
+
+const singleAssetUrl = (release: GitHubRelease, assetName: string): string | null => {
+  const matches = (release.assets ?? []).filter((asset) => asset.name === assetName);
+  if (matches.length !== 1) return null;
+  const url = matches[0]?.browser_download_url;
+  return url === undefined || url.length === 0 ? null : url;
 };
 
-// -----------------------------------------------------------------------------
-// Public API
-// -----------------------------------------------------------------------------
+const classifyRelation = (
+  localVersion: string | null,
+  targetVersion: string,
+): { readonly localVersion: string | null; readonly versionRelation: VersionRelation } => {
+  const validLocal = localVersion === null ? null : semver.valid(localVersion);
+  if (validLocal === null) {
+    return { localVersion: null, versionRelation: "unknown-local" };
+  }
+  const comparison = semver.compare(validLocal, targetVersion);
+  return {
+    localVersion: validLocal,
+    versionRelation:
+      comparison < 0 ? "upgrade-available" : comparison > 0 ? "local-newer" : "current",
+  };
+};
 
 /**
- * Resolve the latest CLI version from GitHub Releases and compare it against
- * the local version.
- *
- * @param httpClient - HTTP client for GitHub API requests
- * @param localVersion - current CLI version (e.g. from `__AXM_VERSION__` or `package.json`)
- * @param repo - GitHub `owner/repo` (defaults to `agentxm/axm`; callers may
- *   read `AXM_INSTALL_GITHUB_REPO` from `Config` at the boundary)
+ * Resolve the highest eligible stable CLI release and compare it with the
+ * observed local version. When `requiredAsset` is provided, the selected
+ * release must contain exactly one platform binary and one checksum manifest.
  */
 export const resolveLatestVersion = (
   httpClient: HttpClient.HttpClient,
-  localVersion: string,
+  localVersion: string | null,
   repo: string = DEFAULT_GITHUB_REPO,
+  requiredAsset?: string,
+  apiBaseUrl = "https://api.github.com",
 ) =>
   Effect.gen(function* () {
-    const remoteVersion = yield* resolveRemoteVersion(httpClient, repo);
-    const isStale = compareVersions(localVersion, remoteVersion);
-    return { remoteVersion, localVersion, isStale } satisfies VersionResolutionResult;
+    const releases = yield* fetchAllReleases(httpClient, repo, apiBaseUrl);
+    const selected = yield* selectTarget(releases);
+    const relation = classifyRelation(localVersion, selected.version);
+    const binaryAssetUrl =
+      requiredAsset === undefined ? null : singleAssetUrl(selected.release, requiredAsset);
+    const checksumAssetUrl =
+      requiredAsset === undefined ? null : singleAssetUrl(selected.release, CHECKSUM_ASSET_NAME);
+
+    if (requiredAsset !== undefined && (binaryAssetUrl === null || checksumAssetUrl === null)) {
+      return yield* makeAppError({
+        code: "unavailable",
+        detail: `CLI ${selected.version} is published, but required release assets are unavailable`,
+        suggestions: [{ description: "Try again after release publication completes." }],
+      });
+    }
+
+    return {
+      targetVersion: selected.version,
+      remoteVersion: selected.version,
+      localVersion: relation.localVersion,
+      versionRelation: relation.versionRelation,
+      isStale:
+        relation.versionRelation === "upgrade-available" ||
+        relation.versionRelation === "unknown-local",
+      release: {
+        tagName: selected.release.tag_name,
+        binaryAssetUrl,
+        checksumAssetUrl,
+      },
+    } satisfies VersionResolutionResult;
   });

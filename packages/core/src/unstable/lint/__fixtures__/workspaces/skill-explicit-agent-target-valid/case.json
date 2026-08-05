@@ -3,17 +3,12 @@
   "state": {
     "settings": {
       "agents": ["claude-code"],
-      "lint": {
-        "rules": {
-          "workspace/skills-universal-artifact-present": "error"
-        }
-      },
       "skills": {
         "reviewer": "@acme/skills/reviewer@1.0.0"
       }
     },
     "lockfile": {
-      "lockfileVersion": 1,
+      "lockfileVersion": 3,
       "skills": {
         "reviewer": {
           "type": "registry",
@@ -22,6 +17,8 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
+
+          "publisherBindingId": "hbnd_test",
           "agents": ["claude-code"],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",

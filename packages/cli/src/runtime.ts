@@ -1,10 +1,13 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import * as References from "effect/References";
 import { pathToFileURL } from "node:url";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
@@ -23,6 +26,7 @@ import {
   verboseFlag,
   debugFlag,
   quietFlag,
+  verbosityToLogLevel,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
@@ -41,6 +45,7 @@ import {
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
+  PendingDeviceLoginStoreLive,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
@@ -49,6 +54,8 @@ import { InstallFilesCommandWorkflowActionsLive } from "./root/files/install/com
 import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall/command-actions.js";
 import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
 import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
+import { InstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/install/command-actions.js";
+import { UninstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -67,8 +74,11 @@ import type {
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
+  withDegradedLockfileReads,
   WorkspaceInitializationInteractionLive,
+  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import { loadVersion } from "./version.js";
 
@@ -90,11 +100,24 @@ const RegistryUrlLayer = Layer.orDie(
   ),
 );
 
-const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
+  httpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.setHeader("user-agent", `axm-cli/${version}`)),
+  );
+
+const AxmHttpClientLayer = Layer.provide(
+  Layer.effect(
+    HttpClient.HttpClient,
+    Effect.map(HttpClient.HttpClient, (httpClient) => withAxmUserAgent(httpClient, loadVersion())),
+  ),
+  FetchHttpClient.layer,
+);
+
+const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
 const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(CredentialStoreLive, AuthClientLive),
+  Layer.mergeAll(CredentialStoreLive, PendingDeviceLoginStoreLive, AuthClientLive),
   RegistryRuntimeLayer,
 );
 
@@ -108,17 +131,27 @@ export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrapped
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   RegistryUrlLayer,
-  AuthLoginInteractionLive,
+  // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
+  // provided by NodeServices (memoized with the merged instance above).
+  Layer.provide(AuthLoginInteractionLive, NodeServices.layer),
   Logger.layer([], { mergeWithExisting: false }),
 );
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
 
+/**
+ * Verbosity-driven logging: the logger set stays binary (consolePretty only at
+ * `--debug`), while the minimum log level tracks the full verbosity ladder via
+ * `verbosityToLogLevel` (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
+ */
 const debugLoggerLayer = Layer.unwrap(
   Effect.map(Verbosity, (v) =>
-    Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
-      mergeWithExisting: false,
-    }),
+    Layer.mergeAll(
+      Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
+        mergeWithExisting: false,
+      }),
+      Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(v.level)),
+    ),
   ),
 );
 
@@ -247,6 +280,13 @@ const makeWorkspaceProgramLayer = (
     ),
     SubagentManagerLive,
   );
+  const knowledgeLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallKnowledgeCommandWorkflowActionsLive,
+      UninstallKnowledgeCommandWorkflowActionsLive,
+    ),
+    KnowledgeManagerLive,
+  );
   const packsLayer = Layer.provideMerge(
     Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
     PackManagerLive,
@@ -259,7 +299,7 @@ const makeWorkspaceProgramLayer = (
     mcpServersLayer,
     skillsLayer,
     subagentsLayer,
-    KnowledgeManagerLive,
+    knowledgeLayer,
   );
   const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
   return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
@@ -283,6 +323,26 @@ const resolveRuntimeConfig = () =>
     } as const;
   });
 
+/**
+ * Tell the user their lockfile is unreadable before the command's own output.
+ *
+ * Every command runs with degraded lockfile reads (see `withWorkspace`), so a
+ * corrupt `axm-lock.yaml` no longer aborts anything — read-only commands fall
+ * back to what `settings.json` declares, and mutating commands recover through
+ * reconciliation. This notice is what keeps that from being silent.
+ *
+ * A *missing* lockfile is ordinary (fresh clone, first install) and is not
+ * flagged.
+ */
+const flagUnreadableLockfile = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  if ((yield* ws.getLockfileState()) !== "invalid") return;
+  const renderer = yield* CliRenderer;
+  yield* renderer.warn(
+    "The workspace lockfile could not be read; reporting declared state from settings.json.",
+  );
+}).pipe(Effect.catchCause(() => Effect.void));
+
 export const withWorkspace =
   (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
@@ -290,7 +350,21 @@ export const withWorkspace =
       const envConfig = yield* readRuntimeEnvConfig;
       const resolved = typeof options === "string" ? { scope: options } : options;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      return yield* Effect.provide(program, wsLayer);
+      const renderer = yield* CliRenderer;
+      return yield* Effect.scoped(
+        renderer
+          .withSpinner(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
+            successMessage: `Loaded ${resolved.scope} workspace`,
+          })
+          .pipe(
+            Effect.flatMap((workspaceContext) =>
+              Effect.provide(
+                flagUnreadableLockfile.pipe(Effect.andThen(program)),
+                workspaceContext,
+              ).pipe(withDegradedLockfileReads),
+            ),
+          ),
+      );
     });
 
 export const withAuthRuntime =

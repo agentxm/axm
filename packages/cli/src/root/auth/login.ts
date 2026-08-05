@@ -8,12 +8,17 @@ import {
   RegistryUrl,
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
+  initiateDeviceLogin,
+  resumeDeviceLogin,
   runDeviceLogin,
   runLoopbackLogin,
   selectLoginStrategy,
+  type LoginStrategyEnvironment,
   type LoopbackCallbackRejected,
   type LoopbackLoginFallback,
   type RunDeviceLoginOptions,
+  type DeviceLoginPendingResult,
+  type ResumeDeviceLoginOptions,
   type RunLoopbackLoginOptions,
 } from "@agentxm/client-core/unstable/auth";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
@@ -25,12 +30,16 @@ import {
   type SuggestedAction,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  errAuthRequired,
+  makeAppError,
+  type AppError,
+} from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { withAuthRuntime } from "../../runtime.js";
 
-const LoginNoOpResultSchema = Schema.Struct({
+export const LoginNoOpResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("already-logged-in"),
   registryHost: Schema.String,
@@ -40,7 +49,9 @@ const LoginNoOpResultSchema = Schema.Struct({
 const LoginNoOpDocumentFields = {
   result: LoginNoOpResultSchema,
 } satisfies Schema.Struct.Fields;
-type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
+export const LoginNoOpDocumentSchema = Schema.Struct(LoginNoOpDocumentFields);
+export type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
+export type LoginNoOpDocument = typeof LoginNoOpDocumentSchema.Type;
 
 const LoginNoOpSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
@@ -49,6 +60,7 @@ const LoginNoOpSuggestions = [
 
 interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
+  readonly loginStrategyEnvironment?: LoginStrategyEnvironment;
   readonly runLoopbackLogin?: (
     registryUrl: string,
     options?: RunLoopbackLoginOptions,
@@ -56,6 +68,14 @@ interface LoginInteractions {
   readonly runDeviceLogin?: (
     registryUrl: string,
     options?: RunDeviceLoginOptions,
+  ) => Effect.Effect<void, AppError>;
+  readonly initiateDeviceLogin?: (
+    registryUrl: string,
+    options?: RunDeviceLoginOptions,
+  ) => Effect.Effect<DeviceLoginPendingResult, AppError>;
+  readonly resumeDeviceLogin?: (
+    registryUrl: string,
+    options?: ResumeDeviceLoginOptions,
   ) => Effect.Effect<void, AppError>;
 }
 
@@ -89,6 +109,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     readonly yes: boolean;
     readonly deviceCode: boolean;
     readonly noBrowser: boolean;
+    readonly wait?: boolean;
+    readonly timeoutSeconds?: number;
     readonly scopes: ReadonlyArray<string>;
   },
   interactions?: LoginInteractions,
@@ -100,21 +122,42 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const json = yield* jsonFlag;
   const jsonMode = Option.getOrElse(json, () => false);
 
+  const nonInteractive = yield* isNonInteractive;
+  if (options.wait && (options.deviceCode || options.noBrowser)) {
+    return yield* makeAppError({
+      code: "usage",
+      detail:
+        "--wait resumes an existing device sign-in and cannot be combined with --device-code or --no-browser.",
+    });
+  }
+  if (!options.wait && options.timeoutSeconds !== undefined) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--timeout requires --wait.",
+    });
+  }
+
   if (!credStore.allowsPersistedCredentials) {
     return yield* makePersistedCredentialsUnsupportedError();
   }
 
-  // Step 1: Reject non-interactive mode
-  const nonInteractive = yield* isNonInteractive;
-  if (nonInteractive) {
-    return yield* errAuthRequired("Login requires an interactive terminal");
+  if (options.wait) {
+    const performResumeDeviceLogin = interactions?.resumeDeviceLogin ?? resumeDeviceLogin;
+    yield* performResumeDeviceLogin(registryUrl, {
+      ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
+    });
+    return;
   }
 
   // Step 2: Check existing auth — validate token against the server
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
-    const meResult = yield* authClient.getMe(existing.value.access_token).pipe(Effect.option);
+    const meResult = yield* renderer.withSpinner(
+      `Checking registry session on ${registryHost}`,
+      () => authClient.getMe(existing.value.access_token).pipe(Effect.option),
+      { successMessage: `Checked registry session on ${registryHost}` },
+    );
 
     if (Option.isSome(meResult)) {
       const noOpMessage = `Already logged in to ${registryHost} as ${meResult.value.userHandle}`;
@@ -138,12 +181,21 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
       };
       if (!options.yes && jsonMode) {
         if (
-          yield* renderer.result({ result: noOpResult }, Schema.Struct(LoginNoOpDocumentFields), {
+          yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
             suggestions: LoginNoOpSuggestions,
           })
         ) {
           return;
         }
+      }
+
+      if (nonInteractive) {
+        if (!jsonMode) {
+          yield* renderer.success(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
+            suggestions: LoginNoOpSuggestions,
+          });
+        }
+        return;
       }
 
       if (!jsonMode) {
@@ -155,7 +207,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
           confirmRelogin(message);
         if (!shouldContinue) {
           if (
-            yield* renderer.result({ result: noOpResult }, Schema.Struct(LoginNoOpDocumentFields), {
+            yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
               suggestions: LoginNoOpSuggestions,
             })
           ) {
@@ -167,54 +219,116 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
           return;
         }
       }
+    } else if (!jsonMode) {
+      yield* renderer.info("Your saved credentials are no longer valid. Starting a new sign-in…");
     }
   }
 
-  const strategy = selectLoginStrategy(options, yield* loginStrategyEnvironment);
+  const strategyEnvironment =
+    interactions?.loginStrategyEnvironment === undefined
+      ? yield* loginStrategyEnvironment
+      : interactions.loginStrategyEnvironment;
+  const strategy = selectLoginStrategy({ ...options, nonInteractive }, strategyEnvironment);
   const performDeviceLogin = interactions?.runDeviceLogin ?? runDeviceLogin;
+  const performInitiateDeviceLogin = interactions?.initiateDeviceLogin ?? initiateDeviceLogin;
   const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
 
   if (strategy === "device-code") {
-    if (!options.deviceCode && !options.noBrowser && !jsonMode) {
-      yield* renderer.info("No browser available in this environment; using device code fallback.");
+    if (!options.deviceCode && !options.noBrowser) {
+      yield* renderer.instruction(
+        "This environment appears to be remote or headless; using device-code sign-in.",
+      );
     }
-    yield* performDeviceLogin(registryUrl, {
-      openBrowser: options.deviceCode && !options.noBrowser,
-      ...requestedScopeOptions,
-    });
+    if (nonInteractive) {
+      yield* performInitiateDeviceLogin(registryUrl, {
+        openBrowser: false,
+        ...requestedScopeOptions,
+      });
+    } else {
+      yield* performDeviceLogin(registryUrl, {
+        openBrowser: false,
+        ...requestedScopeOptions,
+      });
+    }
     return;
+  }
+
+  if (nonInteractive) {
+    return yield* errAuthRequired(
+      "Loopback browser sign-in requires an interactive terminal. Use device-code sign-in instead.",
+    );
   }
 
   yield* performLoopbackLogin(registryUrl, {
     ...requestedScopeOptions,
   }).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
-      Effect.gen(function* () {
-        if (!jsonMode) {
-          yield* renderer.info(`${error.message} Using device code fallback.`);
-        }
-        yield* performDeviceLogin(registryUrl, {
-          openBrowser: false,
-          ...requestedScopeOptions,
-        });
-      }),
+      error.reason === "bind_failed"
+        ? Effect.gen(function* () {
+            yield* renderer.instruction(
+              "Could not start a local callback server; using device-code sign-in instead.",
+            );
+            yield* performDeviceLogin(registryUrl, {
+              openBrowser: false,
+              ...requestedScopeOptions,
+            });
+          })
+        : Effect.fail(
+            makeAppError({
+              code: "auth",
+              detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
+              suggestions: [
+                { description: "Try browser sign-in again.", cmd: "axm login" },
+                {
+                  description: "Use device-code sign-in on a remote or headless machine.",
+                  cmd: "axm login --device-code",
+                },
+              ],
+              cause: error,
+            }),
+          ),
     ),
     Effect.catchTag("LoopbackCallbackRejected", (error) =>
-      Effect.fail(errAuthRequired(error.message)),
+      Effect.fail(
+        error.reason === "access_denied"
+          ? makeAppError({
+              code: "auth",
+              detail: "Sign-in was cancelled. No credentials were changed.",
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+              cause: error,
+            })
+          : makeAppError({
+              code: "auth",
+              detail:
+                "The authorization callback was invalid and sign-in could not be completed. Run `axm login` to try again.",
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+              cause: error,
+            }),
+      ),
     ),
   );
 }, Effect.asVoid);
 
 const loginConfig = {
   yes: yesFlag.pipe(
-    Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
+    Flag.withDescription("Log in again without prompting when already authenticated"),
   ),
   deviceCode: Flag.boolean("device-code").pipe(
-    Flag.withDescription("Use the device-code fallback instead of loopback browser login"),
+    Flag.withDescription(
+      "Use OAuth device-code sign-in; recommended for SSH and headless environments",
+    ),
   ),
   noBrowser: Flag.boolean("no-browser").pipe(
     Flag.withDescription("Do not open a browser; use device-code fallback"),
+    Flag.withHidden,
+  ),
+  wait: Flag.boolean("wait").pipe(
+    Flag.withDescription("Resume and wait for a pending device sign-in"),
+  ),
+  timeout: Flag.integer("timeout").pipe(
+    Flag.withDescription("Maximum seconds to wait for device approval"),
+    Flag.optional,
   ),
   scope: Flag.string("scope").pipe(
     Flag.withDescription("Registry scope to request; repeatable"),
@@ -225,19 +339,24 @@ const loginConfig = {
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, noBrowser, scope }) =>
-    handleLogin({ yes, deviceCode, noBrowser, scopes: scope }).pipe(withAuthRuntime("auth login")),
+  ({ yes, deviceCode, noBrowser, wait, timeout, scope }) =>
+    handleLogin({
+      yes,
+      deviceCode,
+      noBrowser,
+      wait,
+      ...Option.match(timeout, {
+        onNone: () => ({}),
+        onSome: (timeoutSeconds) => ({ timeoutSeconds }),
+      }),
+      scopes: scope,
+    }).pipe(withAuthRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
   Command.withExamples([
-    { command: "axm auth login", description: "Sign in to the default registry" },
-    { command: "axm login", description: "Same command via shortcut" },
-    { command: "axm auth login --yes", description: "Skip the browser confirmation" },
-    {
-      command: "axm auth login --scope extensions:publish:version",
-      description: "Request a specific registry scope",
-    },
-    { command: "axm auth login --device-code", description: "Sign in with device code fallback" },
+    { command: "axm login", description: "Sign in with a local browser" },
+    { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
+    { command: "axm login --wait", description: "Resume a pending device sign-in" },
   ]),
 );

@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import { describe, expect, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -28,13 +28,14 @@ const baseInputs: InstallMethodInputs = {
   execPath: "/usr/local/bin/bun",
   importMetaUrl: "file:///usr/local/lib/axm/src/main.ts",
   homeDir: "/Users/testuser",
+  platform: "darwin",
 };
 
 // -----------------------------------------------------------------------------
 // Priority 1: Script install
 // -----------------------------------------------------------------------------
 
-describe("InstallMethod", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) => {
   describe("Priority 1: Script install", () => {
     it.effect("detects script install when execPath is in ~/.axm/bin/", () =>
       Effect.gen(function* () {
@@ -47,7 +48,7 @@ describe("InstallMethod", () => {
         if (result._tag === "Script") {
           expect(result.execPath).toBe("/Users/testuser/.axm/bin/bun");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects script install with nested path in ~/.axm/bin/", () =>
@@ -58,7 +59,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects script install on Windows with USERPROFILE dotfile layout", () =>
@@ -67,10 +68,97 @@ describe("InstallMethod", () => {
           ...baseInputs,
           execPath: "C:\\Users\\testuser\\.axm\\bin\\axm.exe",
           homeDir: "C:\\Users\\testuser",
+          platform: "win32",
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
+    );
+
+    it.effect("matches Windows script paths case-insensitively", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\USERS\\TESTUSER\\.AXM\\BIN\\AXM.EXE",
+          homeDir: "c:\\users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+      }),
+    );
+
+    it.effect("matches extended-length Windows executable paths", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "\\\\?\\C:\\Users\\testuser\\.axm\\bin\\axm.exe",
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+      }),
+    );
+
+    it.effect("uses the launched executable when the runtime path differs", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\tools\\bun.exe",
+          invocationPaths: ["C:\\Users\\testuser\\.axm\\bin\\axm.exe"],
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.execPath).toBe("C:\\Users\\testuser\\.axm\\bin\\axm.exe");
+        }
+      }),
+    );
+
+    it.effect("prefers the launched script executable over inherited package-manager state", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\tools\\bun.exe",
+          invocationPaths: ["C:\\Users\\testuser\\.axm\\bin\\axm.exe"],
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+          packageManager: "pnpm",
+          packageManagerVersion: "10.14.0",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.detectionSource).toBe("executable-path");
+          expect(result.execPath).toBe("C:\\Users\\testuser\\.axm\\bin\\axm.exe");
+        }
+      }),
+    );
+
+    it.effect("matches canonical script paths when home uses an alias", () =>
+      Effect.gen(function* () {
+        const parent = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-method-alias-"));
+        const realHome = nodePath.join(parent, "real-home");
+        const aliasedHome = nodePath.join(parent, "aliased-home");
+        const executable = nodePath.join(realHome, ".axm", "bin", "axm");
+        nodeFs.mkdirSync(nodePath.dirname(executable), { recursive: true });
+        nodeFs.writeFileSync(executable, "");
+        nodeFs.symlinkSync(realHome, aliasedHome, "dir");
+
+        try {
+          const result = yield* detectFromInputs({
+            ...baseInputs,
+            execPath: executable,
+            homeDir: aliasedHome,
+            platform: "linux",
+          });
+          expect(result._tag).toBe("Script");
+          if (result._tag === "Script") {
+            expect(result.detectionSource).toBe("resolved-executable-path");
+          }
+        } finally {
+          nodeFs.rmSync(parent, { recursive: true, force: true });
+        }
+      }),
     );
 
     it.effect("returns unknown for legacy Windows AppData layout", () =>
@@ -82,7 +170,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("script takes priority over homebrew signals", () =>
@@ -95,7 +183,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
@@ -118,7 +206,7 @@ describe("InstallMethod", () => {
         if (result._tag === "Homebrew") {
           expect(result.execPath).toBe("/opt/homebrew/Cellar/axm/1.0.0/bin/bun");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("homebrew takes priority over npm signals", () =>
@@ -130,39 +218,67 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Homebrew");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
   // ---------------------------------------------------------------------------
-  // Priority 3: npm install
+  // Priority 3: package-manager layout
   // ---------------------------------------------------------------------------
 
-  describe("Priority 3: npm install", () => {
-    it.effect("detects npm when import.meta.url contains node_modules", () =>
+  describe("Priority 3: package-manager layout", () => {
+    it.effect("does not guess npm from an ambiguous node_modules layout", () =>
       Effect.gen(function* () {
         const inputs: InstallMethodInputs = {
           ...baseInputs,
           importMetaUrl: "file:///usr/local/lib/node_modules/axm.sh/dist/main.js",
         };
         const result = yield* detectFromInputs(inputs);
-        expect(result._tag).toBe("Npm");
-        if (result._tag === "Npm") {
-          expect(result.importUrl).toBe("file:///usr/local/lib/node_modules/axm.sh/dist/main.js");
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("ambiguous");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
-    it.effect("npm takes priority over metadata file", () =>
+    it.effect("detects npm, pnpm, and Yarn Classic from explicit manager evidence", () =>
       Effect.gen(function* () {
-        const inputs: InstallMethodInputs = {
+        const npm = yield* detectFromInputs({ ...baseInputs, packageManager: "npm" });
+        const pnpm = yield* detectFromInputs({ ...baseInputs, packageManager: "pnpm" });
+        const yarn = yield* detectFromInputs({
           ...baseInputs,
-          importMetaUrl: "file:///home/user/node_modules/axm/main.js",
-        };
-        // Even if install-meta.json exists, npm signal wins
-        const result = yield* detectFromInputs(inputs);
-        expect(result._tag).toBe("Npm");
-      }).pipe(Effect.provide(NodeServices.layer)),
+          packageManager: "yarn",
+          packageManagerVersion: "1.22.22",
+        });
+        const modernYarn = yield* detectFromInputs({
+          ...baseInputs,
+          packageManager: "yarn",
+          packageManagerVersion: "4.9.2",
+        });
+
+        expect(npm._tag).toBe("Npm");
+        expect(pnpm._tag).toBe("Pnpm");
+        expect(yarn._tag).toBe("Yarn");
+        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(true);
+        expect(modernYarn._tag).toBe("Yarn");
+        if (modernYarn._tag === "Yarn") expect(modernYarn.supported).toBe(false);
+      }),
+    );
+
+    it.effect("detects unambiguous pnpm and Yarn layouts", () =>
+      Effect.gen(function* () {
+        const pnpm = yield* detectFromInputs({
+          ...baseInputs,
+          importMetaUrl: "file:///opt/pnpm/global/5/node_modules/.pnpm/axm.sh/dist/main.js",
+        });
+        const yarn = yield* detectFromInputs({
+          ...baseInputs,
+          importMetaUrl: "file:///Users/test/.config/yarn/global/node_modules/axm.sh/main.js",
+          packageManagerVersion: "1.22.22",
+        });
+        expect(pnpm._tag).toBe("Pnpm");
+        expect(yarn._tag).toBe("Yarn");
+      }),
     );
   });
 
@@ -195,7 +311,22 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
+    );
+
+    it.effect("reads PowerShell 5.1 UTF-8 BOM install metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(metaPath, `\uFEFF${JSON.stringify({ method: "script" })}`);
+
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/bun",
+          importMetaUrl: "file:///some/other/path/main.ts",
+        });
+        expect(result._tag).toBe("Script");
+      }),
     );
 
     it.effect("reads install-meta.json and returns homebrew method", () =>
@@ -211,7 +342,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Homebrew");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("reads install-meta.json and returns npm method", () =>
@@ -227,7 +358,121 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Npm");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
+    );
+
+    it.effect("uses the executable path recorded by script metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        const installedExecutable = nodePath.join(tempDir, ".axm", "bin", "axm");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "script",
+            installedAt: "2026-01-15T08:30:00.000Z",
+            executablePath: installedExecutable,
+          }),
+        );
+
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/bun",
+          importMetaUrl: "file:///some/other/path/main.ts",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.execPath).toBe(installedExecutable);
+          expect(result.managerOwnedExecutable).toBe(installedExecutable);
+        }
+      }),
+    );
+
+    it.effect("reads pnpm and Yarn metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "pnpm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const pnpm = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/axm",
+        });
+        expect(pnpm._tag).toBe("Pnpm");
+
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "yarn",
+            installedAt: "2026-01-15T08:30:00.000Z",
+            managerMajorVersion: 4,
+          }),
+        );
+        const yarn = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/axm",
+        });
+        expect(yarn._tag).toBe("Yarn");
+        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(false);
+      }),
+    );
+
+    it.effect("treats executable path and metadata disagreement as conflicting", () =>
+      Effect.gen(function* () {
+        const executable = nodePath.join(tempDir, ".axm", "bin", "axm");
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "npm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: executable,
+        });
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("conflicting");
+          expect(result.detectionSource).toBe("conflicting");
+        }
+      }),
+    );
+
+    it.effect("treats package-manager and metadata disagreement as conflicting", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "npm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          importMetaUrl: "file:///opt/pnpm/global/5/node_modules/.pnpm/axm.sh/main.js",
+        });
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("conflicting");
+          expect(result.detectionSource).toBe("conflicting");
+        }
+      }),
     );
 
     it.effect("returns unknown for invalid JSON in install-meta.json", () =>
@@ -243,7 +488,10 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:invalid");
+        }
+      }),
     );
 
     it.effect("returns unknown for install-meta.json with unknown method", () =>
@@ -259,7 +507,10 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:invalid");
+        }
+      }),
     );
   });
 
@@ -277,7 +528,10 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:missing");
+        }
+      }),
     );
   });
 

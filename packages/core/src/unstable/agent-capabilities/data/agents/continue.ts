@@ -94,42 +94,6 @@ export const continueAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
-        docs: [],
-        sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-        directory: ".continue/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -257,6 +221,28 @@ export const continueAgent = {
         reason:
           "Continue's hook surface is only described in tracking issues, not published reference docs, so the settings key and handler shape are not stable enough to write.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
+      docs: [],
+      sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+      directory: ".continue/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

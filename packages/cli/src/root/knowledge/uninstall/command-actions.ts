@@ -43,15 +43,18 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
     parseArgs: (args) => Effect.succeed({ name: args.name.trim() }),
     finalizeIntent: (parsed): Effect.Effect<UninstallKnowledgeCommandIntent, AppError> =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedKnowledgeEntry(parsed.name);
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
-        if (Option.isNone(locked) && configured[parsed.name] === undefined) {
+        const target: KnowledgeExtensionTarget = { type: "knowledge", name: parsed.name };
+        const configured =
+          manager.getConfiguredSource === undefined
+            ? Option.none<string>()
+            : yield* manager.getConfiguredSource({ target });
+        const installed = yield* manager.isInstalled({ target });
+        if (Option.isNone(configured) && !installed) {
           return yield* makeAppError({
             code: "not_found",
-            detail: `knowledge bundle "${parsed.name}" is not installed`,
+            detail: `knowledge bundle "${parsed.name}" is not configured or observed`,
           });
         }
-        const target: KnowledgeExtensionTarget = { type: "knowledge", name: parsed.name };
         return { targets: [target] };
       }),
     buildUninstallPlan: (intent, flags) =>

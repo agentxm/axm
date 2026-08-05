@@ -119,53 +119,6 @@ export const rooAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: {
-          state: "removed",
-          since: "2026-05-15",
-          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
-          supersededByType: null,
-        },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: {
-          state: "removed",
-          since: "2026-05-15",
-          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
-          supersededByType: null,
-        },
-        notes:
-          "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella; Roo also loads AGENTS.md when agent rules are enabled.",
-        docs: [],
-        sources: ["https://roocodeinc.github.io/Roo-Code/features/custom-instructions"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-        directory: ".roo/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -184,6 +137,34 @@ export const rooAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: {
+        state: "removed",
+        since: "2026-05-15",
+        note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+        supersededByType: null,
+      },
+      notes:
+        "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella; Roo also loads AGENTS.md when agent rules are enabled.",
+      docs: [],
+      sources: ["https://roocodeinc.github.io/Roo-Code/features/custom-instructions"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+      directory: ".roo/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

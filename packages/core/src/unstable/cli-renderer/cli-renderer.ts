@@ -155,6 +155,10 @@ export interface SuccessOptions extends SuggestionOptions {
   readonly summary?: string;
 }
 
+export interface ResultOptions extends SuccessOptions {
+  readonly ok?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // CliRenderer service
 // ---------------------------------------------------------------------------
@@ -166,6 +170,11 @@ export class CliRenderer extends ServiceMap.Service<
     readonly intro: (title: string) => Effect.Effect<void>;
     readonly outro: (message: string) => Effect.Effect<void>;
     readonly message: (message: string) => Effect.Effect<void>;
+    /**
+     * Authentication or other interactive instructions required to complete
+     * the current operation. These remain visible in quiet and machine modes.
+     */
+    readonly instruction: (message: string) => Effect.Effect<void>;
     /** Raw human-facing diagnostic content written to stderr. */
     readonly diagnostic: (content: string) => Effect.Effect<void>;
     /** Human-facing table written to stderr without machine-output framing. */
@@ -233,11 +242,7 @@ export class CliRenderer extends ServiceMap.Service<
     readonly result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
-    ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
-    readonly resultStream: <S extends Schema.Top>(
-      stream: Stream.Stream<Schema.Schema.Type<S>>,
-      schema: S,
+      options?: ResultOptions,
     ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
 
     // Both modes (stdout)

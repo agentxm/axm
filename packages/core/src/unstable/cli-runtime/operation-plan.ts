@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { ArtifactChangeSchema } from "../plan/plan.js";
+import { ArtifactChangeSchema, OperationPreconditionSchema } from "../plan/plan.js";
 
 const OperationPlanStepStatusSchema = Schema.Literals([
   "ready",
@@ -29,7 +29,14 @@ const OperationPlanStepSchema = Schema.Struct({
 });
 
 export const OperationPlanFields = {
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  outcome: Schema.Literals([
+    "previewed",
+    "cancelled",
+    "applied",
+    "partial",
+    "failed",
+    "no-op",
+  ] as const),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -40,6 +47,7 @@ export const OperationPlanFields = {
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   steps: Schema.Array(OperationPlanStepSchema),
 } satisfies Schema.Struct.Fields;
 
@@ -55,6 +63,7 @@ export const makeOperationPlan = (args: {
   readonly message?: string;
   readonly steps: ReadonlyArray<OperationPlanStep>;
   readonly outcome?: OperationPlan["outcome"];
+  readonly preconditions?: OperationPlan["preconditions"];
 }): OperationPlan => {
   const readyCount = args.steps.filter((step) => step.status === "ready").length;
   const warningStatusCount = args.steps.filter((step) => step.status === "warning").length;
@@ -68,7 +77,13 @@ export const makeOperationPlan = (args: {
   const blockedCount = args.steps.filter((step) => step.status === "blocked").length;
   const outcome =
     args.outcome ??
-    (appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied");
+    (failedCount > 0 || blockedCount > 0
+      ? appliedCount > 0
+        ? "partial"
+        : "failed"
+      : appliedCount > 0
+        ? "applied"
+        : "no-op");
 
   return {
     outcome,
@@ -82,6 +97,7 @@ export const makeOperationPlan = (args: {
     appliedCount,
     failedCount,
     blockedCount,
+    ...(args.preconditions === undefined ? {} : { preconditions: args.preconditions }),
     steps: [...args.steps],
   };
 };

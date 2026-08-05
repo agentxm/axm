@@ -11,6 +11,7 @@
     "src/**/*.test.ts",
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
+    "scripts/**/*.ts",
     "vitest.config.ts"
   ],
   "references": [{ "path": "./tsconfig.lib.json" }]

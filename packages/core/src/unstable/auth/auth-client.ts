@@ -15,12 +15,14 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Data from "effect/Data";
+import * as DateTime from "effect/DateTime";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import type { Version } from "../version-constraints/version-constraints.js";
@@ -108,8 +110,8 @@ export interface CreatedTokenResponse {
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
-  readonly createdAt: string;
-  readonly expiresAt: string;
+  readonly createdAt: DateTime.Utc;
+  readonly expiresAt: DateTime.Utc;
 }
 
 export interface TokenListItem {
@@ -118,9 +120,9 @@ export interface TokenListItem {
   readonly type: string;
   readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
-  readonly createdAt: string;
-  readonly expiresAt: string;
-  readonly lastUsedAt: string | null;
+  readonly createdAt: DateTime.Utc;
+  readonly expiresAt: DateTime.Utc;
+  readonly lastUsedAt: DateTime.Utc | null;
 }
 
 export interface TokenListResponse {
@@ -140,7 +142,7 @@ export interface DeleteTokenOptions {
 
 export interface BuildAuthorizeUrlParams {
   readonly challenge: string;
-  readonly expiresAt?: Date;
+  readonly expiresAt?: DateTime.Utc;
   readonly state: string;
   readonly redirectUri: string;
   readonly scopes?: ReadonlyArray<string>;
@@ -167,7 +169,7 @@ export interface CreatePublishAuthorizationRequestParams {
 export interface PublishAuthorizationRequestResponse {
   readonly requestId: string;
   readonly authorizationUrl: string;
-  readonly expiresAt: string;
+  readonly expiresAt: DateTime.Utc;
 }
 
 export interface ExchangePublishAuthorizationCodeParams {
@@ -179,7 +181,7 @@ export interface ExchangePublishAuthorizationCodeParams {
 
 export interface PublishCapabilityResponse {
   readonly accessToken: string;
-  readonly expiresAt: string;
+  readonly expiresAt: DateTime.Utc;
   readonly scope: string;
   readonly publishRequestId: string;
 }
@@ -260,7 +262,7 @@ class RetryableDevicePollError extends Data.TaggedError("RetryableDevicePollErro
 const normalizeTokenResponse = (token: {
   readonly access_token: string;
   readonly refresh_token: string;
-  readonly expires_at: string;
+  readonly expires_at: DateTime.Utc;
 }): NormalizedTokenResponse => ({
   access_token: token.access_token,
   refresh_token: token.refresh_token,
@@ -270,18 +272,18 @@ const normalizeTokenResponse = (token: {
 const SessionTokenResponseSchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
-  expires_at: Schema.String,
+  expires_at: DateTimeUtcSchema,
 });
 
 const PublishAuthorizationRequestResponseSchema = Schema.Struct({
   request_id: Schema.String,
   authorization_url: Schema.String,
-  expires_at: Schema.String,
+  expires_at: DateTimeUtcSchema,
 });
 
 const PublishCapabilityResponseSchema = Schema.Struct({
   access_token: Schema.String,
-  expires_at: Schema.String,
+  expires_at: DateTimeUtcSchema,
   scope: Schema.String,
   publish_request_id: Schema.String,
 });
@@ -301,8 +303,8 @@ const CreatedTokenResponseSchema = Schema.Struct({
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
   permissions: Schema.Unknown,
-  created_at: Schema.String,
-  expires_at: Schema.String,
+  created_at: DateTimeUtcSchema,
+  expires_at: DateTimeUtcSchema,
 });
 
 const TokenListResponseSchema = Schema.Struct({
@@ -313,9 +315,9 @@ const TokenListResponseSchema = Schema.Struct({
       type: Schema.String,
       scopes: Schema.Array(Schema.String),
       permissions: Schema.NullOr(Schema.Unknown),
-      created_at: Schema.String,
-      expires_at: Schema.String,
-      last_used_at: Schema.NullOr(Schema.String),
+      created_at: DateTimeUtcSchema,
+      expires_at: DateTimeUtcSchema,
+      last_used_at: Schema.NullOr(DateTimeUtcSchema),
     }),
   ),
   has_more: Schema.Boolean,
@@ -335,7 +337,7 @@ const StepUpChallengeResponseSchema = Schema.Union([
   Schema.Struct({
     status: Schema.Literal("completed"),
     step_up: Schema.String,
-    expires_at: Schema.String,
+    expires_at: DateTimeUtcSchema,
   }),
 ]);
 
@@ -607,7 +609,7 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("scope", (scopes ?? DEFAULT_LOGIN_SCOPES).join(" "));
       if (expiresAt !== undefined) {
-        url.searchParams.set("request_expires_at", expiresAt.toISOString());
+        url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
       }
       return url.href;
     };

@@ -58,10 +58,10 @@ export const kimiCliAgent = {
         notes: null,
         docs: [],
         sources: ["https://moonshotai.github.io/kimi-cli/en/customization/mcp.html"],
-        scopes: ["user", "project"],
+        scopes: ["user"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http", "sse"],
+        transports: ["stdio", "http"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -69,43 +69,33 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
                 path: "~/.kimi/mcp.json",
                 format: "json",
               },
-              {
-                scope: "project",
-                path: ".kimi/mcp.json",
-                format: "json",
-              },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
-                sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -118,41 +108,6 @@ export const kimiCliAgent = {
           "Kimi CLI supports built-in and YAML-configured subagents loaded through --agent-file, but it does not document a fixed discovery directory that AXM's current subagent model can represent.",
         docs: [],
         sources: ["https://moonshotai.github.io/kimi-cli/en/customization/agents.html"],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Kimi CLI uses AGENTS.md for project instructions.",
-        docs: [],
-        sources: ["https://github.com/MoonshotAI/kimi-cli/blob/main/AGENTS.md"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
       },
       axm: {
         status: "unsupported",
@@ -243,6 +198,27 @@ export const kimiCliAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Kimi CLI uses AGENTS.md for project instructions.",
+      docs: [],
+      sources: ["https://github.com/MoonshotAI/kimi-cli/blob/main/AGENTS.md"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

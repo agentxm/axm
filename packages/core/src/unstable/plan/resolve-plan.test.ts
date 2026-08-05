@@ -13,16 +13,24 @@ import type { Plan } from "./plan.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
 const makeTestLayer = () => {
-  const { layer: rendererLayer } = TestRenderer.make();
+  const { layer } = makeTestContext();
+  return layer;
+};
+
+const makeTestContext = () => {
+  const renderer = TestRenderer.make();
   const interaction = ResolvePlanInteractionTest();
 
-  return Layer.mergeAll(
-    NodeServices.layer,
-    rendererLayer,
-    TestFlagsLayer({ nonInteractive: true }),
-    Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm-preview/.axm")),
-    interaction.layer,
-  );
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      renderer.layer,
+      TestFlagsLayer({ nonInteractive: true }),
+      Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock("/tmp/axm-preview/.axm")),
+      interaction.layer,
+    ),
+    rendererState: renderer.state,
+  };
 };
 
 describe("previewOrApplyPlan", () => {
@@ -59,5 +67,41 @@ describe("previewOrApplyPlan", () => {
       expect(result._tag).toBe("PreviewedPlan");
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(makeTestLayer()));
+  });
+
+  it.effect("narrates plan resolution and apply phases with the plan subject", () => {
+    const context = makeTestContext();
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "code-review",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+          ],
+        },
+      ],
+    };
+
+    return Effect.gen(function* () {
+      yield* previewOrApplyPlan(plan, {
+        yes: true,
+        force: false,
+        preview: false,
+      });
+
+      expect(context.rendererState.spinnerMessages).toEqual([
+        "Resolving Install skill",
+        "Resolved Install skill",
+        "Applying Install skill",
+        "Finished applying Install skill",
+      ]);
+    }).pipe(Effect.provide(context.layer));
   });
 });

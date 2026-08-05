@@ -161,7 +161,11 @@ export const handleDiscoverWith = <E, R>(
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const projectDir = resolveDiscoverProjectDir(args.path);
-    const result = yield* runDiscover(projectDir);
+    const result = yield* renderer.withSpinner(
+      "Scanning project dependencies",
+      () => runDiscover(projectDir),
+      { successMessage: "Scanned project dependencies" },
+    );
     const output = toDiscoverOutput(result);
 
     if (yield* renderer.result(output, DiscoverOutputSchema)) {

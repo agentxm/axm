@@ -100,45 +100,6 @@ export const codestudioAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Code Studio supports AGENTS.md and its own instruction/rule surfaces; this entry models the universal AGENTS.md surface.",
-        docs: [],
-        sources: [
-          "https://help.syncfusion.com/code-studio/features/globalagent",
-          "https://www.syncfusion.com/code-studio/features/",
-        ],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -155,6 +116,31 @@ export const codestudioAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Code Studio supports AGENTS.md and its own instruction/rule surfaces; this entry models the universal AGENTS.md surface.",
+      docs: [],
+      sources: [
+        "https://help.syncfusion.com/code-studio/features/globalagent",
+        "https://www.syncfusion.com/code-studio/features/",
+      ],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

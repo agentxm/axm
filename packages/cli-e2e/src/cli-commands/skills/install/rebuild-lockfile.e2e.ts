@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -12,26 +13,56 @@ const writeJson = (filePath: string, value: unknown) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
 
+const computePackageContentIdentity = (packageDir: string): string => {
+  const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.isFile()) {
+        files.push({
+          absolutePath,
+          relativePath: path.relative(packageDir, absolutePath),
+        });
+      }
+    }
+  };
+  visit(packageDir);
+  files.sort((left, right) =>
+    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+  );
+  const packageHash = crypto.createHash("sha256");
+  for (const file of files) {
+    packageHash.update(file.relativePath);
+    packageHash.update("\0");
+    packageHash.update(fs.readFileSync(file.absolutePath));
+    packageHash.update("\0");
+  }
+  return crypto.createHash("sha256").update(packageHash.digest("hex")).digest("hex");
+};
+
 const setupCrossTypeManagedState = (workspacePath: string) => {
   const settingsPath = path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
+  delete settings.skills?.axm;
   settings.owner = TEST_NAMESPACE;
   settings.skills = {
     ...(settings.skills ?? {}),
-    "managed-skill": `${TEST_NAMESPACE}/skills/managed-skill@^1.0.0`,
+    "managed-skill": `workspace:${TEST_NAMESPACE}/skills/managed-skill`,
   };
   settings.commands = {
     ...(settings.commands ?? {}),
-    "managed-command": `${TEST_NAMESPACE}/commands/managed-command@^1.0.0`,
+    "managed-command": `workspace:${TEST_NAMESPACE}/commands/managed-command`,
   };
   settings.mcpServers = {
     ...(settings.mcpServers ?? {}),
-    "managed-mcp": `${TEST_NAMESPACE}/mcps/managed-mcp@^1.0.0`,
+    "managed-mcp": `workspace:${TEST_NAMESPACE}/mcps/managed-mcp`,
   };
   settings.packs = {
     ...(settings.packs ?? {}),
-    "managed-pack": `${TEST_NAMESPACE}/packs/managed-pack@^1.0.0`,
+    "managed-pack": `workspace:${TEST_NAMESPACE}/packs/managed-pack`,
   };
 
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -53,6 +84,31 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       version: "1.0.0",
     },
   );
+  fs.mkdirSync(
+    path.join(
+      workspacePath,
+      ".axm",
+      "extensions",
+      TEST_NAMESPACE,
+      "skills",
+      "managed-skill",
+      "src",
+    ),
+    { recursive: true },
+  );
+  fs.writeFileSync(
+    path.join(
+      workspacePath,
+      ".axm",
+      "extensions",
+      TEST_NAMESPACE,
+      "skills",
+      "managed-skill",
+      "src",
+      "SKILL.md",
+    ),
+    "---\nname: managed-skill\ndescription: Managed skill fixture\n---\n",
+  );
 
   writeJson(
     path.join(
@@ -70,6 +126,31 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       name: "managed-command",
       version: "1.0.0",
     },
+  );
+  fs.mkdirSync(
+    path.join(
+      workspacePath,
+      ".axm",
+      "extensions",
+      TEST_NAMESPACE,
+      "commands",
+      "managed-command",
+      "src",
+    ),
+    { recursive: true },
+  );
+  fs.writeFileSync(
+    path.join(
+      workspacePath,
+      ".axm",
+      "extensions",
+      TEST_NAMESPACE,
+      "commands",
+      "managed-command",
+      "src",
+      "managed-command.md",
+    ),
+    "---\nname: managed-command\ndescription: Managed command fixture\n---\n",
   );
 
   writeJson(
@@ -103,24 +184,38 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
     },
   );
 
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "packs",
-      "managed-pack",
-      "pack.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "pack",
-      name: "managed-pack",
-      version: "1.0.0",
-      dependencies: {},
-    },
+  const packDir = path.join(
+    workspacePath,
+    ".axm",
+    "extensions",
+    TEST_NAMESPACE,
+    "packs",
+    "managed-pack",
   );
+  writeJson(path.join(packDir, "pack.json"), {
+    owner: TEST_NAMESPACE,
+    type: "pack",
+    name: "managed-pack",
+    version: "1.0.0",
+    dependencies: {},
+  });
+
+  const trustPath = path.join(workspacePath, ".axm", "trust.json");
+  const trust = fs.existsSync(trustPath)
+    ? JSON.parse(fs.readFileSync(trustPath, "utf-8"))
+    : { trustStateVersion: 1, records: {} };
+  trust.records = {
+    ...trust.records,
+    "pack:managed-pack": {
+      extensionType: "pack",
+      name: "managed-pack",
+      authority: "workspace",
+      sourceIdentity: `workspace:${TEST_NAMESPACE}/packs/managed-pack`,
+      resolvedVersion: "1.0.0",
+      contentIdentity: computePackageContentIdentity(packDir),
+    },
+  };
+  writeJson(trustPath, trust);
 };
 
 describe("lockfile rebuild on missing/invalid lockfile", () => {
@@ -138,7 +233,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode, getOutput(result)).toBe(0);
 
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
       expect(lock.skills?.["managed-skill"]).toBeDefined();
@@ -167,7 +262,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode, getOutput(result)).toBe(0);
 
       // Backups go to an OS tmp dir; the CLI surfaces the path in its
       // reconcile success message.

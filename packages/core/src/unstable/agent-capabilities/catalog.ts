@@ -12,6 +12,8 @@ import {
   ampAgent,
   antigravityAgent,
   augmentAgent,
+  chatgptAgent,
+  claudeAiAgent,
   claudeCodeAgent,
   clineAgent,
   codeartsAgentAgent,
@@ -22,6 +24,7 @@ import {
   commandCodeAgent,
   continueAgent,
   cortexAgent,
+  coworkAgent,
   crushAgent,
   cursorAgent,
   deepagentsAgent,
@@ -31,6 +34,7 @@ import {
   firebenderAgent,
   forgecodeAgent,
   geminiCliAgent,
+  geminiAppAgent,
   githubCopilotCliAgent,
   gooseAgent,
   grokCliAgent,
@@ -68,7 +72,7 @@ const defineCatalog = <const T extends Record<string, Agent>>(
 ): T => entries;
 
 /** @experimental This API is unstable and may change without notice. */
-export const AGENTS_BY_ID = defineCatalog({
+export const CONFIGURABLE_AGENTS_BY_ID = defineCatalog({
   adal: adalAgent,
   "aider-desk": aiderDeskAgent,
   amp: ampAgent,
@@ -126,7 +130,7 @@ export const AGENTS_BY_ID = defineCatalog({
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export const AGENT_IDS = [
+export const CONFIGURABLE_AGENT_IDS = [
   "adal",
   "aider-desk",
   "amp",
@@ -181,6 +185,40 @@ export const AGENT_IDS = [
   "warp",
   "windsurf",
   "zencoder",
+] as const satisfies ReadonlyArray<keyof typeof CONFIGURABLE_AGENTS_BY_ID & string>;
+
+/** @experimental This API is unstable and may change without notice. */
+export type ConfigurableAgentId = (typeof CONFIGURABLE_AGENT_IDS)[number];
+
+/** @experimental This API is unstable and may change without notice. */
+export const HOSTED_AGENTS_BY_ID = defineCatalog({
+  chatgpt: chatgptAgent,
+  "claude-ai": claudeAiAgent,
+  cowork: coworkAgent,
+  "gemini-app": geminiAppAgent,
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const HOSTED_AGENT_IDS = [
+  "chatgpt",
+  "claude-ai",
+  "cowork",
+  "gemini-app",
+] as const satisfies ReadonlyArray<keyof typeof HOSTED_AGENTS_BY_ID & string>;
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedAgentId = (typeof HOSTED_AGENT_IDS)[number];
+
+/** @experimental This API is unstable and may change without notice. */
+export const AGENTS_BY_ID = defineCatalog({
+  ...CONFIGURABLE_AGENTS_BY_ID,
+  ...HOSTED_AGENTS_BY_ID,
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const AGENT_IDS = [
+  ...CONFIGURABLE_AGENT_IDS,
+  ...HOSTED_AGENT_IDS,
 ] as const satisfies ReadonlyArray<keyof typeof AGENTS_BY_ID & string>;
 
 /** @experimental This API is unstable and may change without notice. */

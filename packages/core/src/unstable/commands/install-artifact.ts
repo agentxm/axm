@@ -44,21 +44,13 @@ const renderedFileTargets = (
     }));
 };
 
-const sourceHashOf = (entry: CommandLockEntry): string | undefined =>
-  "sourceHash" in entry ? entry.sourceHash : undefined;
-
-const commandArtifactChange = (
-  previous: Option.Option<CommandLockEntry>,
-  current: CommandLockEntry,
-): JobStepArtifact["change"] => {
-  if (Option.isNone(previous)) return "created";
-  const previousEntry = previous.value;
-  return sourceHashOf(previousEntry) === sourceHashOf(current) ? "unchanged" : "updated";
+const commandArtifactChange = (previouslyTrusted: boolean): JobStepArtifact["change"] => {
+  return previouslyTrusted ? "updated" : "created";
 };
 
 export const commandInstallArtifact = (args: {
   readonly lockEntry: CommandLockEntry;
-  readonly previousLockEntry: Option.Option<CommandLockEntry>;
+  readonly previouslyTrusted: boolean;
   readonly versionRange: Option.Option<string>;
   readonly canonicalPath?: string;
   readonly fallbackPath: string;
@@ -72,7 +64,7 @@ export const commandInstallArtifact = (args: {
     readonly agentIds?: ReadonlyArray<string>;
   }>;
 }): JobStepArtifact => {
-  const change = commandArtifactChange(args.previousLockEntry, args.lockEntry);
+  const change = commandArtifactChange(args.previouslyTrusted);
   const targets =
     args.materializedTargets?.map((target) => ({ ...target, change })) ??
     renderedFileTargets(args.renderedFiles, change);

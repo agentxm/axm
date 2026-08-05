@@ -8,17 +8,21 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { AgentExecutableResolver } from "@agentxm/client-core/unstable/agents";
+import {
+  AgentExecutableResolver,
+  CONFIGURABLE_AGENT_IDS,
+} from "@agentxm/client-core/unstable/agents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
+import { lifecycleCell } from "./lifecycle.js";
 import { handleAgentsList } from "./list.js";
 
 const initWorkspace = (axmDir: string, agents: ReadonlyArray<string>) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }, null, 2));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 };
 
 describe("agents list.handler", () => {
@@ -116,6 +120,54 @@ describe("agents list.handler", () => {
     );
   });
 
+  it.effect("pins the machine payload shape and key order", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), ["claude-code"]);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsList({ detected: false, available: false });
+
+        const data = rendererState.results[0]?.data;
+        expect(Object.keys(data as object)).toEqual([
+          "items",
+          "configured",
+          "detected",
+          "available",
+          "count",
+        ]);
+        const { available, ...rest } = data as { readonly available: ReadonlyArray<string> };
+        expect(JSON.stringify(rest)).toBe(
+          '{"items":[{"id":"claude-code","name":"Claude Code","configured":true,"detected":false,' +
+            '"instructions":"manual","lifecycle":"active"}],' +
+            '"configured":["claude-code"],"detected":[],"count":1}',
+        );
+        expect(available).toEqual([...CONFIGURABLE_AGENT_IDS]);
+      }),
+    );
+  });
+
+  it.effect("reports lifecycle for retired agents and their successors", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), ["gemini-cli", "roo"]);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsList({ detected: false, available: false });
+
+        const data = rendererState.results[0]?.data as {
+          readonly items: ReadonlyArray<{ readonly id: string; readonly lifecycle: string }>;
+        };
+        const byId = new Map(data.items.map((item) => [item.id, item.lifecycle]));
+        expect(byId.get("gemini-cli")).toBe("retired");
+        expect(byId.get("roo")).toBe("retired");
+        expect(lifecycleCell("gemini-cli")).toBe("retired -> antigravity");
+        expect(lifecycleCell("roo")).toBe("retired");
+        expect(lifecycleCell("claude-code")).toBe("");
+      }),
+    );
+  });
+
   it.effect("emits a single empty list payload for the human empty state", () => {
     const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), []);
@@ -146,7 +198,7 @@ describe("agents list.handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
-          data: [],
+          items: [],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);

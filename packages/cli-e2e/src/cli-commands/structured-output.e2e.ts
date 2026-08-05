@@ -3,7 +3,7 @@
  *
  * Explicit --json makes command results and built-in help/version output
  * machine-readable on stdout, while renderer chrome stays on stderr as NDJSON.
- * Parse and usage failures still report human diagnostics on stderr.
+ * Parse and usage failures emit schema-conformant NDJSON diagnostics on stderr.
  */
 
 import { describe, expect, it } from "vitest";
@@ -65,7 +65,7 @@ describe("structured output (--json)", () => {
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
         ok: true,
-        data: { token: "test-json-token" },
+        result: { data: { token: "test-json-token" } },
       });
     } finally {
       temp.cleanup();
@@ -101,12 +101,12 @@ describe("structured output (--json)", () => {
           env: { AXM_TOKEN: "" },
         });
 
-        expect(result.exitCode).toBe(4);
+        expect(result.exitCode).toBe(13);
         expect(parseJson(result.stdout)).toMatchObject({
           ok: false,
-          code: "auth",
+          code: "auth_required",
         });
-        expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
+        expect(result.stderr).toContain("axm login --device-code --json");
       } finally {
         temp.cleanup();
       }
@@ -148,7 +148,7 @@ describe("structured output (--json)", () => {
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
         ok: true,
-        data: { token: "ci-json-token" },
+        result: { data: { token: "ci-json-token" } },
       });
     } finally {
       temp.cleanup();

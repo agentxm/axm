@@ -102,20 +102,31 @@ const readStepUpRequired = (error: AppError): StepUpRequired | null => {
   return authUrl === null || doneUrl === null ? null : { authUrl, doneUrl };
 };
 
-const runWithStepUp = <A, R>(operation: (stepUpToken?: string) => Effect.Effect<A, AppError, R>) =>
+const runWithStepUp = <A, R>(
+  subject: string,
+  operation: (stepUpToken?: string) => Effect.Effect<A, AppError, R>,
+) =>
   Effect.gen(function* () {
-    const initial = yield* Effect.result(operation());
+    const renderer = yield* CliRenderer;
+    const activity = yield* renderer.spinner(`Updating ${subject}`);
+    const initial = yield* Effect.result(operation()).pipe(
+      Effect.onInterrupt(() => activity.cancel(`Cancelled update for ${subject}`)),
+    );
     if (Result.isSuccess(initial)) {
+      yield* activity.stop(`Updated ${subject}`);
       return { value: initial.success, stepUpCompleted: false };
     }
 
     const stepUp = readStepUpRequired(initial.failure);
-    if (stepUp === null) return yield* initial.failure;
+    if (stepUp === null) {
+      yield* activity.error(`Failed to update ${subject}`);
+      return yield* initial.failure;
+    }
+    yield* activity.stop(`Additional authorization required for ${subject}`);
 
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
     const interaction = yield* AuthLoginInteraction;
-    const renderer = yield* CliRenderer;
     const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
     const token = yield* resolveRequiredToken(registryUrl, {
       missingTokenError: errAuthRequired("Not authenticated"),
@@ -131,8 +142,14 @@ const runWithStepUp = <A, R>(operation: (stepUpToken?: string) => Effect.Effect<
       yield* renderer.step(`Visit: ${stepUp.authUrl}`);
     }
 
-    const proof = yield* authClient.pollStepUpChallenge(token.token, stepUp.doneUrl);
-    const value = yield* operation(proof);
+    const proof = yield* renderer.withSpinner(
+      `Waiting for authorization to update ${subject}`,
+      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
+      { successMessage: `Authorized update for ${subject}` },
+    );
+    const value = yield* renderer.withSpinner(`Updating ${subject}`, () => operation(proof), {
+      successMessage: `Updated ${subject}`,
+    });
     return { value, stepUpCompleted: true };
   });
 
@@ -178,7 +195,7 @@ const emitLifecycleOutput = (input: {
     yield* renderer.success(input.message);
   });
 
-const handleYank = (input: {
+export const handleYank = (input: {
   readonly ref: string;
   readonly allVersions: boolean;
   readonly category: Option.Option<YankCategory>;
@@ -190,7 +207,7 @@ const handleYank = (input: {
 
     if (input.allVersions) {
       const ref = yield* parseExtensionReference(input.ref);
-      const result = yield* runWithStepUp((stepUpToken) =>
+      const result = yield* runWithStepUp(input.ref, (stepUpToken) =>
         yankAvailableExtensionVersions(
           ref,
           {
@@ -211,7 +228,7 @@ const handleYank = (input: {
     }
 
     const ref = yield* parseExactVersionReference(input.ref);
-    yield* runWithStepUp((stepUpToken) =>
+    yield* runWithStepUp(input.ref, (stepUpToken) =>
       yankExtensionVersion(
         ref,
         {
@@ -230,10 +247,10 @@ const handleYank = (input: {
     });
   });
 
-const handleUnyank = (input: string) =>
+export const handleUnyank = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExactVersionReference(input);
-    yield* runWithStepUp((stepUpToken) =>
+    yield* runWithStepUp(input, (stepUpToken) =>
       unyankExtensionVersion(ref, stepUpToken === undefined ? undefined : { stepUpToken }),
     );
     yield* emitLifecycleOutput({
@@ -245,7 +262,7 @@ const handleUnyank = (input: string) =>
     });
   });
 
-const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
+export const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input.ref);
     const message = input.message.trim();
@@ -255,7 +272,12 @@ const handleDeprecate = (input: { readonly ref: string; readonly message: string
         detail: "Deprecation message must not be empty.",
       });
     }
-    yield* deprecateExtension(ref, message);
+    const renderer = yield* CliRenderer;
+    yield* renderer.withSpinner(
+      `Deprecating ${input.ref}`,
+      () => deprecateExtension(ref, message),
+      { successMessage: `Deprecated ${input.ref}` },
+    );
     yield* emitLifecycleOutput({
       command: "deprecate",
       planName: "Deprecate extension",
@@ -265,10 +287,15 @@ const handleDeprecate = (input: { readonly ref: string; readonly message: string
     });
   });
 
-const handleUndeprecate = (input: string) =>
+export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
-    yield* undeprecateExtension(ref);
+    const renderer = yield* CliRenderer;
+    yield* renderer.withSpinner(
+      `Removing deprecation from ${input}`,
+      () => undeprecateExtension(ref),
+      { successMessage: `Removed deprecation from ${input}` },
+    );
     yield* emitLifecycleOutput({
       command: "undeprecate",
       planName: "Undeprecate extension",

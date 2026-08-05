@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { DisableCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { disableCommand as runDisableCommand } from "@agentxm/client-core/unstable/commands";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -41,7 +41,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   });
 
   // Load installed commands (configured + implicit) from the read-model record projection.
-  const installedCommands = yield* ws.records.getInstalledCommands();
+  const installedCommands = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
   const installedEntry = installedCommands[commandName];
 
   // Validate: command is installed (ignored names are excluded from installed)
@@ -68,17 +68,14 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     return;
   }
 
-  const lockedEntry = yield* ws.getLockedCommand(commandName);
   const configuredAgentIds = yield* ws.getConfiguredAgents();
-  const planSections = Option.isSome(lockedEntry)
-    ? combinePlanSections(
-        makeAgentSection(
-          "Would remove rendered files from agents",
-          configuredAgentIds,
-          "(no agents configured)",
-        ),
-      )
-    : undefined;
+  const planSections = combinePlanSections(
+    makeAgentSection(
+      "Would remove rendered files from agents",
+      configuredAgentIds,
+      "(no agents configured)",
+    ),
+  );
 
   // Build operation
   const op = {

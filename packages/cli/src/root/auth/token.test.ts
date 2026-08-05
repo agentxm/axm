@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -54,7 +55,7 @@ const makeLayers = (opts?: {
                 [ALICE]: {
                   access_token: "axm_ses_mytoken",
                   refresh_token: "axm_ref_mytoken",
-                  expires_at: "2099-01-01T00:00:00Z",
+                  expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                   active: true,
                 },
               },
@@ -96,7 +97,7 @@ describe("auth token handler", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
+  it.effect("fails with auth_required when no token", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -109,12 +110,12 @@ describe("auth token handler", () => {
             }),
           ),
         );
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
 
-  it.effect("fails with auth when persisted credentials are disabled", () => {
+  it.effect("fails with auth_required when persisted credentials are disabled", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
@@ -129,8 +130,8 @@ describe("auth token handler", () => {
         );
         expect(result).toMatchObject({
           error: true,
-          code: "auth",
-          guidance: "Set the AXM_TOKEN environment variable for non-interactive auth.",
+          code: "auth_required",
+          guidance: "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
         });
       }),
     );
@@ -207,8 +208,8 @@ describe("auth token handler", () => {
             name: params.name,
             scopes: ["extensions:read", "extensions:publish:new"],
             permissions: { kind: "gat" },
-            createdAt: "2026-05-15T00:00:00.000Z",
-            expiresAt: "2026-06-14T00:00:00.000Z",
+            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           });
         },
       },
@@ -263,8 +264,8 @@ describe("auth token handler", () => {
             name: params.name,
             scopes: ["extensions:read"],
             permissions: { kind: "gat" },
-            createdAt: "2026-05-15T00:00:00.000Z",
-            expiresAt: "2026-06-14T00:00:00.000Z",
+            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           }),
       },
     });
@@ -329,8 +330,8 @@ describe("auth token handler", () => {
                 type: "pat",
                 scopes: ["extensions:read"],
                 permissions: null,
-                createdAt: "2026-05-15T00:00:00.000Z",
-                expiresAt: "2026-06-15T00:00:00.000Z",
+                createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+                expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
               },
             ],
@@ -368,8 +369,8 @@ describe("auth token handler", () => {
                 type: "pat",
                 scopes: ["extensions:read"],
                 permissions: null,
-                createdAt: "2026-05-15T00:00:00.000Z",
-                expiresAt: "2026-06-15T00:00:00.000Z",
+                createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+                expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
               },
             ],
@@ -385,14 +386,12 @@ describe("auth token handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
-          data: {
-            tokens: [
-              {
-                id: "token_123",
-                name: "ci",
-              },
-            ],
-          },
+          items: [
+            {
+              id: "token_123",
+              name: "ci",
+            },
+          ],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
@@ -420,9 +419,7 @@ describe("auth token handler", () => {
         expect(rendererState.logs).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
-          data: {
-            tokens: [],
-          },
+          items: [],
         });
         expect(rendererState.results[1]?.data).toMatchObject({
           count: 0,

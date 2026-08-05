@@ -56,7 +56,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {},
     packs: {
       [packName]: {
@@ -66,9 +66,13 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         resolvedVersion: "1.0.0",
         integrity: "sha256-abc",
         sourceName: "registry",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
-        resolvedSkills: { "@team/skills/review-tool": "1.0.0" },
+        resolvedSkills: {
+          "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+        },
         resolvedCommands: {},
         resolvedMcpServers: {},
         resolvedSubagents: {},
@@ -132,7 +136,7 @@ describe("makePackExtensionsApi", () => {
             origin: "canonical-axm",
             name: "team-pack",
             owner: "@team",
-            contentLocation: "/ws/.axm/extensions/@team/packs/src/team-pack",
+            contentLocation: "/ws/.axm/extensions/@team/packs/team-pack",
           }),
         ],
       });

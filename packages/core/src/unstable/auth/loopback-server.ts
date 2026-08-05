@@ -14,7 +14,7 @@ export interface LoopbackCallback {
 }
 
 export class LoopbackLoginFallback extends Data.TaggedError("LoopbackLoginFallback")<{
-  readonly reason: "bind_failed" | "browser_unavailable" | "timeout";
+  readonly reason: "bind_failed" | "timeout";
   readonly message: string;
   readonly cause?: unknown;
 }> {}
@@ -46,8 +46,21 @@ type AwaitFailure = {
 
 type AwaitOutcome = AwaitSuccess | AwaitFailure;
 
-const successPage = `<!doctype html><html><head><meta charset="utf-8"><title>Signed-in to AgentXM.ai</title></head><body><main style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 34rem;"><h1>Signed-in to AgentXM.ai</h1><p>You can close this window.</p></main></body></html>`;
-const errorPage = `<!doctype html><html><head><meta charset="utf-8"><title>AXM sign-in failed</title></head><body><main style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 34rem;"><h1>AXM sign-in failed</h1><p>Return to your terminal and try again.</p></main></body></html>`;
+const page = (title: string, content: string) =>
+  `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body><main style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 34rem;"><h1>${title}</h1><p>${content}</p></main></body></html>`;
+
+const successPage = page(
+  "You’re signed in to AgentXM.ai",
+  'Return to your terminal to continue. You can close this tab. <a href="https://agentxm.ai">AgentXM.ai</a>',
+);
+const cancellationPage = page(
+  "Sign-in was cancelled",
+  "No credentials were changed. Return to your terminal to try again.",
+);
+const errorPage = page(
+  "AXM sign-in could not be completed",
+  "Return to your terminal for details and recovery instructions.",
+);
 
 interface IncomingRequest {
   readonly method?: string | undefined;
@@ -159,7 +172,12 @@ export const startLoopbackServer = (): Effect.Effect<LoopbackServer, LoopbackLog
         writeHtml(
           response,
           outcome._tag === "success" ? 200 : 400,
-          outcome._tag === "success" ? successPage : errorPage,
+          outcome._tag === "success"
+            ? successPage
+            : outcome.error._tag === "LoopbackCallbackRejected" &&
+                outcome.error.reason === "access_denied"
+              ? cancellationPage
+              : errorPage,
         );
         complete(outcome);
       });

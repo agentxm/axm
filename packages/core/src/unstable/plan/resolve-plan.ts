@@ -21,6 +21,10 @@ import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import { ReconciliationAdapters } from "../workspace/reconciliation.js";
+import type {
+  ReconcileExtensionType,
+  ReconciliationAdapter,
+} from "../workspace/reconciliation-types.js";
 import type { ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
@@ -31,19 +35,31 @@ import {
 } from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
+import { filesReconciliationAdapter } from "../files/reconciliation-adapter.js";
+import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
+import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { ruleReconciliationAdapter } from "../rules/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 
-const reconciliationAdapters = [
-  skillReconciliationAdapter,
-  commandReconciliationAdapter,
-  subagentReconciliationAdapter,
-  mcpServerReconciliationAdapter,
-  packReconciliationAdapter,
-];
+// Total over ReconcileExtensionType: a missing key is a compile error, so a
+// type can never again be silently dropped from lockfile reconciliation.
+const reconciliationAdaptersByType = {
+  skills: skillReconciliationAdapter,
+  commands: commandReconciliationAdapter,
+  mcps: mcpServerReconciliationAdapter,
+  subagents: subagentReconciliationAdapter,
+  files: filesReconciliationAdapter,
+  rules: ruleReconciliationAdapter,
+  hooks: hookReconciliationAdapter,
+  knowledge: knowledgeReconciliationAdapter,
+  packs: packReconciliationAdapter,
+} satisfies Record<ReconcileExtensionType, ReconciliationAdapter>;
+
+const reconciliationAdapters = Object.values(reconciliationAdaptersByType);
 
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
@@ -107,14 +123,19 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
 
   // Step 1: Lockfile reconciliation
-  const augmented = yield* augmentPlanWithReconciliation(
-    plan,
-    getLockfileState,
-    ws.baseDir,
-    ws.path,
-    readSettingsSafe,
-    fsLayer,
-  ).pipe(Effect.provide(reconciliationAdaptersLayer));
+  const augmented = yield* renderer.withSpinner(
+    `Resolving ${plan.name}`,
+    () =>
+      augmentPlanWithReconciliation(
+        plan,
+        getLockfileState,
+        ws.baseDir,
+        ws.path,
+        readSettingsSafe,
+        fsLayer,
+      ).pipe(Effect.provide(reconciliationAdaptersLayer)),
+    { successMessage: `Resolved ${plan.name}` },
+  );
 
   const augmentedPlan = augmented.plan;
 
@@ -147,12 +168,19 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       _tag: "PreviewedPlan",
       name: augmentedPlan.name,
       description: augmentedPlan.description,
+      ...(augmentedPlan.preconditions === undefined
+        ? {}
+        : { preconditions: augmentedPlan.preconditions }),
       jobs: augmentedPlan.jobs,
     } satisfies PreviewedPlan;
   }
 
   // Step 6: Apply and display
-  const executed = yield* applyPlan(augmentedPlan);
+  const executed = yield* renderer.withSpinner(
+    `Applying ${augmentedPlan.name}`,
+    () => applyPlan(augmentedPlan),
+    { successMessage: `Finished applying ${augmentedPlan.name}` },
+  );
   if (flags.displayApplied !== false) {
     yield* showPlan(executed);
   }
@@ -186,7 +214,7 @@ export interface ResolvePlanArgs {
  *
  * Consumers that need lockfile reconciliation (install, uninstall, pack) keep
  * calling `previewOrApplyPlan`; lint-fix composes the narrower pipeline
- * described in `docs/design/lint-engine.md §6`:
+ * described in `contributing/guides/lint-rule-authoring.md` ("Writing `fix`"):
  * `collectFixOperations → resolvePlan → applyPlan`.
  *
  * @experimental This API is unstable and may change without notice.

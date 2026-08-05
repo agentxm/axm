@@ -40,7 +40,7 @@ import {
   type CommandExtensionRef,
 } from "@agentxm/client-core/unstable/commands";
 import type { CommandLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
@@ -324,6 +324,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           intent.refs,
           (entry) =>
             ws.getLockedCommand(entry.ref.command.name).pipe(
+              Effect.catch(() => Effect.succeed(Option.none())),
               Effect.map((previousLockEntry) => ({
                 name: entry.ref.command.name,
                 previousLockEntry,
@@ -371,26 +372,6 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           const previousLockEntry =
             previousLockEntryByName.get(commandName) ?? Option.none<CommandLockEntry>();
 
-          if (Option.isSome(previousLockEntry) && !intent.force) {
-            return {
-              readiness: "ready",
-              label: commandName,
-              run: Effect.succeed<JobStepResult>({
-                result: "success",
-                message: `${commandName} already installed`,
-                artifact: commandInstallArtifact({
-                  lockEntry: previousLockEntry.value,
-                  previousLockEntry,
-                  versionRange: entry.versionRange,
-                  fallbackPath: commandName,
-                  scope: ws.scope,
-                  workspaceRoot: ws.baseDir,
-                  pathService: path,
-                }),
-              }),
-            } satisfies PlannedJobStep;
-          }
-
           return buildInstallOperation(commandMgr, {
             ref: entry.ref,
             versionRange: entry.versionRange,
@@ -398,14 +379,9 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             installedBefore: Effect.succeed(Option.isSome(previousLockEntry)),
             buildArtifact: () =>
               Effect.gen(function* () {
-                const currentLockEntry = yield* ws.getLockedCommand(commandName);
-                if (Option.isNone(currentLockEntry)) {
-                  return yield* makeAppError({
-                    code: "internal",
-                    detail: `Installed ${commandName} but could not read its lockfile entry`,
-                    suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-                  });
-                }
+                const currentLockEntry = yield* ws
+                  .getLockedCommand(commandName)
+                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 const materialization =
                   commandMgr.getLastMaterialization === undefined
                     ? { agents: [], targets: [] }
@@ -413,9 +389,30 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                         target: { type: "command", name: commandName },
                       });
 
+                if (Option.isNone(currentLockEntry)) {
+                  const firstTarget = materialization.targets[0];
+                  return {
+                    path: firstTarget?.path ?? commandName,
+                    scope: ws.scope,
+                    ...(materialization.agents.length === 0
+                      ? {}
+                      : { agents: materialization.agents }),
+                    change: Option.isSome(previousLockEntry) ? "updated" : "created",
+                    ...(materialization.targets.length === 0
+                      ? {}
+                      : {
+                          fileCount: materialization.targets.length,
+                          targets: materialization.targets.map((target) => ({
+                            ...target,
+                            change: Option.isSome(previousLockEntry) ? "updated" : "created",
+                          })),
+                        }),
+                  } satisfies JobStepArtifact;
+                }
+
                 return commandInstallArtifact({
                   lockEntry: currentLockEntry.value,
-                  previousLockEntry,
+                  previouslyTrusted: Option.isSome(previousLockEntry),
                   versionRange: entry.versionRange,
                   fallbackPath: commandName,
                   scope: ws.scope,

@@ -1,20 +1,25 @@
 /**
- * `workspace/skills-integrity-valid` — each installed skill's `src/` content
- * matches its lockfile `sourceHash`.
+ * `workspace/skills-integrity-valid` — each installed skill listed in the
+ * lockfile is present on disk.
  *
  * For each skill lock entry with a `sourceHash`, verify the canonical
  * installed directory (`.axm/extensions/<owner>/skills/<name>/src/` for
  * registry sources; `.axm/extensions/external/skills/<name>/` for
- * non-registry) exists and its hash matches. Integrity-mismatch entries
- * each emit one finding. Configured mismatches are autofixable via
- * `install-skill` with `force: true`; pack-provided implicit mismatches are
- * advisory because the repair is a pack-level reinstall.
+ * non-registry) exists. Missing-directory entries each emit one finding.
+ * Configured findings are autofixable via `install-skill` with
+ * `force: true`; pack-provided implicit findings are advisory because the
+ * repair is a pack-level reinstall.
  *
- * The integrity check reads WorkspaceReadModel actual rows. A skill whose
- * install directory is missing entirely is an integrity mismatch.
+ * This rule never compares installed bytes against `sourceHash`. Installed
+ * canonical content is workspace-owned after install: content-preserving
+ * workspace tools (formatters, line-ending normalization) may rewrite it,
+ * and such differences are not defects. Archive integrity is enforced at
+ * download time by the installer, not by this rule. If content-drift
+ * detection is added later it must stay advisory and tolerate
+ * formatting-only differences.
  *
- * V1 keeps this rule simple: a skill whose `sourceHash` is undefined in the
- * lockfile (e.g., git-hosted sources without pinned hash) is not checked.
+ * A skill whose `sourceHash` is undefined in the lockfile (e.g., git-hosted
+ * sources without pinned hash) is not checked.
  *
  * One finding per affected entity.
  *
@@ -63,7 +68,7 @@ const integrityFinding = (name: string, reason: string): AutofixableFinding => (
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Skill '${name}' is listed in the lockfile, but its installed source files do not match the lockfile entry. Detail: ${reason}. ` +
+    `Skill '${name}' is listed in the lockfile, but ${reason}. ` +
     "Run `axm lint --fix` to reinstall it.",
   location: { file: LOCKFILE_REL },
 });
@@ -73,7 +78,7 @@ const implicitIntegrityFinding = (name: string, reason: string): AdvisoryFinding
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Pack-provided skill '${name}' is listed in the lockfile, but its installed source files do not match the lockfile entry. Detail: ${reason}. ` +
+    `Pack-provided skill '${name}' is listed in the lockfile, but ${reason}. ` +
     "Run `axm install` to reinstall it from the owning pack declarations.",
   location: { file: LOCKFILE_REL },
 });
@@ -84,16 +89,13 @@ interface IntegrityViolation {
 }
 
 /**
- * Compute a stable integrity marker for the skill's installed `src/` tree.
+ * Presence probe for the skill's installed `src/` tree.
  *
- * The lint layer does not re-hash bytes — the workspace accessor is narrow
- * and does not expose bulk-read; integrity in v1 is delegated to an
- * accessor-computed signal carried on the `InstalledSkillInfo` record.
- * Since that extension requires expanding the accessor surface beyond the
- * v1 documented methods (a task 3c.2 constraint), this rule treats a
- * `sourceHash`-bearing lock entry whose canonical `src/` directory does
- * NOT exist as an integrity mismatch. A deeper byte-by-byte hash check
- * defers to the CLI-layer adapter that owns filesystem walks.
+ * Deliberately existence-only: installed content is workspace-owned after
+ * install, so this rule never re-hashes bytes against `sourceHash` — a tree
+ * rewritten by a formatter or other content-preserving tool is not a
+ * defect. Only a `sourceHash`-bearing lock entry whose canonical `src/`
+ * directory does NOT exist yields a finding.
  */
 const integrityReason = (
   lockEntry: SkillLockEntry,
@@ -103,7 +105,7 @@ const integrityReason = (
     return Option.none();
   }
   if (!probeExists) {
-    return Option.some("the installed source directory is missing");
+    return Option.some("its installed source directory is missing");
   }
   return Option.none();
 };
@@ -149,7 +151,7 @@ const collectIntegrityViolations = (
 
 export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Installed skill source files match the lockfile.",
+  description: "Installed skills listed in the lockfile are present on disk.",
   kind: "autofixing",
   severity: "error",
   check: (context) =>

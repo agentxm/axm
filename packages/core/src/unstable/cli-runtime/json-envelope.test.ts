@@ -46,6 +46,8 @@ describe("SuggestedActionSchema", () => {
 });
 
 describe("JsonEnvelopeSchema", () => {
+  const secretSentinel = "AXM_SECRET_SENTINEL_92";
+
   it("decodes success envelopes with suggestions", () => {
     const envelope = makeJsonSuccessEnvelope({
       payload: { name: "code-reviewer" },
@@ -57,6 +59,28 @@ describe("JsonEnvelopeSchema", () => {
     });
 
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
+    expect(envelope).toMatchObject({
+      ok: true,
+      result: { name: "code-reviewer" },
+    });
+  });
+
+  it("keeps an existing result payload at the one documented envelope key", () => {
+    expect(makeJsonSuccessEnvelope({ payload: { result: { outcome: "applied" } } })).toEqual({
+      ok: true,
+      result: { outcome: "applied" },
+    });
+  });
+
+  it("places scalar payloads at the same result envelope key", () => {
+    expect(makeJsonSuccessEnvelope({ payload: "1.2.3" })).toEqual({
+      ok: true,
+      result: "1.2.3",
+    });
+    expect(makeJsonSuccessEnvelope({ payload: null })).toEqual({
+      ok: true,
+      result: null,
+    });
   });
 
   it("emits the documented AppError envelope shape", () => {
@@ -82,6 +106,34 @@ describe("JsonEnvelopeSchema", () => {
           description: "Sign in, then retry.",
         },
       ],
+    });
+  });
+
+  it("emits a structured human authentication handoff", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "auth_required",
+        blockedOn: "human",
+        action: {
+          kind: "open-url",
+          url: "https://agentxm.ai/device",
+          code: "ABCD-1234",
+          expiresAt: "2026-08-03T15:10:00.000Z",
+          resume: "axm login --wait --json",
+        },
+      }),
+    );
+
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toMatchObject({
+      ok: false,
+      code: "auth_required",
+      blockedOn: "human",
+      action: {
+        kind: "open-url",
+        url: "https://agentxm.ai/device",
+        code: "ABCD-1234",
+        resume: "axm login --wait --json",
+      },
     });
   });
 
@@ -201,6 +253,48 @@ describe("JsonEnvelopeSchema", () => {
     expect(envelope.cause).toEqual([
       { _tag: "Error", message: "decode failed", stack: "Error: decode failed\n at test" },
     ]);
+  });
+
+  it.each([
+    { debug: false, label: "normal" },
+    { debug: true, label: "debug" },
+  ])("redacts secrets from $label error envelopes", ({ debug }) => {
+    const cause = new Error(`request failed with ${secretSentinel}`);
+    cause.stack = `Error: ${secretSentinel}\n at https://registry.test/callback?token=${secretSentinel}`;
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "internal",
+        title: `Failure ${secretSentinel}`,
+        detail: `Registry rejected ${secretSentinel}`,
+        metadata: {
+          request: {
+            service: "registry",
+            method: "POST",
+            url: `https://registry.test/v1?access_token=${secretSentinel}`,
+          },
+          response: {
+            status: 500,
+            body: {
+              access_token: secretSentinel,
+              nested: { message: `do not expose ${secretSentinel}` },
+            },
+          },
+        },
+        cause,
+        suggestions: [
+          {
+            description: `Retry without ${secretSentinel}`,
+            url: `https://registry.test/retry?code=${secretSentinel}`,
+          },
+        ],
+      }),
+      { debug },
+    );
+
+    const serialized = JSON.stringify(envelope);
+    expect(serialized).not.toContain(secretSentinel);
+    expect(serialized).toContain("[REDACTED]");
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
   });
 
   it("omits cause when no cause is attached", () => {

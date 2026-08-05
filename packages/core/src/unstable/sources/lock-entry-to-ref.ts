@@ -13,6 +13,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../extensions/index.js";
 import type {
   CommandLockEntry,
+  KnowledgeLockEntry,
   PackLockEntry,
   McpServerLockEntry,
   SkillLockEntry,
@@ -24,11 +25,13 @@ import type { PackRef } from "../packs/refs.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
+import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
-type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | SubagentLockEntry;
+type SourceLockEntry =
+  SkillLockEntry | CommandLockEntry | KnowledgeLockEntry | McpServerLockEntry | SubagentLockEntry;
 
 interface LockEntryToRefDeps {
   readonly baseDir: string;
@@ -207,9 +210,7 @@ export const skillLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
-              ...(entry.publisherBindingId === undefined
-                ? {}
-                : { publisherBindingId: entry.publisherBindingId }),
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -282,6 +283,7 @@ export const commandLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -354,6 +356,7 @@ export const mcpServerLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -433,6 +436,7 @@ export const subagentLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -488,6 +492,79 @@ export const subagentLockEntryToRef = (
     },
   );
 
+export const knowledgeLockEntryToRef = (
+  name: string,
+  entry: KnowledgeLockEntry,
+  deps: LockEntryToRefDeps,
+): Effect.Effect<KnowledgeExtensionRef, AppError> =>
+  Effect.flatMap(
+    decodeLockEntryName(name),
+    (extensionName): Effect.Effect<KnowledgeExtensionRef, AppError> => {
+      switch (entry.type) {
+        case "registry":
+          return Effect.map(
+            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
+            (source) => ({
+              type: "knowledge" as const,
+              refType: "registry" as const,
+              source,
+              owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
+              name: entry.name,
+              version: entry.resolvedVersion,
+              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
+              packages: [],
+              knowledge: { name: extensionName },
+            }),
+          );
+        case "workspace":
+          return Effect.succeed({
+            type: "knowledge" as const,
+            refType: "workspace" as const,
+            source: {
+              type: "workspace" as const,
+              owner: entry.owner,
+              extensionType: "knowledge" as const,
+              name: entry.name,
+            },
+            owner: entry.owner,
+            name: entry.name,
+            version: entry.version,
+            sourceHash: entry.sourceHash,
+            scope: deps.scope,
+            location: workspacePackageLocation(deps, entry.owner, "knowledge", entry.name),
+            knowledge: { name: extensionName },
+          });
+        case "local": {
+          const sourcePath = localLockEntryPath(deps, entry.path);
+          return Effect.succeed({
+            type: "knowledge" as const,
+            refType: "local" as const,
+            source: { type: "local" as const, path: sourcePath },
+            location: fileHref(sourcePath),
+            knowledge: { name: extensionName },
+          });
+        }
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+        case "git":
+          return Effect.map(
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            (source) => ({
+              type: "knowledge" as const,
+              refType: "git-hosted" as const,
+              source,
+              location: lockEntryLocation(deps.baseDir, "knowledge", extensionName),
+              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
+              knowledge: { name: extensionName },
+            }),
+          );
+      }
+    },
+  );
+
 export const packLockEntryToRef = (
   name: string,
   entry: PackLockEntry,
@@ -521,6 +598,7 @@ export const packLockEntryToRef = (
         refType: "registry" as const,
         source,
         owner: entry.owner,
+        publisherBindingId: entry.publisherBindingId,
         name: entry.name,
         version: entry.resolvedVersion,
         integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),

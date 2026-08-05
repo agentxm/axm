@@ -5,6 +5,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -21,6 +22,7 @@ import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { runPublishLintGate } from "../../publish/lint-gate.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
@@ -110,7 +112,10 @@ export const publishHook: (
       platform: { fs, path },
     });
 
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(
+      extensionDir,
+      yield* publishArchiveOptions("hook", manifest.publish?.ignore),
+    );
     const integrity = yield* computeIntegrity(archive);
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((cause) =>
@@ -132,7 +137,7 @@ export const publishHook: (
     const client = yield* createRegistryClient(registrySource.value.location.href);
     const metadata: VersionEntry = {
       version: manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(manifest.packages !== undefined ? { packages: manifest.packages } : {}),
     };

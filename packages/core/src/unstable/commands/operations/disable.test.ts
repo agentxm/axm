@@ -12,11 +12,15 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import type { ConfiguredCommand } from "../../workspace/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { handle } from "../../test-helpers.js";
-import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
+import {
+  configuredRow,
+  makeRegistryCommandLockEntry,
+  rowsFor,
+} from "../../workspace/test-stubs.js";
+import type { ReadModelRecordRow } from "../../workspace/index.js";
 import type { DisableCommandOperation } from "./disable.js";
 import { disableCommand } from "./disable.js";
 import { makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
@@ -38,7 +42,7 @@ const withServices = (
       name: string,
       updater: Parameters<WorkspaceMutationsService["updateCommandEntry"]>[1],
     ) => Effect.Effect<void, AppError>;
-    configuredCommands?: Record<string, ConfiguredCommand>;
+    commandRows?: ReadonlyArray<ReadModelRecordRow>;
   },
 ) => {
   const setCommandLockFn = wsOverrides?.setCommandLockFn;
@@ -63,7 +67,7 @@ const withServices = (
         removeCommandSettings: removeCommandSettingsFn
           ? (name: string) => removeCommandSettingsFn(name)
           : () => Effect.void,
-        getConfiguredCommands: () => Effect.succeed(wsOverrides?.configuredCommands ?? {}),
+        rows: rowsFor({ command: wsOverrides?.commandRows ?? [] }),
       }),
     ),
     Layer.succeed(CodingAgentRepository, makeAgentRepoMock()),
@@ -121,13 +125,14 @@ describe("disableCommand", () => {
           Effect.provide(
             withServices(axmDir, undefined, {
               updateCommandEntryFn,
-              configuredCommands: {
-                "my-command": {
+              commandRows: [
+                configuredRow({
+                  type: "command",
+                  name: "my-command",
                   source: "@acme/commands/my-command",
-                  enabled: true,
                   packagingKind: "non-native",
-                },
-              },
+                }),
+              ],
             }),
           ),
         );
@@ -138,6 +143,7 @@ describe("disableCommand", () => {
           expect(result.artifact).toEqual({
             path: ".axm/settings.json",
             scope: "project",
+            agents: ["claude-code"],
             change: "updated",
           });
         }
@@ -170,7 +176,6 @@ describe("disableCommand", () => {
             path: ".axm/settings.json",
             scope: "project",
             agents: ["claude-code"],
-            version: "1.0.0",
             change: "updated",
           });
         }

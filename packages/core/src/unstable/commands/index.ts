@@ -29,8 +29,6 @@ export { commandInstallArtifact, commandUninstallArtifact } from "./install-arti
 
 export { commandReconciliationAdapter } from "./reconciliation-adapter.js";
 
-export { buildRegistryCommandRef } from "./registry-ref-builder.js";
-
 export {
   commandContentFilename,
   commandContentPath,

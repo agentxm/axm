@@ -98,6 +98,30 @@ describe("cli telemetry helpers", () => {
     }),
   );
 
+  it.effect("redacts metadata-derived secrets from handled-error telemetry", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+      const secret = "AXM_SECRET_SENTINEL_92";
+
+      yield* reportCliError(
+        makeAppError({
+          code: "internal",
+          detail: `registry failed with ${secret}`,
+          metadata: {
+            response: {
+              status: 500,
+              body: { access_token: secret },
+            },
+          },
+        }),
+        "publish",
+      ).pipe(Effect.provide(layer));
+
+      expect(JSON.stringify(capture.errors)).not.toContain(secret);
+      expect(capture.errors[0]?.message).toContain("[REDACTED]");
+    }),
+  );
+
   it.effect("skips PromptCancelled", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
@@ -138,6 +162,20 @@ describe("cli telemetry helpers", () => {
           command: "skills list",
         },
       ]);
+    }),
+  );
+
+  it.effect("redacts credential-shaped defects from telemetry", () =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+      const secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+
+      yield* reportCliDefect(Cause.die(new Error(`Bearer ${secret}`)), "skills list").pipe(
+        Effect.provide(layer),
+      );
+
+      expect(JSON.stringify(capture.errors)).not.toContain(secret);
+      expect(capture.errors[0]?.message).toContain("[REDACTED]");
     }),
   );
 

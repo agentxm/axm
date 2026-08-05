@@ -5,6 +5,7 @@
  * implementations satisfy the type constraints.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -152,7 +153,7 @@ describe("registry provider shape", () => {
       const provider = makeRegistryProvider();
       const metadata: VersionEntry = {
         version: exactVersion("1.0.0"),
-        published: "2025-01-01T00:00:00Z",
+        published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
         integrity: "sha512-AAAA==",
       };
       const result = yield* provider.publishExtension(

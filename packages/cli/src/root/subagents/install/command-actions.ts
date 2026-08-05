@@ -409,7 +409,9 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 readonly installedBefore: boolean;
               }): Effect.Effect<JobStepArtifact, AppError> =>
                 Effect.gen(function* () {
-                  const lockEntryOption = yield* ws.getLockedSubagent(ref.subagent.name);
+                  const lockEntryOption = yield* ws
+                    .getLockedSubagent(ref.subagent.name)
+                    .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                   const lockEntry = Option.getOrUndefined(lockEntryOption);
                   const sourceHash = lockEntry?.sourceHash;
                   const change = artifactChange({

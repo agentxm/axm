@@ -1,8 +1,33 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
 describe("axm skills install output UX", () => {
+  it("warns when an install reaches no configured coding agents", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["setup", "--yes"], { cwd: temp.path });
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, agents: [] }, undefined, 2));
+
+      const result = await runCli(
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        { cwd: temp.path },
+      );
+
+      expect(result.exitCode).toBe(0);
+      const output = getOutput(result);
+      expect(output).toContain("Agent coverage: none");
+      expect(output).toContain("No coding-agent targets were materialized");
+      expect(output).toContain("axm agents add --detected");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("summarizes human output by recipient agents and distinct locations", async () => {
     const temp = createTempDir();
     try {
@@ -26,6 +51,7 @@ describe("axm skills install output UX", () => {
       expect(output).toContain(".agents/skills/my-skill (created) [antigravity, amp]");
       expect(output).toContain(".claude/skills/my-skill (created) [claude-code]");
       expect(output).toContain("1 file");
+      expect(output).toContain("Agent coverage: antigravity, amp, claude-code");
       expect(output).not.toContain("skill(s)");
     } finally {
       temp.cleanup();
@@ -139,9 +165,12 @@ describe("axm skills install output UX", () => {
         cwd: temp.path,
       });
 
-      const bundledUninstall = await runCli(["skills", "uninstall", "axm", "--yes"], {
-        cwd: temp.path,
-      });
+      const bundledUninstall = await runCli(
+        ["skills", "uninstall", "axm", "--yes", "--keep-source"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(bundledUninstall.exitCode).toBe(0);
 
       const initialInstall = await runCli(

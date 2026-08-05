@@ -73,11 +73,14 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
@@ -91,24 +94,30 @@ export const ibmBobAgent = {
               },
             ],
             stdio: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "streamable-http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: {
+                required: {
+                  name: "type",
+                  value: { "streamable-http": "streamable-http" },
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: { "streamable-http": "streamable-http" },
+                  },
+                  null,
+                ],
+              },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -131,42 +140,6 @@ export const ibmBobAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
-        docs: [],
-        sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".bob/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -180,6 +153,28 @@ export const ibmBobAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
+      docs: [],
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".bob/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

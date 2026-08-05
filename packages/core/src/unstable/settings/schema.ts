@@ -13,6 +13,7 @@ import {
   EXTENSION_NAME_PATTERN,
   FQN_PATTERN,
 } from "../extensions/common.js";
+import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { FileInputValueSchema } from "../files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
@@ -1078,9 +1079,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  */
 export const PackEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("pack", "packs"),
+  enabled: enabledFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description: "A pack entry with a source.",
+  description: "A pack entry with a source and an optional enabled flag.",
 });
 
 /**
@@ -1090,23 +1092,15 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = compactOrVerboseEntry(
-  PackEntryObjectSchema,
-  Schema.Struct({
-    source: Schema.String,
-  }),
-  {
-    decode: (entry: string | SourceEntryObject): SourceEntry =>
-      typeof entry === "string" ? { source: entry } : { source: entry.source },
-    encode: (entry: SourceEntry): string | SourceEntryObject => entry.source,
-  },
-  {
-    identifier: "PackEntry",
-    title: "Pack Entry",
-    description: "A pack entry: a source string, or an object with a source.",
-    examples: ["@acme/packs/typescript@^1.0.0"],
-  },
-);
+export const PackEntrySchema = compactEnabledEntry(PackEntryObjectSchema, {
+  identifier: "PackEntry",
+  title: "Pack Entry",
+  description: "A pack entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/packs/typescript@^1.0.0",
+    { source: "@acme/packs/typescript@^1.0.0", enabled: false },
+  ],
+});
 
 /**
  * Inferred type for PackEntry schema.
@@ -1123,7 +1117,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are pack entries: plain source strings or objects with source.
+ * Values are pack entries: plain source strings or objects with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1335,6 +1329,98 @@ export const RulesConfigSchema = Schema.Struct({
 export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
 
 /**
+ * Feature-level configuration for Context Files packages.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FilesConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed Context Files package names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+}).annotate({
+  identifier: "FilesConfig",
+  title: "Files Config",
+  description: "Feature-level configuration for Context Files packages.",
+});
+
+/** @experimental */
+export type FilesConfig = Schema.Schema.Type<typeof FilesConfigSchema>;
+
+/**
+ * Feature-level configuration for hooks.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HooksConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed hook names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+}).annotate({
+  identifier: "HooksConfig",
+  title: "Hooks Config",
+  description: "Feature-level configuration for hooks.",
+});
+
+/** @experimental */
+export type HooksConfig = Schema.Schema.Type<typeof HooksConfigSchema>;
+
+/**
+ * Feature-level configuration for knowledge bundles.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const KnowledgeConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed knowledge bundle names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+  directory: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
+      default: ".agents/knowledge",
+      examples: [".agents/knowledge", "docs/agent-knowledge"],
+    }),
+  ),
+}).annotate({
+  identifier: "KnowledgeConfig",
+  title: "Knowledge Config",
+  description:
+    "Feature-level configuration and agent-facing projection settings for knowledge bundles.",
+});
+
+/** @experimental */
+export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
+
+/**
+ * Each catalog extension type's feature-level config schema, or `null` where
+ * none exists yet.
+ *
+ * Total by construction: a new extension type fails compile here until its
+ * settings coverage is decided. The parity conformance suite reads this map,
+ * and every `null` must be matched by a ledger row.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
+  skill: SkillsConfigSchema,
+  command: CommandsConfigSchema,
+  "mcp-server": McpServersConfigSchema,
+  subagent: SubagentsConfigSchema,
+  files: FilesConfigSchema,
+  rule: RulesConfigSchema,
+  hook: HooksConfigSchema,
+  knowledge: KnowledgeConfigSchema,
+} as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
+
+/**
  * Canonical key order for settings properties.
  *
  * Used by `writeSettings` to ensure properties
@@ -1356,9 +1442,12 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "commands",
   "commandsConfig",
   "files",
+  "filesConfig",
   "rules",
   "hooks",
+  "hooksConfig",
   "knowledge",
+  "knowledgeConfig",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1383,8 +1472,12 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - commands: Desired commands by name to version specifier
  * - commandsConfig: Feature-level configuration for commands
  * - files: Desired Context Files packages by name to source string or input config
+ * - filesConfig: Feature-level configuration for Context Files packages
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
+ * - hooksConfig: Feature-level configuration for hooks
+ * - knowledge: Desired Open Knowledge Format bundles by name to source string
+ * - knowledgeConfig: Agent-facing Knowledge projection options
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1394,7 +1487,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SettingsSchema = Schema.Struct({
+const SettingsBaseSchema = Schema.Struct({
   $schema: Schema.optionalKey(
     Schema.String.annotate({
       description:
@@ -1444,7 +1537,7 @@ export const SettingsSchema = Schema.Struct({
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
-        "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   skillsConfig: Schema.optionalKey(
@@ -1455,7 +1548,7 @@ export const SettingsSchema = Schema.Struct({
   commands: Schema.optionalKey(
     Schema.Union([CommandsMapSchema]).annotate({
       description:
-        "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   commandsConfig: Schema.optionalKey(
@@ -1466,31 +1559,45 @@ export const SettingsSchema = Schema.Struct({
   files: Schema.optionalKey(
     Schema.Union([FilesMapSchema]).annotate({
       description:
-        "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
+        "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
+    }),
+  ),
+  filesConfig: Schema.optionalKey(
+    Schema.Union([FilesConfigSchema]).annotate({
+      description: "Feature-level options for Context Files package management.",
     }),
   ),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
-        "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
-        "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+    }),
+  ),
+  hooksConfig: Schema.optionalKey(
+    Schema.Union([HooksConfigSchema]).annotate({
+      description: "Feature-level options for hook management.",
     }),
   ),
   knowledge: Schema.optionalKey(
     Schema.Union([KnowledgeMapSchema]).annotate({
-      description:
-        "Installed Open Knowledge Format bundles, isolated from agent instruction files.",
+      description: "Desired Open Knowledge Format bundles, isolated from agent instruction files.",
+    }),
+  ),
+  knowledgeConfig: Schema.optionalKey(
+    Schema.Union([KnowledgeConfigSchema]).annotate({
+      description: "Feature-level and projection options for knowledge bundle management.",
     }),
   ),
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
       description:
-        "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(
@@ -1501,7 +1608,7 @@ export const SettingsSchema = Schema.Struct({
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
-        "Your installed packs, keyed by workspace pack name. Pack entries do not support `enabled` yet.",
+        "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
     }),
   ),
   packsConfig: Schema.optionalKey(
@@ -1512,7 +1619,7 @@ export const SettingsSchema = Schema.Struct({
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
+        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(
@@ -1525,7 +1632,19 @@ export const SettingsSchema = Schema.Struct({
       description: "Lint configuration for `axm lint` in this workspace.",
     }),
   ),
-}).annotate({
+});
+
+// Unknown top-level keys are carried by the rest record so a settings file
+// written by a newer AXM survives a read-modify-write cycle instead of being
+// silently rewritten without them. Nested strictness is unchanged: unknown
+// keys inside entry objects still fail decode, and the removed legacy
+// `libraries` key is rejected by an explicit pre-decode guard on the settings
+// read path. The
+// `workspace/settings-keys-recognized` lint rule reports unknown top-level
+// keys at error severity.
+export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
+  Schema.Record(Schema.String, Schema.Unknown),
+]).annotate({
   identifier: "AxmSettings",
   title: "AXM Settings",
   description:
@@ -1573,3 +1692,12 @@ export const SettingsSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>;
+
+/**
+ * The recognized top-level settings keys, derived from the schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_KNOWN_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(SettingsBaseSchema.fields),
+);

@@ -24,6 +24,8 @@ import {
   requireMainBranch,
   requireMatchingReleasePackageVersions,
   requireNotBehindOriginMain,
+  stampSkillCliVersion,
+  writeSkillVersion,
 } from "./release-shared.js";
 import { run } from "./release-command.js";
 
@@ -35,6 +37,8 @@ if (args.includes("--help") || args.includes("-h")) {
 }
 
 const dryRun = args.includes("--dry-run");
+const PROD_REGISTRY_URL = "https://registry.agentxm.ai";
+const AXM_SKILL_HANDLE = "@agentxm/skills/axm";
 const unknownFlags = args.filter((arg) => arg.startsWith("--") && arg !== "--dry-run");
 if (unknownFlags.length > 0) {
   fail(`Unknown flag(s): ${unknownFlags.join(", ")}`);
@@ -93,6 +97,28 @@ const prepareReleaseArtifacts = async () => {
     gitPush: false,
   });
 
+  console.log("\n==> Phase 3: Stamp and validate the bundled AXM skill");
+  if (dryRun) {
+    console.log(`  Would set ${AXM_SKILL_HANDLE} to ${version}`);
+    console.log("  Registry preview is skipped in dry-run mode.");
+  } else {
+    writeSkillVersion(version);
+    stampSkillCliVersion(version);
+    run("pnpm", ["exec", "nx", "run", "cli:generate:bundled-axm-skill", "--outputStyle=static"]);
+    run("pnpm", [
+      "axm:local",
+      "skills",
+      "publish",
+      AXM_SKILL_HANDLE,
+      "--registry-url",
+      PROD_REGISTRY_URL,
+      "--preview",
+      "--yes",
+      "--json",
+      "--non-interactive",
+    ]);
+  }
+
   if (!dryRun) {
     const appliedVersion = requireMatchingReleasePackageVersions();
     if (appliedVersion !== version) {
@@ -108,7 +134,7 @@ const prepareReleaseArtifacts = async () => {
 
 const commitReleaseArtifacts = (tag: string) => {
   const branch = `release/${tag}`;
-  console.log("\n==> Phase 3: Create release branch and commit");
+  console.log("\n==> Phase 4: Create release branch and commit");
   run("git", ["switch", "--create", branch]);
   run("git", ["add", "--all"]);
   run("git", ["commit", "-m", `release: ${tag}`]);
@@ -116,10 +142,10 @@ const commitReleaseArtifacts = (tag: string) => {
 };
 
 const pushReleaseCommit = (tag: string, branch: string) => {
-  console.log("\n==> Phase 4: Push release branch");
+  console.log("\n==> Phase 5: Push release branch");
   run("git", ["push", "--set-upstream", "origin", branch]);
 
-  console.log("\n==> Phase 5: Create release pull request");
+  console.log("\n==> Phase 6: Create release pull request");
   run("gh", [
     "pr",
     "create",

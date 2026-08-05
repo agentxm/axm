@@ -79,19 +79,22 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       parsed: ParsedMcpServerUninstallArgs,
     ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
       Effect.gen(function* () {
-        const lockEntry = yield* ws.getLockedMcpServer(parsed.serverName);
-        if (Option.isNone(lockEntry)) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `MCP server "${parsed.serverName}" is not installed`,
-            suggestions: [{ description: "Check installed MCP servers and verify the name." }],
-          });
-        }
-
         const target: McpServerExtensionTarget = {
           type: "mcp-server",
           name: parsed.serverName,
         };
+        const configured =
+          mcpServerMgr.getConfiguredSource === undefined
+            ? Option.none<string>()
+            : yield* mcpServerMgr.getConfiguredSource({ target });
+        const installed = yield* mcpServerMgr.isInstalled({ target });
+        if (Option.isNone(configured) && !installed) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `MCP server "${parsed.serverName}" is not configured or observed`,
+            suggestions: [{ description: "Check installed MCP servers and verify the name." }],
+          });
+        }
 
         return { targets: [target] };
       });
@@ -115,7 +118,11 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         return {
           ...step,
           run: Effect.gen(function* () {
-            const lockEntry = Option.getOrUndefined(yield* ws.getLockedMcpServer(target.name));
+            const lockEntry = Option.getOrUndefined(
+              yield* ws
+                .getLockedMcpServer(target.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+            );
             const result = yield* step.run;
             if (result.result !== "success") return result;
             const sourceTarget =

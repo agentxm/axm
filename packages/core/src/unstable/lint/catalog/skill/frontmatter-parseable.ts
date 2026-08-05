@@ -18,7 +18,7 @@
  *
  * Advisory-only — the cascade mixes one mechanically-fixable arm
  * (strip-leading-bytes) with arms requiring human judgment (fix YAML
- * syntax). Per `docs/design/lint-engine.md §10.skill (Notes)`, splitting by
+ * syntax). Per `agentxm-internal/docs/design/lint-engine.md §10.skill (Notes)`, splitting by
  * kind or adding a byte-range mutation Operation is deferred until a second
  * mechanical arm justifies it.
  *

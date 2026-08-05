@@ -16,6 +16,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
+import { makeAppError, type AppError } from "../app-error/index.js";
+import { writeFileAtomic } from "../utils/index.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
 import { resolveUserScopeDir } from "../workspace/paths.js";
 
@@ -29,12 +32,16 @@ import { resolveUserScopeDir } from "../workspace/paths.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const InstallMetaDataSchema = Schema.Struct({
+  schemaVersion: Schema.optional(Schema.Literal(2)),
   method: InstallMethodLiteral.pipe(
     Schema.annotateKey({ messageMissingKey: "method is required" }),
   ),
-  installedAt: Schema.String.pipe(
+  installedAt: DateTimeUtcSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "installedAt is required" }),
   ),
+  packageName: Schema.optional(Schema.String),
+  managerMajorVersion: Schema.optional(Schema.Number),
+  executablePath: Schema.optional(Schema.String),
 }).annotate({
   identifier: "InstallMetaData",
   title: "Install Metadata",
@@ -52,6 +59,8 @@ const decodeInstallMetaDataFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(InstallMetaDataSchema),
 );
 
+const encodeInstallMetaData = Schema.encodeEffect(InstallMetaDataSchema);
+
 // -----------------------------------------------------------------------------
 // Service interface
 // -----------------------------------------------------------------------------
@@ -60,7 +69,7 @@ export interface InstallMetaService {
   /** Read `install-meta.json`. Returns `None` if file is missing or invalid. */
   readonly read: () => Effect.Effect<Option.Option<InstallMetaData>>;
   /** Write `install-meta.json` with the given method and timestamp. */
-  readonly write: (data: InstallMetaData) => Effect.Effect<void>;
+  readonly write: (data: InstallMetaData) => Effect.Effect<void, AppError>;
 }
 
 /**
@@ -111,7 +120,7 @@ export const readInstallMeta = (dataDir: string) =>
     const decoded = yield* decodeInstallMetaDataFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<InstallMetaData>();
 
-    return Option.some(decoded.value);
+    return Option.some({ ...decoded.value, schemaVersion: 2 as const });
   });
 
 /**
@@ -129,16 +138,40 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
     const metaPath = path.join(dataDir, INSTALL_META_FILENAME);
 
     yield* fs.makeDirectory(dataDir, { recursive: true }).pipe(
-      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
-      Effect.catch(() => Effect.void),
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Failed to create the AXM metadata directory",
+          suggestions: [{ description: "Check permissions and retry the upgrade." }],
+          cause,
+        }),
+      ),
     );
 
-    const content =
-      JSON.stringify({ method: data.method, installedAt: data.installedAt }, null, 2) + "\n";
-    yield* fs.writeFileString(metaPath, content).pipe(
-      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
-      Effect.catch(() => Effect.void),
+    const encoded = yield* encodeInstallMetaData({ ...data, schemaVersion: 2 as const }).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Failed to encode AXM install metadata",
+          cause,
+        }),
+      ),
     );
+    const content = JSON.stringify(encoded, null, 2) + "\n";
+    yield* writeFileAtomic(fs, {
+      targetPath: metaPath,
+      content,
+      mapError: (failure) =>
+        makeAppError({
+          code: "internal",
+          detail:
+            failure.step === "rename"
+              ? "Failed to atomically persist AXM install metadata"
+              : "Failed to write AXM install metadata",
+          suggestions: [{ description: "Check permissions and retry the upgrade." }],
+          cause: failure.cause,
+        }),
+    });
   });
 
 // -----------------------------------------------------------------------------

@@ -72,11 +72,14 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -91,19 +94,39 @@ export const codebuddyAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "stdio",
+                required: {
+                  name: "type",
+                  value: "stdio",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "stdio",
+                  },
+                  null,
+                ],
               },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -111,7 +134,6 @@ export const codebuddyAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -126,43 +148,6 @@ export const codebuddyAgent = {
         scopes: ["user", "project"],
         directory: ".codebuddy/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "CodeBuddy loads CODEBUDDY.md plus nested .codebuddy/rules instruction files and supports @path imports.",
-        docs: [],
-        sources: ["https://www.codebuddy.ai/docs/cli/memory"],
-        scopes: ["user", "project"],
-        standardsCompliance: "none",
-        convention: "vendor",
-        kind: "own-file",
-        files: ["CODEBUDDY.md"],
-        nestedDiscovery: true,
-        importSyntax: "at-path",
-        directory: ".codebuddy/rules",
       },
       axm: {
         status: "supported",
@@ -310,6 +295,29 @@ export const codebuddyAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "CodeBuddy loads CODEBUDDY.md plus nested .codebuddy/rules instruction files and supports @path imports.",
+      docs: [],
+      sources: ["https://www.codebuddy.ai/docs/cli/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "none",
+      convention: "vendor",
+      kind: "own-file",
+      files: ["CODEBUDDY.md"],
+      nestedDiscovery: true,
+      importSyntax: "at-path",
+      directory: ".codebuddy/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

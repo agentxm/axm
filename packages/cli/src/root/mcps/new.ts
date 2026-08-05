@@ -12,7 +12,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -196,7 +196,6 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
             versionRange: Option.none(),
             skipSettings: Option.none(),
             env: Option.none(),
-            nonInteractive: Option.some(true),
           },
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
@@ -208,7 +207,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       );
       const configuredAgentIds = yield* ws.getConfiguredAgents();
       const agentsByConfigPath = new Map<string, Set<string>>();
-      const catalogAgents = Object.values(AGENTS_BY_ID);
+      const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
       for (const agentId of configuredAgentIds) {
         const agent = catalogAgents.find((candidate) => candidate.id === agentId);
         const capability = agent?.capabilities["mcp-server"];

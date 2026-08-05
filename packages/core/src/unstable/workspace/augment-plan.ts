@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -74,7 +75,7 @@ export const augmentPlanWithReconciliation = (
     const settings = yield* readSettingsSafe(workspaceDir);
     const reconciliationContext: ReconciliationContext = {
       baseDir,
-      now: new Date(),
+      now: yield* DateTime.now,
       configuredOwner: Option.fromUndefinedOr(settings.owner),
       agents: settings.agents ?? [],
       settings,

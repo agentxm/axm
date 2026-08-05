@@ -106,7 +106,9 @@ export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args
             message: `Enabled ${args.name}`,
             buildArtifact: () =>
               Effect.gen(function* () {
-                const currentLockEntry = yield* ws.getLockedFilesEntry(args.name);
+                const currentLockEntry = yield* ws
+                  .getLockedFilesEntry(args.name)
+                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 if (Option.isNone(currentLockEntry)) {
                   return {
                     path: ".axm/settings.json",

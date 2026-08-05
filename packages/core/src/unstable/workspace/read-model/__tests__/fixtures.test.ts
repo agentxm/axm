@@ -183,7 +183,7 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 1, skills: {} },
+            contents: { lockfileVersion: 3, skills: {} },
           },
         },
       };
@@ -193,7 +193,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const parsed = YAML.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(1);
+      expect(decoded.lockfileVersion).toBe(3);
     }),
   );
 
@@ -261,14 +261,14 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
             "external/skills/some-skill/SKILL.md": "# external\n",
           },
         },
       };
       const deps = yield* buildFixture(spec);
 
-      const canonical = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/src/some-skill/SKILL.md`;
+      const canonical = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/some-skill/src/SKILL.md`;
       const external = `${WORKSPACE_ROOT}/.axm/extensions/external/skills/some-skill/SKILL.md`;
       expect(yield* exists(deps, canonical)).toBe(true);
       expect(yield* exists(deps, external)).toBe(true);
@@ -304,14 +304,14 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/present/SKILL.md": "# present\n",
-            "@owner/skills/src/missing/SKILL.md": { _tag: "absent" },
+            "@owner/skills/present/src/SKILL.md": "# present\n",
+            "@owner/skills/missing/src/SKILL.md": { _tag: "absent" },
           },
         },
       };
       const deps = yield* buildFixture(spec);
-      const presentPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/src/present/SKILL.md`;
-      const missingPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/src/missing/SKILL.md`;
+      const presentPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/present/src/SKILL.md`;
+      const missingPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/missing/src/SKILL.md`;
       expect(yield* exists(deps, presentPath)).toBe(true);
       expect(yield* exists(deps, missingPath)).toBe(false);
     }),
@@ -536,7 +536,7 @@ describe("named scenario constructors", () => {
         expect(
           yield* exists(
             deps,
-            `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/src/some-skill/SKILL.md`,
+            `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/some-skill/src/SKILL.md`,
           ),
         ).toBe(true);
       }),
@@ -577,7 +577,7 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 1, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 3, skills: {} } },
           axmExtensions: {
             "external/skills/legacy/SKILL.md": "# legacy\n",
           },

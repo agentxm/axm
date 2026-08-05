@@ -4,7 +4,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
 import {
   InteractiveRenderer,
@@ -12,7 +12,7 @@ import {
   resolveCliOutputPolicy,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { resolveVerbosityFromArgv } from "@agentxm/client-core/unstable/cli-flags";
-import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
+import { runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
 
@@ -24,15 +24,10 @@ import { loadVersion } from "./version.js";
 
 import { setupCommand } from "./root/setup.js";
 import { agentsCommand } from "./root/agents/_agents.js";
-import { rulesCommand } from "./root/rules/command.js";
-import { skillsCommand } from "./root/skills/_skills.js";
-import { packsCommand } from "./root/packs/_packs.js";
-import { commandsCommand } from "./root/commands/_commands.js";
-import { filesCommand } from "./root/files/_files.js";
-import { hooksCommand } from "./root/hooks/_hooks.js";
-import { knowledgeCommand } from "./root/knowledge/command.js";
-import { mcpsCommand } from "./root/mcps/_mcps.js";
-import { subagentsCommand } from "./root/subagents/_subagents.js";
+import {
+  extensionGroupCommands,
+  workspaceCapabilityCommands,
+} from "./root/extension-type-commands.js";
 import { authCommand } from "./root/auth/_auth.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
@@ -42,11 +37,11 @@ import { upgradeCommand } from "./root/upgrade/upgrade.js";
 import { lintCommand } from "./root/lint/command.js";
 import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
-import { maintainerCommand } from "./root/maintainer/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
 import { pruneCommand } from "./root/prune/command.js";
 import { syncCommand } from "./root/sync/command.js";
+import { statusCommand } from "./root/status.js";
 import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
@@ -65,8 +60,13 @@ import {
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
 
-removeBuiltInFlag(GlobalFlag.Completions);
-removeBuiltInFlag(GlobalFlag.LogLevel);
+/**
+ * Effect CLI built-ins kept for axm: `--completions` and `--log-level` are
+ * intentionally absent — verbosity flags own logger severity instead.
+ */
+export const cliConfigLayer = CliConfig.layer({
+  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard],
+});
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
@@ -92,14 +92,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     {
       group: "EXTENSIONS",
       commands: [
-        skillsCommand,
-        commandsCommand,
-        filesCommand,
-        hooksCommand,
-        knowledgeCommand,
-        mcpsCommand,
-        subagentsCommand,
-        packsCommand,
+        ...extensionGroupCommands,
         publishCommand,
         adoptCommand,
         demoteCommand,
@@ -109,7 +102,6 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         outdatedCommand,
         viewCommand,
         versionCommand,
-        maintainerCommand,
         yankCommand,
         unyankCommand,
         deprecateCommand,
@@ -120,8 +112,9 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       group: "WORKSPACE",
       commands: [
         syncCommand,
+        statusCommand,
         agentsCommand,
-        rulesCommand,
+        ...workspaceCapabilityCommands,
         lintCommand,
         pruneCommand,
         cacheCommand,
@@ -167,7 +160,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
       });
 
-      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer({ outputPolicy });
+      const rendererLayer = isJson
+        ? MachineRenderer({ quiet: outputPolicy.quiet })
+        : InteractiveRenderer({ outputPolicy });
 
       return withUpdateCheck(commandProgram, {
         localVersion: version,
@@ -184,6 +179,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             baseLayer,
             updateCheckServicesLayer,
             rendererLayer,
+            cliConfigLayer,
             CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),
         ),

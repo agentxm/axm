@@ -73,7 +73,7 @@ export const antigravityAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Antigravity CLI stores global MCP servers in ~/.gemini/antigravity-cli/mcp_config.json and workspace MCP servers in .agents/mcp_config.json. Remote MCP definitions use serverUrl.",
+          "Antigravity stores global MCP servers in ~/.gemini/config/mcp_config.json and workspace MCP servers in .agents/mcp_config.json. Remote MCP definitions use serverUrl, and disabled is an optional per-server switch.",
         docs: [],
         sources: [
           "https://antigravity.google/docs/mcp",
@@ -90,15 +90,18 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
-                path: "~/.gemini/antigravity-cli/mcp_config.json",
+                path: "~/.gemini/config/mcp_config.json",
                 format: "json",
               },
               {
@@ -108,19 +111,18 @@ export const antigravityAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "serverUrl",
                 sse: "serverUrl",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -136,42 +138,6 @@ export const antigravityAgent = {
       axm: {
         status: "unsupported",
         lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://antigravity.google/docs/rules-workflows"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".agents/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -264,6 +230,28 @@ export const antigravityAgent = {
         reason:
           "Antigravity namespaces each hook bundle under its own top-level name in hooks.json; AXM's writer targets a single settings key and cannot express that nesting.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://antigravity.google/docs/rules-workflows"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".agents/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

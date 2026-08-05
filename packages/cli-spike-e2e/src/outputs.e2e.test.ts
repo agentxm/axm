@@ -139,12 +139,14 @@ describe("outputs commands", () => {
     expect(parsed).toEqual(
       expect.objectContaining({
         ok: true,
-        count: 1,
-        data: expect.objectContaining({
-          kind: "single",
-          item: expect.objectContaining({
-            name: "Mochi",
-            species: "cat",
+        result: expect.objectContaining({
+          count: 1,
+          data: expect.objectContaining({
+            kind: "single",
+            item: expect.objectContaining({
+              name: "Mochi",
+              species: "cat",
+            }),
           }),
         }),
       }),
@@ -158,13 +160,15 @@ describe("outputs commands", () => {
     expect(parsed).toEqual(
       expect.objectContaining({
         ok: true,
-        count: 3,
-        data: expect.objectContaining({
-          kind: "list",
-          items: expect.arrayContaining([
-            expect.objectContaining({ name: "Mochi" }),
-            expect.objectContaining({ name: "Juniper" }),
-          ]),
+        result: expect.objectContaining({
+          count: 3,
+          data: expect.objectContaining({
+            kind: "list",
+            items: expect.arrayContaining([
+              expect.objectContaining({ name: "Mochi" }),
+              expect.objectContaining({ name: "Juniper" }),
+            ]),
+          }),
         }),
       }),
     );
@@ -184,8 +188,10 @@ describe("outputs commands", () => {
     expect(parsed).toEqual(
       expect.objectContaining({
         ok: true,
-        data: expect.objectContaining({
-          lines: ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"],
+        result: expect.objectContaining({
+          data: expect.objectContaining({
+            lines: ["Name: axm-spike", "Version: 0.0.1", "Pets: Mochi, Pickles, Juniper"],
+          }),
         }),
       }),
     );
@@ -198,16 +204,18 @@ describe("outputs commands", () => {
     expect(parsed).toEqual(
       expect.objectContaining({
         ok: true,
-        data: expect.objectContaining({
-          roots: expect.arrayContaining([
-            expect.objectContaining({
-              name: "packages",
-              children: expect.arrayContaining([
-                expect.objectContaining({ name: "core" }),
-                expect.objectContaining({ name: "cli-spike" }),
-              ]),
-            }),
-          ]),
+        result: expect.objectContaining({
+          data: expect.objectContaining({
+            roots: expect.arrayContaining([
+              expect.objectContaining({
+                name: "packages",
+                children: expect.arrayContaining([
+                  expect.objectContaining({ name: "core" }),
+                  expect.objectContaining({ name: "cli-spike" }),
+                ]),
+              }),
+            ]),
+          }),
         }),
       }),
     );

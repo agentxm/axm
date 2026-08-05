@@ -48,6 +48,50 @@ const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, 
   });
 
 describe("agent MCP config inspection", () => {
+  it.effect("treats semantically equivalent managed TOML formatting as a match", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-"));
+        try {
+          const configDir = nodePath.join(workspaceRoot, ".codex");
+          mkdirSync(configDir, { recursive: true });
+          writeFileSync(
+            nodePath.join(configDir, "config.toml"),
+            [
+              "# axm managed mcp-server context start",
+              "[mcp_servers.context]",
+              'args = ["-y", "@acme/context-mcp"]',
+              'command = "npx"',
+              "enabled = true",
+              "",
+              '[mcp_servers.context."x-axm"]',
+              'source = "inline"',
+              "managed = true",
+              "",
+              "[mcp_servers.context.env]",
+              'ACME_TOKEN = "secret"',
+              "# axm managed mcp-server context end",
+              "",
+            ].join("\n"),
+          );
+
+          const result = yield* inspectAgentMcpServer({
+            workspaceRoot,
+            scope: "project",
+            agentId: "codex",
+            serverName: "context",
+            entry: contextEntry,
+          });
+
+          expect(result.status).toBe("match");
+          expect(result.fields).toEqual([]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("reports match for AXM-managed Hermes YAML entries", () =>
     withNode(
       Effect.gen(function* () {

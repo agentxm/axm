@@ -99,11 +99,14 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -113,19 +116,39 @@ export const claudeCodeAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "stdio",
+                required: {
+                  name: "type",
+                  value: "stdio",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "stdio",
+                  },
+                  null,
+                ],
               },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -133,7 +156,6 @@ export const claudeCodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -148,41 +170,6 @@ export const claudeCodeAgent = {
         scopes: ["user", "project"],
         directory: ".claude/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Reads CLAUDE.md, not the AGENTS.md spec filename.",
-        docs: [],
-        sources: ["https://code.claude.com/docs/en/memory"],
-        scopes: ["user", "project"],
-        standardsCompliance: "parity",
-        convention: "vendor",
-        kind: "own-file",
-        files: ["CLAUDE.md"],
-        nestedDiscovery: true,
-        importSyntax: "at-path",
       },
       axm: {
         status: "supported",
@@ -349,6 +336,27 @@ export const claudeCodeAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Reads CLAUDE.md, not the AGENTS.md spec filename.",
+      docs: [],
+      sources: ["https://code.claude.com/docs/en/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "parity",
+      convention: "vendor",
+      kind: "own-file",
+      files: ["CLAUDE.md"],
+      nestedDiscovery: true,
+      importSyntax: "at-path",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

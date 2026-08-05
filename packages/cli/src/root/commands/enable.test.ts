@@ -12,7 +12,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  extensionName,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -37,12 +41,14 @@ const initWorkspace = (
     owner: "@acme",
     commands: configuredCommands,
     lockfileCommands: Object.keys(lockfileCommands).length > 0 ? lockfileCommands : undefined,
+    writeTrustFromLockfile: true,
   });
 };
 
-const makeLockEntry = () => ({
+const makeLockEntry = (sourceHash?: string) => ({
   type: "local",
   path: "installed",
+  ...(sourceHash === undefined ? {} : { sourceHash }),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   agents: [],
@@ -152,7 +158,7 @@ describe("commands enable.handler", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
-        { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
+        { "my-cmd": { source: "./installed", enabled: false } },
         {
           "my-cmd": {
             ...makeLockEntry(),
@@ -170,6 +176,7 @@ describe("commands enable.handler", () => {
         "external",
         "commands",
         "my-cmd",
+        "src",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "my-cmd.md"), "# my-cmd");
@@ -231,7 +238,7 @@ describe("commands enable.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("settings-only enable (no lock entry)", () => {
-    it.effect("enables a configured-disabled command with no lockfile entry", () => {
+    it.effect("refuses to enable a configured-disabled command without trusted content", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -249,8 +256,7 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd"));
 
-          expect(logs.success.length).toBeGreaterThan(0);
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(logs.success).toEqual([]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -258,7 +264,10 @@ describe("commands enable.handler", () => {
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
-          expect(settings.commands?.["my-cmd"]).toBe("@acme/commands/my-cmd");
+          expect(settings.commands?.["my-cmd"]).toEqual({
+            source: "@acme/commands/my-cmd",
+            enabled: false,
+          });
         }),
       );
     });
@@ -271,11 +280,6 @@ describe("commands enable.handler", () => {
   describe("plan execution", () => {
     it.effect("builds and resolves enable plan for disabled command", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(
-        path.join(tempDir, ".axm"),
-        { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
-        { "my-cmd": makeLockEntry() },
-      );
 
       // Create canonical command directory so the enable operation can read command files
       const canonicalDir = path.join(
@@ -285,9 +289,26 @@ describe("commands enable.handler", () => {
         "external",
         "commands",
         "my-cmd",
+        "src",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(canonicalDir, "..", "command.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "command",
+          name: "my-cmd",
+          version: "1.0.0",
+        }),
+      );
       fs.writeFileSync(path.join(canonicalDir, "my-cmd.md"), "# my-cmd");
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-cmd": { source: "./installed", enabled: false } },
+        {
+          "my-cmd": makeLockEntry(computePackageContentHashSync(path.dirname(canonicalDir))),
+        },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -302,7 +323,7 @@ describe("commands enable.handler", () => {
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
-          expect(settings.commands?.["my-cmd"]).toBe("@acme/commands/my-cmd");
+          expect(settings.commands?.["my-cmd"]).toBe("./installed");
         }),
       );
     });

@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
@@ -68,7 +69,7 @@ export const kiloCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kilo Code does not support user-scope commands",
+          reason: userScopeRefusal({ agentId: "kilo", agentName: "Kilo Code", type: "commands" }),
         } as const;
       }
       const dir = yield* resolveKiloCommandsDir(workspaceRoot);
@@ -96,7 +97,7 @@ export const kiloCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kilo Code does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "kilo", agentName: "Kilo Code", type: "subagents" }),
         } as const;
       }
       return {

@@ -1,5 +1,6 @@
 export {
   ArchiveGuardrailError,
+  checkForbiddenSourceEntries,
   validateArchive,
   type ArchiveGuardrailLimits,
   type ZipEntry,
@@ -27,3 +28,9 @@ export {
   type PublishInput,
 } from "./input-normalization.js";
 export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";
+export {
+  PublishIgnoreError,
+  protectedPublishPaths,
+  publishArchiveOptions,
+  resolvePublishIgnore,
+} from "./publish-ignore.js";

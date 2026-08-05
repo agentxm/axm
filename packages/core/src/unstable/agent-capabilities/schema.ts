@@ -24,20 +24,28 @@
  *   `axm.writer !== null` means AXM has verified write mechanics for that
  *   capability.
  *
- * `permissions` lives beside `capabilities` because it models AXM grant/write
- * mechanics for an agent's permission system. It is not a publishable leaf
- * extension type and therefore is not keyed under the extension capability map.
+ * `capabilities` is keyed on the placement axis: exactly the extension types
+ * `EXTENSION_TYPE_TABLE` marks `placement: "per-agent"`, because only those
+ * render into a directory the agent owns. Two sibling fields sit beside it
+ * rather than inside it:
+ *
+ * - `instructions` carries the `rule` capability. Rules are `placement:
+ *   "workspace"` — they live in shared instruction files that every configured
+ *   agent reads — so the catalog records how each agent consumes that shared
+ *   file, not an agent-owned slot. The field name is the type's
+ *   `workspaceCapability` axis value.
+ * - `permissions` models AXM grant/write mechanics for an agent's permission
+ *   system. It is not a publishable extension type at all.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionTypeSchema } from "../extensions/common.js";
 import {
   DocLinkSchema,
   LeafExtensionTypeSchema,
   UrlSchema,
-  type LeafExtensionType,
+  type PerAgentType,
   type Url,
 } from "../extension-types/schema.js";
 
@@ -48,6 +56,7 @@ export {
   UrlSchema,
   type DocLink,
   type LeafExtensionType,
+  type PerAgentType,
   type Standard,
   type Url,
 } from "../extension-types/schema.js";
@@ -89,12 +98,12 @@ export const StandardsComplianceSchema = Schema.Literals([
 export type StandardsCompliance = Schema.Schema.Type<typeof StandardsComplianceSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotate({
+export const ConventionSchema = Schema.Literals(["universal", "vendor", "hosted"]).annotate({
   identifier: "Convention",
   title: "Convention",
   description:
-    "Whether a spec-tracked capability uses the spec-defined or community-standard location.",
-  examples: ["universal", "vendor"],
+    "Whether a spec-tracked capability uses a standard, vendor-specific, or hosted location.",
+  examples: ["universal", "vendor", "hosted"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -302,11 +311,16 @@ export const VendorStatusSchema = Schema.Union([
 export type VendorStatus = Schema.Schema.Type<typeof VendorStatusSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const AgentInterfaceSchema = Schema.Literals(["cli", "ide-extension"]).annotate({
+export const AgentInterfaceSchema = Schema.Literals([
+  "cli",
+  "ide-extension",
+  "chat",
+  "hosted-agent",
+]).annotate({
   identifier: "AgentInterface",
   title: "Agent Interface",
   description: "Primary product interface where the agent runs.",
-  examples: ["cli", "ide-extension"],
+  examples: ["cli", "ide-extension", "chat", "hosted-agent"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -559,7 +573,12 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
   native: Schema.Union([
     Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,
+      convention: Schema.Literals(["universal", "vendor"]),
       directory: Schema.NonEmptyString,
+    }),
+    Schema.Struct({
+      ...AvailableSpecTrackedNativeCapabilityFields,
+      convention: Schema.Literal("hosted"),
     }),
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
@@ -720,29 +739,6 @@ export const RulesExtensionCapabilitySchema = Schema.Struct({
 export type RulesExtensionCapability = Schema.Schema.Type<typeof RulesExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const FilesExtensionCapabilitySchema = Schema.Struct({
-  native: Schema.Union([
-    Schema.Struct({
-      ...AvailableNativeCapabilityBaseFields,
-      directory: Schema.NonEmptyString,
-      files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-      naming: Schema.NullOr(Schema.NonEmptyString),
-    }),
-    Schema.Struct(UnavailableNativeCapabilityFields),
-  ]),
-  axm: NoWriterAxmCapabilityStateSchema,
-})
-  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
-  .annotate({
-    identifier: "FilesExtensionCapability",
-    title: "Files Capability",
-    description: "Agent support for standalone context-file scaffolding.",
-  });
-
-/** @experimental This API is unstable and may change without notice. */
-export type FilesExtensionCapability = Schema.Schema.Type<typeof FilesExtensionCapabilitySchema>;
-
-/** @experimental This API is unstable and may change without notice. */
 export const ConfigFileFormatSchema = Schema.Literals([
   "json",
   "jsonc",
@@ -805,21 +801,67 @@ export const McpTypeFieldValueMapSchema = Schema.Struct({
 export type McpTypeFieldValueMap = Schema.Schema.Type<typeof McpTypeFieldValueMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpTypeFieldSchema = Schema.Struct({
+export const McpTypeFieldRepresentationSchema = Schema.Struct({
   name: Schema.NonEmptyString,
   value: Schema.Union([Schema.NonEmptyString, McpTypeFieldValueMapSchema]),
 }).annotate({
+  identifier: "McpTypeFieldRepresentation",
+  title: "MCP Type Field Representation",
+  description: "One accepted per-entry transport discriminator representation.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpTypeFieldRepresentation = Schema.Schema.Type<
+  typeof McpTypeFieldRepresentationSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpTypeFieldSchema = Schema.Struct({
+  required: Schema.NullOr(McpTypeFieldRepresentationSchema),
+  accepted: Schema.NonEmptyArray(Schema.NullOr(McpTypeFieldRepresentationSchema)),
+}).annotate({
   identifier: "McpTypeField",
   title: "MCP Type Field",
-  description: "Optional per-entry transport discriminator field.",
+  description:
+    "The discriminator representation AXM writes and every representation the agent accepts.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type McpTypeField = Schema.Schema.Type<typeof McpTypeFieldSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const McpActivationFieldRepresentationSchema = Schema.Struct({
+  name: Schema.NonEmptyString,
+  enabled: Schema.Boolean,
+  disabled: Schema.Boolean,
+}).annotate({
+  identifier: "McpActivationFieldRepresentation",
+  title: "MCP Activation Field Representation",
+  description: "One accepted per-entry activation field and its boolean polarity.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpActivationFieldRepresentation = Schema.Schema.Type<
+  typeof McpActivationFieldRepresentationSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpActivationFieldSchema = Schema.Struct({
+  required: Schema.NullOr(McpActivationFieldRepresentationSchema),
+  accepted: Schema.NonEmptyArray(Schema.NullOr(McpActivationFieldRepresentationSchema)),
+}).annotate({
+  identifier: "McpActivationField",
+  title: "MCP Activation Field",
+  description:
+    "The activation representation AXM writes and every representation the agent accepts.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpActivationField = Schema.Schema.Type<typeof McpActivationFieldSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const McpStdioDialectSchema = Schema.Struct({
-  typeField: Schema.NullOr(McpTypeFieldSchema),
+  typeField: McpTypeFieldSchema,
   command: Schema.Literals(["split", "array"]),
   envKey: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
@@ -846,9 +888,11 @@ export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpRemoteDialectSchema = Schema.Struct({
-  typeField: Schema.NullOr(McpTypeFieldSchema),
+  typeField: McpTypeFieldSchema,
   urlKey: McpUrlKeyMapSchema,
   headersKey: Schema.NullOr(Schema.NonEmptyString),
+  bearerTokenEnvKey: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
+  envHeadersKey: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
 }).annotate({
   identifier: "McpRemoteDialect",
   title: "MCP Remote Dialect",
@@ -861,11 +905,10 @@ export type McpRemoteDialect = Schema.Schema.Type<typeof McpRemoteDialectSchema>
 /** @experimental This API is unstable and may change without notice. */
 export const McpConfigSchema = Schema.Struct({
   serversKey: McpServersKeySchema,
-  nativeEnabled: Schema.Boolean,
+  activationField: McpActivationFieldSchema,
   targets: Schema.Array(McpConfigTargetSchema),
   stdio: Schema.NullOr(McpStdioDialectSchema),
   remote: Schema.NullOr(McpRemoteDialectSchema),
-  transform: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpConfig",
   title: "MCP Config",
@@ -1427,28 +1470,26 @@ export type PermissionsExtensionCapability = Schema.Schema.Type<
   typeof PermissionsExtensionCapabilitySchema
 >;
 
-const LeafCapabilitySchemaByType = {
+const PerAgentCapabilitySchemaByType = {
   skill: SkillsExtensionCapabilitySchema,
   command: CommandsExtensionCapabilitySchema,
   "mcp-server": McpExtensionCapabilitySchema,
   subagent: SubagentsExtensionCapabilitySchema,
-  files: FilesExtensionCapabilitySchema,
-  rule: RulesExtensionCapabilitySchema,
   hook: HooksExtensionCapabilitySchema,
-} satisfies Record<LeafExtensionType, Schema.Top>;
+} satisfies Record<PerAgentType, Schema.Top>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const AgentCapabilitiesSchema = Schema.Struct(LeafCapabilitySchemaByType).annotate({
+export const AgentCapabilitiesSchema = Schema.Struct(PerAgentCapabilitySchemaByType).annotate({
   identifier: "AgentCapabilities",
   title: "Agent Capabilities",
-  description: "Agent extension capabilities keyed by leaf extension type.",
+  description: "Agent extension capabilities keyed by per-agent extension type.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentCapabilities = Schema.Schema.Type<typeof AgentCapabilitiesSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export type AgentExtensionCapability = AgentCapabilities[LeafExtensionType];
+export type AgentExtensionCapability = AgentCapabilities[PerAgentType] | RulesExtensionCapability;
 
 /** @experimental This API is unstable and may change without notice. */
 export type NativeCapability = AgentExtensionCapability["native"];
@@ -1533,6 +1574,47 @@ export const CapabilityTargetingSchema = Schema.Struct({
     "Catalog inputs used by AXM's capability-targeted extension renderer and fallback graph.",
 });
 
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallDeliverySchema = Schema.Literals(["upload", "directory"]).annotate({
+  identifier: "HostedInstallDelivery",
+  title: "Hosted Install Delivery",
+  description: "User-mediated delivery mechanism accepted by a hosted agent surface.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallDelivery = Schema.Schema.Type<typeof HostedInstallDeliverySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallArtifactSchema = Schema.Literals([
+  "directory",
+  "zip",
+  "skill-file-or-zip",
+]).annotate({
+  identifier: "HostedInstallArtifact",
+  title: "Hosted Install Artifact",
+  description: "Artifact shape a hosted agent accepts for manual extension delivery.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallArtifact = Schema.Schema.Type<typeof HostedInstallArtifactSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallTargetSchema = Schema.Struct({
+  kind: Schema.Literal("hosted"),
+  delivery: Schema.NonEmptyArray(HostedInstallDeliverySchema).pipe(Schema.check(Schema.isUnique())),
+  artifact: HostedInstallArtifactSchema,
+  instructions: Schema.NonEmptyString,
+  docs: UrlSchema,
+}).annotate({
+  identifier: "HostedInstallTarget",
+  title: "Hosted Install Target",
+  description:
+    "Manual delivery instructions for a hosted agent after AXM packages and validates an extension.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallTarget = Schema.Schema.Type<typeof HostedInstallTargetSchema>;
+
 const AgentStruct = Schema.Struct({
   id: AgentIdFromYamlSchema,
   name: Schema.NonEmptyString,
@@ -1541,10 +1623,12 @@ const AgentStruct = Schema.Struct({
   interfaces: Schema.NonEmptyArray(AgentInterfaceSchema).pipe(Schema.check(Schema.isUnique())),
   family: Schema.NullOr(Schema.NonEmptyString),
   rootDir: Schema.NullOr(Schema.NonEmptyString),
+  installTarget: Schema.optionalKey(HostedInstallTargetSchema),
   lifecycle: AgentLifecycleSchema,
   detection: DetectionSchema,
   docs: Schema.Array(DocLinkSchema),
   capabilities: AgentCapabilitiesSchema,
+  instructions: RulesExtensionCapabilitySchema,
   permissions: PermissionsExtensionCapabilitySchema,
   targeting: Schema.optionalKey(CapabilityTargetingSchema),
 });
@@ -1553,17 +1637,77 @@ const AgentStruct = Schema.Struct({
 export const AgentSchema = AgentStruct.pipe(
   Schema.check(
     Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
+      const issues: Array<Schema.FilterIssue> = [];
       if (
-        "kind" in agent.capabilities.rule.native &&
-        agent.capabilities.rule.native.kind === "agents-md" &&
-        agent.capabilities.rule.native.files[0] !== "AGENTS.md"
+        "kind" in agent.instructions.native &&
+        agent.instructions.native.kind === "agents-md" &&
+        agent.instructions.native.files[0] !== "AGENTS.md"
       ) {
-        return {
-          path: ["capabilities", "rule", "native", "files"],
-          issue: 'capabilities.rule.kind "agents-md" requires AGENTS.md.',
-        };
+        issues.push({
+          path: ["instructions", "native", "files"],
+          issue: 'instructions.kind "agents-md" requires AGENTS.md.',
+        });
       }
-      return undefined;
+
+      const hostedOnly = agent.interfaces.every(
+        (interfaceKind) => interfaceKind === "chat" || interfaceKind === "hosted-agent",
+      );
+      const hasHostedInterface = agent.interfaces.some(
+        (interfaceKind) => interfaceKind === "chat" || interfaceKind === "hosted-agent",
+      );
+      const hasDetectionMarkers =
+        agent.detection.project.markers.length > 0 || agent.detection.user.markers.length > 0;
+
+      if (hasHostedInterface && agent.installTarget === undefined) {
+        issues.push({
+          path: ["installTarget"],
+          issue: "Agents with a hosted interface require installTarget.",
+        });
+      }
+      if (hostedOnly && agent.rootDir !== null) {
+        issues.push({
+          path: ["rootDir"],
+          issue: "Hosted-only agents cannot declare rootDir.",
+        });
+      }
+      if (hostedOnly && hasDetectionMarkers) {
+        issues.push({
+          path: ["detection"],
+          issue: "Hosted-only agents cannot declare local detection markers.",
+        });
+      }
+      const capabilitySlots = [
+        ...Object.values(agent.capabilities),
+        agent.instructions,
+        agent.permissions,
+      ];
+      if (hostedOnly && capabilitySlots.some((capability) => capability.axm.writer !== null)) {
+        issues.push({
+          path: ["capabilities"],
+          issue: "Hosted-only agents cannot declare filesystem writers.",
+        });
+      }
+      if (
+        hostedOnly &&
+        capabilitySlots.some(
+          (capability) =>
+            "directory" in capability.native ||
+            ("configFiles" in capability.native && capability.native.configFiles.length > 0),
+        )
+      ) {
+        issues.push({
+          path: ["capabilities"],
+          issue: "Hosted-only agents cannot declare local capability paths.",
+        });
+      }
+      if (!hasHostedInterface && agent.installTarget !== undefined) {
+        issues.push({
+          path: ["installTarget"],
+          issue: "Local-only agents cannot declare a hosted installTarget.",
+        });
+      }
+
+      return issues;
     }),
   ),
 ).annotate({
@@ -1574,6 +1718,3 @@ export const AgentSchema = AgentStruct.pipe(
 
 /** @experimental This API is unstable and may change without notice. */
 export type Agent = Schema.Schema.Type<typeof AgentSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const CatalogExtensionTypeSchema = ExtensionTypeSchema;

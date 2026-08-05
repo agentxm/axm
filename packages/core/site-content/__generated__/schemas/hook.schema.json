@@ -2,6 +2,30 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/HookManifest",
   "definitions": {
+    "PublishOptions": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [
+                {
+                  "uniqueItems": true,
+                  "description": "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
+                  "examples": [["*.test.ts", "fixtures/*"]]
+                }
+              ],
+              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Publish Options",
+      "description": "Options that shape the archive this package publishes."
+    },
     "Handle": {
       "type": "string",
       "allOf": [
@@ -323,7 +347,7 @@
       "title": "Hook Decision Requirement",
       "description": "Decision capability a hook binding requires from the target agent event."
     },
-    "CanonicalHookBinding": {
+    "HookBinding": {
       "type": "object",
       "properties": {
         "on": { "$ref": "#/definitions/HookEvent" },
@@ -354,38 +378,8 @@
       },
       "required": ["on"],
       "additionalProperties": false,
-      "title": "Canonical Hook Binding",
-      "description": "Universal hook event binding expressed in AXM canonical vocabulary."
-    },
-    "LegacyHookEvent": {
-      "type": "string",
-      "enum": [
-        "PreToolUse",
-        "PostToolUse",
-        "UserPromptSubmit",
-        "SessionStart",
-        "Stop",
-        "SubagentStop",
-        "PreCompact"
-      ],
-      "title": "Legacy Hook Event",
-      "description": "Deprecated Claude-compatible hook event name accepted as a decode alias."
-    },
-    "HookBinding": {
-      "anyOf": [
-        { "$ref": "#/definitions/CanonicalHookBinding" },
-        {
-          "type": "object",
-          "properties": {
-            "event": { "$ref": "#/definitions/LegacyHookEvent" },
-            "matcher": {
-              "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-            }
-          },
-          "required": ["event"],
-          "additionalProperties": false
-        }
-      ]
+      "title": "Hook Binding",
+      "description": "Universal hook event binding with portable canonical matching and raw native escape hatches."
     },
     "HookCapabilities": {
       "type": "object",
@@ -413,6 +407,7 @@
       "type": "object",
       "properties": {
         "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
         "description": {
@@ -573,7 +568,6 @@
         "timeoutMs": {
           "anyOf": [{ "type": "integer", "allOf": [{ "exclusiveMinimum": 0 }] }, { "type": "null" }]
         },
-        "blocking": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
         "capabilities": {
           "anyOf": [{ "$ref": "#/definitions/HookCapabilities" }, { "type": "null" }]
         }

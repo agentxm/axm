@@ -43,15 +43,18 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
       parsed: ParsedRuleUninstallArgs,
     ): Effect.Effect<UninstallRuleCommandIntent, AppError> =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedRuleEntry(parsed.name);
-        const configured = yield* ws.getConfiguredRuleEntries();
-        if (Option.isNone(locked) && configured[parsed.name] === undefined) {
+        const target: RuleExtensionTarget = { type: "rule", name: parsed.name };
+        const configured =
+          ruleManager.getConfiguredSource === undefined
+            ? Option.none<string>()
+            : yield* ruleManager.getConfiguredSource({ target });
+        const installed = yield* ruleManager.isInstalled({ target });
+        if (Option.isNone(configured) && !installed) {
           return yield* makeAppError({
             code: "not_found",
-            detail: `rule "${parsed.name}" is not installed`,
+            detail: `rule "${parsed.name}" is not configured or observed`,
           });
         }
-        const target: RuleExtensionTarget = { type: "rule", name: parsed.name };
         return { targets: [target] };
       });
 

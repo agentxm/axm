@@ -16,6 +16,8 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
+import { ADD_REGISTRY_SOURCE } from "../../suggested-actions.js";
+
 export type RegistryLookupProbe = {
   readonly location: string;
   readonly outcome: "matched" | "not-found" | "error";
@@ -121,8 +123,8 @@ const resolveRegistrySource = (
         detail: `No registry source is configured for owner "${owner}"`,
         suggestions: [
           {
-            description: `Add a registry source for owner "${owner}".`,
-            cmd: "axm sources add",
+            description: `Add a registry source for owner "${owner}" under \`sources\` in .axm/settings.json.`,
+            cmd: ADD_REGISTRY_SOURCE.cmd,
           },
         ],
       });

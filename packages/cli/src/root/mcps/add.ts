@@ -1,10 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -158,7 +159,7 @@ const makeInlineLockEntry = (
   headers: Readonly<Record<string, string>>,
 ): Effect.Effect<McpServerLockEntry, AppError> =>
   Effect.gen(function* () {
-    const now = new Date();
+    const now = yield* DateTime.now;
     if (Option.isSome(args.command)) {
       const commandParts = splitCommand(args.command.value);
       const command = commandParts[0];
@@ -206,19 +207,14 @@ const syncStep = (
       return { result: "success", message: `${name} is not configured` } satisfies JobStepResult;
     }
     const agentIds = yield* ws.getConfiguredAgents();
-    const outcomes = yield* Effect.forEach(
-      agentIds,
-      (agentId) =>
-        syncInlineMcpServerToAgent(agentId, {
-          workspaceRoot: ws.baseDir,
-          serverName: name,
-          entry,
-          scope: ws.scope,
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-      { concurrency: "unbounded" },
+    const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      workspaceRoot: ws.baseDir,
+      serverName: name,
+      entry,
+      scope: ws.scope,
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
     );
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";
@@ -311,10 +307,7 @@ const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => (
 
 export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* handleInstallMcpServer(
-      { source: Option.some(args.name), env: Option.none(), nonInteractive: true },
-      args,
-    );
+    return yield* handleInstallMcpServer({ source: Option.some(args.name), env: [] }, args);
   }
   if (Option.isSome(args.command) && Option.isSome(args.url)) {
     return yield* makeAppError({
@@ -351,6 +344,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
         .setMcpServer({
           name: args.name,
           lockEntry,
+          versionRange: Option.none(),
           env,
           enabled: true,
         })

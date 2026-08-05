@@ -209,20 +209,13 @@ describe("generated schemas", () => {
     expect(versionRange["examples"]).toContain(">=1 <3");
   });
 
-  it("publishes integer lockfile version constraints without special number strings", () => {
+  it("publishes only the canonical lockfile version", () => {
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
     const lockfileVersion = getProperty(getDefinition(lockSchema, "Lockfile"), "lockfileVersion");
 
-    expect(lockfileVersion["type"]).toBe("integer");
-    expect(lockfileVersion).not.toHaveProperty("anyOf");
-
-    const constraints = lockfileVersion["allOf"];
-    expect(Array.isArray(constraints)).toBe(true);
-    if (!Array.isArray(constraints) || !isRecord(constraints[0])) {
-      return;
-    }
-    expect(constraints[0]["minimum"]).toBe(1);
-    expect(constraints[0]["default"]).toBe(3);
+    expect(lockfileVersion["type"]).toBe("number");
+    expect(lockfileVersion["enum"]).toEqual([3]);
+    expect(lockfileVersion["default"]).toBe(3);
   });
 
   it("publishes common manifest field annotations", () => {
@@ -276,6 +269,12 @@ describe("generated schemas", () => {
       "skillsConfig",
       "commands",
       "commandsConfig",
+      "files",
+      "filesConfig",
+      "hooks",
+      "hooksConfig",
+      "knowledge",
+      "knowledgeConfig",
       "subagents",
       "subagentsConfig",
       "packs",

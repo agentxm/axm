@@ -12,6 +12,7 @@ import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -91,7 +92,7 @@ const makeVersionEntry = (overrides?: {
   readonly dependencies?: Record<string, string>;
 }): VersionEntry => ({
   version: exactVersion(overrides?.version ?? "1.0.0"),
-  published: overrides?.published ?? "2025-01-01T00:00:00Z",
+  published: DateTime.makeUnsafe(overrides?.published ?? "2025-01-01T00:00:00Z"),
   integrity: overrides?.integrity ?? "sha512-0000",
   ...(overrides?.dependencies === undefined
     ? {}
@@ -125,6 +126,7 @@ const makeManifest = (overrides?: {
   owner: handle(overrides?.owner ?? "@test"),
   type: overrides?.type ?? "skill",
   name: extensionName(overrides?.name ?? "my-skill"),
+  publisherBindingId: "hbnd_test",
   description: overrides?.description ?? Option.none(),
   repository: overrides?.repository ?? Option.none(),
   bugs: overrides?.bugs ?? Option.none(),
@@ -610,6 +612,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),
@@ -658,6 +662,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),
@@ -703,6 +709,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       server: { name: extensionName("my-server") },
       source: testSource,
       owner: handle("@test"),
@@ -820,6 +828,8 @@ describe("RemoteRegistrySourceHostProvider", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),

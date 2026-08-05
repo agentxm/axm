@@ -98,44 +98,43 @@ const getSupportedExtensionRefs = (
   Array.getSomes(entries.map((entry) => toExtensionRef(entry, source)));
 
 const needsIndexBackedResolution = (options: FindOptions): boolean =>
-  Option.isSome(options.versionRange) || Option.isSome(options.releaseAgePolicy ?? Option.none());
+  Option.isSome(options.versionRange) || Option.isSome(options.minimumReleaseAge ?? Option.none());
 
 const manifestFromIndex = (
   index: ExtensionIndex,
   versionRange: Option.Option<string>,
-  releaseAgePolicy: FindOptions["releaseAgePolicy"],
-): Option.Option<RegistryExtensionManifest> => {
-  const selectedVersion = resolveVersionEntryWithReleaseAge(
-    index.versions,
-    versionRange,
-    releaseAgePolicy ?? Option.none(),
-  );
-  if (Option.isNone(selectedVersion)) return Option.none();
+  minimumReleaseAge: FindOptions["minimumReleaseAge"],
+): Effect.Effect<Option.Option<RegistryExtensionManifest>> =>
+  Effect.gen(function* () {
+    const selectedVersion = yield* resolveVersionEntryWithReleaseAge(
+      index.versions,
+      versionRange,
+      minimumReleaseAge ?? Option.none(),
+    );
+    if (Option.isNone(selectedVersion)) return Option.none();
 
-  const version = selectedVersion.value;
-  const lifecycleWarnings = extensionLifecycleWarnings(index, version);
-  return Option.some({
-    owner: index.owner,
-    type: index.type,
-    name: index.name,
-    ...(index.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: index.publisherBindingId }),
-    description: Option.fromUndefinedOr(index.description),
-    repository: Option.fromUndefinedOr(index.repository),
-    bugs: Option.fromUndefinedOr(index.bugs),
-    license: Option.fromUndefinedOr(index.license),
-    authors: Option.match(Option.fromUndefinedOr(index.authors), {
-      onNone: (): ReadonlyArray<Author> => [],
-      onSome: (authors) => authors.map((author) => toAuthor(author)),
-    }),
-    dependencies: version.dependencies ?? {},
-    version: version.version,
-    integrity: version.integrity,
-    packages: packagesToPackageUrlParts(version.packages),
-    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-  } satisfies RegistryExtensionManifest);
-};
+    const version = selectedVersion.value;
+    const lifecycleWarnings = extensionLifecycleWarnings(index, version);
+    return Option.some({
+      owner: index.owner,
+      type: index.type,
+      name: index.name,
+      publisherBindingId: index.publisherBindingId,
+      description: Option.fromUndefinedOr(index.description),
+      repository: Option.fromUndefinedOr(index.repository),
+      bugs: Option.fromUndefinedOr(index.bugs),
+      license: Option.fromUndefinedOr(index.license),
+      authors: Option.match(Option.fromUndefinedOr(index.authors), {
+        onNone: (): ReadonlyArray<Author> => [],
+        onSome: (authors) => authors.map((author) => toAuthor(author)),
+      }),
+      dependencies: version.dependencies ?? {},
+      version: version.version,
+      integrity: version.integrity,
+      packages: packagesToPackageUrlParts(version.packages),
+      ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
+    } satisfies RegistryExtensionManifest);
+  });
 
 const findWithVersionRange = (
   client: RegistryClient,
@@ -165,11 +164,11 @@ const findWithVersionRange = (
                   name: entry.name,
                 })
                 .pipe(
-                  Effect.map((indexOption) =>
+                  Effect.flatMap((indexOption) =>
                     Option.match(indexOption, {
-                      onNone: () => Option.none<RegistryExtensionManifest>(),
+                      onNone: () => Effect.succeed(Option.none<RegistryExtensionManifest>()),
                       onSome: (index) =>
-                        manifestFromIndex(index, options.versionRange, options.releaseAgePolicy),
+                        manifestFromIndex(index, options.versionRange, options.minimumReleaseAge),
                     }),
                   ),
                 ),
@@ -196,14 +195,15 @@ const findWithVersionRange = (
                     decodedName === undefined
                       ? Effect.succeed(Option.none<RegistryExtensionManifest>())
                       : client.getExtensionIndex({ owner, type, name: decodedName }).pipe(
-                          Effect.map((indexOption) =>
+                          Effect.flatMap((indexOption) =>
                             Option.match(indexOption, {
-                              onNone: () => Option.none<RegistryExtensionManifest>(),
+                              onNone: () =>
+                                Effect.succeed(Option.none<RegistryExtensionManifest>()),
                               onSome: (index) =>
                                 manifestFromIndex(
                                   index,
                                   options.versionRange,
-                                  options.releaseAgePolicy,
+                                  options.minimumReleaseAge,
                                 ),
                             }),
                           ),
@@ -247,9 +247,7 @@ const toExtensionRef = (
 
   const details = {
     owner: entry.owner,
-    ...(entry.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: entry.publisherBindingId }),
+    publisherBindingId: entry.publisherBindingId,
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),

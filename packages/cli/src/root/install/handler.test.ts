@@ -49,8 +49,9 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
@@ -368,6 +369,7 @@ describe("root install handler", () => {
         "@ac/files/workspace-baseline",
         "@acme/rules/review-policy",
         "@acme/hooks/tool-audit",
+        "@acme/knowledge/handbook",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
       ] as const;
@@ -383,6 +385,7 @@ describe("root install handler", () => {
         { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "rule", source: "@acme/rules/review-policy", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
+        { type: "knowledge", source: "@acme/knowledge/handbook", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
@@ -474,6 +477,34 @@ describe("root install handler", () => {
     }),
   );
 
+  it.effect("installs configured knowledge bundles on workspace install", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        knowledge: { handbook: "workspace:@acme/knowledge/handbook" },
+      });
+      writeKnowledgeExtension(axmDir, "handbook");
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+      });
+      expect(planResultSteps(result)).toMatchObject([{ label: "knowledge", status: "applied" }]);
+    }),
+  );
+
   it.effect("dispatches source locators to convention-based install surfaces", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
@@ -508,6 +539,13 @@ describe("root install handler", () => {
         },
         { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
         { type: "hook", source: "github:acme/extensions", yes: false, force: false, preview: true },
+        {
+          type: "knowledge",
+          source: "github:acme/extensions",
+          yes: false,
+          force: false,
+          preview: true,
+        },
         {
           type: "subagent",
           source: "github:acme/extensions",

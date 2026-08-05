@@ -1,4 +1,3 @@
-import * as crypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -11,7 +10,7 @@ import {
 } from "../../commands/manifest-schema.js";
 import type { WorkspaceCommandRef } from "../../commands/refs.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
-import { computeSourceHash } from "../../extensions/rendered-files.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
 import { validatePathSafety } from "../../extensions/utils.js";
 import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../../files/manifest-schema.js";
 import type { WorkspaceFilesRef } from "../../files/refs.js";
@@ -123,43 +122,6 @@ const workspaceSourceError = (source: string, detail: string, cause?: unknown): 
     ...(cause === undefined ? {} : { cause }),
   });
 
-const computeWorkspacePackageHash = (packageDir: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const rawEntries = yield* fs.readDirectory(packageDir, { recursive: true });
-    const candidates = yield* Effect.forEach(
-      rawEntries,
-      (relativePath) =>
-        Effect.gen(function* () {
-          const absolutePath = path.join(packageDir, relativePath);
-          const info = yield* fs.stat(absolutePath);
-          return { relativePath, absolutePath, isFile: info.type === "File" };
-        }),
-      { concurrency: 16 },
-    );
-    const files = candidates.filter((candidate) => candidate.isFile);
-    files.sort((left, right) =>
-      left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
-    );
-    const hash = crypto.createHash("sha256");
-    for (const file of files) {
-      hash.update(file.relativePath);
-      hash.update("\0");
-      hash.update(yield* fs.readFile(file.absolutePath));
-      hash.update("\0");
-    }
-    return computeSourceHash(hash.digest("hex"));
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to hash workspace package at ${packageDir}`,
-        cause,
-      }),
-    ),
-  );
-
 export const resolveWorkspaceExtensionRef = (args: {
   readonly settingsName: string;
   readonly source: string;
@@ -246,7 +208,7 @@ export const resolveWorkspaceExtensionRef = (args: {
       );
     }
 
-    const sourceHash = yield* computeWorkspacePackageHash(packageDir);
+    const sourceHash = yield* computePackageContentHash(packageDir);
     const details = {
       source,
       owner: source.owner,

@@ -484,7 +484,7 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {
     "managed-tool": {
       type: "github",
@@ -690,7 +690,7 @@ export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): 
       },
     },
     axmExtensions: {
-      "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
+      "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
     },
   },
 });

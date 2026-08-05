@@ -2,7 +2,7 @@
  * `workspace/skills-lockfile-aligned` — skill lock entries correspond 1:1 to
  * declared skills at satisfying versions.
  *
- * Cascade per `docs/design/lint-engine.md §10.workspace.Skills` (first
+ * Cascade per `agentxm-internal/docs/design/lint-engine.md §10.workspace.Skills` (first
  * failing arm per affected entity):
  *
  * 1. **Missing** — every declared skill has a matching lock entry.

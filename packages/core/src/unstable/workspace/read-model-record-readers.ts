@@ -9,14 +9,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
-import type { Lockfile } from "../lockfile/index.js";
-import {
-  parseExtensionFqnParts,
-  type ExtensionName,
-  type InstallableExtensionType,
-} from "../extensions/index.js";
+import type { InstallableExtensionType } from "../extensions/index.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { expandGlob } from "../utils/index.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
 import {
   projectExtensionInventory,
@@ -30,11 +26,6 @@ import { deriveSourceMetaFromLockType } from "./source-metadata.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 type WorkspaceManagedExtensionType = InstallableExtensionType;
-
-const createInventoryEmptyLockfile = (): Lockfile => ({
-  lockfileVersion: 1,
-  skills: {},
-});
 
 type ReadScopedContext = <A>(
   f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
@@ -57,6 +48,7 @@ export const makeReadModelRecordReaders = (args: {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly readScopedContext: ReadScopedContext;
+  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
 }): ReadModelRecordReaders => {
   const packagingKindForSource = (
     type: WorkspaceManagedExtensionType,
@@ -144,7 +136,8 @@ export const makeReadModelRecordReaders = (args: {
     return {
       key: row.key,
       lifecycle: row.installationOrigin._tag === "direct" ? "configured" : "implicit",
-      activation: row.activation,
+      enabled: row.activation === "enabled",
+      installed: row.actual.length > 0,
       agents: observedAgents.length === 0 ? defaultAgents : observedAgents,
       origins: observations.origins,
       paths: observations.paths,
@@ -157,7 +150,8 @@ export const makeReadModelRecordReaders = (args: {
   }): LifecycleInventoryCandidate => ({
     key: row.key,
     lifecycle: "unmanaged",
-    activation: null,
+    enabled: null,
+    installed: true,
     ...observationFromActual(row.actual),
   });
 
@@ -178,13 +172,6 @@ export const makeReadModelRecordReaders = (args: {
     };
   };
 
-  const implicitCandidate = (key: ExtensionKey): LifecycleInventoryCandidate => ({
-    key,
-    lifecycle: "implicit",
-    activation: "enabled",
-    agents: [],
-  });
-
   const ignoredPatternsFor = (
     settings: ReturnType<typeof createDefaultSettings>,
     type: WorkspaceManagedExtensionType,
@@ -201,109 +188,39 @@ export const makeReadModelRecordReaders = (args: {
       case "pack":
         return settings.packsConfig?.ignore ?? [];
       case "files":
-      case "rule":
+        return settings.filesConfig?.ignore ?? [];
       case "hook":
+        return settings.hooksConfig?.ignore ?? [];
       case "knowledge":
+        return settings.knowledgeConfig?.ignore ?? [];
+      // RulesConfig carries instruction-file options only; rules have no ignore list.
+      case "rule":
         return [];
     }
   };
 
-  const lifecycleFromPackageMaps = (input: {
-    readonly scope: WorkspaceReadModel["scope"];
-    readonly type: "files" | "hook";
-    readonly configured: Readonly<Record<string, { readonly enabled: boolean }>>;
-    readonly locked: Readonly<Record<string, unknown>>;
-    readonly packMembers: ReadonlyArray<ExtensionName>;
-    readonly actual: ReadonlyArray<unknown>;
-  }): ReadonlyArray<LifecycleInventoryCandidate> => {
-    const configuredNames = new Set(Object.keys(input.configured));
-    const lockedNames = new Set(Object.keys(input.locked));
-    const configured = Object.entries(input.configured).map(
-      ([name, entry]): LifecycleInventoryCandidate => ({
-        key: { scope: input.scope, type: input.type, name },
-        lifecycle: "configured",
-        activation: entry.enabled ? "enabled" : "disabled",
-      }),
-    );
-    const implicit = [
-      ...Object.entries(input.locked)
-        .filter(([name]) => !configuredNames.has(name))
-        .map(([name]) => implicitCandidate({ scope: input.scope, type: input.type, name })),
-      ...input.packMembers
-        .filter((name) => !configuredNames.has(name) && !lockedNames.has(name))
-        .map((name) => implicitCandidate({ scope: input.scope, type: input.type, name })),
-    ];
-    const actual = input.actual.flatMap((observation) => {
-      if (typeof observation !== "object" || observation === null || !("key" in observation)) {
-        return [];
-      }
-      const key = observation.key;
-      if (
-        typeof key !== "object" ||
-        key === null ||
-        !("name" in key) ||
-        typeof key.name !== "string"
-      ) {
-        return [];
-      }
-      return [
-        {
-          key: { scope: input.scope, type: input.type, name: key.name },
-          lifecycle: "unmanaged",
-          activation: null,
-          ...observationFromActual(observation),
-        } satisfies LifecycleInventoryCandidate,
-      ];
-    });
-    return [...configured, ...implicit, ...actual];
-  };
-
-  const resolvedRowToImplicit = (
+  const desiredPackMemberNames = (
+    graph: DesiredStateGraph,
     type: WorkspaceManagedExtensionType,
-    row: { readonly name: string; readonly lockEntry: { readonly type: string } },
-  ): Option.Option<ReadModelRecordRow> =>
-    deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind === "native"
-      ? Option.some({
-          type,
-          name: row.name,
-          source: Option.none(),
-          enabled: true,
-          packagingKind: "native",
-          lifecycle: "implicit",
-        })
-      : Option.none();
+  ): ReadonlyArray<string> =>
+    [
+      ...new Set(
+        graph.nodes
+          .filter(
+            (node) => node.type === type && node.origins.some((origin) => origin.type === "pack"),
+          )
+          .map((node) => node.name),
+      ),
+    ].sort();
 
-  const packMemberNames = (
-    packs: ReadonlyArray<{
-      readonly lockEntry: {
-        readonly resolvedSkills?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedCommands?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedMcpServers?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedSubagents?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedFiles?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedRules?: Readonly<Record<string, unknown>> | undefined;
-        readonly resolvedHooks?: Readonly<Record<string, unknown>> | undefined;
-      };
-    }>,
-    key:
-      | "resolvedSkills"
-      | "resolvedCommands"
-      | "resolvedMcpServers"
-      | "resolvedSubagents"
-      | "resolvedFiles"
-      | "resolvedRules"
-      | "resolvedHooks",
-  ): ReadonlyArray<ExtensionName> => {
-    const names: Array<ExtensionName> = [];
-    for (const pack of packs) {
-      const resolved = pack.lockEntry[key] ?? {};
-      for (const fqn of Object.keys(resolved)) {
-        const parsed = parseExtensionFqnParts(fqn);
-        if (parsed !== undefined) names.push(parsed.name);
-      }
-    }
-    return [...new Set(names)].sort();
-  };
+  const getDesiredPackMemberNames = (
+    type: WorkspaceManagedExtensionType,
+  ): Effect.Effect<ReadonlyArray<string>, AppError> =>
+    type === "pack"
+      ? Effect.succeed([])
+      : args
+          .getDesiredStateGraph()
+          .pipe(Effect.map((graph) => desiredPackMemberNames(graph, type)));
 
   const packMemberToImplicit = (
     type: WorkspaceManagedExtensionType,
@@ -367,12 +284,6 @@ export const makeReadModelRecordReaders = (args: {
     lifecycle: "unmanaged",
   });
 
-  type ResolvedReadModelRecordInput = {
-    readonly name: string;
-    readonly keyName?: string;
-    readonly lockEntry: { readonly type: string };
-  };
-
   type UnmanagedReadModelRecordInput = {
     readonly key: { readonly name: string };
     readonly actual: { readonly contentRoot?: string | null };
@@ -392,193 +303,177 @@ export const makeReadModelRecordReaders = (args: {
         | { readonly _tag: "pack-member"; readonly member: TPackMember };
       readonly activation: "enabled" | "disabled";
       readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+      readonly actual: ReadonlyArray<{ readonly contentRoot?: string | null }>;
     }>;
-    readonly resolved: Option.Option<ReadonlyArray<ResolvedReadModelRecordInput>>;
     readonly unmanaged: ReadonlyArray<UnmanagedReadModelRecordInput>;
     readonly ignored: ReadonlyArray<string>;
-    readonly packMemberNames?: ReadonlyArray<ExtensionName>;
+    readonly packMemberNames: ReadonlyArray<string>;
   }): ReadonlyArray<ReadModelRecordRow> => {
-    const claimed = new Set<string>(input.installed.map((row) => row.key.name));
-    const directImplicit = Option.getOrElse(input.resolved, () => [])
-      .filter((row) => !claimed.has(row.name))
-      .map((row) => ({ ...row, name: row.keyName ?? row.name }))
-      .filter((row) => !claimed.has(row.name) && !isIgnoredName(input.ignored, row.name))
-      .flatMap((row) => Option.getOrElse(resolvedRowToImplicit(input.type, row), () => []));
-    const packImplicit = (input.packMemberNames ?? [])
-      .filter((name) => !claimed.has(name) && !isIgnoredName(input.ignored, name))
+    const desiredPackMembers = new Set(input.packMemberNames);
+    const acceptedInstalled = input.installed.filter(
+      (row) => row.installationOrigin._tag === "direct" || desiredPackMembers.has(row.key.name),
+    );
+    const installedNames = new Set(acceptedInstalled.map((row) => row.key.name));
+    const implicitRows = input.packMemberNames
+      .filter((name) => !installedNames.has(name))
       .map((name) => packMemberToImplicit(input.type, name));
+    const stalePackActuals = input.installed
+      .filter(
+        (row) =>
+          row.installationOrigin._tag === "pack-member" && !desiredPackMembers.has(row.key.name),
+      )
+      .flatMap((row) => row.actual.map((actual) => ({ key: row.key, actual })));
 
     return [
-      ...input.installed.map((row) => installedRowToReadModelRecordRow(input.type, row)),
-      ...directImplicit,
-      ...packImplicit,
-      ...input.unmanaged
-        .filter((row) => !isIgnoredName(input.ignored, row.key.name))
+      ...acceptedInstalled.map((row) => installedRowToReadModelRecordRow(input.type, row)),
+      ...implicitRows,
+      ...[...input.unmanaged, ...stalePackActuals]
+        .filter(
+          (row) =>
+            !desiredPackMembers.has(row.key.name) && !isIgnoredName(input.ignored, row.key.name),
+        )
         .map((row) => unmanagedRowToReadModelRecordRow(input.type, row)),
     ];
   };
 
   const getReadModelRecordRows = (type: WorkspaceManagedExtensionType) =>
-    args.readScopedContext((scoped) =>
-      Effect.gen(function* () {
-        switch (type) {
-          case "skill": {
-            const settings = yield* scoped.state.settings;
-            const installed = yield* scoped.skills.installed;
-            const resolved = yield* scoped.skills.resolved;
-            const unmanaged = yield* scoped.skills.unmanaged;
-            const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).skillsConfig?.ignore ?? [];
-            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
+    Effect.gen(function* () {
+      const packMemberNames = yield* getDesiredPackMemberNames(type);
+      return yield* args.readScopedContext((scoped) =>
+        Effect.gen(function* () {
+          switch (type) {
+            case "skill": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.skills.installed;
+              const unmanaged = yield* scoped.skills.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).skillsConfig?.ignore ??
+                [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "command": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.commands.installed;
+              const unmanaged = yield* scoped.commands.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).commandsConfig?.ignore ??
+                [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "mcp-server": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.mcpServers.installed;
+              const unmanaged = yield* scoped.mcpServers.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).mcpServersConfig
+                  ?.ignore ?? [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "pack": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.packs.installed;
+              const unmanaged = yield* scoped.packs.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).packsConfig?.ignore ?? [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "subagent": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.subagents.installed;
+              const unmanaged = yield* scoped.subagents.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).subagentsConfig?.ignore ??
+                [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "files": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.files.installed;
+              const unmanaged = yield* scoped.files.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).filesConfig?.ignore ?? [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "rule": {
+              const installed = yield* scoped.rules.installed;
+              const unmanaged = yield* scoped.rules.unmanaged;
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored: [],
+                packMemberNames,
+              });
+            }
+            case "hook": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.hooks.installed;
+              const unmanaged = yield* scoped.hooks.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).hooksConfig?.ignore ?? [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
+            case "knowledge": {
+              const settings = yield* scoped.state.settings;
+              const installed = yield* scoped.knowledge.installed;
+              const unmanaged = yield* scoped.knowledge.unmanaged;
+              const ignored =
+                Option.getOrElse(settings, () => createDefaultSettings()).knowledgeConfig?.ignore ??
+                [];
+              return collectReadModelRecordRows({
+                type,
+                installed,
+                unmanaged,
+                ignored,
+                packMemberNames,
+              });
+            }
           }
-          case "command": {
-            const settings = yield* scoped.state.settings;
-            const installed = yield* scoped.commands.installed;
-            const resolved = yield* scoped.commands.resolved;
-            const packs = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.commands.unmanaged;
-            const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).commandsConfig?.ignore ??
-              [];
-            return collectReadModelRecordRows({
-              type,
-              installed,
-              resolved,
-              unmanaged,
-              ignored,
-              packMemberNames: packMemberNames(
-                Option.getOrElse(packs, () => []),
-                "resolvedCommands",
-              ),
-            });
-          }
-          case "mcp-server": {
-            const settings = yield* scoped.state.settings;
-            const installed = yield* scoped.mcpServers.installed;
-            const resolved = yield* scoped.mcpServers.resolved;
-            const unmanaged = yield* scoped.mcpServers.unmanaged;
-            const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).mcpServersConfig?.ignore ??
-              [];
-            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
-          }
-          case "pack": {
-            const settings = yield* scoped.state.settings;
-            const installed = yield* scoped.packs.installed;
-            const resolved = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.packs.unmanaged;
-            const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).packsConfig?.ignore ?? [];
-            return collectReadModelRecordRows({ type, installed, resolved, unmanaged, ignored });
-          }
-          case "subagent": {
-            const settings = yield* scoped.state.settings;
-            const installed = yield* scoped.subagents.installed;
-            const resolved = yield* scoped.subagents.resolved;
-            const packs = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.subagents.unmanaged;
-            const ignored =
-              Option.getOrElse(settings, () => createDefaultSettings()).subagentsConfig?.ignore ??
-              [];
-            return collectReadModelRecordRows({
-              type,
-              installed,
-              resolved,
-              unmanaged,
-              ignored,
-              packMemberNames: packMemberNames(
-                Option.getOrElse(packs, () => []),
-                "resolvedSubagents",
-              ),
-            });
-          }
-          case "files": {
-            const installed = yield* scoped.files.installed;
-            const resolved = yield* scoped.files.resolved;
-            const packs = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.files.unmanaged;
-            return collectReadModelRecordRows({
-              type,
-              installed,
-              resolved,
-              unmanaged,
-              ignored: [],
-              packMemberNames: packMemberNames(
-                Option.getOrElse(packs, () => []),
-                "resolvedFiles",
-              ),
-            });
-          }
-          case "rule": {
-            const installed = yield* scoped.rules.installed;
-            const resolved = yield* scoped.rules.resolved;
-            const packs = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.rules.unmanaged;
-            return collectReadModelRecordRows({
-              type,
-              installed,
-              resolved,
-              unmanaged,
-              ignored: [],
-              packMemberNames: packMemberNames(
-                Option.getOrElse(packs, () => []),
-                "resolvedRules",
-              ),
-            });
-          }
-          case "hook": {
-            const settingsOption = yield* scoped.state.settings;
-            const lockfileOption = yield* scoped.state.lockfile;
-            const packs = yield* scoped.packs.resolved;
-            const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
-            const configured = settings.hooks ?? {};
-            const locked = Option.match(lockfileOption, {
-              onNone: () => ({}),
-              onSome: (lockfile) => lockfile.hooks ?? {},
-            });
-            const configuredNames = new Set(Object.keys(configured));
-            const lockedEntries = Object.entries(locked);
-            const lockedByName = new Map(lockedEntries);
-            const configuredRows = Object.entries(configured).map(
-              ([name, entry]): ReadModelRecordRow => {
-                const lockEntry = lockedByName.get(name);
-                return {
-                  type,
-                  name,
-                  source: entry.source,
-                  enabled: entry.enabled,
-                  packagingKind: packagingKindForResolved(
-                    Option.fromUndefinedOr(lockEntry === undefined ? undefined : { lockEntry }),
-                    type,
-                    entry.source,
-                  ),
-                  lifecycle: "configured",
-                };
-              },
-            );
-            const lockedRows = lockedEntries.flatMap(([name, lockEntry]) => {
-              if (configuredNames.has(name)) return [];
-              return Option.getOrElse(
-                resolvedRowToImplicit(type, {
-                  name,
-                  lockEntry,
-                }),
-                () => [],
-              );
-            });
-            const packRows = packMemberNames(
-              Option.getOrElse(packs, () => []),
-              "resolvedHooks",
-            )
-              .filter((name) => !configuredNames.has(name))
-              .map((name) => packMemberToImplicit(type, name));
-            return [...configuredRows, ...lockedRows, ...packRows];
-          }
-          case "knowledge":
-            return [];
-        }
-      }),
-    );
+        }),
+      );
+    });
 
   const projectStandardInventory = (input: {
     readonly scope: WorkspaceReadModel["scope"];
@@ -606,19 +501,54 @@ export const makeReadModelRecordReaders = (args: {
     readonly includeIgnored: boolean;
     readonly agents: ReadonlyArray<string>;
     readonly configuredAgents: ReadonlyArray<string>;
+    readonly packMemberNames: ReadonlyArray<string>;
   }): ExtensionInventory => {
-    const claimed = new Set(input.installed.map((row) => row.key.name));
     const ignoredPatterns = new Set(input.ignoredPatterns);
-    const resolved = input.resolved
-      .filter((row) => !claimed.has(row.name) && !isIgnoredName(input.ignoredPatterns, row.name))
-      .map((row) => implicitCandidate({ scope: input.scope, type: input.type, name: row.name }));
+    const desiredPackMembers = new Set(input.packMemberNames);
+    const acceptedInstalled = input.installed.filter(
+      (row) => row.installationOrigin._tag === "direct" || desiredPackMembers.has(row.key.name),
+    );
+    const installedNames = new Set(acceptedInstalled.map((row) => row.key.name));
+    const desiredUnmanaged = input.unmanaged.filter((row) => desiredPackMembers.has(row.key.name));
+    const desiredUnmanagedNames = new Set(desiredUnmanaged.map((row) => row.key.name));
+    const implicitMissing = input.packMemberNames
+      .filter((name) => !installedNames.has(name) && !desiredUnmanagedNames.has(name))
+      .map((name): LifecycleInventoryCandidate => ({
+        key: {
+          scope: input.scope,
+          type: input.type,
+          name,
+        },
+        lifecycle: "implicit",
+        enabled: true,
+        installed: false,
+        agents: input.configuredAgents,
+        origins: [],
+        paths: [],
+      }));
+    const implicitObserved = desiredUnmanaged.map((row) => ({
+      ...lifecycleCandidateFromUnmanaged(row),
+      lifecycle: "implicit" as const,
+      enabled: true,
+    }));
+    const stalePackActuals = input.installed
+      .filter(
+        (row) =>
+          row.installationOrigin._tag === "pack-member" && !desiredPackMembers.has(row.key.name),
+      )
+      .flatMap((row) => row.actual.map((actual) => ({ key: row.key, actual })));
+
     return projectExtensionInventory({
       lifecycle: [
-        ...input.installed.map((row) =>
+        ...acceptedInstalled.map((row) =>
           lifecycleCandidateFromInstalled(row, input.configuredAgents),
         ),
-        ...resolved,
-        ...input.unmanaged.map(lifecycleCandidateFromUnmanaged),
+        ...implicitObserved,
+        ...implicitMissing,
+        ...input.unmanaged
+          .filter((row) => !desiredPackMembers.has(row.key.name))
+          .map(lifecycleCandidateFromUnmanaged),
+        ...stalePackActuals.map(lifecycleCandidateFromUnmanaged),
       ],
       ignored: input.ignored.map((row) => ignoredCandidate(row, input.configuredAgents)),
       ignoredPatterns,
@@ -634,189 +564,191 @@ export const makeReadModelRecordReaders = (args: {
       readonly agents?: ReadonlyArray<string>;
     },
   ) =>
-    args.readScopedContext((scoped) =>
-      Effect.gen(function* () {
-        const settingsOption = yield* scoped.state.settings;
-        const lockfileOption = yield* scoped.state.lockfile;
-        const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
-        const lockfile = Option.getOrElse(lockfileOption, createInventoryEmptyLockfile);
-        const ignoredPatterns = ignoredPatternsFor(settings, type);
-        const agents = options.agents ?? [];
+    Effect.gen(function* () {
+      const packMemberNames = yield* getDesiredPackMemberNames(type);
+      return yield* args.readScopedContext((scoped) =>
+        Effect.gen(function* () {
+          const settingsOption = yield* scoped.state.settings;
+          const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
+          const ignoredPatterns = ignoredPatternsFor(settings, type);
+          const agents = options.agents ?? [];
 
-        switch (type) {
-          case "skill": {
-            const installed = yield* scoped.skills.installed;
-            const resolved = yield* scoped.skills.resolved;
-            const unmanaged = yield* scoped.skills.unmanaged;
-            const ignored = yield* scoped.skills.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "command": {
-            const installed = yield* scoped.commands.installed;
-            const resolved = yield* scoped.commands.resolved;
-            const unmanaged = yield* scoped.commands.unmanaged;
-            const ignored = yield* scoped.commands.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "mcp-server": {
-            const installed = yield* scoped.mcpServers.installed;
-            const resolved = yield* scoped.mcpServers.resolved;
-            const unmanaged = yield* scoped.mcpServers.unmanaged;
-            const ignored = yield* scoped.mcpServers.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "subagent": {
-            const installed = yield* scoped.subagents.installed;
-            const resolved = yield* scoped.subagents.resolved;
-            const unmanaged = yield* scoped.subagents.unmanaged;
-            const ignored = yield* scoped.subagents.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "pack": {
-            const installed = yield* scoped.packs.installed;
-            const resolved = yield* scoped.packs.resolved;
-            const unmanaged = yield* scoped.packs.unmanaged;
-            const ignored = yield* scoped.packs.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "rule": {
-            const installed = yield* scoped.rules.installed;
-            const resolved = yield* scoped.rules.resolved;
-            const unmanaged = yield* scoped.rules.unmanaged;
-            const ignored = yield* scoped.rules.ignored;
-            return projectStandardInventory({
-              scope: scoped.scope,
-              type,
-              installed,
-              resolved: Option.getOrElse(resolved, () => []),
-              unmanaged,
-              ignored,
-              ignoredPatterns,
-              includeIgnored: options.includeIgnored,
-              agents,
-              configuredAgents: settings.agents ?? [],
-            });
-          }
-          case "files": {
-            const packs = yield* scoped.packs.resolved;
-            const actual = yield* scoped.files.actual;
-            return projectExtensionInventory({
-              lifecycle: lifecycleFromPackageMaps({
+          switch (type) {
+            case "skill": {
+              const installed = yield* scoped.skills.installed;
+              const resolved = yield* scoped.skills.resolved;
+              const unmanaged = yield* scoped.skills.unmanaged;
+              const ignored = yield* scoped.skills.ignored;
+              return projectStandardInventory({
                 scope: scoped.scope,
                 type,
-                configured: settings.files ?? {},
-                locked: lockfile.files ?? {},
-                packMembers: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedFiles",
-                ),
-                actual,
-              }),
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
-              agents,
-            });
-          }
-          case "hook": {
-            const packs = yield* scoped.packs.resolved;
-            const canonical = yield* scoped.canonicalExtensions;
-            const actual = canonical
-              .filter((occurrence) => occurrence.type === "hook")
-              .map((occurrence) => ({
-                key: { scope: scoped.scope, type: "hook", name: occurrence.name },
-                origin: {
-                  _tag:
-                    occurrence.origin === "canonical-axm"
-                      ? "canonical-axm-hook"
-                      : "external-axm-hook",
-                },
-                contentRoot: occurrence.contentLocation,
-              }));
-            return projectExtensionInventory({
-              lifecycle: lifecycleFromPackageMaps({
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "command": {
+              const installed = yield* scoped.commands.installed;
+              const resolved = yield* scoped.commands.resolved;
+              const unmanaged = yield* scoped.commands.unmanaged;
+              const ignored = yield* scoped.commands.ignored;
+              return projectStandardInventory({
                 scope: scoped.scope,
                 type,
-                configured: settings.hooks ?? {},
-                locked: lockfile.hooks ?? {},
-                packMembers: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedHooks",
-                ),
-                actual,
-              }),
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
-              agents,
-            });
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "mcp-server": {
+              const installed = yield* scoped.mcpServers.installed;
+              const resolved = yield* scoped.mcpServers.resolved;
+              const unmanaged = yield* scoped.mcpServers.unmanaged;
+              const ignored = yield* scoped.mcpServers.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "subagent": {
+              const installed = yield* scoped.subagents.installed;
+              const resolved = yield* scoped.subagents.resolved;
+              const unmanaged = yield* scoped.subagents.unmanaged;
+              const ignored = yield* scoped.subagents.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "pack": {
+              const installed = yield* scoped.packs.installed;
+              const resolved = yield* scoped.packs.resolved;
+              const unmanaged = yield* scoped.packs.unmanaged;
+              const ignored = yield* scoped.packs.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "rule": {
+              const installed = yield* scoped.rules.installed;
+              const resolved = yield* scoped.rules.resolved;
+              const unmanaged = yield* scoped.rules.unmanaged;
+              const ignored = yield* scoped.rules.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "files": {
+              const installed = yield* scoped.files.installed;
+              const resolved = yield* scoped.files.resolved;
+              const unmanaged = yield* scoped.files.unmanaged;
+              const ignored = yield* scoped.files.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "hook": {
+              const installed = yield* scoped.hooks.installed;
+              const resolved = yield* scoped.hooks.resolved;
+              const unmanaged = yield* scoped.hooks.unmanaged;
+              const ignored = yield* scoped.hooks.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
+            case "knowledge": {
+              const installed = yield* scoped.knowledge.installed;
+              const resolved = yield* scoped.knowledge.resolved;
+              const unmanaged = yield* scoped.knowledge.unmanaged;
+              const ignored = yield* scoped.knowledge.ignored;
+              return projectStandardInventory({
+                scope: scoped.scope,
+                type,
+                installed,
+                resolved: Option.getOrElse(resolved, () => []),
+                unmanaged,
+                ignored,
+                ignoredPatterns,
+                includeIgnored: options.includeIgnored,
+                agents,
+                configuredAgents: settings.agents ?? [],
+                packMemberNames,
+              });
+            }
           }
-          case "knowledge":
-            return projectExtensionInventory({
-              lifecycle: [],
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
-              agents,
-            });
-        }
-      }),
-    );
+        }),
+      );
+    });
 
   return { getReadModelRecordRows, getExtensionInventory };
 };

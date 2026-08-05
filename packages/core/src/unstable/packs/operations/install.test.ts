@@ -9,11 +9,12 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import type { ExtensionRef } from "../../extensions/index.js";
+import { computePackageContentHash, type ExtensionRef } from "../../extensions/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {
   WorkspaceMutations,
+  type SetPackArgs,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
@@ -34,6 +35,7 @@ const makePackRef = () => ({
     owner: Option.none(),
   },
   owner: handle("@acme"),
+  publisherBindingId: "hbnd_test",
   name: extensionName("frontend-pack"),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
@@ -48,6 +50,8 @@ const makeOp = (): InstallPackOperation => ({
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-test",
     sourceName: "default",
+
+    publisherBindingId: "hbnd_test",
     resolvedSkills: {},
     resolvedCommands: {},
     resolvedMcpServers: {},
@@ -173,7 +177,10 @@ describe("installPack", () => {
       args: {
         ...makeOp().args,
         resolvedSkills: {
-          "@acme/skills/code-review": exactVersion("1.0.0"),
+          "@acme/skills/code-review": {
+            version: exactVersion("1.0.0"),
+            publisherBindingId: "hbnd_test",
+          },
         },
       },
     };
@@ -208,12 +215,24 @@ describe("installPack", () => {
       ),
     );
 
+    let writtenPack: SetPackArgs | undefined;
     return Effect.gen(function* () {
       const result = yield* installPack(makeOp());
+      const expectedSourceHash = yield* computePackageContentHash(packDir);
 
       expect(result.result).toBe("success");
       expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
-    }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));
+      expect(writtenPack).toMatchObject({ sourceHash: expectedSourceHash });
+    }).pipe(
+      Effect.provide(
+        withServices(projectDir, packSourceDir, {
+          setPack: (args) =>
+            Effect.sync(() => {
+              writtenPack = args;
+            }),
+        }),
+      ),
+    );
   });
 
   it.effect("returns metadata update warning in result without raw warning logs", () => {

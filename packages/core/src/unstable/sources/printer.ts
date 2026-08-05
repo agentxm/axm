@@ -51,8 +51,11 @@ export const printSourceParams = (source: SourceParams): string => {
       return azurereposPrint(source);
     case "local":
       return localPrint(source);
-    case "git":
-      return source.url.href;
+    case "git": {
+      const url = new URL(source.url.href);
+      url.hash = Option.getOrElse(source.ref, () => "");
+      return url.href;
+    }
     case "registry": {
       return "registry";
     }

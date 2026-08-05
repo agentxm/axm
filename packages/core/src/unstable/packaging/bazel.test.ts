@@ -15,7 +15,7 @@ const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
-/** Create a temp dir, write MODULE.bazel/WORKSPACE, run detector, clean up. */
+/** Create a temp dir, write MODULE.bazel, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -82,66 +82,6 @@ describe("bazelDetector", () => {
     );
   });
 
-  describe("WORKSPACE http_archive rules", () => {
-    it.effect("extracts from http_archive", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const workspace = [
-            'http_archive(name = "io_bazel_rules_go", urls = ["..."])',
-            'http_archive(name = "bazel_gazelle", urls = ["..."])',
-          ].join("\n");
-          const result = yield* detectInTempDir({ WORKSPACE: workspace });
-          expect(result).toHaveLength(2);
-          const names = result.map((r) => r.purl.name);
-          expect(names).toContain("io_bazel_rules_go");
-          expect(names).toContain("bazel_gazelle");
-        }),
-      ),
-    );
-
-    it.effect("WORKSPACE entries are versionless", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const workspace = 'http_archive(name = "io_bazel_rules_go")';
-          const result = yield* detectInTempDir({ WORKSPACE: workspace });
-          expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(makePurl({ type: "bazel", name: "io_bazel_rules_go" }));
-        }),
-      ),
-    );
-  });
-
-  describe("git_repository rules", () => {
-    it.effect("extracts from git_repository", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const workspace =
-            'git_repository(name = "com_google_protobuf", remote = "https://github.com/protocolbuffers/protobuf")';
-          const result = yield* detectInTempDir({ WORKSPACE: workspace });
-          expect(result).toHaveLength(1);
-          expect(result[0]?.purl.name).toBe("com_google_protobuf");
-        }),
-      ),
-    );
-  });
-
-  describe("deduplication across MODULE.bazel and WORKSPACE", () => {
-    it.effect("deduplicates by name", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const moduleBazel = 'bazel_dep(name = "rules_go", version = "0.41.0")';
-          const workspace = 'http_archive(name = "rules_go")';
-          const result = yield* detectInTempDir({
-            "MODULE.bazel": moduleBazel,
-            WORKSPACE: workspace,
-          });
-          const rulesGoEntries = result.filter((r) => r.purl.name === "rules_go");
-          expect(rulesGoEntries).toHaveLength(1);
-        }),
-      ),
-    );
-  });
-
   describe("missing MODULE.bazel", () => {
     it.effect("returns empty array when no MODULE.bazel", () =>
       withNodeContext(
@@ -159,29 +99,6 @@ describe("bazelDetector", () => {
         Effect.gen(function* () {
           const moduleBazel = 'module(name = "myproject")';
           const result = yield* detectInTempDir({ "MODULE.bazel": moduleBazel });
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
-  describe("missing WORKSPACE", () => {
-    it.effect("returns empty array when no WORKSPACE", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
-  describe("no recognized repository rules", () => {
-    it.effect("returns empty array when no repository rules", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const workspace = "# Empty workspace\n";
-          const result = yield* detectInTempDir({ WORKSPACE: workspace });
           expect(result).toEqual([]);
         }),
       ),

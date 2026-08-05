@@ -49,7 +49,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {}, subagents: {} }),
+    YAML.stringify({ lockfileVersion: 3, skills: {}, subagents: {} }),
   );
 };
 
@@ -262,7 +262,7 @@ describe("subagents install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
       }),
     );
   });

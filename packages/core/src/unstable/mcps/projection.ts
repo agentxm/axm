@@ -5,6 +5,7 @@
  */
 
 import type {
+  McpActivationField,
   McpEnvExpansion,
   McpRemoteDialect,
   McpStdioDialect,
@@ -40,11 +41,13 @@ export interface ProjectExpectedEntryArgs {
   readonly entry: McpServerEntry;
   readonly stdio: McpStdioDialect | null;
   readonly remote: McpRemoteDialect | null;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion?: McpEnvExpansion | undefined;
 }
 
-const ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}$/;
+const ENV_REF_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/;
+const FULL_ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+const BEARER_ENV_REF_RE = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
 const DEFAULT_ENV_EXPANSION: McpEnvExpansion = {
   variables: "none",
   defaults: false,
@@ -55,15 +58,26 @@ const addInlineTypeField = (
   typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
   transport: "stdio" | InlineRemoteTransport,
 ): void => {
-  if (typeField === null) return;
-  if (typeof typeField.value === "string") {
-    entry[typeField.name] = typeField.value;
+  const required = typeField.required;
+  if (required === null) return;
+  if (typeof required.value === "string") {
+    entry[required.name] = required.value;
     return;
   }
   if (transport !== "stdio") {
-    const value = typeField.value[transport];
-    if (value !== undefined) entry[typeField.name] = value;
+    const value = required.value[transport];
+    if (value !== undefined) entry[required.name] = value;
   }
+};
+
+const addActivationField = (
+  entry: Record<string, unknown>,
+  activationField: McpActivationField,
+  enabled: boolean,
+): void => {
+  const required = activationField.required;
+  if (required === null) return;
+  entry[required.name] = enabled ? required.enabled : required.disabled;
 };
 
 export const inferInlineRemoteTransport = (url: string): InlineRemoteTransport => {
@@ -126,13 +140,79 @@ const projectEnvRecord = (args: {
   return { values, warnings };
 };
 
+const projectRemoteHeaders = (args: {
+  readonly values: Readonly<Record<string, string>>;
+  readonly dialect: McpRemoteDialect;
+  readonly envExpansion: McpEnvExpansion;
+}): {
+  readonly literal: Readonly<Record<string, string>>;
+  readonly env: Readonly<Record<string, string>>;
+  readonly bearerTokenEnv: string | undefined;
+  readonly warnings: ReadonlyArray<string>;
+} => {
+  const literal: Record<string, string> = {};
+  const env: Record<string, string> = {};
+  const warnings: Array<string> = [];
+  let bearerTokenEnv: string | undefined;
+
+  for (const [name, value] of Object.entries(args.values)) {
+    if (args.envExpansion.variables !== "none") {
+      const rendered = renderEnvValue(value, args.envExpansion);
+      literal[name] = rendered.value;
+      if (rendered.warning !== undefined) {
+        warnings.push(`headers.${name}: ${rendered.warning}`);
+      }
+      continue;
+    }
+
+    const bearerMatch =
+      name.toLowerCase() === "authorization" ? BEARER_ENV_REF_RE.exec(value) : null;
+    const bearerVariable = bearerMatch?.[1];
+    if (bearerVariable !== undefined) {
+      if (args.dialect.bearerTokenEnvKey !== undefined && args.dialect.bearerTokenEnvKey !== null) {
+        bearerTokenEnv = bearerVariable;
+      } else {
+        warnings.push(
+          `headers.${name}: cannot project environment reference \${${bearerVariable}} for this agent`,
+        );
+      }
+      continue;
+    }
+
+    const envMatch = FULL_ENV_REF_RE.exec(value);
+    const envVariable = envMatch?.[1];
+    if (envVariable !== undefined) {
+      if (args.dialect.envHeadersKey !== undefined && args.dialect.envHeadersKey !== null) {
+        env[name] = envVariable;
+      } else {
+        warnings.push(
+          `headers.${name}: cannot project environment reference \${${envVariable}} for this agent`,
+        );
+      }
+      continue;
+    }
+
+    const rendered = renderEnvValue(value, args.envExpansion);
+    if (rendered.warning === undefined) {
+      literal[name] = rendered.value;
+    } else {
+      const reference = ENV_REF_RE.exec(value)?.[0] ?? value;
+      warnings.push(
+        `headers.${name}: cannot project environment reference ${reference} for this agent`,
+      );
+    }
+  }
+
+  return { literal, env, bearerTokenEnv, warnings };
+};
+
 const projectInlineStdio = (args: {
   readonly dialect: McpStdioDialect;
   readonly command: string;
   readonly commandArgs: ReadonlyArray<string>;
   readonly env: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
 }): {
@@ -149,7 +229,7 @@ const projectInlineStdio = (args: {
     field: "env",
   });
   addInlineTypeField(entry, args.dialect.typeField, "stdio");
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   if (args.dialect.command === "array") {
     entry["command"] = invocation;
   } else {
@@ -167,7 +247,7 @@ const projectInlineRemote = (args: {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
 }):
@@ -190,16 +270,30 @@ const projectInlineRemote = (args: {
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
   };
-  const headers = projectEnvRecord({
+  const headers = projectRemoteHeaders({
     values: args.headers,
+    dialect: args.dialect,
     envExpansion: args.envExpansion,
-    field: "headers",
   });
   addInlineTypeField(entry, args.dialect.typeField, transport);
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   entry[urlKey] = args.url;
-  if (Object.keys(headers.values).length > 0 && args.dialect.headersKey !== null) {
-    entry[args.dialect.headersKey] = headers.values;
+  if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey !== null) {
+    entry[args.dialect.headersKey] = headers.literal;
+  }
+  if (
+    headers.bearerTokenEnv !== undefined &&
+    args.dialect.bearerTokenEnvKey !== undefined &&
+    args.dialect.bearerTokenEnvKey !== null
+  ) {
+    entry[args.dialect.bearerTokenEnvKey] = headers.bearerTokenEnv;
+  }
+  if (
+    Object.keys(headers.env).length > 0 &&
+    args.dialect.envHeadersKey !== undefined &&
+    args.dialect.envHeadersKey !== null
+  ) {
+    entry[args.dialect.envHeadersKey] = headers.env;
   }
   return { entry, warnings: headers.warnings };
 };
@@ -219,7 +313,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       commandArgs: args.entry.args ?? [],
       env: args.entry.env,
       enabled: args.entry.enabled,
-      nativeEnabled: args.nativeEnabled,
+      activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
     });
@@ -231,9 +325,13 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
   }
   if (args.entry.url !== undefined) {
     if (args.remote === null) {
+      const headerRecovery =
+        Object.keys(args.entry.headers ?? {}).length === 0
+          ? ""
+          : ' Preserve required headers by appending `--header "Header:${ENV_VAR}"` to the shim command and pass `ENV_VAR` with `--env ENV_VAR`.';
       return {
         _tag: "unsupported",
-        reason: "agent does not support inline remote MCP servers",
+        reason: `this agent cannot project inline URL entries; use the supported stdio shim instead: \`axm mcps add ${args.serverName} --command "npx -y mcp-remote ${args.entry.url}"\`.${headerRecovery}`,
       };
     }
     const projected = projectInlineRemote({
@@ -241,7 +339,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       url: args.entry.url,
       headers: args.entry.headers ?? {},
       enabled: args.entry.enabled,
-      nativeEnabled: args.nativeEnabled,
+      activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
     });

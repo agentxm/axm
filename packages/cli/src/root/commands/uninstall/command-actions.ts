@@ -98,7 +98,10 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const lockEntries = yield* Effect.forEach(
           intent.targets,
-          (target) => ws.getLockedCommand(target.name),
+          (target) =>
+            ws
+              .getLockedCommand(target.name)
+              .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
           { concurrency: "inherit" },
         );
 

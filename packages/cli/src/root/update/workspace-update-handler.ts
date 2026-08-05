@@ -34,12 +34,15 @@ export const handleWorkspaceUpdate = (args: {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceUpdateFlags;
+  /** Installed names a selector resolved to; omit to update every entry. */
+  readonly names?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const planResult = yield* buildWorkspaceUpdatePlan({
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
+      ...(args.names === undefined ? {} : { names: args.names }),
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {

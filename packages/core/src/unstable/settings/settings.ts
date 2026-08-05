@@ -10,7 +10,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
+import { writeFileAtomic } from "../utils/index.js";
+import {
+  SETTINGS_KEY_ORDER,
+  SETTINGS_KNOWN_KEYS,
+  type Settings,
+  SettingsSchema,
+} from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -56,6 +62,9 @@ const settingsConfigKeys = new Set([
   "subagentsConfig",
   "packsConfig",
   "mcpServersConfig",
+  "filesConfig",
+  "hooksConfig",
+  "knowledgeConfig",
 ]);
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -64,19 +73,29 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
   if (!settingsConfigKeys.has(key) || !isRecord(value)) return false;
   if (key === "rulesConfig") return value["instructions"] === undefined;
-  const ignore = value["ignore"];
-  return ignore === undefined || (Array.isArray(ignore) && ignore.length === 0);
+  return Object.values(value).every(
+    (field) => field === undefined || (Array.isArray(field) && field.length === 0),
+  );
 };
 
 const orderSettingsRecord = (
   settings: Readonly<Record<string, unknown>>,
-): Record<string, unknown> =>
-  SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((ordered, key) => {
+): Record<string, unknown> => {
+  const ordered = SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((accumulated, key) => {
     const value = settings[key];
     return value === undefined || isEmptySettingsConfig(key, value)
-      ? ordered
-      : { ...ordered, [key]: value };
+      ? accumulated
+      : { ...accumulated, [key]: value };
   }, {});
+  // Unknown top-level keys are preserved after the canonical keys, in their
+  // original relative order, so a write never discards data it did not create.
+  for (const [key, value] of Object.entries(settings)) {
+    if (!SETTINGS_KNOWN_KEYS.has(key) && value !== undefined) {
+      ordered[key] = value;
+    }
+  }
+  return ordered;
+};
 
 export const orderSettingsKeys = (settings: Settings): Settings =>
   decodeSettingsSync(orderSettingsRecord(encodeSettingsSync(settings)));
@@ -129,25 +148,17 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
-    const tempPath = `${settingsPath}.${process.pid}.tmp`;
-    yield* Effect.gen(function* () {
-      yield* fs.writeFileString(tempPath, content).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write settings temp file: ${tempPath}`,
-            cause: error,
-          }),
-        ),
-      );
-      yield* fs.rename(tempPath, settingsPath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to atomically replace settings file: ${settingsPath}`,
-            cause: error,
-          }),
-        ),
-      );
-    }).pipe(Effect.ensuring(fs.remove(tempPath).pipe(Effect.ignore)));
+    yield* writeFileAtomic(fs, {
+      targetPath: settingsPath,
+      content,
+      mapError: (failure) =>
+        makeAppError({
+          code: "internal",
+          detail:
+            failure.step === "rename"
+              ? `Failed to atomically replace settings file: ${settingsPath}`
+              : `Failed to write settings temp file: ${failure.tempPath}`,
+          cause: failure.cause,
+        }),
+    });
   });

@@ -11,7 +11,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+import { computePackageContentHashSync, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -39,6 +40,7 @@ const initWorkspace = (
     packs: configuredPacks,
     lockfileSkills,
     lockfilePacks: opts?.lockfilePacks,
+    writeTrustFromLockfile: true,
   });
 };
 
@@ -173,6 +175,7 @@ describe("disable.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -257,12 +260,31 @@ describe("disable.handler", () => {
   // Transitive skill disable (direct entry promotion)
   // ---------------------------------------------------------------------------
 
-  describe("implicit skill disable (lockfile-only entry promotion)", () => {
+  describe("implicit skill disable (pack-derived entry promotion)", () => {
     it.effect("creates direct entry when disabling implicit skill", () => {
       const { provide, logs } = makeLayers();
-      // Implicit skill: in lockfile but not in settings, with native (registry) type
+      const axmDir = path.join(tempDir, ".axm");
+      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "code-review");
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# code-review");
+
+      const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "starter-pack",
+          version: "1.0.0",
+          dependencies: {
+            "@acme/skills/code-review": "^1.0.0",
+          },
+        }),
+      );
+
       initWorkspace(
-        path.join(tempDir, ".axm"),
+        axmDir,
         {},
         {
           "code-review": {
@@ -272,12 +294,40 @@ describe("disable.handler", () => {
             resolvedVersion: "1.2.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            sourceHash: computeSourceHash("SKILL.md\n# code-review"),
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
         },
         ["claude-code"],
+        {
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+          lockfilePacks: {
+            "starter-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              publisherBindingId: "hbnd_test",
+              sourceHash: computePackageContentHashSync(packDir),
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              resolvedSkills: {
+                "@acme/skills/code-review": {
+                  version: "1.2.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+              resolvedSubagents: {},
+            },
+          },
+        },
       );
 
       return provide(
@@ -294,7 +344,7 @@ describe("disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toEqual({
-            source: "@acme/skills/code-review",
+            source: "@acme/skills/code-review@^1.0.0",
             enabled: false,
           });
         }),

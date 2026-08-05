@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -41,14 +42,14 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; mcpServers: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       mcpServers: {},
     };
     for (const [k, v] of Object.entries(mcpServers)) {
       lockfile.mcpServers[k] = {
         ...v,
-        installedAt: v.installedAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        installedAt: DateTime.formatIso(v.installedAt),
+        updatedAt: DateTime.formatIso(v.updatedAt),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -68,8 +69,6 @@ const makeWorkspaceMock = (
               mcpServers = rest;
               writeToDisk();
             }),
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 
@@ -134,12 +133,14 @@ const makeRegistryLockEntryYaml = (name = "my-server") => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
 
 const writeLockfileYaml = (axmDir: string, mcpServers: Record<string, unknown>) => {
-  const lockfile = { lockfileVersion: 1, mcpServers };
+  const lockfile = { lockfileVersion: 3, mcpServers };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
@@ -199,14 +200,10 @@ describe("uninstallMcpServer", () => {
         }
         expect(result.message).toContain("Uninstalled my-server");
         expect(result.artifact).toMatchObject({
-          path: ".axm/extensions/@community/mcps/my-server",
+          path: ".axm (config/lockfile)",
           scope: "project",
-          version: "1.0.0",
           change: "removed",
-          targets: [
-            { path: ".axm/extensions/@community/mcps/my-server", change: "removed" },
-            { path: ".axm (config/lockfile)", change: "removed" },
-          ],
+          targets: [{ path: ".axm (config/lockfile)", change: "removed" }],
         });
         expect(fs.existsSync(canonicalPath)).toBe(false);
       }),
@@ -249,7 +246,7 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("canonical directory already missing", () => {
-    it.effect("still removes lockfile entry when canonical dir is missing", () =>
+    it.effect("ignores a stale receipt when canonical content is missing", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace({ createCanonical: false });
         const removeMcpServerFn = vi.fn((_name: string) => Effect.void);
@@ -259,8 +256,8 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toContain("Uninstalled my-server");
-        expect(removeMcpServerFn).toHaveBeenCalledOnce();
+        expect(result.message).toBe("not installed");
+        expect(removeMcpServerFn).not.toHaveBeenCalled();
       }),
     );
   });

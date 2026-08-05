@@ -96,7 +96,7 @@ export const codexAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://learn.chatgpt.com/docs/extend/mcp"],
+        sources: ["https://developers.openai.com/codex/mcp/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -108,11 +108,14 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp_servers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -126,18 +129,19 @@ export const codexAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
               },
               headersKey: "http_headers",
+              bearerTokenEnvKey: "bearer_token_env_var",
+              envHeadersKey: "env_http_headers",
             },
-            transform: "codex-toml",
           },
         },
       },
@@ -157,41 +161,6 @@ export const codexAgent = {
       axm: {
         status: "supported",
         lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -337,6 +306,27 @@ export const codexAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

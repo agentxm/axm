@@ -4,10 +4,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
@@ -17,13 +19,13 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
-  formatFqn,
   markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import type { MaterializedFileTarget, RuleLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -33,13 +35,14 @@ import {
   stripManagedRegion,
 } from "../managed-files/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { ExtensionManager, RuleExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredRule } from "../workspace/configured-entry-resolution/index.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -63,39 +66,49 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryRuleLockEntry = (ref: RegistryRuleRef, now: Date): RuleLockEntry => ({
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
+const registryRuleLockEntry = (
+  ref: RegistryRuleRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): RuleLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const gitRuleLockEntry = (ref: GitHostedRuleRef, now: Date): RuleLockEntry => {
-  const common = {
-    ...commonLockFields(now),
-  };
-
-  return {
-    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-    ...common,
-  };
-};
+const gitRuleLockEntry = (
+  ref: GitHostedRuleRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): RuleLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
+});
 
 const localRuleLockEntry = (
   ref: LocalRuleRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  sourceHash: SourceHash | undefined,
 ): RuleLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const workspaceRuleLockEntry = (ref: WorkspaceRuleRef, now: Date): RuleLockEntry => ({
+const workspaceRuleLockEntry = (ref: WorkspaceRuleRef, now: DateTime.Utc): RuleLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "rule",
@@ -139,42 +152,48 @@ export const RuleManagerLive = Layer.effect(
         readonly ref: RuleExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
-    const materializeFromRegistry = (ref: RegistryRuleRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+    const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
+      Effect.gen(function* () {
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            RULE_EXTENSION_DIR,
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "rule",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical rule package path exists: ${canonicalPath}`,
-            integrityMismatchCode: "network",
-            integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry rule install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create registry rule directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
-            copyEntryFailureCode: "internal",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry rule package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              RULE_EXTENSION_DIR,
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "rule",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            force,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical rule package path exists: ${canonicalPath}`,
+              integrityMismatchCode: "network",
+              integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry rule install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create registry rule directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
+              copyEntryFailureCode: "internal",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry rule package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
       provide(
@@ -193,11 +212,11 @@ export const RuleManagerLive = Layer.effect(
         }),
       );
 
-    const materializePackage = (ref: RuleExtensionRef) =>
+    const materializePackage = (ref: RuleExtensionRef, force = false) =>
       Effect.gen(function* () {
         switch (ref.refType) {
           case "registry":
-            return yield* materializeFromRegistry(ref);
+            return yield* materializeFromRegistry(ref, force);
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
@@ -417,8 +436,8 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
-    )(function* ({ ref }) {
-      const packageRoot = yield* materializePackage(ref);
+    )(function* ({ ref, force }) {
+      const packageRoot = yield* materializePackage(ref, force === true);
       yield* readManifest(packageRoot);
 
       const workspaceRelativeLocalSourcePath =
@@ -433,55 +452,62 @@ export const RuleManagerLive = Layer.effect(
       }
 
       const materializedTarget = yield* writeRulesRegion({ include: { ref, packageRoot } });
+      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.rule.name, {
         ref,
         materializedTargets: [materializedTarget],
         workspaceRelativeLocalSourcePath,
+        sourceHash,
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: RuleExtensionRef): Effect.Effect<RuleLockEntry, never> => {
-      const state = lastInstallState.get(ref.rule.name);
-      const now = new Date();
-      switch (ref.refType) {
-        case "registry":
-          return Effect.succeed(registryRuleLockEntry(ref, now));
-        case "git-hosted":
-          return Effect.succeed(gitRuleLockEntry(ref, now));
-        case "local":
-          return Effect.succeed(
-            localRuleLockEntry(ref, now, state?.workspaceRelativeLocalSourcePath ?? Option.none()),
-          );
-        case "workspace":
-          return Effect.succeed(workspaceRuleLockEntry(ref, now));
-      }
-    };
+    const buildLockEntry = (ref: RuleExtensionRef): Effect.Effect<RuleLockEntry, never> =>
+      Effect.gen(function* () {
+        const state = lastInstallState.get(ref.rule.name);
+        const now = yield* DateTime.now;
+        switch (ref.refType) {
+          case "registry":
+            return registryRuleLockEntry(ref, now, state?.sourceHash);
+          case "git-hosted":
+            return gitRuleLockEntry(ref, now, state?.sourceHash);
+          case "local":
+            return localRuleLockEntry(
+              ref,
+              now,
+              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+              state?.sourceHash,
+            );
+          case "workspace":
+            return workspaceRuleLockEntry(ref, now);
+        }
+      });
 
     const materializeUninstall: ExtensionManager<RuleExtensionRef>["materializeUninstall"] =
       Effect.fn("RuleManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const locked = yield* ws.getLockedRuleEntry(target.name);
-        if (Option.isNone(locked)) return;
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "rule",
+            name: target.name,
+          }),
+        );
         yield* writeRulesRegion({ excludeName: target.name });
-        if (preserveSource !== true) {
-          const packageRoot =
-            locked.value.type === "registry" || locked.value.type === "workspace"
-              ? path.join(
-                  baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  locked.value.owner,
-                  RULE_EXTENSION_DIR,
-                  locked.value.name,
-                )
-              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, RULE_EXTENSION_DIR, target.name);
-          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        const packageRoot = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(packageRoot)) {
+          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
 
     return {
       type: "rule",
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: RuleExtensionTarget }) =>
-        ws.getLockedRuleEntry(target.name).pipe(
-          Effect.map((locked) => Option.isSome(locked)),
+        isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),
         ),
 
@@ -511,16 +537,16 @@ export const RuleManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const source =
-          ref.refType === "registry"
-            ? (() => {
-                const fqn = formatFqn({ owner: ref.owner, type: "rule", name: ref.rule.name });
-                return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-              })()
-            : printSourceParams(lockEntryToSourceParams(lockEntry));
-        yield* ws.setRuleEntry(ref.rule.name, {
-          source,
-          enabled: true,
+        if (lockEntry.type === "registry") {
+          yield* validateExactResolvedVersion(
+            `rules.${ref.rule.name}.resolvedVersion`,
+            lockEntry.resolvedVersion,
+          );
+        }
+        yield* ws.setRule({
+          name: ref.rule.name,
+          lockEntry,
+          versionRange,
         });
       }),
 
@@ -528,12 +554,8 @@ export const RuleManagerLive = Layer.effect(
         yield* ws.removeRuleSettings(target.name);
       }),
 
-      upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({
-        ref,
-        retainedByPack,
-      }) {
-        const entry = yield* buildLockEntry(ref);
-        const lockEntry = retainedByPack === undefined ? entry : { ...entry, retainedByPack };
+      upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({ ref }) {
+        const lockEntry = yield* buildLockEntry(ref);
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `rules.${ref.rule.name}.resolvedVersion`,
@@ -550,6 +572,7 @@ export const RuleManagerLive = Layer.effect(
       removeLockfileEntry: Effect.fn("RuleManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeRuleLock(target.name);
       }),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("rule", target.name),
     };
   }),
 );

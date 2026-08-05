@@ -396,7 +396,7 @@ describe("makeScopedStateApi.settings", () => {
 // Lockfile cell
 // ---------------------------------------------------------------------------
 
-const validLockfileYaml = ["lockfileVersion: 1", "skills: {}", ""].join("\n");
+const validLockfileYaml = ["lockfileVersion: 3", "skills: {}", ""].join("\n");
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -428,7 +428,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(1);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(3);
     }),
   );
 

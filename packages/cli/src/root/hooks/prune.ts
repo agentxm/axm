@@ -1,6 +1,7 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type {
   JobStepArtifact,
@@ -30,7 +31,7 @@ const makePrunePlan = (
   _tag: "Plan",
   name: "Prune hooks lock entries",
   description: Option.some(
-    `Remove ${staleEntries.length} stale hooks lock ${staleEntries.length === 1 ? "entry" : "entries"}`,
+    `Remove ${staleEntries.length} stale hooks lock ${staleEntries.length === 1 ? "entry" : "entries"}. Run with --yes to remove.`,
   ),
   jobs: [
     {
@@ -50,7 +51,11 @@ const makePrunePlan = (
   ],
 });
 
-export const handleHookPrune = Effect.fn("HookPrune.handle")(function* () {
+export interface HookPruneFlags {
+  readonly yes: boolean;
+}
+
+export const handleHookPrune = Effect.fn("HookPrune.handle")(function* (flags: HookPruneFlags) {
   const ws = yield* WorkspaceMutations;
   const configured = yield* ws.getConfiguredHookEntries();
   const locked = yield* ws.getLockedHooks();
@@ -66,7 +71,7 @@ export const handleHookPrune = Effect.fn("HookPrune.handle")(function* () {
   }
 
   const resolution = yield* previewOrApplyLocalPlan(makePrunePlan(stale, ws), {
-    preview: false,
+    preview: !flags.yes,
     displayApplied: false,
   });
   yield* emitAppliedPlanOutcome({
@@ -81,17 +86,22 @@ const pruneConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Prune project (default) or user-level hooks lock entries"),
   ),
+  yes: yesFlag.pipe(Flag.withDescription("Remove stale lock entries without confirmation")),
 } as const;
 
-export const pruneCommand = Command.make("prune", pruneConfig, ({ scope }) =>
-  handleHookPrune().pipe(withWorkspace(scope), withRuntime("hooks prune")),
+export const pruneCommand = Command.make("prune", pruneConfig, ({ scope, yes }) =>
+  handleHookPrune({ yes }).pipe(withWorkspace(scope), withRuntime("hooks prune")),
 ).pipe(
   withArgvTracking(pruneConfig),
   Command.withDescription("Prune stale hooks lock entries"),
   Command.withExamples([
     {
       command: "axm hooks prune",
-      description: "Prune stale hooks lock entries",
+      description: "Preview stale hooks lock entries that would be removed",
+    },
+    {
+      command: "axm hooks prune --yes",
+      description: "Remove stale hooks lock entries",
     },
   ]),
 );

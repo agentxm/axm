@@ -31,7 +31,7 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["-vv"])).toBe("debug");
   });
 
-  it("last flag wins among verbosity flags: -q -v remains quiet", () => {
+  it("quiet wins when combined with the reserved -v version flag", () => {
     expect(resolveVerbosityFromArgv(["-q", "-v"])).toBe("quiet");
   });
 
@@ -39,8 +39,9 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["-v", "-q"])).toBe("quiet");
   });
 
-  it("last flag wins: -q --debug returns debug", () => {
-    expect(resolveVerbosityFromArgv(["-q", "--debug"])).toBe("debug");
+  it("quiet wins over debug regardless of order", () => {
+    expect(resolveVerbosityFromArgv(["-q", "--debug"])).toBe("quiet");
+    expect(resolveVerbosityFromArgv(["--debug", "--quiet"])).toBe("quiet");
   });
 
   it("scans flags after -- (they are in raw argv)", () => {

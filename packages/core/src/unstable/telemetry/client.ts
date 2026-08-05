@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import * as os from "node:os";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
@@ -107,55 +108,54 @@ export const makeTelemetryClient = (
     const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) => {
       if (options.mode === "errors") return Effect.void;
 
-      const now = new Date().toISOString();
-      const payload = {
-        events: [
-          {
-            event,
-            distinctId,
-            timestamp: now,
-            properties: properties ?? {},
-          },
-        ],
-        sentAt: now,
-        context,
-      };
+      return Effect.gen(function* () {
+        const now = DateTime.formatIso(yield* DateTime.now);
+        const payload = {
+          events: [
+            {
+              event,
+              distinctId,
+              timestamp: now,
+              properties: properties ?? {},
+            },
+          ],
+          sentAt: now,
+          context,
+        };
 
-      return fireAndForget(client.EventsIngest({ payload })).pipe(
-        Effect.withSpan("TelemetryClient.trackEvent"),
-      );
+        return yield* fireAndForget(client.EventsIngest({ payload }));
+      }).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
     };
 
     // Uses swallowFailure (not fireAndForget) so error reports complete before process exit.
-    const reportError: TelemetryClientService["reportError"] = (error) => {
-      const now = new Date().toISOString();
-      const payload = {
-        errors: [
-          {
-            message: error.message,
-            name: error.name,
-            ...(error.details !== undefined && error.details.length > 0
-              ? { details: error.details }
-              : {}),
+    const reportError: TelemetryClientService["reportError"] = (error) =>
+      Effect.gen(function* () {
+        const now = DateTime.formatIso(yield* DateTime.now);
+        const payload = {
+          errors: [
+            {
+              message: error.message,
+              name: error.name,
+              ...(error.details !== undefined && error.details.length > 0
+                ? { details: error.details }
+                : {}),
+            },
+          ],
+          level: error.level,
+          errorClass: error.errorClass,
+          handled: error.handled,
+          tags: {
+            errorCode: error.name,
+            ...(error.category !== undefined ? { errorCategory: error.category } : {}),
           },
-        ],
-        level: error.level,
-        errorClass: error.errorClass,
-        handled: error.handled,
-        tags: {
-          errorCode: error.name,
-          ...(error.category !== undefined ? { errorCategory: error.category } : {}),
-        },
-        fingerprint: [error.name],
-        user: { id: distinctId },
-        sentAt: now,
-        context: { ...context, command: error.command || options.command },
-      };
+          fingerprint: [error.name],
+          user: { id: distinctId },
+          sentAt: now,
+          context: { ...context, command: error.command || options.command },
+        };
 
-      return swallowFailure(client.ErrorsIngest({ payload })).pipe(
-        Effect.withSpan("TelemetryClient.reportError"),
-      );
-    };
+        return yield* swallowFailure(client.ErrorsIngest({ payload }));
+      }).pipe(Effect.withSpan("TelemetryClient.reportError"));
 
     return { trackEvent, reportError };
   });

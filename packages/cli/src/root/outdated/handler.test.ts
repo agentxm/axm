@@ -67,6 +67,41 @@ const currentPack: ExtensionCurrencyEntry = makeEntry({
   type: "pack",
 });
 
+const updateAvailableCurrency = (latest: string) => ({
+  status: "update-available" as const,
+  installedVersion: v("1.0.0"),
+  latestMatching: Option.some(v(latest)),
+  latestAvailable: v(latest),
+});
+
+const outdatedFiles: ExtensionCurrencyEntry = makeEntry({
+  ref: "@acme/files/baseline",
+  type: "files",
+  installedVersion: v("1.0.0"),
+  currency: updateAvailableCurrency("1.2.0"),
+});
+
+const outdatedRule: ExtensionCurrencyEntry = makeEntry({
+  ref: "@acme/rules/api-conventions",
+  type: "rule",
+  installedVersion: v("1.0.0"),
+  currency: updateAvailableCurrency("1.3.0"),
+});
+
+const outdatedHook: ExtensionCurrencyEntry = makeEntry({
+  ref: "@acme/hooks/block-secrets",
+  type: "hook",
+  installedVersion: v("1.0.0"),
+  currency: updateAvailableCurrency("1.4.0"),
+});
+
+const outdatedKnowledge: ExtensionCurrencyEntry = makeEntry({
+  ref: "@acme/knowledge/payments",
+  type: "knowledge",
+  installedVersion: v("1.0.0"),
+  currency: updateAvailableCurrency("1.5.0"),
+});
+
 const changedSourceSkill: ExtensionSourceFreshnessEntry = {
   kind: "source-freshness",
   ref: "skills/find-skills",
@@ -115,6 +150,10 @@ describe("outdated handler", () => {
           expect(JSON.stringify(rendererState.results[1]?.data)).not.toContain(
             "@acme/packs/frontend",
           );
+          expect(rendererState.spinnerMessages).toEqual([
+            "Checking extension updates",
+            "Checked extension updates",
+          ]);
         }),
       ),
     );
@@ -192,7 +231,7 @@ describe("outdated handler", () => {
           });
           expect(doc).toEqual(
             expect.objectContaining({
-              data: expect.arrayContaining([
+              items: expect.arrayContaining([
                 expect.objectContaining({
                   kind: "registry-version",
                   ref: "@acme/skills/code-review",
@@ -230,7 +269,7 @@ describe("outdated handler", () => {
           expect(rendererState.results).toHaveLength(1);
           expect(rendererState.results[0]?.data).toMatchObject({
             count: 0,
-            data: [],
+            items: [],
           });
           expectNoPlanEnvelope(rendererState.results[0]?.data);
           expect(rendererState.suggestions).toEqual([INSTALL_EXTENSION_FROM_REGISTRY]);
@@ -251,6 +290,66 @@ describe("outdated handler", () => {
             count: 1,
             summary: "1 extension has updates available.",
           });
+        }),
+      ),
+    );
+  });
+
+  it.effect("renders rows for files, rule, hook, and knowledge extensions", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
+
+    return handleOutdatedWith({ type: Option.none() }, () =>
+      Effect.succeed([outdatedFiles, outdatedRule, outdatedHook, outdatedKnowledge]),
+    ).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 4,
+            items: expect.arrayContaining([
+              expect.objectContaining({ extension: "@acme/files/baseline", latest: "1.2.0" }),
+              expect.objectContaining({
+                extension: "@acme/rules/api-conventions",
+                latest: "1.3.0",
+              }),
+              expect.objectContaining({
+                extension: "@acme/hooks/block-secrets",
+                latest: "1.4.0",
+              }),
+              expect.objectContaining({
+                extension: "@acme/knowledge/payments",
+                latest: "1.5.0",
+              }),
+            ]),
+            summary: "4 extensions have updates available.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("emits files, rule, hook, and knowledge rows in machine mode", () => {
+    const { baseLayer, rendererState } = makeCliTestContext({ machine: true });
+
+    return handleOutdatedWith({ type: Option.none() }, () =>
+      Effect.succeed([outdatedFiles, outdatedRule, outdatedHook, outdatedKnowledge]),
+    ).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          const doc = rendererState.results[0]?.data;
+          expect(doc).toMatchObject({ count: 4 });
+          expect(doc).toEqual(
+            expect.objectContaining({
+              items: expect.arrayContaining([
+                expect.objectContaining({ ref: "@acme/files/baseline", type: "files" }),
+                expect.objectContaining({ ref: "@acme/rules/api-conventions", type: "rule" }),
+                expect.objectContaining({ ref: "@acme/hooks/block-secrets", type: "hook" }),
+                expect.objectContaining({ ref: "@acme/knowledge/payments", type: "knowledge" }),
+              ]),
+            }),
+          );
+          expectNoPlanEnvelope(doc);
         }),
       ),
     );

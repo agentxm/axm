@@ -33,6 +33,7 @@ rules.
 - `packages/core/src/unstable/lint/issues-to-findings.ts` — schema-delegation
   helper
 - [Testing Guide](./testing.md) — fixture conventions, Effect test patterns
+- [Workspace State](./workspace-state.md) — authority boundaries for workspace diagnostics and autofixes
 - [Effect Errors Guide](./effect-errors.md) — error channel conventions for
   `check` / `fix`
 

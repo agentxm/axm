@@ -1,7 +1,7 @@
 /**
  * `workspace/initialized` — `.axm/` and `.axm/settings.json` both exist.
  *
- * Per `docs/design/lint-engine.md §10.workspace` "Foundation" row:
+ * Per `agentxm-internal/docs/design/lint-engine.md §10.workspace` "Foundation" row:
  *
  *   WorkspaceMutations bootstrap invariant. Absorbs doctor `workspace-ready.*` checks.
  *

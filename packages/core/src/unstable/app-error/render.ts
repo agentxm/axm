@@ -1,6 +1,12 @@
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { type AppError, effectiveSuggestionsFor } from "./app-error.js";
 import { serializeErrorCauseChain } from "./cause-chain.js";
+import {
+  collectSensitiveStrings,
+  redactSensitiveText,
+  redactSensitiveValue,
+  redactSuggestedAction,
+} from "./secret-redaction.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
@@ -23,25 +29,34 @@ const getRequestId = (error: AppError): string | undefined =>
 const getRegistryUrl = (error: AppError): string | undefined =>
   error.metadata?.request?.service === "registry" ? error.metadata.request.url : undefined;
 
-const formatRegistryLocation = (url: string): string => {
+const formatRegistryLocation = (url: string, secrets: ReadonlyArray<string>): string => {
   try {
-    return new URL(url).origin;
+    return redactSensitiveText(new URL(url).origin, { secrets });
   } catch {
-    return url;
+    return redactSensitiveText(url, { secrets });
   }
 };
 
-const formatRegistryRequest = (error: AppError): string | undefined => {
+const formatRegistryRequest = (
+  error: AppError,
+  secrets: ReadonlyArray<string>,
+): string | undefined => {
   const request = error.metadata?.request;
   if (request === undefined || request.service !== "registry") {
     return undefined;
   }
-  return request.method === undefined ? request.url : `${request.method} ${request.url}`;
+  return redactSensitiveText(
+    request.method === undefined ? request.url : `${request.method} ${request.url}`,
+    { secrets },
+  );
 };
 
-const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
+const formatResponseBody = (
+  body: unknown,
+  secrets: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
   try {
-    return JSON.stringify(body, null, 2).split("\n");
+    return JSON.stringify(redactSensitiveValue(body, { secrets }), null, 2).split("\n");
   } catch {
     return ["[unserializable response body]"];
   }
@@ -61,11 +76,15 @@ const formatSuggestedActionTarget = (suggestion: SuggestedAction): string => {
  * Render suggested next actions with the same text shape as the CLI renderer's
  * `Next:` block: one action per line, optional command/URL inline.
  */
-const formatSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): ReadonlyArray<string> => {
+const formatSuggestions = (
+  suggestions: ReadonlyArray<SuggestedAction>,
+  secrets: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
   if (suggestions.length === 0) return [];
 
   const lines: Array<string> = ["Next:"];
-  for (const suggestion of suggestions) {
+  for (const rawSuggestion of suggestions) {
+    const suggestion = redactSuggestedAction(rawSuggestion, secrets);
     const target = formatSuggestedActionTarget(suggestion);
     lines.push(
       target.length === 0
@@ -79,8 +98,9 @@ const formatSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): Readonl
 const formatCause = (
   cause: unknown,
   options: { readonly verbose: boolean; readonly debug: boolean },
+  secrets: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
-  const chain = serializeErrorCauseChain(cause, { debug: options.debug });
+  const chain = serializeErrorCauseChain(cause, { debug: options.debug, secrets });
   return chain.flatMap((item) => {
     const code = item.code === undefined ? "" : ` (${item.code})`;
     const lines = [`Cause: ${item._tag}: ${item.message}${code}`];
@@ -96,45 +116,46 @@ export const renderAppError = (
   options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
 ): string => {
   const lines: Array<string> = [];
+  const secrets = collectSensitiveStrings(error.metadata);
 
-  lines.push(`\u2716  ${error.detail} (${error.code})`);
+  lines.push(`\u2716  ${redactSensitiveText(error.detail, { secrets })} (${error.code})`);
 
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
 
   if (registryUrl !== undefined) {
-    lines.push(`  Registry: ${formatRegistryLocation(registryUrl)}`);
+    lines.push(`  Registry: ${formatRegistryLocation(registryUrl, secrets)}`);
   }
 
   if (options.verbose || options.debug) {
-    lines.push(`  Title: ${error.title}`);
+    lines.push(`  Title: ${redactSensitiveText(error.title, { secrets })}`);
 
-    const registryRequest = formatRegistryRequest(error);
+    const registryRequest = formatRegistryRequest(error, secrets);
     if (registryRequest !== undefined) {
       lines.push(`  Request: ${registryRequest}`);
     }
 
     if (requestId !== undefined) {
-      lines.push(`  Request ID: ${requestId}`);
+      lines.push(`  Request ID: ${redactSensitiveText(requestId, { secrets })}`);
     }
 
     const responseBody = error.metadata?.response?.body;
     if (responseBody !== undefined) {
       lines.push("  Response:");
-      for (const line of formatResponseBody(responseBody)) {
+      for (const line of formatResponseBody(responseBody, secrets)) {
         lines.push(`    ${line}`);
       }
     }
   } else if (error.code === "internal" && requestId !== undefined) {
-    lines.push(`  Request ID: ${requestId}`);
+    lines.push(`  Request ID: ${redactSensitiveText(requestId, { secrets })}`);
   }
 
-  for (const line of formatSuggestions(effectiveSuggestionsFor(error))) {
+  for (const line of formatSuggestions(effectiveSuggestionsFor(error), secrets)) {
     lines.push(line);
   }
 
   if (options.verbose || options.debug) {
-    for (const line of formatCause(error.cause, options)) {
+    for (const line of formatCause(error.cause, options, secrets)) {
       lines.push(`  ${line}`);
     }
   } else if (error.cause !== undefined && error.cause !== null) {
@@ -151,9 +172,9 @@ export const renderDefect = (error: unknown): string => {
   lines.push("  This is a bug. Please report it at https://github.com/agentxm/axm/issues");
 
   if (error instanceof Error) {
-    lines.push(`  ${error.message}`);
+    lines.push(`  ${redactSensitiveText(error.message)}`);
   } else if (typeof error === "string") {
-    lines.push(`  ${error}`);
+    lines.push(`  ${redactSensitiveText(error)}`);
   }
 
   return lines.join("\n");

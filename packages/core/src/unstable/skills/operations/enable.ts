@@ -1,9 +1,8 @@
 /**
  * Enable skill executor — re-creates agent symlinks for a previously disabled skill.
  *
- * Two paths:
- * - Lock entry present: full enable (materialize artifacts + settings)
- * - No lock entry: settings-only toggle (configured skill with no lock backing)
+ * Enabling requires usable trusted canonical content. Receipts are not consulted:
+ * they are optional post-success history, not an input to lifecycle decisions.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,6 +30,7 @@ import {
   capabilityRenderTargetForAgentId,
   materializeCapabilityTargetedBuild,
 } from "../../capability-targeting/index.js";
+import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -49,15 +49,9 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
 /**
  * Enable-skill operation handler.
  *
- * Lock-backed path:
- * 1. Read configured agents, lock entry
- * 2. Compute canonical path via getSkillDir (uses lockfile)
- * 3. Verify canonical directory exists
- * 4. Create agent symlinks (concurrent)
- * 5. Update settings entry to set enabled: true
- *
- * Settings-only path (no lock entry):
- * 1. Update settings entry to set enabled: true
+ * 1. Resolve usable canonical content from desired state, trust, and observation.
+ * 2. Create agent artifacts.
+ * 3. Update settings to set enabled: true.
  */
 export const enableSkill: OperationHandler<
   EnableSkillOperation,
@@ -75,35 +69,15 @@ export const enableSkill: OperationHandler<
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
 
-    // Check for lock entry to determine path
-    const lockEntry = yield* ws.getLockedSkill(op.args.skillName);
-
-    // Settings-only path: no lock entry, just toggle enabled flag
-    if (Option.isNone(lockEntry)) {
-      yield* ws
-        .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
-        .pipe(Effect.catch(() => Effect.void));
-
-      return {
-        result: "success",
-        message: `Enabled ${op.args.skillName}`,
-      } satisfies JobStepResult;
-    }
-
-    // Lock-backed path: full enable with symlinks
-    const sanitizedName = sanitizeName(op.args.skillName);
-    const materializationAgents =
-      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
-        Effect.provideService(WorkspaceMutations, ws),
-      );
-
-    const { skillSrcPath } = yield* ws.getSkillDir(op.args.skillName);
-
-    const exists = yield* fs.exists(skillSrcPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
+    const canonical = yield* usableTrustedCanonicalObservation({
+      workspace: ws,
+      type: "skill",
+      name: op.args.skillName,
+    });
+    if (Option.isNone(canonical)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
+        detail: `Trusted skill content for "${op.args.skillName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the skill.",
@@ -112,6 +86,14 @@ export const enableSkill: OperationHandler<
         ],
       });
     }
+
+    const sanitizedName = sanitizeName(op.args.skillName);
+    const materializationAgents =
+      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
+        Effect.provideService(WorkspaceMutations, ws),
+      );
+
+    const skillSrcPath = canonical.value.observation.path;
 
     const resolvedTargets = yield* Effect.forEach(
       materializationAgents,

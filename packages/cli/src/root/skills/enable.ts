@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { enableSkill } from "@agentxm/client-core/unstable/skills";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -36,7 +36,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   });
 
   // Load installed skills (configured + implicit) from the read-model record projection.
-  const installedSkills = yield* ws.records.getInstalledSkills();
+  const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
   const entry = installedSkills[skillName];
 
   // Validate: skill is installed (ignored names are excluded from installed)

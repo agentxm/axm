@@ -1,5 +1,5 @@
 /**
- * Canonical-extensions scanner: enumerates `.axm/extensions/<owner>/<local-type>/src/<name>`
+ * Canonical-extensions scanner: enumerates `.axm/extensions/<owner>/<local-type>/<name>/src`
  * (canonical AXM) and `.axm/extensions/external/<local-type>/<name>`
  * (external AXM) materializations across all extension types.
  *
@@ -118,6 +118,8 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
       return "rule";
     case "hooks":
       return "hook";
+    case "knowledge":
+      return "knowledge";
     case "packs":
       return "pack";
     default:
@@ -191,27 +193,6 @@ const scanCanonicalForOwner = (
             const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
             return empty;
           }
-          const directSrcDir = path.join(typeDirAbsolute, "src");
-          const directNameCandidates = yield* childEntries(
-            SCANNER_NAME,
-            fs,
-            diagnostics,
-            path,
-            directSrcDir,
-          );
-          const directNameDirs = yield* filterDirectories(fs, directNameCandidates);
-          const directOccurrences = yield* Effect.forEach(
-            directNameDirs,
-            (nameDir) =>
-              buildOccurrence(deps, {
-                extensionType,
-                origin: "canonical-axm",
-                nameDir,
-                owner: ownerName,
-              }),
-            { concurrency: "unbounded" },
-          );
-
           const packageChildCandidates = yield* childEntries(
             SCANNER_NAME,
             fs,
@@ -220,11 +201,8 @@ const scanCanonicalForOwner = (
             typeDirAbsolute,
           );
           const packageDirs = yield* filterDirectories(fs, packageChildCandidates);
-          const packageCandidates = packageDirs.filter(
-            (candidate) => path.basename(candidate) !== "src",
-          );
           const packageOccurrences = yield* Effect.forEach(
-            packageCandidates,
+            packageDirs,
             (packageDir) =>
               Effect.gen(function* () {
                 const nameDir =
@@ -248,7 +226,7 @@ const scanCanonicalForOwner = (
               }),
             { concurrency: "unbounded" },
           );
-          return [...directOccurrences, ...packageOccurrences.flat()];
+          return packageOccurrences.flat();
         }),
       { concurrency: "unbounded" },
     );

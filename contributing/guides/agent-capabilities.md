@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-24
-version: 0.2.2
+last-reviewed: 2026-08-05
+version: 0.3.0
 description: How AXM grades agent support for each extension capability using
   standards compliance, convention, availability, vendor status, and AXM support
   axes. Read before adding a new agent, adding a leaf extension capability key, or
@@ -140,6 +140,8 @@ along orthogonal axes:
 - **AXM status/writer** — whether AXM installs or has verified support for the
   capability (`supported`, `planned`, `unsupported`, `unknown`) and whether
   `axm.writer` carries verified write mechanics. All capabilities.
+- **Install target** — hosted-only agents declare the manual artifact and
+  delivery path used after AXM validates the extension. Local agents omit it.
 
 AXM derives extension compatibility from AXM status/writer state and
 availability: an agent
@@ -150,7 +152,10 @@ derives the agent-facing status (`native`, `native-deprecated`, `plugin`,
 `plugin-deprecated`, `none`) from native availability and vendor status.
 `axmIntegrationStatus` returns `writer` when writer metadata exists, otherwise
 the AXM status (`supported`, `planned`, `unsupported`, `unknown`).
-`standardsCompliance` remains format-fidelity metadata. `axm.writer.config`
+`standardsCompliance` remains format-fidelity metadata. `axm.writer: null`
+means there is no parameterized filesystem writer; it does not make a hosted
+native capability unavailable. Hosted delivery is described separately by the
+agent's `installTarget`. `axm.writer.config`
 means AXM has a verified file-backed writer dialect for that agent, not that the
 agent is fully compliant with the MCP spec.
 
@@ -204,15 +209,41 @@ format `parity` or `partial` because location is graded separately.
 Scope of "convention" is **location, filename, and path** — not file format.
 Format is graded by `standardsCompliance`.
 
-| Value       | Meaning                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ |
-| `universal` | Agent uses the spec-defined or community-standard location (e.g. `.agents/skills/`, `AGENTS.md`, `mcpServers` key) |
-| `vendor`    | Agent uses a vendor-specific location (e.g. `.claude/skills/`, `CLAUDE.md`, `opencode.jsonc`)                      |
+| Value       | Meaning                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `universal` | Agent uses the spec-defined or community-standard location (e.g. `.agents/skills/`, `AGENTS.md`, `mcpServers` key)       |
+| `vendor`    | Agent uses a vendor-specific filesystem location (e.g. `.claude/skills/`, `CLAUDE.md`, `opencode.jsonc`)                 |
+| `hosted`    | The format is delivered to a vendor-hosted surface through upload or a hosted directory; no local path exists to compare |
 
 An unchanged `SKILL.md` stored under a vendor directory such as
 `.claude/skills/` is `standardsCompliance: "full"` with
 `convention: "vendor"`. The identical file under the standard
 `.agents/skills/` location is `full` with `convention: "universal"`.
+The same spec-compliant file uploaded to a hosted product is `full` with
+`convention: "hosted"`; delivery does not reduce format compliance.
+
+### Interface and install target
+
+`interfaces` describes the product surface independently of extension
+delivery:
+
+| Value           | Meaning                                               |
+| --------------- | ----------------------------------------------------- |
+| `cli`           | Locally invoked command-line agent                    |
+| `ide-extension` | Agent embedded in a local editor or IDE               |
+| `chat`          | Conversational surface in a vendor-hosted application |
+| `hosted-agent`  | Vendor-hosted agent or task/workflow runtime          |
+
+A hosted-only entry has `rootDir: null`, empty project and user detection
+markers, and a required `installTarget`. The target records whether users
+deliver a validated `directory`, `zip`, or `skill-file-or-zip` through an
+`upload` flow, a hosted `directory`, or both, plus exact instructions and a
+primary documentation URL. Hosted entries are part of the capability catalog
+but not the configurable filesystem-agent registry.
+
+When `axm agents add <hosted-id>` is requested, AXM returns the target's manual
+delivery instructions and documentation link. It never adds the hosted ID to
+`.axm/settings.json` or reports that a local projection occurred.
 
 ### Availability _(all capabilities)_
 
@@ -328,6 +359,7 @@ family and event mappings, then set `axm.status: "unsupported"`,
    community-standard one.
    - Match → `universal`
    - Differs → `vendor`
+   - No filesystem location because delivery is hosted → `hosted`
 3. **Set availability.** Use `native`, `none`, or a descriptive plugin
    descriptor.
 4. **Set vendor status.** Use `active` unless the native or plugin surface is

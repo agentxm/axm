@@ -5,25 +5,28 @@ import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 import { AGENTS, installable, type Agent } from "@agentxm/client-core/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   HOOK_MANIFEST_FILENAME,
   HookManifestSchema,
-  type HookBinding,
   type HookManifest,
 } from "@agentxm/client-core/unstable/hooks";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
-interface HookPortabilityItem {
-  readonly agent: string;
-  readonly status: "installable" | "excluded";
-  readonly reason: string;
-}
+const HookPortabilityItemSchema = Schema.Struct({
+  agent: Schema.String,
+  status: Schema.Literals(["installable", "excluded"]),
+  reason: Schema.String,
+});
+
+type HookPortabilityItem = typeof HookPortabilityItemSchema.Type;
+
+export const HookPortabilityResultSchema = Schema.Struct({
+  items: Schema.Array(HookPortabilityItemSchema),
+  count: Schema.Number,
+});
+export type HookPortabilityResult = typeof HookPortabilityResultSchema.Type;
 
 const HookPortabilityTable = {
   columns: {
@@ -32,15 +35,6 @@ const HookPortabilityTable = {
     reason: { header: "Reason" },
   },
 } as const satisfies TableView<HookPortabilityItem>;
-
-registerEntity<HookPortabilityItem>("hook-portability", {
-  list: {
-    columns: HookPortabilityTable.columns,
-    emptyMessage: "No hook portability results",
-    singularLabel: "hook portability result",
-    pluralLabel: "hook portability results",
-  },
-});
 
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 
@@ -83,17 +77,9 @@ const readManifest = (
     );
   });
 
-const bindingWithManifestRequirements = (
-  binding: HookBinding,
-  manifest: HookManifest,
-): HookBinding =>
-  manifest.blocking === true && binding.requires === undefined
-    ? { ...binding, requires: { decision: { kind: "block" } } }
-    : binding;
-
 const portabilityForAgent = (agent: Agent, manifest: HookManifest): HookPortabilityItem => {
   for (const binding of manifest.bindings) {
-    const verdict = installable(agent, bindingWithManifestRequirements(binding, manifest));
+    const verdict = installable(agent, binding);
     if (!verdict.installable) {
       return {
         agent: agent.name,
@@ -116,12 +102,7 @@ export const handleHookInfo = Effect.fn("HookInfo.handle")(function* (input: str
     left.agent.localeCompare(right.agent),
   );
 
-  if (
-    yield* renderer.list("hook-portability", {
-      items,
-      count: items.length,
-    })
-  ) {
+  if (yield* renderer.result({ items, count: items.length }, HookPortabilityResultSchema)) {
     return;
   }
 

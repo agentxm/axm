@@ -33,6 +33,7 @@ export const handleInstallHook = (
           ? unchangedPlanHeadline(resolution, "No hooks packages installed.")
           : "Installed hooks package " + args.source,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
     });
   });

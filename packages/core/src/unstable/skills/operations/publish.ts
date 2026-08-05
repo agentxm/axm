@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -22,6 +23,7 @@ import {
 import { SkillManifestSchema, type SkillManifest, MANIFEST_FILENAME } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -147,7 +149,10 @@ export const publishSkill: OperationHandler<
     });
 
     // Build zip archive from extension directory (includes manifest + src/)
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(
+      extensionDir,
+      yield* publishArchiveOptions("skill", manifest.publish?.ignore),
+    );
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);
@@ -185,7 +190,7 @@ export const publishSkill: OperationHandler<
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(manifest.packages !== undefined && {
         packages: manifest.packages,

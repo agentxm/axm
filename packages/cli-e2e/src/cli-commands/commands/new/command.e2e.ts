@@ -99,7 +99,7 @@ describe("axm sync command rendering", () => {
         owner: "@test",
         agents: ["claude-code"],
         commands: {
-          review: "@test/commands/review",
+          review: "workspace:@test/commands/review",
         },
       }));
       createManagedCommand(temp.path, "@test", "review");

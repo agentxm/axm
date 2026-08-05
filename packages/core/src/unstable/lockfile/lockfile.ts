@@ -1,8 +1,8 @@
 /**
  * Lockfile module for managing `.axm/axm-lock.yaml` (YAML format).
  *
- * Provides functions to read, write, and update lockfile entries
- * for tracking installed skill versions.
+ * Provides functions to read, write, and update optional operation receipt
+ * history. Desired, observed, and trust state are authoritative elsewhere.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -10,6 +10,8 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
@@ -17,7 +19,13 @@ import type { PlatformError } from "effect/PlatformError";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
+import {
+  readWorkspaceTrustState,
+  trustStateFromLockfile,
+  writeWorkspaceTrustState,
+} from "../trust/index.js";
+import { writeFileAtomic, type AtomicWriteFailure } from "../utils/index.js";
+import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -31,8 +39,11 @@ import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
 const LOCKFILE_LOCK_NAME = `${LOCKFILE_NAME}.lock`;
+// Matches temp files produced by `writeFileAtomic` for the lockfile target
+// (`<target>.tmp.<unique>`), so the stale-temp sweep stays in sync with the
+// shared helper's naming scheme.
 const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
-const STALE_LOCK_TIMEOUT_MILLIS = 30_000;
+const STALE_LOCK_TIMEOUT = Duration.seconds(30);
 const LOCK_RETRY_DELAY = "25 millis";
 
 const lockSemaphores = new Map<string, Semaphore.Semaphore>();
@@ -54,12 +65,6 @@ const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
 
 const lockfileLockPathFor = (path: Path.Path, axmDir: string): string =>
   path.join(axmDir, LOCKFILE_LOCK_NAME);
-
-const makeTempPath = (path: Path.Path, axmDir: string): string =>
-  path.join(
-    axmDir,
-    `${TEMP_PREFIX}${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 8)}`,
-  );
 
 const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
   const existing = lockSemaphores.get(key);
@@ -171,7 +176,10 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
 
+  // Unknown top-level keys follow the on-disk state: a concurrent writer's
+  // extras win, and a base→next patch can neither modify nor delete them.
   return {
+    ...lockfileRestEntries(fresh),
     lockfileVersion: LOCKFILE_VERSION,
     skills: patchRequiredMap(fresh.skills, base.skills, next.skills),
     ...(commands !== undefined ? { commands } : {}),
@@ -184,6 +192,33 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(packs !== undefined ? { packs } : {}),
   } satisfies Lockfile;
 };
+
+const EMPTY_LOCKFILE: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
+
+/**
+ * Apply only trust-relevant additions and changes from a lockfile patch.
+ * Deleting optional receipt history never deletes an authoritative trust
+ * baseline; a later install for the same key replaces it explicitly.
+ */
+const persistTrustPatch = (axmDir: string, seed: Lockfile, base: Lockfile, next: Lockfile) =>
+  Effect.gen(function* () {
+    const existing = yield* readWorkspaceTrustState(axmDir);
+    const current = existing._tag === "Some" ? existing.value : trustStateFromLockfile(seed);
+    const baseRecords = trustStateFromLockfile(base).records;
+    const nextRecords = trustStateFromLockfile(next).records;
+    const changedRecords = Object.fromEntries(
+      Object.entries(nextRecords)
+        .filter(([key, record]) => JSON.stringify(baseRecords[key]) !== JSON.stringify(record))
+        .map(([key, record]) => {
+          const packManifest = current.records[key]?.packManifest;
+          return [key, packManifest === undefined ? record : { ...record, packManifest }];
+        }),
+    );
+    yield* writeWorkspaceTrustState(axmDir, {
+      ...current,
+      records: { ...current.records, ...changedRecords },
+    });
+  });
 
 const readLockfileIfPresent = (
   axmDir: string,
@@ -227,7 +262,9 @@ const readLockfileIfPresent = (
         detail: `Failed to decode lockfile at ${lockfilePath}: Library workspace state is no longer supported`,
       });
     }
-    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
+      onExcessProperty: "error",
+    }).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
@@ -236,13 +273,7 @@ const readLockfileIfPresent = (
         }),
       ),
     );
-    // v2 remains read-compatible. The v3 schema drops its agent-local and
-    // render-derived fields during decoding, then a subsequent write performs
-    // the one-time shared-only migration.
-    return {
-      ...decoded,
-      lockfileVersion: LOCKFILE_VERSION,
-    } satisfies Lockfile;
+    return decoded;
   });
 
 const lockIsStale = (lockPath: string) =>
@@ -250,13 +281,15 @@ const lockIsStale = (lockPath: string) =>
     const fs = yield* FileSystem.FileSystem;
     const info = yield* fs.stat(lockPath).pipe(Effect.option);
     if (info._tag === "None" || info.value.mtime._tag === "None") return false;
-    return Date.now() - info.value.mtime.value.getTime() > STALE_LOCK_TIMEOUT_MILLIS;
+    const writtenAt = DateTime.makeUnsafe(info.value.mtime.value);
+    return yield* DateTime.isPast(DateTime.addDuration(writtenAt, STALE_LOCK_TIMEOUT));
   });
 
 const createLockFile = (lockPath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const content = `pid=${typeof process === "object" ? process.pid : "unknown"}\ncreatedAt=${new Date().toISOString()}\n`;
+    const createdAt = DateTime.formatIso(yield* DateTime.now);
+    const content = `pid=${typeof process === "object" ? process.pid : "unknown"}\ncreatedAt=${createdAt}\n`;
     yield* fs.writeFileString(lockPath, content, { flag: "wx" });
   });
 
@@ -327,62 +360,36 @@ const withLockfileLock = <A, E, R>(
     );
   });
 
+const lockfileWriteErrorDetail = (lockfilePath: string, failure: AtomicWriteFailure): string => {
+  switch (failure.step) {
+    case "check-target":
+      return `Failed to check lockfile at ${lockfilePath}`;
+    case "read-target":
+      return `Failed to read lockfile at ${lockfilePath}`;
+    case "write-temp":
+      return `Failed to write lockfile temp file at ${failure.tempPath}`;
+    case "rename":
+      return `Failed to atomically replace lockfile at ${lockfilePath}`;
+  }
+};
+
 const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const lockfilePath = lockfilePathFor(path, axmDir);
-    const tempPath = makeTempPath(path, axmDir);
-
     const yamlContent = yield* encodeLockfileYaml(lockfile);
-    const exists = yield* fs.exists(lockfilePath).pipe(
-      Effect.mapError((error) =>
+    yield* writeFileAtomic(fs, {
+      targetPath: lockfilePath,
+      content: yamlContent,
+      skipIfUnchanged: "fail-on-read-error",
+      mapError: (failure) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to check lockfile at ${lockfilePath}`,
-          cause: error,
+          detail: lockfileWriteErrorDetail(lockfilePath, failure),
+          cause: failure.cause,
         }),
-      ),
-    );
-    if (exists) {
-      const currentContent = yield* fs.readFileString(lockfilePath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to read lockfile at ${lockfilePath}`,
-            cause: error,
-          }),
-        ),
-      );
-      if (currentContent === yamlContent) return;
-    }
-
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        yield* Effect.acquireRelease(
-          fs.writeFileString(tempPath, yamlContent).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to write lockfile temp file at ${tempPath}`,
-                cause: error,
-              }),
-            ),
-          ),
-          () => removeFileBestEffort(tempPath),
-        );
-
-        yield* fs.rename(tempPath, lockfilePath).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to atomically replace lockfile at ${lockfilePath}`,
-              cause: error,
-            }),
-          ),
-        );
-      }),
-    );
+    });
   });
 
 // -----------------------------------------------------------------------------
@@ -410,13 +417,26 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
+export const writeLockfile = (
+  axmDir: string,
+  lockfile: Lockfile,
+  options?: { readonly preserveTrust?: boolean },
+) =>
   Effect.gen(function* () {
     yield* ensureAxmDir(axmDir);
     yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
         yield* sweepStaleLockfileTemps(axmDir);
+        const current = yield* readLockfileIfPresent(axmDir);
+        if (options?.preserveTrust !== true) {
+          yield* persistTrustPatch(
+            axmDir,
+            current ?? lockfile,
+            current ?? EMPTY_LOCKFILE,
+            lockfile,
+          );
+        }
         yield* writeLockfileUnlocked(axmDir, lockfile);
       }),
     );
@@ -453,6 +473,7 @@ export const commitLockfileUpdates = (
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
+        yield* persistTrustPatch(axmDir, current ?? lockfile, current ?? lockfile, updated);
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),
@@ -480,6 +501,7 @@ export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, nex
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
+        yield* persistTrustPatch(axmDir, current ?? base, base, next);
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),

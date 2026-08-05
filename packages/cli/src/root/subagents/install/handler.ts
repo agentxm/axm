@@ -88,6 +88,7 @@ export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSu
           ? unchangedPlanHeadline(resolution, "No subagents installed.")
           : "Installed subagent " + args.source.value,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
     });
   });

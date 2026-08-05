@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../agents/registry.js";
+import type { CatalogExtensionType } from "../../extension-types/schema.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
 import { type Handle } from "../../extensions/handle.js";
@@ -28,6 +29,8 @@ import {
 import {
   makeCommandExtensionsApi,
   makeFilesExtensionsApi,
+  makeHookExtensionsApi,
+  makeKnowledgeExtensionsApi,
   makeMcpServerExtensionsApi,
   makePackExtensionsApi,
   makeRuleExtensionsApi,
@@ -35,12 +38,15 @@ import {
   makeSubagentExtensionsApi,
   type CommandExtensionsApi,
   type FilesExtensionsApi,
+  type HookExtensionsApi,
   type InstalledPackForCommands,
   type InstalledPackForFiles,
+  type InstalledPackForHooks,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
   type InstalledPackForSkills,
   type InstalledPackForSubagents,
+  type KnowledgeExtensionsApi,
   type McpServerExtensionsApi,
   type PackExtensionsApi,
   type RuleExtensionsApi,
@@ -106,6 +112,8 @@ export interface WorkspaceReadModel {
   readonly subagents: SubagentExtensionsApi;
   readonly files: FilesExtensionsApi;
   readonly rules: RuleExtensionsApi;
+  readonly hooks: HookExtensionsApi;
+  readonly knowledge: KnowledgeExtensionsApi;
   readonly packs: PackExtensionsApi;
   readonly agents: ScopedAgentsApi;
   readonly state: ScopedStateApi;
@@ -114,6 +122,28 @@ export interface WorkspaceReadModel {
   readonly diagnostics: Effect.Effect<ReadonlyArray<Warning>>;
   readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
+
+/**
+ * The read-model family that carries each catalog extension type, or `null`
+ * where no family exists yet.
+ *
+ * Total by construction: a new extension type fails compile here until its
+ * read-model coverage is decided. The parity conformance suite reads this map
+ * to check the read-model obligation, and every `null` must be matched by a
+ * ledger row.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const READ_MODEL_EXTENSION_FAMILY_BY_TYPE = {
+  skill: "skills",
+  command: "commands",
+  "mcp-server": "mcpServers",
+  subagent: "subagents",
+  files: "files",
+  rule: "rules",
+  hook: "hooks",
+  knowledge: "knowledge",
+} as const satisfies Record<CatalogExtensionType, keyof WorkspaceReadModel | null>;
 
 // ---------------------------------------------------------------------------
 // Factory configuration
@@ -185,7 +215,9 @@ interface PackMemberSets {
   readonly commands: ReadonlyArray<ExtensionName>;
   readonly mcpServers: ReadonlyArray<ExtensionName>;
   readonly subagents: ReadonlyArray<ExtensionName>;
+  readonly files: ReadonlyArray<ExtensionName>;
   readonly rules: ReadonlyArray<ExtensionName>;
+  readonly hooks: ReadonlyArray<ExtensionName>;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +273,9 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       commands: emptyIgnoredPatterns(),
       mcpServers: emptyIgnoredPatterns(),
       subagents: emptyIgnoredPatterns(),
-      rules: emptyIgnoredPatterns(),
+      files: emptyIgnoredPatterns(),
+      hooks: emptyIgnoredPatterns(),
+      knowledge: emptyIgnoredPatterns(),
       packs: emptyIgnoredPatterns(),
     }),
     onSome: (settings) => ({
@@ -249,6 +283,9 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       commands: ignoredPatternsFrom(settings.commandsConfig?.ignore),
       mcpServers: ignoredPatternsFrom(settings.mcpServersConfig?.ignore),
       subagents: ignoredPatternsFrom(settings.subagentsConfig?.ignore),
+      files: ignoredPatternsFrom(settings.filesConfig?.ignore),
+      hooks: ignoredPatternsFrom(settings.hooksConfig?.ignore),
+      knowledge: ignoredPatternsFrom(settings.knowledgeConfig?.ignore),
       packs: ignoredPatternsFrom(settings.packsConfig?.ignore),
     }),
   });
@@ -281,7 +318,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       scope,
       diagnostics,
       agentRegistry: AGENTS,
-      rootResolverState,
     }),
   );
   const agentSettingsScanner = yield* Effect.cached(
@@ -308,8 +344,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   // Cache the installed-packs rollup once per scope; shared across subjects.
   const installedPackMembers: Effect.Effect<ReadonlyArray<PackMemberSets>> = yield* Effect.cached(
     Effect.gen(function* () {
-      const installed = yield* packsApi.installed;
-      return installed.map<PackMemberSets>((row) => {
+      const active = yield* packsApi.active;
+      return active.map<PackMemberSets>((row) => {
         const resolvedSome = Option.match(row.resolved, {
           onNone: () => null,
           onSome: (r) => r.lockEntry,
@@ -322,15 +358,21 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedMcpServers);
         const subagentNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSubagents);
+        const filesNames =
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedFiles ?? {});
         const ruleNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedRules ?? {});
+        const hookNames =
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedHooks ?? {});
         return {
           key: row.key,
           skills: skillNames,
           commands: commandNames,
           mcpServers: mcpServerNames,
           subagents: subagentNames,
+          files: filesNames,
           rules: ruleNames,
+          hooks: hookNames,
         };
       });
     }),
@@ -388,15 +430,36 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
     );
 
-  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>> = Effect.succeed(
-    [],
-  );
+  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>> =
+    installedPackMembers.pipe(
+      Effect.map((packs) =>
+        packs.map((p) => ({
+          ref: { key: p.key },
+          files: p.files.map((name) => ({
+            name,
+            providingPack: { key: p.key },
+          })),
+        })),
+      ),
+    );
   const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> =
     installedPackMembers.pipe(
       Effect.map((packs) =>
         packs.map((p) => ({
           ref: { key: p.key },
           rules: p.rules.map((name) => ({
+            name,
+            providingPack: { key: p.key },
+          })),
+        })),
+      ),
+    );
+  const hooksInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForHooks>> =
+    installedPackMembers.pipe(
+      Effect.map((packs) =>
+        packs.map((p) => ({
+          ref: { key: p.key },
+          hooks: p.hooks.map((name) => ({
             name,
             providingPack: { key: p.key },
           })),
@@ -442,9 +505,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
 
   const files = yield* makeFilesExtensionsApi({
     scope,
+    loaders,
     scanners: { canonical: canonicalScanner },
     installedPacks: filesInstalledPacks,
-    ignoredNames: new Set<string>(),
+    ignoredNames: ignoredPatterns.files,
     diagnostics,
   });
 
@@ -454,6 +518,23 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     scanners: { canonical: canonicalScanner },
     installedPacks: rulesInstalledPacks,
     ignoredNames: new Set<string>(),
+    diagnostics,
+  });
+
+  const hooks = yield* makeHookExtensionsApi({
+    scope,
+    loaders,
+    scanners: { canonical: canonicalScanner },
+    installedPacks: hooksInstalledPacks,
+    ignoredNames: ignoredPatterns.hooks,
+    diagnostics,
+  });
+
+  const knowledge = yield* makeKnowledgeExtensionsApi({
+    scope,
+    loaders,
+    scanners: { canonical: canonicalScanner },
+    ignoredNames: ignoredPatterns.knowledge,
     diagnostics,
   });
 
@@ -532,6 +613,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     subagents,
     files,
     rules,
+    hooks,
+    knowledge,
     packs: packsApi,
     agents,
     state,

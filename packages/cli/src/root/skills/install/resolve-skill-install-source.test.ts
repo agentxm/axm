@@ -42,6 +42,7 @@ const createSkillIndex = (registryRoot: string, owner: string, name: string) => 
       name,
       owner,
       type: "skill",
+      publisherBindingId: "hbnd_test",
       versions: [
         {
           version: "1.0.0",

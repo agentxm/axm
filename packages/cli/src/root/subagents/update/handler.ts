@@ -8,6 +8,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 import {
   WorkspaceMutations,
+  configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
@@ -15,16 +16,17 @@ import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/e
 import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import {
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
+  UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
@@ -95,8 +97,8 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const sources = yield* SourceHostProviders;
 
   // Step 1: Load configured subagents and filter to enabled
-  const allSubagents = yield* ws.records.getConfiguredSubagents();
-  const lockedSubagents = yield* ws.getLockedSubagents();
+  const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
+  const trustState = yield* ws.getTrustState();
 
   const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
     allSubagents,
@@ -118,7 +120,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     entries: subagentEntries,
     source: args.source,
     nameFilters: args.subagents,
-    nameFilterFlag: "--subagent",
+    nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
     resourceType: "subagent",
     resourceLabel: "subagent",
     resourceLabelPlural: "subagents",
@@ -223,25 +225,24 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const warningsBySubagent = new Map<string, string>();
 
   for (const item of resolved) {
-    const existing = lockedSubagents[item.ref.subagent.name];
-    const lockedEpoch = existing?.type === "registry" ? existing.publisherBindingId : undefined;
+    const trusted = trustState.records[trustRecordKey("subagent", item.ref.subagent.name)];
+    const lockedEpoch = trusted?.authority === "registry" ? trusted.publisherBindingId : undefined;
     const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
     const changed =
-      existing?.type === "registry" &&
+      trusted?.authority === "registry" &&
       item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch &&
-      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+      lockedEpoch !== resolvedEpoch;
     if (changed && args.yes) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
         recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
       });
     }
     if (changed) {
       warningsBySubagent.set(
         item.ref.subagent.name,
-        `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+        `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
       );
     }
   }
@@ -271,7 +272,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   // Step 8: Build plan
   const rawPlan = buildUpdatePlan(
     ops,
-    { lockfileVersion: LOCKFILE_VERSION, subagents: lockedSubagents },
+    trustState,
     "Update subagents",
     Option.some("Update installed subagents"),
     makeRunClosure,

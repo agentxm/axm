@@ -2,7 +2,7 @@
  * `workspace/agents-recognized` — every agent id in `settings.agents[]` is
  * in AXM's known-agent catalog.
  *
- * Per `docs/design/lint-engine.md §10.workspace` "Foundation" row:
+ * Per `agentxm-internal/docs/design/lint-engine.md §10.workspace` "Foundation" row:
  *
  *   Agent recognition invariant — unknown IDs can't be materialized into.
  *   Absorbs doctor `agents-configured.unrecognized`. Known-agent catalog

@@ -67,19 +67,25 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp_servers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             targets: [{ scope: "user", path: "~/.hermes/config.yaml", format: "yaml" }],
-            stdio: { typeField: null, command: "split", envKey: "env" },
+            stdio: {
+              typeField: { required: null, accepted: [null] },
+              command: "split",
+              envKey: "env",
+            },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: { "streamable-http": "url" },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -95,42 +101,6 @@ export const hermesAgent = {
       axm: {
         status: "unsupported",
         lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Hermes reads AGENTS.md as a recursive project instruction source. .hermes.md and SOUL.md are higher-priority native alternatives at the git root, but AGENTS.md is the cross-tool standard AXM writes.\n",
-        docs: [],
-        sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/configuration"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -223,6 +193,28 @@ export const hermesAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Hermes reads AGENTS.md as a recursive project instruction source. .hermes.md and SOUL.md are higher-priority native alternatives at the git root, but AGENTS.md is the cross-tool standard AXM writes.\n",
+      docs: [],
+      sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/configuration"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

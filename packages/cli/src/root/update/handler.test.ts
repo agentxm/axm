@@ -48,8 +48,9 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 
 import { handleUpdate, type RootUpdateFlags } from "./handler.js";
 
@@ -361,6 +362,7 @@ describe("root update handler", () => {
         "@acme/subagents/researcher",
         "@acme/rules/workspace-guidance",
         "@acme/hooks/tool-audit",
+        "@acme/knowledge/handbook",
         "@acme/packs/frontend-tools",
       ] as const;
 
@@ -376,6 +378,7 @@ describe("root update handler", () => {
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "rule", source: "@acme/rules/workspace-guidance", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
+        { type: "knowledge", source: "@acme/knowledge/handbook", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
     }),
@@ -432,6 +435,41 @@ describe("root update handler", () => {
       expect(result).toMatchObject({
         planDescription: "Update configured workspace extensions",
       });
+    }),
+  );
+
+  it.effect("includes configured knowledge bundles in the workspace update plan", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        knowledge: { handbook: "workspace:@acme/knowledge/handbook" },
+      });
+      writeKnowledgeExtension(axmDir, "handbook");
+
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Update configured extensions",
+        totalSteps: 1,
+      });
+      expect(planResultSteps(result)).toMatchObject([
+        {
+          label: "handbook",
+          status: "unchanged",
+          message: "handbook is workspace-sourced and unchanged",
+        },
+      ]);
     }),
   );
 

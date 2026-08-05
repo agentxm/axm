@@ -18,39 +18,33 @@ export {
   resolveUserScopeDirPure,
 } from "./paths.js";
 
-// Read-model record conversion helpers
+// Read-model record rows + lifecycle views
 export {
-  toConfiguredCommandRecord,
-  toConfiguredExtensionRefRecord,
-  toConfiguredSkillRecord,
-  toInstalledCommandRecord,
-  toInstalledExtensionRefRecord,
-  toInstalledSkillRecord,
-  toUnmanagedCommandRecord,
-  toUnmanagedExtensionRefRecord,
-  toUnmanagedSkillRecord,
-} from "./read-model-record-converters.js";
+  configuredRecordRows,
+  configuredRowsByName,
+  installedRecordRows,
+  installedRowsByName,
+  isConfiguredRecordRow,
+  isInstalledRecordRow,
+  isUnmanagedRecordRow,
+  recordRowsByName,
+  unmanagedRecordRows,
+  unmanagedRowsByName,
+  type ConfiguredRecordRow,
+  type ImplicitRecordRow,
+  type InstalledRecordRow,
+  type UnmanagedRecordRow,
+} from "./read-model-record-rows.js";
 
-// Read-model record types
-export type {
-  ReadModelRecordRow,
-  ConfiguredCommand,
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-  ImplicitCommand,
-  ImplicitExtensionRef,
-  ImplicitSkill,
-  ImplicitSubagent,
-  InstalledCommand,
-  InstalledExtensionRef,
-  InstalledSkill,
-  InstalledSubagent,
-  PackagingKind,
-  UnmanagedCommand,
-  UnmanagedExtensionRef,
-  UnmanagedSkill,
-} from "./read-model-record-types.js";
+export type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
+
+export {
+  getKnowledgeLockEntries,
+  getLockedEntries,
+  lockEntryVersion,
+  type AnyLockEntry,
+  type AnyLockMap,
+} from "./locked-entries.js";
 
 // Reconciliation
 export {
@@ -61,6 +55,36 @@ export {
   runReconcileMaterializeOperation,
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
+
+export {
+  buildDesiredStateGraph,
+  type DesiredExtensionNode,
+  type DesiredExtensionOrigin,
+  type DesiredStateGraph,
+  type DesiredStateProblem,
+} from "./desired-state-graph.js";
+export {
+  isDesiredExtensionActive,
+  type DesiredStateEnabledOrigin,
+} from "./desired-state-enabled.js";
+export { validateDesiredPackTrust } from "./desired-pack-trust.js";
+export {
+  observeCanonicalExtension,
+  canonicalPathForTrustedExtension,
+  type CanonicalObservation,
+  type CanonicalObservationStatus,
+} from "./canonical-observation.js";
+export {
+  trustedCanonicalRef,
+  trustedCanonicalObservation,
+  usableTrustedCanonical,
+  usableTrustedCanonicalObservation,
+  usableTrustedCanonicalRef,
+  type TrustedCanonicalObservation,
+  type UsableTrustedCanonical,
+  type UsableTrustedCanonicalObservation,
+} from "./trusted-canonical-ref.js";
+export { isObservedInstalled } from "./observed-installed.js";
 
 // Configured entry resolution
 export {
@@ -104,6 +128,7 @@ export {
   AXM_MANAGED_MARKER,
   cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSubagentFiles,
+  findManagedSubagentFiles,
   hasAxmManagedMarker,
   type RemovedAgentArtifactCleanupResult,
   type RenderedFileCleanupResult,
@@ -224,11 +249,13 @@ export {
 // Plan display
 export { displayPlan } from "./display-plan.js";
 
-// Lockfile update policy
+// Lockfile read tolerance
 export {
-  ignoreMalformedWorkspaceLockfileRead,
-  isMalformedWorkspaceLockfileRead,
-} from "./lockfile-update-policy.js";
+  type LockfileReadTolerance,
+  LockfileReadToleranceRef,
+  withDegradedLockfileReads,
+  withStrictLockfileReads,
+} from "./lockfile-read-tolerance.js";
 
 // Version currency
 export {
@@ -236,10 +263,22 @@ export {
   collectAllCurrencyEntries,
   collectAllUpdateEntries,
   collectCommandCurrency,
+  collectFilesCurrency,
+  collectHookCurrency,
+  collectKnowledgeCurrency,
   collectMcpServerCurrency,
   collectPackCurrency,
+  collectRuleCurrency,
   collectSkillCurrency,
   collectSkillSourceFreshness,
+  collectCommandSourceFreshness,
+  collectMcpServerSourceFreshness,
+  collectSubagentSourceFreshness,
+  collectFilesSourceFreshness,
+  collectRuleSourceFreshness,
+  collectHookSourceFreshness,
+  collectKnowledgeSourceFreshness,
+  sourceFreshnessCollectors,
   collectSubagentCurrency,
   type CurrencyResult,
   type CurrencyStatus,

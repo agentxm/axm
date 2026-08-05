@@ -86,7 +86,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
 
     const actions = yield* InstallSkillCommandWorkflowActions;
     const resolution = yield* runInstallCommandWorkflow(
-      { source: args.source.value, skills: args.skills, all: args.all },
+      { source: args.source.value, skills: args.skills, all: args.all, force: flags.force },
       actions,
       { ...flags, displayApplied: false },
     );
@@ -109,6 +109,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
           ? unchangedPlanHeadline(resolution, "No skills installed.")
           : appliedInstallHeadline(resolution, args.source.value),
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
     });
   });

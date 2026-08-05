@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -159,67 +160,196 @@ export const LicenseSchema = Schema.String.annotate({
   ),
 );
 
-export const extensionTypes = [
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-  "knowledge",
-  "pack",
-] as const;
+/** How an extension type is distributed. All current types are registry-distributed. */
+export type ExtensionDistribution = "registry";
 
-export type ExtensionType = (typeof extensionTypes)[number];
+/**
+ * Where an extension type's installed artifacts live: in per-agent locations
+ * AXM can collide with, in workspace-owned locations, or nowhere of its own
+ * (container types like pack).
+ */
+export type ExtensionPlacement = "per-agent" | "workspace" | "container";
+
+/** What a governing standard covers for a type, when one exists. */
+export type StandardGoverns = "package-body" | "runtime-protocol" | "host-file";
+
+/** Workspace-level capability a type participates in. */
+export type WorkspaceCapabilityKey = "instructions";
+
+/**
+ * One extension type's naming and capability-axis row. Every CONDITIONAL
+ * parity obligation is a predicate over the five axis columns.
+ */
+interface ExtensionTypeRow {
+  readonly plural: string;
+  readonly label: string;
+  readonly pluralLabel: string;
+  readonly sentenceLabel: string;
+  readonly pluralSentenceLabel: string;
+  readonly distribution: ExtensionDistribution;
+  readonly placement: ExtensionPlacement;
+  readonly governs: StandardGoverns | null;
+  readonly installInputs: boolean;
+  readonly workspaceCapability: WorkspaceCapabilityKey | null;
+}
+
+/**
+ * Single source of truth for extension type naming. Row order is the canonical
+ * display order. Every other type-naming export in this module derives from
+ * this table, so a new extension type is exactly one row here: a missing
+ * column is TS2741, an excess column is TS2353, and every downstream
+ * `satisfies Record<ExtensionType, _>` table fails until the new type is
+ * decided everywhere.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const EXTENSION_TYPE_TABLE = {
+  skill: {
+    plural: "skills",
+    label: "Skill",
+    pluralLabel: "Skills",
+    sentenceLabel: "skill",
+    pluralSentenceLabel: "skills",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: "package-body",
+    installInputs: false,
+    workspaceCapability: null,
+  },
+  command: {
+    plural: "commands",
+    label: "Command",
+    pluralLabel: "Commands",
+    sentenceLabel: "command",
+    pluralSentenceLabel: "commands",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
+  },
+  "mcp-server": {
+    plural: "mcps",
+    label: "MCP Server",
+    pluralLabel: "MCP Servers",
+    sentenceLabel: "MCP server",
+    pluralSentenceLabel: "MCP servers",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: "runtime-protocol",
+    installInputs: true,
+    workspaceCapability: null,
+  },
+  subagent: {
+    plural: "subagents",
+    label: "Subagent",
+    pluralLabel: "Subagents",
+    sentenceLabel: "subagent",
+    pluralSentenceLabel: "subagents",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
+  },
+  files: {
+    plural: "files",
+    label: "Context Files",
+    pluralLabel: "Context Files",
+    sentenceLabel: "context files",
+    pluralSentenceLabel: "context files",
+    distribution: "registry",
+    placement: "workspace",
+    governs: null,
+    installInputs: true,
+    workspaceCapability: null,
+  },
+  rule: {
+    plural: "rules",
+    label: "Rule",
+    pluralLabel: "Rules",
+    sentenceLabel: "rule",
+    pluralSentenceLabel: "rules",
+    distribution: "registry",
+    placement: "workspace",
+    governs: "host-file",
+    installInputs: false,
+    workspaceCapability: "instructions",
+  },
+  hook: {
+    plural: "hooks",
+    label: "Hook",
+    pluralLabel: "Hooks",
+    sentenceLabel: "hook",
+    pluralSentenceLabel: "hooks",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
+  },
+  knowledge: {
+    plural: "knowledge",
+    label: "Knowledge",
+    pluralLabel: "Knowledge",
+    sentenceLabel: "knowledge bundle",
+    pluralSentenceLabel: "knowledge bundles",
+    distribution: "registry",
+    placement: "workspace",
+    governs: "package-body",
+    installInputs: false,
+    workspaceCapability: null,
+  },
+  pack: {
+    plural: "packs",
+    label: "Pack",
+    pluralLabel: "Packs",
+    sentenceLabel: "pack",
+    pluralSentenceLabel: "packs",
+    distribution: "registry",
+    placement: "container",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
+  },
+} as const satisfies { readonly [key: string]: ExtensionTypeRow };
+
+export type ExtensionType = keyof typeof EXTENSION_TYPE_TABLE;
+
+export type ExtensionTypePlural = (typeof EXTENSION_TYPE_TABLE)[ExtensionType]["plural"];
+
+export const extensionTypes: ReadonlyArray<ExtensionType> = EffectRecord.keys(EXTENSION_TYPE_TABLE);
+
+// Row union carrying its own key, so the plural-keyed view can map back to the
+// singular type id.
+const tableRowsWithType = EffectRecord.map(EXTENSION_TYPE_TABLE, (row, type) => ({
+  ...row,
+  type,
+}));
+const tableByPlural = EffectRecord.mapKeys(tableRowsWithType, (_type, row) => row.plural);
+
+export const extensionTypePluralSegments: ReadonlyArray<ExtensionTypePlural> =
+  EffectRecord.keys(tableByPlural);
 
 const extensionTypeSet = new Set<string>(extensionTypes);
 
 export const isExtensionType = (value: string | undefined): value is ExtensionType =>
   value !== undefined && extensionTypeSet.has(value);
 
-export const extensionTypePluralSegments = [
-  "skills",
-  "commands",
-  "mcps",
-  "subagents",
-  "files",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
-] as const;
-
-export type ExtensionTypePlural = (typeof extensionTypePluralSegments)[number];
-
 const extensionTypePluralSet = new Set<string>(extensionTypePluralSegments);
 
 export const isExtensionTypePlural = (value: string | undefined): value is ExtensionTypePlural =>
   value !== undefined && extensionTypePluralSet.has(value);
 
-export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType> = {
-  skills: "skill",
-  commands: "command",
-  mcps: "mcp-server",
-  subagents: "subagent",
-  files: "files",
-  rules: "rule",
-  hooks: "hook",
-  knowledge: "knowledge",
-  packs: "pack",
-};
+export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType> = EffectRecord.map(
+  tableByPlural,
+  (row) => row.type,
+);
 
-export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> = {
-  skill: "skills",
-  command: "commands",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  files: "files",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-};
+export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.plural,
+);
 
 export const toExtensionType = (segment: ExtensionTypePlural): ExtensionType =>
   extensionTypeFromPlural[segment];
@@ -227,53 +357,23 @@ export const toExtensionType = (segment: ExtensionTypePlural): ExtensionType =>
 export const toExtensionTypePlural = (type: ExtensionType): ExtensionTypePlural =>
   extensionTypeToPlural[type];
 
-export const extensionTypeLabels: Record<ExtensionType, string> = {
-  skill: "Skill",
-  command: "Command",
-  "mcp-server": "MCP Server",
-  subagent: "Subagent",
-  files: "Context Files",
-  rule: "Rule",
-  hook: "Hook",
-  knowledge: "Knowledge",
-  pack: "Pack",
-};
+export const extensionTypeLabels: Record<ExtensionType, string> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.label,
+);
 
-export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
-  skills: "Skills",
-  commands: "Commands",
-  mcps: "MCP Servers",
-  subagents: "Subagents",
-  files: "Context Files",
-  rules: "Rules",
-  hooks: "Hooks",
-  knowledge: "Knowledge",
-  packs: "Packs",
-};
+export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = EffectRecord.map(
+  tableByPlural,
+  (row) => row.pluralLabel,
+);
 
-export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
-  skill: "skill",
-  command: "command",
-  "mcp-server": "MCP server",
-  subagent: "subagent",
-  files: "context files",
-  rule: "rule",
-  hook: "hook",
-  knowledge: "knowledge bundle",
-  pack: "pack",
-};
+export const extensionTypeSentenceLabels: Record<ExtensionType, string> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.sentenceLabel,
+);
 
-export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> = {
-  skills: "skills",
-  commands: "commands",
-  mcps: "MCP servers",
-  subagents: "subagents",
-  files: "context files",
-  rules: "rules",
-  hooks: "hooks",
-  knowledge: "knowledge bundles",
-  packs: "packs",
-};
+export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> =
+  EffectRecord.map(tableByPlural, (row) => row.pluralSentenceLabel);
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
 
@@ -283,20 +383,103 @@ const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const nonPackExtensionTypePluralSegments = [
-  "skills",
-  "commands",
-  "mcps",
-  "subagents",
-  "files",
-  "rules",
-  "hooks",
-  "knowledge",
-] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
+export type NonPackExtensionTypePlural = Exclude<ExtensionTypePlural, "packs">;
 
-export type NonPackExtensionTypePlural = (typeof nonPackExtensionTypePluralSegments)[number];
+export const nonPackExtensionTypePluralSegments: ReadonlyArray<NonPackExtensionTypePlural> =
+  extensionTypePluralSegments.filter(
+    (segment): segment is NonPackExtensionTypePlural => segment !== "packs",
+  );
 
 const NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = nonPackExtensionTypePluralSegments.join("|");
+
+// ---------------------------------------------------------------------------
+// Axis-derived type unions and arrays
+// ---------------------------------------------------------------------------
+
+type ExtensionTypeRows = typeof EXTENSION_TYPE_TABLE;
+
+/**
+ * Extension types whose table row matches an axis value. Derived, never
+ * hand-written: an axis change on a row updates every union below, and the
+ * exact-membership pins in extension-type-table.type-test.ts fail compile in
+ * both directions if a union gains or loses a member.
+ */
+type TypesWhere<Axis extends keyof ExtensionTypeRow, Value> = {
+  [Key in ExtensionType]: ExtensionTypeRows[Key][Axis] extends Value ? Key : never;
+}[ExtensionType];
+
+/** Extension types materialized into agent-owned locations. */
+export type PerAgentType = TypesWhere<"placement", "per-agent">;
+
+/** Extension types materialized into workspace-owned locations. */
+export type WorkspaceType = TypesWhere<"placement", "workspace">;
+
+/** Extension types that coordinate other extensions instead of projecting directly. */
+export type ContainerType = TypesWhere<"placement", "container">;
+
+/** Registry-distributed non-container extension types. */
+export type RegistryType = PerAgentType | WorkspaceType;
+
+/** Extension types whose installs accept user-provided inputs. */
+export type InputType = TypesWhere<"installInputs", true>;
+
+/** Extension types whose governing standard covers the package body. */
+export type BodyGovernedType = TypesWhere<"governs", "package-body">;
+
+/**
+ * Extension types a standard governs at all. The agent catalog records a
+ * standards-compliance grade for exactly these, so the grade is never
+ * hand-applied per capability schema.
+ */
+export type SpecTrackedType = TypesWhere<"governs", StandardGoverns>;
+
+/**
+ * Extension types that double as a workspace-level capability toggle. These
+ * carry workspace configuration of their own, so surfaces that split extension
+ * management from workspace management group them with the workspace.
+ */
+export type WorkspaceCapabilityType = TypesWhere<"workspaceCapability", WorkspaceCapabilityKey>;
+
+export const PER_AGENT_EXTENSION_TYPES: ReadonlyArray<PerAgentType> = extensionTypes.filter(
+  (type): type is PerAgentType => EXTENSION_TYPE_TABLE[type].placement === "per-agent",
+);
+
+export const WORKSPACE_EXTENSION_TYPES: ReadonlyArray<WorkspaceType> = extensionTypes.filter(
+  (type): type is WorkspaceType => EXTENSION_TYPE_TABLE[type].placement === "workspace",
+);
+
+export const CONTAINER_EXTENSION_TYPES: ReadonlyArray<ContainerType> = extensionTypes.filter(
+  (type): type is ContainerType => EXTENSION_TYPE_TABLE[type].placement === "container",
+);
+
+export const REGISTRY_EXTENSION_TYPES: ReadonlyArray<RegistryType> = extensionTypes.filter(
+  (type): type is RegistryType => EXTENSION_TYPE_TABLE[type].placement !== "container",
+);
+
+export const INPUT_EXTENSION_TYPES: ReadonlyArray<InputType> = extensionTypes.filter(
+  (type): type is InputType => EXTENSION_TYPE_TABLE[type].installInputs,
+);
+
+export const BODY_GOVERNED_EXTENSION_TYPES: ReadonlyArray<BodyGovernedType> = extensionTypes.filter(
+  (type): type is BodyGovernedType => EXTENSION_TYPE_TABLE[type].governs === "package-body",
+);
+
+export const SPEC_TRACKED_EXTENSION_TYPES: ReadonlyArray<SpecTrackedType> = extensionTypes.filter(
+  (type): type is SpecTrackedType => EXTENSION_TYPE_TABLE[type].governs !== null,
+);
+
+export const WORKSPACE_CAPABILITY_EXTENSION_TYPES: ReadonlyArray<WorkspaceCapabilityType> =
+  extensionTypes.filter(
+    (type): type is WorkspaceCapabilityType =>
+      EXTENSION_TYPE_TABLE[type].workspaceCapability !== null,
+  );
+
+/** Extension types managed purely as extensions, with no workspace capability. */
+export const EXTENSION_ONLY_TYPES: ReadonlyArray<Exclude<ExtensionType, WorkspaceCapabilityType>> =
+  extensionTypes.filter(
+    (type): type is Exclude<ExtensionType, WorkspaceCapabilityType> =>
+      EXTENSION_TYPE_TABLE[type].workspaceCapability === null,
+  );
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
@@ -697,12 +880,42 @@ export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
 >;
 
 /**
+ * Publish-time packaging options.
+ *
+ * Declared in the manifest rather than in workspace settings so the policy
+ * travels with the package: whoever publishes a checkout produces the same
+ * archive. Absent means every file under the package directory is published,
+ * which is the default and the only behavior before this field existed.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PublishOptionsSchema = Schema.Struct({
+  ignore: Schema.optional(
+    Schema.Array(Schema.NonEmptyString)
+      .pipe(Schema.check(Schema.isUnique()))
+      .annotate({
+        description:
+          "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
+        examples: [["*.test.ts", "fixtures/*"]],
+      }),
+  ),
+}).annotate({
+  identifier: "PublishOptions",
+  title: "Publish Options",
+  description: "Options that shape the archive this package publishes.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PublishOptions = Schema.Schema.Type<typeof PublishOptionsSchema>;
+
+/**
  * Common base fields shared across manifest types.
  * Type-specific manifests provide their own `type` and `name` fields explicitly.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestBaseFields = {
+  publish: Schema.optional(PublishOptionsSchema),
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
   version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
   description: Schema.optional(

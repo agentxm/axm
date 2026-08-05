@@ -678,7 +678,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Expected structure per design:
-        // lockfileVersion: 2
+        // lockfileVersion: 3
         // skills:
         //   my-skill:
         //     source:

@@ -95,6 +95,46 @@ export default [
     },
   },
   {
+    // Timestamp backstop: production code reads the clock through
+    // DateTime.now / Clock and holds DateTime.Utc; ambient Date construction
+    // belongs only at sanctioned edges (listed in ignores) and tests.
+    files: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts"],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "packages/cli/src/test-helpers.ts",
+      "packages/cli/src/test-stubs.ts",
+      // deterministic archive mtime constant, not a clock read
+      "packages/core/src/unstable/utils/build-zip-archive.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "BinaryExpression[left.type='MemberExpression'][left.property.name='hostname'][right.type='Literal'][right.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
+        {
+          selector:
+            "BinaryExpression[right.type='MemberExpression'][right.property.name='hostname'][left.type='Literal'][left.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
+        {
+          selector: "NewExpression[callee.name='Date']",
+          message:
+            "Use DateTime.now (Effect clock) or DateTime.makeUnsafe at a driver edge instead of ambient Date construction.",
+        },
+        {
+          selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
+        },
+      ],
+    },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx", "**/*.cts", "**/*.mts"],
     plugins: {
       "@effect": effectEslint,

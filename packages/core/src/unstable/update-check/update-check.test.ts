@@ -9,8 +9,10 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import { describe, expect, it, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -32,13 +34,14 @@ import {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const freshTimestamp = () => new Date().toISOString();
+const timestampAgo = (elapsed: Duration.Duration) =>
+  DateTime.now.pipe(
+    Effect.map((now) => DateTime.formatIso(DateTime.subtractDuration(now, elapsed))),
+  );
 
-const staleTimestamp = () => {
-  const d = new Date();
-  d.setTime(d.getTime() - 61 * 60 * 1000); // 61 minutes ago
-  return d.toISOString();
-};
+const freshTimestamp = () => timestampAgo(Duration.zero);
+
+const staleTimestamp = () => timestampAgo(Duration.minutes(61));
 
 const baseSkipContext: SkipCheckContext = {
   isJsonOutput: false,
@@ -50,37 +53,40 @@ const baseSkipContext: SkipCheckContext = {
 };
 
 // =============================================================================
-// isCacheStale (pure)
+// isCacheStale
 // =============================================================================
 
 describe("isCacheStale", () => {
-  it("returns false for a recent timestamp", () => {
-    const now = new Date();
-    const recent = new Date(now.getTime() - 60 * 1000).toISOString(); // 1 minute ago
-    expect(isCacheStale(recent, now)).toBe(false);
-  });
+  const checkedAgo = (elapsed: Duration.Duration) =>
+    DateTime.now.pipe(Effect.map((now) => DateTime.subtractDuration(now, elapsed)));
 
-  it("returns true for a timestamp older than 60 minutes", () => {
-    const now = new Date();
-    const old = new Date(now.getTime() - 61 * 60 * 1000).toISOString();
-    expect(isCacheStale(old, now)).toBe(true);
-  });
+  it.effect("returns false for a recent timestamp", () =>
+    Effect.gen(function* () {
+      const recent = yield* checkedAgo(Duration.minutes(1));
+      expect(yield* isCacheStale(recent)).toBe(false);
+    }),
+  );
 
-  it("returns true for an invalid date string", () => {
-    expect(isCacheStale("not-a-date", new Date())).toBe(true);
-  });
+  it.effect("returns true for a timestamp older than 60 minutes", () =>
+    Effect.gen(function* () {
+      const old = yield* checkedAgo(Duration.minutes(61));
+      expect(yield* isCacheStale(old)).toBe(true);
+    }),
+  );
 
-  it("returns false for exactly 60 minutes ago (boundary)", () => {
-    const now = new Date();
-    const boundary = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-    expect(isCacheStale(boundary, now)).toBe(false);
-  });
+  it.effect("returns false for exactly 60 minutes ago (boundary)", () =>
+    Effect.gen(function* () {
+      const boundary = yield* checkedAgo(Duration.minutes(60));
+      expect(yield* isCacheStale(boundary)).toBe(false);
+    }),
+  );
 
-  it("returns true for just over 60 minutes ago", () => {
-    const now = new Date();
-    const justOver = new Date(now.getTime() - 60 * 60 * 1000 - 1).toISOString();
-    expect(isCacheStale(justOver, now)).toBe(true);
-  });
+  it.effect("returns true for just over 60 minutes ago", () =>
+    Effect.gen(function* () {
+      const justOver = yield* checkedAgo(Duration.millis(60 * 60 * 1000 + 1));
+      expect(yield* isCacheStale(justOver)).toBe(true);
+    }),
+  );
 });
 
 // =============================================================================
@@ -160,7 +166,7 @@ describe("notificationMessage", () => {
 // readCacheFromPath (effectful)
 // =============================================================================
 
-describe("readCacheFromPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("readCacheFromPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -176,13 +182,13 @@ describe("readCacheFromPath", () => {
       const cachePath = nodePath.join(tempDir, "update-check.json");
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns Some for a fresh cache file", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.2.0", checkedAt: freshTimestamp() };
+      const data = { latestVersion: "0.2.0", checkedAt: yield* freshTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* readCacheFromPath(cachePath);
@@ -190,18 +196,31 @@ describe("readCacheFromPath", () => {
       if (Option.isSome(result)) {
         expect(result.value.latestVersion).toBe("0.2.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for a stale cache file (older than 60 minutes)", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.2.0", checkedAt: staleTimestamp() };
+      const data = { latestVersion: "0.2.0", checkedAt: yield* staleTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
+  );
+
+  it.effect("returns None when checkedAt is not a date", () =>
+    Effect.gen(function* () {
+      const cachePath = nodePath.join(tempDir, "update-check.json");
+      nodeFs.writeFileSync(
+        cachePath,
+        JSON.stringify({ latestVersion: "0.2.0", checkedAt: "not-a-date" }),
+      );
+
+      const result = yield* readCacheFromPath(cachePath);
+      expect(Option.isNone(result)).toBe(true);
+    }),
   );
 
   it.effect("returns None for invalid JSON", () =>
@@ -211,7 +230,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for JSON with wrong schema", () =>
@@ -221,7 +240,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for empty file", () =>
@@ -231,7 +250,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 
@@ -239,7 +258,7 @@ describe("readCacheFromPath", () => {
 // writeCacheToPath (effectful)
 // =============================================================================
 
-describe("writeCacheToPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("writeCacheToPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -259,7 +278,7 @@ describe("writeCacheToPath", () => {
       const parsed: unknown = JSON.parse(content);
       expect(parsed).toHaveProperty("latestVersion", "0.3.0");
       expect(parsed).toHaveProperty("checkedAt");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("creates parent directories if needed", () =>
@@ -268,7 +287,7 @@ describe("writeCacheToPath", () => {
       yield* writeCacheToPath(cachePath, "0.3.0");
 
       expect(nodeFs.existsSync(cachePath)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("written cache is readable", () =>
@@ -281,7 +300,7 @@ describe("writeCacheToPath", () => {
       if (Option.isSome(result)) {
         expect(result.value.latestVersion).toBe("0.5.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 
@@ -289,7 +308,7 @@ describe("writeCacheToPath", () => {
 // isUpdateAvailableFromPath (effectful)
 // =============================================================================
 
-describe("isUpdateAvailableFromPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("isUpdateAvailableFromPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -303,7 +322,7 @@ describe("isUpdateAvailableFromPath", () => {
   it.effect("returns Some when local version is older", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: freshTimestamp() };
+      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
@@ -312,29 +331,29 @@ describe("isUpdateAvailableFromPath", () => {
         expect(result.value.current).toBe("0.2.0");
         expect(result.value.latest).toBe("0.3.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when local version is same", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: freshTimestamp() };
+      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.3.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when local version is newer", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: freshTimestamp() };
+      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "1.0.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when cache is missing", () =>
@@ -342,29 +361,29 @@ describe("isUpdateAvailableFromPath", () => {
       const cachePath = nodePath.join(tempDir, "nonexistent.json");
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when cache is stale", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: staleTimestamp() };
+      const data = { latestVersion: "0.3.0", checkedAt: yield* staleTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for invalid version strings", () =>
     Effect.gen(function* () {
       const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "not-semver", checkedAt: freshTimestamp() };
+      const data = { latestVersion: "not-semver", checkedAt: yield* freshTimestamp() };
       nodeFs.writeFileSync(cachePath, JSON.stringify(data));
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 

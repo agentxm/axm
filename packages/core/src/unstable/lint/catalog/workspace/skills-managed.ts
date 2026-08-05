@@ -33,7 +33,7 @@ const unmanagedFinding = (name: string, location: string): AdvisoryFinding => ({
   message:
     `Skill '${name}' is present here, but it is not managed by this workspace. ` +
     `To adopt it for authoring, run \`axm adopt @owner/skills/${name}\`. ` +
-    `To fork, ignore, or prune it, use \`axm help skills\` to choose the right resolution.`,
+    `To copy, ignore, or prune it, use \`axm help skills\` to choose the right resolution.`,
   location: { file: location },
 });
 

@@ -92,18 +92,31 @@ axm install @acme/skills/code-review
 
 ## Extension types
 
-| Type            | What it is                                                                                 | Example                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| **Skills**      | Context-triggered agent capabilities per the [agentskills.io](https://agentskills.io) spec | `@acme/skills/code-review` — apply team review standards on every diff           |
-| **Commands**    | User-invokable prompts (slash commands, saved prompts)                                     | `@acme/commands/release-notes` — draft release notes from recent commits         |
-| **Subagents**   | Task-specialized agents the main agent delegates to                                        | `@acme/subagents/researcher` — delegate doc-reading to a cheaper model           |
-| **MCP servers** | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcps/linear` — tools for reading and updating Linear issues               |
-| **Packs**       | Curated bundles teams install and keep in sync                                             | `@acme/packs/frontend-tools` — the frontend guild's standard skills and commands |
+<!-- axm:generated:extension-types-table -->
 
-Every type has its own subcommand namespace (`axm skills`, `axm commands`,
-`axm subagents`, `axm mcps`, `axm packs`) sharing a common shape:
-`install`, `uninstall`, `list`, `update`, `new`, `publish`, plus
-`enable`/`disable` where it applies.
+| Type              | What it is                                                                       | Governing standard                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Skills**        | Package reusable agent skills with SKILL.md metadata and instructions.           | [Agent Skills](https://agentskills.io)                                                                      |
+| **Commands**      | Install slash commands or prompt commands in an agent's native command location. | —                                                                                                           |
+| **MCP Servers**   | Configure Model Context Protocol servers for agents.                             | [Model Context Protocol](https://modelcontextprotocol.io)                                                   |
+| **Subagents**     | Install specialized agent profiles into an agent's native subagent system.       | —                                                                                                           |
+| **Context Files** | Scaffold and manage standalone .md context files.                                | —                                                                                                           |
+| **Rules**         | Sync instruction files and distribute rule extensions that inject into them.     | [AGENTS.md](https://agents.md)                                                                              |
+| **Hooks**         | Install lifecycle hook extensions into an agent's native hook system.            | —                                                                                                           |
+| **Knowledge**     | Package portable Open Knowledge Format concept bundles.                          | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
+
+<!-- /axm:generated -->
+
+**Packs** are the container type: a pack curates any of the above into one
+bundle teams install and keep in sync, such as
+`@acme/packs/frontend-tools` — the frontend guild's standard skills and
+commands.
+
+<!-- axm:generated:extension-type-namespaces -->
+
+Every type has its own subcommand namespace (`axm skills`, `axm commands`, `axm mcps`, `axm subagents`, `axm files`, `axm rules`, `axm hooks`, `axm knowledge`, `axm packs`) sharing a common shape: `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus `enable`/`disable` where it applies.
+
+<!-- /axm:generated -->
 
 ## Subcommands
 
@@ -191,14 +204,18 @@ usage to your account:
 
 ```bash
 axm login                   # Sign in to the default registry
+axm login --device-code     # Sign in from SSH or a headless machine
 axm whoami                  # Show the current identity
 axm logout
 axm token                   # Print the current token (for scripting)
 ```
 
-`axm login` opens the browser for the default loopback PKCE flow. Use
-`axm login --device-code` or `axm login --no-browser` for SSH/headless
-environments.
+`axm login` starts a local loopback PKCE flow, prints a manual authorization
+URL, and then tries to open your browser. SSH, CI, and Codespaces automatically
+use device-code sign-in; pass `--device-code` to select that flow explicitly.
+Device-code sign-in shows the stable authorization page and one-time code
+separately, and copies only the code. Never enter a code that another person or
+website gave you.
 
 ## Supported agents
 

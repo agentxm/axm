@@ -20,4 +20,6 @@ export type InstallSkillCommandIntent = {
     readonly versionRange: Option.Option<VersionRange>;
   }>;
   readonly diagnosticLines?: ReadonlyArray<string>;
+  /** Re-materialize even when the canonical tree already matches the lockfile. */
+  readonly force?: boolean;
 };

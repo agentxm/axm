@@ -1,6 +1,7 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type {
   JobStepArtifact,
@@ -30,7 +31,7 @@ const makePrunePlan = (
   _tag: "Plan",
   name: "Prune files lock entries",
   description: Option.some(
-    `Remove ${staleEntries.length} stale files lock ${staleEntries.length === 1 ? "entry" : "entries"}`,
+    `Remove ${staleEntries.length} stale files lock ${staleEntries.length === 1 ? "entry" : "entries"}. Run with --yes to remove.`,
   ),
   jobs: [
     {
@@ -50,7 +51,11 @@ const makePrunePlan = (
   ],
 });
 
-export const handleFilesPrune = Effect.fn("FilesPrune.handle")(function* () {
+export interface FilesPruneFlags {
+  readonly yes: boolean;
+}
+
+export const handleFilesPrune = Effect.fn("FilesPrune.handle")(function* (flags: FilesPruneFlags) {
   const ws = yield* WorkspaceMutations;
   const configured = yield* ws.getConfiguredFilesEntries();
   const locked = yield* ws.getLockedFiles();
@@ -66,7 +71,7 @@ export const handleFilesPrune = Effect.fn("FilesPrune.handle")(function* () {
   }
 
   const resolution = yield* previewOrApplyLocalPlan(makePrunePlan(stale, ws), {
-    preview: false,
+    preview: !flags.yes,
     displayApplied: false,
   });
   yield* emitAppliedPlanOutcome({
@@ -81,17 +86,22 @@ const pruneConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Prune project (default) or user-level files lock entries"),
   ),
+  yes: yesFlag.pipe(Flag.withDescription("Remove stale lock entries without confirmation")),
 } as const;
 
-export const pruneCommand = Command.make("prune", pruneConfig, ({ scope }) =>
-  handleFilesPrune().pipe(withWorkspace(scope), withRuntime("files prune")),
+export const pruneCommand = Command.make("prune", pruneConfig, ({ scope, yes }) =>
+  handleFilesPrune({ yes }).pipe(withWorkspace(scope), withRuntime("files prune")),
 ).pipe(
   withArgvTracking(pruneConfig),
   Command.withDescription("Prune stale files lock entries"),
   Command.withExamples([
     {
       command: "axm files prune",
-      description: "Prune stale files lock entries",
+      description: "Preview stale files lock entries that would be removed",
+    },
+    {
+      command: "axm files prune --yes",
+      description: "Remove stale files lock entries",
     },
   ]),
 );

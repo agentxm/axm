@@ -13,6 +13,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
+  augmentInventory,
   inventoryActivation,
   inventoryIgnoredBy,
   inventoryState,
@@ -68,13 +69,9 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* (ar
     source: configured[row.name]?.source ?? locked[row.name]?.type ?? row.origins.join(", "),
     ignoredBy: inventoryIgnoredBy(row),
   }));
-  const output = {
-    ...inventory,
-    items: inventory.items.map((row) => ({
-      ...row,
-      source: configured[row.name]?.source ?? locked[row.name]?.type ?? row.origins.join(", "),
-    })),
-  };
+  const output = augmentInventory(inventory, (row) => ({
+    source: configured[row.name]?.source ?? locked[row.name]?.type ?? row.origins.join(", "),
+  }));
 
   if (yield* renderer.result(output, ExtensionInventorySchema)) return;
   if (items.length === 0) {

@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
@@ -12,6 +13,12 @@ import { pruneCommand } from "./prune/command.js";
 import { skillsVersionCommand } from "../shared/version-command.js";
 import { copyCommand } from "./copy.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+
+const showCommand = makeExtensionShowCommand({
+  type: "skill",
+  group: "skills",
+  exampleName: "code-review",
+});
 
 export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Manage skills"),
@@ -45,6 +52,7 @@ export const skillsCommand = Command.make("skills").pipe(
     installCommand,
     uninstallCommand,
     listCommand,
+    showCommand,
     updateCommand,
     newCommand,
     copyCommand,

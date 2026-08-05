@@ -12,9 +12,11 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
+  configuredRowsByName,
   resolveConfiguredCommand,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -25,6 +27,7 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import {
   enabledConfiguredEntries,
   extensionTypePluralSentenceLabels,
+  installableExtensionTypes,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
@@ -38,6 +41,8 @@ import { InstallFilesCommandWorkflowActions } from "../files/install/command-act
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
+import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
+import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -74,19 +79,35 @@ type WorkspaceUpdateCollectorContext =
   | InstallCommandCommandWorkflowActions
   | InstallFilesCommandWorkflowActions
   | InstallHookCommandWorkflowActions
+  | InstallKnowledgeCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
   | InstallPackCommandWorkflowActions;
 
+/**
+ * Name selector shared by every collector. `undefined` means "no selector was
+ * given" and is distinct from an empty set, which selects nothing.
+ */
+export interface WorkspaceUpdateNameSelection {
+  readonly names: ReadonlySet<string> | undefined;
+}
+
 interface WorkspaceUpdateCollector {
   readonly type: WorkspaceUpdatableType;
-  readonly collect: () => Effect.Effect<
-    CollectedWorkspaceUpdatePlans,
-    AppError,
-    WorkspaceUpdateCollectorContext
-  >;
+  readonly collect: (
+    selection: WorkspaceUpdateNameSelection,
+  ) => Effect.Effect<CollectedWorkspaceUpdatePlans, AppError, WorkspaceUpdateCollectorContext>;
 }
+
+const selectedEntries = <TEntry>(
+  entries: ReadonlyArray<readonly [string, TEntry]>,
+  selection: WorkspaceUpdateNameSelection,
+): ReadonlyArray<readonly [string, TEntry]> => {
+  const { names } = selection;
+  if (names === undefined) return entries;
+  return entries.filter(([name]) => names.has(name));
+};
 
 export type WorkspaceUpdatePlanResult =
   | {
@@ -276,6 +297,16 @@ const resolveHookIntent = (name: string, source: string) =>
     ),
   );
 
+const resolveKnowledgeIntent = (name: string, source: string) =>
+  resolveConfiguredKnowledge(name, source).pipe(
+    Effect.map(
+      ({ ref, versionRange }) =>
+        ({
+          refs: [{ ref, versionRange }],
+        }) satisfies InstallKnowledgeCommandIntent,
+    ),
+  );
+
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
@@ -300,12 +331,12 @@ const resolvePackRef = (name: string, source: string) =>
     ),
   );
 
-const collectSkillPlans = () =>
+const collectSkillPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
-    const configured = yield* ws.records.getConfiguredSkills();
-    const entries = enabledConfiguredEntries(configured);
+    const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -321,12 +352,12 @@ const collectSkillPlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectCommandPlans = () =>
+const collectCommandPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallCommandCommandWorkflowActions;
-    const configured = yield* ws.records.getConfiguredCommands();
-    const entries = enabledConfiguredEntries(configured);
+    const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -342,12 +373,12 @@ const collectCommandPlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectFilePlans = () =>
+const collectFilePlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallFilesCommandWorkflowActions;
     const configured = yield* ws.getConfiguredFilesEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -363,12 +394,12 @@ const collectFilePlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectRulePlans = () =>
+const collectRulePlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallRuleCommandWorkflowActions;
     const configured = yield* ws.getConfiguredRuleEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -384,12 +415,12 @@ const collectRulePlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectHookPlans = () =>
+const collectHookPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallHookCommandWorkflowActions;
     const configured = yield* ws.getConfiguredHookEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -405,12 +436,33 @@ const collectHookPlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectSubagentPlans = () =>
+const collectKnowledgePlans = (selection: WorkspaceUpdateNameSelection) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallKnowledgeCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("knowledge", name, entry.source, ws.scope))
+          : resolveKnowledgeIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
+      { concurrency: "unbounded" },
+    );
+
+    return toCollectedWorkspaceUpdatePlans({ plans });
+  });
+
+const collectSubagentPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
-    const configured = yield* ws.records.getConfiguredSubagents();
-    const entries = enabledConfiguredEntries(configured);
+    const configured = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -426,12 +478,12 @@ const collectSubagentPlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectMcpServerPlans = () =>
+const collectMcpServerPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
-    const configured = yield* ws.records.getConfiguredMcpServers();
-    const entries = enabledConfiguredEntries(configured);
+    const configured = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -447,12 +499,12 @@ const collectMcpServerPlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
-const collectPackPlans = () =>
+const collectPackPlans = (selection: WorkspaceUpdateNameSelection) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
-    const configured = yield* ws.records.getConfiguredPacks();
-    const entries = Object.entries(configured);
+    const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+    const entries = selectedEntries(Object.entries(configured), selection);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -471,16 +523,25 @@ const collectPackPlans = () =>
     });
   });
 
-const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
-  { type: "skill" as const, collect: collectSkillPlans },
-  { type: "command" as const, collect: collectCommandPlans },
-  { type: "files" as const, collect: collectFilePlans },
-  { type: "rule" as const, collect: collectRulePlans },
-  { type: "hook" as const, collect: collectHookPlans },
-  { type: "subagent" as const, collect: collectSubagentPlans },
-  { type: "mcp-server" as const, collect: collectMcpServerPlans },
-  { type: "pack" as const, collect: collectPackPlans },
-];
+// Total over InstallableExtensionType: a missing key is a compile error, so a
+// type can never again be silently dropped from workspace update.
+const workspaceUpdateCollectorsByType = {
+  skill: collectSkillPlans,
+  command: collectCommandPlans,
+  files: collectFilePlans,
+  rule: collectRulePlans,
+  hook: collectHookPlans,
+  knowledge: collectKnowledgePlans,
+  subagent: collectSubagentPlans,
+  "mcp-server": collectMcpServerPlans,
+  pack: collectPackPlans,
+} satisfies Record<InstallableExtensionType, WorkspaceUpdateCollector["collect"]>;
+
+const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> =
+  installableExtensionTypes.map((type) => ({
+    type,
+    collect: workspaceUpdateCollectorsByType[type],
+  }));
 
 const makePlan = (
   name: string,
@@ -499,14 +560,21 @@ export const buildWorkspaceUpdatePlan = (args: {
   readonly type: Option.Option<WorkspaceUpdatableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
+  /** Installed names the caller's selector resolved to; omit to update all. */
+  readonly names?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
+    const selection: WorkspaceUpdateNameSelection = {
+      names: args.names === undefined ? undefined : new Set(args.names),
+    };
     const selectedCollectors = workspaceUpdateCollectors.filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );
-    const collections = yield* Effect.forEach(selectedCollectors, ({ collect }) => collect(), {
-      concurrency: "unbounded",
-    });
+    const collections = yield* Effect.forEach(
+      selectedCollectors,
+      ({ collect }) => collect(selection),
+      { concurrency: "unbounded" },
+    );
     const fragments = mergeFragments(collections);
 
     if (fragments.length === 0) {

@@ -68,49 +68,11 @@ export const mistralVibeAgent = {
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: {
-          config: {
-            serversKey: "mcp_servers",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "project",
-                path: ".vibe/config.toml",
-                format: "toml",
-              },
-              {
-                scope: "user",
-                path: "~/.vibe/config.toml",
-                format: "toml",
-              },
-            ],
-            stdio: {
-              typeField: {
-                name: "transport",
-                value: "stdio",
-              },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                name: "transport",
-                value: {
-                  "streamable-http": "streamable-http",
-                  sse: "http",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
-            transform: null,
-          },
-        },
+        status: "unsupported",
+        lastVerified: "2026-08-04",
+        writer: null,
+        reason:
+          "Mistral Vibe stores MCP servers as repeated [[mcp_servers]] TOML array-of-table entries. AXM's generic MCP writer currently serializes keyed server maps and cannot represent that shape without corrupting the configuration.",
       },
     },
     subagent: {
@@ -123,41 +85,6 @@ export const mistralVibeAgent = {
         scopes: ["user", "project"],
         directory: ".vibe/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -226,6 +153,27 @@ export const mistralVibeAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

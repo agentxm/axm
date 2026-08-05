@@ -13,8 +13,13 @@ import {
 import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../files/manifest-schema.js";
 import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../hooks/manifest-schema.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
+import {
+  KnowledgeManifestSchema,
+  KNOWLEDGE_MANIFEST_FILENAME,
+} from "../knowledge/manifest-schema.js";
 import { McpServerManifestSchema, MCP_SERVER_MANIFEST_FILENAME } from "../mcps/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
+import { RuleManifestSchema, RULE_MANIFEST_FILENAME } from "../rules/manifest-schema.js";
 import {
   SkillManifestSchema,
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
@@ -40,26 +45,20 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
   readonly details?: unknown;
 }> {}
 
-export const manifestFilenameForType = (type: string): string | undefined => {
-  switch (type) {
-    case "skill":
-      return SKILL_MANIFEST_FILENAME;
-    case "command":
-      return COMMAND_MANIFEST_FILENAME;
-    case "mcp-server":
-      return MCP_SERVER_MANIFEST_FILENAME;
-    case "subagent":
-      return SUBAGENT_MANIFEST_FILENAME;
-    case "pack":
-      return PACK_MANIFEST_FILENAME;
-    case "files":
-      return FILES_MANIFEST_FILENAME;
-    case "hook":
-      return HOOK_MANIFEST_FILENAME;
-    default:
-      return undefined;
-  }
-};
+export const MANIFEST_FILENAME_BY_TYPE = {
+  skill: SKILL_MANIFEST_FILENAME,
+  command: COMMAND_MANIFEST_FILENAME,
+  "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
+  subagent: SUBAGENT_MANIFEST_FILENAME,
+  pack: PACK_MANIFEST_FILENAME,
+  files: FILES_MANIFEST_FILENAME,
+  rule: RULE_MANIFEST_FILENAME,
+  hook: HOOK_MANIFEST_FILENAME,
+  knowledge: KNOWLEDGE_MANIFEST_FILENAME,
+} as const satisfies Record<ExtensionType, string>;
+
+export const manifestFilenameForType = (type: ExtensionType): string =>
+  MANIFEST_FILENAME_BY_TYPE[type];
 
 export const ManifestIdentitySchema = Schema.Struct({
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
@@ -75,29 +74,22 @@ export const ManifestIdentitySchema = Schema.Struct({
 
 export type ManifestIdentity = Schema.Schema.Type<typeof ManifestIdentitySchema>;
 
-export const manifestSchemaForType = (type: string) => {
-  switch (type) {
-    case "skill":
-      return SkillManifestSchema;
-    case "command":
-      return CommandManifestSchema;
-    case "mcp-server":
-      return McpServerManifestSchema;
-    case "subagent":
-      return SubagentManifestSchema;
-    case "pack":
-      return PackManifestSchema;
-    case "files":
-      return FilesManifestSchema;
-    case "hook":
-      return HookManifestSchema;
-    default:
-      return undefined;
-  }
-};
+const MANIFEST_SCHEMA_BY_TYPE = {
+  skill: SkillManifestSchema,
+  command: CommandManifestSchema,
+  "mcp-server": McpServerManifestSchema,
+  subagent: SubagentManifestSchema,
+  pack: PackManifestSchema,
+  files: FilesManifestSchema,
+  rule: RuleManifestSchema,
+  hook: HookManifestSchema,
+  knowledge: KnowledgeManifestSchema,
+} satisfies Record<ExtensionType, Schema.Top>;
+
+export const manifestSchemaForType = (type: ExtensionType) => MANIFEST_SCHEMA_BY_TYPE[type];
 
 export interface ManifestResolutionInput {
-  readonly type: string;
+  readonly type: ExtensionType;
   readonly entries: readonly ZipEntry[];
   readonly readEntry: (fileName: string) => Effect.Effect<Uint8Array, ArchiveGuardrailError>;
 }
@@ -235,12 +227,6 @@ export const resolveManifest = (
 ): Effect.Effect<ResolvedManifest, ManifestError | ArchiveGuardrailError> =>
   Effect.gen(function* () {
     const expectedFilename = manifestFilenameForType(input.type);
-    if (expectedFilename === undefined) {
-      return yield* new ManifestError({
-        code: "manifest_missing",
-        detail: `No manifest filename policy for extension type "${input.type}".`,
-      });
-    }
 
     const [manifestEntry, ...rest] = input.entries.filter((entry) => {
       const normalized = entry.fileName.replace(/\\/g, "/");
@@ -286,20 +272,18 @@ export const resolveManifest = (
     }
 
     const schema = manifestSchemaForType(input.type);
-    if (schema !== undefined) {
-      yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
-        Effect.mapError((error) => {
-          const companionPackageError = classifyCompanionPackageManifestError(parsed);
-          return new ManifestError({
-            code: companionPackageError?.code ?? "manifest_schema_invalid",
-            detail:
-              companionPackageError?.detail ??
-              `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.type} manifest schema.`,
-            details: SchemaIssue.makeFormatterDefault()(error.issue),
-          });
-        }),
-      );
-    }
+    yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
+      Effect.mapError((error) => {
+        const companionPackageError = classifyCompanionPackageManifestError(parsed);
+        return new ManifestError({
+          code: companionPackageError?.code ?? "manifest_schema_invalid",
+          detail:
+            companionPackageError?.detail ??
+            `Manifest file "${manifestEntry.fileName}" does not conform to the ${input.type} manifest schema.`,
+          details: SchemaIssue.makeFormatterDefault()(error.issue),
+        });
+      }),
+    );
 
     const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(parsed).pipe(
       Effect.mapError(

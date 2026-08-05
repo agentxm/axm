@@ -16,6 +16,8 @@ import type { RegistrySkillRef } from "./refs.js";
 const registryRef = (name: string): RegistrySkillRef => ({
   type: "skill",
   refType: "registry",
+
+  publisherBindingId: "hbnd_test",
   source: {
     type: "registry",
     location: new URL("http://localhost:4300"),
@@ -65,7 +67,7 @@ const testLayer = (setSkillLock: (args: SetSkillArgs) => Effect.Effect<void>) =>
   );
 
 describe("SkillManager", () => {
-  it.effect("stamps lockfile entries as retained by pack when requested", () => {
+  it.effect("does not manufacture pack-retention state in the receipt", () => {
     let captured: SkillLockEntry | undefined;
     const setSkillLock = vi.fn((args: SetSkillArgs) => {
       captured = args.lockEntry;
@@ -76,11 +78,10 @@ describe("SkillManager", () => {
       const manager = yield* SkillManager;
       yield* manager.upsertLockfileEntry({
         ref: registryRef("reviewer"),
-        retainedByPack: true,
       });
 
       expect(setSkillLock).toHaveBeenCalledOnce();
-      expect(captured?.retainedByPack).toBe(true);
+      expect(captured?.retainedByPack).toBeUndefined();
     }).pipe(Effect.provide(testLayer(setSkillLock)));
   });
 });

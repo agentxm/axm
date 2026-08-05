@@ -8,8 +8,14 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as EffectRecord from "effect/Record";
 import * as ServiceMap from "effect/Context";
 import { CliRenderer } from "../cli-renderer/index.js";
+import {
+  EXTENSION_TYPE_TABLE,
+  toExtensionTypePlural,
+  type ExtensionType,
+} from "../extensions/common.js";
 import { count } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
@@ -60,10 +66,7 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
     if (plan._tag === "ExecutedPlan") {
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
       const hasFailures = allSteps.some((step) => step.result.result === "error");
-      const hasLegacySuccessDetail = allSteps.some(
-        (step) => step.result.result === "success" && step.result.artifact === undefined,
-      );
-      if (!hasFailures && !hasLegacySuccessDetail) {
+      if (!hasFailures) {
         yield* renderExecutedOutcome(plan, allSteps, renderer, verbosity);
         if (!verbosity.verbose) {
           return;
@@ -72,11 +75,6 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
 
       if (hasFailures) {
         yield* renderer.error(`${countFailedSteps(allSteps)} failed in ${plan.name}`);
-      } else if (hasLegacySuccessDetail) {
-        yield* renderLegacyExecutedOutcome(allSteps, renderer);
-        if (!verbosity.verbose) {
-          return;
-        }
       }
 
       if (verbosity.verbose) {
@@ -114,15 +112,6 @@ const countFailedSteps = (allSteps: ReadonlyArray<CompletedJobStep>): string => 
   return count(failCount, "step");
 };
 
-const legacySuccessMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
-  allSteps.flatMap((step) =>
-    step.result.result === "success" &&
-    step.result.artifact === undefined &&
-    step.result.message.length > 0
-      ? [step.result.message]
-      : [],
-  );
-
 const successMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
   allSteps.flatMap((step) =>
     step.result.result === "success" && step.result.message.length > 0 ? [step.result.message] : [],
@@ -139,30 +128,6 @@ const joinSummary = (...parts: ReadonlyArray<string | undefined>): string | unde
   const present = parts.filter((part): part is string => part !== undefined && part.length > 0);
   return present.length === 0 ? undefined : present.join("\n");
 };
-
-const renderLegacyExecutedOutcome = (
-  allSteps: ReadonlyArray<CompletedJobStep>,
-  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
-) =>
-  Effect.gen(function* () {
-    const messages = legacySuccessMessages(allSteps);
-    if (messages.length === 0) {
-      yield* renderer.success(`Applied ${count(allSteps.length, "step")}`);
-      return;
-    }
-
-    if (messages.length <= 2) {
-      yield* renderer.success(messages.join("; "));
-      return;
-    }
-
-    const skipMessages = messages.filter((message) => message.startsWith("Skipping "));
-    yield* renderer.success(
-      skipMessages.length === 0
-        ? `Applied ${count(messages.length, "change")}`
-        : `Applied ${count(messages.length, "change")}; ${skipMessages.join("; ")}`,
-    );
-  });
 
 const renderSection = (
   section: PlanSection,
@@ -314,30 +279,93 @@ const operationVerb = (planName: string): string => {
   return "Applied";
 };
 
-const artifactType = (planName: string): string => {
+/**
+ * Extension-type names a plan name can mention, derived from the type table so
+ * a new type is recognized without editing this file. Each row contributes
+ * every spelling it publishes — id, plural segment, and the display labels —
+ * and the longest token wins so `mcp servers` beats `mcps` and `skills` beats
+ * `skill`.
+ */
+const artifactTypeTokens: ReadonlyArray<{
+  readonly token: string;
+  readonly singular: string;
+  readonly plural: string;
+}> = EffectRecord.toEntries(EXTENSION_TYPE_TABLE)
+  .flatMap(([id, row]) =>
+    [
+      id,
+      row.plural,
+      row.sentenceLabel,
+      row.pluralSentenceLabel,
+      row.label.toLowerCase(),
+      row.pluralLabel.toLowerCase(),
+    ].map((token) => ({
+      token,
+      singular: row.sentenceLabel,
+      plural: row.pluralSentenceLabel,
+    })),
+  )
+  .sort((left, right) => right.token.length - left.token.length);
+
+/**
+ * Plan-scoped names that are not extension types. Checked before the type
+ * table because their wording overlaps it — "instruction-file management"
+ * would otherwise be read as a file plan.
+ */
+const NON_TYPE_ARTIFACT_NAMES: ReadonlyArray<{
+  readonly match: string;
+  readonly singular: string;
+  readonly plural: string;
+}> = [
+  {
+    match: "instruction-file",
+    singular: "instruction-file management",
+    plural: "instruction-file management",
+  },
+  { match: "configured extension", singular: "extension", plural: "extensions" },
+];
+
+/** Plan verbs that name an operation rather than a type. */
+const OPERATION_ARTIFACT_NAMES: ReadonlyArray<{
+  readonly match: string;
+  readonly singular: string;
+  readonly plural: string;
+}> = [
+  { match: "sync", singular: "workspace item", plural: "workspace items" },
+  { match: "prune", singular: "artifact", plural: "artifacts" },
+];
+
+const artifactNames = (
+  planName: string,
+): { readonly singular: string; readonly plural: string } => {
   const lower = planName.toLowerCase();
-  if (lower.includes("skill")) return "skill";
-  if (lower.includes("command")) return "command";
-  if (lower.includes("subagent")) return "subagent";
-  if (lower.includes("mcp")) return "MCP server";
-  if (lower.includes("instruction-file")) return "instruction-file management";
-  if (lower.includes("rule")) return "rule";
-  if (lower.includes("file")) return "files package";
-  if (lower.includes("hook")) return "hooks package";
-  if (lower.includes("pack")) return "pack";
-  if (lower.includes("configured extension")) return "extension";
-  if (lower.includes("sync")) return "workspace item";
-  if (lower.includes("prune")) return "artifact";
-  return "step";
+  for (const entry of NON_TYPE_ARTIFACT_NAMES) {
+    if (lower.includes(entry.match)) return entry;
+  }
+  for (const entry of artifactTypeTokens) {
+    if (lower.includes(entry.token)) return entry;
+  }
+  for (const entry of OPERATION_ARTIFACT_NAMES) {
+    if (lower.includes(entry.match)) return entry;
+  }
+  return { singular: "step", plural: "steps" };
 };
 
-const artifactPluralType = (type: string): string => {
-  if (type === "MCP server") return "MCP servers";
-  if (type === "files package") return "files packages";
-  if (type === "hooks package") return "hooks packages";
-  if (type === "instruction-file management") return "instruction-file management";
-  return `${type}s`;
-};
+const artifactType = (planName: string): string => artifactNames(planName).singular;
+
+const pluralByArtifactType: ReadonlyMap<string, string> = new Map([
+  ...artifactTypeTokens.map((entry): readonly [string, string] => [entry.singular, entry.plural]),
+  ...NON_TYPE_ARTIFACT_NAMES.map((entry): readonly [string, string] => [
+    entry.singular,
+    entry.plural,
+  ]),
+  ...OPERATION_ARTIFACT_NAMES.map((entry): readonly [string, string] => [
+    entry.singular,
+    entry.plural,
+  ]),
+]);
+
+const artifactPluralType = (type: string): string => pluralByArtifactType.get(type) ?? `${type}s`;
 
 const scopePhrase = (scope: JobStepArtifact["scope"]): string =>
   scope === "project" ? "this project" : "user scope";
@@ -436,87 +464,46 @@ const inspectSuggestionsForType = (type: string): ReadonlyArray<SuggestedAction>
   return [{ description: inspectDescriptionForType(type), cmd: listCommand }];
 };
 
+/**
+ * Display label back to type id. Plan summaries carry the sentence label, so
+ * this is how a suggestion recovers which command group to point at without a
+ * hand-written switch of its own.
+ */
+const extensionTypeByArtifactName: ReadonlyMap<string, ExtensionType> = new Map(
+  EffectRecord.toEntries(EXTENSION_TYPE_TABLE).map(
+    ([id, row]): readonly [string, ExtensionType] => [row.sentenceLabel, id],
+  ),
+);
+
+const INSTRUCTIONS_ARTIFACT = "instruction-file management";
+
 const commandGroupForType = (type: string): string => {
-  switch (type) {
-    case "skill":
-      return "skills";
-    case "command":
-      return "commands";
-    case "subagent":
-      return "subagents";
-    case "MCP server":
-      return "mcps";
-    case "files package":
-      return "files";
-    case "hooks package":
-      return "hooks";
-    case "pack":
-      return "packs";
-    case "rule":
-      return "rules";
-    default:
-      return "install";
-  }
+  const extensionType = extensionTypeByArtifactName.get(type);
+  return extensionType === undefined ? "install" : toExtensionTypePlural(extensionType);
 };
 
 const inverseCommand = (type: string, verb: "enable" | "disable", target: string): string =>
-  type === "rule" || type === "instruction-file management"
-    ? `axm rules ${verb}`
+  type === INSTRUCTIONS_ARTIFACT
+    ? `axm rules instructions ${verb}`
     : `axm ${commandGroupForType(type)} ${verb} ${target}`;
 
 const listCommandForType = (type: string): string | undefined => {
-  switch (type) {
-    case "rule":
-    case "instruction-file management":
-      return "axm rules";
-    case "skill":
-    case "command":
-    case "subagent":
-    case "MCP server":
-    case "files package":
-    case "hooks package":
-    case "pack":
-      return `axm ${commandGroupForType(type)} list`;
-    default:
-      return undefined;
-  }
+  if (type === INSTRUCTIONS_ARTIFACT) return "axm rules instructions";
+  const extensionType = extensionTypeByArtifactName.get(type);
+  return extensionType === undefined
+    ? undefined
+    : `axm ${toExtensionTypePlural(extensionType)} list`;
 };
 
 const uninstallCommandGroupForType = (type: string): string | undefined => {
-  switch (type) {
-    case "skill":
-    case "command":
-    case "subagent":
-    case "MCP server":
-    case "files package":
-    case "hooks package":
-    case "pack":
-      return commandGroupForType(type);
-    case "rule":
-    case "instruction-file management":
-      return undefined;
-    default:
-      return undefined;
-  }
+  const extensionType = extensionTypeByArtifactName.get(type);
+  return extensionType === undefined ? undefined : toExtensionTypePlural(extensionType);
 };
 
-const inspectDescriptionForType = (type: string): string => {
-  switch (type) {
-    case "MCP server":
-      return "Inspect MCP servers";
-    case "files package":
-      return "Inspect installed files packages";
-    case "hooks package":
-      return "Inspect installed hooks packages";
-    case "pack":
-      return "Inspect installed packs";
-    case "rule":
-    case "instruction-file management":
-      return "Inspect instruction-file management";
-    default:
-      return `Inspect installed ${artifactPluralType(type)}`;
-  }
-};
+const inspectDescriptionForType = (type: string): string =>
+  type === INSTRUCTIONS_ARTIFACT
+    ? "Inspect instruction-file management"
+    : `Inspect installed ${artifactPluralType(type)}`;
 
 const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
   const version = artifact.version === undefined ? "" : ` ${artifact.version}`;

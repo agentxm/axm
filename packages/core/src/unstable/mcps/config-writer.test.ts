@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
+import { parse as parseToml } from "smol-toml";
 import { parseYaml, readYamlEntry } from "../yaml/index.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
 
@@ -123,7 +124,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcpServers",
             target: { scope: "project", path: "agent.json", format: "json" },
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             disableOnly: false,
           });
 
@@ -167,7 +171,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "agent.toml", format: "toml" },
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             disableOnly: false,
           });
 
@@ -175,6 +182,94 @@ describe("agent MCP config writer", () => {
           expect(raw).toBe('model = "gpt-5"\n');
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(removeResult.targets).toEqual([{ path: "agent.toml", change: "updated" }]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("writes multiple managed servers as strict TOML", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-multi-"));
+        try {
+          const target = {
+            scope: "project",
+            path: "agent.toml",
+            format: "toml",
+          } as const;
+
+          for (const serverName of ["alpha", "beta"]) {
+            yield* writeAgentMcpConfig({
+              workspaceRoot,
+              serverName,
+              serversKey: "mcp_servers",
+              target,
+              entry: {
+                enabled: true,
+                command: "npx",
+                args: ["-y", `@acme/${serverName}`],
+              },
+            });
+          }
+
+          const raw = readFileSync(nodePath.join(workspaceRoot, target.path), "utf8");
+          expect(parseToml(raw)).toMatchObject({
+            mcp_servers: {
+              alpha: { enabled: true, command: "npx" },
+              beta: { enabled: true, command: "npx" },
+            },
+          });
+          expect(raw).not.toMatch(/^\[mcp_servers\]$/m);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("disables only the named managed TOML server", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-disable-"));
+        try {
+          const target = {
+            scope: "project",
+            path: "agent.toml",
+            format: "toml",
+          } as const;
+
+          for (const serverName of ["alpha", "beta"]) {
+            yield* writeAgentMcpConfig({
+              workspaceRoot,
+              serverName,
+              serversKey: "mcp_servers",
+              target,
+              entry: { enabled: true, command: "npx" },
+            });
+          }
+
+          yield* removeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "beta",
+            serversKey: "mcp_servers",
+            target,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
+            disableOnly: true,
+          });
+
+          expect(
+            parseToml(readFileSync(nodePath.join(workspaceRoot, target.path), "utf8")),
+          ).toMatchObject({
+            mcp_servers: {
+              alpha: { enabled: true },
+              beta: { enabled: false },
+            },
+          });
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -303,7 +398,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             disableOnly: true,
           });
 
@@ -320,7 +418,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             disableOnly: false,
           });
 

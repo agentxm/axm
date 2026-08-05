@@ -2,7 +2,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
-import { AgentIdSchema, AGENTS, AGENT_IDS } from "./catalog.js";
+import {
+  AgentIdSchema,
+  AGENTS,
+  AGENT_IDS,
+  HOSTED_AGENTS_BY_ID,
+  HOSTED_AGENT_IDS,
+} from "./catalog.js";
+import { isCapabilitySupported, toNativeAgent } from "./derive.js";
 import {
   AgentLifecycleSchema,
   AgentSchema,
@@ -12,6 +19,11 @@ import {
   LEAF_EXTENSION_TYPES,
   type Agent,
 } from "./schema.js";
+import {
+  resolveSharedMcpTarget,
+  type SharedMcpTargetMember,
+  type SharedMcpTransport,
+} from "../mcps/shared-target.js";
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 const unsupportedCapability = {
@@ -58,8 +70,6 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   command: unsupportedCapability,
   "mcp-server": unsupportedCapability,
   subagent: unsupportedCapability,
-  files: unsupportedCapability,
-  rule: unsupportedCapability,
   hook: unsupportedHookCapability,
   ...overrides,
 });
@@ -75,6 +85,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: makeCapabilitiesInput(),
+  instructions: unsupportedCapability,
   permissions: unsupportedCapability,
   ...overrides,
 });
@@ -84,9 +95,62 @@ describe("agent capability catalog", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
-    expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(
-      sortedStrings(CONFIGURABLE_AGENT_IDS),
-    );
+    expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(sortedStrings(AGENT_IDS));
+  });
+  it("keeps hosted agents out of the configurable filesystem registry", () => {
+    expect(HOSTED_AGENT_IDS).toEqual(["chatgpt", "claude-ai", "cowork", "gemini-app"]);
+    const configurableIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
+    for (const id of HOSTED_AGENT_IDS) {
+      expect(configurableIds.has(id)).toBe(false);
+    }
+
+    for (const id of HOSTED_AGENT_IDS) {
+      const agent = HOSTED_AGENTS_BY_ID[id];
+      expect(agent.rootDir).toBeNull();
+      expect(agent.detection).toEqual({ project: { markers: [] }, user: { markers: [] } });
+      expect(agent.installTarget).toMatchObject({ kind: "hosted" });
+      for (const capability of [
+        ...Object.values(agent.capabilities),
+        agent.instructions,
+        agent.permissions,
+      ]) {
+        expect(capability.axm.writer).toBeNull();
+      }
+      expect(agent.capabilities.skill.axm).toMatchObject({
+        status: "supported",
+        writer: null,
+      });
+      expect(isCapabilitySupported(agent.capabilities.skill)).toBe(true);
+      expect(toNativeAgent(agent).installTarget).toEqual(agent.installTarget);
+    }
+  });
+  it("requires hosted-only agents to declare a hosted install target", () => {
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          interfaces: ["chat"],
+          rootDir: null,
+          detection: { project: { markers: [] }, user: { markers: [] } },
+        }),
+      ),
+    ).toThrow("Agents with a hosted interface require installTarget");
+  });
+  it("rejects filesystem state on hosted-only agents", () => {
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          interfaces: ["hosted-agent"],
+          rootDir: ".sample",
+          installTarget: {
+            kind: "hosted",
+            delivery: ["upload"],
+            artifact: "zip",
+            instructions: "Upload the validated ZIP in the hosted agent settings.",
+            docs: "https://example.com/hosted-install",
+          },
+        }),
+      ),
+    ).toThrow("Hosted-only agents cannot declare rootDir");
   });
   it("exposes native and AXM blocks on every decoded capability", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
@@ -214,7 +278,7 @@ describe("agent capability catalog", () => {
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
-            files: {
+            subagent: {
               native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
@@ -224,9 +288,8 @@ describe("agent capability catalog", () => {
                 scopes: ["project"],
                 standardsCompliance: "full",
                 convention: "vendor",
-                directory: ".sample/context",
-                files: ["NOTES.md"],
-                naming: null,
+                directory: ".sample/agents",
+                layout: "directory",
               },
               axm: {
                 status: "supported",
@@ -269,29 +332,27 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "full",
-                convention: "universal",
-                kind: "agents-md",
-                files: ["SAMPLE.md"],
-                nestedDiscovery: false,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              kind: "agents-md",
+              files: ["SAMPLE.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
     ).toThrow("AGENTS.md");
@@ -328,29 +389,27 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "partial",
-                convention: "vendor",
-                kind: "rules-dir",
-                files: ["RULES.md"],
-                nestedDiscovery: false,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "partial",
+              convention: "vendor",
+              kind: "rules-dir",
+              files: ["RULES.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
     ).toThrow("directory");
@@ -386,32 +445,30 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "full",
-                convention: "universal",
-                kind: "agents-md",
-                files: ["README.md"],
-                nestedDiscovery: true,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              kind: "agents-md",
+              files: ["README.md"],
+              nestedDiscovery: true,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
-    ).toThrow('["capabilities"]["rule"]["native"]["files"]');
+    ).toThrow('["instructions"]["native"]["files"]');
   });
   it("requires MCP config coverage for declared transports", () => {
     expect(() =>
@@ -436,11 +493,13 @@ describe("agent capability catalog", () => {
                 writer: {
                   config: {
                     serversKey: "mcpServers",
-                    nativeEnabled: false,
+                    activationField: {
+                      required: null,
+                      accepted: [null],
+                    },
                     targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
                     stdio: null,
                     remote: null,
-                    transform: null,
                   },
                 },
               },
@@ -449,6 +508,51 @@ describe("agent capability catalog", () => {
         }),
       ),
     ).toThrow("MCP stdio config is required");
+  });
+  it("keeps every shared MCP writer target compatible", () => {
+    const groups = new Map<string, Array<SharedMcpTargetMember>>();
+    for (const agent of AGENTS) {
+      const writer = agent.capabilities["mcp-server"].axm.writer;
+      if (writer === null) continue;
+      for (const target of writer.config.targets) {
+        const key = target.scope + ":" + target.path;
+        const members = groups.get(key) ?? [];
+        members.push({ agentId: agent.id, config: writer.config, target });
+        groups.set(key, members);
+      }
+    }
+    for (const members of groups.values()) {
+      if (members.length < 2) continue;
+      const transports = new Set<SharedMcpTransport>();
+      for (const member of members) {
+        if (member.config.stdio !== null) transports.add("stdio");
+        if (member.config.remote?.urlKey["streamable-http"] !== undefined) {
+          transports.add("streamable-http");
+        }
+        if (member.config.remote?.urlKey.sse !== undefined) transports.add("sse");
+      }
+      for (const transport of transports) {
+        const resolution = resolveSharedMcpTarget({ members, transport });
+        expect(
+          resolution._tag,
+          resolution._tag === "conflict" ? resolution.reason : undefined,
+        ).toBe("resolved");
+      }
+    }
+  });
+  it("keeps every required MCP writer representation in its accepted set", () => {
+    for (const agent of AGENTS) {
+      const writer = agent.capabilities["mcp-server"].axm.writer;
+      if (writer === null) continue;
+      const policies = [
+        writer.config.activationField,
+        ...(writer.config.stdio === null ? [] : [writer.config.stdio.typeField]),
+        ...(writer.config.remote === null ? [] : [writer.config.remote.typeField]),
+      ];
+      for (const policy of policies) {
+        expect(policy.accepted, agent.id).toContainEqual(policy.required);
+      }
+    }
   });
   it("defaults every catalog agent to an active lifecycle unless retired or deprecated", () => {
     for (const agent of AGENTS) {

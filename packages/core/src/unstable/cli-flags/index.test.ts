@@ -118,6 +118,16 @@ describe("TestFlagsLayer helper", () => {
     }),
   );
 
+  it.effect("gives quiet precedence over verbose and debug overrides", () =>
+    Effect.gen(function* () {
+      const v = yield* Verbosity.pipe(
+        Effect.provide(TestFlagsLayer({ quiet: true, verbose: true, debug: true })),
+      );
+      expect(v.level).toBe("quiet");
+      expect(v.isAtLeast("verbose")).toBe(false);
+    }),
+  );
+
   it.effect("accepts nonInteractive override", () =>
     Effect.gen(function* () {
       const nonInteractive = yield* isNonInteractive.pipe(

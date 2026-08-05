@@ -23,4 +23,9 @@ export const STANDARDS = {
     name: "AGENTS.md",
     url: "https://agents.md",
   },
+  okf: {
+    id: "okf-0.2",
+    name: "Open Knowledge Format 0.2",
+    url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
+  },
 } as const satisfies Record<string, Standard>;

@@ -1,3 +1,5 @@
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -16,6 +18,7 @@ import {
   type AppError,
 } from "@agentxm/client-core/unstable/app-error";
 import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
 import {
   CliRenderer,
   type DetailView,
@@ -29,52 +32,56 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
-const TokenDataSchema = Schema.Struct({
+export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
 });
 const TokenDocumentFields = {
   data: TokenDataSchema,
 } satisfies Schema.Struct.Fields;
+export const TokenDocumentSchema = Schema.Struct(TokenDocumentFields);
+export type TokenDocument = typeof TokenDocumentSchema.Type;
 
-const CreatedTokenDataSchema = Schema.Struct({
+export const CreatedTokenDataSchema = Schema.Struct({
   id: Schema.String,
   token: Schema.String,
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
-  createdAt: Schema.String,
-  expiresAt: Schema.String,
+  createdAt: DateTimeUtcSchema,
+  expiresAt: DateTimeUtcSchema,
 });
-const CreatedTokenResultSchema = Schema.Struct({
+export const CreatedTokenResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("created"),
   tokenId: Schema.String,
   name: Schema.String,
-  expiresAt: Schema.String,
+  expiresAt: DateTimeUtcSchema,
 });
 const CreatedTokenDocumentFields = {
   result: CreatedTokenResultSchema,
   data: CreatedTokenDataSchema,
 } satisfies Schema.Struct.Fields;
+export const CreatedTokenDocumentSchema = Schema.Struct(CreatedTokenDocumentFields);
+export type CreatedTokenDocument = typeof CreatedTokenDocumentSchema.Type;
 
-const TokenListItemSchema = Schema.Struct({
+export const TokenListItemSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.NullOr(Schema.String),
   type: Schema.String,
   scopes: Schema.Array(Schema.String),
-  createdAt: Schema.String,
-  expiresAt: Schema.String,
-  lastUsedAt: Schema.NullOr(Schema.String),
+  createdAt: DateTimeUtcSchema,
+  expiresAt: DateTimeUtcSchema,
+  lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
 });
-const TokenListDocumentFields = {
-  data: Schema.Struct({
-    tokens: Schema.Array(TokenListItemSchema),
-    hasMore: Schema.Boolean,
-    cursor: Schema.NullOr(Schema.String),
-  }),
+export const TokenListDocumentFields = {
+  items: Schema.Array(TokenListItemSchema),
   count: Schema.Number,
+  hasMore: Schema.Boolean,
+  cursor: Schema.NullOr(Schema.String),
 } satisfies Schema.Struct.Fields;
+export const TokenListDocumentSchema = Schema.Struct(TokenListDocumentFields);
+export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 
-const RevokeTokenResultSchema = Schema.Struct({
+export const RevokeTokenResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
@@ -83,6 +90,8 @@ const RevokeTokenResultSchema = Schema.Struct({
 const RevokeTokenDocumentFields = {
   result: RevokeTokenResultSchema,
 } satisfies Schema.Struct.Fields;
+export const RevokeTokenDocumentSchema = Schema.Struct(RevokeTokenDocumentFields);
+export type RevokeTokenDocument = typeof RevokeTokenDocumentSchema.Type;
 
 const RevokeTokenSuggestions = [
   { description: "List remaining tokens", cmd: "axm token list" },
@@ -141,7 +150,7 @@ export interface CreateTokenHandlerArgs {
 const MAX_EXPIRES_IN_SECONDS = 31_536_000;
 const MIN_EXPIRES_IN_SECONDS = 3_600;
 
-export const parseExpiresInSeconds = (raw: string, now: Date = new Date()) => {
+export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, AppError> => {
   const trimmed = raw.trim();
   const relative = /^(\d+)([hdy])$/.exec(trimmed);
   if (relative) {
@@ -151,17 +160,19 @@ export const parseExpiresInSeconds = (raw: string, now: Date = new Date()) => {
     return Effect.succeed(amount * multiplier);
   }
 
-  const absolute = Date.parse(trimmed);
-  if (Number.isNaN(absolute)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: "Invalid --expires value. Use 7d, 30d, 1y, or an ISO timestamp.",
-      }),
-    );
-  }
-
-  return Effect.succeed(Math.floor((absolute - now.getTime()) / 1000));
+  return Option.match(DateTime.make(trimmed), {
+    onNone: () =>
+      Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: "Invalid --expires value. Use 7d, 30d, 1y, or an ISO timestamp.",
+        }),
+      ),
+    onSome: (expiry) =>
+      Effect.map(DateTime.now, (now) =>
+        Math.floor(Duration.toSeconds(DateTime.distance(now, expiry))),
+      ),
+  });
 };
 
 const validateExpiresInSeconds = (expiresIn: number) =>
@@ -218,10 +229,8 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   });
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
-  if (json) {
-    yield* renderer.result({ data: { token: token.token } }, Schema.Struct(TokenDocumentFields));
+  if (json && (yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema)))
     return;
-  }
 
   yield* renderer.raw(token.token + "\n");
 }, Effect.asVoid);
@@ -240,11 +249,16 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     Effect.flatMap(validateExpiresInSeconds),
   );
 
-  const created = yield* authClient.createToken(token.token, {
-    name: args.name,
-    expiresIn,
-    permissions: compactPermissions(args),
-  });
+  const created = yield* renderer.withSpinner(
+    `Creating registry token "${args.name}"`,
+    () =>
+      authClient.createToken(token.token, {
+        name: args.name,
+        expiresIn,
+        permissions: compactPermissions(args),
+      }),
+    { successMessage: `Created registry token "${args.name}"` },
+  );
   const suggestions = createTokenSuggestions(created.id);
 
   if (
@@ -278,7 +292,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
           expiresAt: created.expiresAt,
         },
       },
-      Schema.Struct(CreatedTokenDocumentFields),
+      CreatedTokenDocumentSchema,
       { suggestions },
     )
   ) {
@@ -290,7 +304,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
       id: created.id,
       name: created.name,
       token: created.token,
-      expiresAt: created.expiresAt,
+      expiresAt: DateTime.formatIso(created.expiresAt),
     },
     CreatedTokenDetail,
     "Created token",
@@ -306,27 +320,29 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
     missingTokenError: errAuthRequired("Not authenticated"),
   });
 
-  const result = yield* authClient.listTokens(token.token);
+  const result = yield* renderer.withSpinner(
+    "Loading registry tokens",
+    () => authClient.listTokens(token.token),
+    { successMessage: "Loaded registry tokens" },
+  );
 
   if (
     yield* renderer.result(
       {
-        data: {
-          tokens: result.tokens.map((item) => ({
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            scopes: item.scopes,
-            createdAt: item.createdAt,
-            expiresAt: item.expiresAt,
-            lastUsedAt: item.lastUsedAt,
-          })),
-          hasMore: result.hasMore,
-          cursor: result.cursor,
-        },
+        items: result.tokens.map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          scopes: item.scopes,
+          createdAt: item.createdAt,
+          expiresAt: item.expiresAt,
+          lastUsedAt: item.lastUsedAt,
+        })),
         count: result.tokens.length,
+        hasMore: result.hasMore,
+        cursor: result.cursor,
       },
-      Schema.Struct(TokenListDocumentFields),
+      TokenListDocumentSchema,
     )
   ) {
     return;
@@ -346,8 +362,8 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
       id: item.id,
       name: item.name ?? "",
       type: item.type,
-      expiresAt: item.expiresAt,
-      lastUsedAt: item.lastUsedAt ?? "never",
+      expiresAt: DateTime.formatIso(item.expiresAt),
+      lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
     })),
     TokenListTable,
     "Tokens",
@@ -365,12 +381,19 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
   });
 
   let stepUpCompleted = false;
-  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId));
+  const revokeSpinner = yield* renderer.spinner(`Revoking registry token ${tokenId}`);
+  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId)).pipe(
+    Effect.onInterrupt(() =>
+      revokeSpinner.cancel(`Cancelled registry token ${tokenId} revocation`),
+    ),
+  );
   if (Result.isFailure(revokeResult)) {
     const stepUp = readStepUpRequired(revokeResult.failure);
     if (stepUp === null) {
+      yield* revokeSpinner.error(`Failed to revoke registry token ${tokenId}`);
       return yield* revokeResult.failure;
     }
+    yield* revokeSpinner.stop(`Additional authorization required for token ${tokenId}`);
 
     const opened = yield* interaction.openBrowser(stepUp.authUrl);
     if (!jsonMode) {
@@ -382,9 +405,19 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
       yield* renderer.step(`Visit: ${stepUp.authUrl}`);
     }
 
-    const stepUpToken = yield* authClient.pollStepUpChallenge(token.token, stepUp.doneUrl);
-    yield* authClient.deleteToken(token.token, tokenId, { stepUpToken });
+    const stepUpToken = yield* renderer.withSpinner(
+      `Waiting for authorization to revoke token ${tokenId}`,
+      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
+      { successMessage: `Authorized token ${tokenId} revocation` },
+    );
+    yield* renderer.withSpinner(
+      `Revoking registry token ${tokenId}`,
+      () => authClient.deleteToken(token.token, tokenId, { stepUpToken }),
+      { successMessage: `Revoked registry token ${tokenId}` },
+    );
     stepUpCompleted = true;
+  } else {
+    yield* revokeSpinner.stop(`Revoked registry token ${tokenId}`);
   }
 
   if (
@@ -409,7 +442,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
           stepUpCompleted,
         },
       },
-      Schema.Struct(RevokeTokenDocumentFields),
+      RevokeTokenDocumentSchema,
       { suggestions: RevokeTokenSuggestions },
     )
   ) {

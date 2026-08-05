@@ -8,12 +8,13 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
 import {
   mergePlanResolution,
   runFilesWorkspaceGeneratorPhase,
 } from "../files/workspace-generator-phase.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
@@ -77,7 +78,17 @@ export const handleWorkspaceInstall = (args: {
         }),
       ),
     );
-    yield* emitPlanResolutionResult(args.command, outputResolution);
+    const result = toPlanResolutionResult(outputResolution);
+    yield* emitAppliedPlanOutcome({
+      command: args.command,
+      headline:
+        result.outcome === "no-op"
+          ? unchangedPlanHeadline(outputResolution, "Configured extensions are already up to date")
+          : args.planName,
+      resolution: outputResolution,
+      reportInstallationCoverage: Option.isNone(args.type) || args.type.value !== "knowledge",
+      suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+    });
   });
 
 export const runWorkspaceInstall = (args: {

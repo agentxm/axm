@@ -7,9 +7,10 @@
  * render different paths for publish (`displayRoot: ""`), registry-installed
  * skills, external skills, and workspace-scope findings.
  *
- * The rendered path is posix, prefixed with `./` so logs are unambiguous
- * about relative-ness. `location.line` / `location.column` append as
- * `:line:column` when present.
+ * Relative rendered paths are posix and prefixed with `./` so logs are
+ * unambiguous about relative-ness. Absolute finding paths are preserved for
+ * files outside the workspace root. `location.line` / `location.column`
+ * append as `:line:column` when present.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -25,18 +26,23 @@ import type { FindingLocation } from "./rule.js";
  * Compose the rendered path for a finding.
  *
  * @param displayRoot - Context-supplied posix-relative root (or `""`).
- * @param location    - Accessor-relative file + optional coordinates.
+ * @param location    - Accessor-relative or absolute file + optional coordinates.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const composePath = (displayRoot: string, location: FindingLocation | undefined): string => {
-  const base = joinPosix(displayRoot, location?.file ?? "");
-  const withPrefix = base === "" ? "." : base.startsWith("./") ? base : `./${base}`;
+  const locationFile = location?.file ?? "";
+  const base = isAbsolutePath(locationFile) ? locationFile : joinPosix(displayRoot, locationFile);
+  const withPrefix =
+    base === "" ? "." : isAbsolutePath(base) || base.startsWith("./") ? base : `./${base}`;
   if (location === undefined) {
     return withPrefix;
   }
   return appendCoordinates(withPrefix, location);
 };
+
+const isAbsolutePath = (value: string): boolean =>
+  value.startsWith("/") || value.startsWith("\\\\") || /^[A-Za-z]:[\\/]/.test(value);
 
 const joinPosix = (left: string, right: string): string => {
   const l = stripTrailingSlash(left);

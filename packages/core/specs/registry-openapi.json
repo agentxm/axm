@@ -3,7 +3,7 @@
   "info": {
     "title": "AgentXM Registry API",
     "version": "0.1.0",
-    "description": "Registry API for profiles, extensions, and publishing."
+    "description": "Public machine-client API for AgentXM auth, discovery, extension and Library reads, publishing, and user-initiated lifecycle operations."
   },
   "paths": {
     "/v1": {
@@ -48,8 +48,11 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "DeviceCodeOAuthError | DecodeErrorResponse",
             "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceCodeOAuthError" }
+              },
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
               }
@@ -222,86 +225,6 @@
         }
       }
     },
-    "/v1/auth/token/refresh": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.refreshToken",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "access_token": { "type": "string" },
-                    "refresh_token": { "type": "string" },
-                    "token_type": { "type": "string", "enum": ["Bearer"] },
-                    "expires_in": { "type": "integer" },
-                    "expires_at": { "type": "string" },
-                    "scope": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "expires_at"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "TokenOAuthError | DecodeErrorResponse",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TokenOAuthError" } },
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "summary": "Deprecated: exchange refresh token",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "grant_type": {
-                    "type": "string",
-                    "enum": ["refresh_token"],
-                    "description": "OAuth grant type. Must be 'refresh_token'."
-                  },
-                  "refresh_token": {
-                    "type": "string",
-                    "allOf": [
-                      {
-                        "minLength": 1,
-                        "description": "The refresh token to exchange for a new token pair."
-                      }
-                    ]
-                  },
-                  "client_id": {
-                    "anyOf": [
-                      { "type": "string", "description": "OAuth client identifier." },
-                      { "type": "null" }
-                    ]
-                  }
-                },
-                "required": ["grant_type", "refresh_token"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
     "/v1/auth/revoke": {
       "post": {
         "tags": ["Auth"],
@@ -466,34 +389,6 @@
           }
         },
         "summary": "Poll step-up challenge status"
-      }
-    },
-    "/v1/auth/oidc/exchange": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.exchangeOidcToken",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "501": {
-            "description": "NotImplementedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Exchange OIDC token (reserved, not implemented)"
       }
     },
     "/v1/auth/publish-requests": {
@@ -794,593 +689,6 @@
         },
         "description": "Returns the minimal public owner summary for the provided handle.",
         "summary": "Get owner"
-      }
-    },
-    "/v1/orgs/{handle}/teams": {
-      "post": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.createTeam",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Team",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Creates a new team in the organization. Only organization owners and admins may create teams.",
-        "summary": "Create a team",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTeamBody" } }
-          },
-          "required": true
-        }
-      },
-      "get": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.listTeams",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamList",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TeamList" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Paginated list of teams. Non-members of the organization receive 404 (hidden existence).",
-        "summary": "List teams in an organization"
-      }
-    },
-    "/v1/orgs/{handle}/teams/{teamId}": {
-      "get": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.getTeam",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Team",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Returns the team when the caller is an organization member or a team member. Non-visible teams surface as 404 (hidden existence).",
-        "summary": "Get a team by id"
-      },
-      "patch": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.updateTeam",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Team",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Partial update to a team's displayName and/or description. Only organization owners and admins may update teams.",
-        "summary": "Update a team",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateTeamBody" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.deleteTeam",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Deletes a team. Memberships and team extension grants cascade. Only organization owners and admins may delete teams.",
-        "summary": "Delete a team"
-      }
-    },
-    "/v1/orgs/{handle}/teams/{teamId}/members": {
-      "post": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.addTeamMember",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamMembership",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TeamMembership" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Adds a user to a team. Target user must already belong to the team's organization; otherwise returns 422. Only team admins or organization owners/admins may add members.",
-        "summary": "Add a member to a team",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/AddTeamMemberBody" } }
-          },
-          "required": true
-        }
-      },
-      "get": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.listTeamMembers",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamMembershipList",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/TeamMembershipList" }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Paginated list of team members. Non-visible teams surface as 404 (hidden existence).",
-        "summary": "List members of a team"
-      }
-    },
-    "/v1/orgs/{handle}/teams/{teamId}/members/{userId}": {
-      "patch": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.changeTeamMemberRole",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamMembership",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TeamMembership" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Updates a team member's role. Only team admins or organization owners/admins may change roles.",
-        "summary": "Change a team member's role",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/ChangeTeamMemberRoleBody" }
-            }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["OrgsTeams"],
-        "operationId": "OrgsTeams.removeTeamMember",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Removes a user from a team. Only team admins or organization owners/admins may remove members.",
-        "summary": "Remove a member from a team"
       }
     },
     "/v1/extensions/{owner}": {
@@ -1798,7 +1106,7 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
-                    "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": ["id", "owner", "type", "name", "visibility", "updatedAt", "links"],
@@ -2389,9 +1697,19 @@
                       "type": "string",
                       "enum": ["pending", "dispatching", "completed", "failed"]
                     },
-                    "requestedAt": { "type": "string" },
-                    "completedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "nameReclaimableAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "requestedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                    "completedAt": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        { "type": "null" }
+                      ]
+                    },
+                    "nameReclaimableAt": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        { "type": "null" }
+                      ]
+                    },
                     "failureCode": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "failureDetail": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                   },
@@ -2593,7 +1911,7 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "deprecatedAt": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     },
@@ -3191,136 +2509,6 @@
         "summary": "Preview permanent Extension deletion impact"
       }
     },
-    "/v1/admin/extensions/{owner}/{type}/{name}/{version}/purge": {
-      "post": {
-        "tags": ["AdminExtensions"],
-        "operationId": "AdminExtensions.purgeExtensionVersion",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "version",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Version" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "202": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "operationId": { "type": "string" },
-                    "affectedCoordinates": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "owner": { "$ref": "#/components/schemas/Handle" },
-                          "type": { "$ref": "#/components/schemas/ExtensionType" },
-                          "name": { "$ref": "#/components/schemas/ExtensionName" },
-                          "version": { "$ref": "#/components/schemas/Version" }
-                        },
-                        "required": ["owner", "type", "name", "version"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "archivePurgeState": { "type": "string", "enum": ["pending"] }
-                  },
-                  "required": ["operationId", "affectedCoordinates", "archivePurgeState"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "StepUpRequiredError | UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
-                    { "$ref": "#/components/schemas/ProblemDetails" }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "409": {
-            "description": "SharedDigestConfirmationRequiredHttpError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SharedDigestConfirmationRequiredHttpError"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Administratively purge extension version bytes",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/PurgeExtensionVersionBody" }
-            }
-          },
-          "required": true
-        }
-      }
-    },
     "/v1/libraries/{owner}": {
       "get": {
         "tags": ["Libraries"],
@@ -3401,92 +2589,6 @@
           }
         },
         "summary": "List owner Libraries"
-      },
-      "post": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.createLibrary",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "201": {
-            "description": "CreatedLibrary",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/CreatedLibrary" } }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Create a Library",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CreateLibraryBody" } }
-          },
-          "required": true
-        }
       }
     },
     "/v1/libraries/{owner}/{name}": {
@@ -3541,158 +2643,6 @@
           }
         },
         "summary": "Get a Library"
-      },
-      "patch": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.updateLibrary",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Library",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Library" } }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Update a Library",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateLibraryBody" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.deleteLibrary",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Delete a Library"
       }
     },
     "/v1/libraries/{owner}/{name}/members": {
@@ -3775,755 +2725,6 @@
           }
         },
         "summary": "List viewer-visible Library members"
-      },
-      "patch": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.patchLibraryMembers",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "PatchLibraryMembersResponse",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PatchLibraryMembersResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Atomically patch Library members",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/PatchLibraryMembersBody" }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/libraries/{owner}/{name}/visibility": {
-      "patch": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.setLibraryVisibility",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Library",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Library" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Set Library visibility",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/PatchLibraryVisibilityBody" }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/libraries/{owner}/{name}/maintainer": {
-      "put": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.setLibraryMaintainer",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "LibraryMaintainer",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMaintainer" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Set Library maintainer",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/LibraryMaintainerTarget" }
-            }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.clearLibraryMaintainer",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "LibraryMaintainer",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMaintainer" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Clear Library maintainer"
-      }
-    },
-    "/v1/libraries/{owner}/{name}/members/{extensionOwner}/{extensionType}/{extensionName}": {
-      "put": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.addLibraryMember",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          },
-          {
-            "name": "extensionOwner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "extensionType",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "extensionName",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "LibraryMember",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMember" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Add a Library member"
-      },
-      "delete": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.removeLibraryMember",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          },
-          {
-            "name": "extensionOwner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "extensionType",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "extensionName",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Remove a Library member"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/maintainer": {
-      "get": {
-        "tags": ["Maintainer"],
-        "operationId": "Maintainer.getMaintainer",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Maintainer",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Maintainer" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Returns the apex maintainer for an extension, or none when org-owner fallback is active.",
-        "summary": "Get extension maintainer"
-      },
-      "put": {
-        "tags": ["Maintainer"],
-        "operationId": "Maintainer.setMaintainer",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Maintainer",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Maintainer" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Sets or transfers the apex maintainer for an extension to an eligible user or team.",
-        "summary": "Set extension maintainer",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/MaintainerTarget" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["Maintainer"],
-        "operationId": "Maintainer.clearMaintainer",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Maintainer",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Maintainer" } }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Clears the extension maintainer so org-owner fallback is the only admin path.",
-        "summary": "Clear extension maintainer"
       }
     },
     "/v1/discovery": {
@@ -4699,238 +2900,6 @@
         "summary": "Shallow health check"
       }
     },
-    "/v1/health/dependencies": {
-      "get": {
-        "tags": ["Health"],
-        "operationId": "Health.getDeepHealth",
-        "parameters": [
-          {
-            "name": "x-health-key",
-            "in": "header",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                    "serviceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "releaseId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "commit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "deployedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "environment": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "region": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "checks": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "componentName": { "type": "string" },
-                                "componentType": {
-                                  "type": "string",
-                                  "enum": ["datastore", "system", "component"]
-                                },
-                                "measurementName": { "type": "string" },
-                                "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                                "observedValue": { "type": "number" },
-                                "observedUnit": { "type": "string" },
-                                "time": { "type": "string" }
-                              },
-                              "required": [
-                                "componentName",
-                                "componentType",
-                                "measurementName",
-                                "status",
-                                "observedValue",
-                                "observedUnit",
-                                "time"
-                              ],
-                              "additionalProperties": false
-                            }
-                          }
-                        },
-                        { "type": "null" }
-                      ]
-                    },
-                    "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": ["status"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "description": "Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.",
-        "summary": "Deep health check with dependency status"
-      }
-    },
-    "/v1/debug/observability": {
-      "get": {
-        "tags": ["Health"],
-        "operationId": "Health.getObservabilityVerification",
-        "parameters": [
-          {
-            "name": "x-health-key",
-            "in": "header",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          },
-          {
-            "name": "level",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          },
-          {
-            "name": "scenario",
-            "in": "query",
-            "schema": {
-              "anyOf": [
-                { "type": "string", "enum": ["effect-handled-500", "surface-unhandled-500"] },
-                { "type": "null" }
-              ]
-            },
-            "required": false
-          },
-          {
-            "name": "scenarioId",
-            "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                    "timestamp": { "type": "string" },
-                    "serviceId": { "type": "string" },
-                    "level": { "type": "string", "enum": ["basic", "standard", "full"] },
-                    "checks": {
-                      "type": "object",
-                      "properties": {
-                        "logging": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "correlationId": { "type": "string" }
-                              },
-                              "required": ["status", "correlationId"],
-                              "additionalProperties": false
-                            },
-                            { "type": "null" }
-                          ]
-                        },
-                        "tracing": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                              },
-                              "required": ["status"],
-                              "additionalProperties": false
-                            },
-                            { "type": "null" }
-                          ]
-                        },
-                        "metrics": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "counter": { "type": "string" }
-                              },
-                              "required": ["status", "counter"],
-                              "additionalProperties": false
-                            },
-                            { "type": "null" }
-                          ]
-                        },
-                        "errors": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "sentryEventId": {
-                                  "anyOf": [{ "type": "string" }, { "type": "null" }]
-                                },
-                                "reason": {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "enum": ["sentry-issue-reporter-disabled"]
-                                        }
-                                      ]
-                                    },
-                                    { "type": "null" }
-                                  ]
-                                },
-                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                              },
-                              "required": ["status"],
-                              "additionalProperties": false
-                            },
-                            { "type": "null" }
-                          ]
-                        }
-                      },
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["status", "timestamp", "serviceId", "level", "checks"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          }
-        },
-        "description": "Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.",
-        "summary": "Observability verification"
-      }
-    },
     "/v1/search": {
       "get": {
         "tags": ["Search"],
@@ -5059,6 +3028,128 @@
         "description": "Returns viewer-visible, available, non-yanked extensions using predictable textual relevance by default. Supports structured type, owner, package, license, lifecycle, visibility, and sort filters.",
         "summary": "Search extensions"
       }
+    },
+    "/v1/debug/stream": {
+      "get": {
+        "tags": ["Debug"],
+        "operationId": "Debug.debugStream",
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "description": "Number of events to emit (0–100, default 3)." },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "failAfter",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Emit this many events, then terminate the stream with a typed DebugStreamInterrupted failure. Used to exercise client mid-stream failure decoding."
+                },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "event": { "type": "string" },
+                    "data": { "$ref": "#/components/schemas/DebugStreamEventJsonString" }
+                  },
+                  "required": ["id", "event", "data"],
+                  "additionalProperties": false
+                },
+                "x-effect-stream": {
+                  "encoding": "sse",
+                  "causeSchema": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Fail"] },
+                            "error": {
+                              "type": "object",
+                              "properties": {
+                                "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
+                                "after": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        { "type": "number" },
+                                        { "type": "string", "enum": ["NaN"] },
+                                        { "type": "string", "enum": ["Infinity"] },
+                                        { "type": "string", "enum": ["-Infinity"] }
+                                      ]
+                                    },
+                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                                  ]
+                                }
+                              },
+                              "required": ["_tag", "after"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Die"] },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Interrupt"] },
+                            "fiberId": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "errorSchema": { "$ref": "#/components/schemas/DebugStreamInterrupted" },
+                  "failureEvent": "effect/httpapi/stream/failure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
+        },
+        "description": "Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.",
+        "summary": "Diagnostic SSE stream"
+      }
     }
   },
   "components": {
@@ -5151,6 +3242,15 @@
         "title": "Device Code Response",
         "description": "Response from the OAuth device authorization endpoint (RFC 8628)."
       },
+      "DeviceCodeOAuthError": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "enum": ["invalid_client", "invalid_scope"] }
+        },
+        "required": ["error"],
+        "additionalProperties": false,
+        "title": "Device Code OAuth Error"
+      },
       "PublishDetails": {
         "type": "object",
         "properties": {
@@ -5197,6 +3297,12 @@
         "title": "Problem Details",
         "description": "RFC 9457 Problem Details payload for AgentXM Registry errors."
       },
+      "IsoDateTimeString": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
@@ -5215,11 +3321,7 @@
             "type": "integer",
             "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
           },
-          "expires_at": {
-            "type": "string",
-            "description": "ISO 8601 timestamp when the access token expires.",
-            "format": "date-time"
-          },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "scope": {
             "anyOf": [
               { "type": "string", "description": "Space-delimited list of granted scopes." },
@@ -5362,11 +3464,7 @@
             "description": "Scopes granted to this token."
           },
           "resource_restrictions": { "$ref": "#/components/schemas/ResourceRestrictions" },
-          "expires_at": {
-            "type": "string",
-            "description": "When this token expires.",
-            "format": "date-time"
-          }
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",
@@ -5413,10 +3511,7 @@
                 "type": "string",
                 "description": "Opaque step-up proof for the original request."
               },
-              "expires_at": {
-                "type": "string",
-                "description": "ISO timestamp when this proof expires."
-              }
+              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
             },
             "required": ["status", "step_up", "expires_at"],
             "additionalProperties": false
@@ -5485,7 +3580,6 @@
           }
         ]
       },
-      "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "TokenId": {
         "type": "string",
         "allOf": [
@@ -5631,6 +3725,13 @@
               "library_mutation_not_authorized",
               "team_extension_grant_delete_not_authorized",
               "team_extension_grant_not_authorized",
+              "resource_group_create_not_authorized",
+              "resource_group_update_not_authorized",
+              "resource_group_delete_not_authorized",
+              "resource_group_access_not_authorized",
+              "resource_move_not_authorized",
+              "resource_access_not_authorized",
+              "access_policy_not_authorized",
               "publish/quota-exceeded",
               "publish/insufficient-scope",
               "publish/resource-restriction",
@@ -5686,7 +3787,7 @@
         },
         "additionalProperties": false,
         "title": "Create Token Permissions Request",
-        "description": "Structured permission request for a granular access token."
+        "description": "Structured permission request for the token."
       },
       "CreateTokenRequest": {
         "type": "object",
@@ -5701,21 +3802,7 @@
               }
             ]
           },
-          "scopes": {
-            "anyOf": [
-              { "type": "array", "items": { "type": "string" }, "allOf": [{ "minItems": 1 }] },
-              { "type": "null" }
-            ],
-            "description": "Deprecated scope-string grant surface. Prefer permissions.",
-            "examples": [["extensions:read", "extensions:publish:version"]]
-          },
-          "permissions": {
-            "anyOf": [
-              { "$ref": "#/components/schemas/CreateTokenPermissionsRequest" },
-              { "type": "null" }
-            ],
-            "description": "Structured permission request for the token."
-          },
+          "permissions": { "$ref": "#/components/schemas/CreateTokenPermissionsRequest" },
           "expires_in": {
             "type": "integer",
             "allOf": [
@@ -5727,7 +3814,7 @@
             ]
           }
         },
-        "required": ["name", "expires_in"],
+        "required": ["name", "permissions", "expires_in"],
         "additionalProperties": false,
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
@@ -5777,173 +3864,6 @@
         "additionalProperties": false,
         "title": "Owner Response",
         "description": "Minimal owner summary for machine clients."
-      },
-      "CreateTeamBody": {
-        "type": "object",
-        "properties": {
-          "displayName": { "type": "string", "description": "Display name for the team." },
-          "description": {
-            "anyOf": [
-              {
-                "anyOf": [{ "type": "string" }, { "type": "null" }],
-                "description": "Optional description for the team."
-              },
-              { "type": "null" }
-            ]
-          }
-        },
-        "required": ["displayName"],
-        "additionalProperties": false,
-        "title": "Create Team Body",
-        "description": "Request body for creating a new team under an organization."
-      },
-      "TeamId": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^team_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Team ID",
-            "description": "Identifies a team within an organization. Teams group members and receive extension grants that widen access beyond a private extension's owning org.",
-            "examples": ["team_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
-      },
-      "OrgId": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^org_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Organization ID",
-            "description": "Identifies an organization. Organizations own handles and govern team membership and extension publishing permissions.",
-            "examples": ["org_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
-      },
-      "UserIdRef": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "User ID",
-            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"],
-            "readOnly": true
-          }
-        ]
-      },
-      "Team": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/TeamId" },
-          "organizationId": { "$ref": "#/components/schemas/OrgId" },
-          "displayName": { "type": "string" },
-          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
-          "createdBy": { "$ref": "#/components/schemas/UserIdRef" },
-          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
-        },
-        "required": [
-          "id",
-          "organizationId",
-          "displayName",
-          "description",
-          "createdAt",
-          "createdBy",
-          "updatedAt"
-        ],
-        "additionalProperties": false,
-        "title": "Team"
-      },
-      "TeamList": {
-        "type": "object",
-        "properties": {
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } },
-          "nextCursor": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-        },
-        "required": ["items", "nextCursor"],
-        "additionalProperties": false,
-        "title": "Team List"
-      },
-      "UpdateTeamBody": {
-        "type": "object",
-        "properties": {
-          "displayName": {
-            "anyOf": [
-              { "type": "string", "description": "New display name for the team." },
-              { "type": "null" }
-            ]
-          },
-          "description": {
-            "anyOf": [
-              {
-                "anyOf": [{ "type": "string" }, { "type": "null" }],
-                "description": "New description for the team (null to clear)."
-              },
-              { "type": "null" }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "title": "Update Team Body",
-        "description": "Partial update body for a team. At least one of displayName or description must be provided."
-      },
-      "AddTeamMemberBody": {
-        "type": "object",
-        "properties": {
-          "userId": { "$ref": "#/components/schemas/UserId" },
-          "role": {
-            "type": "string",
-            "enum": ["admin", "member"],
-            "title": "Team Role",
-            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
-          }
-        },
-        "required": ["userId", "role"],
-        "additionalProperties": false,
-        "title": "Add Team Member Body",
-        "description": "Request body identifying the user to add to the team and the role to grant."
-      },
-      "TeamMembership": {
-        "type": "object",
-        "properties": {
-          "teamId": { "$ref": "#/components/schemas/TeamId" },
-          "userId": { "$ref": "#/components/schemas/UserId" },
-          "role": {
-            "type": "string",
-            "enum": ["admin", "member"],
-            "title": "Team Role",
-            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
-          },
-          "addedAt": { "type": "string", "readOnly": true, "format": "date-time" },
-          "addedBy": { "$ref": "#/components/schemas/UserIdRef" }
-        },
-        "required": ["teamId", "userId", "role", "addedAt", "addedBy"],
-        "additionalProperties": false,
-        "title": "Team Membership"
-      },
-      "TeamMembershipList": {
-        "type": "object",
-        "properties": {
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMembership" } },
-          "nextCursor": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-        },
-        "required": ["items", "nextCursor"],
-        "additionalProperties": false,
-        "title": "Team Membership List"
-      },
-      "ChangeTeamMemberRoleBody": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": ["admin", "member"],
-            "title": "Team Role",
-            "description": "Role within a team — 'admin' manages membership and grants; 'member' inherits grants."
-          }
-        },
-        "required": ["role"],
-        "additionalProperties": false,
-        "title": "Change Team Member Role Body"
       },
       "Repository": {
         "type": "object",
@@ -6389,48 +4309,6 @@
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
       },
-      "PurgeExtensionVersionBody": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "enum": ["malware", "exposed_secret", "legal", "privacy", "policy"]
-          },
-          "confirmSharedDigest": { "type": "boolean" }
-        },
-        "required": ["reason", "confirmSharedDigest"],
-        "additionalProperties": false,
-        "title": "Purge Extension Version Body",
-        "description": "Administrative purge reason and explicit acknowledgement of shared-content impact."
-      },
-      "SharedDigestConfirmationRequiredHttpError": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["SharedDigestConfirmationRequiredHttpError"] },
-          "type": { "type": "string" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "instance": { "type": "string" },
-          "code": { "type": "string", "enum": ["shared_digest_confirmation_required"] },
-          "affectedCoordinates": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "owner": { "$ref": "#/components/schemas/Handle" },
-                "type": { "$ref": "#/components/schemas/ExtensionType" },
-                "name": { "$ref": "#/components/schemas/ExtensionName" },
-                "version": { "$ref": "#/components/schemas/Version" }
-              },
-              "required": ["owner", "type", "name", "version"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code", "affectedCoordinates"],
-        "additionalProperties": false
-      },
       "LibraryVisibility": {
         "type": "string",
         "enum": ["public", "private"],
@@ -6442,7 +4320,7 @@
           {
             "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Library ID",
-            "description": "Identifies an account-owned installable collection of extension identities in the registry.",
+            "description": "Identifies an account-owned curated collection of extension identities in the registry.",
             "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
@@ -6453,64 +4331,6 @@
         "description": "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
         "examples": ["frontend", "team-tools"]
       },
-      "LibraryMaintainer": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["user"] },
-              "userId": { "$ref": "#/components/schemas/UserId" },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "userId", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["team"] },
-              "teamId": { "$ref": "#/components/schemas/TeamId" },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "teamId", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["none"] },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Library Maintainer"
-      },
       "Library": {
         "type": "object",
         "properties": {
@@ -6520,9 +4340,8 @@
           "title": { "type": "string" },
           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
           "visibility": { "$ref": "#/components/schemas/LibraryVisibility" },
-          "maintainer": { "$ref": "#/components/schemas/LibraryMaintainer" },
-          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
-          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+          "createdAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",
@@ -6531,7 +4350,6 @@
           "title",
           "description",
           "visibility",
-          "maintainer",
           "createdAt",
           "updatedAt"
         ],
@@ -6544,7 +4362,7 @@
           {
             "pattern": "^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Library Member ID",
-            "description": "Identifies an extension identity membership inside an installable registry library.",
+            "description": "Identifies an extension identity membership inside a curated registry library.",
             "examples": ["lmem_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
@@ -6558,7 +4376,7 @@
           "extensionOwner": { "$ref": "#/components/schemas/Handle" },
           "extensionType": { "$ref": "#/components/schemas/ExtensionType" },
           "extensionName": { "$ref": "#/components/schemas/ExtensionName" },
-          "addedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+          "addedAt": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",
@@ -6577,10 +4395,9 @@
         "properties": {
           "library": { "$ref": "#/components/schemas/Library" },
           "members": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryMember" } },
-          "accessibleMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] },
-          "contentsMayVary": { "type": "boolean", "enum": [true] }
+          "accessibleMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] }
         },
-        "required": ["library", "members", "accessibleMemberCount", "contentsMayVary"],
+        "required": ["library", "members", "accessibleMemberCount"],
         "additionalProperties": false,
         "title": "Library Detail"
       },
@@ -6596,226 +4413,6 @@
         "required": ["members", "total", "limit", "offset", "viewerRelative"],
         "additionalProperties": false,
         "title": "List Library Members Response"
-      },
-      "CreateLibraryBody": {
-        "type": "object",
-        "properties": {
-          "name": { "$ref": "#/components/schemas/LibraryName" },
-          "title": { "type": "string" },
-          "description": {
-            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
-          },
-          "visibility": {
-            "anyOf": [{ "$ref": "#/components/schemas/LibraryVisibility" }, { "type": "null" }]
-          }
-        },
-        "required": ["name", "title"],
-        "additionalProperties": false,
-        "title": "Create Library Body"
-      },
-      "CreatedLibrary": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/LibraryId" },
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "name": { "$ref": "#/components/schemas/LibraryName" },
-          "title": { "type": "string" },
-          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "visibility": { "$ref": "#/components/schemas/LibraryVisibility" },
-          "maintainer": { "$ref": "#/components/schemas/LibraryMaintainer" },
-          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
-          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
-        },
-        "required": [
-          "id",
-          "owner",
-          "name",
-          "title",
-          "description",
-          "visibility",
-          "maintainer",
-          "createdAt",
-          "updatedAt"
-        ],
-        "additionalProperties": false,
-        "title": "Created Library"
-      },
-      "UpdateLibraryBody": {
-        "type": "object",
-        "properties": {
-          "title": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "description": {
-            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
-          }
-        },
-        "additionalProperties": false,
-        "title": "Update Library Body"
-      },
-      "PatchLibraryVisibilityBody": {
-        "type": "object",
-        "properties": { "visibility": { "$ref": "#/components/schemas/LibraryVisibility" } },
-        "required": ["visibility"],
-        "additionalProperties": false,
-        "title": "Patch Library Visibility Body"
-      },
-      "LibraryMaintainerTarget": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["user"] },
-              "userId": { "$ref": "#/components/schemas/UserId" }
-            },
-            "required": ["kind", "userId"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["team"] },
-              "teamId": { "$ref": "#/components/schemas/TeamId" }
-            },
-            "required": ["kind", "teamId"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Library Maintainer Target"
-      },
-      "LibraryMemberCoordinate": {
-        "type": "object",
-        "properties": {
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": { "$ref": "#/components/schemas/ExtensionType" },
-          "name": { "$ref": "#/components/schemas/ExtensionName" }
-        },
-        "required": ["owner", "type", "name"],
-        "additionalProperties": false,
-        "title": "Library Member Coordinate"
-      },
-      "PatchLibraryMembersBody": {
-        "type": "object",
-        "properties": {
-          "add": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
-          },
-          "remove": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
-          }
-        },
-        "required": ["add", "remove"],
-        "additionalProperties": false,
-        "title": "Patch Library Members Body"
-      },
-      "PatchLibraryMembersResponse": {
-        "type": "object",
-        "properties": {
-          "added": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
-          },
-          "removed": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
-          },
-          "unchanged": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "action": { "type": "string", "enum": ["add", "remove"] },
-                "member": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
-              },
-              "required": ["action", "member"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["added", "removed", "unchanged"],
-        "additionalProperties": false,
-        "title": "Patch Library Members Response"
-      },
-      "Maintainer": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["user"] },
-              "userId": { "$ref": "#/components/schemas/UserId" },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "userId", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["team"] },
-              "teamId": { "$ref": "#/components/schemas/TeamId" },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "teamId", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["none"] },
-              "assignedAt": {
-                "anyOf": [
-                  { "type": "string", "readOnly": true, "format": "date-time" },
-                  { "type": "null" }
-                ]
-              },
-              "assignedBy": {
-                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
-              }
-            },
-            "required": ["kind", "assignedAt", "assignedBy"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Maintainer"
-      },
-      "MaintainerTarget": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["user"] },
-              "userId": { "$ref": "#/components/schemas/UserId" }
-            },
-            "required": ["kind", "userId"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["team"] },
-              "teamId": { "$ref": "#/components/schemas/TeamId" }
-            },
-            "required": ["kind", "teamId"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Maintainer Target"
       },
       "ExtensionFqn": {
         "type": "string",
@@ -6900,6 +4497,43 @@
         "additionalProperties": false,
         "title": "Search Response",
         "description": "A page of extensions matching the search query."
+      },
+      "DebugStreamEvent": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["NaN"] },
+              { "type": "string", "enum": ["Infinity"] },
+              { "type": "string", "enum": ["-Infinity"] }
+            ]
+          },
+          "message": { "type": "string" }
+        },
+        "required": ["sequence", "message"],
+        "additionalProperties": false
+      },
+      "DebugStreamEventJsonString": {
+        "type": "string",
+        "contentSchema": { "$ref": "#/components/schemas/DebugStreamEvent" },
+        "contentMediaType": "application/json"
+      },
+      "DebugStreamInterrupted": {
+        "type": "object",
+        "properties": {
+          "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
+          "after": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["NaN"] },
+              { "type": "string", "enum": ["Infinity"] },
+              { "type": "string", "enum": ["-Infinity"] }
+            ]
+          }
+        },
+        "required": ["_tag", "after"],
+        "additionalProperties": false
       }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "Bearer" } }
@@ -6910,14 +4544,12 @@
     { "name": "Auth" },
     { "name": "Tokens" },
     { "name": "Owners" },
-    { "name": "OrgsTeams" },
     { "name": "Extensions" },
-    { "name": "AdminExtensions" },
     { "name": "Libraries" },
-    { "name": "Maintainer" },
     { "name": "Discovery" },
     { "name": "Health" },
-    { "name": "Search" }
+    { "name": "Search" },
+    { "name": "Debug" }
   ],
   "servers": [
     { "url": "http://localhost:4300", "description": "Local dev" },

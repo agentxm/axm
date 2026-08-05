@@ -51,39 +51,10 @@ const parseModuleBazel = (content: string, source: string): ReadonlyArray<Detect
 };
 
 /**
- * Parse WORKSPACE content for *_repository rules.
- * Looks for http_archive, git_repository, and similar rules with name attributes.
- */
-const parseWorkspace = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
-  const results: Array<DetectedPackage> = [];
-
-  // Match repository rules: http_archive(...), git_repository(...), etc.
-  const repoRuleRegex = /\w+_(?:archive|repository)\s*\(([^)]*)\)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = repoRuleRegex.exec(content)) !== null) {
-    const args = match[1];
-    if (args === undefined) continue;
-
-    // Extract name attribute
-    const nameMatch = /name\s*=\s*"([^"]+)"/.exec(args);
-    if (nameMatch === null || nameMatch[1] === undefined) continue;
-    const name = nameMatch[1];
-
-    // WORKSPACE entries are typically versionless
-    const purl = new PackageURL("bazel", null, name, null, null, null);
-    const purlParts = decodePurl(purl.toString());
-    results.push({ purl: purlParts, type: bazelType, source });
-  }
-
-  return results;
-};
-
-/**
  * Bazel package detector.
  *
- * Scans `MODULE.bazel` for `bazel_dep()` calls and `WORKSPACE` for
- * `*_repository` rules. Dependencies are deduplicated by name.
+ * Scans `MODULE.bazel` for `bazel_dep()` calls. Dependencies are deduplicated
+ * by name.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -118,14 +89,6 @@ export const bazelDetector: PackageDetector = {
             yield* Effect.logWarning("Malformed MODULE.bazel, skipping");
           }
         }
-        addDeps(deps);
-      }
-
-      // Parse WORKSPACE (legacy format)
-      const workspacePath = path.join(projectDir, "WORKSPACE");
-      const workspaceContent = yield* readFileOptional(workspacePath);
-      if (Option.isSome(workspaceContent)) {
-        const deps = parseWorkspace(workspaceContent.value, workspacePath);
         addDeps(deps);
       }
 

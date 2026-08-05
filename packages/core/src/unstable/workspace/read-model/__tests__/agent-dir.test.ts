@@ -5,7 +5,7 @@
  * subject `type`.
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -55,7 +55,7 @@ const runScanner = (
     return { occurrences, warnings: yield* Ref.get(ref) };
   });
 
-describe("agent-dir scanner", () => {
+layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
   it.effect("emits no occurrences when no agent directory exists", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
@@ -65,7 +65,7 @@ describe("agent-dir scanner", () => {
       });
       expect(occurrences).toEqual([]);
       expect(warnings).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits skill occurrences for .claude/skills/<name>", () =>
@@ -92,7 +92,7 @@ describe("agent-dir scanner", () => {
         expect(o.scope).toBe("project");
         expect(o.contentLocation.startsWith("/ws/.claude/skills/")).toBe(true);
       }
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits same skill name in two agent dirs as two distinct occurrences", () =>
@@ -118,7 +118,7 @@ describe("agent-dir scanner", () => {
       expect(agentIds).toEqual(expectedAgentIds);
       // Distinct contentLocations.
       expect(new Set(matches.map((o) => o.contentLocation)).size).toBe(2);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits command occurrences for agents with a commands dir", () =>
@@ -129,7 +129,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "commands/some-command/some-command.md": "# cmd\n",
+              "commands/some-command.md": "# cmd\n",
             },
           },
         },
@@ -139,7 +139,8 @@ describe("agent-dir scanner", () => {
       );
       expect(commands).toHaveLength(1);
       expect(commands[0]?.name).toBe("some-command");
-    }).pipe(Effect.provide(Path.layer)),
+      expect(commands[0]?.contentLocation).toBe("/ws/.claude/commands/some-command.md");
+    }),
   );
 
   it.effect("emits subagent occurrences for agents with a subagents dir", () =>
@@ -150,7 +151,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "agents/code-reviewer/code-reviewer.md": "# subagent\n",
+              "agents/code-reviewer.md": "# subagent\n",
             },
           },
         },
@@ -160,7 +161,8 @@ describe("agent-dir scanner", () => {
       );
       expect(subagents).toHaveLength(1);
       expect(subagents[0]?.name).toBe("code-reviewer");
-    }).pipe(Effect.provide(Path.layer)),
+      expect(subagents[0]?.contentLocation).toBe("/ws/.claude/agents/code-reviewer.md");
+    }),
   );
 
   it.effect("emits a single-file subagent occurrence when subagents dir is a file", () =>
@@ -175,6 +177,7 @@ describe("agent-dir scanner", () => {
         ...rooDescriptor,
         subagents: {
           dir: ".roo/agent-file.txt",
+          scopes: rooDescriptor.subagents?.scopes ?? ["project"],
           isFile: true,
         },
       };
@@ -198,7 +201,7 @@ describe("agent-dir scanner", () => {
       expect(fileOccurrences).toHaveLength(1);
       expect(fileOccurrences[0]?.name).toBe("agent-file-txt");
       expect(fileOccurrences[0]?.contentLocation).toBe("/ws/.roo/agent-file.txt");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("does not emit rule occurrences (no agent in v1 registry exposes rules)", () =>
@@ -222,6 +225,6 @@ describe("agent-dir scanner", () => {
       // total occurrence count for `.cursor` is 0 (no rule subject is enumerated).
       const cursorEntries = occurrences.filter((o) => o.agentId === "cursor");
       expect(cursorEntries).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 });

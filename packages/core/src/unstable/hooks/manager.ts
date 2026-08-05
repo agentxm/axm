@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -12,7 +13,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
-import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { resolveInstructionsConfig } from "../agents/instructions.js";
 import {
@@ -24,12 +24,12 @@ import {
   type HooksWriter,
   installable,
 } from "../agent-capabilities/index.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
-  formatFqn,
   markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
@@ -39,11 +39,6 @@ import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../l
 import type { HookLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import {
-  isWorkspaceSourceLocator,
-  lockEntryToSourceParams,
-  printSourceParams,
-} from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import {
@@ -53,9 +48,12 @@ import {
 } from "../managed-files/index.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import { resolveConfiguredHook } from "../workspace/configured-entry-resolution/index.js";
 import type { ExtensionManager, HookExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -68,6 +66,7 @@ import {
   type RegistryHookRef,
   type WorkspaceHookRef,
 } from "./index.js";
+import { updateHooksJson } from "./managed-groups.js";
 
 export class HookManager extends ServiceMap.Service<
   HookManager,
@@ -90,39 +89,49 @@ const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (ref: RegistryHookRef, now: Date): HookLockEntry => ({
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
+const registryHookLockEntry = (
+  ref: RegistryHookRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const gitHookLockEntry = (ref: GitHostedHookRef, now: Date): HookLockEntry => {
-  const common = {
-    ...commonLockFields(now),
-  };
-
-  return {
-    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-    ...common,
-  };
-};
+const gitHookLockEntry = (
+  ref: GitHostedHookRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): HookLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
+});
 
 const localHookLockEntry = (
   ref: LocalHookRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  sourceHash: SourceHash | undefined,
 ): HookLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: Date): HookLockEntry => ({
+const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: DateTime.Utc): HookLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "hook",
@@ -131,9 +140,6 @@ const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: Date): HookLockEntry
   sourceHash: ref.sourceHash,
   ...commonLockFields(now),
 });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;
@@ -209,49 +215,6 @@ const hookNativeToolNames = (
   return native.tools.filter((tool) => tool.canonical === canonical).map((tool) => tool.nativeName);
 };
 
-const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) {
-      throw errors;
-    }
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "validation",
-        detail: `Invalid Claude Code hooks config JSON/JSONC: ${configPath}`,
-        cause: error,
-      }),
-    ),
-  );
-
-const validateHooksShape = (
-  configPath: string,
-  settingsKey: string,
-  parsed: unknown,
-): Effect.Effect<void, AppError> => {
-  if (!isRecord(parsed)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid hooks config format: ${configPath}`,
-      }),
-    );
-  }
-  const hooks = parsed[settingsKey];
-  if (hooks !== undefined && !isRecord(hooks)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid hooks config format: ${configPath} (${settingsKey} must be an object)`,
-      }),
-    );
-  }
-  return Effect.void;
-};
-
 const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -302,46 +265,6 @@ const writeIfChanged = (
       ),
     });
   });
-
-const isManagedHookCommand = (value: unknown): boolean =>
-  isRecord(value) &&
-  value["type"] === "command" &&
-  typeof value["command"] === "string" &&
-  value["command"].includes(".axm/extensions/");
-
-const stripManagedHookGroups = (hooks: Record<string, unknown>): Record<string, unknown> => {
-  const next: Record<string, unknown> = {};
-  for (const [event, groups] of Object.entries(hooks)) {
-    if (!Array.isArray(groups)) {
-      next[event] = groups;
-      continue;
-    }
-
-    const retainedGroups: unknown[] = [];
-    for (const group of groups) {
-      if (!isRecord(group)) {
-        retainedGroups.push(group);
-        continue;
-      }
-
-      const groupHooks = group["hooks"];
-      if (!Array.isArray(groupHooks)) {
-        retainedGroups.push(group);
-        continue;
-      }
-
-      const retainedHooks = groupHooks.filter((entry) => !isManagedHookCommand(entry));
-      if (retainedHooks.length > 0) {
-        retainedGroups.push({ ...group, hooks: retainedHooks });
-      }
-    }
-
-    if (retainedGroups.length > 0) {
-      next[event] = retainedGroups;
-    }
-  }
-  return next;
-};
 
 const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
   switch (runtime) {
@@ -396,14 +319,6 @@ const serializeBindingMatcher = (
   return Effect.succeed(serializeMatcher(writer, nativeNames.map(escapeRegexLiteral).join("|")));
 };
 
-const bindingWithManifestRequirements = (
-  binding: HookBinding,
-  manifest: HookManifest,
-): HookBinding =>
-  manifest.blocking === true && binding.requires === undefined
-    ? { ...binding, requires: { decision: { kind: "block" } } }
-    : binding;
-
 const serializeTimeout = (
   writer: HooksWriter,
   timeoutMs: number | undefined,
@@ -422,14 +337,12 @@ const appendCommandHookBinding = (
   agent: CapabilityAgent,
   writer: HooksWriter,
   binding: HookBinding,
-  manifest: HookManifest,
   hookName: string,
   command: string,
   timeoutMs: number | undefined,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
-    const resolvedBinding = bindingWithManifestRequirements(binding, manifest);
-    const verdict = installable(agent, resolvedBinding);
+    const verdict = installable(agent, binding);
     if (!verdict.installable) {
       return yield* makeAppError({
         code: "validation",
@@ -437,11 +350,11 @@ const appendCommandHookBinding = (
       });
     }
 
-    const nativeEventName = targetNativeEventName(agent, resolvedBinding.on);
+    const nativeEventName = targetNativeEventName(agent, binding.on);
     if (nativeEventName === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: `${agent.name} does not support ${resolvedBinding.on}.`,
+        detail: `${agent.name} does not support ${binding.on}.`,
       });
     }
 
@@ -462,46 +375,12 @@ const appendCommandHookBinding = (
     const group: Record<string, unknown> = {
       hooks: [commandEntry],
     };
-    const matcher = yield* serializeBindingMatcher(agent, writer, resolvedBinding);
+    const matcher = yield* serializeBindingMatcher(agent, writer, binding);
     if (matcher !== undefined) {
       group["matcher"] = matcher;
     }
     groups.push(group);
     hooks[nativeEventName] = groups;
-  });
-
-const updateHooksJson = (
-  configPath: string,
-  settingsKey: string,
-  raw: string,
-  renderedHooks: Record<string, unknown>,
-): Effect.Effect<string, AppError> =>
-  Effect.gen(function* () {
-    const initial = raw.trim().length === 0 ? "{}\n" : raw;
-    const parsed = yield* parseJsonConfig(configPath, initial);
-    yield* validateHooksShape(configPath, settingsKey, parsed);
-    const existingHooks =
-      isRecord(parsed) && isRecord(parsed[settingsKey])
-        ? stripManagedHookGroups(parsed[settingsKey])
-        : {};
-
-    for (const [event, groups] of Object.entries(renderedHooks)) {
-      const existingGroups = existingHooks[event];
-      existingHooks[event] = Array.isArray(existingGroups)
-        ? [...existingGroups, groups].flat()
-        : groups;
-    }
-
-    const hooksKeys = Object.keys(existingHooks);
-    const edits = modify(
-      initial,
-      [settingsKey],
-      hooksKeys.length === 0 ? undefined : existingHooks,
-      {
-        formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
-      },
-    );
-    return applyEdits(initial, edits);
   });
 
 export const HookManagerLive = Layer.effect(
@@ -530,42 +409,47 @@ export const HookManagerLive = Layer.effect(
         readonly ref: HookExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+      Effect.gen(function* () {
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            HOOK_EXTENSION_DIR,
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "hook",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical hook package path exists: ${canonicalPath}`,
-            integrityMismatchCode: "network",
-            integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry hook install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create registry hook directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
-            copyEntryFailureCode: "internal",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry hook package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              HOOK_EXTENSION_DIR,
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "hook",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical hook package path exists: ${canonicalPath}`,
+              integrityMismatchCode: "network",
+              integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry hook install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create registry hook directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
+              copyEntryFailureCode: "internal",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry hook package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
       provide(
@@ -589,7 +473,7 @@ export const HookManagerLive = Layer.effect(
     // the same hook packages, so without this the remove+copy steps race on one
     // package dir.
     const materializePackage = (ref: HookExtensionRef) =>
-      packageMaterializeLockFor(`${baseDir} ${ref.hook.name}`).withPermits(1)(
+      packageMaterializeLockFor(`${baseDir}\u0000${ref.hook.name}`).withPermits(1)(
         materializePackageUnlocked(ref),
       );
 
@@ -727,7 +611,6 @@ export const HookManagerLive = Layer.effect(
               target.agent,
               target.writer,
               binding,
-              rendered.manifest,
               rendered.manifest.name,
               rendered.command,
               rendered.manifest.timeoutMs,
@@ -942,57 +825,63 @@ export const HookManagerLive = Layer.effect(
       }
 
       const materializedTargets = yield* writeHooksConfig({ include: { ref, packageRoot } });
+      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.hook.name, {
         ref,
         materializedTargets,
         workspaceRelativeLocalSourcePath,
+        sourceHash,
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> => {
-      const state = lastInstallState.get(ref.hook.name);
-      const now = new Date();
-      switch (ref.refType) {
-        case "registry":
-          return Effect.succeed(registryHookLockEntry(ref, now));
-        case "git-hosted":
-          return Effect.succeed(gitHookLockEntry(ref, now));
-        case "local":
-          return Effect.succeed(
-            localHookLockEntry(ref, now, state?.workspaceRelativeLocalSourcePath ?? Option.none()),
-          );
-        case "workspace":
-          return Effect.succeed(workspaceHookLockEntry(ref, now));
-      }
-    };
+    const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> =>
+      Effect.gen(function* () {
+        const state = lastInstallState.get(ref.hook.name);
+        const now = yield* DateTime.now;
+        switch (ref.refType) {
+          case "registry":
+            return registryHookLockEntry(ref, now, state?.sourceHash);
+          case "git-hosted":
+            return gitHookLockEntry(ref, now, state?.sourceHash);
+          case "local":
+            return localHookLockEntry(
+              ref,
+              now,
+              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+              state?.sourceHash,
+            );
+          case "workspace":
+            return workspaceHookLockEntry(ref, now);
+        }
+      });
 
     const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
       Effect.fn("HookManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const locked = yield* ws.getLockedHookEntry(target.name);
-        if (Option.isNone(locked)) return;
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "hook",
+            name: target.name,
+          }),
+        );
         yield* writeHooksConfig({ excludeName: target.name });
 
-        const entry = locked.value;
-        const packageRoot =
-          entry.type === "registry" || entry.type === "workspace"
-            ? path.join(
-                baseDir,
-                REGISTRY_EXTENSIONS_DIR,
-                entry.owner,
-                HOOK_EXTENSION_DIR,
-                entry.name,
-              )
-            : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, HOOK_EXTENSION_DIR, target.name);
-        if (preserveSource !== true) {
-          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        const packageRoot = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(packageRoot)) {
+          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
 
     return {
       type: "hook",
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: HookExtensionTarget }) =>
-        ws.getLockedHookEntry(target.name).pipe(
-          Effect.map((locked) => Option.isSome(locked)),
+        isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
         ),
 
@@ -1029,20 +918,16 @@ export const HookManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const entries = yield* ws.getConfiguredHookEntries();
-        const current = entries[ref.hook.name];
-        const source =
-          current !== undefined && isWorkspaceSourceLocator(current.source)
-            ? current.source
-            : ref.refType === "registry"
-              ? (() => {
-                  const fqn = formatFqn({ owner: ref.owner, type: "hook", name: ref.hook.name });
-                  return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-                })()
-              : printSourceParams(lockEntryToSourceParams(lockEntry));
-        yield* ws.setHookEntry(ref.hook.name, {
-          source,
-          enabled: true,
+        if (lockEntry.type === "registry") {
+          yield* validateExactResolvedVersion(
+            `hooks.${ref.hook.name}.resolvedVersion`,
+            lockEntry.resolvedVersion,
+          );
+        }
+        yield* ws.setHook({
+          name: ref.hook.name,
+          lockEntry,
+          versionRange,
         });
       }),
 
@@ -1050,12 +935,8 @@ export const HookManagerLive = Layer.effect(
         yield* ws.removeHookSettings(target.name);
       }),
 
-      upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({
-        ref,
-        retainedByPack,
-      }) {
-        const lockEntry = yield* buildLockEntry(ref);
-        const entry = retainedByPack === undefined ? lockEntry : { ...lockEntry, retainedByPack };
+      upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({ ref }) {
+        const entry = yield* buildLockEntry(ref);
         if (ref.refType === "registry") {
           yield* validateExactResolvedVersion(
             `hooks.${ref.hook.name}.resolvedVersion`,
@@ -1072,6 +953,7 @@ export const HookManagerLive = Layer.effect(
       removeLockfileEntry: Effect.fn("HookManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeHookLock(target.name);
       }),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("hook", target.name),
     };
   }),
 );

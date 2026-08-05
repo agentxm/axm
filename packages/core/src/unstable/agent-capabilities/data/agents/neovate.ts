@@ -61,7 +61,11 @@ export const neovateAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/neovateai/neovate-code/blob/master/src/mcp.ts"],
+        sources: [
+          "https://github.com/neovateai/neovate-code/blob/master/src/mcp.ts",
+          "https://github.com/neovateai/neovate-code/blob/master/src/config.ts",
+          "https://github.com/neovateai/neovate-code/blob/master/src/commands/mcp.ts",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -73,11 +77,14 @@ export const neovateAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disable", enabled: false, disabled: true },
+              accepted: [{ name: "disable", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
@@ -91,17 +98,31 @@ export const neovateAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                required: { name: "type", value: "stdio" },
+                accepted: [{ name: "type", value: "stdio" }, null],
+              },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -109,40 +130,11 @@ export const neovateAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -169,6 +161,20 @@ export const neovateAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

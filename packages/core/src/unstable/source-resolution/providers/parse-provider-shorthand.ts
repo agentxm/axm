@@ -37,6 +37,16 @@ const parseRef = (input: string) => {
     return { coordinate: input };
   }
 
+  const subPathMarker = input.indexOf("//");
+  const isAtPathSegment =
+    subPathMarker !== -1 &&
+    refIndex > subPathMarker + 1 &&
+    input[refIndex - 1] === "/" &&
+    ref.includes("/");
+  if (isAtPathSegment) {
+    return { coordinate: input };
+  }
+
   return { coordinate: input.slice(0, refIndex), ref };
 };
 
@@ -70,14 +80,14 @@ const parseCoordinate = (input: string): ParsedProviderShorthand | undefined => 
  */
 export const parseProviderShorthand = (
   input: string,
-  _original: string,
+  original: string,
 ): Effect.Effect<GitHostedSourceParamParts, AppError> =>
   Effect.gen(function* () {
     const parsed = parseCoordinate(input);
     if (parsed === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: "Invalid shorthand format",
+        detail: `Invalid provider shorthand "${original}": expected owner/repo[//subpath][@ref]`,
       });
     }
 
@@ -86,7 +96,8 @@ export const parseProviderShorthand = (
     if (Result.isFailure(decoded)) {
       return yield* makeAppError({
         code: "validation",
-        detail: "Invalid shorthand format",
+        detail: `Invalid provider shorthand "${original}": subpaths cannot traverse outside the repository, and shorthand refs cannot contain "/"`,
+        cause: decoded.failure,
       });
     }
 

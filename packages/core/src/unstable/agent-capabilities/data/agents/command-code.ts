@@ -61,7 +61,7 @@ export const commandCodeAgent = {
         notes:
           "The shared/project-scoped MCP config is .mcp.json at the repo root; the user-scoped config is ~/.commandcode/mcp.json. A private local scope (~/.commandcode/projects/<slug>/mcp.json) also exists but is not managed here.",
         docs: [],
-        sources: ["https://commandcode.ai/docs/core-concepts/settings"],
+        sources: ["https://commandcode.ai/docs/mcp"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -73,11 +73,14 @@ export const commandCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null, { name: "enabled", enabled: true, disabled: false }],
+            },
             targets: [
               {
                 scope: "project",
@@ -91,17 +94,42 @@ export const commandCodeAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                required: null,
+                accepted: [
+                  null,
+                  { name: "transport", value: "stdio" },
+                  { name: "type", value: "stdio" },
+                ],
+              },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "transport",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "transport",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -109,7 +137,6 @@ export const commandCodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -125,41 +152,6 @@ export const commandCodeAgent = {
         scopes: ["user", "project"],
         directory: ".commandcode/agents",
         layout: "file",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Command Code reads AGENTS.md memory/instruction files.",
-        docs: [],
-        sources: ["https://commandcode.ai/docs/core-concepts/memory"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -184,6 +176,27 @@ export const commandCodeAgent = {
         lastVerified: null,
         reason: "AXM has not implemented a Command Code hook writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Command Code reads AGENTS.md memory/instruction files.",
+      docs: [],
+      sources: ["https://commandcode.ai/docs/core-concepts/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

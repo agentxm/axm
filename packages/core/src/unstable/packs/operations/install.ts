@@ -9,11 +9,12 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { computePackageContentHash, decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import {
   type ResolvedExtensionMap,
@@ -53,7 +54,7 @@ export interface InstallPackOperationArgs {
   readonly integrity: string;
   /** Registry source name */
   readonly sourceName: string;
-  readonly publisherBindingId?: string;
+  readonly publisherBindingId: string;
   /** Resolved skill FQNs to exact versions */
   readonly resolvedSkills: ResolvedExtensionMap;
   /** Resolved command FQNs to exact versions */
@@ -224,7 +225,10 @@ export const installPack: OperationHandler<
       }),
     );
 
+    const sourceHash = yield* computePackageContentHash(packDir);
+
     // Write lockfile + settings
+    const now = yield* DateTime.now;
     const metadataWarning = yield* ws
       .setPack({
         type: "registry",
@@ -233,11 +237,10 @@ export const installPack: OperationHandler<
         resolvedVersion: op.args.resolvedVersion,
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
-        ...(op.args.publisherBindingId === undefined
-          ? {}
-          : { publisherBindingId: op.args.publisherBindingId }),
-        installedAt: new Date(),
-        updatedAt: new Date(),
+        publisherBindingId: op.args.publisherBindingId,
+        sourceHash,
+        installedAt: now,
+        updatedAt: now,
         resolvedSkills: op.args.resolvedSkills,
         resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,

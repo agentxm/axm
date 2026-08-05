@@ -82,7 +82,7 @@ export const geminiCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
           defaults: true,
@@ -90,11 +90,14 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -108,12 +111,18 @@ export const geminiCliAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
-            remote: null,
-            transform: null,
+            remote: {
+              typeField: { required: null, accepted: [null] },
+              urlKey: {
+                "streamable-http": "httpUrl",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
           },
         },
       },
@@ -133,45 +142,6 @@ export const geminiCliAgent = {
       axm: {
         status: "supported",
         lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Consumer access (free, AI Pro, AI Ultra) ended 2026-06-18; Antigravity CLI succeeded Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
-        docs: [],
-        sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
-          "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
-        ],
-        scopes: ["user", "project"],
-        standardsCompliance: "parity",
-        convention: "vendor",
-        kind: "own-file",
-        files: ["GEMINI.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -356,6 +326,31 @@ export const geminiCliAgent = {
         },
         lastVerified: "2026-06-06",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Consumer access (free, AI Pro, AI Ultra) ended 2026-06-18; Antigravity CLI succeeded Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
+      docs: [],
+      sources: [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+        "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
+      ],
+      scopes: ["user", "project"],
+      standardsCompliance: "parity",
+      convention: "vendor",
+      kind: "own-file",
+      files: ["GEMINI.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

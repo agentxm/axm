@@ -87,24 +87,24 @@ describe("withAuthGuard", () => {
     );
   });
 
-  it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
+  it.effect("fails with auth_required when no token", () => {
     const layer = makeLayers();
     return withAuthGuard(makeInnerEffect()).pipe(
       Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
 
-  it.effect("fails with auth when persisted credentials are disabled", () => {
+  it.effect("fails with auth_required when persisted credentials are disabled", () => {
     const layer = makeLayers({ allowsPersistedCredentials: false });
     return withAuthGuard(makeInnerEffect()).pipe(
       Effect.provide(layer),
       Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
       Effect.map((result) => {
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });

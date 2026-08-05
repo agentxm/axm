@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-05-08
-version: 0.2.0
+last-reviewed: 2026-07-31
+version: 0.5.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -53,6 +53,8 @@ handler authoring live in [CLI Design Guide](./cli-design.md).
 - Effect Schema v4 is the source of truth for published JSON output contracts
 - `--json` should ship only once the output schema is published and tested
 - stdout is reserved for final data; diagnostics belong on stderr
+- a successful non-streaming `--json` invocation emits at most one complete
+  JSON document on stdout
 - Breaking JSON changes require explicit issue/design rationale and contract tests
 
 ---
@@ -107,7 +109,10 @@ Use Effect Schema v4 for all published machine-readable output:
 - structured error payloads
 - machine stderr event contracts
 
-The schema is the contract. It should define:
+The schema is the contract. Each shipped command path is also classified in
+`packages/cli/src/machine-output-contracts.ts`; its exact comparison with the
+real Effect command tree makes unclassified additions, aliases, and removals
+fail tests. The schema should define:
 
 - the wire shape
 - the derived TypeScript type
@@ -165,19 +170,65 @@ This keeps the published contract and the emitted bytes aligned.
 
 `CliRenderer` owns channel discipline:
 
-- `result` and `resultStream` emit command data to stdout
+- `result` emits one schema-encoded command document to stdout
 - `list(entity, ...)`, `detail(entity, ...)`, and `tree(entity, ...)` render
   entity-shaped data through the registry while preserving the same JSON payload
 - `suggestions` emits advisory follow-up tasks; machine mode also emits
   `suggestion` events on stderr
-- `json` and `raw` are escape hatches; use them sparingly
+- `json` and `raw` are text-mode escape hatches; guard them behind a
+  schema-backed `result` call when the command supports machine output
 - `info`, `message`, and `success` are human narration; machine mode silences
   those messages
 - `warn`, `error`, spinners, progress, task logs, and suggestions are signal
   diagnostics; machine mode emits them as NDJSON on stderr
 
 Handlers should compute structured data first, then render once. Avoid
-interleaving business logic with ad hoc log formatting.
+interleaving business logic with ad hoc log formatting. Render-once applies to
+the **result** channel; long-running phases still emit live progress through
+the renderer's progress APIs — see
+[Progress And Liveness](#progress-and-liveness).
+
+---
+
+## Progress And Liveness
+
+A command is never silent while working. Perceived responsiveness matters more
+than raw speed: a CLI that prints nothing during a network fetch reads as hung,
+and users and agents interrupt healthy runs.
+
+Normative rules:
+
+- **First feedback within ~100 ms.** Every command produces visible
+  acknowledgment near-instantly — either its result (fast commands) or a
+  progress line naming the current phase.
+- **Slow phases run under a progress API.** Any phase that can plausibly exceed
+  ~1 second — registry resolution, network fetch, subprocess execution, bulk
+  file I/O — runs under `withSpinner`, `withProgress`, or `runTasks`, with a
+  message naming the phase and subject (`Resolving @acme/skills/foo…`). Do not
+  hand-roll progress with `info` lines or `console.log`.
+- **Progress is transient scaffolding, not a transcript.** A spinner settles
+  into the final outcome line. Interrupted or failed phases settle the line
+  (via the renderer) rather than leaving a dangling animation frame. Progress
+  narration never substitutes for the outcome-first result.
+- **Progress is exempt from render-once.** The render-once rule governs the
+  result channel (stdout, one render at the end). Progress emitted through the
+  renderer's progress APIs is a stderr diagnostic and runs mid-flight by
+  design.
+- **Quiet-by-default is not silent-while-working.** Omitting transport plumbing
+  from default output governs _what detail_ appears, not _whether_ liveness
+  appears. A spinner naming the current phase is not plumbing; the registry
+  URLs and probe details behind it belong in `--verbose`.
+
+Per-mode behavior is owned by the renderer implementations — handlers call the
+progress APIs and the renderer adapts:
+
+| Mode                      | Behavior                                                       |
+| ------------------------- | -------------------------------------------------------------- |
+| Interactive TTY           | Animated spinner / progress bar; settles into the outcome line |
+| Non-TTY / CI / `NO_COLOR` | Static phase line per update; no animation, no ANSI            |
+| `--json`                  | NDJSON `progress` events on stderr; stdout result untouched    |
+| `--quiet`                 | Progress suppressed; errors still surface                      |
+| `--verbose`               | Progress retained, plus the plumbing detail behind each phase  |
 
 ---
 
@@ -225,48 +276,48 @@ Some commands are intentionally pipe-friendly in text mode, like `auth token`.
 
 Use a top-level object for every command result.
 
-Machine mode wraps every successful payload in a flat success envelope:
+Since CLI 0.25.0, machine mode wraps every ordinary payload under the single
+top-level `result` key. Built-in `--help --json` and `--version --json` are the
+deliberate formatter-owned exceptions and use their `type: "help"` /
+`type: "version"` schemas:
 
 ```json
 {
   "ok": true,
-  "items": [
-    {
-      "name": "@acme/skills/code-review",
-      "source": "registry",
-      "scope": "project",
-      "enabled": true
-    }
-  ],
-  "count": 1
+  "result": {
+    "items": [
+      {
+        "name": "@acme/skills/code-review",
+        "source": "registry",
+        "scope": "project",
+        "enabled": true
+      }
+    ],
+    "count": 1
+  }
 }
 ```
 
-Why an object, even for lists:
+This is a versioned breaking change from 0.24.x, which flattened payload-schema
+keys into the envelope and therefore exposed command-specific top-level keys.
 
-- metadata can be added without replacing the top-level type
-- consumers do not need out-of-band knowledge to interpret the payload
+Why one payload key:
 
-Recommended top-level fields:
-
-- exactly one primary payload key:
-  - `data` for single resources
-  - `items` for collections
-  - `result` for operation summaries
-- optional metadata:
-  - `count`
-  - `warnings`
-  - `nextCursor`
-  - `generatedAt`
+- consumers always read `.result`
+- command payload schemas can evolve without competing for envelope keys
+- objects, collections, and scalars share one routing contract
 
 Reserved top-level fields:
 
 - `ok`
+- `result`
 - `summary`
 - `suggestions`
 
-Payload schemas must not define reserved fields. Avoid top-level `type` for
-successful command results unless it adds real domain meaning.
+The renderer unwraps a payload schema whose only field is `result` for
+compatibility with operation-document schemas; all other schema-encoded values
+become the value of the envelope's `result`. Avoid a payload-level `type`
+unless it adds real domain meaning.
 
 Advisory follow-up tasks use suggestions. When a result needs suggestions, add
 them to the same flat envelope:
@@ -316,23 +367,36 @@ JSON errors use a fixed envelope:
 {
   "ok": false,
   "code": "auth",
-  "message": "No authentication token is available",
+  "title": "Unauthorized",
+  "detail": "No authentication token is available",
   "suggestions": [{ "description": "Authenticate", "cmd": "axm auth login" }]
 }
 ```
 
 Rules:
 
-- use `ok: false` for error routing
+- for every ordinary result, `ok` is `true` exactly when the process exits 0
+  and `false` when it exits nonzero
+- use `ok: false` for error routing and nonzero operation results
 - include `code`; this is the stable agent-facing discriminator
-- include `message`; it is user-facing prose
+- include `title` and `detail`; `detail` is user-facing prose
 - include `suggestions` for structured follow-up tasks when useful
 - emit a matching stderr `error` event in machine mode
 
 The shell already conveys the process exit status, so the envelope does not
 restate it. Exit codes are derived 1:1 from `code`; see the `ExitCode` enum
 in `packages/core/src/unstable/app-error/app-error.ts` for the mapping and
-the reserved ranges (1–10 in use, 11–127 reserved, 128+ for POSIX signals).
+the reserved ranges (1–12 in use, 13–127 reserved, 128+ for POSIX signals).
+
+### Secret Safety
+
+Error and diagnostic surfaces redact credential-shaped text and exact secret
+values found under sensitive metadata keys. This applies to normal, verbose,
+and debug output, including response bodies, cause chains, stacks, URLs,
+suggestions, machine stderr events, and telemetry. Command result payloads are
+not generically redacted because `axm token --json` and `axm token create
+--json` intentionally return a requested token; those token result fields are
+the only secret-bearing output exception.
 
 ---
 
@@ -357,12 +421,14 @@ Future-friendly extension:
 
 Current contract:
 
-- stdout: final JSON result object
+- stdout: zero or one complete final JSON document
 - stderr: signal-only NDJSON diagnostics for warnings, errors, suggestions,
   progress, and task logs
 
 Keep that split. Do not overload `--json` to mean "mixed result and progress
-stream".
+stream". The runtime buffers stdout and validates the complete channel before
+releasing it; concatenated documents or stray text become an internal contract
+error instead of leaking malformed output.
 
 If we need consumable streaming results later, add an explicit mode with its
 own contract and version.
@@ -411,6 +477,8 @@ unexpected errors:
 "internal", message }` envelope on stdout
 
 Production callers reach this through `withCliErrorHandling`; do not bypass it.
+The same redaction boundary applies before defects reach stderr, stdout, or
+telemetry.
 
 ---
 

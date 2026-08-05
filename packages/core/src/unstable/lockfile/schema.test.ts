@@ -1,46 +1,47 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
-import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
   FilesLockEntrySchema,
+  HookLockEntrySchema,
+  KnowledgeLockEntrySchema,
   LockfileSchema,
+  McpServerLockEntrySchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
+  RuleLockEntrySchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
-  describe("DateFromIsoDateTimeStringSchema", () => {
+  describe("DateTimeUtcSchema", () => {
     it("accepts valid ISO 8601 date string", () => {
-      const result = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(
-        "2025-01-15T10:30:00Z",
-      );
-      expect(result).toBeInstanceOf(Date);
-      expect(result.toISOString()).toBe("2025-01-15T10:30:00.000Z");
+      const result = Schema.decodeUnknownSync(DateTimeUtcSchema)("2025-01-15T10:30:00Z");
+      expect(DateTime.isDateTime(result)).toBe(true);
+      expect(DateTime.formatIso(result)).toBe("2025-01-15T10:30:00.000Z");
     });
 
     it("rejects invalid date string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("garbage")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("garbage")).toThrow();
     });
 
     it("rejects empty string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("")).toThrow();
     });
 
     it("rejects string that produces Invalid Date", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("not-a-date"),
-      ).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("not-a-date")).toThrow();
     });
 
     it("round-trips valid date string", () => {
       const input = "2025-01-15T10:30:00.000Z";
-      const decoded = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(input);
-      const encoded = Schema.encodeSync(DateFromIsoDateTimeStringSchema)(decoded);
+      const decoded = Schema.decodeUnknownSync(DateTimeUtcSchema)(input);
+      const encoded = Schema.encodeSync(DateTimeUtcSchema)(decoded);
       expect(encoded).toBe(input);
     });
   });
@@ -62,13 +63,13 @@ describe("lockfile schema", () => {
   describe("Lockfile", () => {
     it("accepts valid minimal lockfile", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
       };
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.lockfileVersion).toBe(1);
+      expect(result.lockfileVersion).toBe(3);
       expect(result.skills).toEqual({});
     });
 
@@ -82,7 +83,7 @@ describe("lockfile schema", () => {
 
     it("rejects command registry lock entry with range resolvedVersion", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
         commands: {
           formatter: {
@@ -92,6 +93,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "^1.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
@@ -104,7 +107,7 @@ describe("lockfile schema", () => {
 
     it("rejects mcp server registry lock entry with range resolvedVersion", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
         mcpServers: {
           "local-tools": {
@@ -114,6 +117,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "~2.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
           },
@@ -123,7 +128,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
-    it("drops legacy materialized targets while preserving resolved inputs", () => {
+    it("rejects removed materialized target state", () => {
       const input = {
         lockfileVersion: LOCKFILE_VERSION,
         skills: {},
@@ -135,6 +140,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
             resolvedInputs: {
@@ -159,50 +166,28 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
-
-      expect(result.files?.["baseline"]?.type).toBe("registry");
-      expect(result.files?.["baseline"]).not.toHaveProperty("materializedTargets");
-      expect(result.files?.["baseline"]?.resolvedInputs).toEqual({
-        projectName: "AgentXM",
-        strict: true,
-        maxDepth: 3,
-      });
-    });
-
-    it("rejects removed Library workspace state", () => {
-      const input = {
-        lockfileVersion: LOCKFILE_VERSION,
-        skills: {},
-        libraries: {
-          frontend: {
-            type: "registry",
-            owner: "@acme",
-            name: "frontend",
-            sourceName: "default",
-            membershipDigest: "sha256-members",
-            resolvedAt: "2025-01-15T10:30:00Z",
-            installedAt: "2025-01-15T10:30:00Z",
-            updatedAt: "2025-01-15T10:30:00Z",
-            resolvedSkills: {
-              "@acme/skills/reviewer": "1.2.3",
-            },
-            resolvedCommands: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedFiles: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-          },
-        },
-      };
-
       expect(() =>
         Schema.decodeUnknownSync(LockfileSchema)(input, { onExcessProperty: "error" }),
       ).toThrow();
     });
 
-    it("drops legacy context targets regardless of their old path shape", () => {
+    it("tolerates and retains unknown top-level keys under onExcessProperty error", () => {
+      // The removed legacy `libraries` state is rejected by explicit pre-decode
+      // guards on the lockfile read paths, not by the schema; the schema now
+      // carries unknown top-level keys so writes never discard them.
+      const input = {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+        futureFeature: { alpha: 1 },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input, {
+        onExcessProperty: "error",
+      });
+      expect(result["futureFeature"]).toEqual({ alpha: 1 });
+    });
+
+    it("rejects removed file target state", () => {
       const input = {
         type: "local",
         path: "./files/baseline",
@@ -217,13 +202,14 @@ describe("lockfile schema", () => {
         ],
       };
 
-      const result = Schema.decodeUnknownSync(FilesLockEntrySchema)(input);
-      expect(result).not.toHaveProperty("materializedTargets");
+      expect(() =>
+        Schema.decodeUnknownSync(FilesLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("accepts valid skill lock entry with GitHub source", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "github",
@@ -241,7 +227,7 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.lockfileVersion).toBe(1);
+      expect(result.lockfileVersion).toBe(3);
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
       expect(skill?.type).toBe("github");
@@ -251,14 +237,14 @@ describe("lockfile schema", () => {
       }
       expect(skill?.gitTreeHash).toBe("abc123def456");
       expect(skill).not.toHaveProperty("agents");
-      // Dates are decoded to Date objects
-      expect(skill?.installedAt).toBeInstanceOf(Date);
-      expect(skill?.updatedAt).toBeInstanceOf(Date);
+      // Timestamps are decoded to DateTime.Utc values
+      expect(DateTime.isDateTime(skill?.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(skill?.updatedAt)).toBe(true);
     });
 
     it("accepts valid skill lock entry with Local source", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "local",
@@ -282,7 +268,7 @@ describe("lockfile schema", () => {
 
     it("accepts valid skill lock entry with Git source", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "git",
@@ -311,7 +297,7 @@ describe("lockfile schema", () => {
 
     it("accepts Git source with only required url field", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "git",
@@ -337,7 +323,7 @@ describe("lockfile schema", () => {
 
     it("accepts valid skill lock entry with Registry source", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "registry",
@@ -346,6 +332,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123def456",
             sourceName: "local",
+
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
@@ -369,7 +357,7 @@ describe("lockfile schema", () => {
 
     it("accepts multiple skills", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "skill-one": {
             type: "local",
@@ -395,9 +383,9 @@ describe("lockfile schema", () => {
       expect(result.skills["skill-two"]).toBeDefined();
     });
 
-    it("drops an empty legacy agents array", () => {
+    it("rejects removed skill agent state", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "my-skill": {
             type: "local",
@@ -409,9 +397,9 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
-
-      expect(result.skills["my-skill"]).not.toHaveProperty("agents");
+      expect(() =>
+        Schema.decodeUnknownSync(LockfileSchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
   });
 
@@ -434,8 +422,8 @@ describe("lockfile schema", () => {
         expect(result.repo).toBe("skills");
       }
       expect(result).not.toHaveProperty("agents");
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(DateTime.isDateTime(result.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(result.updatedAt)).toBe(true);
     });
 
     it("accepts valid GitHub lock entry with optional gitTreeHash", () => {
@@ -536,6 +524,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -602,6 +592,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "^1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -610,7 +602,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("drops a legacy empty agents array", () => {
+    it("rejects removed agent state", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -619,9 +611,9 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
-
-      expect(result).not.toHaveProperty("agents");
+      expect(() =>
+        Schema.decodeUnknownSync(SkillLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("rejects lock entry missing source", () => {
@@ -733,6 +725,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -748,6 +742,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -763,6 +759,8 @@ describe("lockfile schema", () => {
         name: "my-skill",
         integrity: "sha512-abc123def456",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -778,6 +776,8 @@ describe("lockfile schema", () => {
         name: "my-skill",
         resolvedVersion: "1.0.0",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -801,7 +801,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("preserves sourceHash and drops legacy skill materialization state", () => {
+    it("rejects removed skill materialization state", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -813,14 +813,13 @@ describe("lockfile schema", () => {
           "claude-code": [{ path: ".claude/skills/my-skill" }],
         },
       };
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
-      expect(result.sourceHash).toBe("abc123def456");
-      expect(result).not.toHaveProperty("renderedFiles");
-      expect(result).not.toHaveProperty("agents");
+      expect(() =>
+        Schema.decodeUnknownSync(SkillLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
-    it("drops pinned capability render inputs and degraded render findings", () => {
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)({
+    it("rejects removed capability render state", () => {
+      const input = {
         type: "local",
         path: "skills/review",
         agents: ["codex"],
@@ -839,10 +838,11 @@ describe("lockfile schema", () => {
         degradedRenders: {
           codex: ["missing-default-variant"],
         },
-      });
+      };
 
-      expect(result).not.toHaveProperty("renderInputs");
-      expect(result).not.toHaveProperty("degradedRenders");
+      expect(() =>
+        Schema.decodeUnknownSync(SkillLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
@@ -923,7 +923,7 @@ describe("lockfile schema", () => {
     const decode = Schema.decodeUnknownSync(CommandLockEntrySchema);
     const encode = Schema.encodeUnknownSync(CommandLockEntrySchema);
 
-    it("drops legacy agents from a local command lock entry", () => {
+    it("rejects removed command agent state", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
@@ -931,12 +931,10 @@ describe("lockfile schema", () => {
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
-      const result = decode(input);
-      expect(result.type).toBe("local");
-      expect(result).not.toHaveProperty("agents");
+      expect(() => decode(input, { onExcessProperty: "error" })).toThrow();
     });
 
-    it("preserves command sourceHash and drops rendered files", () => {
+    it("rejects removed command render state", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
@@ -948,9 +946,7 @@ describe("lockfile schema", () => {
           "claude-code": [{ path: ".claude/commands/deploy.md" }],
         },
       };
-      const result = decode(input);
-      expect(result.sourceHash).toBe("abc123def456");
-      expect(result).not.toHaveProperty("renderedFiles");
+      expect(() => decode(input, { onExcessProperty: "error" })).toThrow();
     });
 
     it("accepts command lock entry without optional sourceHash and renderedFiles", () => {
@@ -1001,6 +997,68 @@ describe("lockfile schema", () => {
     });
   });
 
+  describe("optional sourceHash on non-skill lock entries", () => {
+    const schemasByType = {
+      "mcp-server": McpServerLockEntrySchema,
+      files: FilesLockEntrySchema,
+      rule: RuleLockEntrySchema,
+      hook: HookLockEntrySchema,
+      knowledge: KnowledgeLockEntrySchema,
+    };
+
+    const registryEntry = {
+      type: "registry",
+      owner: "@acme",
+      name: "widget",
+      resolvedVersion: "1.2.0",
+      integrity: "sha512-abc123",
+      sourceName: "default",
+      publisherBindingId: "hbnd_test",
+      installedAt: "2025-01-15T10:30:00.000Z",
+      updatedAt: "2025-01-15T10:30:00.000Z",
+    };
+
+    for (const [type, schema] of Object.entries(schemasByType)) {
+      const decode = Schema.decodeUnknownSync(schema);
+      const encode = Schema.encodeUnknownSync(schema);
+
+      it(`decodes a ${type} registry entry without sourceHash`, () => {
+        const decoded = decode(registryEntry, { onExcessProperty: "error" });
+        expect(decoded).not.toHaveProperty("sourceHash");
+      });
+
+      it(`round-trips a ${type} registry entry carrying sourceHash`, () => {
+        const input = { ...registryEntry, sourceHash: "abc123" };
+        expect(encode(decode(input, { onExcessProperty: "error" }))).toEqual(input);
+      });
+
+      it(`round-trips a ${type} git entry carrying sourceHash`, () => {
+        const input = {
+          type: "github",
+          owner: "acme",
+          repo: "widgets",
+          sourceHash: "abc123",
+          installedAt: "2025-01-15T10:30:00.000Z",
+          updatedAt: "2025-01-15T10:30:00.000Z",
+        };
+        expect(encode(decode(input, { onExcessProperty: "error" }))).toEqual(input);
+      });
+    }
+
+    it("rejects sourceHash on an inline MCP server entry", () => {
+      const input = {
+        type: "inline",
+        command: "run-server",
+        sourceHash: "abc123",
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+      };
+      expect(() =>
+        Schema.decodeUnknownSync(McpServerLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
+    });
+  });
+
   describe("PackLockEntry", () => {
     it("accepts valid pack lock entry with all resolved maps", () => {
       const input = {
@@ -1010,10 +1068,16 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
-        resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+        resolvedSkills: {
+          "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+        },
+        resolvedCommands: {
+          "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+        },
         resolvedMcpServers: {},
         resolvedSubagents: {},
       };
@@ -1028,10 +1092,14 @@ describe("lockfile schema", () => {
         expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("default");
       }
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
-      expect(result.resolvedSkills).toEqual({ "@acme/skills/code-review": "1.2.0" });
-      expect(result.resolvedCommands).toEqual({ "@acme/commands/formatter": "1.0.0" });
+      expect(DateTime.isDateTime(result.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(result.updatedAt)).toBe(true);
+      expect(result.resolvedSkills).toEqual({
+        "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+      });
+      expect(result.resolvedCommands).toEqual({
+        "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+      });
       expect(result.resolvedMcpServers).toEqual({});
       expect(result.resolvedSubagents).toEqual({});
     });
@@ -1044,6 +1112,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "0.1.0",
         integrity: "sha512-deadbeef",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1058,6 +1128,40 @@ describe("lockfile schema", () => {
       expect(result.resolvedCommands).toEqual({});
       expect(result.resolvedMcpServers).toEqual({});
       expect(result.resolvedSubagents).toEqual({});
+    });
+
+    it("preserves discriminated Registry receipt fields", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-pack",
+        sourceName: "default",
+        publisherBindingId: "hbnd_pack",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {
+          "@acme/skills/code-review": {
+            source: "registry",
+            version: "1.2.0",
+            publisherBindingId: "hbnd_skill",
+            integrity: "sha512-skill",
+          },
+        },
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result.resolvedSkills["@acme/skills/code-review"]).toEqual({
+        source: "registry",
+        version: "1.2.0",
+        publisherBindingId: "hbnd_skill",
+        integrity: "sha512-skill",
+      });
     });
 
     it("accepts a workspace pack lock entry", () => {
@@ -1096,17 +1200,23 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
-        resolvedSubagents: { "@acme/subagents/reviewer": "2.0.0" },
+        resolvedSubagents: {
+          "@acme/subagents/reviewer": { version: "2.0.0", publisherBindingId: "hbnd_test" },
+        },
       };
 
       const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
-      expect(result.resolvedSubagents).toEqual({ "@acme/subagents/reviewer": "2.0.0" });
+      expect(result.resolvedSubagents).toEqual({
+        "@acme/subagents/reviewer": { version: "2.0.0", publisherBindingId: "hbnd_test" },
+      });
     });
 
     it("rejects pack lock entry with range resolvedVersion", () => {
@@ -1117,6 +1227,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "^1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1136,6 +1248,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: { "@acme/skills/code-review": "^1.2.0" },
@@ -1154,6 +1268,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1173,6 +1289,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedCommands: {},
@@ -1191,6 +1309,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1209,6 +1329,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1227,6 +1349,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1245,6 +1369,8 @@ describe("lockfile schema", () => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {},
@@ -1273,9 +1399,13 @@ describe("lockfile schema", () => {
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc123",
           sourceName: "default",
+
+          publisherBindingId: "hbnd_test",
           installedAt: "2025-01-15T10:30:00Z",
           updatedAt: "2025-01-15T10:30:00Z",
-          resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+          resolvedSkills: {
+            "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+          },
           resolvedCommands: {},
           resolvedMcpServers: {},
           resolvedSubagents: {},
@@ -1286,7 +1416,7 @@ describe("lockfile schema", () => {
 
       expect(result["@acme/packs/frontend-pack"]).toBeDefined();
       expect(result["@acme/packs/frontend-pack"]?.resolvedSkills).toEqual({
-        "@acme/skills/code-review": "1.2.0",
+        "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
       });
     });
   });
@@ -1294,7 +1424,7 @@ describe("lockfile schema", () => {
   describe("Lockfile with packs", () => {
     it("accepts lockfile with packs section", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
         packs: {
           "@acme/packs/frontend-pack": {
@@ -1304,10 +1434,16 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
-            resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
-            resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+            },
+            resolvedCommands: {
+              "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+            },
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -1322,7 +1458,7 @@ describe("lockfile schema", () => {
 
     it("accepts lockfile without packs section", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
       };
 
@@ -1333,9 +1469,9 @@ describe("lockfile schema", () => {
   });
 
   describe("Lockfile round-trip with registry entries", () => {
-    it("drops v2 agent and render state from the shared lockfile shape", () => {
+    it("rejects removed agent and render state from the shared lockfile shape", () => {
       const input = {
-        lockfileVersion: 2,
+        lockfileVersion: 3,
         skills: {
           "registry-skill": {
             type: "registry",
@@ -1344,6 +1480,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.2.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             renderedFiles: { "claude-code": [{ path: ".claude/skills/code-review" }] },
             renderInputs: {
               "claude-code": {
@@ -1362,20 +1500,14 @@ describe("lockfile schema", () => {
         },
       };
 
-      const decoded = Schema.decodeUnknownSync(LockfileSchema)(input);
-      const encoded = Schema.encodeSync(LockfileSchema)(decoded);
-      const encodedSkill = encoded.skills["registry-skill"];
-
-      expect(encodedSkill).toBeDefined();
-      expect(encodedSkill).not.toHaveProperty("agents");
-      expect(encodedSkill).not.toHaveProperty("renderedFiles");
-      expect(encodedSkill).not.toHaveProperty("renderInputs");
-      expect(encodedSkill).not.toHaveProperty("degradedRenders");
+      expect(() =>
+        Schema.decodeUnknownSync(LockfileSchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("decodes and re-encodes lockfile with registry packs and skills", () => {
       const input = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "registry-skill": {
             type: "registry",
@@ -1384,6 +1516,8 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.2.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
           },
@@ -1396,9 +1530,13 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
-            resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+            resolvedSkills: {
+              "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+            },
             resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},

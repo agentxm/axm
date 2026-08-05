@@ -144,6 +144,10 @@ describe("discover handler", () => {
             ]),
             summary: "Found 2 companion extensions for 2 of 2 detected packages.",
           });
+          expect(rendererState.spinnerMessages).toEqual([
+            "Scanning project dependencies",
+            "Scanned project dependencies",
+          ]);
         }),
       ),
     );

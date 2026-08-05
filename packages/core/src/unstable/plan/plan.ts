@@ -46,12 +46,16 @@ export const ArtifactChangeSchema = Schema.Literals([
 
 export type ArtifactChange = typeof ArtifactChangeSchema.Type;
 
+export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
+export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
+
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
   readonly agents?: ReadonlyArray<string>;
   readonly version?: string;
   readonly change: ArtifactChange;
+  readonly mechanism?: ArtifactMechanism;
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
@@ -143,11 +147,27 @@ export interface PlanSection {
   readonly items: ReadonlyArray<string>;
 }
 
+export const OperationPreconditionSchema = Schema.Struct({
+  id: Schema.String,
+  label: Schema.String,
+  status: Schema.Literals(["met", "unmet"] as const),
+  detail: Schema.optional(Schema.String),
+  blockedOn: Schema.optional(Schema.Literal("human")),
+  command: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "OperationPrecondition",
+  title: "Operation Precondition",
+  description: "A condition that must be satisfied before an operation can apply.",
+});
+
+export type OperationPrecondition = typeof OperationPreconditionSchema.Type;
+
 export interface Plan {
   readonly _tag: "Plan";
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   /** Optional extra sections rendered after the plan steps. */
   readonly sections?: ReadonlyArray<PlanSection>;
 }
@@ -166,6 +186,7 @@ export interface ExecutedPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<ExecutedJob>;
+  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
 }
 
 export interface PreviewedPlan {
@@ -173,6 +194,7 @@ export interface PreviewedPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
 }
 
 export interface CancelledPlan {
@@ -180,6 +202,7 @@ export interface CancelledPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
 }
 
 export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan;

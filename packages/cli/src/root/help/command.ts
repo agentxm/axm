@@ -30,6 +30,8 @@ const isHelpTopicName = (topic: string): topic is HelpTopicName =>
 const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "getting-started",
   "basic-usage",
+  "machine-output",
+  "authoring",
   "skills",
   "skill-schema",
   "subagents",
@@ -39,6 +41,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "files",
   "files-schema",
   "hooks",
+  "knowledge",
   "mcps",
   "rules",
   "packs",
@@ -46,6 +49,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "package-extensions",
   "settings",
   "settings-schema",
+  "trust-schema",
   "mcp-schema",
   "axm-lock-schema",
   "axm-package-meta-schema",
@@ -61,7 +65,7 @@ export const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
   });
 })();
 
-const HelpIndexResultSchema = Schema.Struct({
+export const HelpIndexResultSchema = Schema.Struct({
   usage: Schema.String,
   topics: Schema.Array(
     Schema.Struct({
@@ -70,14 +74,13 @@ const HelpIndexResultSchema = Schema.Struct({
     }),
   ),
 });
+export type HelpIndexResult = typeof HelpIndexResultSchema.Type;
 
-const HelpTopicResultSchema = Schema.Struct({
+export const HelpTopicResultSchema = Schema.Struct({
   topic: Schema.String,
   content: Schema.String,
 });
-
-const resolveHelpTopicAlias = (topic: string): string =>
-  topic === "instructions" ? "rules" : topic;
+export type HelpTopicResult = typeof HelpTopicResultSchema.Type;
 
 interface HelpTopicRow {
   readonly topic: HelpTopicName;
@@ -142,7 +145,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
   Option.match(topic, {
     onNone: () => writeHelpTopicIndex(),
     onSome: (rawName) => {
-      const name = resolveHelpTopicAlias(rawName);
+      const name = rawName;
       if (isHelpTopicName(name)) {
         return writeHelpTopic(name);
       }

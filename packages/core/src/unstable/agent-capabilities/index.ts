@@ -76,6 +76,8 @@ export {
   RulesExtensionCapabilitySchema,
   ScopeSchema,
   ScopeDetectionSchema,
+  SkillReadPathSchema,
+  SkillReadPathStatusSchema,
   SkillsExtensionCapabilitySchema,
   StandardSchema,
   StandardsComplianceSchema,
@@ -160,6 +162,8 @@ export {
   type RulesExtensionCapability,
   type Scope,
   type ScopeDetection,
+  type SkillReadPath,
+  type SkillReadPathStatus,
   type SkillsExtensionCapability,
   type Standard,
   type StandardsCompliance,
@@ -170,11 +174,18 @@ export {
 } from "./schema.js";
 export { STANDARDS } from "../extension-types/standards.js";
 export {
+  CAPABILITY_VERIFICATION_BUDGET_DAYS,
+  capabilityVerificationAgeReport,
+  type AgentCapabilitySlot,
+  type CapabilityVerificationAge,
+} from "./verification.js";
+export {
   agentCapabilityStatus,
   agentSupportsType,
   axmIntegrationStatus,
   canonicalCoverage,
   deriveAgentDescriptor,
+  deriveSkillConvention,
   deriveHookPortability,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,

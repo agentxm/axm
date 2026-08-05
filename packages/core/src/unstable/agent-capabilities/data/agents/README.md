@@ -31,6 +31,20 @@ native axes:
   deprecated, or removed
 - `axm.status`: whether AXM installs or has verified support for the capability
 
+## Verification freshness
+
+Verification is tracked per capability, not as one date for the whole agent.
+`capabilityVerificationAgeReport` exposes every agent/capability pair together
+with its age and applicable budget. Supported Skill claims have a 90-day
+budget; the catalog test fails with the complete overdue list. There is no
+allowlist.
+
+To re-verify a capability, check every existing claim against the linked
+vendor-authoritative sources, correct the entry if the product changed, add or
+replace sources when necessary, and set that capability's `axm.lastVerified`
+to the UTC review date. Do not refresh the date based on another capability's
+review or without checking the source.
+
 Writer mechanics live under `axm.writer`:
 
 - MCP config dialects use `axm.writer.config`

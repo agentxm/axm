@@ -79,7 +79,7 @@ const provideDetectionLayer = <A, E>(
 const syntheticAgent = (detection: AgentDescriptor["detection"]): AgentDescriptor => ({
   id: "codex",
   name: "Synthetic Agent",
-  skills: { dir: ".agents/skills" },
+  skills: { dir: ".agents/skills", additionalReadPaths: [] },
   detection,
 });
 

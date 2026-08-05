@@ -43,8 +43,7 @@ export const githubCopilotCliAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes:
-          "GitHub Copilot CLI reads SKILL.md skills from project .github/skills, .claude/skills, or .agents/skills, and user skills from ~/.copilot/skills.\n",
+        notes: null,
         docs: [],
         sources: [
           "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills",
@@ -54,6 +53,10 @@ export const githubCopilotCliAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".github/skills",
+        additionalReadPaths: [
+          { path: ".agents/skills", status: "compat" },
+          { path: ".claude/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

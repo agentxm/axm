@@ -18,7 +18,13 @@ const SOURCE = "AGENTS.md";
  * Every agent NOT listed here is expected to resolve to `native` (reads the
  * shared source file directly), so the ~40 agents-md agents need no upkeep.
  */
-const EXPECTED_WRITE: ReadonlyArray<AgentId> = ["claude-code", "codebuddy", "gemini-cli", "junie"];
+const EXPECTED_WRITE: ReadonlyArray<AgentId> = [
+  "claude-code",
+  "codebuddy",
+  "gemini-cli",
+  "iflow-cli",
+  "junie",
+];
 const EXPECTED_ADAPTER: ReadonlyArray<AgentId> = [
   "cline",
   "continue",
@@ -28,7 +34,7 @@ const EXPECTED_ADAPTER: ReadonlyArray<AgentId> = [
   "trae-cn",
   "zencoder",
 ];
-// 16 catalog agents have no `instructions:` block, plus the synthetic
+// Catalog agents without a native instruction surface, plus the synthetic
 // `universal` agent. Each is a gap-audit candidate: encoding `kind: agents-md`
 // (or own-file/rules-dir) in its catalog YAML flips it out of this list and
 // forces a deliberate update here.
@@ -40,7 +46,9 @@ const EXPECTED_SKIP: ReadonlyArray<AgentId> = [
   "dexto",
   "firebender",
   "goose",
+  "lingma",
   "mcpjam",
+  "minimax-code",
   "neovate",
   "openclaw",
   "replit",
@@ -48,6 +56,7 @@ const EXPECTED_SKIP: ReadonlyArray<AgentId> = [
   "tabnine-cli",
   "universal",
   "warp",
+  "zenflow",
 ];
 
 const sorted = (ids: ReadonlyArray<string>): ReadonlyArray<string> => [...ids].sort();

@@ -43,13 +43,17 @@ export const cursorAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
+          "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI.",
         docs: [],
         sources: ["https://cursor.com/docs/skills.md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".cursor/skills",
+        additionalReadPaths: [
+          { path: ".claude/skills", status: "compat" },
+          { path: ".codex/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

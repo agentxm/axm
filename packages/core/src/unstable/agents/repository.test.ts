@@ -102,8 +102,25 @@ describe("DefaultCodingAgentRepository", () => {
 
       expect(resolved.filter(([, tag]) => tag !== "supported")).toEqual([
         ["codemaker", "unsupported"],
+        ["minimax-code", "unsupported"],
       ]);
     }).pipe(Effect.provide(withWorkspace([]))),
+  );
+
+  it.effect("keeps deprecated Skill read paths out of the write target", () =>
+    Effect.gen(function* () {
+      const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
+      expect(agent?.id).toBe("zencoder");
+      if (!agent) {
+        throw new Error("Expected configured agent");
+      }
+
+      const resolved = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: "/workspace" });
+      expect(resolved).toEqual({
+        _tag: "supported",
+        dir: "/workspace/.agents/skills",
+      });
+    }).pipe(Effect.provide(withWorkspace(["zencoder"]))),
   );
 
   it.effect("prepends universal to materialization agents", () =>

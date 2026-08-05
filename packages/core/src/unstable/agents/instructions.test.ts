@@ -350,6 +350,7 @@ describe("agent instructions", () => {
     // that status output shows it to users.
     expect(Object.fromEntries(secondary)).toEqual({
       antigravity: ".agents/rules",
+      "antigravity-cli": ".agents/rules",
       codebuddy: ".codebuddy/rules",
       cursor: ".cursor/rules",
       "ibm-bob": ".bob/rules",

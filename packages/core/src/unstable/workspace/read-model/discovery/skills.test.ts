@@ -816,6 +816,9 @@ describe("skillsInDir", () => {
       for (const agentDir of uniqueAgentDirs) {
         expect(dirs).toContain(agentDir);
       }
+      for (const readPath of agents.flatMap((agent) => agent.skills.additionalReadPaths)) {
+        expect(dirs).toContain(readPath.path);
+      }
     });
 
     it("does NOT contain stale .copilot/skills entry", () => {

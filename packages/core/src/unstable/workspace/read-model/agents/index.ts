@@ -37,6 +37,10 @@ import { agentModule as adal, type AdalNativeConfig } from "./adal.js";
 import { agentModule as aiderDesk, type AiderDeskNativeConfig } from "./aider-desk.js";
 import { agentModule as amp, type AmpNativeConfig } from "./amp.js";
 import { agentModule as antigravity, type AntigravityNativeConfig } from "./antigravity.js";
+import {
+  agentModule as antigravityCli,
+  type AntigravityCliNativeConfig,
+} from "./antigravity-cli.js";
 import { agentModule as augment, type AugmentNativeConfig } from "./augment.js";
 import { agentModule as claudeCode, type ClaudeCodeNativeConfig } from "./claude-code.js";
 import { agentModule as cline, type ClineNativeConfig } from "./cline.js";
@@ -65,21 +69,26 @@ import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
 import { agentModule as grokCli, type GrokCliNativeConfig } from "./grok-cli.js";
 import { agentModule as hermes, type HermesNativeConfig } from "./hermes.js";
 import { agentModule as ibmBob, type IbmBobNativeConfig } from "./ibm-bob.js";
+import { agentModule as iflowCli, type IflowCliNativeConfig } from "./iflow-cli.js";
 import { agentModule as junie, type JunieNativeConfig } from "./junie.js";
+import { agentModule as lingma, type LingmaNativeConfig } from "./lingma.js";
 import { agentModule as kilo, type KiloNativeConfig } from "./kilo.js";
 import { agentModule as kimiCli, type KimiCliNativeConfig } from "./kimi-cli.js";
 import { agentModule as kiroCli, type KiroCliNativeConfig } from "./kiro-cli.js";
 import { agentModule as kode, type KodeNativeConfig } from "./kode.js";
 import { agentModule as mcpjam, type McpjamNativeConfig } from "./mcpjam.js";
+import { agentModule as minimaxCode, type MinimaxCodeNativeConfig } from "./minimax-code.js";
 import { agentModule as mistralVibe, type MistralVibeNativeConfig } from "./mistral-vibe.js";
 import { agentModule as mux, type MuxNativeConfig } from "./mux.js";
 import { agentModule as neovate, type NeovateNativeConfig } from "./neovate.js";
 import { agentModule as openclaw, type OpenclawNativeConfig } from "./openclaw.js";
 import { agentModule as opencode, type OpencodeNativeConfig } from "./opencode.js";
 import { agentModule as openhands, type OpenhandsNativeConfig } from "./openhands.js";
+import { agentModule as ona, type OnaNativeConfig } from "./ona.js";
 import { agentModule as pi, type PiNativeConfig } from "./pi.js";
 import { agentModule as pochi, type PochiNativeConfig } from "./pochi.js";
 import { agentModule as qoder, type QoderNativeConfig } from "./qoder.js";
+import { agentModule as qoderCn, type QoderCnNativeConfig } from "./qoder-cn.js";
 import { agentModule as qwenCode, type QwenCodeNativeConfig } from "./qwen-code.js";
 import { agentModule as replit, type ReplitNativeConfig } from "./replit.js";
 import { agentModule as roo, type RooNativeConfig } from "./roo.js";
@@ -90,6 +99,8 @@ import { agentModule as traeCn, type TraeCnNativeConfig } from "./trae-cn.js";
 import { agentModule as warp, type WarpNativeConfig } from "./warp.js";
 import { agentModule as windsurf, type WindsurfNativeConfig } from "./windsurf.js";
 import { agentModule as zencoder, type ZencoderNativeConfig } from "./zencoder.js";
+import { agentModule as zed, type ZedNativeConfig } from "./zed.js";
+import { agentModule as zenflow, type ZenflowNativeConfig } from "./zenflow.js";
 import type {
   ActualAgent,
   AgentModule,
@@ -138,6 +149,7 @@ const registeredAgentModulesById = {
   "aider-desk": aiderDesk,
   amp,
   antigravity,
+  "antigravity-cli": antigravityCli,
   augment,
   "claude-code": claudeCode,
   cline,
@@ -163,23 +175,26 @@ const registeredAgentModulesById = {
   "grok-cli": grokCli,
   hermes,
   "ibm-bob": ibmBob,
-  // iFlow CLI intentionally omitted: the service shut down 2026-04-17 with
-  // guidance to migrate to Qoder (https://qoder.com). Do not re-add.
+  "iflow-cli": iflowCli,
   junie,
+  lingma,
   kilo,
   "kimi-cli": kimiCli,
   "kiro-cli": kiroCli,
   kode,
   mcpjam,
+  "minimax-code": minimaxCode,
   "mistral-vibe": mistralVibe,
   mux,
   neovate,
   openclaw,
   opencode,
   openhands,
+  ona,
   pi,
   pochi,
   qoder,
+  "qoder-cn": qoderCn,
   "qwen-code": qwenCode,
   replit,
   roo,
@@ -190,6 +205,8 @@ const registeredAgentModulesById = {
   warp,
   windsurf,
   zencoder,
+  zed,
+  zenflow,
 };
 
 // ---------------------------------------------------------------------------
@@ -219,6 +236,7 @@ export type {
   AiderDeskNativeConfig,
   AmpNativeConfig,
   AntigravityNativeConfig,
+  AntigravityCliNativeConfig,
   AugmentNativeConfig,
   ClaudeCodeNativeConfig,
   ClineNativeConfig,
@@ -244,21 +262,26 @@ export type {
   GrokCliNativeConfig,
   HermesNativeConfig,
   IbmBobNativeConfig,
+  IflowCliNativeConfig,
   JunieNativeConfig,
+  LingmaNativeConfig,
   KiloNativeConfig,
   KimiCliNativeConfig,
   KiroCliNativeConfig,
   KodeNativeConfig,
   McpjamNativeConfig,
+  MinimaxCodeNativeConfig,
   MistralVibeNativeConfig,
   MuxNativeConfig,
   NeovateNativeConfig,
   OpenclawNativeConfig,
   OpencodeNativeConfig,
   OpenhandsNativeConfig,
+  OnaNativeConfig,
   PiNativeConfig,
   PochiNativeConfig,
   QoderNativeConfig,
+  QoderCnNativeConfig,
   QwenCodeNativeConfig,
   ReplitNativeConfig,
   RooNativeConfig,
@@ -269,6 +292,8 @@ export type {
   WarpNativeConfig,
   WindsurfNativeConfig,
   ZencoderNativeConfig,
+  ZedNativeConfig,
+  ZenflowNativeConfig,
 };
 
 // ---------------------------------------------------------------------------

@@ -10,7 +10,12 @@ import {
   HOSTED_AGENTS_BY_ID,
   HOSTED_AGENT_IDS,
 } from "./catalog.js";
-import { isCapabilitySupported, toNativeAgent } from "./derive.js";
+import {
+  deriveAgentDescriptor,
+  deriveSkillConvention,
+  isCapabilitySupported,
+  toNativeAgent,
+} from "./derive.js";
 import {
   AgentLifecycleSchema,
   AgentSchema,
@@ -25,6 +30,7 @@ import {
   type SharedMcpTargetMember,
   type SharedMcpTransport,
 } from "../mcps/shared-target.js";
+import { capabilityVerificationAgeReport } from "./verification.js";
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 const unsupportedCapability = {
@@ -91,12 +97,130 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 const sortedStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => [...values].sort();
+const ORIGINAL_SKILL_DIRS: Readonly<Record<string, string>> = {
+  adal: ".adal/skills",
+  "aider-desk": ".aider-desk/skills",
+  amp: ".agents/skills",
+  antigravity: ".agents/skills",
+  augment: ".augment/skills",
+  "claude-code": ".claude/skills",
+  cline: ".cline/skills",
+  "codearts-agent": ".codeartsdoer/skills",
+  codebuddy: ".codebuddy/skills",
+  codemaker: ".codemaker/skills",
+  codestudio: ".codestudio/skills",
+  codex: ".agents/skills",
+  "command-code": ".commandcode/skills",
+  continue: ".continue/skills",
+  cortex: ".cortex/skills",
+  crush: ".agents/skills",
+  cursor: ".cursor/skills",
+  deepagents: ".agents/skills",
+  devin: ".devin/skills",
+  dexto: ".agents/skills",
+  droid: ".factory/skills",
+  firebender: ".firebender/skills",
+  forgecode: ".forge/skills",
+  "gemini-cli": ".agents/skills",
+  "github-copilot-cli": ".github/skills",
+  goose: ".agents/skills",
+  "grok-cli": ".grok/skills",
+  hermes: ".hermes/skills",
+  "ibm-bob": ".bob/skills",
+  junie: ".junie/skills",
+  kilo: ".kilo/skills",
+  "kimi-cli": ".agents/skills",
+  "kiro-cli": ".kiro/skills",
+  kode: ".kode/skills",
+  mcpjam: ".mcpjam/skills",
+  "mistral-vibe": ".vibe/skills",
+  mux: ".mux/skills",
+  neovate: ".neovate/skills",
+  openclaw: "skills",
+  opencode: ".opencode/skills",
+  openhands: ".agents/skills",
+  pi: ".pi/skills",
+  pochi: ".pochi/skills",
+  qoder: ".qoder/skills",
+  "qwen-code": ".qwen/skills",
+  replit: ".agents/skills",
+  roo: ".roo/skills",
+  rovodev: ".rovodev/skills",
+  "tabnine-cli": ".tabnine/agent/skills",
+  "trae-cn": ".trae/skills",
+  trae: ".trae/skills",
+  warp: ".agents/skills",
+  windsurf: ".windsurf/skills",
+  zencoder: ".agents/skills",
+};
 describe("agent capability catalog", () => {
+  it("registers 62 configurable agents", () => {
+    expect(CONFIGURABLE_AGENT_IDS).toHaveLength(62);
+  });
+
   it("decodes every typed catalog entry through the schema", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
     expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(sortedStrings(AGENT_IDS));
+  });
+  it("keeps every original agent's primary Skill write directory byte-identical", () => {
+    const actual = Object.fromEntries(
+      AGENTS.flatMap((agent) =>
+        Object.hasOwn(ORIGINAL_SKILL_DIRS, agent.id)
+          ? [[agent.id, deriveAgentDescriptor(agent).skills.dir]]
+          : [],
+      ),
+    );
+    expect(Object.keys(actual)).toHaveLength(54);
+    expect(actual).toEqual(ORIGINAL_SKILL_DIRS);
+  });
+  it("accepts omitted Skill read paths and rejects invalid statuses", () => {
+    const decoded = decodeAgent(makeAgentInput());
+    expect(
+      "additionalReadPaths" in decoded.capabilities.skill.native
+        ? decoded.capabilities.skill.native.additionalReadPaths
+        : undefined,
+    ).toEqual([]);
+
+    const input = makeAgentInput();
+    const capabilities = makeCapabilitiesInput();
+    expect(() =>
+      decodeAgent({
+        ...input,
+        capabilities: {
+          ...capabilities,
+          skill: {
+            ...capabilities.skill,
+            native: {
+              ...capabilities.skill.native,
+              additionalReadPaths: [{ path: ".other/skills", status: "legacy" }],
+            },
+          },
+        },
+      }),
+    ).toThrow("Expected SkillReadPathStatus");
+  });
+  it("keeps authored Skill conventions equal to the primary-directory convention", () => {
+    const mismatches = AGENTS.flatMap((agent) => {
+      const native = agent.capabilities.skill.native;
+      if (!("directory" in native)) return [];
+      return native.convention === deriveSkillConvention(native.directory)
+        ? []
+        : [`${agent.id}: ${native.convention} != ${deriveSkillConvention(native.directory)}`];
+    });
+    expect(mismatches).toEqual([]);
+  });
+  it("requires an explicit rootDir decision for universal Skill write paths", () => {
+    const missing = AGENTS.flatMap((agent) => {
+      const native = agent.capabilities.skill.native;
+      return "directory" in native &&
+        deriveSkillConvention(native.directory) === "universal" &&
+        !Object.hasOwn(agent, "rootDir")
+        ? [agent.id]
+        : [];
+    });
+    expect(missing).toEqual([]);
   });
   it("keeps hosted agents out of the configurable filesystem registry", () => {
     expect(HOSTED_AGENT_IDS).toEqual(["chatgpt", "claude-ai", "cowork", "gemini-app"]);
@@ -182,6 +306,27 @@ describe("agent capability catalog", () => {
       expect(hasVerifiedCapability, `${id} has no verified AXM capability slots`).toBe(true);
     }
     expect(retiredWithoutVerifiedCapabilities).toEqual(["codemaker"]);
+  });
+  it("keeps supported Skill claims within the documented verification budget", () => {
+    const asOf = new Date().toISOString().slice(0, 10);
+    const report = capabilityVerificationAgeReport(AGENTS, asOf);
+    const overdue = report
+      .filter((entry) => entry.overdue)
+      .map((entry) => `${entry.agentId}:${entry.capability} (${entry.ageDays ?? "never"} days)`);
+    expect(overdue, `Overdue capability verification:\n${overdue.join("\n")}`).toEqual([]);
+  });
+  it("reports verification age per agent and capability", () => {
+    const report = capabilityVerificationAgeReport(AGENTS, "2026-08-05");
+    expect(report).toHaveLength(AGENTS.length * 7);
+    expect(report).toContainEqual({
+      agentId: "cursor",
+      capability: "skill",
+      status: "supported",
+      lastVerified: "2026-08-05",
+      ageDays: 0,
+      budgetDays: 90,
+      overdue: false,
+    });
   });
   it("does not claim a permission writer without a concrete grant", () => {
     for (const agent of AGENTS) {

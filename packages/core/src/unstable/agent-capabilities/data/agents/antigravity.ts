@@ -4,15 +4,15 @@ export const antigravityAgent = {
   name: "Antigravity",
   vendor: "Google",
   homepage: "https://antigravity.google",
-  interfaces: ["cli", "ide-extension"],
+  interfaces: ["ide-extension"],
   family: "google",
   rootDir: null,
   lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [
-        { kind: "dir", path: ".agents", signal: "definitive", note: null },
-        { kind: "dir", path: ".agent", signal: "definitive", note: null },
+        { kind: "dir", path: ".agents", signal: "supporting", note: null },
+        { kind: "dir", path: ".agent", signal: "supporting", note: null },
       ],
     },
     user: {
@@ -37,13 +37,14 @@ export const antigravityAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Antigravity 2.0 defaults to .agents/skills (project) and ~/.gemini/antigravity-cli/skills (user); .agent/skills remains supported for backward compatibility.\n",
+          "Antigravity 2.0 defaults to .agents/skills (project) and ~/.gemini/config/skills (user); .agent/skills remains supported for backward compatibility.\n",
         docs: [],
         sources: ["https://antigravity.google/docs/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         directory: ".agents/skills",
+        additionalReadPaths: [{ path: ".agent/skills", status: "compat" }],
       },
       axm: {
         status: "supported",

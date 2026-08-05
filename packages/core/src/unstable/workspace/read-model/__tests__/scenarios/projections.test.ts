@@ -450,10 +450,10 @@ describe("projection: ignored skill is suppressed but raw evidence remains visib
             expect(actual.some((a) => a.key.name === "review-tool")).toBe(true);
             expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
             expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
-            expect(ignored.map((row) => row.reason).sort()).toEqual([
-              "actual-ignored",
-              "declared-ignored",
-            ]);
+            expect(ignored.filter((row) => row.reason === "declared-ignored")).toHaveLength(1);
+            expect(ignored.filter((row) => row.reason === "actual-ignored")).toHaveLength(
+              actual.filter((row) => row.key.name === "review-tool").length,
+            );
           }),
       ),
   );

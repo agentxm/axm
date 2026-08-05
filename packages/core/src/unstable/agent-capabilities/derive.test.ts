@@ -8,6 +8,7 @@ import {
   axmIntegrationStatus,
   canonicalCoverage,
   deriveAgentDescriptor,
+  deriveSkillConvention,
   deriveHookPortability,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,
@@ -86,6 +87,14 @@ const sampleRootDetection = {
   },
   user: { markers: [] },
 };
+
+describe("deriveSkillConvention", () => {
+  it("derives universal only from the standard .agents Skill tree", () => {
+    expect(deriveSkillConvention(".agents/skills")).toBe("universal");
+    expect(deriveSkillConvention(".agents/skills/team")).toBe("universal");
+    expect(deriveSkillConvention(".codex/skills")).toBe("vendor");
+  });
+});
 const supportedSkillWithNoStandardsCompliance = {
   ...baseAgent.capabilities.skill,
   native: {
@@ -170,6 +179,7 @@ describe("agent capability derivation", () => {
       "adal",
       "amp",
       "antigravity",
+      "antigravity-cli",
       "augment",
       "claude-code",
       "cline",
@@ -189,6 +199,7 @@ describe("agent capability derivation", () => {
       "grok-cli",
       "hermes",
       "ibm-bob",
+      "iflow-cli",
       "junie",
       "kilo",
       "kimi-cli",
@@ -198,15 +209,18 @@ describe("agent capability derivation", () => {
       "mux",
       "opencode",
       "openhands",
+      "ona",
       "pi",
       "pochi",
       "qoder",
+      "qoder-cn",
       "qwen-code",
       "roo",
       "trae-cn",
       "trae",
       "windsurf",
       "zencoder",
+      "zed",
     ]);
   });
   it("defaults single-type support lookup to the full catalog", () => {
@@ -229,6 +243,7 @@ describe("agent capability derivation", () => {
       "github-copilot-cli",
       "grok-cli",
       "ibm-bob",
+      "iflow-cli",
       "junie",
       "kilo",
       "kimi-cli",
@@ -238,6 +253,7 @@ describe("agent capability derivation", () => {
       "mux",
       "opencode",
       "qoder",
+      "qoder-cn",
       "qwen-code",
       "roo",
     ]);
@@ -563,7 +579,7 @@ describe("agent capability derivation", () => {
       id: "codex",
       name: "Sample Agent",
       rootDir: ".sample-root",
-      skills: { dir: ".sample/skills" },
+      skills: { dir: ".sample/skills", additionalReadPaths: [] },
       detection: {
         project: {
           markers: [{ kind: "dir", path: ".sample-root", signal: "definitive", note: null }],
@@ -605,7 +621,7 @@ describe("agent capability derivation", () => {
       id: "codex",
       name: "Sample Agent",
       rootDir: undefined,
-      skills: { dir: ".sample/skills" },
+      skills: { dir: ".sample/skills", additionalReadPaths: [] },
       detection: { project: { markers: [] }, user: { markers: [] } },
       subagents: { dir: ".sample-modes.yaml", scopes: ["project"], isFile: true },
     });

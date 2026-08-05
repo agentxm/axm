@@ -7,7 +7,12 @@
 
 import type { Record } from "effect";
 import { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "../agent-capabilities/catalog.js";
-import type { DetectionMarker, Scope, ScopeDetection } from "../agent-capabilities/schema.js";
+import type {
+  DetectionMarker,
+  Scope,
+  ScopeDetection,
+  SkillReadPath,
+} from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -21,6 +26,8 @@ import type { DetectionMarker, Scope, ScopeDetection } from "../agent-capabiliti
 export interface AgentSkillsDescriptor {
   /** Skills directory, relative to cwd (e.g., ".claude/skills") */
   readonly dir: string;
+  /** Additional native directories read for discovery. AXM never writes to these paths. */
+  readonly additionalReadPaths: ReadonlyArray<SkillReadPath>;
 }
 
 // -----------------------------------------------------------------------------

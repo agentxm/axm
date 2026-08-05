@@ -30,6 +30,10 @@ export const clineAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".cline/skills",
+        additionalReadPaths: [
+          { path: ".clinerules/skills", status: "compat" },
+          { path: ".claude/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

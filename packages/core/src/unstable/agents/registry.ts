@@ -19,6 +19,7 @@ const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
   rootDir: undefined,
   skills: {
     dir: UNIVERSAL_SKILLS_DIR,
+    additionalReadPaths: [],
   },
   detection: { project: { markers: [] }, user: { markers: [] } },
 };

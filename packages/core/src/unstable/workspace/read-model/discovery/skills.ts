@@ -81,10 +81,15 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  * Composition:
  * 1. `.` (searchPath root) — always first, highest priority
  * 2. Non-agent static dirs: skills, skills/.curated, skills/.experimental, skills/.system
- * 3. Agent dirs: unique `skills.dir` values from the AgentDescriptor registry
+ * 3. Agent dirs: unique primary and additional read paths from the AgentDescriptor registry
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
-  const agentDirs = Array.dedupe(AGENT_IDS.map((id) => AGENTS[id].skills.dir));
+  const agentDirs = Array.dedupe(
+    AGENT_IDS.flatMap((id) => [
+      AGENTS[id].skills.dir,
+      ...AGENTS[id].skills.additionalReadPaths.map(({ path }) => path),
+    ]),
+  );
   return Array.dedupe([".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs]);
 };
 

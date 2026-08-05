@@ -38,9 +38,9 @@ describe("userScopeRefusal", () => {
       subagentsWithUser: declaringUserScope("subagents").length,
       subagentsWithoutUser: withoutUserScope("subagents").length,
     }).toEqual({
-      commandsWithUser: 24,
+      commandsWithUser: 27,
       commandsWithoutUser: 1,
-      subagentsWithUser: 25,
+      subagentsWithUser: 27,
       subagentsWithoutUser: 0,
     });
   });

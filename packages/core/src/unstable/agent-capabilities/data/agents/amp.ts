@@ -28,7 +28,7 @@ export const ampAgent = {
         sources: ["https://ampcode.com/manual#agent-skills"],
         scopes: ["user", "project"],
         standardsCompliance: "partial",
-        convention: "vendor",
+        convention: "universal",
         directory: ".agents/skills",
       },
       axm: {

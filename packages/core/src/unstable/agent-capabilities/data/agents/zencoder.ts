@@ -23,14 +23,14 @@ export const zencoderAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes:
-          "Zencoder uses the cross-agent .agents/skills location; the legacy .zencoder/skills path remains readable but is deprecated.",
+        notes: null,
         docs: [],
         sources: ["https://docs.zencoder.ai/llms-full.txt"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         directory: ".agents/skills",
+        additionalReadPaths: [{ path: ".zencoder/skills", status: "deprecated" }],
       },
       axm: {
         status: "supported",

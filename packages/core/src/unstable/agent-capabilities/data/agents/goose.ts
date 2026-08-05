@@ -30,6 +30,10 @@ export const gooseAgent = {
         standardsCompliance: "full",
         convention: "universal",
         directory: ".agents/skills",
+        additionalReadPaths: [
+          { path: ".goose/skills", status: "deprecated" },
+          { path: ".claude/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

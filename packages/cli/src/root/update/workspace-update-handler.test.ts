@@ -83,7 +83,7 @@ describe("workspace update handler output", () => {
           type: Option.some("files"),
           planName: "Update files",
           planDescription: Option.some("Update configured files packages"),
-          flags: { yes: false, force: false, preview: false },
+          flags: { yes: false, preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -113,7 +113,7 @@ describe("workspace update handler output", () => {
           type: Option.some("hook"),
           planName: "Update hooks",
           planDescription: Option.some("Update configured hooks packages"),
-          flags: { yes: false, force: false, preview: false },
+          flags: { yes: false, preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -143,7 +143,7 @@ describe("workspace update handler output", () => {
           type: Option.some("knowledge"),
           planName: "Update Knowledge",
           planDescription: Option.some("Update configured Knowledge bundles"),
-          flags: { yes: false, force: false, preview: false },
+          flags: { yes: false, preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -173,7 +173,7 @@ describe("workspace update handler output", () => {
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
-          flags: { yes: false, force: false, preview: false },
+          flags: { yes: false, preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {

@@ -25,7 +25,14 @@ import type {
   ReconcileExtensionType,
   ReconciliationAdapter,
 } from "../workspace/reconciliation-types.js";
-import type { ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
+import type {
+  CancelledPlan,
+  ExecutedPlan,
+  JobExecutionPolicy,
+  Plan,
+  PlannedJobStep,
+  PreviewedPlan,
+} from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
 import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
@@ -44,6 +51,8 @@ import { ruleReconciliationAdapter } from "../rules/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
+import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
+import { Verbosity } from "../cli-flags/index.js";
 
 // Total over ReconcileExtensionType: a missing key is a compile error, so a
 // type can never again be silently dropped from lockfile reconciliation.
@@ -67,22 +76,22 @@ const reconciliationAdapters = Object.values(reconciliationAdaptersByType);
  * Steps:
  * 1. Augment plan with lockfile reconciliation if needed
  * 2. Scan for errors/warnings
- * 3. Handle errors (block unless --force)
- * 4. Preview if requested (with confirmation unless --yes)
- * 5. Apply and display results
+ * 3. Fail closed on readiness errors
+ * 4. Display the exact plan that would execute
+ * 5. Preview, or confirm unless --yes
+ * 6. Apply and display results
  */
 export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   plan: Plan,
   flags: {
     yes: boolean;
-    force: boolean;
     preview: boolean;
-    blockedByErrorsHowToFix?: string;
     displayApplied?: boolean;
   },
 ) {
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
 
   // Capture FS layer for augmentPlan
   const fs = yield* FileSystem.FileSystem;
@@ -144,26 +153,21 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   // Step 3: Handle errors
   if (readiness.hasErrors) {
-    if (flags.force) {
-      // Forced error steps are applied as structured failed step results.
-    } else {
-      yield* showPlan(augmentedPlan);
-      return yield* makeAppError({
-        code: "conflict",
-        detail: "Plan has errors that prevent execution",
-        suggestions: [
-          {
-            description: flags.blockedByErrorsHowToFix ?? "Re-run with --force to override",
-          },
-        ],
-      });
-    }
+    yield* showPlan(augmentedPlan);
+    return yield* makeAppError({
+      code: "conflict",
+      detail: "Plan has errors that prevent execution",
+    });
   }
 
-  // Step 5: Preview
-  if (flags.preview) {
+  // Step 4: Display the same augmented plan for preview and apply. A quiet,
+  // pre-confirmed apply has no confirmation boundary and remains silent.
+  if (flags.preview || !flags.yes || verbosity.level !== "quiet") {
     yield* showPlan(augmentedPlan);
+  }
 
+  // Step 5: Preview or confirm
+  if (flags.preview) {
     return {
       _tag: "PreviewedPlan",
       name: augmentedPlan.name,
@@ -175,11 +179,28 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     } satisfies PreviewedPlan;
   }
 
+  const hasSteps = augmentedPlan.jobs.some((job) => job.steps.length > 0);
+  if (!flags.yes && hasSteps) {
+    const interaction = yield* ResolvePlanInteraction;
+    const confirmed = yield* interaction.confirmApplyChanges();
+    if (!confirmed) {
+      return {
+        _tag: "CancelledPlan",
+        name: augmentedPlan.name,
+        description: augmentedPlan.description,
+        ...(augmentedPlan.preconditions === undefined
+          ? {}
+          : { preconditions: augmentedPlan.preconditions }),
+        jobs: augmentedPlan.jobs,
+      } satisfies CancelledPlan;
+    }
+  }
+
   // Step 6: Apply and display
   const executed = yield* renderer.withSpinner(
     `Applying ${augmentedPlan.name}`,
     () => applyPlan(augmentedPlan),
-    { successMessage: `Finished applying ${augmentedPlan.name}` },
+    { successMessage: `Processed ${augmentedPlan.name}` },
   );
   if (flags.displayApplied !== false) {
     yield* showPlan(executed);
@@ -199,6 +220,7 @@ export interface ResolvePlanArgs {
   readonly description?: string;
   readonly steps: ReadonlyArray<PlannedJobStep>;
   readonly concurrency?: "unbounded" | number;
+  readonly executionPolicy?: JobExecutionPolicy;
 }
 
 /**
@@ -229,6 +251,7 @@ export const resolvePlan = (args: ResolvePlanArgs): Plan => ({
   jobs: [
     {
       concurrency: args.concurrency ?? 1,
+      ...(args.executionPolicy === undefined ? {} : { executionPolicy: args.executionPolicy }),
       steps: args.steps,
     },
   ],

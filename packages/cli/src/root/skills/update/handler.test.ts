@@ -484,9 +484,9 @@ describe("update.handler — error recovery", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* Effect.flip(handleUpdate(defaultArgs({ yes: true })));
-        expect(error.detail).toContain("publisher epoch changed");
-        expect(error.detail).toContain("hbnd_old");
-        expect(error.detail).toContain("hbnd_new");
+        expect(error).toMatchObject({ detail: expect.stringContaining("publisher epoch changed") });
+        expect(error).toMatchObject({ detail: expect.stringContaining("hbnd_old") });
+        expect(error).toMatchObject({ detail: expect.stringContaining("hbnd_new") });
       }),
     );
   });

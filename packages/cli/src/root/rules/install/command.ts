@@ -33,7 +33,7 @@ export const installCommand = Command.make(
           type: Option.some("rule"),
           planName: "Install configured rules",
           planDescription: Option.some("Install configured rules"),
-          flags: { yes, force, preview },
+          flags: { yes, preview },
         }),
       onSome: (value) => handleInstallRule({ source: value }, { yes, force, preview }),
     }).pipe(withWorkspace(scope), withRuntime("rules install")),

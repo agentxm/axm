@@ -170,7 +170,6 @@ export const handlePrune = Effect.fn("SkillsPrune.handle")(function* (
   });
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: flags.yes,
-    force: false,
     preview: !flags.yes,
     displayApplied: false,
   });

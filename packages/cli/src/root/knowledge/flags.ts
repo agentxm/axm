@@ -1,6 +1,6 @@
 import { Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 
 import { scopeFlag } from "../../cli-flags.js";
 
@@ -10,6 +10,5 @@ export const scopeConfig = {
 
 export const mutationFlags = {
   yes: yesFlag,
-  force: forceFlag,
   preview: previewFlag,
 } as const;

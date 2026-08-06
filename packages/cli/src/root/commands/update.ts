@@ -240,7 +240,6 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   // Step 5: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("commands.update", resolution);

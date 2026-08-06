@@ -60,7 +60,7 @@ const defaultArgs = (
   overrides: Partial<EnableHandlerArgs> = {},
 ): EnableHandlerArgs => ({
   name: extensionName(name),
-  yes: false,
+  yes: true,
   force: false,
   preview: false,
   ...overrides,
@@ -329,7 +329,7 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.success).toEqual([]);
+          expect(logs.success).toEqual(["  + my-skill"]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

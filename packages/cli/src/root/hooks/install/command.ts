@@ -35,7 +35,7 @@ export const installCommand = Command.make(
           type: Option.some("hook"),
           planName: "Install configured hooks",
           planDescription: Option.some("Install configured hooks packages"),
-          flags: { yes, force, preview },
+          flags: { yes, preview },
         }),
       onSome: (value) => handleInstallHook({ source: value }, { yes, force, preview }),
     }).pipe(withWorkspace(scope), withRuntime("hooks install")),

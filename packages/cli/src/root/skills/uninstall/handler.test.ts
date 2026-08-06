@@ -212,7 +212,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -248,7 +248,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("settings-only"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -290,7 +290,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("effect-*"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -326,7 +326,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -346,7 +346,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -374,7 +374,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -406,7 +406,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -476,7 +476,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs(skillName), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -505,6 +505,36 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("preview flag", () => {
+    it.effect("shows workspace-authored canonical source deletion before confirmation", () => {
+      const { provide, logs } = makeLayers();
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        ["claude-code"],
+        {},
+        { "my-skill": "workspace:@acme/skills/my-skill" },
+      );
+      fs.mkdirSync(path.join(tempDir, ".axm", "extensions", "@acme", "skills", "my-skill"), {
+        recursive: true,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstall(defaultArgs("my-skill"), {
+            yes: false,
+            force: false,
+            preview: true,
+            sourceDisposition: "delete",
+          });
+
+          expect(logs.message).toContain("    removed: .axm/extensions/@acme/skills/my-skill");
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@acme", "skills", "my-skill")),
+          ).toBe(true);
+        }),
+      );
+    });
+
     it.effect(
       "previews single skill uninstall without deleting files or modifying lockfile",
       () => {
@@ -551,6 +581,14 @@ describe("uninstall.handler", () => {
 
             // Preview outcome should be displayed
             expect(logs.info.some((m) => m.includes("Would remove 1 skill"))).toBe(true);
+            expect(logs.message).toEqual(
+              expect.arrayContaining([
+                "    updated: .axm/axm-lock.yaml",
+                "    updated: .axm/settings.json",
+                "    removed: .axm/extensions/external/skills/my-skill",
+                "    removed: .claude/skills/my-skill",
+              ]),
+            );
           }),
         );
       },
@@ -633,7 +671,7 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("effect-*"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });

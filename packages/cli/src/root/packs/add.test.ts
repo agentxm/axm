@@ -163,7 +163,7 @@ const defaultArgs = (
 ): PacksAddHandlerArgs => ({
   pack,
   extension,
-  yes: false,
+  yes: true,
   force: false,
   preview: false,
   ...overrides,

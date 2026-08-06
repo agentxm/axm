@@ -126,7 +126,11 @@ export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "files.enable",
     headline: `Enabled files package ${args.name}`,

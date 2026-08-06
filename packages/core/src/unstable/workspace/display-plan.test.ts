@@ -218,6 +218,51 @@ describe("displayPlan", () => {
     ),
   );
 
+  it.effect("renders every destructive target in the unapplied plan", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makePlan({
+            name: "Uninstall skill",
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    readiness: "ready",
+                    label: "code-review",
+                    artifact: {
+                      path: ".axm/axm-lock.yaml",
+                      scope: "project",
+                      change: "removed",
+                      targets: [
+                        { path: ".axm/axm-lock.yaml", change: "updated" },
+                        { path: ".agents/skills/code-review", change: "removed" },
+                        {
+                          path: ".axm/extensions/external/skills/code-review",
+                          change: "removed",
+                        },
+                      ],
+                    },
+                    run: Effect.succeed({ result: "success", message: "removed" }),
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(logsByTag(state).message).toEqual(
+          expect.arrayContaining([
+            "    updated: .axm/axm-lock.yaml",
+            "    removed: .agents/skills/code-review",
+            "    removed: .axm/extensions/external/skills/code-review",
+          ]),
+        );
+      }),
+    ),
+  );
+
   it.effect("shows warn items with warning level and message", () =>
     withOutput((state) =>
       Effect.gen(function* () {

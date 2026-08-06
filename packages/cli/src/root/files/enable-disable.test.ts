@@ -130,7 +130,7 @@ describe("files enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleDisableFiles({
           name: "workspace-baseline",
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });

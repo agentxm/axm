@@ -58,7 +58,7 @@ export const updateCommand = Command.make(
         type: Option.some("mcp-server"),
         planName: PLAN_NAME,
         planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { yes, force, preview },
+        flags: { yes, preview },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
     }).pipe(withWorkspace(scope), withRuntime("mcps update")),

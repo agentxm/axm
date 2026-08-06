@@ -56,7 +56,7 @@ const defaultArgs = (
   overrides: Partial<EnableSubagentHandlerArgs> = {},
 ): EnableSubagentHandlerArgs => ({
   name,
-  yes: false,
+  yes: true,
   force: false,
   preview: false,
   ...overrides,
@@ -183,7 +183,7 @@ describe("subagents enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableSubagent(defaultArgs("my-agent"));
 
-          expect(logs.success).toEqual([]);
+          expect(logs.success).toEqual(["  + my-agent"]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

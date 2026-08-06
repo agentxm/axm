@@ -85,7 +85,6 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

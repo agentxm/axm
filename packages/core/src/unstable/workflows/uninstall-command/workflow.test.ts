@@ -14,7 +14,7 @@ import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
-import { WorkspaceMutations } from "../../workspace/index.js";
+import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   type UninstallExtensionCommandWorkflowActions,
@@ -37,11 +37,13 @@ const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
 
 const makeTestLayer = () => {
   const { layer: rendererLayer } = TestRenderer.make();
+  const interaction = ResolvePlanInteractionTest();
   return Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
     WorkspaceMutations.layer(makeMockWorkspace()),
     TestFlagsLayer(),
+    interaction.layer,
   );
 };
 
@@ -83,7 +85,6 @@ describe("runUninstallCommandWorkflow", () => {
 
         yield* runUninstallCommandWorkflow({ names: ["skill-a"] }, actions, {
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -108,7 +109,6 @@ describe("runUninstallCommandWorkflow", () => {
     return Effect.gen(function* () {
       yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
         yes: false,
-        force: false,
         preview: false,
       });
       // previewOrApplyPlan is now a free function; buildUninstallPlan output flows through automatically
@@ -144,7 +144,6 @@ describe("runUninstallCommandWorkflow", () => {
 
       yield* runUninstallCommandWorkflow({ names: ["skill-a", "skill-b"] }, actions, {
         yes: false,
-        force: false,
         preview: false,
       });
 
@@ -169,7 +168,6 @@ describe("runUninstallCommandWorkflow", () => {
 
       const exit = yield* runUninstallCommandWorkflow({ names: [] }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
@@ -187,7 +185,6 @@ describe("runUninstallCommandWorkflow", () => {
 
       const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
@@ -217,7 +214,6 @@ describe("runUninstallCommandWorkflow", () => {
 
       yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
 

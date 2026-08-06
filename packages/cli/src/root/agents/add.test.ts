@@ -223,7 +223,7 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
@@ -248,7 +248,7 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
@@ -315,7 +315,7 @@ describe("agents add.handler", () => {
           yield* handleAgentsAdd({
             ids: ["cursor"],
             detected: false,
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -368,7 +368,7 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
@@ -418,7 +418,7 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["gemini-cli"],
           detected: false,
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });

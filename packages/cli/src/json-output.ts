@@ -421,25 +421,30 @@ const renderHumanPublishResult = (
     yield* renderer.success(headline, suggestions);
   });
 
-const plannedStepToStep = (step: PlannedJobStep): Step => {
+const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOptions): Step => {
+  const artifact =
+    step.artifact === undefined ? {} : { artifact: artifactForJson(step.artifact, options) };
   switch (step.readiness) {
     case "ready":
       return {
         label: step.label,
         status: "ready",
         ...(step.message !== undefined && step.message.length > 0 ? { message: step.message } : {}),
+        ...artifact,
       };
     case "warn":
       return {
         label: step.label,
         status: "warning",
         message: step.warnMessage,
+        ...artifact,
       };
     case "error":
       return {
         label: step.label,
         status: "error",
         message: step.errorMessage,
+        ...artifact,
       };
   }
 };
@@ -505,7 +510,9 @@ export const toPlanResolutionResult = (
   switch (resolution._tag) {
     case "PreviewedPlan":
     case "CancelledPlan": {
-      const steps = resolution.jobs.flatMap((job) => [...job.steps]).map(plannedStepToStep);
+      const steps = resolution.jobs
+        .flatMap((job) => [...job.steps])
+        .map((step) => plannedStepToStep(step, options));
       const readyCount = steps.filter((step) => step.status === "ready").length;
       const warningCount = steps.filter((step) => step.status === "warning").length;
       const errorCount = steps.filter((step) => step.status === "error").length;

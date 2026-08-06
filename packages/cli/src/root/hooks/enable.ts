@@ -127,7 +127,11 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "hooks.enable",
     headline: `Enabled hooks package ${args.name}`,

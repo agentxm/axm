@@ -35,7 +35,7 @@ export const installCommand = Command.make(
           type: Option.some("files"),
           planName: "Install configured files",
           planDescription: Option.some("Install configured files packages"),
-          flags: { yes, force, preview },
+          flags: { yes, preview },
         }),
       onSome: (value) => handleInstallFiles({ source: value }, { yes, force, preview }),
     }).pipe(withWorkspace(scope), withRuntime("files install")),

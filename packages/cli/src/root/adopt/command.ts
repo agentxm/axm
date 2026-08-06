@@ -117,7 +117,6 @@ export const handleAdopt = Effect.fn("Adopt.handle")(function* (args: {
   };
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: false,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("adopt", resolution);

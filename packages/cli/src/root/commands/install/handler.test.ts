@@ -143,7 +143,7 @@ describe("commands install.handler preview", () => {
     );
   });
 
-  it.effect("does not render preview sections when preview is false", () => {
+  it.effect("renders plan sections before applying", () => {
     const { provide, logs } = makeLayers();
 
     return provide(
@@ -155,7 +155,7 @@ describe("commands install.handler preview", () => {
           preview: false,
         });
 
-        expect(logs.message.some((message) => message.includes("Target agents"))).toBe(false);
+        expect(logs.message.some((message) => message.includes("Target agents"))).toBe(true);
       }),
     );
   });

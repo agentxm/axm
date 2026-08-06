@@ -84,7 +84,6 @@ const runRegistryInstallIntent = (
         const commandArgs: InstallCommandHandlerArgs = { ...args, source: intent.source };
         return yield* runInstallCommandWorkflow(commandArgs, actions, {
           yes: commandArgs.yes,
-          force: commandArgs.force,
           preview: commandArgs.preview,
         });
       }

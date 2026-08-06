@@ -99,6 +99,7 @@ export interface ReadyJobStep {
   readonly readiness: "ready";
   readonly label: string;
   readonly message?: string;
+  readonly artifact?: JobStepArtifact;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
@@ -107,6 +108,7 @@ export interface WarnJobStep {
   readonly readiness: "warn";
   readonly warnMessage: string;
   readonly label: string;
+  readonly artifact?: JobStepArtifact;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
@@ -115,6 +117,7 @@ export interface ErrorJobStep {
   readonly readiness: "error";
   readonly errorMessage: string;
   readonly label: string;
+  readonly artifact?: JobStepArtifact;
 }
 
 export type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
@@ -132,9 +135,16 @@ export interface CompletedJobStep {
 // Job and Plan types (non-generic)
 // -----------------------------------------------------------------------------
 
+export type JobExecutionPolicy = "fail-fast" | "best-effort";
+
 export interface Job {
   readonly steps: ReadonlyArray<PlannedJobStep>;
   readonly concurrency: "unbounded" | number;
+  /**
+   * Defaults to ordered fail-fast execution. Use `best-effort` only when every
+   * sibling step is independent; a failure still blocks subsequent jobs.
+   */
+  readonly executionPolicy?: JobExecutionPolicy;
 }
 
 /**
@@ -179,6 +189,7 @@ export interface Plan {
 export interface ExecutedJob {
   readonly steps: ReadonlyArray<CompletedJobStep>;
   readonly concurrency: "unbounded" | number;
+  readonly executionPolicy?: JobExecutionPolicy;
 }
 
 export interface ExecutedPlan {

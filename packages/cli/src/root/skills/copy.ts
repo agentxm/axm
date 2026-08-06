@@ -156,7 +156,6 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
   };
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("skills.copy", resolution);

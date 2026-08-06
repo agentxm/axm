@@ -1381,13 +1381,13 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
           selection,
           acceptAuthorityChange: args.acceptAuthorityChange === true,
         });
-        const knowledgeStep = scoped
+        const knowledgeStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectKnowledgeStep();
-        const workspaceGeneratorStep = scoped
+        const workspaceGeneratorStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectWorkspaceGeneratorStep();
-        const trustMigrationStep = scoped
+        const trustMigrationStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectTrustMigrationStep();
 
@@ -1460,13 +1460,12 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
         })
     : yield* previewOrApplyPlan(plan, {
         yes: true,
-        force: args.force,
         preview: args.dryRun,
         displayApplied: false,
       });
 
-  if (resolution._tag === "PreviewedPlan") {
-    if (!scoped) yield* renderInstructionPhase(true);
+  if (resolution._tag !== "ExecutedPlan") {
+    if (resolution._tag === "PreviewedPlan" && !scoped) yield* renderInstructionPhase(true);
     yield* emitPlanResolutionResult("sync", resolution);
     return;
   }

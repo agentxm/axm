@@ -40,7 +40,6 @@ export const handleInstallCommand = Effect.fn("InstallCommand.handle")(function*
   };
   const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

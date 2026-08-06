@@ -524,7 +524,6 @@ describe("uninstall.handler", () => {
             yes: false,
             force: false,
             preview: true,
-            sourceDisposition: "delete",
           });
 
           expect(logs.message).toContain("    removed: .axm/extensions/@acme/skills/my-skill");

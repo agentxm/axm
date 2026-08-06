@@ -384,4 +384,58 @@ describe("axm uninstall", () => {
       }
     },
   );
+
+  it("matches per-type uninstall at user scope", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const rootWorkspace = createTempDir("axm-root-user-");
+    const typedWorkspace = createTempDir("axm-typed-user-");
+    const rootHome = createTempDir("axm-root-home-");
+    const typedHome = createTempDir("axm-typed-home-");
+    const name = "root-uninstall-user-skill";
+    const rootEnv = { AXM_USER_HOME: rootWorkspace.path, HOME: rootHome.path };
+    const typedEnv = { AXM_USER_HOME: typedWorkspace.path, HOME: typedHome.path };
+
+    try {
+      await publishSkillToRegistry(registryDir.path, name);
+      for (const [workspace, env] of [
+        [rootWorkspace, rootEnv],
+        [typedWorkspace, typedEnv],
+      ] as const) {
+        const setup = await runCli(
+          ["setup", "--scope", "user", "--yes", "--agent", "claude-code"],
+          { cwd: workspace.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        configureWorkspaceRegistry(workspace.path, registryDir.path);
+        const install = await runCli(
+          ["skills", "install", registryFqn("skills", name), "--scope", "user", "--yes"],
+          { cwd: workspace.path, env },
+        );
+        expect(install.exitCode, `${install.stderr}\n${install.stdout}`).toBe(0);
+      }
+
+      const rootResult = await runCli(
+        ["uninstall", registryFqn("skills", name), "--scope", "user", "--yes", "--json"],
+        { cwd: rootWorkspace.path, env: rootEnv },
+      );
+      const typedResult = await runCli(
+        ["skills", "uninstall", name, "--scope", "user", "--yes", "--json"],
+        { cwd: typedWorkspace.path, env: typedEnv },
+      );
+
+      expect(rootResult.exitCode, `${rootResult.stderr}\n${rootResult.stdout}`).toBe(0);
+      expect(typedResult.exitCode, `${typedResult.stderr}\n${typedResult.stdout}`).toBe(0);
+      expect(normalizeJsonValue(JSON.parse(rootResult.stdout))).toEqual(
+        normalizeJsonValue(JSON.parse(typedResult.stdout)),
+      );
+      expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path);
+      expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, "skills", name);
+    } finally {
+      registryDir.cleanup();
+      rootWorkspace.cleanup();
+      typedWorkspace.cleanup();
+      rootHome.cleanup();
+      typedHome.cleanup();
+    }
+  });
 });

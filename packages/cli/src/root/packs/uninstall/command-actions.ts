@@ -181,10 +181,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         return { packsToUninstall: targets };
       });
 
-    const buildUninstallPlan = (
-      intent: UninstallPackCommandIntent,
-      flags: { readonly sourceDisposition?: "keep" | "delete" },
-    ) =>
+    const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
       Effect.gen(function* () {
         if (intent.packsToUninstall.length === 0) {
           return {
@@ -242,12 +239,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
         const steps = orderedTargets.map((target): PlannedJobStep => {
           if (target.type === "pack") {
-            return buildUninstallOperation<PackRef>(packMgr, retentionPolicy, {
-              target,
-              ...(flags.sourceDisposition === undefined
-                ? {}
-                : { sourceDisposition: flags.sourceDisposition }),
-            });
+            return buildUninstallOperation<PackRef>(packMgr, retentionPolicy, { target });
           }
 
           if (target.type === "skill") {

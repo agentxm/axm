@@ -64,6 +64,7 @@ export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
 
 export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
+  materializeDeactivate: () => Effect.void,
   upsertTrustEntry: () => Effect.void,
 };
 

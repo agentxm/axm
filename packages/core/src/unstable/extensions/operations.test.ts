@@ -110,6 +110,7 @@ describe("buildInstallOperation", () => {
       materializeInstall: () => Effect.void,
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
@@ -157,6 +158,7 @@ describe("buildInstallOperation", () => {
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
@@ -239,6 +241,7 @@ describe("buildNewExtensionStep", () => {
       listMaterializable: () =>
         Effect.fail(makeAppError({ code: "conflict", detail: "invalid pack" })),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
@@ -301,6 +304,7 @@ describe("buildNewExtensionStep", () => {
             state.canonical = false;
             state.projection = false;
           }),
+        materializeDeactivate: () => Effect.void,
         upsertSettingsEntry: () =>
           Effect.gen(function* () {
             state.settings = true;
@@ -362,6 +366,7 @@ describe("buildMaterializeOperation", () => {
       materializeInstall: () => Effect.sync(() => calls.push("materialize")),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
@@ -397,6 +402,124 @@ describe("buildMaterializeOperation", () => {
 });
 
 describe("buildUninstallOperation", () => {
+  it.each(["materialize", "settings", "trust", "validate"] as const)(
+    "restores all authoritative state when uninstall %s fails",
+    async (failureAt) => {
+      const state = {
+        canonical: true,
+        projection: true,
+        settings: true,
+        trust: true,
+        lock: true,
+      };
+      const transactionalRun: WorkspaceTransactionRunner = (transaction) => {
+        const before = { ...state };
+        return runTransaction(transaction).pipe(
+          Effect.tapError(() =>
+            Effect.sync(() => {
+              Object.assign(state, before);
+            }),
+          ),
+        );
+      };
+      const fail = () => Effect.fail(makeAppError({ code: "internal", detail: failureAt }));
+      const manager = {
+        type: "skill",
+        runTransaction: transactionalRun,
+        isInstalled: () =>
+          Effect.succeed(failureAt === "validate" ? true : state.canonical || state.projection),
+        materializeInstall: () => Effect.void,
+        getConfiguredSource: () =>
+          Effect.succeed(state.settings ? Option.some("@acme/skills/review") : Option.none()),
+        listMaterializable: () => Effect.succeed([]),
+        materializeUninstall: () =>
+          Effect.gen(function* () {
+            state.canonical = false;
+            state.projection = false;
+            if (failureAt === "materialize") return yield* fail();
+          }),
+        materializeDeactivate: () => Effect.void,
+        upsertSettingsEntry: () => Effect.void,
+        upsertTrustEntry: () => Effect.void,
+        removeSettingsEntry: () =>
+          Effect.gen(function* () {
+            state.settings = false;
+            if (failureAt === "settings") return yield* fail();
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () =>
+          Effect.sync(() => {
+            state.lock = false;
+          }),
+        removeTrustEntry: () =>
+          Effect.gen(function* () {
+            state.trust = false;
+            if (failureAt === "trust") return yield* fail();
+          }),
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const operation = buildUninstallOperation<SkillExtensionRef>(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        { target: { type: "skill", name: "review" } },
+      );
+      if (operation.readiness === "error") throw new Error(operation.errorMessage);
+
+      await Effect.runPromise(Effect.flip(operation.run));
+
+      expect(state).toEqual({
+        canonical: true,
+        projection: true,
+        settings: true,
+        trust: true,
+        lock: true,
+      });
+    },
+  );
+
+  it("removes workspace-authored source without a disposition override", async () => {
+    let installed = true;
+    const materializeUninstall = vi.fn(() =>
+      Effect.sync(() => {
+        installed = false;
+      }),
+    );
+    let configured = true;
+    const manager = {
+      type: "skill",
+      runTransaction,
+      isInstalled: () => Effect.succeed(installed),
+      materializeInstall: () => Effect.void,
+      getConfiguredSource: () =>
+        Effect.succeed(configured ? Option.some("workspace:@acme/skills/review") : Option.none()),
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall,
+      materializeDeactivate: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () =>
+        Effect.sync(() => {
+          configured = false;
+        }),
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const operation = buildUninstallOperation<SkillExtensionRef>(
+      manager,
+      { isRequiredByInstalledPack: () => Effect.succeed(false) },
+      { target: { type: "skill", name: "review" } },
+    );
+    if (operation.readiness === "error") {
+      throw new Error(operation.errorMessage);
+    }
+
+    await Effect.runPromise(operation.run);
+
+    expect(materializeUninstall).toHaveBeenCalledWith({
+      target: { type: "skill", name: "review" },
+    });
+  });
+
   it("retires trust for an explicit uninstall even when no artifacts remain", async () => {
     const removeTrustEntry = vi.fn(() => Effect.void);
     const manager = {
@@ -407,6 +530,7 @@ describe("buildUninstallOperation", () => {
       getConfiguredSource: () => Effect.succeed(Option.none()),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
@@ -442,6 +566,7 @@ describe("buildUninstallOperation", () => {
         Effect.succeed(configured ? Option.some("@acme/skills/review") : Option.none()),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
       upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () =>

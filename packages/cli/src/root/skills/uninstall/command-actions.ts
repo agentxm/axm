@@ -155,7 +155,6 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallSkillCommandIntent,
-      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
         const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
@@ -190,12 +189,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
                 type: "skill" as const,
                 name: entry.skillName,
               };
-              const step = buildUninstallOperation(skillMgr, retentionPolicy, {
-                target,
-                ...(flags.sourceDisposition === undefined
-                  ? {}
-                  : { sourceDisposition: flags.sourceDisposition }),
-              });
+              const step = buildUninstallOperation(skillMgr, retentionPolicy, { target });
               if (step.readiness !== "ready") return step;
 
               const sanitizedName = sanitizeName(entry.skillName);
@@ -215,9 +209,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
                 workspaceTargets: [
                   { path: ".axm/axm-lock.yaml", change: "updated" },
                   { path: ".axm/settings.json", change: "updated" },
-                  ...(flags.sourceDisposition === "keep"
-                    ? []
-                    : [skillSourceTarget(configuredSource, lockEntry, sanitizedName)]),
+                  skillSourceTarget(configuredSource, lockEntry, sanitizedName),
                 ],
               }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),

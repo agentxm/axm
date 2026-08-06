@@ -883,8 +883,10 @@ export const HookManagerLive = Layer.effect(
         }
       });
 
-    const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
-      Effect.fn("HookManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<HookExtensionRef>["materializeUninstall"] =>
+      Effect.fn("HookManager.materializeRemoval")(function* ({ target }) {
         const canonical = yield* provide(
           trustedCanonicalObservation({
             workspace: ws,
@@ -897,7 +899,7 @@ export const HookManagerLive = Layer.effect(
         const packageRoot = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (preserveSource !== true && Option.isSome(packageRoot)) {
+        if (!retainCanonical && Option.isSome(packageRoot)) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -910,6 +912,8 @@ export const HookManagerLive = Layer.effect(
           );
         }
       }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "hook",
@@ -950,6 +954,7 @@ export const HookManagerLive = Layer.effect(
       }),
 
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("HookManager.upsertSettingsEntry")(function* ({
         ref,

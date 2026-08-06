@@ -93,7 +93,6 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallCommandCommandIntent,
-      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
         const lockEntries = yield* Effect.forEach(
@@ -115,9 +114,6 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
         const steps: ReadonlyArray<PlannedJobStep> = intent.targets.map((target) => {
           const step = buildUninstallOperation(commandMgr, makeWorkspaceRetentionPolicy(ws), {
             target,
-            ...(flags.sourceDisposition === undefined
-              ? {}
-              : { sourceDisposition: flags.sourceDisposition }),
           });
           if (step.readiness !== "ready") return step;
 

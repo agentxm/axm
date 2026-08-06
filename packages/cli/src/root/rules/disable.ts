@@ -10,7 +10,6 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -60,9 +59,8 @@ export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args
                 ...current,
                 enabled: false,
               }));
-              yield* ruleManager.materializeUninstall({
+              yield* ruleManager.materializeDeactivate({
                 target: { type: "rule", name: args.name },
-                preserveSource: isWorkspaceSourceLocator(entry.source),
               });
               return {
                 result: "success",

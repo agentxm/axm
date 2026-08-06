@@ -5,12 +5,6 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleUninstallCommand } from "./handler.js";
 import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
-import * as Effect from "effect/Effect";
-import {
-  deleteSourceFlag,
-  keepSourceFlag,
-  resolveSourceDisposition,
-} from "../../shared/source-disposition-flags.js";
 
 const uninstallConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the command to uninstall")),
@@ -24,21 +18,16 @@ const uninstallConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
   ),
-  keepSource: keepSourceFlag,
-  deleteSource: deleteSourceFlag,
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, force, preview, keepSource, deleteSource }) =>
-    Effect.gen(function* () {
-      const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
-      yield* handleUninstallCommand(
-        { commandName: name },
-        { yes, force, preview, ...(sourceDisposition === undefined ? {} : { sourceDisposition }) },
-      );
-    }).pipe(withWorkspace(scope), withRuntime("commands uninstall")),
+  ({ name, scope, yes, force, preview }) =>
+    handleUninstallCommand({ commandName: name }, { yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRuntime("commands uninstall"),
+    ),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a command"),

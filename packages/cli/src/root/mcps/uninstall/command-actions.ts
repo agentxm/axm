@@ -101,16 +101,12 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallMcpServerCommandIntent,
-      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> => {
       const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
       const steps = intent.targets.map((target): PlannedJobStep => {
         const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
           target,
-          ...(flags.sourceDisposition === undefined
-            ? {}
-            : { sourceDisposition: flags.sourceDisposition }),
         });
         if (step.readiness !== "ready") {
           return step;

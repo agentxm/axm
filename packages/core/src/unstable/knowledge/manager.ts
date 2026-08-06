@@ -673,6 +673,37 @@ export const KnowledgeManagerLive = Layer.effect(
           Effect.asVoid,
         );
 
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<KnowledgeExtensionRef>["materializeUninstall"] =>
+      Effect.fn("KnowledgeManager.materializeRemoval")(function* ({ target }) {
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "knowledge",
+            name: target.name,
+          }),
+        );
+        const root = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (!retainCanonical && Option.isSome(root)) {
+          yield* protectWorkspacePath(root.value);
+          yield* fs.remove(root.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove Knowledge package source: ${root.value}`,
+                cause: error,
+              }),
+            ),
+          );
+        }
+        yield* reconcileProjection({ excludeName: target.name });
+      }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
+
     return {
       type: "knowledge",
       runTransaction: ws.runTransaction,
@@ -744,34 +775,8 @@ export const KnowledgeManagerLive = Layer.effect(
               ),
             ),
           ),
-      materializeUninstall: Effect.fn("KnowledgeManager.materializeUninstall")(function* ({
-        target,
-        preserveSource,
-      }) {
-        const canonical = yield* provide(
-          trustedCanonicalObservation({
-            workspace: ws,
-            type: "knowledge",
-            name: target.name,
-          }),
-        );
-        const root = Option.flatMap(canonical, (state) =>
-          Option.fromUndefinedOr(state.observation.path),
-        );
-        if (preserveSource !== true && Option.isSome(root)) {
-          yield* protectWorkspacePath(root.value);
-          yield* fs.remove(root.value, { recursive: true, force: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove Knowledge package source: ${root.value}`,
-                cause: error,
-              }),
-            ),
-          );
-        }
-        yield* reconcileProjection({ excludeName: target.name });
-      }, Effect.asVoid),
+      materializeUninstall,
+      materializeDeactivate,
       upsertSettingsEntry: ({ ref, versionRange }) =>
         DateTime.now.pipe(
           Effect.flatMap((now) =>

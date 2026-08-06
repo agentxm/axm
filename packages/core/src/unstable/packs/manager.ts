@@ -338,10 +338,12 @@ export const PackManagerLive = Layer.effect(
     });
     const materializeUninstall: ExtensionManager<PackRef>["materializeUninstall"] = Effect.fn(
       "PackManager.materializeUninstall",
-    )(function* ({ target, preserveSource }) {
+    )(function* ({ target }) {
       const packDir = computePackPaths(path.join, baseDir, target.owner, target.name).canonicalPath;
-      if (preserveSource !== true) yield* removeIfExists(fs, packDir);
+      yield* removeIfExists(fs, packDir);
     });
+    const materializeDeactivate: ExtensionManager<PackRef>["materializeDeactivate"] = () =>
+      Effect.void;
 
     const buildCurrentPackArgs = (ref: PackRef, versionRange: Option.Option<string>) =>
       Effect.gen(function* () {
@@ -429,6 +431,7 @@ export const PackManagerLive = Layer.effect(
         return yield* configuredPacksToDiskRefs({ fs, path, baseDir, scope: ws.scope }, configured);
       }),
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("PackManager.upsertSettingsEntry")(function* ({
         ref,

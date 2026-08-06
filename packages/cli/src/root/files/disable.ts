@@ -13,7 +13,6 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
@@ -78,9 +77,8 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
                 ...current,
                 enabled: false,
               }));
-              yield* filesManager.materializeUninstall({
+              yield* filesManager.materializeDeactivate({
                 target: { type: "files", name: args.name },
-                preserveSource: isWorkspaceSourceLocator(entry.source),
               });
               return {
                 result: "success",

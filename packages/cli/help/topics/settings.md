@@ -101,7 +101,7 @@ their lifecycle:
 
 - **Install and update cannot replace source** — update reports the package unchanged and `--force` does not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.
-- **Uninstall requires disposition** — use `--keep-source` to leave an unmanaged package or `--delete-source` to remove it after confirmation.
+- **Uninstall removes owned state** — canonical source is deleted when nothing else reaches it; use disable to retain a managed package without activating it.
 - **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <fqn>` first.
 
 The removed `authored` property is invalid. Omit `enabled` unless disabling an

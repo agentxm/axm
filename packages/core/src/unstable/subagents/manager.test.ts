@@ -395,9 +395,8 @@ describe("SubagentManager", () => {
         expect(content).toContain("advisory role-skill fallback");
         expect(captured?.sourceHash).toBeDefined();
         expect(captured).not.toHaveProperty("renderedFiles");
-        yield* manager.materializeUninstall({
+        yield* manager.materializeDeactivate({
           target: { type: "subagent", name: "planner" },
-          preserveSource: true,
         });
         expect(nodeFs.existsSync(nodePath.dirname(skillPath))).toBe(false);
       }).pipe(

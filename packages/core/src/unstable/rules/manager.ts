@@ -38,11 +38,12 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import type { ExtensionManager, RuleExtensionTarget } from "../workspace/service-interface.js";
+import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredRule } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -384,9 +385,15 @@ export const RuleManagerLive = Layer.effect(
         // Only treat an absent file as empty; a real read failure on an existing
         // file must propagate, or we would overwrite unreadable user content
         // with just the managed region.
-        const fileExists = yield* fs
-          .exists(target.absolute)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
+        const fileExists = yield* fs.exists(target.absolute).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to inspect managed instructions file: ${target.absolute}`,
+              cause: error,
+            }),
+          ),
+        );
         const existing = fileExists
           ? yield* fs.readFileString(target.absolute).pipe(
               Effect.mapError((error) =>
@@ -407,6 +414,7 @@ export const RuleManagerLive = Layer.effect(
                 rendered,
                 style: style.value,
               });
+        yield* protectWorkspacePath(target.absolute);
         yield* fs.makeDirectory(path.dirname(target.absolute), { recursive: true }).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -496,17 +504,27 @@ export const RuleManagerLive = Layer.effect(
           Option.fromUndefinedOr(state.observation.path),
         );
         if (preserveSource !== true && Option.isSome(packageRoot)) {
-          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
+          yield* protectWorkspacePath(packageRoot.value);
+          yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove rule package source: ${packageRoot.value}`,
+                cause: error,
+              }),
+            ),
+          );
         }
       }, Effect.asVoid);
 
     return {
       type: "rule",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
           .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
-      isInstalled: ({ target }: { readonly target: RuleExtensionTarget }) =>
+      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),
         ),
@@ -547,6 +565,17 @@ export const RuleManagerLive = Layer.effect(
           name: ref.rule.name,
           lockEntry,
           versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("RuleManager.upsertTrustEntry")(function* ({ ref }) {
+        const lockEntry = yield* buildLockEntry(ref);
+        yield* ws.setRuleLock({
+          name: ref.rule.name,
+          lockEntry,
+          versionRange: Option.none(),
+          commit: "authoritative",
         });
       }),
 
@@ -566,6 +595,7 @@ export const RuleManagerLive = Layer.effect(
           name: ref.rule.name,
           lockEntry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

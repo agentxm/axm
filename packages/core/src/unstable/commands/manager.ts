@@ -31,6 +31,7 @@ import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type {
   CommandExtensionTarget,
   ExtensionManager,
+  ExtensionTarget,
   MaterializationObservation,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
@@ -52,6 +53,7 @@ import {
 } from "./operations/shared-command-helpers.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -329,27 +331,48 @@ export const CommandManagerLive = Layer.effect(
                 scope: "project",
                 commandName: target.name,
               }),
-            ).pipe(Effect.catch(() => Effect.void)),
+            ),
           { concurrency: "unbounded" },
         );
 
         // Remove from registry extensions dirs
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-        const extensionsDirExists = yield* fs
-          .exists(extensionsDir)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
+        const extensionsDirExists = yield* fs.exists(extensionsDir).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to inspect registry command directory: ${extensionsDir}`,
+              cause: error,
+            }),
+          ),
+        );
 
         if (extensionsDirExists && preserveSource !== true) {
-          const scopeDirs = yield* fs
-            .readDirectory(extensionsDir)
-            .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+          const scopeDirs = yield* fs.readDirectory(extensionsDir).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to list registry command directory: ${extensionsDir}`,
+                cause: error,
+              }),
+            ),
+          );
 
           yield* Effect.forEach(
             scopeDirs,
             (scopeDir) => {
               if (!scopeDir.startsWith("@")) return Effect.void;
               const cmdPath = path.join(extensionsDir, scopeDir, "commands", target.name);
-              return fs.remove(cmdPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+              return protectWorkspacePath(cmdPath).pipe(
+                Effect.andThen(fs.remove(cmdPath, { recursive: true, force: true })),
+                Effect.mapError((error) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to remove registry command source: ${cmdPath}`,
+                    cause: error,
+                  }),
+                ),
+              );
             },
             { concurrency: "unbounded" },
           );
@@ -357,11 +380,21 @@ export const CommandManagerLive = Layer.effect(
 
         // Remove from external extensions dir
         const externalPath = path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, "commands", target.name);
-        yield* fs.remove(externalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+        yield* protectWorkspacePath(externalPath);
+        yield* fs.remove(externalPath, { recursive: true, force: true }).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to remove external command source: ${externalPath}`,
+              cause: error,
+            }),
+          ),
+        );
       }, Effect.asVoid);
 
     return {
       type: "command",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
@@ -369,7 +402,7 @@ export const CommandManagerLive = Layer.effect(
       isInstalled: Effect.fn("CommandManager.isInstalled")(function* ({
         target,
       }: {
-        readonly target: CommandExtensionTarget;
+        readonly target: ExtensionTarget;
       }) {
         if (yield* isObservedInstalled(ws, "command", target.name)) {
           return true;
@@ -433,6 +466,31 @@ export const CommandManagerLive = Layer.effect(
           name: ref.command.name,
           lockEntry: sharedLockEntry,
           versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("CommandManager.upsertTrustEntry")(function* ({ ref }) {
+        const now = yield* DateTime.now;
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local command source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const lockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
+        const state = lastInstallState.get(ref.command.name);
+        const sharedLockEntry =
+          state === undefined ? lockEntry : { ...lockEntry, sourceHash: state.sourceHash };
+        return yield* ws.setCommandLock({
+          name: ref.command.name,
+          lockEntry: sharedLockEntry,
+          versionRange: Option.none(),
+          commit: "authoritative",
         });
       }),
 
@@ -476,6 +534,7 @@ export const CommandManagerLive = Layer.effect(
           name: ref.command.name,
           lockEntry: sharedLockEntry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

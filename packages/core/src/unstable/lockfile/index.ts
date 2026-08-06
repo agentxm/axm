@@ -73,6 +73,7 @@ export type { LockfileUpdate } from "./lockfile.js";
 export {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
+  commitTrustSnapshotUpdate,
   commitLockfileUpdates,
   writeLockfile,
 } from "./lockfile.js";

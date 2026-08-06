@@ -14,6 +14,7 @@ import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 
 import {
   computePackageContentHashSync,
+  managerLifecycleStubs,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
@@ -23,6 +24,7 @@ import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeSearch } from "./search.js";
 
 const stubKnowledgeManager = {
+  ...managerLifecycleStubs,
   type: "knowledge",
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),

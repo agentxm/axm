@@ -30,7 +30,11 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
-import type { ExtensionManager, PackExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  PackExtensionTarget,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
@@ -45,6 +49,7 @@ import { isWorkspaceSourceLocator, type RegistrySource } from "../sources/index.
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { usableTrustedCanonicalRef } from "../workspace/trusted-canonical-ref.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import type { WorkspacePackDependencyResolver } from "./dependency-resolution.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "./manifest-schema.js";
 import { packTrustManifest } from "./trust-manifest.js";
@@ -228,7 +233,10 @@ export const PackManagerLive = Layer.effect(
         }
         return Option.some(resolved.value);
       });
-    const refreshWorkspacePackState = (ref: WorkspacePackRef) =>
+    const refreshWorkspacePackState = (
+      ref: WorkspacePackRef,
+      commit: "authoritative" | "receipt" | "both" = "both",
+    ) =>
       Effect.gen(function* () {
         const manifestPath = path.join(ref.location, PACK_MANIFEST_FILENAME);
         const raw = yield* fs.readFileString(manifestPath).pipe(
@@ -258,7 +266,12 @@ export const PackManagerLive = Layer.effect(
             }),
           ),
         );
-        yield* ws.refreshPackContentIdentity(ref.name, ref.sourceHash, packTrustManifest(manifest));
+        yield* ws.refreshPackContentIdentity(
+          ref.name,
+          ref.sourceHash,
+          packTrustManifest(manifest),
+          commit,
+        );
       });
     const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
@@ -308,6 +321,7 @@ export const PackManagerLive = Layer.effect(
               }),
             ),
           );
+          yield* protectWorkspacePath(packDir);
           yield* provide(
             copyExtensionDirectory(fetched.directory, packDir).pipe(
               Effect.mapError((e) =>
@@ -329,8 +343,67 @@ export const PackManagerLive = Layer.effect(
       if (preserveSource !== true) yield* removeIfExists(fs, packDir);
     });
 
+    const buildCurrentPackArgs = (ref: PackRef, versionRange: Option.Option<string>) =>
+      Effect.gen(function* () {
+        if (ref.refType !== "workspace") {
+          const packDir = computePackPaths(
+            path.join,
+            baseDir,
+            ref.owner,
+            ref.pack.name,
+          ).canonicalPath;
+          const sourceHash = yield* provide(computePackageContentHash(packDir));
+          return yield* buildSetPackArgs(
+            ref,
+            versionRange,
+            sources,
+            sourceHash,
+            resolveWorkspaceDependency,
+          );
+        }
+        if (Object.keys(ref.pack.dependencies).length === 0) {
+          const now = yield* DateTime.now;
+          return {
+            type: "workspace" as const,
+            owner: ref.owner,
+            extensionType: "pack" as const,
+            name: ref.name,
+            version: ref.version,
+            sourceHash: ref.sourceHash,
+            installedAt: now,
+            updatedAt: now,
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+            resolvedFiles: {},
+            resolvedRules: {},
+            resolvedHooks: {},
+            resolvedKnowledge: {},
+            versionRange,
+          };
+        }
+        const configured = yield* ws.getConfiguredSourceByName("default");
+        const registrySource =
+          Option.isSome(configured) && configured.value.type === "registry"
+            ? {
+                type: "registry" as const,
+                location: configured.value.location,
+                owner: Option.none(),
+              }
+            : undefined;
+        return yield* buildWorkspaceSetPackArgs(
+          ref,
+          versionRange,
+          sources,
+          registrySource,
+          resolveWorkspaceDependency,
+        );
+      });
+
     return {
       type: "pack",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
@@ -338,7 +411,7 @@ export const PackManagerLive = Layer.effect(
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {
-        readonly target: PackExtensionTarget;
+        readonly target: ExtensionTarget;
       }) {
         if (yield* isObservedInstalled(ws, "pack", target.name)) {
           return true;
@@ -364,77 +437,31 @@ export const PackManagerLive = Layer.effect(
         readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
       }) {
-        if (ref.refType !== "workspace") {
-          const packDir = computePackPaths(
-            path.join,
-            baseDir,
-            ref.owner,
-            ref.pack.name,
-          ).canonicalPath;
-          const sourceHash = yield* provide(computePackageContentHash(packDir));
-          const args = yield* buildSetPackArgs(
-            ref,
-            versionRange,
-            sources,
-            sourceHash,
-            resolveWorkspaceDependency,
-          );
-          return yield* ws.setPack(args);
+        const args = yield* buildCurrentPackArgs(ref, versionRange);
+        yield* ws.setPack({ ...args, commit: "authoritative" });
+        if (ref.refType === "workspace") {
+          yield* refreshWorkspacePackState(ref, "authoritative");
         }
+      }),
 
-        if (Object.keys(ref.pack.dependencies).length === 0) {
-          const now = yield* DateTime.now;
-          yield* ws.setPack({
-            type: "workspace",
-            owner: ref.owner,
-            extensionType: "pack",
-            name: ref.name,
-            version: ref.version,
-            sourceHash: ref.sourceHash,
-            installedAt: now,
-            updatedAt: now,
-            resolvedSkills: {},
-            resolvedCommands: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedFiles: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-            resolvedKnowledge: {},
-            versionRange,
-          });
-          return yield* refreshWorkspacePackState(ref);
+      upsertTrustEntry: Effect.fn("PackManager.upsertTrustEntry")(function* ({ ref }) {
+        const args = yield* buildCurrentPackArgs(ref, Option.none());
+        yield* ws.setPackLock({ ...args, commit: "authoritative" });
+        if (ref.refType === "workspace") {
+          yield* refreshWorkspacePackState(ref, "authoritative");
         }
-
-        const configured = yield* ws.getConfiguredSourceByName("default");
-        const registrySource =
-          Option.isSome(configured) && configured.value.type === "registry"
-            ? {
-                type: "registry" as const,
-                location: configured.value.location,
-                owner: Option.none(),
-              }
-            : undefined;
-        const args = yield* buildWorkspaceSetPackArgs(
-          ref,
-          versionRange,
-          sources,
-          registrySource,
-          resolveWorkspaceDependency,
-        );
-        yield* ws.setPack(args);
-        return yield* refreshWorkspacePackState(ref);
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
-      // Pack lockfile entries are written by upsertSettingsEntry via buildSetPackArgs;
-      // this method satisfies the ExtensionManager interface but performs no additional work.
-      upsertLockfileEntry: ({ ref }: { readonly ref: PackRef }) => {
-        void ref;
-        return Effect.void.pipe(Effect.withSpan("PackManager.upsertLockfileEntry"));
-      },
+      upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({ ref }) {
+        const args = yield* buildCurrentPackArgs(ref, Option.none());
+        yield* ws.setPackLock({ ...args, commit: "receipt" });
+        if (ref.refType === "workspace") {
+          yield* refreshWorkspacePackState(ref, "receipt");
+        }
+      }),
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),

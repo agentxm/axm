@@ -205,6 +205,8 @@ export {
   type ExtensionTarget,
   type ExtensionTargetFor,
   type ExtensionManager,
+  type WorkspaceTransactionRunner,
+  type WorkspaceLifecycleTransactionArgs,
   type SkillExtensionTarget,
   type PackExtensionTarget,
   type CommandExtensionTarget,
@@ -218,6 +220,11 @@ export {
 
 // Workspace mutation service implementation (layer)
 export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
+export {
+  protectWorkspacePath,
+  runWorkspaceTransaction,
+  type WorkspaceTransactionArgs,
+} from "./transaction.js";
 
 // Initialization
 export {

@@ -50,10 +50,11 @@ import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import { resolveConfiguredHook } from "../workspace/configured-entry-resolution/index.js";
-import type { ExtensionManager, HookExtensionTarget } from "../workspace/service-interface.js";
+import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -218,7 +219,15 @@ const hookNativeToolNames = (
 const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(configPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect Claude Code hooks config: ${configPath}`,
+          cause: error,
+        }),
+      ),
+    );
     if (!exists) return "";
     return yield* fs.readFileString(configPath).pipe(
       Effect.mapError((error) =>
@@ -240,6 +249,7 @@ const writeIfChanged = (
     if (oldRaw === newRaw) return;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* protectWorkspacePath(configPath);
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -705,9 +715,26 @@ export const HookManagerLive = Layer.effect(
               `### ${hook.manifest.title ?? hook.name}\n\nFor agents without native hook support (${fallbackAgents.map((agent) => agent.id).join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
           )
           .join("\n\n");
-        const existing = yield* fs
-          .readFileString(targetPath)
-          .pipe(Effect.catch(() => Effect.succeed("")));
+        const exists = yield* fs.exists(targetPath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to inspect hook fallback target: ${targetPath}`,
+              cause,
+            }),
+          ),
+        );
+        const existing = exists
+          ? yield* fs.readFileString(targetPath).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to read hook fallback target: ${targetPath}`,
+                  cause,
+                }),
+              ),
+            )
+          : "";
         const updated =
           rendered.length === 0
             ? stripManagedRegion(existing, { region: HOOK_FALLBACKS_REGION }, style.value)
@@ -718,6 +745,7 @@ export const HookManagerLive = Layer.effect(
                 style: style.value,
               });
         if (updated !== existing) {
+          yield* protectWorkspacePath(targetPath);
           yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
             Effect.mapError((cause) =>
               makeAppError({
@@ -870,17 +898,27 @@ export const HookManagerLive = Layer.effect(
           Option.fromUndefinedOr(state.observation.path),
         );
         if (preserveSource !== true && Option.isSome(packageRoot)) {
-          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
+          yield* protectWorkspacePath(packageRoot.value);
+          yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove hook package source: ${packageRoot.value}`,
+                cause: error,
+              }),
+            ),
+          );
         }
       }, Effect.asVoid);
 
     return {
       type: "hook",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
           .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
-      isInstalled: ({ target }: { readonly target: HookExtensionTarget }) =>
+      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
         ),
@@ -928,6 +966,17 @@ export const HookManagerLive = Layer.effect(
           name: ref.hook.name,
           lockEntry,
           versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("HookManager.upsertTrustEntry")(function* ({ ref }) {
+        const entry = yield* buildLockEntry(ref);
+        yield* ws.setHookLock({
+          name: ref.hook.name,
+          lockEntry: entry,
+          versionRange: Option.none(),
+          commit: "authoritative",
         });
       }),
 
@@ -947,6 +996,7 @@ export const HookManagerLive = Layer.effect(
           name: ref.hook.name,
           lockEntry: entry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

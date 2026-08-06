@@ -20,7 +20,11 @@ import { computeIntegrity, isPathSafe } from "../utils/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
-import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  McpServerExtensionTarget,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   computePackageContentHash,
@@ -34,6 +38,7 @@ import { decodeVersionSync } from "../version-constraints/version-constraints.js
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -195,39 +200,65 @@ export const McpServerManagerLive = Layer.effect(
               }),
             ),
           );
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* provide(extractZip(archive, tmpDir));
-              yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-              yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
-                Effect.mapError((e) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Failed to create canonical directory: ${canonicalPath}`,
-                    cause: e,
-                  }),
-                ),
-              );
-              const entries = yield* fs.readDirectory(tmpDir).pipe(
-                Effect.mapError((e) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Extracted directory could not be read`,
-                    cause: e,
-                  }),
-                ),
-              );
-              yield* Effect.forEach(
-                entries,
-                (entry) => {
-                  const src = path.join(tmpDir, entry);
-                  const dest = path.join(canonicalPath, entry);
-                  return fs.copy(src, dest).pipe(Effect.ignore);
-                },
-                { concurrency: "unbounded" },
-              );
-            }),
-            fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+          const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove temporary MCP server directory ${tmpDir}`,
+                cause: error,
+              }),
+            ),
+          );
+          yield* Effect.gen(function* () {
+            yield* provide(extractZip(archive, tmpDir));
+            yield* protectWorkspacePath(canonicalPath);
+            yield* fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to replace canonical MCP server source: ${canonicalPath}`,
+                  cause: error,
+                }),
+              ),
+            );
+            yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Failed to create canonical directory: ${canonicalPath}`,
+                  cause: e,
+                }),
+              ),
+            );
+            const entries = yield* fs.readDirectory(tmpDir).pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Extracted directory could not be read`,
+                  cause: e,
+                }),
+              ),
+            );
+            yield* Effect.forEach(
+              entries,
+              (entry) => {
+                const src = path.join(tmpDir, entry);
+                const dest = path.join(canonicalPath, entry);
+                return fs.copy(src, dest).pipe(
+                  Effect.mapError((error) =>
+                    makeAppError({
+                      code: "internal",
+                      detail: `Failed to copy MCP server package entry: ${entry}`,
+                      cause: error,
+                    }),
+                  ),
+                );
+              },
+              { concurrency: "unbounded" },
+            );
+          }).pipe(
+            Effect.tapError(() => cleanup),
+            Effect.tap(() => cleanup),
           );
         }
         lastSourceHashes.set(
@@ -238,9 +269,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =
       Effect.fn("McpServerManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const configuredAgents = yield* ws
-          .getConfiguredAgents()
-          .pipe(Effect.catch(() => Effect.succeed([])));
+        const configuredAgents = yield* ws.getConfiguredAgents();
 
         yield* Effect.forEach(
           configuredAgents,
@@ -251,28 +280,49 @@ export const McpServerManagerLive = Layer.effect(
                 scope: ws.scope,
                 serverName: target.name,
               }),
-            ).pipe(Effect.catch(() => Effect.void)),
+            ),
           { concurrency: "unbounded" },
         );
 
         if (preserveSource === true) return;
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-        const extensionsDirExists = yield* fs
-          .exists(extensionsDir)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
+        const extensionsDirExists = yield* fs.exists(extensionsDir).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to inspect registry MCP server directory: ${extensionsDir}`,
+              cause: error,
+            }),
+          ),
+        );
 
         if (!extensionsDirExists) return;
 
-        const scopeDirs = yield* fs
-          .readDirectory(extensionsDir)
-          .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+        const scopeDirs = yield* fs.readDirectory(extensionsDir).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to list registry MCP server directory: ${extensionsDir}`,
+              cause: error,
+            }),
+          ),
+        );
 
         yield* Effect.forEach(
           scopeDirs,
           (scopeDir) => {
             if (!scopeDir.startsWith("@")) return Effect.void;
             const serverPath = path.join(extensionsDir, scopeDir, "mcps", target.name);
-            return fs.remove(serverPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+            return protectWorkspacePath(serverPath).pipe(
+              Effect.andThen(fs.remove(serverPath, { recursive: true, force: true })),
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to remove registry MCP server source: ${serverPath}`,
+                  cause: error,
+                }),
+              ),
+            );
           },
           { concurrency: "unbounded" },
         );
@@ -280,6 +330,7 @@ export const McpServerManagerLive = Layer.effect(
 
     return {
       type: "mcp-server",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
@@ -287,7 +338,7 @@ export const McpServerManagerLive = Layer.effect(
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {
-        readonly target: McpServerExtensionTarget;
+        readonly target: ExtensionTarget;
       }) {
         if (yield* isObservedInstalled(ws, "mcp-server", target.name)) {
           return true;
@@ -338,9 +389,35 @@ export const McpServerManagerLive = Layer.effect(
               });
             }
             const lockEntry = buildMcpServerLockEntry(registryRef, now, sourceHash);
-            return ws.setMcpServer({ name: ref.server.name, lockEntry, versionRange });
+            return ws.setMcpServer({
+              name: ref.server.name,
+              lockEntry,
+              versionRange,
+              commit: "authoritative",
+            });
           }),
           Effect.withSpan("McpServerManager.upsertSettingsEntry"),
+        );
+      },
+
+      upsertTrustEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
+        if (ref.refType !== "registry") return Effect.void;
+        return DateTime.now.pipe(
+          Effect.flatMap((now) => {
+            const sourceHash = lastSourceHashes.get(ref.server.name);
+            if (sourceHash === undefined) {
+              return makeAppError({
+                code: "internal",
+                detail: `MCP server ${ref.server.name} has no materialized content identity`,
+              });
+            }
+            return ws.setMcpServerLock({
+              name: ref.server.name,
+              lockEntry: buildMcpServerLockEntry(ref, now, sourceHash),
+              versionRange: Option.none(),
+              commit: "authoritative",
+            });
+          }),
         );
       },
 
@@ -371,6 +448,7 @@ export const McpServerManagerLive = Layer.effect(
               name: ref.server.name,
               lockEntry,
               versionRange: Option.none(),
+              commit: "receipt",
             });
           }),
           Effect.withSpan("McpServerManager.upsertLockfileEntry"),

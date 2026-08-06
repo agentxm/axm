@@ -12,6 +12,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
+  WorkspaceTransactionRunner,
   ExtensionInventory,
   PackagingKind,
   ReadModelRecordRow,
@@ -50,6 +51,21 @@ import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
 type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
+
+export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
+  Effect.gen(function* () {
+    const value = yield* args.transition;
+    yield* args.validate(value);
+    if (args.receipt !== undefined) {
+      yield* args.receipt(value);
+    }
+    return value;
+  });
+
+export const managerLifecycleStubs = {
+  runTransaction: runWorkspaceTransactionStub,
+  upsertTrustEntry: () => Effect.void,
+};
 
 const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
   Effect.succeed([]);
@@ -183,6 +199,7 @@ export const makeBaseWorkspaceMock = (
     path: axmDir,
     baseDir,
     records,
+    runTransaction: runWorkspaceTransactionStub,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: () =>
       Effect.succeed({
@@ -274,6 +291,7 @@ export const makeBaseWorkspaceMock = (
     getLockedPacks: () => Effect.succeed({}),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
+    setPackLock: () => Effect.void,
     refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,

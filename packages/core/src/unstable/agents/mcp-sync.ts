@@ -43,6 +43,7 @@ import {
   type SharedMcpTransport,
 } from "../mcps/shared-target.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import { managedYamlNames } from "../yaml/index.js";
 import type {
@@ -305,7 +306,15 @@ const readOptionalConfig = (
 ): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(configPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect MCP config: ${configPath}`,
+          cause: error,
+        }),
+      ),
+    );
     if (!exists) return Option.none();
     return yield* fs.readFileString(configPath).pipe(
       Effect.map(Option.some),
@@ -387,7 +396,15 @@ const upsertJsonConfigServer = (
       ),
     );
 
-    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(configPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect MCP config: ${configPath}`,
+          cause: error,
+        }),
+      ),
+    );
     const parsed = exists
       ? yield* fs.readFileString(configPath).pipe(
           Effect.mapError((error) =>
@@ -408,6 +425,7 @@ const upsertJsonConfigServer = (
       },
     };
 
+    yield* protectWorkspacePath(configPath);
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -447,6 +465,7 @@ const removeJsonConfigServer = (
       servers: rest,
     };
 
+    yield* protectWorkspacePath(configPath);
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
         makeAppError({

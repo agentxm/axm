@@ -492,7 +492,12 @@ export const commitLockfileUpdates = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
+export const commitLockfileSnapshotUpdate = (
+  axmDir: string,
+  base: Lockfile,
+  next: Lockfile,
+  options?: { readonly preserveTrust?: boolean },
+) =>
   Effect.gen(function* () {
     yield* ensureAxmDir(axmDir);
     const updated = yield* withLockfileLock(
@@ -501,10 +506,25 @@ export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, nex
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
-        yield* persistTrustPatch(axmDir, current ?? base, base, next);
+        if (options?.preserveTrust !== true) {
+          yield* persistTrustPatch(axmDir, current ?? base, base, next);
+        }
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),
     );
     return updated;
+  });
+
+/** Commit only the authoritative trust delta represented by a receipt snapshot patch. */
+export const commitTrustSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
+  Effect.gen(function* () {
+    yield* ensureAxmDir(axmDir);
+    yield* withLockfileLock(
+      axmDir,
+      Effect.gen(function* () {
+        const current = yield* readLockfileIfPresent(axmDir);
+        yield* persistTrustPatch(axmDir, current ?? base, base, next);
+      }),
+    );
   });

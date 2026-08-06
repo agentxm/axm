@@ -27,6 +27,7 @@ import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
+  commitTrustSnapshotUpdate,
   type ResolvedExtension,
   type ResolvedExtensionMap,
   type FilesLockMap,
@@ -87,6 +88,7 @@ import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
 import {
   readWorkspaceTrustState,
+  TRUST_STATE_FILENAME,
   TRUST_STATE_VERSION,
   trustRecordKey,
   trustStateFromLockfile,
@@ -126,11 +128,14 @@ import {
   type SetSubagentArgs,
   type SkillPathSource,
   type ExtensionTarget,
+  type WorkspaceCommitPhase,
+  type WorkspaceTransactionRunner,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
 import { validateDesiredPackTrust } from "./desired-pack-trust.js";
+import { runWorkspaceTransaction } from "./transaction.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
@@ -382,6 +387,30 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      * Read lockfile from a directory, returning empty lockfile if not found.
      */
     const readLockfileSafe = (dir: string) => readLockfileCell(dir);
+
+    const commitWorkspaceState = (
+      base: Lockfile,
+      next: Lockfile,
+      commit: WorkspaceCommitPhase = "both",
+    ) =>
+      commit === "authoritative"
+        ? commitTrustSnapshotUpdate(workspaceDir, base, next).pipe(Effect.provide(fsLayer))
+        : commitLockfileSnapshotUpdate(workspaceDir, base, next, {
+            preserveTrust: commit === "receipt",
+          }).pipe(Effect.provide(fsLayer));
+
+    const runTransaction: WorkspaceTransactionRunner = (args) =>
+      runWorkspaceTransaction({
+        workspaceDir,
+        targets: [
+          settingsPath,
+          path.join(workspaceDir, TRUST_STATE_FILENAME),
+          ...(args.targets ?? []),
+        ],
+        transition: args.transition,
+        validate: args.validate,
+        ...(args.receipt === undefined ? {} : { receipt: args.receipt }),
+      }).pipe(Effect.provide(fsLayer));
 
     const readTrustState = () =>
       readWorkspaceTrustState(workspaceDir).pipe(
@@ -657,6 +686,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       path: workspaceDir,
       baseDir,
 
+      runTransaction,
+
       getLockfileState,
 
       getDesiredStateGraph: () =>
@@ -799,7 +830,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.files ?? {})[name])),
         ),
 
-      setFiles: ({ name, lockEntry, versionRange }: SetFilesArgs) =>
+      setFiles: ({ name, lockEntry, versionRange, commit }: SetFilesArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -836,15 +867,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setFiles")),
 
-      setFilesLock: ({ name, lockEntry }: SetFilesArgs) =>
+      setFilesLock: ({ name, lockEntry, commit }: SetFilesArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -857,11 +884,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setFilesLock")),
 
@@ -973,7 +996,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.rules ?? {})[name])),
         ),
 
-      setRule: ({ name, lockEntry, versionRange }: SetRuleArgs) =>
+      setRule: ({ name, lockEntry, versionRange, commit }: SetRuleArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -1007,15 +1030,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRule")),
 
-      setRuleLock: ({ name, lockEntry }: SetRuleArgs) =>
+      setRuleLock: ({ name, lockEntry, commit }: SetRuleArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1028,11 +1047,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRuleLock")),
 
@@ -1144,7 +1159,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.hooks ?? {})[name])),
         ),
 
-      setHook: ({ name, lockEntry, versionRange }: SetHookArgs) =>
+      setHook: ({ name, lockEntry, versionRange, commit }: SetHookArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -1178,15 +1193,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHook")),
 
-      setHookLock: ({ name, lockEntry }: SetHookArgs) =>
+      setHookLock: ({ name, lockEntry, commit }: SetHookArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1199,11 +1210,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHookLock")),
 
@@ -1330,7 +1337,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lockfile) => Option.fromUndefinedOr((lockfile.knowledge ?? {})[name])),
         ),
 
-      setKnowledge: ({ name, lockEntry, versionRange }: SetKnowledgeArgs) =>
+      setKnowledge: ({ name, lockEntry, versionRange, commit }: SetKnowledgeArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -1354,29 +1361,37 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLocked = currentLockfile.knowledge ?? {};
             const previous = currentLocked[name];
-            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
-              ...currentLockfile,
-              knowledge: {
-                ...currentLocked,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+            yield* commitWorkspaceState(
+              currentLockfile,
+              {
+                ...currentLockfile,
+                knowledge: {
+                  ...currentLocked,
+                  [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                },
               },
-            }).pipe(Effect.provide(fsLayer));
+              commit,
+            );
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledge")),
 
-      setKnowledgeLock: ({ name, lockEntry }: SetKnowledgeArgs) =>
+      setKnowledgeLock: ({ name, lockEntry, commit }: SetKnowledgeArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLocked = currentLockfile.knowledge ?? {};
             const previous = currentLocked[name];
-            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
-              ...currentLockfile,
-              knowledge: {
-                ...currentLocked,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+            yield* commitWorkspaceState(
+              currentLockfile,
+              {
+                ...currentLockfile,
+                knowledge: {
+                  ...currentLocked,
+                  [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                },
               },
-            }).pipe(Effect.provide(fsLayer));
+              commit,
+            );
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledgeLock")),
 
@@ -1510,7 +1525,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
         }),
 
-      setSkill: ({ name, lockEntry, versionRange }: SetSkillArgs) =>
+      setSkill: ({ name, lockEntry, versionRange, commit }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings — thread version constraint through so it survives the round-trip
@@ -1552,15 +1567,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkill")),
 
-      setSkillLock: ({ name, lockEntry }: SetSkillArgs) =>
+      setSkillLock: ({ name, lockEntry, commit }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -1576,11 +1587,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkillLock")),
 
@@ -1740,7 +1747,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { versionRange, ...lockEntry } = args;
+            const { versionRange, commit, ...lockEntry } = args;
             const name = lockEntry.name;
             // Update settings — thread versionRange through so it's preserved
             const fqn = formatFqn({
@@ -1773,18 +1780,36 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
+
+      setPackLock: (args: SetPackArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const { versionRange: _, commit, ...lockEntry } = args;
+            void _;
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedPacks = currentLockfile.packs ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              packs: {
+                ...currentLockedPacks,
+                [lockEntry.name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedPacks[lockEntry.name],
+                  lockEntry,
+                ),
+              },
+            };
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setPackLock")),
 
       refreshPackContentIdentity: (
         name: string,
         contentIdentity: SourceHash,
         manifest?: PackTrustManifest,
+        commit: WorkspaceCommitPhase = "both",
       ) =>
         withMutex(
           Effect.gen(function* () {
@@ -1812,8 +1837,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentPack = currentLockfile.packs?.[name];
             const receipt =
-              manifest === undefined ? undefined : yield* resolvePackReceipt(manifest, trust);
+              manifest === undefined || commit === "authoritative"
+                ? undefined
+                : yield* resolvePackReceipt(manifest, trust);
             if (
+              commit !== "authoritative" &&
               manifest !== undefined &&
               (currentPack === undefined || currentPack.type !== "workspace")
             ) {
@@ -1837,26 +1865,16 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       },
                     },
                   };
-            yield* writeWorkspaceTrustState(workspaceDir, nextTrust).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            );
-            if (updatedLockfile !== currentLockfile) {
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
-                currentLockfile,
-                updatedLockfile,
-              ).pipe(
-                Effect.provide(fsLayer),
-                Effect.catch((error) =>
-                  writeWorkspaceTrustState(workspaceDir, trust).pipe(
-                    Effect.provideService(FileSystem.FileSystem, fs),
-                    Effect.provideService(Path.Path, path),
-                    Effect.catch(() => Effect.void),
-                    Effect.andThen(Effect.fail(error)),
-                  ),
-                ),
+            if (commit !== "receipt") {
+              yield* writeWorkspaceTrustState(workspaceDir, nextTrust).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
               );
+            }
+            if (commit !== "authoritative" && updatedLockfile !== currentLockfile) {
+              yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, updatedLockfile, {
+                preserveTrust: true,
+              }).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.refreshPackContentIdentity")),
@@ -1918,7 +1936,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.commands ?? {})[name])),
         ),
 
-      setCommand: ({ name, lockEntry, versionRange }: SetCommandArgs) =>
+      setCommand: ({ name, lockEntry, versionRange, commit }: SetCommandArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
@@ -1951,15 +1969,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setCommand")),
 
-      setCommandLock: ({ name, lockEntry }: SetCommandArgs) =>
+      setCommandLock: ({ name, lockEntry, commit }: SetCommandArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -1972,11 +1986,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ),
 
@@ -2067,7 +2077,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredCommandEntries"),
         ),
 
-      setSubagent: ({ name, lockEntry, versionRange }: SetSubagentArgs) =>
+      setSubagent: ({ name, lockEntry, versionRange, commit }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
@@ -2109,15 +2119,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSubagent")),
 
-      setSubagentLock: ({ name, lockEntry }: SetSubagentArgs) =>
+      setSubagentLock: ({ name, lockEntry, commit }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -2136,11 +2142,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ),
 
@@ -2250,7 +2252,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry, versionRange, env, enabled }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, versionRange, env, enabled, commit }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -2308,15 +2310,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setMcpServer")),
 
-      setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
+      setMcpServerLock: ({ name, lockEntry, commit }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -2332,11 +2330,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ),
               },
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ),
 

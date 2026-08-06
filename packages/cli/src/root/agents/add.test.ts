@@ -27,7 +27,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
 
 const cursorSuggestion = {
@@ -36,6 +36,7 @@ const cursorSuggestion = {
 };
 
 const emptySkillManager = {
+  ...managerLifecycleStubs,
   type: "skill",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -48,6 +49,7 @@ const emptySkillManager = {
 } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
 
 const emptyCommandManager = {
+  ...managerLifecycleStubs,
   type: "command",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -60,6 +62,7 @@ const emptyCommandManager = {
 } satisfies ServiceMap.Service.Shape<typeof CommandManager>;
 
 const emptyMcpServerManager = {
+  ...managerLifecycleStubs,
   type: "mcp-server",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -72,6 +75,7 @@ const emptyMcpServerManager = {
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
 const emptyFilesManager = {
+  ...managerLifecycleStubs,
   type: "files",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -84,6 +88,7 @@ const emptyFilesManager = {
 } satisfies ServiceMap.Service.Shape<typeof FilesManager>;
 
 const emptyHookManager = {
+  ...managerLifecycleStubs,
   type: "hook",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -96,6 +101,7 @@ const emptyHookManager = {
 } satisfies ServiceMap.Service.Shape<typeof HookManager>;
 
 const emptyRuleManager = {
+  ...managerLifecycleStubs,
   type: "rule",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -108,6 +114,7 @@ const emptyRuleManager = {
 } satisfies ServiceMap.Service.Shape<typeof RuleManager>;
 
 const emptySubagentManager = {
+  ...managerLifecycleStubs,
   type: "subagent",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
@@ -120,6 +127,7 @@ const emptySubagentManager = {
 } satisfies ServiceMap.Service.Shape<typeof SubagentManager>;
 
 const emptyKnowledgeManager = {
+  ...managerLifecycleStubs,
   type: "knowledge",
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
@@ -135,6 +143,7 @@ const emptyKnowledgeManager = {
 } satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
 
 const emptyPackManager = {
+  ...managerLifecycleStubs,
   type: "pack",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,

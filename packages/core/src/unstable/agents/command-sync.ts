@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { selectRenderer, type CommandRenderOutcome } from "../commands/renderers/index.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import type {
   AddCommandArgs,
   CommandSyncOutcome,
@@ -96,6 +97,7 @@ export const writeCommandFile = (
 
     // Ensure directory exists
     const parentDir = path.dirname(filePath);
+    yield* protectWorkspacePath(filePath);
     yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -161,7 +163,15 @@ export const removeCommandFile = (
     if (relativePath === undefined) return unsupportedCommandOutcome(config.agentId);
     const filePath = path.join(commandsDir, relativePath);
 
-    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(filePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect command file: ${filePath}`,
+          cause: error,
+        }),
+      ),
+    );
 
     if (!exists) {
       return {
@@ -171,6 +181,7 @@ export const removeCommandFile = (
       } as const;
     }
 
+    yield* protectWorkspacePath(filePath);
     yield* fs.remove(filePath).pipe(
       Effect.mapError((error) =>
         makeAppError({

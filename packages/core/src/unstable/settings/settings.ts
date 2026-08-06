@@ -11,6 +11,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { writeFileAtomic } from "../utils/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,
@@ -144,6 +145,8 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
 
     // Serialize to JSON with pretty printing and trailing newline.
     const content = JSON.stringify(orderSettingsRecord(encoded), null, 2) + "\n";
+
+    yield* protectWorkspacePath(settingsPath);
 
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.

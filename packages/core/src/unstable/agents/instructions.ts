@@ -13,6 +13,7 @@ import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
 
@@ -431,6 +432,7 @@ const writeFile = (filePath: string, content: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* protectWorkspacePath(filePath);
     yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({

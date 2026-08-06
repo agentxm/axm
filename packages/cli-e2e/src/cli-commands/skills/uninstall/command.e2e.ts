@@ -17,7 +17,7 @@ describe("axm skills uninstall", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["setup", "--yes", "--non-interactive"], {
+        await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 

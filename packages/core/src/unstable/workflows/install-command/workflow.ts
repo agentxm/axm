@@ -77,7 +77,7 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  flags: { yes: boolean; force: boolean; preview: boolean; displayApplied?: boolean },
+  flags: { yes: boolean; preview: boolean; displayApplied?: boolean },
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -86,7 +86,11 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
       () => buildInstallCommandPlan(args, actions),
       { successMessage: "Resolved extension sources" },
     );
-    return yield* previewOrApplyPlan(plan, flags);
+    return yield* previewOrApplyPlan(plan, {
+      yes: flags.yes,
+      preview: flags.preview,
+      ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
+    });
   }).pipe(
     Effect.scoped,
     Effect.map((resolution): PlanResolution => resolution),

@@ -263,7 +263,6 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   };
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

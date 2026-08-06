@@ -3,7 +3,7 @@
  *
  * Tests the readiness model: ready steps execute their run closures,
  * error steps are promoted to error results without execution.
- * Also tests inter-job blocking and intra-job continuation.
+ * Also tests fail-fast blocking and explicit best-effort continuation.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -87,11 +87,25 @@ describe("applyPlan", () => {
     }),
   );
 
-  it.effect("promotes error steps to error results without execution", () =>
+  it.effect("fails readiness closed before executing any closure", () =>
     Effect.gen(function* () {
+      let appliedCount = 0;
       const executed = yield* applyPlan(
         makePlan({
           jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                {
+                  readiness: "ready",
+                  label: "would-mutate",
+                  run: Effect.sync(() => {
+                    appliedCount += 1;
+                    return { result: "success" as const, message: "mutated" };
+                  }),
+                },
+              ],
+            },
             {
               concurrency: 1,
               steps: [makeErrorStep("blocked", "depends on pack @org/pack")],
@@ -101,8 +115,13 @@ describe("applyPlan", () => {
       );
 
       const steps = executed.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(1);
+      expect(appliedCount).toBe(0);
+      expect(steps).toHaveLength(2);
       expect(steps[0]).toMatchObject({
+        label: "would-mutate",
+        result: { result: "error", message: "blocked by plan readiness error" },
+      });
+      expect(steps[1]).toMatchObject({
         label: "blocked",
         result: { result: "error", message: "depends on pack @org/pack" },
       });
@@ -194,7 +213,7 @@ describe("applyPlan", () => {
   );
 
   // ---------------------------------------------------------------------------
-  // Task 1.2: Inter-job blocking and intra-job continuation
+  // Task 1.2: Fail-fast blocking and explicit best-effort continuation
   // ---------------------------------------------------------------------------
 
   it.effect("blocks subsequent jobs when a step in earlier job fails at runtime", () =>
@@ -234,7 +253,7 @@ describe("applyPlan", () => {
     }),
   );
 
-  it.effect("continues executing sibling steps in same job after failure (intra-job)", () =>
+  it.effect("stops sibling steps after failure by default", () =>
     Effect.gen(function* () {
       const executed = yield* applyPlan(
         makePlan({
@@ -248,14 +267,54 @@ describe("applyPlan", () => {
       );
 
       const steps = at(executed.jobs, 0).steps;
-      // step-a fails but step-b still runs
       expect(at(steps, 0)).toMatchObject({
         label: "step-a",
         result: { result: "error" },
       });
       expect(at(steps, 1)).toMatchObject({
         label: "step-b",
+        result: { result: "error", message: "blocked by earlier step failure" },
+      });
+    }),
+  );
+
+  it.effect("continues independent siblings only with explicit best-effort policy", () =>
+    Effect.gen(function* () {
+      let appliedCount = 0;
+      const executed = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              executionPolicy: "best-effort",
+              steps: [
+                makeFailingReadyStep("step-a"),
+                {
+                  readiness: "ready",
+                  label: "step-b",
+                  run: Effect.sync(() => {
+                    appliedCount += 1;
+                    return { result: "success" as const, message: "Done step-b" };
+                  }),
+                },
+              ],
+            },
+            {
+              concurrency: 1,
+              steps: [makeReadyStep("later-job")],
+            },
+          ],
+        }),
+      );
+
+      expect(appliedCount).toBe(1);
+      expect(at(at(executed.jobs, 0).steps, 1)).toMatchObject({
+        label: "step-b",
         result: { result: "success" },
+      });
+      expect(at(at(executed.jobs, 1).steps, 0)).toMatchObject({
+        label: "later-job",
+        result: { result: "error", message: "blocked by earlier job failure" },
       });
     }),
   );

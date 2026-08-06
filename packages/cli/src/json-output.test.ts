@@ -64,6 +64,48 @@ describe("toPlanResolutionResult", () => {
     });
   });
 
+  it("includes destructive targets in preview JSON", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Uninstall skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "code-review",
+              artifact: {
+                path: ".axm/axm-lock.yaml",
+                scope: "project",
+                change: "removed",
+                targets: [
+                  { path: ".axm/axm-lock.yaml", change: "updated" },
+                  { path: ".agents/skills/code-review", change: "removed" },
+                ],
+              },
+              run: successfulRun,
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution).steps).toEqual([
+      {
+        label: "code-review",
+        status: "ready",
+        artifact: {
+          path: ".axm/axm-lock.yaml",
+          scope: "project",
+          change: "removed",
+          targets: [{ path: ".agents/skills/code-review", change: "removed" }],
+        },
+      },
+    ]);
+  });
+
   it("maps cancelled plans to cancelled outcome", () => {
     const resolution: CancelledPlan = {
       _tag: "CancelledPlan",

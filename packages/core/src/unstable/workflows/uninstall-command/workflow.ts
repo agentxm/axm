@@ -37,7 +37,6 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 
 export interface UninstallWorkflowFlags {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
   readonly displayApplied?: boolean;
   readonly sourceDisposition?: "keep" | "delete";
@@ -62,5 +61,9 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent, flags);
-    return yield* previewOrApplyPlan(plan, flags);
+    return yield* previewOrApplyPlan(plan, {
+      yes: flags.yes,
+      preview: flags.preview,
+      ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
+    });
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

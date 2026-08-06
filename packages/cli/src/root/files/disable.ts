@@ -93,7 +93,11 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "files.disable",
     headline: `Disabled files package ${args.name}`,

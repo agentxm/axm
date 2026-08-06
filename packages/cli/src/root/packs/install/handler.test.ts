@@ -1457,8 +1457,8 @@ describe("packs install handler", () => {
   // --force propagation to workspace previewOrApplyPlan
   // ---------------------------------------------------------------------------
 
-  describe("--force propagation", () => {
-    it.effect("--force in workspace options applies and reports plan errors structurally", () => {
+  describe("readiness gate", () => {
+    it.effect("rejects plan errors even when confirmation is bypassed", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -1483,17 +1483,13 @@ describe("packs install handler", () => {
           };
           const result = yield* previewOrApplyPlan(plan, {
             yes: true,
-            force: true,
             preview: false,
-          });
+          }).pipe(Effect.flip);
           expect(logs.warn).toEqual([]);
-          expect(result._tag).toBe("ExecutedPlan");
-          if (result._tag === "ExecutedPlan") {
-            expect(result.jobs[0]?.steps[0]).toMatchObject({
-              label: "test-step",
-              result: { result: "error", message: "Test error step" },
-            });
-          }
+          expect(result).toMatchObject({
+            code: "conflict",
+            detail: "Plan has errors that prevent execution",
+          });
         }),
       );
     });

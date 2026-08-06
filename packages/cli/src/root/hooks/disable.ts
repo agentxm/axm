@@ -120,7 +120,11 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "hooks.disable",
     headline: `Disabled hooks package ${args.name}`,

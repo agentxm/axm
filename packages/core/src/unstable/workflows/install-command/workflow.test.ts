@@ -14,7 +14,7 @@ import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
-import { WorkspaceMutations } from "../../workspace/index.js";
+import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   type InstallExtensionCommandWorkflowActions,
@@ -44,12 +44,14 @@ const makeTestLayer = () => {
 
 const makeTestContext = () => {
   const renderer = TestRenderer.make();
+  const interaction = ResolvePlanInteractionTest();
   return {
     layer: Layer.mergeAll(
       NodeServices.layer,
       renderer.layer,
       WorkspaceMutations.layer(makeMockWorkspace()),
       TestFlagsLayer(),
+      interaction.layer,
     ),
     rendererState: renderer.state,
   };
@@ -85,7 +87,6 @@ describe("runInstallCommandWorkflow", () => {
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "review" }, actions, {
         yes: true,
-        force: false,
         preview: false,
       });
 
@@ -142,7 +143,6 @@ describe("runInstallCommandWorkflow", () => {
 
         yield* runInstallCommandWorkflow({ name: "test-skill" }, actions, {
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -181,7 +181,6 @@ describe("runInstallCommandWorkflow", () => {
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
         yes: false,
-        force: false,
         preview: false,
       });
       // previewOrApplyPlan is now a free function; buildPlan output flows through automatically
@@ -236,7 +235,6 @@ describe("runInstallCommandWorkflow", () => {
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
         yes: true,
-        force: false,
         preview: false,
       });
 
@@ -293,7 +291,6 @@ describe("runInstallCommandWorkflow", () => {
 
       yield* runInstallCommandWorkflow({ name: "my-skill" }, actions, {
         yes: false,
-        force: false,
         preview: false,
       });
 
@@ -329,7 +326,6 @@ describe("runInstallCommandWorkflow", () => {
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
@@ -354,7 +350,6 @@ describe("runInstallCommandWorkflow", () => {
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
@@ -398,7 +393,6 @@ describe("runInstallCommandWorkflow", () => {
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
         yes: false,
-        force: false,
         preview: false,
       }).pipe(Effect.exit);
 

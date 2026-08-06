@@ -308,12 +308,12 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/subagents/planner"), {
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
 
-        expect(logs.success).toEqual(["Already up to date — planner 1.2.3"]);
+        expect(logs.success).toEqual(["  + planner", "Already up to date — planner 1.2.3"]);
       }),
     );
   });

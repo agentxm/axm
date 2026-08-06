@@ -59,7 +59,7 @@ const defaultArgs = (
   overrides: Partial<EnableCommandHandlerArgs> = {},
 ): EnableCommandHandlerArgs => ({
   name: extensionName(name),
-  yes: false,
+  yes: true,
   force: false,
   preview: false,
   ...overrides,
@@ -256,7 +256,7 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd"));
 
-          expect(logs.success).toEqual([]);
+          expect(logs.success).toEqual(["  + my-cmd"]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

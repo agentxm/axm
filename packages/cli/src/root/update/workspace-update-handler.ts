@@ -24,7 +24,6 @@ const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>)
 
 export interface WorkspaceUpdateFlags {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -64,9 +63,15 @@ export const handleWorkspaceUpdate = (args: {
       return;
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
+    const resolution = yield* previewOrApplyPlan(planResult.plan, {
+      yes: args.flags.yes,
+      preview: args.flags.preview,
+    });
     let outputResolution: PlanResolution = resolution;
-    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
+    if (
+      resolution._tag === "ExecutedPlan" &&
+      (Option.isNone(args.type) || args.type.value === "files")
+    ) {
       const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
         dryRun: false,
       });

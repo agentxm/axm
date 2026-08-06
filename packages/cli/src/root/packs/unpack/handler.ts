@@ -227,7 +227,6 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
 
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("packs.unpack", resolution);

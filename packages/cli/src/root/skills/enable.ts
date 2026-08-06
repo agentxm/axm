@@ -85,7 +85,6 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

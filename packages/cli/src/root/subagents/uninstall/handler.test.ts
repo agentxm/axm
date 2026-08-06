@@ -230,7 +230,7 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });
@@ -267,7 +267,7 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
-            yes: false,
+            yes: true,
             force: false,
             preview: false,
           });

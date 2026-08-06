@@ -307,7 +307,6 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   // Step 9: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("subagents.update", resolution);

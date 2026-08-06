@@ -30,7 +30,6 @@ import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
-  ResolvePlanInteraction,
   WorkspaceMutations,
   resolveConfiguredCommand,
   resolveConfiguredFiles,
@@ -257,22 +256,8 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  if (!args.preview && !args.yes) {
-    const interaction = yield* ResolvePlanInteraction;
-    const confirmed = yield* interaction.confirmApplyChanges();
-    if (!confirmed) {
-      yield* emitPlanResolutionResult("demote", {
-        _tag: "CancelledPlan",
-        name: plan.name,
-        description: plan.description,
-        jobs: plan.jobs,
-      });
-      return;
-    }
-  }
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: false,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("demote", resolution);

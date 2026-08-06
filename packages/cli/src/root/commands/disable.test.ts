@@ -61,7 +61,7 @@ const defaultArgs = (
   overrides: Partial<DisableCommandHandlerArgs> = {},
 ): DisableCommandHandlerArgs => ({
   name: extensionName(name),
-  yes: false,
+  yes: true,
   force: false,
   preview: false,
   ...overrides,

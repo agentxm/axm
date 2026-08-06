@@ -272,7 +272,6 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   // agent materializes installed extensions, which needs a readable lockfile.
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

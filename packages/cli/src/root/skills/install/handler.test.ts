@@ -504,10 +504,10 @@ describe("skills install handler — error propagation", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // --force propagation to workspace previewOrApplyPlan
+  // Readiness gate
   // ---------------------------------------------------------------------------
 
-  it.effect("--force in workspace options applies and reports plan errors structurally", () => {
+  it.effect("rejects plan errors even when confirmation is bypassed", () => {
     const { provide, logs } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
@@ -530,15 +530,14 @@ describe("skills install handler — error propagation", () => {
             },
           ],
         };
-        const result = yield* previewOrApplyPlan(plan, { yes: false, force: true, preview: false });
+        const error = yield* previewOrApplyPlan(plan, { yes: true, preview: false }).pipe(
+          Effect.flip,
+        );
         expect(logs.warn).toEqual([]);
-        expect(result._tag).toBe("ExecutedPlan");
-        if (result._tag === "ExecutedPlan") {
-          expect(result.jobs[0]?.steps[0]).toMatchObject({
-            label: "test-step",
-            result: { result: "error", message: "Test error step" },
-          });
-        }
+        expect(error).toMatchObject({
+          code: "conflict",
+          detail: "Plan has errors that prevent execution",
+        });
       }),
     );
   });

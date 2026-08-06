@@ -64,7 +64,11 @@ export const handleEnableMcpServer = Effect.fn("EnableMcpServer.handle")(functio
     description: Option.some(`Enable ${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "mcps.enable",
     headline: `Enabled MCP server ${args.name}`,

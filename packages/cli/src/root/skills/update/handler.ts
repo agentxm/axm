@@ -583,7 +583,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   // Step 11: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,
-    force: args.force,
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("skills.update", resolution);

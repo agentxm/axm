@@ -59,7 +59,7 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
@@ -90,7 +90,10 @@ describe("mcps-new.handler", () => {
           version: "0.1.0",
           sourceHash: expect.any(String),
         });
-        expect(logs.success).toEqual(["Created MCP server @acme/mcps/context with 2 targets"]);
+        expect(logs.success).toEqual([
+          "  + @acme/mcps/context",
+          "Created MCP server @acme/mcps/context with 2 targets",
+        ]);
         expect(rendererState.suggestions).toEqual([
           {
             description:
@@ -111,12 +114,15 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
 
-        expect(logs.success).toEqual(["Created MCP server @acme/mcps/context for 1 agent"]);
+        expect(logs.success).toEqual([
+          "  + @acme/mcps/context",
+          "Created MCP server @acme/mcps/context for 1 agent",
+        ]);
         const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
         const result = expectAppliedPlanResult(renderedResult.data, {
           planName: "New MCP server",

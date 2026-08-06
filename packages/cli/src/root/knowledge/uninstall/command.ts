@@ -25,13 +25,12 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, force, preview, keepSource, deleteSource }) =>
+  ({ name, scope, yes, preview, keepSource, deleteSource }) =>
     Effect.gen(function* () {
       const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
       const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
       const resolution = yield* runUninstallCommandWorkflow({ name }, actions, {
         yes,
-        force,
         preview,
         displayApplied: false,
         ...(sourceDisposition === undefined ? {} : { sourceDisposition }),

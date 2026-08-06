@@ -67,7 +67,11 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "rules.enable",
     headline: `Enabled rule ${args.name}`,

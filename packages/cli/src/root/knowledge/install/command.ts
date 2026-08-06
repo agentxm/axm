@@ -23,7 +23,7 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview }) =>
+  ({ source, scope, yes, preview }) =>
     Option.match(source, {
       onNone: () =>
         handleWorkspaceInstall({
@@ -31,7 +31,7 @@ export const installCommand = Command.make(
           type: Option.some("knowledge"),
           planName: "Install Knowledge",
           planDescription: Option.some("Install configured Knowledge bundles"),
-          flags: { yes, force, preview },
+          flags: { yes, preview },
         }),
       onSome: (value) =>
         Effect.gen(function* () {
@@ -41,7 +41,6 @@ export const installCommand = Command.make(
           const actions = yield* InstallKnowledgeCommandWorkflowActions;
           const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
             yes,
-            force,
             preview,
             displayApplied: false,
           });

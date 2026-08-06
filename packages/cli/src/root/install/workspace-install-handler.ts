@@ -25,7 +25,6 @@ const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableTyp
 
 export interface WorkspaceInstallFlags {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -62,9 +61,15 @@ export const handleWorkspaceInstall = (args: {
       return;
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
+    const resolution = yield* previewOrApplyPlan(planResult.plan, {
+      yes: args.flags.yes,
+      preview: args.flags.preview,
+    });
     let outputResolution: PlanResolution = resolution;
-    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
+    if (
+      resolution._tag === "ExecutedPlan" &&
+      (Option.isNone(args.type) || args.type.value === "files")
+    ) {
       const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
         dryRun: false,
       });
@@ -108,6 +113,9 @@ export const runWorkspaceInstall = (args: {
       return Option.none<PlanResolution>();
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
+    const resolution = yield* previewOrApplyPlan(planResult.plan, {
+      yes: args.flags.yes,
+      preview: args.flags.preview,
+    });
     return Option.some(resolution);
   });

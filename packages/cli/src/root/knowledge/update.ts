@@ -28,7 +28,7 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, preview }) =>
     Effect.gen(function* () {
       const selection = yield* resolveWorkspaceUpdateSelection({
         command: COMMAND,
@@ -47,7 +47,7 @@ export const updateCommand = Command.make(
         type: Option.some("knowledge"),
         planName: PLAN_NAME,
         planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { yes, force, preview },
+        flags: { yes, preview },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
     }).pipe(withWorkspace(scope), withRuntime("knowledge update")),

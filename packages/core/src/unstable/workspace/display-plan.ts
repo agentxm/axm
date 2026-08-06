@@ -180,18 +180,31 @@ const renderPlannedHeading = (plan: Plan, allSteps: ReadonlyArray<PlannedJobStep
 const renderPlannedStep = (
   step: PlannedJobStep,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
-) => {
-  switch (step.readiness) {
-    case "ready":
-      return renderer.success(
-        step.message === undefined ? `  + ${step.label}` : `  + ${step.label} (${step.message})`,
-      );
-    case "warn":
-      return renderer.warn(`  ${step.label} (${step.warnMessage})`);
-    case "error":
-      return renderer.error(`  ${step.label} (${step.errorMessage})`);
-  }
-};
+) =>
+  Effect.gen(function* () {
+    switch (step.readiness) {
+      case "ready":
+        yield* renderer.success(
+          step.message === undefined ? `  + ${step.label}` : `  + ${step.label} (${step.message})`,
+        );
+        break;
+      case "warn":
+        yield* renderer.warn(`  ${step.label} (${step.warnMessage})`);
+        break;
+      case "error":
+        yield* renderer.error(`  ${step.label} (${step.errorMessage})`);
+        break;
+    }
+
+    if (step.artifact === undefined) return;
+    const targets =
+      step.artifact.targets === undefined || step.artifact.targets.length === 0
+        ? [{ path: step.artifact.path, change: step.artifact.change }]
+        : step.artifact.targets;
+    for (const target of targets) {
+      yield* renderer.message(`    ${target.change}: ${target.path}`);
+    }
+  });
 
 const renderCompletedStep = (
   step: CompletedJobStep,

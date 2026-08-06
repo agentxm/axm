@@ -97,7 +97,7 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleEnableMcpServer({
           name: "context",
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
@@ -130,12 +130,12 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleEnableMcpServer({
           name: "context",
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });
 
-        expect(logs.success).toEqual(["Enabled MCP server context"]);
+        expect(logs.success).toEqual(["  + context", "Enabled MCP server context"]);
         expect(rendererState.summaries).toEqual([
           "context   updated   2 files   .axm (config/lockfile) (updated), .mcp.json (created) [claude-code]",
         ]);
@@ -177,7 +177,7 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleDisableMcpServer({
           name: "context",
-          yes: false,
+          yes: true,
           force: false,
           preview: false,
         });

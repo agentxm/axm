@@ -64,7 +64,11 @@ export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(funct
     description: Option.some(`Disable ${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    preview: args.preview,
+    displayApplied: false,
+  });
   yield* emitAppliedPlanOutcome({
     command: "mcps.disable",
     headline: `Disabled MCP server ${args.name}`,

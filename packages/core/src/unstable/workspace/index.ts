@@ -163,7 +163,6 @@ export {
   type ExtensionInventoryLifecycle,
   type ExtensionInventoryObservation,
   type ExtensionInventoryRow,
-  type IgnoredInventoryCandidate,
   type LifecycleInventoryCandidate,
   type ProjectExtensionInventoryInput,
 } from "./read-model/extensions/inventory.js";

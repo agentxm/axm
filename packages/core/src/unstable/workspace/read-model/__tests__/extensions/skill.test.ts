@@ -25,7 +25,6 @@ const harness = (params: {
   readonly lockfile?: Lockfile;
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
   readonly agentDirOccurrences?: ReadonlyArray<AgentDirOccurrence>;
-  readonly ignoredNames?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -41,7 +40,6 @@ const harness = (params: {
         agentDir: Effect.succeed(params.agentDirOccurrences ?? []),
       },
       installedPacks: Effect.succeed([]),
-      ignoredPatterns: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };
@@ -175,23 +173,6 @@ describe("makeSkillExtensionsApi", () => {
       const unmanaged = yield* api.unmanaged;
       expect(unmanaged).toHaveLength(1);
       expect(unmanaged[0]?.key.name).toBe("legacy");
-    }),
-  );
-
-  it.effect("ignored row carries reason and is suppressed from installed", () =>
-    Effect.gen(function* () {
-      const settings = yield* settingsWithSkills({
-        alpha: { source: "github:owner/alpha", enabled: true },
-      });
-      const { api } = yield* harness({
-        settings,
-        ignoredNames: ["alpha"],
-      });
-      const ignored = yield* api.ignored;
-      const installed = yield* api.installed;
-      expect(installed).toHaveLength(0);
-      expect(ignored).toHaveLength(1);
-      expect(ignored[0]?.reason).toBe("declared-ignored");
     }),
   );
 });

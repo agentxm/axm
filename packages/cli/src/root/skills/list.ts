@@ -10,12 +10,11 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryActivation,
-  inventoryIgnoredBy,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -24,7 +23,6 @@ import {
 
 export interface ListHandlerArgs {
   readonly agents: readonly string[];
-  readonly includeIgnored: boolean;
 }
 
 interface SkillListItem {
@@ -33,7 +31,6 @@ interface SkillListItem {
   readonly state: string;
   readonly activation: string;
   readonly agents: ReadonlyArray<string>;
-  readonly ignoredBy: string;
 }
 
 const SkillListTable = {
@@ -46,7 +43,6 @@ const SkillListTable = {
       header: "Agents",
       render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
     },
-    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<SkillListItem>;
 
@@ -63,7 +59,6 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("skill", {
-    includeIgnored: args.includeIgnored,
     agents: args.agents,
   });
   const locked = yield* ws.getLockedSkills();
@@ -73,7 +68,6 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     state: inventoryState(row),
     activation: inventoryActivation(row),
     agents: row.agents,
-    ignoredBy: inventoryIgnoredBy(row),
   }));
   const output = augmentInventory(inventory, (row) => ({
     sourceType: locked[row.name]?.type ?? "detected",
@@ -104,11 +98,10 @@ const listConfig = {
     Flag.withDescription("Show only skills detected for specific agents"),
     Flag.atLeast(0),
   ),
-  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, agent, includeIgnored }) =>
-  handleList({ agents: agent, includeIgnored }).pipe(
+export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
+  handleList({ agents: agent }).pipe(
     withWorkspace({ scope, allowUninitialized: true }),
     withRuntime("skills list"),
   ),

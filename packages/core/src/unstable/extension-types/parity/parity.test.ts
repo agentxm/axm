@@ -20,7 +20,6 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import { LOCK_ENTRY_SCHEMA_BY_TYPE } from "../../lockfile/schema.js";
-import { SETTINGS_CONFIG_SCHEMA_BY_TYPE } from "../../settings/schema.js";
 import { READ_MODEL_EXTENSION_FAMILY_BY_TYPE } from "../../workspace/read-model/service.js";
 import { CATALOG_EXTENSION_TYPES, type CatalogExtensionType } from "../schema.js";
 import { exemptedObligations } from "./exemptions.js";
@@ -72,7 +71,7 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
       sourceHash: "sha256-0123456789abcdef",
     }),
   "2.9-read-model-family": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
-  "2.11-ignore-config": (type) => SETTINGS_CONFIG_SCHEMA_BY_TYPE[type] !== null,
+  "2.11-ownership-safe-prune": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
   "2.12-workspace-reconciliation": (type) =>
     WORKSPACE_RECONCILIATION_OBLIGATIONS[type] !== undefined,
   "6.1-e2e-install-row": null,

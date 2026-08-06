@@ -39,7 +39,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     .pipe(Effect.map(installedRowsByName));
   const entry = installedSubagents[subagentName];
 
-  // Validate: subagent is installed (ignored names are excluded from installed)
+  // Validate: subagent is installed.
   if (entry === undefined) {
     return yield* makeAppError({
       code: "not_found",

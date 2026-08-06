@@ -35,7 +35,7 @@ import {
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));
 
-/** Build candidate skill names and on-disk locations from all available sources, excluding ignored. */
+/** Build candidate skill names and on-disk locations from all available sources. */
 const buildCandidates = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
@@ -86,7 +86,7 @@ const buildCandidates = Effect.gen(function* () {
     }
   }
 
-  // Candidate set: installed + unmanaged (both exclude ignored names via read-model record)
+  // Candidate set: installed + unmanaged.
   const names = sortNames(
     Array.dedupe([
       ...Object.keys(installedSkills),
@@ -95,14 +95,7 @@ const buildCandidates = Effect.gen(function* () {
     ]),
   );
 
-  // Filter out ignored names from on-disk discoveries
-  const ignoredPatterns = yield* ws.getIgnoredSkillPatterns();
-  const filteredNames =
-    ignoredPatterns.length > 0
-      ? names.filter((name) => !expandGlobs(ignoredPatterns, [name]).length)
-      : names;
-
-  return { names: filteredNames, configuredSkills, onDiskByName } as const;
+  return { names, configuredSkills, onDiskByName } as const;
 });
 
 /** Resolve a single skill name with fallbacks: resolveSource → configured source → on-disk path. */

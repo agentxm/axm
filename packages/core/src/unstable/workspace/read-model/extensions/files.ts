@@ -8,9 +8,8 @@
  * files rendering directory. Pack members arrive through the pack lock
  * `resolvedFiles` map.
  *
- * The projection helper still owns ignored/unmanaged behavior: a canonical
- * files occurrence whose name matches an ignored pattern produces an ignored
- * row; otherwise it surfaces in `unmanaged`.
+ * Canonical files occurrences without declared or pack ownership surface in
+ * `unmanaged`.
  */
 
 import * as Effect from "effect/Effect";
@@ -29,7 +28,6 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -87,24 +85,6 @@ export interface UnmanagedFilesPackage {
   readonly actual: ActualFilesPackage;
 }
 
-export type IgnoredFilesCandidate =
-  | {
-      readonly key: ExtensionKey<"files">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredFilesPackage;
-    }
-  | {
-      readonly key: ExtensionKey<"files">;
-      readonly reason: "pack-member-ignored";
-      readonly member: FilesPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"files">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualFilesPackage;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -159,7 +139,6 @@ export interface FilesExtensionsApiDeps {
   readonly loaders: FilesScopedLoaders;
   readonly scanners: FilesScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>>;
-  readonly ignoredNames: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -174,7 +153,6 @@ export interface FilesExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredFilesPackage>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledFilesPackage>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedFilesPackage>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredFilesCandidate>>;
 }
 
 const SUBJECT_KEY = "files";
@@ -193,8 +171,7 @@ const filesPolicy = (
   ActualFiles,
   FilesPackMember,
   InstalledFilesPackage,
-  UnmanagedFilesPackage,
-  IgnoredFilesCandidate
+  UnmanagedFilesPackage
 > => ({
   declaredEntries: (d) => d,
   declaredName: (entry) => entry.name,
@@ -204,7 +181,6 @@ const filesPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -220,22 +196,6 @@ const filesPolicy = (
     key: { scope, type: "files", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "files", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "files", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "files", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -248,7 +208,7 @@ export const makeFilesExtensionsApi = (
   deps: FilesExtensionsApiDeps,
 ): Effect.Effect<FilesExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, ignoredNames, diagnostics } = deps;
+    const { scope, scanners, diagnostics } = deps;
 
     const declared: FilesExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -272,12 +232,10 @@ export const makeFilesExtensionsApi = (
           readonly files: ReadonlyArray<FilesPackMember>;
         }): ReadonlyArray<FilesPackMember> => pack.files,
         packRef: (pack) => pack.ref,
-        ignoredNames,
         policy: filesPolicy(scope),
         diagnostics,
       }),
     );
-
     return {
       ...makeProjectedSubjectCells({
         declared,

@@ -8,7 +8,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const pruneConfig = {
   patterns: Argument.string("patterns").pipe(
-    Argument.withDescription("Glob patterns to filter which unmanaged extensions to prune"),
+    Argument.withDescription("Glob patterns to filter which stale AXM-owned state to prune"),
     Argument.atLeast(0),
   ),
   scope: scopeFlag.pipe(
@@ -21,19 +21,19 @@ export const pruneCommand = Command.make("prune", pruneConfig, ({ patterns, scop
   handleRootPrune({ patterns }, { yes }).pipe(withWorkspace(scope), withRuntime("prune")),
 ).pipe(
   withArgvTracking(pruneConfig),
-  Command.withDescription("Clean up any extensions not managed by axm"),
+  Command.withDescription("Clean up stale state whose AXM ownership can be proven"),
   Command.withExamples([
     {
       command: "axm prune",
-      description: "Preview unmanaged extension artifacts that can be removed",
+      description: "Preview stale AXM-owned artifacts and state that can be removed",
     },
     {
       command: "axm prune --yes",
-      description: "Remove all unmanaged extension artifacts",
+      description: "Remove all stale state whose AXM ownership can be proven",
     },
     {
       command: "axm prune effect-*",
-      description: "Preview unmanaged extensions matching a glob pattern",
+      description: "Preview stale AXM-owned state matching a glob pattern",
     },
     {
       command: "axm prune --json",

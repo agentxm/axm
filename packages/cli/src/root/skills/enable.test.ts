@@ -162,46 +162,6 @@ describe("enable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Read-model record: ignored skill excluded from installed
-  // ---------------------------------------------------------------------------
-
-  describe("read-model records: ignored skill excluded", () => {
-    it.effect("fails for ignored implicit skill (treated as not installed)", () => {
-      const { provide } = makeLayers();
-      // Implicit skill: in lockfile only (registry type = native), with ignored pattern
-      initWorkspace(
-        path.join(tempDir, ".axm"),
-        {},
-        {
-          "code-review": {
-            type: "registry",
-            owner: "@acme",
-            name: "code-review",
-            resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            publisherBindingId: "hbnd_test",
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        },
-      );
-      // Add ignored pattern that matches the skill
-      const settingsPath = path.join(tempDir, ".axm", "settings.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.skillsConfig = { ignore: ["code-review"] };
-      fs.writeFileSync(settingsPath, JSON.stringify(settings));
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleEnable(defaultArgs("code-review")).pipe(Effect.flip);
-          expect(getAppError(error).detail).toContain("is not installed");
-        }),
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
   // Promoted transitive skill re-enable
   // ---------------------------------------------------------------------------
 

@@ -525,7 +525,6 @@ const isObservedMaterializationCurrent = (
 ): Effect.Effect<boolean, AppError> =>
   ws.records
     .getExtensionInventory(node.type, {
-      includeIgnored: false,
       ...(configuredAgents.length > 0 &&
       (node.type === "skill" ||
         node.type === "command" ||
@@ -536,10 +535,7 @@ const isObservedMaterializationCurrent = (
     })
     .pipe(
       Effect.map((inventory) => {
-        const observed = inventory.items.find(
-          (item) =>
-            item.name === node.name && item.classification.kind === "lifecycle" && item.installed,
-        );
+        const observed = inventory.items.find((item) => item.name === node.name && item.installed);
         if (observed === undefined) return false;
         if (
           node.type !== "skill" &&

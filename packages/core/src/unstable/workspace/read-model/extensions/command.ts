@@ -25,7 +25,6 @@ import type {
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -84,24 +83,6 @@ export interface UnmanagedCommand {
   readonly key: ExtensionKey<"command">;
   readonly actual: ActualCommand;
 }
-
-export type IgnoredCommandCandidate =
-  | {
-      readonly key: ExtensionKey<"command">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredCommand;
-    }
-  | {
-      readonly key: ExtensionKey<"command">;
-      readonly reason: "pack-member-ignored";
-      readonly member: CommandPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"command">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualCommand;
-    };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -167,7 +148,6 @@ export interface CommandExtensionsApiDeps {
   readonly loaders: CommandScopedLoaders;
   readonly scanners: CommandScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForCommands>>;
-  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -182,7 +162,6 @@ export interface CommandExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredCommand>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledCommand>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedCommand>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredCommandCandidate>>;
 }
 
 const SUBJECT_KEY = "command";
@@ -201,8 +180,7 @@ const commandPolicy = (
   ActualCommands,
   CommandPackMember,
   InstalledCommand,
-  UnmanagedCommand,
-  IgnoredCommandCandidate
+  UnmanagedCommand
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
@@ -212,7 +190,6 @@ const commandPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -228,22 +205,6 @@ const commandPolicy = (
     key: { scope, type: "command", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "command", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -256,7 +217,7 @@ export const makeCommandExtensionsApi = (
   deps: CommandExtensionsApiDeps,
 ): Effect.Effect<CommandExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
 
     const declared: CommandExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -290,7 +251,6 @@ export const makeCommandExtensionsApi = (
           readonly members: ReadonlyArray<CommandPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames: ignoredPatterns,
         policy: commandPolicy(scope),
         diagnostics,
       }),

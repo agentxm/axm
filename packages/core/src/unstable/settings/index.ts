@@ -12,7 +12,6 @@
 export type {
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
-  CommandsConfig,
   CommandEntry,
   CommandsMap,
   FilesEntry,
@@ -27,11 +26,9 @@ export type {
   KnowledgeMap,
   InstructionsConfig,
   InstructionsConfigValue,
-  McpServersConfig,
   McpServerEntry,
   McpServersMap,
   MinimumReleaseAge,
-  PacksConfig,
   PackEntry,
   PacksMap,
   RegistrySourceHostConfig,
@@ -39,10 +36,8 @@ export type {
   RuleEntry,
   RulesMap,
   Settings,
-  SkillsConfig,
   SkillEntry,
   SkillsMap,
-  SubagentsConfig,
   SubagentEntry,
   SubagentsMap,
   SourceHostConfig,
@@ -51,7 +46,6 @@ export type {
 export {
   CommandEntryObjectSchema,
   CommandEntrySchema,
-  CommandsConfigSchema,
   CommandsMapSchema,
   FilesEntryObjectSchema,
   FilesEntrySchema,
@@ -65,12 +59,10 @@ export {
   KnowledgeConfigSchema,
   KnowledgeMapSchema,
   InstructionsConfigSchema,
-  McpServersConfigSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
   McpServersMapSchema,
   MinimumReleaseAgeSchema,
-  PacksConfigSchema,
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
@@ -80,20 +72,15 @@ export {
   RulesMapSchema,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
-  SkillsConfigSchema,
   SkillEntryObjectSchema,
   SkillEntrySchema,
   SkillsMapSchema,
-  SubagentsConfigSchema,
   SubagentEntryObjectSchema,
   SubagentEntrySchema,
   SubagentsMapSchema,
   SourceHostConfigSchema,
   WorkspaceVarsMapSchema,
 } from "./schema.js";
-
-// Ignored patterns
-export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
 
 // Settings I/O
 export {

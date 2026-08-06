@@ -11,7 +11,6 @@
  * - pack-provided-subagent-is-implicit
  * - direct-subagent-wins-over-pack-membership (with disabled)
  * - disabled-direct-skill-still-claims-actual
- * - ignored-skill-suppressed-but-raw-visible
  * - subject-lockfile-entry-alone-does-not-create-implicit-inventory
  * - packs-are-not-installed-as-pack-members
  *
@@ -64,18 +63,12 @@ const settingsJson = (params: {
     string | { readonly source: string; readonly enabled?: boolean }
   >;
   readonly packs?: Record<string, string | { readonly source: string }>;
-  readonly skillsConfig?: { readonly ignore?: ReadonlyArray<string> };
-  readonly commandsConfig?: { readonly ignore?: ReadonlyArray<string> };
-  readonly subagentsConfig?: { readonly ignore?: ReadonlyArray<string> };
 }): object => {
   const out: Record<string, unknown> = {};
   if (params.skills !== undefined) out["skills"] = params.skills;
   if (params.commands !== undefined) out["commands"] = params.commands;
   if (params.subagents !== undefined) out["subagents"] = params.subagents;
   if (params.packs !== undefined) out["packs"] = params.packs;
-  if (params.skillsConfig !== undefined) out["skillsConfig"] = params.skillsConfig;
-  if (params.commandsConfig !== undefined) out["commandsConfig"] = params.commandsConfig;
-  if (params.subagentsConfig !== undefined) out["subagentsConfig"] = params.subagentsConfig;
   return out;
 };
 
@@ -411,86 +404,6 @@ describe("projection: disabled direct skill still claims actual materialization"
             expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
           }),
       ),
-  );
-});
-
-describe("projection: ignored skill is suppressed but raw evidence remains visible", () => {
-  it.effect(
-    "ignored skill: declared/actual stay visible; installed/unmanaged exclude; ignored.length>0",
-    () =>
-      runScenario(
-        projectSpec({
-          settings: {
-            _tag: "valid",
-            contents: settingsJson({
-              skills: { "review-tool": "github:owner/review-tool" },
-              skillsConfig: { ignore: ["review-tool"] },
-            }),
-          },
-          agentDirs: {
-            "claude-code": {
-              "skills/review-tool/SKILL.md": "# review\n",
-            },
-          },
-        }),
-        (ctx) =>
-          Effect.gen(function* () {
-            const project = ctx.scope("project");
-            const declared = yield* project.skills.declared;
-            const actual = yield* project.skills.actual;
-            const installed = yield* project.skills.installed;
-            const unmanaged = yield* project.skills.unmanaged;
-            const ignored = yield* project.skills.ignored;
-
-            // Declared and actual remain visible regardless of ignored policy.
-            expect(declared._tag).toBe("Some");
-            if (declared._tag === "Some") {
-              expect(declared.value.some((d) => d.name === "review-tool")).toBe(true);
-            }
-            expect(actual.some((a) => a.key.name === "review-tool")).toBe(true);
-            expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
-            expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
-            expect(ignored.filter((row) => row.reason === "declared-ignored")).toHaveLength(1);
-            expect(ignored.filter((row) => row.reason === "actual-ignored")).toHaveLength(
-              actual.filter((row) => row.key.name === "review-tool").length,
-            );
-          }),
-      ),
-  );
-
-  it.effect("command ignore globs suppress unmanaged commands and populate ignored", () =>
-    runScenario(
-      projectSpec({
-        settings: {
-          _tag: "valid",
-          contents: settingsJson({
-            commandsConfig: { ignore: ["local-*"] },
-          }),
-        },
-        agentDirs: {
-          "claude-code": {
-            "commands/local-build/local-build.md": "# local\n",
-            "commands/manual/manual.md": "# manual\n",
-          },
-        },
-      }),
-      (ctx) =>
-        Effect.gen(function* () {
-          const project = ctx.scope("project");
-          const actual = yield* project.commands.actual;
-          const unmanaged = yield* project.commands.unmanaged;
-          const ignored = yield* project.commands.ignored;
-
-          expect(actual.some((a) => a.key.name === "local-build")).toBe(true);
-          expect(unmanaged.some((u) => u.key.name === "local-build")).toBe(false);
-          expect(unmanaged.some((u) => u.key.name === "manual")).toBe(true);
-          expect(
-            ignored.some(
-              (row) => row.reason === "actual-ignored" && row.key.name === "local-build",
-            ),
-          ).toBe(true);
-        }),
-    ),
   );
 });
 

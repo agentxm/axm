@@ -44,9 +44,7 @@ const allowedReceiptReaders = [
   // Read-only presentation and maintenance.
   "packages/cli/src/root/commands/list.ts",
   "packages/cli/src/root/files/list.ts",
-  "packages/cli/src/root/files/prune.ts",
   "packages/cli/src/root/hooks/list.ts",
-  "packages/cli/src/root/hooks/prune.ts",
   "packages/cli/src/root/knowledge/inspect.ts",
   "packages/cli/src/root/mcps/list.ts",
   "packages/cli/src/root/packs/list.ts",

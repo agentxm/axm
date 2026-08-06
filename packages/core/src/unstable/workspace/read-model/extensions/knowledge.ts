@@ -34,7 +34,6 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -87,18 +86,6 @@ export interface UnmanagedKnowledgeBundle {
   readonly actual: ActualKnowledgeBundle;
 }
 
-export type IgnoredKnowledgeCandidate =
-  | {
-      readonly key: ExtensionKey<"knowledge">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredKnowledgeBundle;
-    }
-  | {
-      readonly key: ExtensionKey<"knowledge">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualKnowledgeBundle;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -150,7 +137,6 @@ export interface KnowledgeExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: KnowledgeScopedLoaders;
   readonly scanners: KnowledgeScanners;
-  readonly ignoredNames: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -165,7 +151,6 @@ export interface KnowledgeExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredKnowledgeBundle>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledKnowledgeBundle>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedKnowledgeBundle>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredKnowledgeCandidate>>;
 }
 
 const SUBJECT_KEY = "knowledge";
@@ -184,11 +169,10 @@ const knowledgePolicy = (
   ActualKnowledge,
   // `never` rather than a member type: pack lock entries carry no
   // `resolvedKnowledge` map, so the projection helper never invokes
-  // pack-member callbacks and `buildPackMemberIgnoredRow` stays uninhabitable.
+  // pack-member callbacks.
   never,
   InstalledKnowledgeBundle,
-  UnmanagedKnowledgeBundle,
-  IgnoredKnowledgeCandidate
+  UnmanagedKnowledgeBundle
 > => ({
   declaredEntries: (d) => d,
   declaredName: (entry) => entry.name,
@@ -200,7 +184,6 @@ const knowledgePolicy = (
   // `m: never` — the helper invocation passes `TPackMember = never`, so this
   // callback is statically uninhabitable. Returning `m` satisfies `string`.
   packMemberName: (m) => m,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -216,19 +199,6 @@ const knowledgePolicy = (
     key: { scope, type: "knowledge", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "knowledge", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  // `TPackMember = never`, so `input.member` has type `never` and the body is
-  // uninhabitable at runtime — no throw needed.
-  buildPackMemberIgnoredRow: (input) => input.member,
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "knowledge", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -241,7 +211,7 @@ export const makeKnowledgeExtensionsApi = (
   deps: KnowledgeExtensionsApiDeps,
 ): Effect.Effect<KnowledgeExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, ignoredNames, diagnostics } = deps;
+    const { scope, scanners, diagnostics } = deps;
 
     const declared: KnowledgeExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -267,7 +237,6 @@ export const makeKnowledgeExtensionsApi = (
         installedPacks,
         packMembers: (pack) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames,
         policy: knowledgePolicy(scope),
         diagnostics,
       }),

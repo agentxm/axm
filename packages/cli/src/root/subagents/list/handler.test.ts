@@ -82,7 +82,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -105,7 +105,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -135,7 +135,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.tables[0]?.items).toEqual([
           expect.objectContaining({ name: "my-subagent", state: "configured" }),
@@ -161,7 +161,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.tables[0]?.items).toEqual([
           expect.objectContaining({ name: "my-subagent", activation: "disabled" }),
@@ -189,7 +189,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.tables[0]?.items).toEqual(
           expect.arrayContaining([
@@ -216,7 +216,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["claude-code"], includeIgnored: false });
+        yield* handleListSubagents({ agents: ["claude-code"] });
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -242,7 +242,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["cursor"], includeIgnored: false });
+        yield* handleListSubagents({ agents: ["cursor"] });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -266,7 +266,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [], includeIgnored: false });
+        yield* handleListSubagents({ agents: [] });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({

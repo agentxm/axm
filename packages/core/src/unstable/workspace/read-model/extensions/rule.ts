@@ -86,24 +86,6 @@ export interface UnmanagedRule {
   readonly actual: ActualRule;
 }
 
-export type IgnoredRuleCandidate =
-  | {
-      readonly key: ExtensionKey<"rule">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredRule;
-    }
-  | {
-      readonly key: ExtensionKey<"rule">;
-      readonly reason: "pack-member-ignored";
-      readonly member: RulePackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"rule">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualRule;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -165,7 +147,6 @@ export interface RuleExtensionsApiDeps {
   readonly loaders: RuleScopedLoaders;
   readonly scanners: RuleScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>>;
-  readonly ignoredNames: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -180,7 +161,6 @@ export interface RuleExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredRule>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledRule>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedRule>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredRuleCandidate>>;
 }
 
 const SUBJECT_KEY = "rule";
@@ -199,8 +179,7 @@ const rulePolicy = (
   ActualRules,
   RulePackMember,
   InstalledRule,
-  UnmanagedRule,
-  IgnoredRuleCandidate
+  UnmanagedRule
 > => ({
   declaredEntries: (d) => d,
   declaredName: (entry) => entry.name,
@@ -210,7 +189,6 @@ const rulePolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: (name, ignored) => ignored.has(name),
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -226,22 +204,6 @@ const rulePolicy = (
     key: { scope, type: "rule", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "rule", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "rule", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "rule", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -254,7 +216,7 @@ export const makeRuleExtensionsApi = (
   deps: RuleExtensionsApiDeps,
 ): Effect.Effect<RuleExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, ignoredNames, diagnostics } = deps;
+    const { scope, scanners, diagnostics } = deps;
 
     const declared: RuleExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -278,7 +240,6 @@ export const makeRuleExtensionsApi = (
           readonly rules: ReadonlyArray<RulePackMember>;
         }): ReadonlyArray<RulePackMember> => pack.rules,
         packRef: (pack) => pack.ref,
-        ignoredNames,
         policy: rulePolicy(scope),
         diagnostics,
       }),

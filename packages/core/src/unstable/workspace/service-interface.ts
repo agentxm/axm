@@ -267,7 +267,6 @@ export interface WorkspaceReadModelRecords {
   readonly getExtensionInventory: (
     type: InstallableExtensionType,
     options: {
-      readonly includeIgnored: boolean;
       readonly agents?: ReadonlyArray<string>;
     },
   ) => Effect.Effect<ExtensionInventory, AppError>;
@@ -431,8 +430,6 @@ export interface WorkspaceMutationsService {
   readonly getMinimumReleaseAge: () => Effect.Effect<MinimumReleaseAge, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
-  /** Ignored skill patterns from settings. */
-  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read settings and return configured skills, defaulting to `{}`. */
   readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, AppError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
@@ -580,9 +577,6 @@ export interface WorkspaceMutationsService {
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
   /** Remove an agent ID if present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
   readonly removeConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
-  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
-  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, AppError>;
   /** Read settings and return configured packs, defaulting to `{}`. */
   readonly getConfiguredPackEntries: () => Effect.Effect<PacksMap, AppError>;
   /** Read lockfile and return the packs lock map. */

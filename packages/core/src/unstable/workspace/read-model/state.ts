@@ -110,9 +110,30 @@ const REMOVED_SETTINGS_KEY_ISSUES: ReadonlyArray<{
   {
     key: "ignored",
     issue:
-      "ignored: The top-level ignored block was removed. Use per-type config such as skillsConfig.ignore instead.",
+      "ignored: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.",
   },
 ];
+
+const REMOVED_IGNORE_CONFIG_KEYS: ReadonlyArray<string> = [
+  "skillsConfig",
+  "commandsConfig",
+  "mcpServersConfig",
+  "subagentsConfig",
+  "filesConfig",
+  "hooksConfig",
+  "knowledgeConfig",
+  "packsConfig",
+];
+
+const removedIgnoreConfigIssues = (value: object): ReadonlyArray<string> =>
+  REMOVED_IGNORE_CONFIG_KEYS.flatMap((key) => {
+    if (!(key in value)) return [];
+    const config = Reflect.get(value, key);
+    if (typeof config !== "object" || config === null || !("ignore" in config)) return [];
+    return [
+      `${key}.ignore: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.`,
+    ];
+  });
 
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
@@ -133,8 +154,10 @@ const loadSettings = (
       const removedKeyIssues = REMOVED_SETTINGS_KEY_ISSUES.filter(({ key }) => key in parsed).map(
         ({ issue }) => issue,
       );
-      if (removedKeyIssues.length > 0) {
-        return yield* new SettingsDecodeError({ path, issues: removedKeyIssues, raw: parsed });
+      const removedIgnoreIssues = removedIgnoreConfigIssues(parsed);
+      const removedIssues = [...removedKeyIssues, ...removedIgnoreIssues];
+      if (removedIssues.length > 0) {
+        return yield* new SettingsDecodeError({ path, issues: removedIssues, raw: parsed });
       }
     }
 

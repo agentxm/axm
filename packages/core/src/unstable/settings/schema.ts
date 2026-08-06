@@ -1142,111 +1142,6 @@ export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
 // -----------------------------------------------------------------------------
 
 /**
- * Feature-level configuration for skills.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillsConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed skill names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "SkillsConfig",
-  title: "Skills Config",
-  description: "Feature-level configuration for skills.",
-});
-
-/** @experimental */
-export type SkillsConfig = Schema.Schema.Type<typeof SkillsConfigSchema>;
-
-/**
- * Feature-level configuration for commands.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const CommandsConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed command names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "CommandsConfig",
-  title: "Commands Config",
-  description: "Feature-level configuration for commands.",
-});
-
-/** @experimental */
-export type CommandsConfig = Schema.Schema.Type<typeof CommandsConfigSchema>;
-
-/**
- * Feature-level configuration for subagents.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SubagentsConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed subagent names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "SubagentsConfig",
-  title: "Subagents Config",
-  description: "Feature-level configuration for subagents.",
-});
-
-/** @experimental */
-export type SubagentsConfig = Schema.Schema.Type<typeof SubagentsConfigSchema>;
-
-/**
- * Feature-level configuration for MCP servers.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const McpServersConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed MCP server names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "McpServersConfig",
-  title: "MCP Servers Config",
-  description: "Feature-level configuration for MCP servers.",
-});
-
-/** @experimental */
-export type McpServersConfig = Schema.Schema.Type<typeof McpServersConfigSchema>;
-
-/**
- * Feature-level configuration for packs.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const PacksConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed pack names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "PacksConfig",
-  title: "Packs Config",
-  description: "Feature-level configuration for packs.",
-});
-
-/** @experimental */
-export type PacksConfig = Schema.Schema.Type<typeof PacksConfigSchema>;
-
-/**
  * Workspace instruction-file propagation settings.
  *
  * @experimental This API is unstable and may change without notice.
@@ -1328,60 +1223,7 @@ export const RulesConfigSchema = Schema.Struct({
 /** @experimental */
 export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
 
-/**
- * Feature-level configuration for Context Files packages.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed Context Files package names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "FilesConfig",
-  title: "Files Config",
-  description: "Feature-level configuration for Context Files packages.",
-});
-
-/** @experimental */
-export type FilesConfig = Schema.Schema.Type<typeof FilesConfigSchema>;
-
-/**
- * Feature-level configuration for hooks.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const HooksConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed hook names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
-}).annotate({
-  identifier: "HooksConfig",
-  title: "Hooks Config",
-  description: "Feature-level configuration for hooks.",
-});
-
-/** @experimental */
-export type HooksConfig = Schema.Schema.Type<typeof HooksConfigSchema>;
-
-/**
- * Feature-level configuration for knowledge bundles.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const KnowledgeConfigSchema = Schema.Struct({
-  ignore: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Installed knowledge bundle names AXM should leave unmanaged.",
-      examples: [["local-*", "legacy-helper"]],
-    }),
-  ),
   directory: Schema.optionalKey(
     Schema.String.annotate({
       description: "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
@@ -1392,8 +1234,7 @@ export const KnowledgeConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "KnowledgeConfig",
   title: "Knowledge Config",
-  description:
-    "Feature-level configuration and agent-facing projection settings for knowledge bundles.",
+  description: "Agent-facing projection settings for knowledge bundles.",
 });
 
 /** @experimental */
@@ -1410,13 +1251,13 @@ export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
-  skill: SkillsConfigSchema,
-  command: CommandsConfigSchema,
-  "mcp-server": McpServersConfigSchema,
-  subagent: SubagentsConfigSchema,
-  files: FilesConfigSchema,
+  skill: null,
+  command: null,
+  "mcp-server": null,
+  subagent: null,
+  files: null,
   rule: RulesConfigSchema,
-  hook: HooksConfigSchema,
+  hook: null,
   knowledge: KnowledgeConfigSchema,
 } as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
 
@@ -1438,22 +1279,15 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "agents",
   "rulesConfig",
   "skills",
-  "skillsConfig",
   "commands",
-  "commandsConfig",
   "files",
-  "filesConfig",
   "rules",
   "hooks",
-  "hooksConfig",
   "knowledge",
   "knowledgeConfig",
   "subagents",
-  "subagentsConfig",
   "packs",
-  "packsConfig",
   "mcpServers",
-  "mcpServersConfig",
   "lint",
 ];
 
@@ -1468,22 +1302,15 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - agents: List of agent IDs to sync extensions to
  * - rulesConfig: Feature-level configuration for rules capabilities
  * - skills: Desired skills by name to source string
- * - skillsConfig: Feature-level configuration for skills
  * - commands: Desired commands by name to version specifier
- * - commandsConfig: Feature-level configuration for commands
  * - files: Desired Context Files packages by name to source string or input config
- * - filesConfig: Feature-level configuration for Context Files packages
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
- * - hooksConfig: Feature-level configuration for hooks
  * - knowledge: Desired Open Knowledge Format bundles by name to source string
  * - knowledgeConfig: Agent-facing Knowledge projection options
  * - subagents: Desired subagents by name to version specifier
- * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
- * - packsConfig: Feature-level configuration for packs
  * - mcpServers: Desired MCP servers by name to version specifier
- * - mcpServersConfig: Feature-level configuration for MCP servers
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1540,31 +1367,16 @@ const SettingsBaseSchema = Schema.Struct({
         "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
-  skillsConfig: Schema.optionalKey(
-    Schema.Union([SkillsConfigSchema]).annotate({
-      description: "Feature-level options for skill management.",
-    }),
-  ),
   commands: Schema.optionalKey(
     Schema.Union([CommandsMapSchema]).annotate({
       description:
         "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
-  commandsConfig: Schema.optionalKey(
-    Schema.Union([CommandsConfigSchema]).annotate({
-      description: "Feature-level options for command management.",
-    }),
-  ),
   files: Schema.optionalKey(
     Schema.Union([FilesMapSchema]).annotate({
       description:
         "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
-    }),
-  ),
-  filesConfig: Schema.optionalKey(
-    Schema.Union([FilesConfigSchema]).annotate({
-      description: "Feature-level options for Context Files package management.",
     }),
   ),
   rules: Schema.optionalKey(
@@ -1577,11 +1389,6 @@ const SettingsBaseSchema = Schema.Struct({
     Schema.Union([HooksMapSchema]).annotate({
       description:
         "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
-    }),
-  ),
-  hooksConfig: Schema.optionalKey(
-    Schema.Union([HooksConfigSchema]).annotate({
-      description: "Feature-level options for hook management.",
     }),
   ),
   knowledge: Schema.optionalKey(
@@ -1600,31 +1407,16 @@ const SettingsBaseSchema = Schema.Struct({
         "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
-  subagentsConfig: Schema.optionalKey(
-    Schema.Union([SubagentsConfigSchema]).annotate({
-      description: "Feature-level options for subagent management.",
-    }),
-  ),
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
         "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
     }),
   ),
-  packsConfig: Schema.optionalKey(
-    Schema.Union([PacksConfigSchema]).annotate({
-      description: "Feature-level options for pack management.",
-    }),
-  ),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
         "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
-    }),
-  ),
-  mcpServersConfig: Schema.optionalKey(
-    Schema.Union([McpServersConfigSchema]).annotate({
-      description: "Feature-level options for MCP server management.",
     }),
   ),
   lint: Schema.optionalKey(
@@ -1673,9 +1465,6 @@ export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
           source: "@ac/files/workspace-baseline@^1.0.0",
           inputs: { projectName: "AgentXM" },
         },
-      },
-      skillsConfig: {
-        ignore: ["local-*"],
       },
       lint: {
         rules: {

@@ -123,7 +123,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
     [
       ws.records.rows(args.type).pipe(Effect.map(configuredRowsByName)),
       getLockedEntries(ws, args.type),
-      ws.records.getExtensionInventory(args.type, { includeIgnored: false }),
+      ws.records.getExtensionInventory(args.type, {}),
     ],
     { concurrency: "unbounded" },
   );

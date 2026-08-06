@@ -760,8 +760,8 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not managed by this workspace.`,
         details: compressDetails(names),
         helps: [
-          "Choose adopt, copy, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
+          "Choose adopt, copy, or ownership-safe prune for each skill; run `axm help skills` for the decision guide.",
+          "Adopt with `axm adopt @owner/skills/<name>` or review the ownership evidence from `axm prune`.",
         ],
         fixable: false,
         paths,
@@ -895,8 +895,8 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
-          "Choose adopt, copy, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
+          "Choose adopt, copy, or ownership-safe prune for each skill; run `axm help skills` for the decision guide.",
+          "Adopt with `axm adopt @owner/skills/<name>` or review the ownership evidence from `axm prune`.",
         ],
         fixable: false,
         paths,

@@ -13,12 +13,9 @@ export const isObservedInstalled = (
   name: string,
 ): Effect.Effect<boolean, AppError> =>
   workspace.records
-    .getExtensionInventory(type, { includeIgnored: false })
+    .getExtensionInventory(type, {})
     .pipe(
       Effect.map((inventory) =>
-        inventory.items.some(
-          (item) =>
-            item.name === name && item.classification.kind === "lifecycle" && item.installed,
-        ),
+        inventory.items.some((item) => item.name === name && item.installed),
       ),
     );

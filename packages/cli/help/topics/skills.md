@@ -76,10 +76,10 @@ When `axm lint` reports `workspace/skills-managed`, choose one resolution per sk
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
 - **Copy** when there is no clean source, or you want to own, customize, or publish it: `axm skills copy`, then `axm skills publish`.
-- **Ignore** when another tool owns its lifecycle, such as a managed marker, same-prefix family, or cross-tool config reference: add names or globs to `skillsConfig.ignore`.
-- **Prune** when it is orphaned and unused: `axm skills prune <name>` or `axm prune`.
+- **Leave it unowned** when another tool owns its lifecycle. AXM reports it but does not delete it.
+- **Prune** when it is orphaned and AXM ownership is proven: review `axm prune <name>`, then apply with `--yes`.
 
-Prefer ignore for tool-managed skills. Copy only when you deliberately take ownership away from that tool. See `axm help settings` for `skillsConfig.ignore`.
+Copy only when you deliberately take ownership away from another tool. `axm prune` shows the exact marker, symlink target, lock entry, or trust record that proves AXM ownership; unknown artifacts are retained.
 
 ## Lockfile and integrity
 

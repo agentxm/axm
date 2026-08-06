@@ -62,7 +62,6 @@ const harness = (params: {
   readonly lockfile?: Lockfile;
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
   readonly packMembers?: ReadonlyArray<HookPackMember>;
-  readonly ignoredNames?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -77,7 +76,6 @@ const harness = (params: {
       installedPacks: Effect.succeed(
         params.packMembers === undefined ? [] : [{ ref: packRef, hooks: params.packMembers }],
       ),
-      ignoredNames: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };

@@ -125,7 +125,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
           .pipe(Effect.map(installedRowsByName));
         const installedNames = Object.keys(installedSkills);
 
-        // Expand glob pattern against installed skill names (excludes ignored)
+        // Expand the glob pattern against installed skill names.
         const skillNames = expandGlob(args.skill, installedNames);
 
         // Handle glob matching zero skills

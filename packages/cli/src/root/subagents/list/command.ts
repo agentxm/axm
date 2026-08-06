@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/unstable/cli";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { includeIgnoredFlag, scopeFlag } from "../../../cli-flags.js";
+import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleListSubagents } from "./handler.js";
 
@@ -12,11 +12,10 @@ const listConfig = {
     Flag.withDescription("Show only subagents detected for specific agents"),
     Flag.atLeast(0),
   ),
-  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, agent, includeIgnored }) =>
-  handleListSubagents({ agents: agent, includeIgnored }).pipe(
+export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
+  handleListSubagents({ agents: agent }).pipe(
     withWorkspace({ scope, allowUninitialized: true }),
     withRuntime("subagents list"),
   ),

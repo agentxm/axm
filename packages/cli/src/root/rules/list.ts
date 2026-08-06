@@ -54,7 +54,7 @@ registerEntity<RuleListItem>("rule", {
 export const handleListRule = Effect.fn("ListRule.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("rule", { includeIgnored: false });
+  const inventory = yield* ws.records.getExtensionInventory("rule", {});
   const configured = yield* ws.getConfiguredRuleEntries();
   const locked = yield* ws.getLockedRules();
   const items = inventory.items.map((row) => ({

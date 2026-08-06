@@ -1,23 +1,20 @@
 /**
- * Shared projection helper: composes installed/active/unmanaged/ignored from
+ * Shared projection helper: composes installed/active/unmanaged from
  * declared/resolved/actual plus the installed-pack set.
  *
  * Per the projection invariant in the workspace read-model design (Decision 7):
  *
  * ```ts
- * direct = declared.filter(notIgnored).map(withInstallationOrigin("direct"));
+ * direct = declared.map(withInstallationOrigin("direct"));
  * implicit = installedPacks
  *   .flatMap(p => p.members)
- *   .filter(notIgnored)
  *   .filter(notDeclaredByName) // direct (incl. disabled) wins
  *   .map(withInstallationOrigin("pack-member"));
  * installed = direct + implicit;
  * active = installed.filter(activation === "enabled");
  * unmanaged = actual
- *   .filter(notIgnored)
  *   .filter(notClaimedByInstalled)
  *   .filter(notClaimedBySubjectPolicy);
- * ignored = ignoredFrom(declared, packMembers, actual);
  * ```
  *
  * The helper owns:
@@ -27,7 +24,6 @@
  * - disabled-direct still claims actual occurrences (excluded from active and
  *   from unmanaged);
  * - actual-occurrence attachment via `policy.attachActualToInstalled`;
- * - ignored suppression for declared, pack-member, and actual candidates;
  * - orphaned-resolved diagnostics — resolved entries with no direct or
  *   pack-member home publish a warning;
  * - deterministic name-sorted ordering.
@@ -67,15 +63,7 @@ export type TActualEntry<TActual> = TActual extends ReadonlyArray<infer E> ? E :
 /**
  * Subject-specific policy callbacks the projection helper requires.
  */
-export interface SubjectPolicy<
-  TDeclared,
-  TResolved,
-  TActual,
-  TPackMember,
-  TInstalled,
-  TUnmanaged,
-  TIgnored,
-> {
+export interface SubjectPolicy<TDeclared, TResolved, TActual, TPackMember, TInstalled, TUnmanaged> {
   /** Iterate the subject's declared entries from a decoded `declared` payload. */
   readonly declaredEntries: (declared: TDeclared) => ReadonlyArray<TDeclaredEntry<TDeclared>>;
 
@@ -102,9 +90,6 @@ export interface SubjectPolicy<
   /** Extract the subject name from a pack-member entry. */
   readonly packMemberName: (member: TPackMember) => string;
 
-  /** Subject ignored-policy: name-based check against the supplied ignored set. */
-  readonly isIgnoredName: (name: string, ignored: ReadonlySet<string>) => boolean;
-
   /** Activation state for a pack-member installed row. */
   readonly packMemberActivation: (member: TPackMember) => ActivationState;
 
@@ -128,28 +113,6 @@ export interface SubjectPolicy<
   /** Build a subject unmanaged row from one actual occurrence. */
   readonly buildUnmanagedRow: (entry: TActualEntry<TActual>) => TUnmanaged;
 
-  /**
-   * Build an ignored row from a declared candidate. When the subject's
-   * `TDeclared` resolves to `ReadonlyArray<never>` (no settings entry shape),
-   * `input.declared` has type `never` so the body is statically uninhabitable
-   * and `return input.declared` satisfies any return type without a throw.
-   */
-  readonly buildDeclaredIgnoredRow: (input: BuildDeclaredIgnoredRowInput<TDeclared>) => TIgnored;
-
-  /**
-   * Build an ignored row from a pack-member candidate. When the subject's
-   * `TPackMember` resolves to `never` (the subject cannot have pack members,
-   * e.g. packs themselves), `input.member` has type `never` so the body is
-   * statically uninhabitable and `return input.member` satisfies any return
-   * type without a throw.
-   */
-  readonly buildPackMemberIgnoredRow: (
-    input: BuildPackMemberIgnoredRowInput<TPackMember>,
-  ) => TIgnored;
-
-  /** Build an ignored row from an actual candidate. */
-  readonly buildActualIgnoredRow: (input: BuildActualIgnoredRowInput<TActual>) => TIgnored;
-
   /** Build the orphan-resolved warning published when a resolved entry has no home. */
   readonly resolvedOrphanWarning: (name: string) => Warning;
 }
@@ -167,25 +130,6 @@ export interface BuildInstalledRowInput<TDeclared, TResolved, TActual, TPackMemb
   readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
-/** Input passed to `buildDeclaredIgnoredRow`. */
-export interface BuildDeclaredIgnoredRowInput<TDeclared> {
-  readonly name: string;
-  readonly declared: TDeclaredEntry<TDeclared>;
-}
-
-/** Input passed to `buildPackMemberIgnoredRow`. */
-export interface BuildPackMemberIgnoredRowInput<TPackMember> {
-  readonly name: string;
-  readonly member: TPackMember;
-  readonly pack: InstalledPackRef;
-}
-
-/** Input passed to `buildActualIgnoredRow`. */
-export interface BuildActualIgnoredRowInput<TActual> {
-  readonly name: string;
-  readonly actual: TActualEntry<TActual>;
-}
-
 // ---------------------------------------------------------------------------
 // Helper input / output
 // ---------------------------------------------------------------------------
@@ -198,7 +142,6 @@ export interface ProjectInstalledExtensionsInput<
   TPackMember,
   TInstalled,
   TUnmanaged,
-  TIgnored,
 > {
   readonly subjectKey: string;
   readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
@@ -207,24 +150,21 @@ export interface ProjectInstalledExtensionsInput<
   readonly installedPacks: Effect.Effect<ReadonlyArray<TPack>>;
   readonly packMembers: (pack: TPack) => ReadonlyArray<TPackMember>;
   readonly packRef: (pack: TPack) => InstalledPackRef;
-  readonly ignoredNames: ReadonlySet<string>;
   readonly policy: SubjectPolicy<
     TDeclared,
     TResolved,
     TActual,
     TPackMember,
     TInstalled,
-    TUnmanaged,
-    TIgnored
+    TUnmanaged
   >;
   readonly diagnostics: Diagnostics;
 }
 
-export interface ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnored> {
+export interface ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged> {
   readonly installed: ReadonlyArray<TInstalled>;
   readonly active: ReadonlyArray<TInstalled>;
   readonly unmanaged: ReadonlyArray<TUnmanaged>;
-  readonly ignored: ReadonlyArray<TIgnored>;
 }
 
 export const makeProjectedSubjectCells = <
@@ -234,14 +174,11 @@ export const makeProjectedSubjectCells = <
   TActual,
   TInstalled extends RowWithKey,
   TUnmanaged,
-  TIgnored,
 >(args: {
   readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TActual>;
-  readonly project: Effect.Effect<
-    ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnored>
-  >;
+  readonly project: Effect.Effect<ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>>;
 }) => ({
   declared: args.declared,
   resolved: args.resolved,
@@ -258,7 +195,6 @@ export const makeProjectedSubjectCells = <
     ),
   active: args.project.pipe(Effect.map((out) => out.active)),
   unmanaged: args.project.pipe(Effect.map((out) => out.unmanaged)),
-  ignored: args.project.pipe(Effect.map((out) => out.ignored)),
 });
 
 // ---------------------------------------------------------------------------
@@ -316,7 +252,7 @@ const tolerateResolved = <T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Compose installed/active/unmanaged/ignored from declared/resolved/actual
+ * Compose installed, active, and unmanaged rows from declared/resolved/actual
  * plus the installed-pack set, per the projection invariant.
  *
  * The returned effect never fails — it absorbs source-read failures via the
@@ -330,7 +266,6 @@ export const projectInstalledExtensions = <
   TPackMember,
   TInstalled,
   TUnmanaged,
-  TIgnored,
 >(
   input: ProjectInstalledExtensionsInput<
     TDeclared,
@@ -339,10 +274,9 @@ export const projectInstalledExtensions = <
     TPack,
     TPackMember,
     TInstalled,
-    TUnmanaged,
-    TIgnored
+    TUnmanaged
   >,
-): Effect.Effect<ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnored>> =>
+): Effect.Effect<ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>> =>
   Effect.gen(function* () {
     const {
       subjectKey,
@@ -352,7 +286,6 @@ export const projectInstalledExtensions = <
       installedPacks,
       packMembers,
       packRef,
-      ignoredNames,
       policy,
       diagnostics,
     } = input;
@@ -422,74 +355,21 @@ export const projectInstalledExtensions = <
       return next;
     }, new Map<string, MemberState>());
 
-    // 4. Build ignored rows from declared, pack-member, and actual candidates.
-    //    Each subject's policy supplies a per-source builder; the helper does
-    //    not construct a discriminated union and never throws on unreachable
-    //    branches — `never`-typed inputs make the corresponding policy bodies
-    //    statically uninhabitable.
-    const isIgnored = (name: string) => policy.isIgnoredName(name, ignoredNames);
-
-    const declaredIgnored: ReadonlyArray<readonly [string, TIgnored]> = Array.getSomes(
-      Array.fromIterable(declaredByName.entries()).map(([name, declared]) =>
-        isIgnored(name)
-          ? Option.some([name, policy.buildDeclaredIgnoredRow({ name, declared })] as const)
-          : Option.none<readonly [string, TIgnored]>(),
-      ),
-    );
-    const ignoredDeclaredNames: ReadonlySet<string> = new Set(
-      declaredIgnored.map(([name]) => name),
-    );
-
-    const memberIgnored: ReadonlyArray<readonly [string, TIgnored]> = Array.getSomes(
-      Array.fromIterable(memberByName.entries()).map(([name, state]) =>
-        isIgnored(name)
-          ? Option.some([
-              name,
-              policy.buildPackMemberIgnoredRow({ name, member: state.member, pack: state.pack }),
-            ] as const)
-          : Option.none<readonly [string, TIgnored]>(),
-      ),
-    );
-    const ignoredMemberNames: ReadonlySet<string> = new Set(memberIgnored.map(([name]) => name));
-
-    const actualIgnored: ReadonlyArray<readonly [TActualEntry<TActual>, TIgnored]> = Array.getSomes(
-      actualEntries.map((entry) => {
-        const name = policy.actualName(entry);
-        return isIgnored(name)
-          ? Option.some([entry, policy.buildActualIgnoredRow({ name, actual: entry })] as const)
-          : Option.none<readonly [TActualEntry<TActual>, TIgnored]>();
-      }),
-    );
-    const ignoredActuals: ReadonlySet<TActualEntry<TActual>> = new Set(
-      actualIgnored.map(([entry]) => entry),
-    );
-
-    const ignoredRows: ReadonlyArray<TIgnored> = [
-      ...declaredIgnored.map(([, row]) => row),
-      ...memberIgnored.map(([, row]) => row),
-      ...actualIgnored.map(([, row]) => row),
-    ];
-
-    // 5. Build direct + implicit rows. Track names alongside rows so we can
+    // 4. Build direct + implicit rows. Track names alongside rows so we can
     //    sort and derive activation without inspecting the opaque `TInstalled`
-    //    shape. `Array.filterMap` skips ignored names in a single pass.
+    //    shape.
     interface NamedRow {
       readonly name: string;
       readonly row: TInstalled;
       readonly activation: ActivationState;
     }
-    const visibleActuals: ReadonlyArray<TActualEntry<TActual>> = actualEntries.filter(
-      (a) => !ignoredActuals.has(a),
-    );
-
     const direct: ReadonlyArray<NamedRow> = Array.getSomes(
       Array.fromIterable(declaredByName.entries()).map(([name, entry]) => {
-        if (ignoredDeclaredNames.has(name)) return Option.none<NamedRow>();
         const activation = policy.declaredActivation(entry);
         const memberState = memberByName.get(name);
         const providingPacks: ReadonlyArray<InstalledPackRef> =
           memberState === undefined ? [] : memberState.providingPacks;
-        const attached = policy.attachActualToInstalled(name, visibleActuals);
+        const attached = policy.attachActualToInstalled(name, actualEntries);
         const row = policy.buildInstalledRow({
           name,
           installationOrigin: { _tag: "direct", declared: entry },
@@ -502,14 +382,13 @@ export const projectInstalledExtensions = <
       }),
     );
 
-    // 6. Implicit pack-member rows: skip names already declared (direct wins,
-    //    including disabled) and skip ignored names.
+    // 5. Implicit pack-member rows: skip names already declared (direct wins,
+    //    including disabled).
     const implicit: ReadonlyArray<NamedRow> = Array.getSomes(
       Array.fromIterable(memberByName.entries()).map(([name, state]) => {
         if (declaredByName.has(name)) return Option.none<NamedRow>(); // direct wins
-        if (ignoredMemberNames.has(name)) return Option.none<NamedRow>();
         const activation = policy.packMemberActivation(state.member);
-        const attached = policy.attachActualToInstalled(name, visibleActuals);
+        const attached = policy.attachActualToInstalled(name, actualEntries);
         const row = policy.buildInstalledRow({
           name,
           installationOrigin: {
@@ -526,7 +405,7 @@ export const projectInstalledExtensions = <
       }),
     );
 
-    // 7. Sort by name for deterministic ordering.
+    // 6. Sort by name for deterministic ordering.
     const installedNamed: ReadonlyArray<NamedRow> = [...direct, ...implicit].sort((a, b) =>
       a.name.localeCompare(b.name),
     );
@@ -536,7 +415,7 @@ export const projectInstalledExtensions = <
       .filter((r) => r.activation === "enabled")
       .map((r) => r.row);
 
-    // 8. Orphaned-resolved diagnostics: any resolved entry whose name is
+    // 7. Orphaned-resolved diagnostics: any resolved entry whose name is
     //    neither declared nor present as a pack-member. Collect orphan names
     //    first, then publish sequentially via Effect.forEach to keep the
     //    diagnostics buffer in deterministic order.
@@ -549,11 +428,10 @@ export const projectInstalledExtensions = <
       { discard: true },
     );
 
-    // 9. Unmanaged: actual occurrences not ignored, not claimed by an
-    //    installed row, and passing subject policy.
+    // 8. Unmanaged: actual occurrences not claimed by an installed row and
+    //    passing subject policy.
     const unmanaged: ReadonlyArray<TUnmanaged> = Array.getSomes(
       actualEntries.map((entry) => {
-        if (ignoredActuals.has(entry)) return Option.none<TUnmanaged>();
         const name = policy.actualName(entry);
         if (installedNames.has(name)) return Option.none<TUnmanaged>();
         if (!policy.notClaimedBySubjectPolicy(entry)) return Option.none<TUnmanaged>();
@@ -565,8 +443,7 @@ export const projectInstalledExtensions = <
       installed,
       active,
       unmanaged,
-      ignored: ignoredRows,
-    } satisfies ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged, TIgnored>;
+    } satisfies ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>;
   });
 
 /**

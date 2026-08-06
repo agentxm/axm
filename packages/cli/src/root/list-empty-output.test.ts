@@ -50,7 +50,7 @@ describe("list command empty output", () => {
   it.effect("emits a single empty hooks list payload", () => runEmptyList(handleListHook()));
 
   it.effect("emits a single empty MCP server list payload", () =>
-    runEmptyList(handleListMcpServers({ includeIgnored: false })),
+    runEmptyList(handleListMcpServers()),
   );
 
   it.effect("emits files rows in machine mode without a plan envelope", () => {
@@ -173,7 +173,7 @@ describe("list command empty output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers({ includeIgnored: false });
+        yield* handleListMcpServers();
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,

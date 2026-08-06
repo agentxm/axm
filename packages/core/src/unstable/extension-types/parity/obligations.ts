@@ -29,7 +29,7 @@ export type ObligationTier = (typeof OBLIGATION_TIERS)[number];
 export const OBLIGATION_IDS = [
   "2.6-source-hash",
   "2.9-read-model-family",
-  "2.11-ignore-config",
+  "2.11-ownership-safe-prune",
   "2.12-workspace-reconciliation",
   "6.1-e2e-install-row",
   "7.1-help-topic",
@@ -64,11 +64,11 @@ export const PARITY_OBLIGATIONS = {
       "actual, and resolved rows are reconcilable without a bespoke scan.",
     verifiedBy: "core-test",
   },
-  "2.11-ignore-config": {
-    id: "2.11-ignore-config",
+  "2.11-ownership-safe-prune": {
+    id: "2.11-ownership-safe-prune",
     description:
-      "Settings carry a feature-level config schema for the type, so a workspace can leave " +
-      "installed entries unmanaged.",
+      "The type participates in the uniform read-model inventory consumed by ownership-safe " +
+      "root pruning, so unknown artifacts can be reported without being deleted.",
     verifiedBy: "core-test",
   },
   "2.12-workspace-reconciliation": {

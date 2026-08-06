@@ -463,7 +463,7 @@ describe("toLintHumanBlocks", () => {
             message:
               "Skill 'alpha' is present here, but it is not managed by this workspace. " +
               "To adopt it for authoring, run `axm adopt @owner/skills/alpha`. " +
-              "To copy, ignore, or prune it, use `axm help skills` to choose the right resolution.",
+              "Otherwise copy it into AXM ownership or review `axm prune`; unowned artifacts are retained.",
             location: { file: ".agents/skills/alpha" },
           },
           {
@@ -473,7 +473,7 @@ describe("toLintHumanBlocks", () => {
             message:
               "Skill 'beta' is present here, but it is not managed by this workspace. " +
               "To adopt it for authoring, run `axm adopt @owner/skills/beta`. " +
-              "To copy, ignore, or prune it, use `axm help skills` to choose the right resolution.",
+              "Otherwise copy it into AXM ownership or review `axm prune`; unowned artifacts are retained.",
             location: { file: ".agents/skills/beta" },
           },
         ]),
@@ -493,8 +493,8 @@ describe("toLintHumanBlocks", () => {
           title: "2 skills are present here but not managed by this workspace.",
           details: ["alpha", "beta"],
           helps: [
-            "Choose adopt, copy, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
-            "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
+            "Choose adopt, copy, or ownership-safe prune for each skill; run `axm help skills` for the decision guide.",
+            "Adopt with `axm adopt @owner/skills/<name>` or review the ownership evidence from `axm prune`.",
           ],
           fixable: false,
           paths: ["./.agents/skills"],

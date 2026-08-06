@@ -10,53 +10,24 @@ const writeCommand = (root: string, name: string): void => {
 };
 
 describe("axm commands list inventory", () => {
-  it("inventories unmanaged commands and includes ignored commands through the ls alias", async () => {
+  it("inventories every unmanaged command", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      settings.commandsConfig = { ignore: ["local-*"] };
-      fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
       writeCommand(temp.path, "manual");
       writeCommand(temp.path, "local-build");
 
-      const normal = await runCli(["commands", "list", "--json"], { cwd: temp.path });
-      const included = await runCli(["commands", "ls", "--include-ignored", "--json"], {
-        cwd: temp.path,
-      });
+      const result = await runCli(["commands", "list", "--json"], { cwd: temp.path });
 
-      expect(normal.exitCode).toBe(0);
-      expect(JSON.parse(normal.stdout)).toEqual(
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual(
         expect.objectContaining({
           ok: true,
           result: expect.objectContaining({
-            unmanagedCount: 1,
-            ignoredCount: 0,
-            items: [
-              expect.objectContaining({
-                name: "manual",
-                classification: { kind: "lifecycle", lifecycle: "unmanaged" },
-              }),
-            ],
-          }),
-        }),
-      );
-      expect(included.exitCode).toBe(0);
-      expect(JSON.parse(included.stdout)).toEqual(
-        expect.objectContaining({
-          ok: true,
-          result: expect.objectContaining({
-            unmanagedCount: 1,
-            ignoredCount: 1,
+            unmanagedCount: 2,
             items: expect.arrayContaining([
-              expect.objectContaining({
-                name: "local-build",
-                classification: expect.objectContaining({
-                  kind: "ignored",
-                  matchedBy: ["local-*"],
-                }),
-              }),
+              expect.objectContaining({ name: "manual" }),
+              expect.objectContaining({ name: "local-build" }),
             ]),
           }),
         }),

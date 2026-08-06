@@ -31,7 +31,6 @@ const makeOp = (name: string, opts: Partial<NewHookOperation["args"]> = {}): New
     runtime: opts.runtime ?? "bash",
     event: opts.event ?? "tool.pre",
     matcher: opts.matcher ?? "Write|Edit",
-    force: opts.force ?? false,
   },
 });
 
@@ -130,15 +129,19 @@ describe("new-hook operation", () => {
     }).pipe(Effect.provide(testLayer())),
   );
 
-  it.effect("overwrites an existing directory when force is set", () =>
+  it.effect("leaves an existing directory byte-identical", () =>
     Effect.gen(function* () {
       fs.mkdirSync(hookDir(tempDir, "existing"), { recursive: true });
+      const markerPath = path.join(hookDir(tempDir, "existing"), "keep.txt");
+      fs.writeFileSync(markerPath, "keep me\n");
 
-      const result = yield* newHook(makeOp("existing", { force: true }));
+      const result = yield* newHook(makeOp("existing")).pipe(
+        Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),
+      );
 
-      expect(result.result).toBe("success");
-      const manifestPath = path.join(hookDir(tempDir, "existing"), "hook.json");
-      expect(fs.existsSync(manifestPath)).toBe(true);
+      expect(result.result).toBe("error");
+      expect(fs.readFileSync(markerPath, "utf8")).toBe("keep me\n");
+      expect(fs.readdirSync(hookDir(tempDir, "existing"))).toEqual(["keep.txt"]);
     }).pipe(Effect.provide(testLayer())),
   );
 });

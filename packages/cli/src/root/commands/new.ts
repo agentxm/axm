@@ -9,6 +9,7 @@ import {
   computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -18,11 +19,13 @@ import type {
 } from "@agentxm/client-core/unstable/commands";
 import {
   CommandManager,
+  COMMAND_MANIFEST_FILENAME,
+  commandContentFilename,
   commandInstallArtifact,
   newCommand as newCommandOp,
 } from "@agentxm/client-core/unstable/commands";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -48,7 +51,6 @@ export interface CommandsNewHandlerArgs {
   readonly description: string;
   readonly owner: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -123,24 +125,18 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const manager = yield* CommandManager;
   const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "commands", args.name);
-  const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-
-  if (dirExists) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Managed command directory already exists: ${targetDir}`,
-      suggestions: [
-        {
-          description: "Choose a different name or remove the existing directory first",
-        },
-      ],
-    });
-  }
+  const configuredCommands = yield* ws.getConfiguredCommandEntries();
+  yield* preflightCreateOnly({
+    subject: "Command",
+    name: args.name,
+    configured: Object.hasOwn(configuredCommands, args.name),
+    destinations: [targetDir],
+  });
 
   // 4. Build operation
   const op = {
     name: "new-command",
-    args: { name: args.name, owner, description: args.description, force: args.force },
+    args: { name: args.name, owner, description: args.description },
   } satisfies NewCommandOperation;
 
   // 5. Build plan with inline run closure
@@ -158,6 +154,27 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     location: targetDir,
     command: { name: args.name },
   };
+  const plannedArtifact: JobStepArtifact = {
+    path: path.relative(ws.baseDir, targetDir),
+    scope: ws.scope,
+    version,
+    change: "created",
+    fileCount: 2,
+    targets: [
+      {
+        path: path.relative(ws.baseDir, path.join(targetDir, COMMAND_MANIFEST_FILENAME)),
+        change: "created",
+      },
+      {
+        path: path.relative(
+          ws.baseDir,
+          path.join(targetDir, "src", commandContentFilename(args.name)),
+        ),
+        change: "created",
+      },
+      { path: ".axm (config/lockfile)", change: "created" },
+    ],
+  };
 
   const step = buildNewExtensionStep(manager, {
     ref,
@@ -165,6 +182,16 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     versionRange: Option.none(),
     label: fqn,
     message: `Created command ${fqn}`,
+    plannedArtifact,
+    preflight: Effect.gen(function* () {
+      const current = yield* ws.getConfiguredCommandEntries();
+      yield* preflightCreateOnly({
+        subject: "Command",
+        name: args.name,
+        configured: Object.hasOwn(current, args.name),
+        destinations: [targetDir],
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    }),
     markAuthored: ws.setCommandEntry(args.name, {
       source: `workspace:${formatFqn({ owner, type: "command", name: args.name })}`,
       enabled: true,
@@ -260,7 +287,6 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the command without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Overwrite if a command directory already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
@@ -269,13 +295,12 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, description, owner, yes, force, preview }) =>
+  ({ name, description, owner, yes, preview }) =>
     handleCommandsNew({
       name: decodeExtensionNameSync(name),
       description,
       owner,
       yes,
-      force,
       preview,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("commands new")),
 ).pipe(

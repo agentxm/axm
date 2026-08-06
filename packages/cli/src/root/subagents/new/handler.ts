@@ -9,6 +9,7 @@ import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
+  preflightCreateOnly,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -40,7 +41,6 @@ export interface SubagentsNewHandlerArgs {
   readonly owner: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -83,23 +83,16 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   // 3. Check existence
   const configuredSubagents = yield* ws.getConfiguredSubagentEntries();
-  if (configuredSubagents[args.name] !== undefined && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Subagent '${args.name}' already exists`,
-      suggestions: [
-        {
-          description:
-            "Choose a different name, remove the existing subagent first, or use --force",
-        },
-      ],
-    });
-  }
-
-  // 4. Build the scaffold operation as a plan step
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
   const scaffoldPath = subagentSourcePath(owner, args.name);
   const base = ws.baseDir;
+  const canonicalPath = path.join(base, scaffoldPath);
+  yield* preflightCreateOnly({
+    subject: "Subagent",
+    name: args.name,
+    configured: Object.hasOwn(configuredSubagents, args.name),
+    destinations: [canonicalPath],
+  });
   const ref: WorkspaceSubagentRef = {
     type: "subagent",
     refType: "workspace",
@@ -109,11 +102,24 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     name: args.name,
     version: INITIAL_VERSION,
     sourceHash: computeSourceHash("scaffold"),
-    location: path.join(base, scaffoldPath),
+    location: canonicalPath,
     subagent: {
       name: args.name,
       description: Option.none(),
     },
+  };
+  const scaffoldArtifact = subagentScaffoldArtifact({
+    owner,
+    name: args.name,
+    scope: ws.scope,
+    version: "0.0.1",
+  });
+  const artifact = {
+    ...scaffoldArtifact,
+    targets: [
+      ...(scaffoldArtifact.targets ?? []),
+      { path: ".axm (config/lockfile)", change: "created" as const },
+    ],
   };
 
   const step = buildNewExtensionStep(manager, {
@@ -122,19 +128,21 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     versionRange: Option.none(),
     label: fqn,
     message: `Created subagent ${fqn}`,
+    preflight: Effect.gen(function* () {
+      const current = yield* ws.getConfiguredSubagentEntries();
+      yield* preflightCreateOnly({
+        subject: "Subagent",
+        name: args.name,
+        configured: Object.hasOwn(current, args.name),
+        destinations: [canonicalPath],
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    }),
     markAuthored: ws.setSubagentEntry(args.name, {
       source: `workspace:${fqn}`,
       enabled: true,
     }),
-    buildArtifact: () =>
-      Effect.succeed(
-        subagentScaffoldArtifact({
-          owner,
-          name: args.name,
-          scope: ws.scope,
-          version: "0.0.1",
-        }),
-      ),
+    plannedArtifact: artifact,
+    buildArtifact: () => Effect.succeed(artifact),
     scaffold: Effect.gen(function* () {
       const extensionName = decodeExtensionNameSync(args.name);
 

@@ -58,7 +58,6 @@ const defaultArgs = (
   owner: Option.none(),
   agents: Option.none(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });

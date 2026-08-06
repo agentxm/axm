@@ -170,6 +170,8 @@ export {
   type ConfiguredEntryEnabledState,
 } from "./configured-entry.js";
 
+export { preflightCreateOnly, type CreateOnlyPreflightArgs } from "./create-preflight.js";
+
 // Reconciliation utilities
 
 // Extension operations

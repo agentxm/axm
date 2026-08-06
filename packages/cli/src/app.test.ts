@@ -30,6 +30,31 @@ class ExitCalled extends Error {
 }
 
 describe("root command help", () => {
+  it("keeps every create and skill-copy surface create-only", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    const createCommands = [
+      "skills",
+      "commands",
+      "mcps",
+      "subagents",
+      "packs",
+      "files",
+      "rules",
+      "hooks",
+      "knowledge",
+    ].map((type) => `axm ${type} new`);
+
+    for (const command of [...createCommands, "axm skills copy"]) {
+      const doc = files.get(command);
+      expect(doc, `missing help for ${command}`).toBeDefined();
+      expect(
+        doc?.flags.map((flag) => flag.name),
+        command,
+      ).not.toContain("force");
+      expect(doc?.usage, command).not.toContain("--force");
+    }
+  });
+
   it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {
     const doc = await Effect.runPromise(captureHelpDoc([]));
     const learnMore = ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);

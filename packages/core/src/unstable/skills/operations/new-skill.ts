@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { decodeExtensionNameSync, preflightCreateOnly } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -81,39 +81,19 @@ export const newSkill: OperationHandler<
     const { name, owner } = op.args;
     const fqn = `${owner}/skills/${name}`;
 
-    // 1. Check if skill already exists in settings
     const configuredSkills = yield* ws.getConfiguredSkillEntries();
-    if (name in configuredSkills) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Skill '${name}' already exists in settings`,
-        suggestions: [
-          {
-            description: "Choose a different name or remove the existing skill first",
-          },
-        ],
-      });
-    }
-
-    // 2. Compute paths
     const { canonicalPath, skillSrcPath } = computeSkillPaths(
       path.join,
       base,
       { refType: "registry", owner },
       name,
     );
-    const dirExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
-    if (dirExists) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Directory "${name}" already exists`,
-        suggestions: [
-          {
-            description: "Choose a different name or remove the existing directory first",
-          },
-        ],
-      });
-    }
+    yield* preflightCreateOnly({
+      subject: "Skill",
+      name,
+      configured: Object.hasOwn(configuredSkills, name),
+      destinations: [canonicalPath],
+    });
 
     // 3. Create skill directory (src/ implies canonicalPath is also created)
     yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(

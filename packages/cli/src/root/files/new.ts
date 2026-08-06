@@ -3,7 +3,7 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -12,6 +12,7 @@ import {
   computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -113,7 +114,6 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -133,19 +133,13 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
     FILES_EXTENSION_DIR,
     name,
   );
-  const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-
-  if (dirExists && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Managed files package directory already exists: ${targetDir}`,
-      suggestions: [
-        {
-          description: "Choose a different name or remove the existing directory first",
-        },
-      ],
-    });
-  }
+  const configuredFiles = yield* ws.getConfiguredFilesEntries();
+  yield* preflightCreateOnly({
+    subject: "Files package",
+    name,
+    configured: Object.hasOwn(configuredFiles, name),
+    destinations: [targetDir],
+  });
 
   const manifest: FilesManifest = {
     $schema: FILES_MANIFEST_SCHEMA_URL,
@@ -173,6 +167,25 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
     location: targetDir,
     file: { name },
   };
+  const plannedArtifact: JobStepArtifact = {
+    path: path.relative(ws.baseDir, targetDir),
+    scope: ws.scope,
+    version,
+    change: "created",
+    fileCount: 2,
+    targets: [
+      {
+        path: path.relative(ws.baseDir, path.join(targetDir, FILES_MANIFEST_FILENAME)),
+        change: "created",
+      },
+      {
+        path: path.relative(ws.baseDir, path.join(targetDir, "src", "README.md")),
+        change: "created",
+      },
+      { path: ".axm (config/lockfile)", change: "created" },
+      { path: `files/${name}.md`, change: "created" },
+    ],
+  };
 
   const plan: Plan = {
     _tag: "Plan",
@@ -188,6 +201,16 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
             versionRange: Option.none(),
             label: fqn,
             message: `Created ${fqn}`,
+            plannedArtifact,
+            preflight: Effect.gen(function* () {
+              const current = yield* ws.getConfiguredFilesEntries();
+              yield* preflightCreateOnly({
+                subject: "Files package",
+                name,
+                configured: Object.hasOwn(current, name),
+                destinations: [targetDir],
+              }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+            }),
             buildArtifact: () =>
               Effect.gen(function* () {
                 const currentLockEntry = yield* ws
@@ -233,13 +256,6 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
               inputs: {},
             }),
             scaffold: Effect.gen(function* () {
-              const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-              if (exists && !args.force) {
-                return yield* makeAppError({
-                  code: "conflict",
-                  detail: `files package directory already exists: ${targetDir}`,
-                });
-              }
               yield* fs.makeDirectory(path.join(targetDir, "src"), { recursive: true }).pipe(
                 Effect.mapError((error) =>
                   makeAppError({
@@ -318,12 +334,11 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Overwrite if the directory exists")),
   preview: previewFlag.pipe(Flag.withDescription("Show files without creating them")),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, force, preview }) =>
-  handleFilesNew({ name, owner, yes, force, preview }).pipe(
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
+  handleFilesNew({ name, owner, yes, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withAuthRuntime("files new"),
   ),

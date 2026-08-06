@@ -46,7 +46,6 @@ const defaultArgs = (
   event: "tool.pre",
   matcher: Option.none(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });

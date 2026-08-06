@@ -63,7 +63,6 @@ describe("files-new.handler", () => {
           name: "workspace-baseline",
           owner: Option.none(),
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -136,7 +135,7 @@ describe("files-new.handler", () => {
     );
   });
 
-  it.effect("rejects rerun without --force before reporting success", () => {
+  it.effect("rejects rerun before reporting success", () => {
     const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: [] });
 
@@ -146,7 +145,6 @@ describe("files-new.handler", () => {
           name: "workspace-baseline",
           owner: Option.none(),
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -155,7 +153,6 @@ describe("files-new.handler", () => {
             name: "workspace-baseline",
             owner: Option.none(),
             yes: false,
-            force: false,
             preview: false,
           }),
         );

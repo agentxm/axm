@@ -34,7 +34,6 @@ const makeOp = (
     name,
     owner: normalizeHandle(opts.owner ?? "@acme"),
     description: opts.description ?? "",
-    force: false,
   },
 });
 

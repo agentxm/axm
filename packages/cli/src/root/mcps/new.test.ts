@@ -60,7 +60,6 @@ describe("mcps-new.handler", () => {
           description: "Context server",
           owner: Option.none(),
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -115,7 +114,6 @@ describe("mcps-new.handler", () => {
           description: "Context server",
           owner: Option.none(),
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -135,7 +133,11 @@ describe("mcps-new.handler", () => {
           throw new Error("Expected artifact.targets array");
         }
         const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
-        expect(targetPaths).toEqual([".axm (config/lockfile)", ".mcp.json"]);
+        expect(targetPaths).toEqual([
+          ".axm/extensions/@acme/mcps/context/mcp.json",
+          ".axm (config/lockfile)",
+          ".mcp.json",
+        ]);
         const mcpConfigTarget = expectRecord(
           expectDefined(
             targets.find((target) => property(expectRecord(target), "path") === ".mcp.json"),
@@ -158,7 +160,6 @@ describe("mcps-new.handler", () => {
           description: "Context server",
           owner: Option.none(),
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -167,7 +168,6 @@ describe("mcps-new.handler", () => {
           description: "Context server",
           owner: Option.none(),
           yes: true,
-          force: false,
           preview: false,
         }).pipe(Effect.flip);
 
@@ -175,7 +175,7 @@ describe("mcps-new.handler", () => {
           code: "conflict",
           suggestions: [
             {
-              description: "Choose a different name or remove the existing directory first",
+              description: "Choose a different name or remove the existing mcp server first",
             },
           ],
         });

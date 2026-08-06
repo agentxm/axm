@@ -3,13 +3,13 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
   computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
+  preflightCreateOnly,
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
@@ -58,29 +58,13 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   // Check if pack already exists
   const packDir = computePackPaths(path.join, base, owner, args.name);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
-  const exists = yield* fs.exists(manifestPath).pipe(
-    Effect.mapError((e) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to check if pack exists: ${manifestPath}`,
-        cause: e,
-      }),
-    ),
-  );
-
-  if (exists) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-      suggestions: [
-        {
-          description: "Choose a different name or remove the existing pack first",
-        },
-      ],
-    });
-  }
+  const configuredPacks = yield* ws.getConfiguredPackEntries();
+  yield* preflightCreateOnly({
+    subject: "Pack",
+    name: args.name,
+    configured: Object.hasOwn(configuredPacks, args.name),
+    destinations: [packDir.canonicalPath],
+  });
 
   // Build operation
   const op = {
@@ -100,6 +84,21 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     location: packDir.canonicalPath,
     pack: { name: args.name, dependencies: {} },
   };
+  const manifestArtifact = packManifestArtifact({
+    owner,
+    name: args.name,
+    scope: ws.scope,
+    change: "created",
+    version: "0.0.1",
+    fileCount: 1,
+  });
+  const artifact = {
+    ...manifestArtifact,
+    targets: [
+      ...(manifestArtifact.targets ?? []),
+      { path: ".axm (config/lockfile)", change: "created" as const },
+    ],
+  };
 
   const step = buildNewExtensionStep(manager, {
     ref,
@@ -107,18 +106,18 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     versionRange: Option.none(),
     label: fqn,
     message: `Created pack ${fqn}`,
+    preflight: Effect.gen(function* () {
+      const current = yield* ws.getConfiguredPackEntries();
+      yield* preflightCreateOnly({
+        subject: "Pack",
+        name: args.name,
+        configured: Object.hasOwn(current, args.name),
+        destinations: [packDir.canonicalPath],
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    }),
     markAuthored: ws.setPackEntry(args.name, { source: `workspace:${fqn}`, enabled: true }),
-    buildArtifact: () =>
-      Effect.succeed(
-        packManifestArtifact({
-          owner,
-          name: args.name,
-          scope: ws.scope,
-          change: "created",
-          version: "0.0.1",
-          fileCount: 1,
-        }),
-      ),
+    plannedArtifact: artifact,
+    buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

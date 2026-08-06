@@ -9,7 +9,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  preflightCreateOnly,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -36,8 +40,6 @@ export interface NewCommandOperationArgs {
   readonly owner: Handle;
   /** Description for the command. */
   readonly description: string;
-  /** Overwrite existing rendered command files. */
-  readonly force: boolean;
 }
 
 /**
@@ -95,20 +97,12 @@ export const newCommand: OperationHandler<
     );
     const srcDir = path.join(targetDir, "src");
 
-    // 2. Check if directory already exists
-    const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-
-    if (dirExists) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Directory "${name}" already exists`,
-        suggestions: [
-          {
-            description: "Choose a different name or remove the existing directory first",
-          },
-        ],
-      });
-    }
+    yield* preflightCreateOnly({
+      subject: "Command",
+      name,
+      configured: false,
+      destinations: [targetDir],
+    });
 
     // 3. Create managed extension directories
     yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(

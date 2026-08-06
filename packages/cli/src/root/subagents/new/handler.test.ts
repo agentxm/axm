@@ -58,7 +58,6 @@ const defaultArgs = (
   owner: Option.none(),
   agents: Option.none(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });
@@ -200,6 +199,10 @@ describe("subagents-new.handler", () => {
                 },
                 {
                   path: ".axm/extensions/@acme/subagents/machine-subagent/src/machine-subagent.md",
+                  change: "created",
+                },
+                {
+                  path: ".axm (config/lockfile)",
                   change: "created",
                 },
               ],

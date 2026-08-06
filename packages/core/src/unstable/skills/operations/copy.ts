@@ -23,7 +23,6 @@ import {
 } from "../../extensions/utils.js";
 import {
   REGISTRY_EXTENSIONS_DIR,
-  formatFqn,
   parseFqn,
   fqnInvalidErrorToAppError,
 } from "../../extensions/index.js";
@@ -150,15 +149,6 @@ export const copySkill: OperationHandler<
         }),
       ),
     );
-
-    yield* ws.setSkillEntry(fqn.name, {
-      source: `workspace:${formatFqn({
-        owner: fqn.owner,
-        type: "skill",
-        name: fqn.name,
-      })}`,
-      enabled: true,
-    });
 
     return {
       result: "success",

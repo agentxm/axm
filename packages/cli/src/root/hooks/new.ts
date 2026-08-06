@@ -9,6 +9,7 @@ import {
   buildNewExtensionStep,
   computeSourceHash,
   decodeExtensionNameSync,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -18,8 +19,13 @@ import type {
   NewHookOperation,
   WorkspaceHookRef,
 } from "@agentxm/client-core/unstable/hooks";
-import { HOOK_EXTENSION_DIR, HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  HOOK_EXTENSION_DIR,
+  HOOK_MANIFEST_FILENAME,
+  HookManager,
+  newHook,
+} from "@agentxm/client-core/unstable/hooks";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -135,7 +141,6 @@ export interface HooksNewHandlerArgs {
   readonly event: HookEvent;
   readonly matcher: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -170,13 +175,6 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
   const manager = yield* HookManager;
 
   const configuredHooks = yield* ws.getConfiguredHookEntries();
-  if (!args.force && args.name in configuredHooks) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Hook '${args.name}' already exists in settings`,
-      suggestions: [{ description: "Choose a different name or remove the existing hook first" }],
-    });
-  }
 
   // 4. Apply matcher default for tool-scoped events
   const matcher = Option.isSome(args.matcher)
@@ -194,7 +192,6 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
       runtime: args.runtime,
       event: args.event,
       matcher,
-      force: args.force,
     },
   } satisfies NewHookOperation;
 
@@ -207,6 +204,12 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     HOOK_EXTENSION_DIR,
     args.name,
   );
+  yield* preflightCreateOnly({
+    subject: "Hook",
+    name: args.name,
+    configured: Object.hasOwn(configuredHooks, args.name),
+    destinations: [targetDir],
+  });
   const ref: WorkspaceHookRef = {
     type: "hook",
     refType: "workspace",
@@ -219,6 +222,25 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     location: targetDir,
     hook: { name: args.name },
   };
+  const entrypoint = entrypointFilename(args.runtime);
+  const plannedArtifact: JobStepArtifact = {
+    path: path.relative(ws.baseDir, targetDir),
+    scope: ws.scope,
+    version: ref.version,
+    change: "created",
+    fileCount: 2,
+    targets: [
+      {
+        path: path.relative(ws.baseDir, path.join(targetDir, HOOK_MANIFEST_FILENAME)),
+        change: "created",
+      },
+      {
+        path: path.relative(ws.baseDir, path.join(targetDir, "src", entrypoint)),
+        change: "created",
+      },
+      { path: ".axm (config/lockfile)", change: "created" },
+    ],
+  };
 
   const step: PlannedJobStep = buildNewExtensionStep(manager, {
     ref,
@@ -226,6 +248,16 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     versionRange: Option.none(),
     label: fqn,
     message: `Created hook ${fqn}`,
+    plannedArtifact,
+    preflight: Effect.gen(function* () {
+      const current = yield* ws.getConfiguredHookEntries();
+      yield* preflightCreateOnly({
+        subject: "Hook",
+        name: args.name,
+        configured: Object.hasOwn(current, args.name),
+        destinations: [targetDir],
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    }),
     buildArtifact: () =>
       Effect.gen(function* () {
         const currentLockEntry = yield* ws
@@ -289,7 +321,6 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     displayApplied: false,
   });
 
-  const entrypoint = entrypointFilename(args.runtime);
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "hooks", args.name, "src", entrypoint)}\` to implement the hook`,
@@ -337,7 +368,6 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the hook without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Overwrite if a hook with this name already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
@@ -346,7 +376,7 @@ const newConfig = {
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, owner, runtime, event, matcher, yes, force, preview }) =>
+  ({ name, owner, runtime, event, matcher, yes, preview }) =>
     handleHooksNew({
       name: decodeExtensionNameSync(name),
       owner,
@@ -354,7 +384,6 @@ export const newCommand = Command.make(
       event,
       matcher,
       yes,
-      force,
       preview,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("hooks new")),
 ).pipe(

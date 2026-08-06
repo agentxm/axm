@@ -54,7 +54,6 @@ const defaultArgs = (
   description: "",
   owner: Option.none(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });

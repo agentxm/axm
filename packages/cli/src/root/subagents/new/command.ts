@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { withAuthRuntime, withWorkspace } from "../../../runtime.js";
@@ -21,26 +21,19 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the subagent without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Overwrite if a subagent with this name already exists"),
-  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, owner, agent, yes, force, preview }) =>
-    handleSubagentsNew({
-      name: decodeExtensionNameSync(name),
-      owner,
-      agents: Option.map(agent, (value) => [...value]),
-      yes,
-      force,
-      preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("subagents new")),
+export const newCommand = Command.make("new", newConfig, ({ name, owner, agent, yes, preview }) =>
+  handleSubagentsNew({
+    name: decodeExtensionNameSync(name),
+    owner,
+    agents: Option.map(agent, (value) => [...value]),
+    yes,
+    preview,
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("subagents new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new subagent"),

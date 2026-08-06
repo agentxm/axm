@@ -31,7 +31,10 @@ describe("extension activation lifecycle", () => {
     const temp = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {

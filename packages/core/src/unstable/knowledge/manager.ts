@@ -33,10 +33,11 @@ import { decodeVersionSync } from "../version-constraints/version-constraints.js
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 import { resolveConfiguredKnowledge } from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
-import type { ExtensionManager, KnowledgeExtensionTarget } from "../workspace/service-interface.js";
+import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -78,8 +79,8 @@ export interface KnowledgeSyncResult {
 interface PreparedKnowledgePackage {
   readonly root: string;
   readonly sourceHash: SourceHash;
-  readonly commit: Effect.Effect<void>;
-  readonly rollback: Effect.Effect<void>;
+  readonly commit: Effect.Effect<void, ReturnType<typeof makeAppError>>;
+  readonly rollback: Effect.Effect<void, ReturnType<typeof makeAppError>>;
 }
 
 export class KnowledgeManager extends ServiceMap.Service<
@@ -307,40 +308,69 @@ export const KnowledgeManagerLive = Layer.effect(
         const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
         const backupPath = path.join(tempDir, "previous");
+        const removeTemp = fs.remove(tempDir, { recursive: true, force: true }).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to remove temporary Knowledge directory ${tempDir}`,
+              cause,
+            }),
+          ),
+        );
         const stagedRoot = yield* materializePackage(ref, {
           baseDir: tempDir,
           canonicalPath: stagedPath,
           force,
         });
-        yield* inspectPackage(stagedRoot).pipe(
-          Effect.tapError(() => fs.remove(tempDir, { recursive: true }).pipe(Effect.ignore)),
-        );
+        yield* inspectPackage(stagedRoot).pipe(Effect.tapError(() => removeTemp));
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
+        yield* protectWorkspacePath(canonicalPath);
         const hadCanonical = yield* fs.exists(canonicalPath);
         if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
         yield* fs.makeDirectory(path.dirname(canonicalPath), { recursive: true });
-        yield* fs
-          .rename(stagedPath, canonicalPath)
-          .pipe(
-            Effect.tapError(() =>
-              hadCanonical ? fs.rename(backupPath, canonicalPath).pipe(Effect.ignore) : Effect.void,
-            ),
-          );
+        yield* fs.rename(stagedPath, canonicalPath).pipe(
+          Effect.tapError(() =>
+            (hadCanonical
+              ? fs.rename(backupPath, canonicalPath).pipe(
+                  Effect.mapError((cause) =>
+                    makeAppError({
+                      code: "internal",
+                      detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
+                      cause,
+                    }),
+                  ),
+                )
+              : Effect.void
+            ).pipe(Effect.andThen(removeTemp)),
+          ),
+        );
         return {
           root: canonicalPath,
           sourceHash,
-          commit: fs.remove(tempDir, { recursive: true }).pipe(Effect.ignore),
-          rollback: fs
-            .remove(canonicalPath, { recursive: true })
-            .pipe(
-              Effect.ignore,
-              Effect.andThen(
-                hadCanonical
-                  ? fs.rename(backupPath, canonicalPath).pipe(Effect.ignore)
-                  : Effect.void,
-              ),
-              Effect.andThen(fs.remove(tempDir, { recursive: true }).pipe(Effect.ignore)),
+          commit: removeTemp,
+          rollback: fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
+                cause,
+              }),
             ),
+            Effect.andThen(
+              hadCanonical
+                ? fs.rename(backupPath, canonicalPath).pipe(
+                    Effect.mapError((cause) =>
+                      makeAppError({
+                        code: "internal",
+                        detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
+                        cause,
+                      }),
+                    ),
+                  )
+                : Effect.void,
+            ),
+            Effect.andThen(removeTemp),
+          ),
         };
       }).pipe(
         Effect.mapError((cause) =>
@@ -577,73 +607,93 @@ export const KnowledgeManagerLive = Layer.effect(
       readonly ref: KnowledgeExtensionRef;
       readonly versionRange: Option.Option<VersionRange>;
     }) =>
-      Effect.gen(function* () {
-        const name = args.ref.knowledge.name;
-        const previousConfigured = yield* ws.getConfiguredKnowledgeEntries();
-        const previousEntry = Option.fromUndefinedOr(previousConfigured[name]);
-        const previousLock = Option.fromUndefinedOr((yield* getKnowledgeLockEntries(ws))[name]);
-        const relativeLocalSource =
-          args.ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, args.ref.source.path)
-            : Option.none<string>();
-        if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
-          });
-        }
-        const prepared = yield* preparePackage(args.ref);
-        const now = yield* DateTime.now;
-        lastInstallState.set(name, {
-          relativeLocalSource,
-          sourceHash: prepared.sourceHash,
-        });
-        const rollbackMetadata = Effect.gen(function* () {
-          if (Option.isSome(previousEntry)) yield* ws.setKnowledgeEntry(name, previousEntry.value);
-          else yield* ws.removeKnowledgeSettings(name);
-          if (Option.isSome(previousLock)) {
-            yield* ws.setKnowledgeLock({
-              name,
-              lockEntry: previousLock.value,
-              versionRange: Option.none(),
-            });
-          } else yield* ws.removeKnowledgeLock(name);
-        }).pipe(Effect.ignore);
-        const applied = yield* Effect.result(
-          ws
-            .setKnowledge({
-              name,
-              lockEntry: buildLockEntry(args.ref, now),
-              versionRange: args.versionRange,
-            })
-            .pipe(
-              Effect.andThen(
-                reconcileProjection({
-                  include: { ref: args.ref, root: prepared.root },
-                  excludeName: name,
-                }),
+      ws
+        .runTransaction({
+          transition: Effect.gen(function* () {
+            const name = args.ref.knowledge.name;
+            const relativeLocalSource =
+              args.ref.refType === "local"
+                ? makeWorkspaceRelativeSourcePath(path, baseDir, args.ref.source.path)
+                : Option.none<string>();
+            if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
+              });
+            }
+            const prepared = yield* preparePackage(args.ref);
+            return yield* Effect.gen(function* () {
+              const now = yield* DateTime.now;
+              lastInstallState.set(name, {
+                relativeLocalSource,
+                sourceHash: prepared.sourceHash,
+              });
+              const lockEntry = buildLockEntry(args.ref, now);
+              yield* ws.setKnowledge({
+                name,
+                lockEntry,
+                versionRange: args.versionRange,
+                commit: "authoritative",
+              });
+              yield* reconcileProjection({
+                include: { ref: args.ref, root: prepared.root },
+                excludeName: name,
+              });
+              return { name, lockEntry };
+            }).pipe(
+              Effect.tapError(() => prepared.commit),
+              Effect.tap(() => prepared.commit),
+            );
+          }),
+          validate: ({ name }) =>
+            isObservedInstalled(ws, "knowledge", name).pipe(
+              Effect.flatMap((installed) =>
+                installed
+                  ? Effect.void
+                  : makeAppError({
+                      code: "internal",
+                      detail: `Installed Knowledge bundle "${name}" did not satisfy its observable contract`,
+                    }),
               ),
             ),
+          receipt: ({ name, lockEntry }) =>
+            ws.setKnowledgeLock({
+              name,
+              lockEntry,
+              versionRange: args.versionRange,
+              commit: "receipt",
+            }),
+        })
+        .pipe(
+          Effect.tapError(() =>
+            Effect.sync(() => {
+              lastInstallState.delete(args.ref.knowledge.name);
+            }),
+          ),
+          Effect.asVoid,
         );
-        if (Result.isFailure(applied)) {
-          yield* rollbackMetadata;
-          yield* prepared.rollback;
-          yield* reconcileProjection().pipe(Effect.ignore);
-          return yield* applied.failure;
-        }
-        yield* prepared.commit;
-      });
 
     return {
       type: "knowledge",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
           .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
-      refreshCatalog: () => reconcileProjection().pipe(Effect.asVoid),
-      sync: ({ dryRun }) => syncLocked(dryRun),
+      refreshCatalog: () =>
+        ws.runTransaction({
+          transition: reconcileProjection().pipe(Effect.asVoid),
+          validate: () => Effect.void,
+        }),
+      sync: ({ dryRun }) =>
+        dryRun
+          ? syncLocked(true)
+          : ws.runTransaction({
+              transition: syncLocked(false),
+              validate: () => Effect.void,
+            }),
       install: installAtomically,
-      isInstalled: ({ target }: { readonly target: KnowledgeExtensionTarget }) =>
+      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
         ref,
@@ -709,7 +759,16 @@ export const KnowledgeManagerLive = Layer.effect(
           Option.fromUndefinedOr(state.observation.path),
         );
         if (preserveSource !== true && Option.isSome(root)) {
-          yield* fs.remove(root.value, { recursive: true }).pipe(Effect.ignore);
+          yield* protectWorkspacePath(root.value);
+          yield* fs.remove(root.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove Knowledge package source: ${root.value}`,
+                cause: error,
+              }),
+            ),
+          );
         }
         yield* reconcileProjection({ excludeName: target.name });
       }, Effect.asVoid),
@@ -720,6 +779,18 @@ export const KnowledgeManagerLive = Layer.effect(
               name: ref.knowledge.name,
               lockEntry: buildLockEntry(ref, now),
               versionRange,
+              commit: "authoritative",
+            }),
+          ),
+        ),
+      upsertTrustEntry: ({ ref }) =>
+        DateTime.now.pipe(
+          Effect.flatMap((now) =>
+            ws.setKnowledgeLock({
+              name: ref.knowledge.name,
+              lockEntry: buildLockEntry(ref, now),
+              versionRange: Option.none(),
+              commit: "authoritative",
             }),
           ),
         ),
@@ -741,6 +812,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   name: ref.knowledge.name,
                   lockEntry,
                   versionRange: Option.none(),
+                  commit: "receipt",
                 }),
               ),
             );

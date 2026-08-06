@@ -13,6 +13,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
 import { makeWorkspaceRelativePath, type RelativePath } from "../utils/path-types.js";
 import { MaterializedFileTargetSchema, type MaterializedFileTarget } from "../lockfile/schema.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   generateFileIndex,
   generateTableOfContents,
@@ -378,6 +379,7 @@ const writeTarget = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* protectWorkspacePath(absoluteTarget);
     yield* fs.makeDirectory(path.dirname(absoluteTarget), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -441,9 +443,15 @@ export const materializeFileEntry = ({
     });
     const renderHash = computeSourceHash(content);
     const target = makeTargetRecord(targetPath.relative, entry.mode, renderHash);
-    const exists = yield* fs
-      .exists(targetPath.absolute)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(targetPath.absolute).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect files target: ${targetPath.absolute}`,
+          cause: error,
+        }),
+      ),
+    );
 
     if (entry.mode === "sync-once" && exists) {
       return {

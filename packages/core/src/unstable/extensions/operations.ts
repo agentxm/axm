@@ -147,11 +147,9 @@ export interface NewExtensionOperationArgs<
 /**
  * Execute the canonical install sequence.
  *
- * Root installs materialize first, then commit settings and receipt together
- * through the manager's settings boundary. Pack-derived installs have no
- * settings declaration and commit only their receipt/trust row. This avoids
- * writing receipt history ahead of successful materialization and avoids the
- * former duplicate lock write for root installs.
+ * Root installs materialize and commit desired/trust state before validating
+ * the observable postcondition. Pack-derived installs commit trust without a
+ * root settings declaration. Receipt history is written only after validation.
  */
 const runInstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -185,18 +183,43 @@ const runInstallOperation = <TRef extends ExtensionRef>(
         allowDowngrade: args.force === true,
       });
     }
-    yield* manager.materializeInstall({
-      ref: args.ref,
-      ...(args.force === undefined ? {} : { force: args.force }),
+    yield* manager.runTransaction({
+      transition: Effect.gen(function* () {
+        yield* manager.materializeInstall({
+          ref: args.ref,
+          ...(args.force === undefined ? {} : { force: args.force }),
+        });
+        if (args.skipSettings) {
+          yield* manager.upsertTrustEntry({ ref: args.ref });
+        } else {
+          yield* manager.upsertSettingsEntry({
+            ref: args.ref,
+            versionRange: args.versionRange,
+          });
+        }
+        return installedBefore;
+      }),
+      validate: () =>
+        Effect.gen(function* () {
+          const installed = yield* manager.isInstalled({ target });
+          if (!installed) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
+            });
+          }
+          if (args.skipSettings !== true && manager.getConfiguredSource !== undefined) {
+            const configured = yield* manager.getConfiguredSource({ target });
+            if (Option.isNone(configured)) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: `Installed ${target.type} "${target.name}" has no desired-state declaration`,
+              });
+            }
+          }
+        }),
+      receipt: () => manager.upsertLockfileEntry({ ref: args.ref }),
     });
-    if (args.skipSettings) {
-      yield* manager.upsertLockfileEntry({ ref: args.ref });
-    } else {
-      yield* manager.upsertSettingsEntry({
-        ref: args.ref,
-        versionRange: args.versionRange,
-      });
-    }
     const artifact =
       args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
     return {
@@ -238,9 +261,9 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
 /**
  * Build a PlannedJobStep for `new` commands.
  *
- * The scaffold runs first, then a workspace-source settings entry is seeded.
- * The manager resolves that canonical package back into a first-class
- * workspace ref before materializing and writing derived lock state.
+ * A read-only preflight runs first. The transaction then snapshots the source
+ * path, scaffolds it, seeds desired state, resolves the canonical package, and
+ * materializes projections before validating and writing receipt history.
  */
 export const buildNewExtensionStep = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -255,36 +278,70 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
     readiness: "ready",
     run: manager.listMaterializable().pipe(
       Effect.andThen(
-        Effect.gen(function* () {
-          yield* args.scaffold;
-          yield* args.markAuthored;
-          const materializable = yield* manager.listMaterializable();
-          const ref = materializable.find(
-            (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
-          );
-          if (ref === undefined) {
-            return yield* makeAppError({
-              code: "not_found",
-              detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
+        manager.runTransaction({
+          ...(args.ref.refType === "workspace" ? { targets: [args.ref.location] } : {}),
+          transition: Effect.gen(function* () {
+            yield* args.scaffold;
+            yield* args.markAuthored;
+            const materializable = yield* manager.listMaterializable();
+            const ref = materializable.find(
+              (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
+            );
+            if (ref === undefined) {
+              return yield* makeAppError({
+                code: "not_found",
+                detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
+              });
+            }
+            if (manager.validateTrustTransition !== undefined) {
+              yield* manager.validateTrustTransition({
+                ref,
+                allowSourceTransition: true,
+                allowDowngrade: args.force === true,
+              });
+            }
+            const installedBefore =
+              args.installedBefore === undefined ? false : yield* args.installedBefore;
+            yield* manager.materializeInstall({
+              ref,
+              ...(args.force === undefined ? {} : { force: args.force }),
             });
-          }
-          const result = yield* runInstallOperation(manager, { ...args, ref });
-          return {
-            ...result,
-            result: "success" as const,
-            message: args.message,
-          } satisfies JobStepResult;
+            yield* manager.upsertSettingsEntry({ ref, versionRange: args.versionRange });
+            return { ref, installedBefore };
+          }),
+          validate: () =>
+            Effect.gen(function* () {
+              const installed = yield* manager.isInstalled({ target });
+              if (!installed) {
+                return yield* makeAppError({
+                  code: "internal",
+                  detail: `New ${target.type} "${target.name}" did not satisfy its observable contract`,
+                });
+              }
+              if (manager.getConfiguredSource !== undefined) {
+                const configured = yield* manager.getConfiguredSource({ target });
+                if (Option.isNone(configured)) {
+                  return yield* makeAppError({
+                    code: "internal",
+                    detail: `New ${target.type} "${target.name}" has no desired-state declaration`,
+                  });
+                }
+              }
+            }),
+          receipt: ({ ref }) => manager.upsertLockfileEntry({ ref }),
         }),
       ),
-      Effect.catch((error) =>
+      Effect.flatMap(({ installedBefore }) =>
         Effect.gen(function* () {
-          yield* manager.materializeUninstall({ target }).pipe(Effect.catch(() => Effect.void));
-          yield* manager.removeLockfileEntry({ target }).pipe(Effect.catch(() => Effect.void));
-          yield* manager.removeSettingsEntry({ target }).pipe(Effect.catch(() => Effect.void));
-          if (manager.removeTrustEntry !== undefined) {
-            yield* manager.removeTrustEntry({ target }).pipe(Effect.catch(() => Effect.void));
-          }
-          return yield* error;
+          const artifact =
+            args.buildArtifact === undefined
+              ? undefined
+              : yield* args.buildArtifact({ installedBefore });
+          return {
+            result: "success" as const,
+            message: args.message,
+            ...(artifact === undefined ? {} : { artifact }),
+          } satisfies JobStepResult;
         }),
       ),
     ),
@@ -320,15 +377,28 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
         allowDowngrade: false,
       });
     }
-    yield* manager.materializeInstall({
-      ref: args.ref,
-      ...(args.force === undefined ? {} : { force: args.force }),
+    const target = targetFromRef(args.ref);
+    yield* manager.runTransaction({
+      transition: Effect.gen(function* () {
+        yield* manager.materializeInstall({
+          ref: args.ref,
+          ...(args.force === undefined ? {} : { force: args.force }),
+        });
+        yield* manager.upsertTrustEntry({ ref: args.ref });
+      }),
+      validate: () =>
+        manager.isInstalled({ target }).pipe(
+          Effect.flatMap((installed) =>
+            installed
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Reconciled ${target.type} "${target.name}" did not satisfy its observable contract`,
+                }),
+          ),
+        ),
+      receipt: () => manager.upsertLockfileEntry({ ref: args.ref }),
     });
-    // Sync repairs an existing declaration, so settings remain authoritative
-    // and unchanged. Persist only the successful observed resolution/content
-    // receipt; the lockfile writer updates the dedicated trust baseline from
-    // this post-materialization record.
-    yield* manager.upsertLockfileEntry({ ref: args.ref });
     const artifact = args.buildArtifact === undefined ? undefined : yield* args.buildArtifact();
     return {
       result: "success" as const,
@@ -398,50 +468,90 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         detail: "--keep-source and --delete-source apply only to workspace-sourced extensions",
       });
     }
-    const isInstalled = yield* manager.isInstalled({ target: args.target });
-    if (!isInstalled) {
-      if (Option.isSome(configuredSource)) {
-        yield* manager.removeSettingsEntry({ target: args.target });
-        yield* manager.removeLockfileEntry({ target: args.target });
+    const transition = Effect.gen(function* () {
+      const isInstalled = yield* manager.isInstalled({ target: args.target });
+      if (!isInstalled) {
+        if (Option.isSome(configuredSource)) {
+          yield* manager.removeSettingsEntry({ target: args.target });
+          yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
+          return {
+            job: {
+              result: "success" as const,
+              message: `Removed configured ${toLabel(args.target)}; no installed artifacts were observed`,
+            } satisfies JobStepResult,
+            receipt: "remove" as const,
+            expectedInstalled: false,
+          };
+        }
         yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
         return {
-          result: "success" as const,
-          message: `Removed configured ${toLabel(args.target)}; no installed artifacts were observed`,
-        } satisfies JobStepResult;
+          job: { result: "success" as const, message: "not installed" } satisfies JobStepResult,
+          receipt: "none" as const,
+          expectedInstalled: false,
+        };
       }
+
+      const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
+        target: args.target,
+      });
+      if (stillRequiredByPack) {
+        yield* manager.removeSettingsEntry({ target: args.target });
+        return {
+          job: {
+            result: "success" as const,
+            message: "Kept on disk because dependency is still required by an installed pack",
+          } satisfies JobStepResult,
+          receipt: "none" as const,
+          expectedInstalled: true,
+        };
+      }
+
+      yield* manager.materializeUninstall({
+        target: args.target,
+        preserveSource: args.sourceDisposition === "keep",
+      });
+      yield* manager.removeSettingsEntry({ target: args.target });
       yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
       return {
-        result: "success" as const,
-        message: "not installed",
-      } satisfies JobStepResult;
-    }
-
-    const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
-      target: args.target,
+        job: {
+          result: "success" as const,
+          message:
+            args.sourceDisposition === "keep"
+              ? `Removed ${toLabel(args.target)} from management and kept its source package`
+              : `Removed ${toLabel(args.target)}`,
+        } satisfies JobStepResult,
+        receipt: "remove" as const,
+        expectedInstalled: args.sourceDisposition === "keep",
+      };
     });
 
-    if (stillRequiredByPack) {
-      yield* manager.removeSettingsEntry({ target: args.target });
-      return {
-        result: "success" as const,
-        message: "Kept on disk because dependency is still required by an installed pack",
-      } satisfies JobStepResult;
-    }
-
-    yield* manager.materializeUninstall({
-      target: args.target,
-      preserveSource: args.sourceDisposition === "keep",
+    const result = yield* manager.runTransaction({
+      transition,
+      validate: (outcome) =>
+        Effect.gen(function* () {
+          if (manager.getConfiguredSource !== undefined) {
+            const configured = yield* manager.getConfiguredSource({ target: args.target });
+            if (Option.isSome(configured)) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: `Uninstalled ${args.target.type} "${args.target.name}" remains declared`,
+              });
+            }
+          }
+          const installed = yield* manager.isInstalled({ target: args.target });
+          if (installed !== outcome.expectedInstalled) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Uninstalled ${args.target.type} "${args.target.name}" has an invalid observed postcondition`,
+            });
+          }
+        }),
+      receipt: (outcome) =>
+        outcome.receipt === "remove"
+          ? manager.removeLockfileEntry({ target: args.target })
+          : Effect.void,
     });
-    yield* manager.removeLockfileEntry({ target: args.target });
-    yield* manager.removeSettingsEntry({ target: args.target });
-    yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
-    return {
-      result: "success" as const,
-      message:
-        args.sourceDisposition === "keep"
-          ? `Removed ${toLabel(args.target)} from management and kept its source package`
-          : `Removed ${toLabel(args.target)}`,
-    } satisfies JobStepResult;
+    return result.job;
   });
 
 /**

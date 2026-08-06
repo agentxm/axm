@@ -21,6 +21,7 @@ import {
   stripFileProtocol,
 } from "../utils/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -182,20 +183,29 @@ const materializeRegistry = (
           }),
         ),
       );
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* provide(extractZip(archive, tmpDir));
-          yield* preCleanAndCopy(
-            fs,
-            pathService,
-            baseDir,
-            sanitizedName,
-            tmpDir,
-            canonicalPath,
-            provide,
-          );
-        }),
-        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+      const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to remove temporary skill directory ${tmpDir}`,
+            cause: error,
+          }),
+        ),
+      );
+      yield* Effect.gen(function* () {
+        yield* provide(extractZip(archive, tmpDir));
+        yield* preCleanAndCopy(
+          fs,
+          pathService,
+          baseDir,
+          sanitizedName,
+          tmpDir,
+          canonicalPath,
+          provide,
+        );
+      }).pipe(
+        Effect.tapError(() => cleanup),
+        Effect.tap(() => cleanup),
       );
     }
 
@@ -266,7 +276,7 @@ export const insertSkillCopyFallbackBanner = (args: {
   readonly canonicalSkillSrcPath: string;
   readonly agentSkillPath: string;
   readonly baseDir: string;
-}): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -290,8 +300,19 @@ export const insertSkillCopyFallbackBanner = (args: {
       helpTopic: "skills",
       format: "markdown",
     });
+    yield* protectWorkspacePath(skillMdPath);
     yield* fs.writeFileString(skillMdPath, withBanner);
-  }).pipe(Effect.catch(() => Effect.void));
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause._tag === "AppError"
+        ? cause
+        : makeAppError({
+            code: "internal",
+            detail: `Failed to annotate copied skill artifact at ${args.agentSkillPath}`,
+            cause,
+          }),
+    ),
+  );
 
 export const ensureSkillAgentArtifact = (args: {
   readonly canonicalSkillSrcPath: string;
@@ -343,7 +364,16 @@ export const removeSkillAgentArtifact = (args: {
   readonly pathService: Path.Path;
   readonly targetDir: string;
   readonly sanitizedName: string;
-}) =>
-  args.fs
-    .remove(args.pathService.join(args.targetDir, args.sanitizedName), { recursive: true })
-    .pipe(Effect.catch(() => Effect.void));
+}) => {
+  const target = args.pathService.join(args.targetDir, args.sanitizedName);
+  return protectWorkspacePath(target).pipe(
+    Effect.andThen(args.fs.remove(target, { recursive: true, force: true })),
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to remove skill artifact at ${target}`,
+        cause: error,
+      }),
+    ),
+  );
+};

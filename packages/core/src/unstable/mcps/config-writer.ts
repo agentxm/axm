@@ -14,6 +14,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
 import type {
@@ -100,7 +101,15 @@ const validateServersShape = (
 const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(configPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect MCP config: ${configPath}`,
+          cause: error,
+        }),
+      ),
+    );
     if (!exists) return "";
     return yield* fs.readFileString(configPath).pipe(
       Effect.mapError((error) =>
@@ -123,6 +132,7 @@ const writeIfChanged = (
     if (oldRaw === newRaw) return { targets: [] };
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* protectWorkspacePath(configPath);
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({

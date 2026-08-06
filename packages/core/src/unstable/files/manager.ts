@@ -34,11 +34,16 @@ import {
 } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import type { ExtensionManager, FilesExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  FilesExtensionTarget,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredFiles } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import {
@@ -338,15 +343,33 @@ export const FilesManagerLive = Layer.effect(
             },
           }),
         );
-        const existing = yield* fs
-          .readFileString(absoluteTarget)
-          .pipe(Effect.catch(() => Effect.succeed("")));
+        const exists = yield* fs.exists(absoluteTarget).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to inspect files package target: ${absoluteTarget}`,
+              cause: error,
+            }),
+          ),
+        );
+        const existing = exists
+          ? yield* fs.readFileString(absoluteTarget).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to read files package target: ${absoluteTarget}`,
+                  cause: error,
+                }),
+              ),
+            )
+          : "";
         const updated = replaceManagedRegion({
           content: existing,
           marker: { region: args.entry.region, ext: markerExtForRef(args.ref, args.manifest) },
           rendered,
           style: style.value,
         });
+        yield* protectWorkspacePath(absoluteTarget);
         yield* fs.makeDirectory(path.dirname(absoluteTarget), { recursive: true }).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -465,45 +488,86 @@ export const FilesManagerLive = Layer.effect(
           Option.fromUndefinedOr(state.observation.path),
         );
         if (Option.isNone(packageRoot)) return;
-        const manifest = yield* readManifest(packageRoot.value).pipe(Effect.option);
+        const manifest = yield* readManifest(packageRoot.value);
         const markerExt = yield* markerExtForPackageRoot(target.name, packageRoot.value);
-        for (const contentEntry of Option.match(manifest, {
-          onNone: () => [],
-          onSome: (value) => value.contents,
-        })) {
+        for (const contentEntry of manifest.contents) {
           if (contentEntry.mode === "sync-once") continue;
           const relativeTarget = makeWorkspaceRelativePath(path, baseDir, contentEntry.target);
           if (Option.isNone(relativeTarget)) continue;
           const absoluteTarget = path.resolve(baseDir, relativeTarget.value);
           if (contentEntry.mode === "sync-always") {
-            yield* fs.remove(absoluteTarget).pipe(Effect.catch(() => Effect.void));
+            yield* protectWorkspacePath(absoluteTarget);
+            yield* fs.remove(absoluteTarget, { force: true }).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to remove files package target: ${absoluteTarget}`,
+                  cause: error,
+                }),
+              ),
+            );
             continue;
           }
           if (!("region" in contentEntry)) continue;
           const style = commentStyleForTarget(contentEntry.target);
           if (Option.isNone(style)) continue;
-          const existing = yield* fs
-            .readFileString(absoluteTarget)
-            .pipe(Effect.catch(() => Effect.succeed("")));
+          const exists = yield* fs.exists(absoluteTarget).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to inspect files package target: ${absoluteTarget}`,
+                cause: error,
+              }),
+            ),
+          );
+          if (!exists) continue;
+          const existing = yield* fs.readFileString(absoluteTarget).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to read files package target: ${absoluteTarget}`,
+                cause: error,
+              }),
+            ),
+          );
           const updated = stripManagedRegion(
             existing,
             { region: contentEntry.region, ext: markerExt },
             style.value,
           );
-          yield* fs.writeFileString(absoluteTarget, updated).pipe(Effect.catch(() => Effect.void));
+          yield* protectWorkspacePath(absoluteTarget);
+          yield* fs.writeFileString(absoluteTarget, updated).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to update files package target: ${absoluteTarget}`,
+                cause: error,
+              }),
+            ),
+          );
         }
         if (preserveSource !== true) {
-          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
+          yield* protectWorkspacePath(packageRoot.value);
+          yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove files package source: ${packageRoot.value}`,
+                cause: error,
+              }),
+            ),
+          );
         }
       }, Effect.asVoid);
 
     return {
       type: "files",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
           .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
-      isInstalled: ({ target }: { readonly target: FilesExtensionTarget }) =>
+      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "files", target.name).pipe(
           Effect.withSpan("FilesManager.isInstalled"),
         ),
@@ -553,6 +617,17 @@ export const FilesManagerLive = Layer.effect(
           name: ref.file.name,
           lockEntry,
           versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("FilesManager.upsertTrustEntry")(function* ({ ref }) {
+        const lockEntry = yield* buildLockEntry(ref);
+        yield* ws.setFilesLock({
+          name: ref.file.name,
+          lockEntry,
+          versionRange: Option.none(),
+          commit: "authoritative",
         });
       }),
 
@@ -573,6 +648,7 @@ export const FilesManagerLive = Layer.effect(
           name: ref.file.name,
           lockEntry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

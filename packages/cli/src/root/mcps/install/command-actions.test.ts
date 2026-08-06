@@ -18,7 +18,7 @@ import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
@@ -32,6 +32,7 @@ const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
 });
 
 const mockMcpServerManager = {
+  ...managerLifecycleStubs,
   type: "mcp-server",
   isInstalled: vi.fn(() => Effect.succeed(true)),
   materializeInstall: vi.fn(),

@@ -22,6 +22,7 @@ import {
 import {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
+  commitTrustSnapshotUpdate,
   commitLockfileUpdates,
   writeLockfile,
 } from "./lockfile.js";
@@ -221,6 +222,65 @@ describe("lockfile", () => {
   });
 
   describe("batched updates", () => {
+    it.effect("commits authoritative trust without changing receipt bytes", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = { lockfileVersion: 3, skills: {} };
+          const next: Lockfile = {
+            lockfileVersion: 3,
+            skills: {
+              review: createTestEntry({ owner: "trusted-org", repo: "trusted-repo" }),
+            },
+          };
+          yield* writeLockfile(axmDir, base);
+          const receiptPath = path.join(axmDir, "axm-lock.yaml");
+          const receiptBefore = fs.readFileSync(receiptPath);
+
+          yield* commitTrustSnapshotUpdate(axmDir, base, next);
+
+          expect(fs.readFileSync(receiptPath)).toEqual(receiptBefore);
+          const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf-8"));
+          expect(trust.records["skill:review"]).toMatchObject({
+            authority: "github",
+            sourceIdentity: "github:trusted-org/trusted-repo",
+          });
+        }),
+      ),
+    );
+
+    it.effect("commits receipt history without changing authoritative trust", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = {
+            lockfileVersion: 3,
+            skills: {
+              review: createTestEntry({ owner: "trusted-org", repo: "trusted-repo" }),
+            },
+          };
+          const next: Lockfile = {
+            lockfileVersion: 3,
+            skills: {
+              review: createTestEntry({ owner: "receipt-org", repo: "receipt-repo" }),
+            },
+          };
+          yield* writeLockfile(axmDir, base);
+
+          yield* commitLockfileSnapshotUpdate(axmDir, base, next, { preserveTrust: true });
+
+          const receipt = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(receipt.skills.review).toMatchObject({
+            owner: "receipt-org",
+            repo: "receipt-repo",
+          });
+          const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf-8"));
+          expect(trust.records["skill:review"]).toMatchObject({
+            authority: "github",
+            sourceIdentity: "github:trusted-org/trusted-repo",
+          });
+        }),
+      ),
+    );
+
     it.effect("does not delete authoritative trust when receipt history is removed", () =>
       withContext(
         Effect.gen(function* () {

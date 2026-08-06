@@ -13,6 +13,7 @@ import { makeAppError } from "../app-error/index.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import type { ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
@@ -101,44 +102,62 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
       ),
     );
 
-    yield* Effect.ensuring(
-      Effect.gen(function* () {
-        yield* extractZip(archive, tmpDir);
-        yield* fs.remove(args.canonicalPath, { recursive: true }).pipe(Effect.ignore);
-        yield* fs.makeDirectory(args.canonicalPath, { recursive: true }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: args.messages.createDirectoryFailureDetail(args.canonicalPath),
-              cause: error,
-            }),
-          ),
-        );
-        const entries = yield* fs.readDirectory(tmpDir).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: args.messages.inspectExtractedFailureDetail,
-              cause: error,
-            }),
-          ),
-        );
-        yield* Effect.forEach(
-          entries,
-          (entry) =>
-            fs.copy(path.join(tmpDir, entry), path.join(args.canonicalPath, entry)).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: args.messages.copyEntryFailureCode,
-                  detail: args.messages.copyEntryFailureDetail(entry),
-                  cause: error,
-                }),
-              ),
+    const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to remove temporary package directory ${tmpDir}`,
+          cause: error,
+        }),
+      ),
+    );
+    yield* Effect.gen(function* () {
+      yield* extractZip(archive, tmpDir);
+      yield* protectWorkspacePath(args.canonicalPath);
+      yield* fs.remove(args.canonicalPath, { recursive: true, force: true }).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to replace canonical package at ${args.canonicalPath}`,
+            cause: error,
+          }),
+        ),
+      );
+      yield* fs.makeDirectory(args.canonicalPath, { recursive: true }).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "validation",
+            detail: args.messages.createDirectoryFailureDetail(args.canonicalPath),
+            cause: error,
+          }),
+        ),
+      );
+      const entries = yield* fs.readDirectory(tmpDir).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "validation",
+            detail: args.messages.inspectExtractedFailureDetail,
+            cause: error,
+          }),
+        ),
+      );
+      yield* Effect.forEach(
+        entries,
+        (entry) =>
+          fs.copy(path.join(tmpDir, entry), path.join(args.canonicalPath, entry)).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: args.messages.copyEntryFailureCode,
+                detail: args.messages.copyEntryFailureDetail(entry),
+                cause: error,
+              }),
             ),
-          { concurrency: "unbounded" },
-        );
-      }),
-      fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+          ),
+        { concurrency: "unbounded" },
+      );
+    }).pipe(
+      Effect.tapError(() => cleanup),
+      Effect.tap(() => cleanup),
     );
 
     return args.canonicalPath;
@@ -163,7 +182,16 @@ export const materializeExternalPackage = (args: MaterializeExternalPackageArgs)
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(args.canonicalPath);
     if (isSelfCopy) return args.canonicalPath;
 
-    yield* fs.remove(args.canonicalPath, { recursive: true }).pipe(Effect.ignore);
+    yield* protectWorkspacePath(args.canonicalPath);
+    yield* fs.remove(args.canonicalPath, { recursive: true, force: true }).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to replace canonical package at ${args.canonicalPath}`,
+          cause: error,
+        }),
+      ),
+    );
     yield* copyExtensionDirectory(sourcePath, args.canonicalPath).pipe(
       Effect.mapError((error) =>
         makeAppError({

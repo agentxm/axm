@@ -17,8 +17,19 @@ import {
 import { makeAppError } from "../app-error/index.js";
 import { computeSourceHash } from "./rendered-files.js";
 import { exactVersion, extensionName, handle, packageUrl } from "../test-helpers.js";
-import type { ExtensionManager } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  WorkspaceTransactionRunner,
+} from "../workspace/service-interface.js";
 import type { RegistrySkillRef, SkillExtensionRef, WorkspaceSkillRef } from "../skills/refs.js";
+
+const runTransaction: WorkspaceTransactionRunner = (args) =>
+  Effect.gen(function* () {
+    const value = yield* args.transition;
+    yield* args.validate(value);
+    if (args.receipt !== undefined) yield* args.receipt(value);
+    return value;
+  });
 
 describe("formatPackageUrlParts", () => {
   it("formats type and name", () => {
@@ -94,11 +105,13 @@ describe("buildInstallOperation", () => {
   it("marks an exact yanked registry install as warning-ready", () => {
     const manager = {
       type: "skill",
+      runTransaction,
       isInstalled: () => Effect.succeed(false),
       materializeInstall: () => Effect.void,
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
@@ -138,12 +151,14 @@ describe("buildInstallOperation", () => {
     const materializeInstall = vi.fn(() => Effect.void);
     const manager = {
       type: "skill",
+      runTransaction,
       isInstalled: () => Effect.succeed(true),
       materializeInstall,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
@@ -218,12 +233,14 @@ describe("buildNewExtensionStep", () => {
     const scaffold = vi.fn(() => Effect.void);
     const manager = {
       type: "skill",
+      runTransaction,
       isInstalled: () => Effect.succeed(false),
       materializeInstall: () => Effect.void,
       listMaterializable: () =>
         Effect.fail(makeAppError({ code: "conflict", detail: "invalid pack" })),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
@@ -253,10 +270,21 @@ describe("buildNewExtensionStep", () => {
         lock: false,
         projection: false,
       };
+      const transactionalRun: WorkspaceTransactionRunner = (transaction) => {
+        const before = { ...state };
+        return runTransaction(transaction).pipe(
+          Effect.tapError(() =>
+            Effect.sync(() => {
+              Object.assign(state, before);
+            }),
+          ),
+        );
+      };
       let listCalls = 0;
       const fail = () => Effect.fail(makeAppError({ code: "internal", detail: failureAt }));
       const manager = {
         type: "skill",
+        runTransaction: transactionalRun,
         isInstalled: () => Effect.succeed(false),
         listMaterializable: () => {
           listCalls += 1;
@@ -280,6 +308,7 @@ describe("buildNewExtensionStep", () => {
             state.lock = true;
             if (failureAt === "commit") return yield* fail();
           }),
+        upsertTrustEntry: () => Effect.void,
         removeSettingsEntry: () =>
           Effect.sync(() => {
             state.settings = false;
@@ -328,11 +357,13 @@ describe("buildMaterializeOperation", () => {
     const calls: string[] = [];
     const manager = {
       type: "skill",
-      isInstalled: () => Effect.succeed(false),
+      runTransaction,
+      isInstalled: () => Effect.succeed(true),
       materializeInstall: () => Effect.sync(() => calls.push("materialize")),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
       removeLockfileEntry: () => Effect.void,
@@ -370,12 +401,14 @@ describe("buildUninstallOperation", () => {
     const removeTrustEntry = vi.fn(() => Effect.void);
     const manager = {
       type: "skill",
+      runTransaction,
       isInstalled: () => Effect.succeed(false),
       materializeInstall: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.none()),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
@@ -399,15 +432,22 @@ describe("buildUninstallOperation", () => {
 
   it("preserves trust while an installed pack retains the extension", async () => {
     const removeTrustEntry = vi.fn(() => Effect.void);
+    let configured = true;
     const manager = {
       type: "skill",
+      runTransaction,
       isInstalled: () => Effect.succeed(true),
       materializeInstall: () => Effect.void,
-      getConfiguredSource: () => Effect.succeed(Option.some("@acme/skills/review")),
+      getConfiguredSource: () =>
+        Effect.succeed(configured ? Option.some("@acme/skills/review") : Option.none()),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      removeSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () =>
+        Effect.sync(() => {
+          configured = false;
+        }),
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
       removeTrustEntry,

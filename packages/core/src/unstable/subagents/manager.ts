@@ -17,11 +17,11 @@ import * as Option from "effect/Option";
 import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
-import type { PlatformError } from "effect/PlatformError";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
 import type {
   ExtensionManager,
+  ExtensionTarget,
   MaterializationObservation,
   SubagentExtensionTarget,
 } from "../workspace/service-interface.js";
@@ -57,6 +57,7 @@ import {
 } from "../workspace/rendered-file-cleanup.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -110,7 +111,7 @@ export const SubagentManagerLive = Layer.effect(
       readonly body: string;
       readonly description: string;
       readonly targetDir: string;
-    }): Effect.Effect<SubagentSyncOutcome, PlatformError> =>
+    }): Effect.Effect<SubagentSyncOutcome, ReturnType<typeof makeAppError>> =>
       Effect.gen(function* () {
         const polyfillHash = computeSourceHash(
           JSON.stringify({ agent: args.agentId, name: args.name, body: args.body }),
@@ -133,13 +134,15 @@ export const SubagentManagerLive = Layer.effect(
             format: "markdown",
           },
         );
+        yield* protectWorkspacePath(polyfillDir);
         yield* fs.makeDirectory(polyfillDir, { recursive: true });
         const current = yield* fs.readFileString(skillMdPath).pipe(Effect.option);
         if (Option.isNone(current) || current.value !== skillContent) {
           yield* fs.writeFileString(skillMdPath, skillContent);
         }
         const targetPath = path.join(path.normalize(args.targetDir), args.sanitized);
-        yield* fs.remove(targetPath, { recursive: true }).pipe(Effect.ignore);
+        yield* protectWorkspacePath(targetPath);
+        yield* fs.remove(targetPath, { recursive: true, force: true });
         yield* provide(
           copyExtensionDirectory(polyfillDir, targetPath, {
             forAgentArtifact: true,
@@ -152,8 +155,18 @@ export const SubagentManagerLive = Layer.effect(
           _tag: "success",
           renderedFilePaths: [targetPath],
           warnings: [`Degraded subagent ${args.name} to a role skill for ${args.agentId}`],
-        };
-      });
+        } satisfies SubagentSyncOutcome;
+      }).pipe(
+        Effect.mapError((cause) =>
+          cause._tag === "AppError"
+            ? cause
+            : makeAppError({
+                code: "internal",
+                detail: `Failed to materialize subagent fallback for ${args.agentId}`,
+                cause,
+              }),
+        ),
+      );
     const lastInstallState = new Map<
       string,
       {
@@ -199,6 +212,7 @@ export const SubagentManagerLive = Layer.effect(
     // Copy source to canonical location
     const copyToCanonical = (sourcePath: string, targetPath: string) =>
       Effect.gen(function* () {
+        yield* protectWorkspacePath(targetPath);
         yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -278,23 +292,41 @@ export const SubagentManagerLive = Layer.effect(
               }),
             ),
           );
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* provide(extractZip(archive, tmpDir));
-              yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-              yield* provide(
-                copyExtensionDirectory(tmpDir, canonicalPath).pipe(
-                  Effect.mapError((e) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to copy subagent files to ${canonicalPath}`,
-                      cause: e,
-                    }),
-                  ),
+          const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove temporary subagent directory ${tmpDir}`,
+                cause: error,
+              }),
+            ),
+          );
+          yield* Effect.gen(function* () {
+            yield* provide(extractZip(archive, tmpDir));
+            yield* protectWorkspacePath(canonicalPath);
+            yield* fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to replace canonical subagent source: ${canonicalPath}`,
+                  cause: error,
+                }),
+              ),
+            );
+            yield* provide(
+              copyExtensionDirectory(tmpDir, canonicalPath).pipe(
+                Effect.mapError((e) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to copy subagent files to ${canonicalPath}`,
+                    cause: e,
+                  }),
                 ),
-              );
-            }),
-            fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+              ),
+            );
+          }).pipe(
+            Effect.tapError(() => cleanup),
+            Effect.tap(() => cleanup),
           );
         }
       });
@@ -525,7 +557,16 @@ export const SubagentManagerLive = Layer.effect(
                   .readFileString(path.join(fallbackPath, "SKILL.md"))
                   .pipe(Effect.option);
                 if (Option.isSome(fallbackContent) && hasAxmManagedMarker(fallbackContent.value)) {
-                  yield* fs.remove(fallbackPath, { recursive: true }).pipe(Effect.ignore);
+                  yield* protectWorkspacePath(fallbackPath);
+                  yield* fs.remove(fallbackPath, { recursive: true, force: true }).pipe(
+                    Effect.mapError((error) =>
+                      makeAppError({
+                        code: "internal",
+                        detail: `Failed to remove subagent fallback artifact: ${fallbackPath}`,
+                        cause: error,
+                      }),
+                    ),
+                  );
                   removedPaths.push(fallbackPath);
                 }
               }
@@ -564,6 +605,7 @@ export const SubagentManagerLive = Layer.effect(
 
     return {
       type: "subagent",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
@@ -571,7 +613,7 @@ export const SubagentManagerLive = Layer.effect(
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,
       }: {
-        readonly target: SubagentExtensionTarget;
+        readonly target: ExtensionTarget;
       }) {
         return yield* isObservedInstalled(ws, "subagent", target.name);
       }),
@@ -631,6 +673,31 @@ export const SubagentManagerLive = Layer.effect(
           name: ref.subagent.name,
           lockEntry: sharedLockEntry,
           versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("SubagentManager.upsertTrustEntry")(function* ({ ref }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const now = yield* DateTime.now;
+        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
+        const state = lastInstallState.get(ref.subagent.name);
+        const sharedLockEntry =
+          state === undefined ? lockEntry : { ...lockEntry, sourceHash: state.sourceHash };
+        return yield* ws.setSubagentLock({
+          name: ref.subagent.name,
+          lockEntry: sharedLockEntry,
+          versionRange: Option.none(),
+          commit: "authoritative",
         });
       }),
 
@@ -674,6 +741,7 @@ export const SubagentManagerLive = Layer.effect(
           name: ref.subagent.name,
           lockEntry: sharedLockEntry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

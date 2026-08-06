@@ -23,7 +23,11 @@ import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-di
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import type { ExtensionManager, SkillExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  SkillExtensionTarget,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { sanitizeName } from "../extensions/utils.js";
@@ -260,6 +264,7 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       type: "skill",
+      runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
           .getTrustState()
@@ -267,7 +272,7 @@ export const SkillManagerLive = Layer.effect(
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {
-        readonly target: SkillExtensionTarget;
+        readonly target: ExtensionTarget;
       }) {
         if (yield* isObservedInstalled(ws, "skill", target.name)) {
           return true;
@@ -334,7 +339,37 @@ export const SkillManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSkill({ name: ref.skill.name, lockEntry, versionRange });
+        return yield* ws.setSkill({
+          name: ref.skill.name,
+          lockEntry,
+          versionRange,
+          commit: "authoritative",
+        });
+      }),
+
+      upsertTrustEntry: Effect.fn("SkillManager.upsertTrustEntry")(function* ({ ref }) {
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        const now = yield* DateTime.now;
+        const sourceHash = lastSourceHashes.get(ref.skill.name);
+        const lockEntry = {
+          ...buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now),
+          ...(sourceHash === undefined ? {} : { sourceHash }),
+        };
+        return yield* ws.setSkillLock({
+          name: ref.skill.name,
+          lockEntry,
+          versionRange: Option.none(),
+          commit: "authoritative",
+        });
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
@@ -373,6 +408,7 @@ export const SkillManagerLive = Layer.effect(
           name: ref.skill.name,
           lockEntry,
           versionRange: Option.none(),
+          commit: "receipt",
         });
       }),
 

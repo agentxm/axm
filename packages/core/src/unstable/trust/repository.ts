@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { writeFileAtomic } from "../utils/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   TRUST_STATE_FILENAME,
   WorkspaceTrustStateSchema,
@@ -96,6 +97,7 @@ export const initializeWorkspaceTrustState = (
       ),
     );
     const content = yield* encodeWorkspaceTrustState(state);
+    yield* protectWorkspacePath(trustPath);
     const written = yield* fs
       .writeFileString(trustPath, content, { flag: "wx" })
       .pipe(Effect.result);
@@ -123,6 +125,7 @@ export const writeWorkspaceTrustState = (axmDir: string, state: WorkspaceTrustSt
       ),
     );
     const content = yield* encodeWorkspaceTrustState(state);
+    yield* protectWorkspacePath(trustPath);
     yield* writeFileAtomic(fs, {
       targetPath: trustPath,
       content,

@@ -12,6 +12,7 @@ import {
   stripManagedRegion,
 } from "../managed-files/index.js";
 import type { ResolvedKnowledgeProjectionConfig } from "./projection-config.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 export const KNOWLEDGE_MATERIALIZATION_STATE = "knowledge-materialization.json";
 const STATE_VERSION = 1;
@@ -414,6 +415,7 @@ export const reconcileKnowledgeProjection = (args: {
     const created = new Set<string>();
     const backup = (target: string) =>
       Effect.gen(function* () {
+        yield* protectWorkspacePath(target);
         const link = yield* fs.readLink(target).pipe(Effect.option);
         const exists = Option.isSome(link) || (yield* fs.exists(target));
         if (!exists) return;

@@ -7,18 +7,36 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { makeAppError } from "../app-error/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 
 /**
- * Remove a directory if it exists, ignoring errors.
+ * Remove a directory if it exists.
  */
 export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
-  fsService.exists(dirPath).pipe(
-    Effect.catch(() => Effect.succeed(false)),
-    Effect.flatMap((exists) =>
-      exists ? fsService.remove(dirPath, { recursive: true }).pipe(Effect.ignore) : Effect.void,
-    ),
-  );
+  Effect.gen(function* () {
+    const exists = yield* fsService.exists(dirPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect canonical extension path ${dirPath}`,
+          cause: error,
+        }),
+      ),
+    );
+    if (!exists) return;
+    yield* protectWorkspacePath(dirPath);
+    yield* fsService.remove(dirPath, { recursive: true }).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to remove canonical extension path ${dirPath}`,
+          cause: error,
+        }),
+      ),
+    );
+  });
 
 export type CanonicalExtensionDirectory = "skills" | "subagents";
 
@@ -45,14 +63,26 @@ export const removeFromAllCanonicalLocations = (
 
     // Remove from any registry canonical location
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const extensionsDirExists = yield* fsService.exists(extensionsDir).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect registry extension directory ${extensionsDir}`,
+          cause: error,
+        }),
+      ),
+    );
 
     if (extensionsDirExists) {
-      const scopeDirs = yield* fsService
-        .readDirectory(extensionsDir)
-        .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+      const scopeDirs = yield* fsService.readDirectory(extensionsDir).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to list registry extension directory ${extensionsDir}`,
+            cause: error,
+          }),
+        ),
+      );
 
       yield* Effect.forEach(
         scopeDirs,

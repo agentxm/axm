@@ -3,6 +3,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 
 /**
@@ -55,6 +56,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     // Check what currently exists at the link path
     const existingResult = yield* inspectExisting(fs, p, opts.link, resolvedTarget);
     if (existingResult === "no-op") return "no-op" as const;
+    yield* protectWorkspacePath(opts.link);
 
     // If something exists that needs replacing, remove it
     if (existingResult === "replace") {

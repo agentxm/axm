@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   renderSubagent,
   buildRooModeEntry,
@@ -48,6 +49,30 @@ const parseRoomodes = (content: string): { customModes: Array<Record<string, unk
     return { customModes: [] };
   }
 };
+
+const readOptionalSubagentConfig = (filePath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const exists = yield* fs.exists(filePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect subagent config: ${filePath}`,
+          cause: error,
+        }),
+      ),
+    );
+    if (!exists) return "";
+    return yield* fs.readFileString(filePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to read subagent config: ${filePath}`,
+          cause: error,
+        }),
+      ),
+    );
+  });
 
 /**
  * Write rendered subagent files to an agent's subagents directory.
@@ -107,6 +132,7 @@ export const writeSubagentFiles = (
             });
       // Ensure parent dir exists (for nested paths)
       const parentDir = path.dirname(filePath);
+      yield* protectWorkspacePath(filePath);
       yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
@@ -151,9 +177,18 @@ export const removeSubagentFiles = (
     const removedPaths: Array<string> = [];
     for (const renderedPath of args.renderedFilePaths) {
       const filePath = path.resolve(args.workspaceRoot, renderedPath);
-      const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+      const exists = yield* fs.exists(filePath).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to inspect subagent file: ${filePath}`,
+            cause: error,
+          }),
+        ),
+      );
 
       if (exists) {
+        yield* protectWorkspacePath(filePath);
         yield* fs.remove(filePath).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -238,9 +273,7 @@ export const addRooSubagent = (
     // Build the Roo mode entry
     const rooResult = buildRooModeEntry(args.input);
 
-    const existingContent = yield* fs
-      .readFileString(roomodesPath)
-      .pipe(Effect.catch(() => Effect.succeed("")));
+    const existingContent = yield* readOptionalSubagentConfig(roomodesPath);
 
     const existingParsed =
       existingContent.length > 0 ? parseRoomodes(existingContent) : { customModes: [] };
@@ -264,6 +297,7 @@ export const addRooSubagent = (
       ),
     );
 
+    yield* protectWorkspacePath(roomodesPath);
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -291,9 +325,7 @@ export const removeRooSubagent = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    const existingContent = yield* fs
-      .readFileString(roomodesPath)
-      .pipe(Effect.catch(() => Effect.succeed("")));
+    const existingContent = yield* readOptionalSubagentConfig(roomodesPath);
 
     if (existingContent.length === 0) {
       return {
@@ -309,6 +341,7 @@ export const removeRooSubagent = (
 
     const newContent = JSON.stringify({ customModes: filtered }, null, 2);
 
+    yield* protectWorkspacePath(roomodesPath);
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({

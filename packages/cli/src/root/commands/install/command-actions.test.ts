@@ -17,7 +17,13 @@ import * as ServiceMap from "effect/Context";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+  makeBaseWorkspaceMock,
+  managerLifecycleStubs,
+} from "../../../test-stubs.js";
 import { CommandManager, type RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
 import type { CommandLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
@@ -40,6 +46,7 @@ const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
 });
 
 const mockCommandManager = {
+  ...managerLifecycleStubs,
   type: "command",
   isInstalled: vi.fn(() => Effect.succeed(true)),
   materializeInstall: vi.fn(),
@@ -307,7 +314,7 @@ describe("buildPlan", () => {
         },
       });
       expect(commandManager.materializeInstall).toHaveBeenCalledOnce();
-      expect(commandManager.upsertLockfileEntry).not.toHaveBeenCalled();
+      expect(commandManager.upsertLockfileEntry).toHaveBeenCalledOnce();
       expect(commandManager.upsertSettingsEntry).toHaveBeenCalledOnce();
     }),
   );

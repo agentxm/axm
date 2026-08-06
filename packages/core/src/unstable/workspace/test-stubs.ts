@@ -9,7 +9,12 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import YAML from "yaml";
-import type { WorkspaceMutationsService, ReadModelRecordRow, PackagingKind } from "./index.js";
+import type {
+  WorkspaceMutationsService,
+  WorkspaceTransactionRunner,
+  ReadModelRecordRow,
+  PackagingKind,
+} from "./index.js";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
@@ -399,11 +404,21 @@ export const makeBaseWorkspaceMock = (
       }
       return { trustStateVersion: 1 as const, records: trustRecords };
     });
+  const runTransaction: WorkspaceTransactionRunner = (args) =>
+    Effect.gen(function* () {
+      const value = yield* args.transition;
+      yield* args.validate(value);
+      if (args.receipt !== undefined) {
+        yield* args.receipt(value);
+      }
+      return value;
+    });
   const base = {
     scope: "project",
     path: axmDir,
     baseDir,
     records,
+    runTransaction,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: getSynthesizedDesiredStateGraph,
     getTrustState: getSynthesizedTrustState,
@@ -487,6 +502,7 @@ export const makeBaseWorkspaceMock = (
     getLockedPacks: () => Effect.succeed({}),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
+    setPackLock: () => Effect.void,
     refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,

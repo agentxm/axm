@@ -6,28 +6,40 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  buildNewExtensionStep,
+  computeSourceHash,
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
+  preflightCreateOnly,
 } from "@agentxm/client-core/unstable/extensions";
-import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   copySkill,
+  artifactAgentIdsFromTargets,
+  artifactTargetAgentIds,
+  groupInstallTargetsByDirectory,
   SkillManager,
+  type InstallableSkillTarget,
   type SkillExtensionRef,
+  type WorkspaceSkillRef,
 } from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
-import {
-  WorkspaceMutations,
-  resolveWorkspaceExtensionRef,
-} from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -39,7 +51,6 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
   readonly target: string;
   readonly from: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const parsedTarget = yield* Effect.fromResult(
@@ -94,6 +105,7 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const manager = yield* SkillManager;
+  const agentRepo = yield* CodingAgentRepository;
   const fqn = formatFqn(parsedTarget);
   const targetDir = path.join(
     ws.baseDir,
@@ -102,51 +114,104 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
     extensionTypeToPlural.skill,
     parsedTarget.name,
   );
-  const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-  if (exists && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Workspace skill package already exists: ${targetDir}`,
-    });
-  }
+  const configuredSkills = yield* ws.getConfiguredSkillEntries();
+  yield* preflightCreateOnly({
+    subject: "Skill",
+    name: parsedTarget.name,
+    configured: Object.hasOwn(configuredSkills, parsedTarget.name),
+    destinations: [targetDir],
+  });
 
-  const step = {
-    readiness: "ready" as const,
-    label: `Copy ${fqn}`,
-    run: Effect.gen(function* () {
-      if (exists) yield* fs.remove(targetDir, { recursive: true });
-      yield* copySkill({ name: "copy-skill", args: { ref: sourceRef, targetName: fqn } }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceMutations, ws),
-      );
-      const workspaceRef = yield* resolveWorkspaceExtensionRef({
-        settingsName: parsedTarget.name,
+  const version = decodeVersionSync("0.1.0");
+  const workspaceRef: WorkspaceSkillRef = {
+    type: "skill",
+    refType: "workspace",
+    source: {
+      type: "workspace",
+      owner: parsedTarget.owner,
+      extensionType: "skill",
+      name: parsedTarget.name,
+    },
+    scope: ws.scope,
+    owner: parsedTarget.owner,
+    name: parsedTarget.name,
+    version,
+    sourceHash: computeSourceHash("copy"),
+    location: targetDir,
+    skill: { ...sourceRef.skill, name: parsedTarget.name },
+  };
+  const configuredAgents = yield* agentRepo.getMaterializationAgents();
+  const resolvedAgents = yield* Effect.forEach(
+    configuredAgents,
+    (agent) =>
+      agent
+        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+    { concurrency: "unbounded" },
+  );
+  const installableTargets: Array<InstallableSkillTarget> = [];
+  for (const { agentId, outcome } of resolvedAgents) {
+    if (outcome._tag === "supported") {
+      installableTargets.push({ agentId, targetDir: path.normalize(outcome.dir) });
+    }
+  }
+  const targetLocations = yield* groupInstallTargetsByDirectory(installableTargets, ws.baseDir);
+  const sourceTarget: JobStepArtifactTarget = {
+    path: path.relative(ws.baseDir, targetDir),
+    change: "created",
+  };
+  const materializedTargets: Array<JobStepArtifactTarget> = targetLocations.map((location) => {
+    const agentIds = artifactTargetAgentIds(location.agentIds);
+    return {
+      path: path.relative(ws.baseDir, path.join(location.targetDir, parsedTarget.name)),
+      change: "created",
+      ...(agentIds.length > 0 ? { agentIds } : {}),
+    };
+  });
+  const agents = artifactAgentIdsFromTargets(installableTargets);
+  const artifact: JobStepArtifact = {
+    path: sourceTarget.path,
+    scope: ws.scope,
+    ...(agents.length > 0 ? { agents } : {}),
+    version,
+    change: "created",
+    targets: [
+      sourceTarget,
+      { path: ".axm (config/lockfile)", change: "created" },
+      ...materializedTargets,
+    ],
+  };
+  const step: PlannedJobStep = {
+    ...buildNewExtensionStep(manager, {
+      ref: workspaceRef,
+      target: { type: "skill", name: parsedTarget.name },
+      versionRange: Option.none(),
+      label: `Copy ${fqn}`,
+      message: `Copied ${fqn}`,
+      preflight: Effect.gen(function* () {
+        const current = yield* ws.getConfiguredSkillEntries();
+        yield* preflightCreateOnly({
+          subject: "Skill",
+          name: parsedTarget.name,
+          configured: Object.hasOwn(current, parsedTarget.name),
+          destinations: [targetDir],
+        }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+      }),
+      markAuthored: ws.setSkillEntry(parsedTarget.name, {
         source: `workspace:${fqn}`,
-        expectedType: "skill",
-        baseDir: ws.baseDir,
-        scope: ws.scope,
+        enabled: true,
+      }),
+      scaffold: copySkill({
+        name: "copy-skill",
+        args: { ref: sourceRef, targetName: fqn },
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-      );
-      if (workspaceRef.type !== "skill") {
-        return yield* makeAppError({ code: "internal", detail: "Copied package is not a skill" });
-      }
-      yield* manager.materializeInstall({ ref: workspaceRef });
-      yield* manager.upsertLockfileEntry({ ref: workspaceRef });
-      return { result: "success", message: `Copied ${fqn}` } satisfies JobStepResult;
-    }).pipe(
-      Effect.mapError((cause) =>
-        cause._tag === "AppError"
-          ? cause
-          : makeAppError({
-              code: "internal",
-              detail: `Could not copy skill into ${targetDir}`,
-              cause,
-            }),
+        Effect.provideService(WorkspaceMutations, ws),
       ),
-    ),
+      buildArtifact: () => Effect.succeed(artifact),
+    }),
+    artifact,
   };
   const plan: Plan = {
     _tag: "Plan",
@@ -172,7 +237,6 @@ const config = {
   ),
   scope: scopeFlag,
   yes: yesFlag,
-  force: forceFlag,
   preview: previewFlag,
 } as const;
 

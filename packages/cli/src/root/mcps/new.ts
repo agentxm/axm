@@ -7,13 +7,14 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
   formatFqn,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -30,10 +31,10 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
-  installMcpServer,
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
+  installMcpServer,
   type McpServerManifest,
 } from "@agentxm/client-core/unstable/mcps";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
@@ -83,13 +84,12 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   readonly description: string;
   readonly owner: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
-  const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
+  const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
@@ -107,18 +107,13 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
   const sourcePath = joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name);
-  const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-  if (exists && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Managed MCP server directory already exists: ${targetDir}`,
-      suggestions: [
-        {
-          description: "Choose a different name or remove the existing directory first",
-        },
-      ],
-    });
-  }
+  const configuredServers = yield* ws.getConfiguredMcpServerEntries();
+  yield* preflightCreateOnly({
+    subject: "MCP server",
+    name: args.name,
+    configured: Object.hasOwn(configuredServers, args.name),
+    destinations: [targetDir],
+  });
 
   const manifest: McpServerManifest = {
     $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
@@ -143,117 +138,139 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       ],
     },
   };
+  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const agentsByConfigPath = new Map<string, Set<string>>();
+  const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
+  for (const agentId of configuredAgentIds) {
+    const agent = catalogAgents.find((candidate) => candidate.id === agentId);
+    const capability = agent?.capabilities["mcp-server"];
+    if (capability === undefined || capability.axm.writer === null) continue;
+    for (const target of capability.axm.writer.config.targets) {
+      if (target.scope !== ws.scope) continue;
+      const configPath = path.relative(ws.baseDir, path.resolve(ws.baseDir, target.path));
+      const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
+      agentIds.add(agentId);
+      agentsByConfigPath.set(configPath, agentIds);
+    }
+  }
+  const agentConfigTargets: Array<JobStepArtifactTarget> = Array.from(agentsByConfigPath.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([configPath, agentIds]) => ({
+      path: configPath,
+      change: "created",
+      agentIds: Array.from(agentIds).sort(),
+    }));
+  const plannedArtifact: JobStepArtifact = {
+    path: sourcePath,
+    scope: ws.scope,
+    change: "created",
+    targets: [
+      { path: path.relative(ws.baseDir, manifestPath), change: "created" },
+      { path: ".axm (config/lockfile)", change: "created" },
+      ...agentConfigTargets,
+    ],
+  };
   const step: PlannedJobStep = {
     readiness: "ready",
     label: fqn,
-    run: Effect.gen(function* () {
-      yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to create MCP server directory: ${targetDir}`,
-            cause: error,
-          }),
-        ),
-      );
-      yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write MCP server manifest: ${manifestPath}`,
-            cause: error,
-          }),
-        ),
-      );
-      yield* ws.setMcpServerEntry(args.name, {
-        source: `workspace:${fqn}`,
-        enabled: true,
-        env: {},
-      });
-      const resolvedRef = yield* resolveWorkspaceExtensionRef({
-        settingsName: args.name,
-        source: `workspace:${fqn}`,
-        expectedType: "mcp-server",
-        baseDir: ws.baseDir,
-        scope: ws.scope,
-      }).pipe(
-        Effect.provideService(WorkspaceMutations, ws),
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      );
-      if (resolvedRef.type !== "mcp-server") {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Newly scaffolded MCP server resolved as ${resolvedRef.type}`,
-        });
-      }
-      yield* Effect.scoped(
-        installMcpServer({
-          name: "install-mcp-server",
-          args: {
-            ref: resolvedRef,
-            force: args.force,
-            versionRange: Option.none(),
-            skipSettings: Option.none(),
-            env: Option.none(),
-          },
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-          Effect.provideService(WorkspaceMutations, ws),
-          Effect.provideService(CliRenderer, renderer),
-          Effect.provideService(CodingAgentRepository, agentRepo),
-        ),
-      );
-      const configuredAgentIds = yield* ws.getConfiguredAgents();
-      const agentsByConfigPath = new Map<string, Set<string>>();
-      const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
-      for (const agentId of configuredAgentIds) {
-        const agent = catalogAgents.find((candidate) => candidate.id === agentId);
-        const capability = agent?.capabilities["mcp-server"];
-        if (capability === undefined || capability.axm.writer === null) {
-          continue;
-        }
-        for (const target of capability.axm.writer.config.targets) {
-          if (target.scope !== ws.scope) {
-            continue;
+    artifact: plannedArtifact,
+    run: ws
+      .runTransaction({
+        targets: [targetDir],
+        transition: Effect.gen(function* () {
+          const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+          yield* preflightCreateOnly({
+            subject: "MCP server",
+            name: args.name,
+            configured: Object.hasOwn(currentConfigured, args.name),
+            destinations: [targetDir],
+          }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+          yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to create MCP server directory: ${targetDir}`,
+                cause: error,
+              }),
+            ),
+          );
+          yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to write MCP server manifest: ${manifestPath}`,
+                cause: error,
+              }),
+            ),
+          );
+          yield* ws.setMcpServerEntry(args.name, {
+            source: `workspace:${fqn}`,
+            enabled: true,
+            env: {},
+          });
+          const resolvedRef = yield* resolveWorkspaceExtensionRef({
+            settingsName: args.name,
+            source: `workspace:${fqn}`,
+            expectedType: "mcp-server",
+            baseDir: ws.baseDir,
+            scope: ws.scope,
+          }).pipe(
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
+          if (resolvedRef.type !== "mcp-server") {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Newly scaffolded MCP server resolved as ${resolvedRef.type}`,
+            });
           }
-          const configPath = path.relative(ws.baseDir, path.resolve(ws.baseDir, target.path));
-          const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
-          agentIds.add(agentId);
-          agentsByConfigPath.set(configPath, agentIds);
-        }
-      }
-      const agentConfigTargets: Array<JobStepArtifactTarget> = Array.from(
-        agentsByConfigPath.entries(),
-      )
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([configPath, agentIds]) => ({
-          path: configPath,
-          change: "created",
-          agentIds: Array.from(agentIds).sort(),
-        }));
-      return {
-        result: "success",
-        message: `Created ${fqn}`,
-        artifact: {
-          path: sourcePath,
-          scope: ws.scope,
-          change: "created",
-          targets: [
-            {
-              path: sourcePath,
-              change: "created",
-            },
-            {
-              path: ".axm (config/lockfile)",
-              change: "created",
-            },
-            ...agentConfigTargets,
-          ],
-        },
-      } satisfies JobStepResult;
-    }),
+          yield* Effect.scoped(
+            installMcpServer({
+              name: "install-mcp-server",
+              args: {
+                ref: resolvedRef,
+                force: false,
+                versionRange: Option.none(),
+                skipSettings: Option.none(),
+                env: Option.none(),
+              },
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.provideService(WorkspaceMutations, ws),
+              Effect.provideService(CliRenderer, renderer),
+              Effect.provideService(CodingAgentRepository, agentRepo),
+            ),
+          );
+        }),
+        validate: () =>
+          Effect.gen(function* () {
+            const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+            const manifestExists = yield* fs.exists(manifestPath).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to validate MCP server manifest: ${manifestPath}`,
+                  cause,
+                }),
+              ),
+            );
+            if (!Object.hasOwn(currentConfigured, args.name) || !manifestExists) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: `New MCP server '${args.name}' did not satisfy its observable contract`,
+              });
+            }
+          }),
+      })
+      .pipe(
+        Effect.as({
+          result: "success",
+          message: `Created ${fqn}`,
+          artifact: plannedArtifact,
+        } satisfies JobStepResult),
+      ),
   };
   const plan: Plan = {
     _tag: "Plan",
@@ -303,20 +320,18 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag,
-  force: forceFlag,
   preview: previewFlag,
 } as const;
 
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, description, owner, yes, force, preview }) =>
+  ({ name, description, owner, yes, preview }) =>
     handleMcpServersNew({
       name: decodeExtensionNameSync(name),
       description,
       owner,
       yes,
-      force,
       preview,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("mcps new")),
 ).pipe(

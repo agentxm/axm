@@ -164,7 +164,6 @@ describe("files enable/disable no-op output", () => {
           name: "workspace-baseline",
           owner: Option.some("@acme"),
           yes: true,
-          force: false,
           preview: false,
         });
         yield* handleDisableFiles({

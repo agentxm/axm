@@ -5,13 +5,14 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildNewExtensionStep,
   computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
@@ -49,7 +50,6 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   readonly owner: Option.Option<string>;
   readonly title: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -72,14 +72,13 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "rule", name });
   const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, RULE_EXTENSION_DIR, name);
-  const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-  if (exists && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Rule directory already exists: ${targetDir}`,
-      suggestions: [{ description: "Choose a different name or remove the directory first." }],
-    });
-  }
+  const configuredRules = yield* ws.getConfiguredRuleEntries();
+  yield* preflightCreateOnly({
+    subject: "Rule",
+    name,
+    configured: Object.hasOwn(configuredRules, name),
+    destinations: [targetDir],
+  });
 
   const title = Option.getOrElse(args.title, () => name);
   const manifest: RuleManifest = {
@@ -92,8 +91,19 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   };
   const manifestPath = path.join(targetDir, RULE_MANIFEST_FILENAME);
   const bodyPath = path.join(targetDir, RULE_SOURCE_DIR, RULE_BODY_FILENAME);
+  const artifact = {
+    path: path.relative(ws.baseDir, targetDir),
+    scope: ws.scope,
+    version,
+    change: "created" as const,
+    fileCount: 2,
+    targets: [
+      { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
+      { path: path.relative(ws.baseDir, bodyPath), change: "created" as const },
+      { path: ".axm (config/lockfile)", change: "created" as const },
+    ],
+  };
   const scaffold = Effect.gen(function* () {
-    if (args.force) yield* fs.remove(targetDir, { recursive: true }).pipe(Effect.ignore);
     yield* fs.makeDirectory(path.dirname(bodyPath), { recursive: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -141,19 +151,22 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
             versionRange: Option.none(),
             label: fqn,
             message: `Created rule ${fqn}`,
+            plannedArtifact: artifact,
+            preflight: Effect.gen(function* () {
+              const current = yield* ws.getConfiguredRuleEntries();
+              yield* preflightCreateOnly({
+                subject: "Rule",
+                name,
+                configured: Object.hasOwn(current, name),
+                destinations: [targetDir],
+              }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+            }),
             scaffold,
             markAuthored: ws.setRuleEntry(name, {
               source: `workspace:${fqn}`,
               enabled: true,
             }),
-            buildArtifact: () =>
-              Effect.succeed({
-                path: path.relative(ws.baseDir, targetDir),
-                scope: ws.scope,
-                version,
-                change: "created",
-                fileCount: 2,
-              }),
+            buildArtifact: () => Effect.succeed(artifact),
           }),
         ],
       },
@@ -196,20 +209,16 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the rule without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Replace an existing rule directory")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be created without writing files"),
   ),
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, owner, title, yes, force, preview }) =>
-    handleRulesNew({ name, owner, title, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withAuthRuntime("rules new"),
-    ),
+export const newCommand = Command.make("new", newConfig, ({ name, owner, title, yes, preview }) =>
+  handleRulesNew({ name, owner, title, yes, preview }).pipe(
+    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+    withAuthRuntime("rules new"),
+  ),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new rule"),

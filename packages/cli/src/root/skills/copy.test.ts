@@ -55,7 +55,6 @@ describe("skills copy", () => {
           target: "@acme/skills/copied-review",
           from: Option.none(),
           yes: true,
-          force: false,
           preview: false,
         });
 

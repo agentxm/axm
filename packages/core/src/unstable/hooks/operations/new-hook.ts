@@ -9,7 +9,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  preflightCreateOnly,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
@@ -42,8 +46,6 @@ export interface NewHookOperationArgs {
   readonly event: HookEvent;
   /** Optional raw matcher (only meaningful for tool.pre/tool.post). */
   readonly matcher: string | undefined;
-  /** Overwrite an existing hook directory/settings entry. */
-  readonly force: boolean;
 }
 
 /**
@@ -145,33 +147,18 @@ export const newHook: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const { name, owner, runtime, event, matcher, force } = op.args;
+    const { name, owner, runtime, event, matcher } = op.args;
     const fqn = `${owner}/${HOOK_EXTENSION_DIR}/${name}`;
 
-    // 1. Check if hook already exists in settings
     const configuredHooks = yield* ws.getConfiguredHookEntries();
-    if (!force && name in configuredHooks) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Hook '${name}' already exists in settings`,
-        suggestions: [{ description: "Choose a different name or remove the existing hook first" }],
-      });
-    }
-
-    // 2. Compute managed extension directory
     const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, owner, HOOK_EXTENSION_DIR, name);
     const srcDir = path.join(canonicalPath, "src");
-
-    const dirExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
-    if (!force && dirExists) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Managed hook directory already exists: ${canonicalPath}`,
-        suggestions: [
-          { description: "Choose a different name or remove the existing directory first" },
-        ],
-      });
-    }
+    yield* preflightCreateOnly({
+      subject: "Hook",
+      name,
+      configured: Object.hasOwn(configuredHooks, name),
+      destinations: [canonicalPath],
+    });
 
     // 3. Create managed extension directories (src/ implies canonicalPath)
     yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(

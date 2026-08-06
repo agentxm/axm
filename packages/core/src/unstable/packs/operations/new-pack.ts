@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, formatFqn } from "../../extensions/index.js";
+import { decodeExtensionNameSync, formatFqn, preflightCreateOnly } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PACK_MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -69,29 +69,13 @@ export const newPack: OperationHandler<
     // 1. Compute pack directory path
     const packDir = computePackPaths(path.join, base, owner, name);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
-    // 2. Check if pack manifest already exists
-    const exists = yield* fs.exists(manifestPath).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to check if pack exists: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    if (exists) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-        suggestions: [
-          {
-            description: "Choose a different name or remove the existing pack first",
-          },
-        ],
-      });
-    }
+    const configuredPacks = yield* ws.getConfiguredPackEntries();
+    yield* preflightCreateOnly({
+      subject: "Pack",
+      name,
+      configured: Object.hasOwn(configuredPacks, name),
+      destinations: [packDir.canonicalPath],
+    });
 
     // 3. Create pack directory
     yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(

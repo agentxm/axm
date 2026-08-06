@@ -134,10 +134,15 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly allowWorkspaceReplacement?: boolean;
 }
 
-export interface NewExtensionOperationArgs<
-  TRef extends ExtensionRef,
-> extends InstallOperationArgs<TRef> {
+export interface NewExtensionOperationArgs<TRef extends ExtensionRef> extends Omit<
+  InstallOperationArgs<TRef>,
+  "force" | "allowWorkspaceReplacement"
+> {
   readonly target: ExtensionTargetFor<TRef>;
+  /** Read-only artifact forecast rendered by preview before any mutation occurs. */
+  readonly plannedArtifact?: JobStepArtifact;
+  /** Collision checks repeated under the workspace transaction lock before the first write. */
+  readonly preflight?: Effect.Effect<void, AppError, never>;
   readonly scaffold: Effect.Effect<unknown, AppError, never>;
   readonly markAuthored: Effect.Effect<void, AppError, never>;
   readonly message: string;
@@ -276,11 +281,13 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
     key: toStepKey(target),
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
+    ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
     run: manager.listMaterializable().pipe(
       Effect.andThen(
         manager.runTransaction({
           ...(args.ref.refType === "workspace" ? { targets: [args.ref.location] } : {}),
           transition: Effect.gen(function* () {
+            if (args.preflight !== undefined) yield* args.preflight;
             yield* args.scaffold;
             yield* args.markAuthored;
             const materializable = yield* manager.listMaterializable();
@@ -297,15 +304,12 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
               yield* manager.validateTrustTransition({
                 ref,
                 allowSourceTransition: true,
-                allowDowngrade: args.force === true,
+                allowDowngrade: false,
               });
             }
             const installedBefore =
               args.installedBefore === undefined ? false : yield* args.installedBefore;
-            yield* manager.materializeInstall({
-              ref,
-              ...(args.force === undefined ? {} : { force: args.force }),
-            });
+            yield* manager.materializeInstall({ ref });
             yield* manager.upsertSettingsEntry({ ref, versionRange: args.versionRange });
             return { ref, installedBefore };
           }),

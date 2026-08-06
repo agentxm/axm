@@ -5,13 +5,14 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildNewExtensionStep,
   computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
+  preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -41,7 +42,6 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -61,14 +61,13 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     KNOWLEDGE_EXTENSION_DIR,
     name,
   );
-  const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
-  if (exists && !args.force) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Knowledge bundle directory already exists: ${targetDir}`,
-      suggestions: [{ description: "Choose a different name or remove the directory first." }],
-    });
-  }
+  const configuredKnowledge = yield* ws.getConfiguredKnowledgeEntries();
+  yield* preflightCreateOnly({
+    subject: "Knowledge bundle",
+    name,
+    configured: Object.hasOwn(configuredKnowledge, name),
+    destinations: [targetDir],
+  });
 
   const manifest: KnowledgeManifest = {
     $schema: KNOWLEDGE_MANIFEST_SCHEMA_URL,
@@ -81,8 +80,19 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   };
   const manifestPath = path.join(targetDir, KNOWLEDGE_MANIFEST_FILENAME);
   const indexPath = path.join(targetDir, KNOWLEDGE_SOURCE_DIR, "index.md");
+  const artifact = {
+    path: path.relative(ws.baseDir, targetDir),
+    scope: ws.scope,
+    version,
+    change: "created" as const,
+    fileCount: 2,
+    targets: [
+      { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
+      { path: path.relative(ws.baseDir, indexPath), change: "created" as const },
+      { path: ".axm (config/lockfile)", change: "created" as const },
+    ],
+  };
   const scaffold = Effect.gen(function* () {
-    if (args.force) yield* fs.remove(targetDir, { recursive: true }).pipe(Effect.ignore);
     yield* fs.makeDirectory(path.dirname(indexPath), { recursive: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -134,19 +144,22 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
             versionRange: Option.none(),
             label: fqn,
             message: `Created knowledge bundle ${fqn}`,
+            plannedArtifact: artifact,
+            preflight: Effect.gen(function* () {
+              const current = yield* ws.getConfiguredKnowledgeEntries();
+              yield* preflightCreateOnly({
+                subject: "Knowledge bundle",
+                name,
+                configured: Object.hasOwn(current, name),
+                destinations: [targetDir],
+              }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+            }),
             scaffold,
             markAuthored: ws.setKnowledgeEntry(name, {
               source: `workspace:${fqn}`,
               enabled: true,
             }),
-            buildArtifact: () =>
-              Effect.succeed({
-                path: path.relative(ws.baseDir, targetDir),
-                scope: ws.scope,
-                version,
-                change: "created",
-                fileCount: 2,
-              }),
+            buildArtifact: () => Effect.succeed(artifact),
           }),
         ],
       },
@@ -186,14 +199,13 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the bundle without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Replace an existing bundle directory")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be created without writing files"),
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, force, preview }) =>
-  handleKnowledgeNew({ name, owner, yes, force, preview }).pipe(
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
+  handleKnowledgeNew({ name, owner, yes, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withAuthRuntime("knowledge new"),
   ),

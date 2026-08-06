@@ -180,7 +180,6 @@ describe("hooks enable/disable no-op output", () => {
           event: "tool.pre",
           matcher: Option.some("Bash"),
           yes: true,
-          force: false,
           preview: false,
         });
         yield* handleDisableHook({

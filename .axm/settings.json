@@ -13,6 +13,9 @@
     "axm": "workspace:@agentxm/skills/axm",
     "okf-author": "@craigsmitham/skills/okf-author"
   },
+  "knowledge": {
+    "agentxm": "@agentxm/knowledge/agentxm"
+  },
   "packs": {
     "effect": "@axm/packs/effect"
   }

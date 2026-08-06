@@ -15,5 +15,16 @@ mcpServers: {}
 files: {}
 rules: {}
 hooks: {}
-knowledge: {}
+knowledge:
+  agentxm:
+    type: registry
+    owner: "@agentxm"
+    name: agentxm
+    resolvedVersion: 0.1.0
+    integrity: sha512-bvuEFyzdFxROKUyp3SDeajmIHrX3fWjLiuhsupz/VpkYiIcNVJniE0NMOzEjCKRN0qdAJ2zsvj0cPaUSCo4yEQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
+    installedAt: 2026-08-06T14:50:18.696Z
+    updatedAt: 2026-08-06T14:50:19.246Z
+    sourceHash: d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728
 packs: {}

@@ -40,7 +40,6 @@ import type {
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -112,18 +111,6 @@ export interface UnmanagedPack {
   readonly actual: ActualPack;
 }
 
-export type IgnoredPackCandidate =
-  | {
-      readonly key: ExtensionKey<"pack">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredPack;
-    }
-  | {
-      readonly key: ExtensionKey<"pack">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualPack;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -176,7 +163,6 @@ export interface PackExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: PackScopedLoaders;
   readonly scanners: PackScanners;
-  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -191,7 +177,6 @@ export interface PackExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredPack>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledPack>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedPack>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredPackCandidate>>;
 }
 
 const SUBJECT_KEY = "pack";
@@ -210,8 +195,7 @@ const packPolicy = (
   ActualPacks,
   PackPackMember,
   InstalledPack,
-  UnmanagedPack,
-  IgnoredPackCandidate
+  UnmanagedPack
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
@@ -224,7 +208,6 @@ const packPolicy = (
   // installed-pack set into the projection helper, so the helper never
   // invokes these. The functions still need to satisfy the types.
   packMemberName: (member) => member,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -240,20 +223,6 @@ const packPolicy = (
     key: { scope, type: "pack", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  // `TPackMember = never` for packs (packs cannot be pack members), so
-  // `input.member` has type `never`. Returning it satisfies any `TIgnored`
-  // statically without a throw — the body is uninhabitable at runtime.
-  buildPackMemberIgnoredRow: (input) => input.member,
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "pack", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -266,7 +235,7 @@ export const makePackExtensionsApi = (
   deps: PackExtensionsApiDeps,
 ): Effect.Effect<PackExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, ignoredPatterns, diagnostics } = deps;
+    const { scope, loaders, scanners, diagnostics } = deps;
 
     const declared: PackExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -296,7 +265,6 @@ export const makePackExtensionsApi = (
         installedPacks,
         packMembers: (pack) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames: ignoredPatterns,
         policy: packPolicy(scope),
         diagnostics,
       }),

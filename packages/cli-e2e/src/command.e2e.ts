@@ -119,7 +119,7 @@ describe("main CLI help", () => {
     { args: ["subagents", "install", "--help"], expected: ["--subagent", "--all"] },
     {
       args: ["skills", "ls", "--help"],
-      expected: ["List detected skills", "--agent", "--include-ignored"],
+      expected: ["List detected skills", "--agent"],
     },
     { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
     { args: ["commands", "install", "--help"], expected: ["--scope"] },

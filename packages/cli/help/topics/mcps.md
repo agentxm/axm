@@ -127,17 +127,14 @@ declares exactly one transport — `source`, `command`, or `url`:
       "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" },
     },
   },
-  "mcpServersConfig": {
-    "ignore": ["local-*", "legacy-helper"],
-  },
 }
 ```
 
 - **`enabled: false`** keeps a server installed but omits it from agent configs.
 - **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
   decodes to a `${VAR}` reference.
-- **`mcpServersConfig.ignore`** lists installed server names or globs AXM leaves
-  unmanaged.
+- Agent-native entries without AXM ownership metadata remain unowned and are
+  never deleted by `axm prune`.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
 configs through `axm sync` or `axm lint --fix`.

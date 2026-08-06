@@ -1,7 +1,6 @@
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../../../extensions/common.js";
 import type { ExtensionKey } from "../types.js";
-import { matchingIgnoredPatterns } from "./ignore-patterns.js";
 
 export const ExtensionInventoryLifecycleSchema = Schema.Literals([
   "configured",
@@ -11,17 +10,10 @@ export const ExtensionInventoryLifecycleSchema = Schema.Literals([
 
 export type ExtensionInventoryLifecycle = typeof ExtensionInventoryLifecycleSchema.Type;
 
-export const ExtensionInventoryClassificationSchema = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("lifecycle"),
-    lifecycle: ExtensionInventoryLifecycleSchema,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("ignored"),
-    matchedBy: Schema.Array(Schema.String),
-    reasons: Schema.Array(Schema.String),
-  }),
-]);
+export const ExtensionInventoryClassificationSchema = Schema.Struct({
+  kind: Schema.Literal("lifecycle"),
+  lifecycle: ExtensionInventoryLifecycleSchema,
+});
 
 export type ExtensionInventoryClassification = typeof ExtensionInventoryClassificationSchema.Type;
 
@@ -53,7 +45,6 @@ export const ExtensionInventorySchema = Schema.Struct({
   implicitCount: Schema.Number,
   installedCount: Schema.Number,
   unmanagedCount: Schema.Number,
-  ignoredCount: Schema.Number,
 });
 
 export type ExtensionInventory = typeof ExtensionInventorySchema.Type;
@@ -71,16 +62,8 @@ export interface LifecycleInventoryCandidate extends ExtensionInventoryObservati
   readonly installed: boolean;
 }
 
-export interface IgnoredInventoryCandidate extends ExtensionInventoryObservation {
-  readonly key: ExtensionKey;
-  readonly reason: string;
-}
-
 export interface ProjectExtensionInventoryInput {
   readonly lifecycle: ReadonlyArray<LifecycleInventoryCandidate>;
-  readonly ignored: ReadonlyArray<IgnoredInventoryCandidate>;
-  readonly ignoredPatterns: ReadonlySet<string>;
-  readonly includeIgnored: boolean;
   readonly agents?: ReadonlyArray<string>;
 }
 
@@ -89,14 +72,6 @@ interface MutableInventoryAggregate {
   lifecycle: ExtensionInventoryLifecycle;
   enabled: boolean | null;
   installed: boolean;
-  readonly agents: Set<string>;
-  readonly origins: Set<string>;
-  readonly paths: Set<string>;
-}
-
-interface MutableIgnoredAggregate {
-  readonly key: ExtensionKey;
-  readonly reasons: Set<string>;
   readonly agents: Set<string>;
   readonly origins: Set<string>;
   readonly paths: Set<string>;
@@ -153,33 +128,9 @@ export const projectExtensionInventory = (
     addAll(existing.paths, candidate.paths);
   }
 
-  const ignoredByKey = new Map<string, MutableIgnoredAggregate>();
-  for (const candidate of input.ignored) {
-    const candidateKey = keyString(candidate.key);
-    const existing = ignoredByKey.get(candidateKey);
-    if (existing === undefined) {
-      ignoredByKey.set(candidateKey, {
-        key: candidate.key,
-        reasons: new Set([candidate.reason]),
-        agents: new Set(candidate.agents ?? []),
-        origins: new Set(candidate.origins ?? []),
-        paths: new Set(candidate.paths ?? []),
-      });
-      continue;
-    }
-
-    existing.reasons.add(candidate.reason);
-    addAll(existing.agents, candidate.agents);
-    addAll(existing.origins, candidate.origins);
-    addAll(existing.paths, candidate.paths);
-  }
-
   const agentFilter = input.agents ?? [];
   const lifecycleRows = Array.from(lifecycleByKey.entries())
-    .filter(([candidateKey, aggregate]) => {
-      if (ignoredByKey.has(candidateKey)) return false;
-      return matchesAgentFilter(sorted(aggregate.agents), agentFilter);
-    })
+    .filter(([, aggregate]) => matchesAgentFilter(sorted(aggregate.agents), agentFilter))
     .map(([, aggregate]): ExtensionInventoryRow => ({
       scope: aggregate.key.scope,
       type: aggregate.key.type,
@@ -192,52 +143,21 @@ export const projectExtensionInventory = (
       paths: sorted(aggregate.paths),
     }));
 
-  const ignoredRows = input.includeIgnored
-    ? Array.from(ignoredByKey.values())
-        .filter((aggregate) => matchesAgentFilter(sorted(aggregate.agents), agentFilter))
-        .map((aggregate): ExtensionInventoryRow => ({
-          scope: aggregate.key.scope,
-          type: aggregate.key.type,
-          name: aggregate.key.name,
-          classification: {
-            kind: "ignored",
-            matchedBy: matchingIgnoredPatterns(aggregate.key.name, input.ignoredPatterns),
-            reasons: sorted(aggregate.reasons),
-          },
-          enabled: null,
-          installed: false,
-          agents: sorted(aggregate.agents),
-          origins: sorted(aggregate.origins),
-          paths: sorted(aggregate.paths),
-        }))
-    : [];
-
-  const items = [...lifecycleRows, ...ignoredRows].sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
+  const items = lifecycleRows.sort((left, right) => left.name.localeCompare(right.name));
   const configuredCount = items.filter(
-    (item) =>
-      item.classification.kind === "lifecycle" && item.classification.lifecycle === "configured",
+    (item) => item.classification.lifecycle === "configured",
   ).length;
-  const implicitCount = items.filter(
-    (item) =>
-      item.classification.kind === "lifecycle" && item.classification.lifecycle === "implicit",
-  ).length;
+  const implicitCount = items.filter((item) => item.classification.lifecycle === "implicit").length;
   const unmanagedCount = items.filter(
-    (item) =>
-      item.classification.kind === "lifecycle" && item.classification.lifecycle === "unmanaged",
+    (item) => item.classification.lifecycle === "unmanaged",
   ).length;
-  const ignoredCount = items.filter((item) => item.classification.kind === "ignored").length;
 
   return {
     items,
     count: items.length,
     configuredCount,
     implicitCount,
-    installedCount: items.filter(
-      (item) => item.classification.kind === "lifecycle" && item.installed,
-    ).length,
+    installedCount: items.filter((item) => item.installed).length,
     unmanagedCount,
-    ignoredCount,
   };
 };

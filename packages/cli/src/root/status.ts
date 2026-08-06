@@ -195,7 +195,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
   );
   const inventories = yield* Effect.forEach(
     extensionTypes,
-    (type) => ws.records.getExtensionInventory(type, { includeIgnored: false }),
+    (type) => ws.records.getExtensionInventory(type, {}),
     { concurrency: 9 },
   );
   const inventoryByType = new Map(

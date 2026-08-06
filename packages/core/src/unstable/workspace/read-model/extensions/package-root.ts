@@ -46,9 +46,7 @@ export const canonicalAxmPackageRoot = (occ: {
   readonly pathSegments: ReadonlyArray<string>;
   readonly contentLocation: string;
 }): string => {
-  if (occ.origin === "external-axm") {
-    return stripTrailingSegments(occ.pathSegments, occ.contentLocation, 1);
-  }
+  if (occ.origin === "external-axm") return occ.contentLocation;
 
   const last = occ.pathSegments.at(-1);
   if (last === "src") {

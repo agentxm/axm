@@ -51,7 +51,6 @@ const harness = (params: {
   readonly settings?: Settings;
   readonly lockfile?: Lockfile;
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
-  readonly ignoredNames?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -63,7 +62,6 @@ const harness = (params: {
         lockfile: Effect.succeed(Option.fromUndefinedOr(params.lockfile)),
       },
       scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
-      ignoredNames: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };

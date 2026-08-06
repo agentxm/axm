@@ -52,7 +52,7 @@ registerEntity<HookListItem>("hook", {
 export const handleListHook = Effect.fn("ListHook.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("hook", { includeIgnored: false });
+  const inventory = yield* ws.records.getExtensionInventory("hook", {});
   const configured = yield* ws.getConfiguredHookEntries();
   const locked = yield* ws.getLockedHooks();
   const items = inventory.items.map((row) => ({

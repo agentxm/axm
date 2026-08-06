@@ -51,7 +51,7 @@ registerEntity<FilesListItem>("files", {
 export const handleListFiles = Effect.fn("ListFiles.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("files", { includeIgnored: false });
+  const inventory = yield* ws.records.getExtensionInventory("files", {});
   const configured = yield* ws.getConfiguredFilesEntries();
   const locked = yield* ws.getLockedFiles();
   const items = inventory.items.map((row) => ({

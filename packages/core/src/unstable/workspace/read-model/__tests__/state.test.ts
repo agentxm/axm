@@ -285,6 +285,32 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("fails with targeted guidance for legacy per-type ignore settings", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(JSON.stringify({ skillsConfig: { ignore: ["legacy-*"] } })),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.settings);
+      expect(err).toBeInstanceOf(SettingsDecodeError);
+      if (err._tag === "SettingsDecodeError") {
+        expect(err.issues).toEqual([
+          "skillsConfig.ignore: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.",
+        ]);
+      }
+    }),
+  );
+
   it.effect("fails with SettingsDecodeError for removed Library workspace state", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;

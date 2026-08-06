@@ -15,11 +15,10 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
-  inventoryIgnoredBy,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -32,7 +31,6 @@ interface McpServerListItem {
   readonly version: string;
   readonly transport: string;
   readonly status: string;
-  readonly ignoredBy: string;
 }
 
 const McpServerListTable = {
@@ -42,7 +40,6 @@ const McpServerListTable = {
     version: { header: "Version" },
     transport: { header: "Transport" },
     status: { header: "Status" },
-    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<McpServerListItem>;
 
@@ -76,14 +73,10 @@ const configuredStatus = (args: {
   return driftStatus(args.inspections);
 };
 
-export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* (args: {
-  readonly includeIgnored: boolean;
-}) {
+export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("mcp-server", {
-    includeIgnored: args.includeIgnored,
-  });
+  const inventory = yield* ws.records.getExtensionInventory("mcp-server", {});
   const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
   const configuredAgents = yield* ws.getConfiguredAgents();
 
@@ -94,7 +87,6 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
         const locked = yield* ws.getLockedMcpServer(row.name);
         const configuredEntry = configuredEntries[row.name];
         const inspections =
-          row.classification.kind === "lifecycle" &&
           row.classification.lifecycle !== "unmanaged" &&
           configuredEntry !== undefined &&
           hasInlineProjection(configuredEntry)
@@ -107,15 +99,13 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
               })
             : [];
         const status =
-          row.classification.kind === "ignored"
-            ? "n/a"
-            : row.classification.lifecycle === "unmanaged"
-              ? "unmanaged"
-              : configuredStatus({
-                  enabled: row.enabled !== false,
-                  configuredEntry,
-                  inspections,
-                });
+          row.classification.lifecycle === "unmanaged"
+            ? "unmanaged"
+            : configuredStatus({
+                enabled: row.enabled !== false,
+                configuredEntry,
+                inspections,
+              });
         return {
           name: row.name,
           state: inventoryState(row),
@@ -125,7 +115,6 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
               : "n/a",
           transport: row.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
           status,
-          ignoredBy: inventoryIgnoredBy(row),
         };
       }),
     { concurrency: "unbounded" },
@@ -157,11 +146,10 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List MCP servers from project (default) or user-level configuration"),
   ),
-  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, includeIgnored }) =>
-  handleListMcpServers({ includeIgnored }).pipe(
+export const listCommand = Command.make("list", listConfig, ({ scope }) =>
+  handleListMcpServers().pipe(
     withWorkspace({ scope, allowUninitialized: true }),
     withRuntime("mcps list"),
   ),

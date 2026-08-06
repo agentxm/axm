@@ -48,7 +48,6 @@ describe("axm skills list", () => {
           implicitCount: 0,
           installedCount: 1,
           unmanagedCount: 1,
-          ignoredCount: 0,
           items: [
             {
               name: "native-only",
@@ -93,55 +92,6 @@ describe("axm skills list", () => {
       // workspace declares in order to understand what broke.
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain("workspace lockfile could not be read");
-    } finally {
-      temp.cleanup();
-    }
-  });
-
-  it("hides ignored skills by default and includes their matching patterns on request", async () => {
-    const temp = createTempDir();
-    try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      settings.skillsConfig = { ignore: ["*-skill", "old-*"] };
-      fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-
-      const skillDir = path.join(temp.path, ".agents", "skills", "old-skill");
-      fs.mkdirSync(skillDir, { recursive: true });
-      fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Old skill\n");
-
-      const normal = await runCli(["skills", "list", "--json"], { cwd: temp.path });
-      const included = await runCli(["skills", "ls", "--include-ignored", "--json"], {
-        cwd: temp.path,
-      });
-
-      expect(normal.exitCode).toBe(0);
-      expect(JSON.parse(normal.stdout)).not.toEqual(
-        expect.objectContaining({
-          result: expect.objectContaining({
-            items: expect.arrayContaining([expect.objectContaining({ name: "old-skill" })]),
-          }),
-        }),
-      );
-      expect(included.exitCode).toBe(0);
-      expect(JSON.parse(included.stdout)).toEqual(
-        expect.objectContaining({
-          ok: true,
-          result: expect.objectContaining({
-            ignoredCount: 1,
-            items: expect.arrayContaining([
-              expect.objectContaining({
-                name: "old-skill",
-                classification: expect.objectContaining({
-                  kind: "ignored",
-                  matchedBy: ["*-skill", "old-*"],
-                }),
-              }),
-            ]),
-          }),
-        }),
-      );
     } finally {
       temp.cleanup();
     }

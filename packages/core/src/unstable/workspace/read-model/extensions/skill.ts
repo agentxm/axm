@@ -13,13 +13,13 @@
  *   `hasSkillMd`, `hasSkillJson`);
  * - scanner composition (canonical-extensions + agent-dir × skill-rendering
  *   agents);
- * - the `installed` / `active` / `unmanaged` / `ignored` projections, wired
+ * - the `installed` / `active` / `unmanaged` projections, wired
  *   through the helper with a skill-specific `SubjectPolicy`.
  *
  * The factory `makeSkillExtensionsApi(deps)` returns a `SkillExtensionsApi`
  * with cells whose public types are dependency-closed. Phase 9 composes the
- * factory inputs (`loaders`, `scanners`, `installedPacks`, `ignoredPatterns`,
- * `diagnostics`) inside `WorkspaceReadModelLive`.
+ * factory inputs (`loaders`, `scanners`, `installedPacks`, `diagnostics`)
+ * inside `WorkspaceReadModelLive`.
  */
 
 import * as Effect from "effect/Effect";
@@ -39,7 +39,6 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -140,25 +139,6 @@ export interface UnmanagedSkill {
   readonly actual: ActualSkill;
 }
 
-/** Ignored-skill candidate row. */
-export type IgnoredSkillCandidate =
-  | {
-      readonly key: ExtensionKey<"skill">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredSkill;
-    }
-  | {
-      readonly key: ExtensionKey<"skill">;
-      readonly reason: "pack-member-ignored";
-      readonly member: SkillPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"skill">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualSkill;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers — declared / resolved / actual normalization
 // ---------------------------------------------------------------------------
@@ -252,7 +232,6 @@ export interface SkillExtensionsApiDeps {
   readonly loaders: SkillScopedLoaders;
   readonly scanners: SkillScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForSkills>>;
-  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -271,7 +250,6 @@ export interface SkillExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredSkill>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledSkill>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSkill>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredSkillCandidate>>;
 }
 
 const SUBJECT_KEY = "skill";
@@ -292,8 +270,7 @@ const skillPolicy = (
   ActualSkills,
   SkillPackMember,
   InstalledSkill,
-  UnmanagedSkill,
-  IgnoredSkillCandidate
+  UnmanagedSkill
 > => ({
   declaredEntries: (declared) => declared,
   declaredName: (entry) => entry.name,
@@ -303,7 +280,6 @@ const skillPolicy = (
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.key.name,
   packMemberName: (member) => simpleName(member.name),
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -319,32 +295,16 @@ const skillPolicy = (
     key: { scope, type: "skill", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "skill", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
- * Build the skill subject API over the captured loaders, scanners, pack set,
- * and ignored-name set.
+ * Build the skill subject API over the captured loaders, scanners, and pack
+ * set.
  *
  * Returns an `Effect` because the projection cell is wrapped in
  * `Effect.cached` so all four derived cells (`installed` / `active` /
- * `unmanaged` / `ignored`) share a single in-flight execution and the
+ * `unmanaged`) share a single in-flight execution and the
  * projection — including its diagnostic side effects — runs at most once per
  * scope, mirroring the `state.ts` loader pattern.
  */
@@ -352,7 +312,7 @@ export const makeSkillExtensionsApi = (
   deps: SkillExtensionsApiDeps,
 ): Effect.Effect<SkillExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
 
     const declared: SkillExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, (settings) => declaredFromSettings(settings))),
@@ -388,7 +348,6 @@ export const makeSkillExtensionsApi = (
           readonly members: ReadonlyArray<SkillPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames: ignoredPatterns,
         policy: skillPolicy(scope),
         diagnostics,
       }),

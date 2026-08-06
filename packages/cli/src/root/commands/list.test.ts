@@ -100,7 +100,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ includeIgnored: false });
+        yield* handleListCommands();
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -123,7 +123,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ includeIgnored: false });
+        yield* handleListCommands();
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -150,7 +150,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ includeIgnored: false });
+        yield* handleListCommands();
 
         expect(rendererState.tables[0]?.items).toEqual([
           expect.objectContaining({ name: "my-cmd", activation: "enabled", state: "configured" }),
@@ -169,7 +169,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ includeIgnored: false });
+        yield* handleListCommands();
 
         expect(rendererState.tables[0]?.items).toEqual([
           expect.objectContaining({ name: "my-cmd", activation: "disabled", state: "configured" }),
@@ -188,7 +188,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands({ includeIgnored: false });
+        yield* handleListCommands();
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({

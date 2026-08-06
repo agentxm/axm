@@ -26,7 +26,6 @@ import type {
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -85,24 +84,6 @@ export interface UnmanagedSubagent {
   readonly key: ExtensionKey<"subagent">;
   readonly actual: ActualSubagent;
 }
-
-export type IgnoredSubagentCandidate =
-  | {
-      readonly key: ExtensionKey<"subagent">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredSubagent;
-    }
-  | {
-      readonly key: ExtensionKey<"subagent">;
-      readonly reason: "pack-member-ignored";
-      readonly member: SubagentPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"subagent">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualSubagent;
-    };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,7 +152,6 @@ export interface SubagentExtensionsApiDeps {
   readonly loaders: SubagentScopedLoaders;
   readonly scanners: SubagentScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForSubagents>>;
-  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -186,7 +166,6 @@ export interface SubagentExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredSubagent>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledSubagent>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSubagent>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredSubagentCandidate>>;
 }
 
 const SUBJECT_KEY = "subagent";
@@ -205,8 +184,7 @@ const subagentPolicy = (
   ActualSubagents,
   SubagentPackMember,
   InstalledSubagent,
-  UnmanagedSubagent,
-  IgnoredSubagentCandidate
+  UnmanagedSubagent
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
@@ -216,7 +194,6 @@ const subagentPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -232,22 +209,6 @@ const subagentPolicy = (
     key: { scope, type: "subagent", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "subagent", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -260,7 +221,7 @@ export const makeSubagentExtensionsApi = (
   deps: SubagentExtensionsApiDeps,
 ): Effect.Effect<SubagentExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
 
     const declared: SubagentExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -294,7 +255,6 @@ export const makeSubagentExtensionsApi = (
           readonly members: ReadonlyArray<SubagentPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames: ignoredPatterns,
         policy: subagentPolicy(scope),
         diagnostics,
       }),

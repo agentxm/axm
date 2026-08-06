@@ -25,7 +25,7 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
@@ -68,6 +68,7 @@ export interface ActualMcpServer {
   readonly key: ExtensionKey<"mcp-server">;
   readonly origin: McpServerDetectionOrigin;
   readonly contentRoot: string | null;
+  readonly packageRoot: string | null;
   readonly configFile: string | null;
   readonly config: Readonly<Record<string, unknown>> | null;
 }
@@ -92,24 +93,6 @@ export interface UnmanagedMcpServer {
   readonly actual: ActualMcpServer;
 }
 
-export type IgnoredMcpServerCandidate =
-  | {
-      readonly key: ExtensionKey<"mcp-server">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredMcpServer;
-    }
-  | {
-      readonly key: ExtensionKey<"mcp-server">;
-      readonly reason: "pack-member-ignored";
-      readonly member: McpServerPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"mcp-server">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualMcpServer;
-    };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -130,16 +113,20 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedMcpServers => {
   }));
 };
 
-const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualMcpServer => ({
-  key: { scope, type: "mcp-server", name: occ.name },
-  origin:
-    occ.origin === "canonical-axm"
-      ? { _tag: "canonical-axm-mcp-server" }
-      : { _tag: "external-axm-mcp-server" },
-  contentRoot: occ.contentLocation,
-  configFile: null,
-  config: null,
-});
+const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualMcpServer => {
+  const packageRoot = canonicalAxmPackageRoot(occ);
+  return {
+    key: { scope, type: "mcp-server", name: occ.name },
+    origin:
+      occ.origin === "canonical-axm"
+        ? { _tag: "canonical-axm-mcp-server" }
+        : { _tag: "external-axm-mcp-server" },
+    contentRoot: occ.contentLocation,
+    packageRoot,
+    configFile: null,
+    config: null,
+  };
+};
 
 const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpServer => ({
   key: { scope, type: "mcp-server", name: occ.name },
@@ -148,6 +135,7 @@ const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpSer
       ? { _tag: "workspace-mcp-config" }
       : { _tag: "agent-mcp-config", agentId: occ.agentId },
   contentRoot: null,
+  packageRoot: null,
   configFile: occ.contentLocation,
   config: occ.config,
 });
@@ -176,7 +164,6 @@ export interface McpServerExtensionsApiDeps {
   readonly loaders: McpServerScopedLoaders;
   readonly scanners: McpServerScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForMcpServers>>;
-  readonly ignoredPatterns: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -191,7 +178,6 @@ export interface McpServerExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredMcpServer>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledMcpServer>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedMcpServer>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredMcpServerCandidate>>;
 }
 
 const SUBJECT_KEY = "mcp-server";
@@ -210,8 +196,7 @@ const mcpServerPolicy = (
   ActualMcpServers,
   McpServerPackMember,
   InstalledMcpServer,
-  UnmanagedMcpServer,
-  IgnoredMcpServerCandidate
+  UnmanagedMcpServer
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
@@ -221,7 +206,6 @@ const mcpServerPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -237,22 +221,6 @@ const mcpServerPolicy = (
     key: { scope, type: "mcp-server", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "mcp-server", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -265,7 +233,7 @@ export const makeMcpServerExtensionsApi = (
   deps: McpServerExtensionsApiDeps,
 ): Effect.Effect<McpServerExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, ignoredPatterns, diagnostics } = deps;
+    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
 
     const declared: McpServerExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -297,7 +265,6 @@ export const makeMcpServerExtensionsApi = (
           readonly members: ReadonlyArray<McpServerPackMember>;
         }) => pack.members,
         packRef: (pack) => pack.ref,
-        ignoredNames: ignoredPatterns,
         policy: mcpServerPolicy(scope),
         diagnostics,
       }),

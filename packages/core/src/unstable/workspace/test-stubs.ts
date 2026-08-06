@@ -41,13 +41,11 @@ import { type Handle } from "../extensions/handle.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
 
-type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
 
 const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
   Effect.succeed([]);
-const emptyArr = (): RA => Effect.succeed([]);
 const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
   Effect.succeed({
     items: [],
@@ -56,7 +54,6 @@ const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
     implicitCount: 0,
     installedCount: 0,
     unmanagedCount: 0,
-    ignoredCount: 0,
   });
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
@@ -121,6 +118,8 @@ export const unmanagedRow = (args: {
   enabled: true,
   packagingKind: args.packagingKind ?? "non-native",
   locations: args.locations ?? [],
+  agents: [],
+  ownershipEvidence: [],
   lifecycle: "unmanaged",
 });
 
@@ -428,7 +427,6 @@ export const makeBaseWorkspaceMock = (
     getConfiguredOwner: () => Effect.succeed(Option.none()),
     getMinimumReleaseAge: () => Effect.succeed("24h"),
     addConfiguredSource: () => Effect.void,
-    getIgnoredSkillPatterns: emptyArr,
     getConfiguredSkillEntries: () => Effect.succeed({}),
     getConfiguredFilesEntries: () => Effect.succeed({}),
     getConfiguredRuleEntries: () => Effect.succeed({}),
@@ -476,9 +474,6 @@ export const makeBaseWorkspaceMock = (
     removeKnowledgeLock: () => Effect.void,
     updateKnowledgeEntry: () => Effect.void,
     setKnowledgeEntry: () => Effect.void,
-    getIgnoredCommandPatterns: emptyArr,
-    getIgnoredMcpServerPatterns: emptyArr,
-    getIgnoredPackPatterns: emptyArr,
     getConfiguredPackEntries: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
     getInstructionsConfig: () => Effect.succeed(Option.none()),

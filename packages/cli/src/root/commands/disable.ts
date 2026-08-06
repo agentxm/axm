@@ -44,7 +44,7 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   const installedCommands = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
   const installedEntry = installedCommands[commandName];
 
-  // Validate: command is installed (ignored names are excluded from installed)
+  // Validate: command is installed.
   if (installedEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",

@@ -1,13 +1,12 @@
 /**
  * Shared projection helper tests.
  *
- * `projectInstalledExtensions(...)` composes installed/active/unmanaged/ignored
+ * `projectInstalledExtensions(...)` composes installed/active/unmanaged
  * from declared/resolved/actual plus the installed-pack set. The helper owns:
  *   - source-tolerance via `Effect.result` + `Effect.catchTags`
  *   - diagnostics publication for degraded sources and orphaned resolved entries
  *   - direct-over-pack precedence
  *   - disabled-direct still claims actual occurrences
- *   - ignored-suppression
  *   - deterministic name-sorted ordering
  *
  * The helper MUST NOT carry subject row shape or subject policy; both come in
@@ -83,21 +82,13 @@ interface TestUnmanagedRow {
   readonly actual: TestActualEntry;
 }
 
-interface TestIgnoredRow {
-  readonly name: string;
-  readonly reason: string;
-}
-
-const ignoredNames = (names: ReadonlyArray<string>) => new Set(names);
-
 const policy: SubjectPolicy<
   TestDeclared,
   TestResolved,
   TestActual,
   TestPackMember,
   TestInstalledRow,
-  TestUnmanagedRow,
-  TestIgnoredRow
+  TestUnmanagedRow
 > = {
   declaredEntries: (declared) => declared,
   declaredName: (entry) => entry.name,
@@ -107,7 +98,6 @@ const policy: SubjectPolicy<
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.name,
   packMemberName: (member) => member.name,
-  isIgnoredName: (name, ignored) => ignored.has(name),
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -119,9 +109,6 @@ const policy: SubjectPolicy<
     actual: input.actual,
   }),
   buildUnmanagedRow: (entry) => ({ name: entry.name, actual: entry }),
-  buildDeclaredIgnoredRow: (input) => ({ name: input.name, reason: "declared-ignored" }),
-  buildPackMemberIgnoredRow: (input) => ({ name: input.name, reason: "pack-member-ignored" }),
-  buildActualIgnoredRow: (input) => ({ name: input.name, reason: "actual-ignored" }),
   resolvedOrphanWarning: (name) => ({
     source: "lockfile",
     message: `orphan resolved: ${name}`,
@@ -136,7 +123,6 @@ const harness = (params: {
   readonly resolved: Effect.Effect<Option.Option<TestResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TestActual>;
   readonly installedPacks: Effect.Effect<ReadonlyArray<TestInstalledPack>>;
-  readonly ignored?: Set<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -149,7 +135,6 @@ const harness = (params: {
       installedPacks: params.installedPacks,
       packMembers: (pack) => pack.members,
       packRef: (pack) => pack.ref,
-      ignoredNames: params.ignored ?? new Set<string>(),
       policy,
       diagnostics,
     });
@@ -266,24 +251,6 @@ describe("projectInstalledExtensions", () => {
     }),
   );
 
-  it.effect("ignored-suppressed-but-raw-visible", () =>
-    Effect.gen(function* () {
-      const { out } = yield* harness({
-        declared: Effect.succeed(Option.some([DECLARED_ENABLED("alpha")])),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([ACTUAL("alpha")]),
-        installedPacks: Effect.succeed([]),
-        ignored: ignoredNames(["alpha"]),
-      });
-      expect(out.installed).toHaveLength(0);
-      expect(out.unmanaged).toHaveLength(0);
-      expect(out.ignored).toHaveLength(2);
-      const reasons = out.ignored.map((row) => row.reason).sort();
-      expect(reasons).toContain("declared-ignored");
-      expect(reasons).toContain("actual-ignored");
-    }),
-  );
-
   it.effect("orphaned-resolved-becomes-diagnostic but does not install", () =>
     Effect.gen(function* () {
       const { out, warnings } = yield* harness({
@@ -375,13 +342,13 @@ describe("projectInstalledExtensions", () => {
         actual: Effect.succeed([ACTUAL("alpha"), ACTUAL("legacy")]),
         installedPacks: Effect.succeed([]),
       });
-      // Public surface: installed, active, unmanaged, ignored only.
+      // Public surface exposes only installed, active, and unmanaged rows.
       const keys = Object.keys(out).sort();
-      expect(keys).toEqual(["active", "ignored", "installed", "unmanaged"]);
+      expect(keys).toEqual(["active", "installed", "unmanaged"]);
     }),
   );
 
-  it.effect("actual-only stays unmanaged when not declared, not packed, not ignored", () =>
+  it.effect("actual-only stays unmanaged when not declared or packed", () =>
     Effect.gen(function* () {
       const { out } = yield* harness({
         declared: Effect.succeed(Option.none()),

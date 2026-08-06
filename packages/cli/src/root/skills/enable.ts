@@ -39,7 +39,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
   const entry = installedSkills[skillName];
 
-  // Validate: skill is installed (ignored names are excluded from installed)
+  // Validate: skill is installed.
   if (entry === undefined) {
     return yield* makeAppError({
       code: "not_found",

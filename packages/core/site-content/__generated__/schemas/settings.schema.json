@@ -291,20 +291,6 @@
         }
       ]
     },
-    "SkillsConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed skill names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Skills Config",
-      "description": "Feature-level configuration for skills."
-    },
     "CommandEntry": {
       "anyOf": [
         { "type": "string" },
@@ -355,20 +341,6 @@
           }
         }
       ]
-    },
-    "CommandsConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed command names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Commands Config",
-      "description": "Feature-level configuration for commands."
     },
     "FilesInputValuesMap": {
       "type": "object",
@@ -427,20 +399,6 @@
           }
         }
       ]
-    },
-    "FilesConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed Context Files package names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Files Config",
-      "description": "Feature-level configuration for Context Files packages."
     },
     "RuleEntry": {
       "anyOf": [
@@ -544,20 +502,6 @@
         }
       ]
     },
-    "HooksConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed hook names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Hooks Config",
-      "description": "Feature-level configuration for hooks."
-    },
     "KnowledgeEntry": {
       "anyOf": [
         { "type": "string" },
@@ -612,12 +556,6 @@
     "KnowledgeConfig": {
       "type": "object",
       "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed knowledge bundle names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        },
         "directory": {
           "type": "string",
           "description": "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
@@ -627,7 +565,7 @@
       },
       "additionalProperties": false,
       "title": "Knowledge Config",
-      "description": "Feature-level configuration and agent-facing projection settings for knowledge bundles."
+      "description": "Agent-facing projection settings for knowledge bundles."
     },
     "SubagentEntry": {
       "anyOf": [
@@ -680,20 +618,6 @@
         }
       ]
     },
-    "SubagentsConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed subagent names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Subagents Config",
-      "description": "Feature-level configuration for subagents."
-    },
     "PackEntry": {
       "anyOf": [
         { "type": "string" },
@@ -744,20 +668,6 @@
           }
         }
       ]
-    },
-    "PacksConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed pack names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "Packs Config",
-      "description": "Feature-level configuration for packs."
     },
     "McpServerEnv": {
       "anyOf": [
@@ -852,20 +762,6 @@
         }
       ]
     },
-    "McpServersConfig": {
-      "type": "object",
-      "properties": {
-        "ignore": {
-          "type": "array",
-          "description": "Installed MCP server names AXM should leave unmanaged.",
-          "examples": [["local-*", "legacy-helper"]],
-          "items": { "type": "string" }
-        }
-      },
-      "additionalProperties": false,
-      "title": "MCP Servers Config",
-      "description": "Feature-level configuration for MCP servers."
-    },
     "LintRuleSeverity": {
       "type": "string",
       "enum": ["off", "info", "warn", "error"],
@@ -930,25 +826,13 @@
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
           "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
-        "skillsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }],
-          "description": "Feature-level options for skill management."
-        },
         "commands": {
           "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
           "description": "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
-        "commandsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
-          "description": "Feature-level options for command management."
-        },
         "files": {
           "anyOf": [{ "$ref": "#/definitions/FilesMap" }],
           "description": "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
-        },
-        "filesConfig": {
-          "anyOf": [{ "$ref": "#/definitions/FilesConfig" }],
-          "description": "Feature-level options for Context Files package management."
         },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
@@ -957,10 +841,6 @@
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
           "description": "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
-        },
-        "hooksConfig": {
-          "anyOf": [{ "$ref": "#/definitions/HooksConfig" }],
-          "description": "Feature-level options for hook management."
         },
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
@@ -974,25 +854,13 @@
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
           "description": "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
-        "subagentsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }],
-          "description": "Feature-level options for subagent management."
-        },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
           "description": "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`."
         },
-        "packsConfig": {
-          "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
-          "description": "Feature-level options for pack management."
-        },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
           "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values."
-        },
-        "mcpServersConfig": {
-          "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],
-          "description": "Feature-level options for MCP server management."
         },
         "lint": {
           "anyOf": [{ "$ref": "#/definitions/LintConfig" }],
@@ -1016,7 +884,6 @@
               "inputs": { "projectName": "AgentXM" }
             }
           },
-          "skillsConfig": { "ignore": ["local-*"] },
           "lint": { "rules": { "workspace/settings-schema-valid": "error" } }
         }
       ]

@@ -213,9 +213,7 @@ describe("WorkspaceMutationsService", () => {
         fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Native only\n");
 
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const inventory = yield* ws.records.getExtensionInventory("skill", {
-          includeIgnored: false,
-        });
+        const inventory = yield* ws.records.getExtensionInventory("skill", {});
 
         expect(inventory).toMatchObject({
           count: 1,
@@ -236,9 +234,7 @@ describe("WorkspaceMutationsService", () => {
         fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
 
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records
-          .getExtensionInventory("skill", { includeIgnored: false })
-          .pipe(Effect.flip);
+        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
@@ -255,9 +251,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records
-          .getExtensionInventory("skill", { includeIgnored: false })
-          .pipe(Effect.flip);
+        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
@@ -274,9 +268,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records
-          .getExtensionInventory("skill", { includeIgnored: false })
-          .pipe(Effect.flip);
+        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
@@ -285,7 +277,7 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("does not treat an invalid ignore configuration as absent", () =>
+    it.effect("reports removed ignore configuration as invalid", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
           path.join(projectDir, ".axm", "settings.json"),
@@ -293,9 +285,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records
-          .getExtensionInventory("skill", { includeIgnored: true })
-          .pipe(Effect.flip);
+        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
@@ -865,9 +855,7 @@ describe("WorkspaceMutationsService", () => {
           const ws = yield* getService({ scope: "project", allowUninitialized: true });
 
           expect(yield* ws.getLockedSkills()).toEqual({});
-          const inventory = yield* ws.records.getExtensionInventory("skill", {
-            includeIgnored: false,
-          });
+          const inventory = yield* ws.records.getExtensionInventory("skill", {});
           expect(inventory.count).toBe(1);
         }),
       ),
@@ -879,9 +867,7 @@ describe("WorkspaceMutationsService", () => {
           fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
 
           const ws = yield* getService({ scope: "project", allowUninitialized: true });
-          const error = yield* ws.records
-            .getExtensionInventory("skill", { includeIgnored: false })
-            .pipe(Effect.flip);
+          const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
           const appError = getAppError(error);
           expect(appError.code).toBe("validation");
@@ -2493,9 +2479,7 @@ describe("WorkspaceMutationsService", () => {
             }),
           );
 
-          const inventory = yield* ws.records.getExtensionInventory(entry.type, {
-            includeIgnored: false,
-          });
+          const inventory = yield* ws.records.getExtensionInventory(entry.type, {});
           expect(inventory.items).toContainEqual(
             expect.objectContaining({
               type: entry.type,
@@ -2527,9 +2511,7 @@ describe("WorkspaceMutationsService", () => {
         fs.writeFileSync(path.join(bundleSrc, "index.md"), "# Payments\n");
 
         const ws = yield* getService(defaultOptions);
-        const inventory = yield* ws.records.getExtensionInventory("knowledge", {
-          includeIgnored: false,
-        });
+        const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
 
         expect(inventory.count).toBe(1);
         expect(inventory.configuredCount).toBe(1);
@@ -2543,7 +2525,7 @@ describe("WorkspaceMutationsService", () => {
 
         const ws = yield* getService(defaultOptions);
         const inventories = yield* Effect.forEach(installableExtensionTypes, (type) =>
-          ws.records.getExtensionInventory(type, { includeIgnored: true }),
+          ws.records.getExtensionInventory(type, {}),
         );
 
         expect(inventories).toHaveLength(installableExtensionTypes.length);
@@ -2922,33 +2904,6 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("getIgnoredSkillPatterns", () => {
-    it.effect("returns configured ignored patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          skillsConfig: { ignore: ["test-*", "deprecated-tool"] },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredSkillPatterns();
-
-        expect(patterns).toEqual(["test-*", "deprecated-tool"]);
-      }),
-    );
-
-    it.effect("returns empty array when no ignored patterns configured", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredSkillPatterns();
-
-        expect(patterns).toEqual([]);
-      }),
-    );
-  });
-
   // ---------------------------------------------------------------------------
   // Read-model record getter contracts (commands)
   // ---------------------------------------------------------------------------
@@ -3187,33 +3142,6 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("getIgnoredCommandPatterns", () => {
-    it.effect("returns configured ignored command patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          commandsConfig: { ignore: ["debug-*"] },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredCommandPatterns();
-
-        expect(patterns).toEqual(["debug-*"]);
-      }),
-    );
-
-    it.effect("returns empty array when no ignored patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredCommandPatterns();
-
-        expect(patterns).toEqual([]);
-      }),
-    );
-  });
-
   // ---------------------------------------------------------------------------
   // Read-model record getter contracts (MCP servers)
   // ---------------------------------------------------------------------------
@@ -3303,33 +3231,6 @@ describe("WorkspaceMutationsService", () => {
 
         expect(recordEntry(installed, "configured-mcp").lifecycle).toBe("configured");
         expect(installed).not.toHaveProperty("implicit-mcp");
-      }),
-    );
-  });
-
-  describe("getIgnoredMcpServerPatterns", () => {
-    it.effect("returns configured ignored MCP server patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          mcpServersConfig: { ignore: ["test-*"] },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredMcpServerPatterns();
-
-        expect(patterns).toEqual(["test-*"]);
-      }),
-    );
-
-    it.effect("returns empty array when no ignored patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredMcpServerPatterns();
-
-        expect(patterns).toEqual([]);
       }),
     );
   });
@@ -3435,33 +3336,6 @@ describe("WorkspaceMutationsService", () => {
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
         expect(installed).not.toHaveProperty("@axm/packs/default");
-      }),
-    );
-  });
-
-  describe("getIgnoredPackPatterns", () => {
-    it.effect("returns configured ignored pack patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packsConfig: { ignore: ["legacy-*"] },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredPackPatterns();
-
-        expect(patterns).toEqual(["legacy-*"]);
-      }),
-    );
-
-    it.effect("returns empty array when no ignored patterns", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const patterns = yield* ws.getIgnoredPackPatterns();
-
-        expect(patterns).toEqual([]);
       }),
     );
   });

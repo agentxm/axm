@@ -32,7 +32,6 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
-import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -89,24 +88,6 @@ export interface UnmanagedHook {
   readonly key: ExtensionKey<"hook">;
   readonly actual: ActualHook;
 }
-
-export type IgnoredHookCandidate =
-  | {
-      readonly key: ExtensionKey<"hook">;
-      readonly reason: "declared-ignored";
-      readonly declared: DeclaredHook;
-    }
-  | {
-      readonly key: ExtensionKey<"hook">;
-      readonly reason: "pack-member-ignored";
-      readonly member: HookPackMember;
-      readonly pack: InstalledPackRef;
-    }
-  | {
-      readonly key: ExtensionKey<"hook">;
-      readonly reason: "actual-ignored";
-      readonly actual: ActualHook;
-    };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -167,7 +148,6 @@ export interface HookExtensionsApiDeps {
   readonly loaders: HookScopedLoaders;
   readonly scanners: HookScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForHooks>>;
-  readonly ignoredNames: ReadonlySet<string>;
   readonly diagnostics: Diagnostics;
 }
 
@@ -182,7 +162,6 @@ export interface HookExtensionsApi {
   ) => Effect.Effect<Option.Option<DeclaredHook>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledHook>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedHook>>;
-  readonly ignored: Effect.Effect<ReadonlyArray<IgnoredHookCandidate>>;
 }
 
 const SUBJECT_KEY = "hook";
@@ -201,8 +180,7 @@ const hookPolicy = (
   ActualHooks,
   HookPackMember,
   InstalledHook,
-  UnmanagedHook,
-  IgnoredHookCandidate
+  UnmanagedHook
 > => ({
   declaredEntries: (d) => d,
   declaredName: (entry) => entry.name,
@@ -212,7 +190,6 @@ const hookPolicy = (
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
   packMemberName: (m) => m.name,
-  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -228,22 +205,6 @@ const hookPolicy = (
     key: { scope, type: "hook", name: entry.key.name },
     actual: entry,
   }),
-  buildDeclaredIgnoredRow: (input) => ({
-    key: { scope, type: "hook", name: input.name },
-    reason: "declared-ignored",
-    declared: input.declared,
-  }),
-  buildPackMemberIgnoredRow: (input) => ({
-    key: { scope, type: "hook", name: input.name },
-    reason: "pack-member-ignored",
-    member: input.member,
-    pack: input.pack,
-  }),
-  buildActualIgnoredRow: (input) => ({
-    key: { scope, type: "hook", name: input.name },
-    reason: "actual-ignored",
-    actual: input.actual,
-  }),
   resolvedOrphanWarning: orphanResolvedWarning,
 });
 
@@ -256,7 +217,7 @@ export const makeHookExtensionsApi = (
   deps: HookExtensionsApiDeps,
 ): Effect.Effect<HookExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, ignoredNames, diagnostics } = deps;
+    const { scope, scanners, diagnostics } = deps;
 
     const declared: HookExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -280,7 +241,6 @@ export const makeHookExtensionsApi = (
           readonly hooks: ReadonlyArray<HookPackMember>;
         }): ReadonlyArray<HookPackMember> => pack.hooks,
         packRef: (pack) => pack.ref,
-        ignoredNames,
         policy: hookPolicy(scope),
         diagnostics,
       }),

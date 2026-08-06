@@ -62,7 +62,6 @@ const harness = (params: {
   readonly lockfile?: Lockfile;
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
   readonly packMembers?: ReadonlyArray<FilesPackMember>;
-  readonly ignoredNames?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -77,7 +76,6 @@ const harness = (params: {
       installedPacks: Effect.succeed(
         params.packMembers === undefined ? [] : [{ ref: packRef, files: params.packMembers }],
       ),
-      ignoredNames: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
     return { api, ref };
@@ -219,19 +217,6 @@ describe("makeFilesExtensionsApi", () => {
       });
       expect(yield* api.installed).toHaveLength(0);
       expect(yield* api.unmanaged).toHaveLength(1);
-    }),
-  );
-
-  it.effect("an ignored name produces an ignored row instead of an unmanaged one", () =>
-    Effect.gen(function* () {
-      const { api } = yield* harness({
-        canonicalOccurrences: [canonicalFiles("scratch")],
-        ignoredNames: ["scratch"],
-      });
-      const ignored = yield* api.ignored;
-      expect(ignored).toHaveLength(1);
-      expect(ignored[0]?.reason).toBe("actual-ignored");
-      expect(yield* api.unmanaged).toHaveLength(0);
     }),
   );
 

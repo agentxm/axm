@@ -18,7 +18,6 @@ import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
 
 const harness = (params: {
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
-  readonly ignoredNames?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -33,7 +32,6 @@ const harness = (params: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
       },
       installedPacks: Effect.succeed([]),
-      ignoredNames: new Set(params.ignoredNames ?? []),
       diagnostics,
     });
   });

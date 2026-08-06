@@ -10,7 +10,6 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import {
   inventoryActivation,
-  inventoryIgnoredBy,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -19,7 +18,6 @@ import {
 
 export interface ListSubagentsHandlerArgs {
   readonly agents: readonly string[];
-  readonly includeIgnored: boolean;
 }
 
 interface SubagentListItem {
@@ -27,7 +25,6 @@ interface SubagentListItem {
   readonly state: string;
   readonly activation: string;
   readonly agents: ReadonlyArray<string>;
-  readonly ignoredBy: string;
 }
 
 const SubagentListTable = {
@@ -40,7 +37,6 @@ const SubagentListTable = {
       render: (value: ReadonlyArray<string>) =>
         value.length === 0 ? "all configured agents" : value.join(", "),
     },
-    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<SubagentListItem>;
 
@@ -60,7 +56,6 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
   const ws = yield* WorkspaceMutations;
 
   const inventory = yield* ws.records.getExtensionInventory("subagent", {
-    includeIgnored: args.includeIgnored,
     agents: args.agents,
   });
   const items = inventory.items.map((row) => ({
@@ -68,7 +63,6 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
     state: inventoryState(row),
     activation: inventoryActivation(row),
     agents: row.agents,
-    ignoredBy: inventoryIgnoredBy(row),
   }));
 
   if (yield* renderer.result(inventory, ExtensionInventorySchema)) return;

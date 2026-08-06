@@ -131,13 +131,12 @@ describe("settings", () => {
       ),
     );
 
-    it.effect("round-trips new feature config shape", () =>
+    it.effect("round-trips retained feature config shape", () =>
       withContext(
         Effect.gen(function* () {
           const settings: Settings = {
             agents: ["claude-code"],
             skills: { commit: { source: "^1.0.0", enabled: true } },
-            skillsConfig: { ignore: ["internal-*"] },
             knowledgeConfig: { directory: "docs/agent-knowledge" },
           };
 
@@ -154,19 +153,14 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           const settings: Settings = {
-            skillsConfig: {},
-            commandsConfig: { ignore: [] },
-            subagentsConfig: { ignore: ["local-*"] },
-            packsConfig: { ignore: [] },
-            mcpServersConfig: {},
+            rulesConfig: {},
+            knowledgeConfig: {},
           };
 
           yield* writeSettings(axmDir, settings);
 
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-          expect(JSON.parse(content)).toEqual({
-            subagentsConfig: { ignore: ["local-*"] },
-          });
+          expect(JSON.parse(content)).toEqual({});
         }),
       ),
     );

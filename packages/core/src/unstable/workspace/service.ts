@@ -769,11 +769,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.addConfiguredSource")),
 
-      getIgnoredSkillPatterns: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.skillsConfig?.ignore ?? []),
-        ),
-
       getConfiguredSkillEntries: () =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): SkillsMap => s.skills ?? {}),
@@ -1714,21 +1709,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
-        ),
-
-      getIgnoredCommandPatterns: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.commandsConfig?.ignore ?? []),
-        ),
-
-      getIgnoredMcpServerPatterns: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.mcpServersConfig?.ignore ?? []),
-        ),
-
-      getIgnoredPackPatterns: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): ReadonlyArray<string> => s.packsConfig?.ignore ?? []),
         ),
 
       getConfiguredPackEntries: () =>

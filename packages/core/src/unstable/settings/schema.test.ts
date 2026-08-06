@@ -87,7 +87,6 @@ describe("Settings schema", () => {
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
-        skillsConfig: { ignore: ["legacy-*"] },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
@@ -99,7 +98,6 @@ describe("Settings schema", () => {
           enabled: true,
         },
       });
-      expect(result.skillsConfig?.ignore).toEqual(["legacy-*"]);
     });
 
     it("defaults omitted enabled flags to enabled entries", () => {
@@ -115,36 +113,14 @@ describe("Settings schema", () => {
       ).toEqual(["bat-computer"]);
     });
 
-    it("round-trips feature config blocks through schema encode", () => {
+    it("round-trips supported feature config blocks through schema encode", () => {
       const input = {
-        skillsConfig: { ignore: ["local-*"] },
-        commandsConfig: { ignore: ["debug-*"] },
-        subagentsConfig: { ignore: ["draft-*"] },
-        packsConfig: { ignore: ["legacy-*"] },
-        mcpServersConfig: { ignore: ["test-*"] },
-        filesConfig: { ignore: ["vendor-*"] },
-        hooksConfig: { ignore: ["experimental-*"] },
-        knowledgeConfig: {
-          ignore: ["scratch-*"],
-          directory: "docs/agent-knowledge",
-        },
+        knowledgeConfig: { directory: "docs/agent-knowledge" },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
 
       expect(encoded).toEqual(input);
-    });
-
-    it("exposes ignore lists for files, hooks, and knowledge", () => {
-      const decoded = Schema.decodeUnknownSync(SettingsSchema)({
-        filesConfig: { ignore: ["vendor-*"] },
-        hooksConfig: { ignore: ["experimental-*"] },
-        knowledgeConfig: { ignore: ["scratch-*"] },
-      });
-
-      expect(decoded.filesConfig?.ignore).toEqual(["vendor-*"]);
-      expect(decoded.hooksConfig?.ignore).toEqual(["experimental-*"]);
-      expect(decoded.knowledgeConfig?.ignore).toEqual(["scratch-*"]);
     });
 
     it("accepts an empty Knowledge config so the workspace can resolve the default directory", () => {

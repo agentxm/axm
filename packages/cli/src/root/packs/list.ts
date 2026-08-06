@@ -10,11 +10,10 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
-  inventoryIgnoredBy,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -27,7 +26,6 @@ interface PackListItem {
   readonly owner: string;
   readonly version: string;
   readonly source: string;
-  readonly ignoredBy: string;
 }
 
 const PackListTable = {
@@ -37,7 +35,6 @@ const PackListTable = {
     owner: { header: "Owner" },
     version: { header: "Version" },
     source: { header: "Source" },
-    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<PackListItem>;
 
@@ -50,14 +47,10 @@ registerEntity<PackListItem>("pack", {
   },
 });
 
-export const handleList = Effect.fn("PacksList.handle")(function* (args: {
-  readonly includeIgnored: boolean;
-}) {
+export const handleList = Effect.fn("PacksList.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("pack", {
-    includeIgnored: args.includeIgnored,
-  });
+  const inventory = yield* ws.records.getExtensionInventory("pack", {});
   const packs = yield* ws.getLockedPacks();
 
   const items: ReadonlyArray<PackListItem> = inventory.items.map((row) => {
@@ -78,7 +71,6 @@ export const handleList = Effect.fn("PacksList.handle")(function* (args: {
           : entry.type === "workspace"
             ? "workspace"
             : entry.sourceName,
-      ignoredBy: inventoryIgnoredBy(row),
     };
   });
   const details = new Map(items.map((item) => [item.name, item]));
@@ -104,14 +96,10 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List packs from project (default) or user-level configuration"),
   ),
-  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, includeIgnored }) =>
-  handleList({ includeIgnored }).pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("packs list"),
-  ),
+export const listCommand = Command.make("list", listConfig, ({ scope }) =>
+  handleList().pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("packs list")),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),

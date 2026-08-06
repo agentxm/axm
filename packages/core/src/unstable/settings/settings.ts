@@ -56,17 +56,7 @@ export const createDefaultSettings = (): Settings => ({});
 const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
 const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
 
-const settingsConfigKeys = new Set([
-  "rulesConfig",
-  "skillsConfig",
-  "commandsConfig",
-  "subagentsConfig",
-  "packsConfig",
-  "mcpServersConfig",
-  "filesConfig",
-  "hooksConfig",
-  "knowledgeConfig",
-]);
+const settingsConfigKeys = new Set(["rulesConfig", "knowledgeConfig"]);
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

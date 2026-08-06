@@ -1,65 +1,70 @@
-/**
- * Unit tests for the root prune handler.
- *
- * Verifies that `axm prune` aggregates across extension types (skills-only
- * in v1), applies glob pattern filtering, and supports the same confirmation
- * UX and JSON output modes as `axm skills prune`.
- */
-
 import * as fs from "node:fs";
 import * as os from "node:os";
-import * as nodePath from "node:path";
+import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { PER_AGENT_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
-import { handleRootPrune, PRUNE_COLLECTORS } from "./handler.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
-  expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   makeWorkspaceHandlerTestContext,
   planResultSteps,
 } from "../../test-helpers.js";
+import { handleRootPrune } from "./handler.js";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create a skill directory on disk (detected as unmanaged when not in settings). */
-const createSkillOnDisk = (baseDir: string, agentDir: string, name: string) => {
-  const skillDir = nodePath.join(baseDir, agentDir, "skills", name);
-  fs.mkdirSync(skillDir, { recursive: true });
+const createSkill = (root: string, name: string, managed: boolean) => {
+  const dir = path.join(root, ".claude", "skills", name);
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
-    nodePath.join(skillDir, "SKILL.md"),
-    `---\nname: ${name}\ndescription: Test skill ${name}\n---\n\n# ${name}\n`,
+    path.join(dir, "SKILL.md"),
+    `${managed ? "<!-- AXM managed file — do not edit directly -->\n" : ""}# ${name}\n`,
   );
-  return skillDir;
+  return dir;
 };
 
-/** Write a minimal workspace with claude-code configured. */
-const initWorkspace = (baseDir: string) => {
-  const axmDir = nodePath.join(baseDir, ".axm");
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(
-    nodePath.join(axmDir, "settings.json"),
-    JSON.stringify({ agents: ["claude-code"] }),
-  );
-  fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+const staleLocalLock = {
+  type: "local",
+  path: "fixtures/extension",
+  installedAt: "2025-01-01T00:00:00.000Z",
+  updatedAt: "2025-01-01T00:00:00.000Z",
 };
 
-/** Create a command file on disk (detected as unmanaged when not in settings). */
-const createCommandOnDisk = (baseDir: string, agentDir: string, name: string) => {
-  const commandsDir = nodePath.join(baseDir, agentDir, "commands");
-  fs.mkdirSync(commandsDir, { recursive: true });
-  const commandPath = nodePath.join(commandsDir, `${name}.md`);
-  fs.writeFileSync(commandPath, `---\ndescription: Test command ${name}\n---\n\nRun ${name}.\n`);
-  return commandPath;
+const stalePackLock = {
+  type: "registry",
+  owner: "@acme",
+  name: "stale-pack",
+  resolvedVersion: "1.0.0",
+  integrity: "sha512-AAAA==",
+  sourceName: "default",
+  publisherBindingId: "hbnd_test",
+  installedAt: "2025-01-01T00:00:00.000Z",
+  updatedAt: "2025-01-01T00:00:00.000Z",
+  resolvedSkills: {},
+  resolvedCommands: {},
+  resolvedMcpServers: {},
+  resolvedSubagents: {},
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+const canonicalTypeDirectories = [
+  "skills",
+  "commands",
+  "mcps",
+  "subagents",
+  "files",
+  "rules",
+  "hooks",
+  "knowledge",
+  "packs",
+] as const;
+
+const createCanonicalExtension = (root: string, typeDirectory: string, name: string) => {
+  const packageRoot = path.join(root, ".axm", "extensions", "@acme", typeDirectory, name);
+  const contentRoot = typeDirectory === "packs" ? packageRoot : path.join(packageRoot, "src");
+  fs.mkdirSync(contentRoot, { recursive: true });
+  return packageRoot;
+};
 
 describe("root.prune.handler", () => {
   let tempDir: string;
@@ -67,7 +72,7 @@ describe("root.prune.handler", () => {
 
   beforeEach(() => {
     originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "root-prune-handler-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "root-prune-handler-test-"));
     process.chdir(tempDir);
   });
 
@@ -76,284 +81,253 @@ describe("root.prune.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: { machine?: boolean }) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
-    return {
-      provide: handlerTestContext.provide,
-      logs: handlerTestContext.logs,
-      rendererState: handlerTestContext.rendererState,
-    };
-  };
+  const makeLayers = (machine = false) => makeWorkspaceHandlerTestContext({ machine });
 
-  // -----------------------------------------------------------------------
-  // Aggregation across types (skills-only in v1)
-  // -----------------------------------------------------------------------
+  it.effect("removes an unmanaged artifact only when an AXM marker proves ownership", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const managed = createSkill(tempDir, "stale-managed", true);
+    const unknown = createSkill(tempDir, "unknown", false);
 
-  describe("aggregation across types", () => {
-    it.effect("aggregates skills artifacts (only type in v1)", () => {
-      const { provide, logs } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-      createSkillOnDisk(tempDir, ".claude", "old-helper");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "old-helper"))).toBe(
-            false,
-          );
-          expect(logs.success.some((m) => m.includes("Pruned"))).toBe(true);
-        }),
-      );
-    });
-
-    it("registers a prune collector for every per-agent extension type", () => {
-      expect(Object.keys(PRUNE_COLLECTORS).sort()).toEqual([...PER_AGENT_EXTENSION_TYPES].sort());
-      for (const type of PER_AGENT_EXTENSION_TYPES) {
-        expect(PRUNE_COLLECTORS[type].type).toBe(type);
-      }
-    });
-
-    it.effect("sweeps unmanaged artifacts without disturbing other per-agent types", () => {
-      const { provide } = makeLayers();
-      initWorkspace(tempDir);
-      createSkillOnDisk(tempDir, ".claude", "legacy-skill");
-      createCommandOnDisk(tempDir, ".claude", "keep-command");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: ["legacy-*"] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-skill"))).toBe(
-            false,
-          );
-          expect(
-            fs.existsSync(nodePath.join(tempDir, ".claude", "commands", "keep-command.md")),
-          ).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("does not prune configured skills", () => {
-      const { provide } = makeLayers();
-      const axmDir = nodePath.join(tempDir, ".axm");
-      fs.mkdirSync(axmDir, { recursive: true });
-      fs.writeFileSync(
-        nodePath.join(axmDir, "settings.json"),
-        JSON.stringify({
-          agents: ["claude-code"],
-          skills: { "my-skill": "local:/some/path" },
-        }),
-      );
-      fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
-      createSkillOnDisk(tempDir, ".claude", "my-skill");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "my-skill"))).toBe(true);
-        }),
-      );
-    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        expect(fs.existsSync(managed)).toBe(false);
+        expect(fs.existsSync(unknown)).toBe(true);
+      }),
+    );
   });
 
-  // -----------------------------------------------------------------------
-  // Patterns applied across types
-  // -----------------------------------------------------------------------
+  it.effect("removes canonical AXM packages across every extension type", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const packages = canonicalTypeDirectories.map((typeDirectory) =>
+      createCanonicalExtension(tempDir, typeDirectory, `stale-${typeDirectory}`),
+    );
 
-  describe("patterns applied across types", () => {
-    it.effect("filters by glob pattern", () => {
-      const { provide } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "effect-basics");
-      createSkillOnDisk(tempDir, ".claude", "effect-layers");
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: ["effect-*"] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "effect-basics"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "effect-layers"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            true,
-          );
-        }),
-      );
-    });
-
-    it.effect("supports multiple patterns", () => {
-      const { provide } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "effect-basics");
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-      createSkillOnDisk(tempDir, ".claude", "old-helper");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: ["effect-*", "legacy-*"] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "effect-basics"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "old-helper"))).toBe(
-            true,
-          );
-        }),
-      );
-    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        expect(packages.filter((packageRoot) => fs.existsSync(packageRoot))).toEqual([]);
+      }),
+    );
   });
 
-  // -----------------------------------------------------------------------
-  // Confirmation UX
-  // -----------------------------------------------------------------------
+  it.effect("prunes one external package without deleting its siblings", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const externalRoot = path.join(tempDir, ".axm", "extensions", "external", "skills");
+    const stale = path.join(externalRoot, "stale-external");
+    const sibling = path.join(externalRoot, "configured-sibling");
+    fs.mkdirSync(stale, { recursive: true });
+    fs.mkdirSync(sibling, { recursive: true });
 
-  describe("confirmation UX", () => {
-    it.effect("without --yes shows preview without deleting", () => {
-      const { provide, logs } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: false });
-
-          expect(logs.info.some((m) => m.includes("--yes"))).toBe(true);
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            true,
-          );
-        }),
-      );
-    });
-
-    it.effect("with --yes removes without prompting", () => {
-      const { provide, logs } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            false,
-          );
-          expect(logs.success.some((m) => m.includes("Pruned"))).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("reports clean state when nothing to prune", () => {
-      const { provide, logs } = makeLayers();
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: true });
-
-          expect(logs.success).toEqual(["No unmanaged artifacts pruned."]);
-        }),
-      );
-    });
-
-    it.effect("reports clean state when patterns match nothing", () => {
-      const { provide, logs } = makeLayers();
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: ["nonexistent-*"] }, { yes: true });
-
-          expect(logs.success).toEqual(["No unmanaged artifacts pruned."]);
-        }),
-      );
-    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: ["stale-*"] }, { yes: true });
+        expect(fs.existsSync(stale)).toBe(false);
+        expect(fs.existsSync(sibling)).toBe(true);
+      }),
+    );
   });
 
-  // -----------------------------------------------------------------------
-  // JSON output
-  // -----------------------------------------------------------------------
+  it.effect("previews exact ownership evidence without deleting", () => {
+    const { provide, rendererState } = makeLayers(true);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const managed = createSkill(tempDir, "stale-managed", true);
 
-  describe("JSON output", () => {
-    it.effect("--json alone previews a prune plan without deletion", () => {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: false });
+        expect(fs.existsSync(managed)).toBe(true);
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Prune AXM-owned state",
+          totalSteps: 1,
+        });
+        expect(planResultSteps(result)[0]).toMatchObject({
+          label: expect.stringContaining("managed-marker:.claude/skills/stale-managed/SKILL.md"),
+          status: "ready",
+        });
+      }),
+    );
+  });
 
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: false });
+  it.effect("reports an unowned artifact as unchanged and never deletes it", () => {
+    const { provide, rendererState } = makeLayers(true);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const unknown = createSkill(tempDir, "unknown", false);
 
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            true,
-          );
-
-          expect(rendererState.results.length).toBe(1);
-          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
-            planName: "Prune artifacts",
-            totalSteps: 1,
-          });
-          expect(planResultSteps(result)).toEqual([
-            expect.objectContaining({ label: "legacy-tool", status: "ready" }),
-          ]);
-        }),
-      );
-    });
-
-    it.effect("--yes --json prunes and reports a plan result", () => {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      createSkillOnDisk(tempDir, ".claude", "legacy-tool");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: true });
-
-          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-tool"))).toBe(
-            false,
-          );
-
-          expect(rendererState.results.length).toBe(1);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Prune artifacts",
-          });
-          expect(result).toMatchObject({
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        expect(fs.existsSync(unknown)).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "no-op",
+            planName: "Prune AXM-owned state",
+            warningCount: 1,
             steps: [
-              {
-                label: "legacy-tool",
-                status: "applied",
-                artifact: {
-                  path: ".claude/skills/legacy-tool",
-                  scope: "project",
-                  change: "removed",
-                },
-              },
+              expect.objectContaining({
+                status: "unchanged",
+                artifact: expect.objectContaining({
+                  change: "unchanged",
+                  path: ".claude/skills/unknown",
+                }),
+              }),
             ],
-          });
-        }),
-      );
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("removes stale receipt and trust state across every extension type", () => {
+    const { provide } = makeLayers();
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, {
+      lockfileSkills: { "stale-skill": staleLocalLock },
+      lockfileCommands: { "stale-command": staleLocalLock },
+      lockfileMcpServers: {
+        "stale-mcp": {
+          type: "inline",
+          command: "node",
+          installedAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      },
+      lockfileSubagents: { "stale-subagent": staleLocalLock },
+      lockfilePacks: { "stale-pack": stalePackLock },
+      lockfileFiles: { "stale-files": staleLocalLock },
+      lockfileRules: { "stale-rule": staleLocalLock },
+      lockfileHooks: { "stale-hook": staleLocalLock },
+      lockfileKnowledge: { "stale-knowledge": staleLocalLock },
+      writeTrustFromLockfile: true,
     });
 
-    it.effect("--json with nothing to prune outputs no-op result", () => {
-      const { provide, rendererState } = makeLayers({ machine: true });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        const lock = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+        const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
+        for (const key of [
+          "skills",
+          "commands",
+          "mcpServers",
+          "subagents",
+          "packs",
+          "files",
+          "rules",
+          "hooks",
+          "knowledge",
+        ]) {
+          expect(lock[key] ?? {}).toEqual({});
+        }
+        expect(trust.records).toEqual({});
+      }),
+    );
+  });
 
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPrune({ patterns: [] }, { yes: false });
+  it.effect("removes only x-axm-owned entries from native MCP configuration", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const mcpPath = path.join(tempDir, ".mcp.json");
+    fs.writeFileSync(
+      mcpPath,
+      JSON.stringify({
+        mcpServers: {
+          stale: {
+            type: "stdio",
+            command: "node",
+            args: ["server.js"],
+            "x-axm": { managed: true, source: "inline" },
+          },
+          manual: { type: "stdio", command: "manual-server" },
+        },
+      }),
+    );
 
-          expect(rendererState.results.length).toBe(1);
-          const result = rendererState.results[0];
-          expect(result).toBeDefined();
-          expectNoOpPlanResult(result?.data, {
-            planName: "Prune artifacts",
-            message: "No unmanaged artifacts pruned.",
-          });
-        }),
-      );
-    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        const config: unknown = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+        expect(config).toEqual({
+          mcpServers: {
+            manual: { type: "stdio", command: "manual-server" },
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("preserves unmatched x-axm-owned MCP entries when pruning by pattern", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const mcpPath = path.join(tempDir, ".mcp.json");
+    fs.writeFileSync(
+      mcpPath,
+      JSON.stringify({
+        mcpServers: {
+          "old-selected": {
+            type: "stdio",
+            command: "node",
+            "x-axm": { managed: true, source: "inline" },
+          },
+          retained: {
+            type: "stdio",
+            command: "node",
+            "x-axm": { managed: true, source: "inline" },
+          },
+        },
+      }),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true });
+        const config: unknown = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+        expect(config).toEqual({
+          mcpServers: {
+            retained: {
+              type: "stdio",
+              command: "node",
+              "x-axm": { managed: true, source: "inline" },
+            },
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("applies patterns to artifacts and stale state", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const selected = createSkill(tempDir, "old-selected", true);
+    const retained = createSkill(tempDir, "other", true);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true });
+        expect(fs.existsSync(selected)).toBe(false);
+        expect(fs.existsSync(retained)).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("is idempotent after ownership-proven state is removed", () => {
+    const { provide, rendererState } = makeLayers(true);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    createSkill(tempDir, "stale-managed", true);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        rendererState.results.length = 0;
+        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Prune AXM-owned state",
+          message: "No stale or unmanaged state found.",
+        });
+      }),
+    );
   });
 });

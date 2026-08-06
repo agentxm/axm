@@ -38,5 +38,7 @@ export type ReadModelRecordRow =
       readonly enabled: true;
       readonly packagingKind: PackagingKind;
       readonly locations: ReadonlyArray<string>;
+      readonly agents: ReadonlyArray<string>;
+      readonly ownershipEvidence: ReadonlyArray<string>;
       readonly lifecycle: "unmanaged";
     };

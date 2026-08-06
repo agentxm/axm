@@ -26,4 +26,16 @@ describe("canonicalAxmPackageRoot", () => {
       }),
     ).toBe("/ws/.axm/extensions/@agentxm/packs/default");
   });
+
+  it("keeps external package roots scoped to the extension name", () => {
+    const contentLocation = "/ws/.axm/extensions/external/skills/local-tool";
+
+    expect(
+      canonicalAxmPackageRoot({
+        origin: "external-axm",
+        pathSegments: contentLocation.split("/"),
+        contentLocation,
+      }),
+    ).toBe(contentLocation);
+  });
 });

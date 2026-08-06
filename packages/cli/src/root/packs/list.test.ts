@@ -134,7 +134,7 @@ describe("packs list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ includeIgnored: false });
+        yield* handleList();
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -163,7 +163,7 @@ describe("packs list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ includeIgnored: false });
+        yield* handleList();
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -182,7 +182,7 @@ describe("packs list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ includeIgnored: false });
+        yield* handleList();
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({

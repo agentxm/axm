@@ -160,6 +160,7 @@ export interface RenderToAgentsArgs {
   /** Owner string for building an effective manifest when none exists. */
   readonly owner: string;
   readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
   readonly force: boolean;
 }
 
@@ -224,7 +225,7 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
         return agent
           .addCommand({
             workspaceRoot: args.workspaceRoot,
-            scope: "project",
+            scope: args.scope,
             commandName: args.commandName,
             editSourcePath: args.editSourcePath,
             frontmatter,
@@ -239,17 +240,6 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
               outcome,
               warnings: [],
             })),
-            Effect.catch((err) => {
-              const emptyWarnings: ReadonlyArray<LossyRenderingWarning> = [];
-              return Effect.succeed({
-                agentId: agent.id,
-                outcome: {
-                  _tag: "unsupported" as const,
-                  reason: `Agent addCommand failed: ${err.message}`,
-                },
-                warnings: emptyWarnings,
-              });
-            }),
           );
       },
       { concurrency: "unbounded" },
@@ -292,6 +282,8 @@ export const collectRenderingWarningSummaries = (
     const agentWarnings: Array<string> = [
       ...(outcome._tag === "success" ? Array.from(outcome.warnings) : []),
       ...(outcome._tag === "conflict" ? [`conflict - ${outcome.reason}`] : []),
+      ...(outcome._tag === "unsupported" ? [`unsupported - ${outcome.reason}`] : []),
+      ...(outcome._tag === "skipped" ? [`skipped - ${outcome.reason}`] : []),
       ...warnings.filter((w) => w.feature && w.message).map((w) => `${w.feature} - ${w.message}`),
     ];
     return agentWarnings.length === 0 ? [] : [`${agentId}: ${agentWarnings.join("; ")}`];

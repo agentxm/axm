@@ -8,7 +8,7 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unst
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { enableSkill } from "@agentxm/client-core/unstable/skills";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -21,7 +21,6 @@ import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested
 export interface EnableHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -105,20 +104,11 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Enable even if the skill has unresolved dependencies"),
-  ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnable({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("skills enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnable({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("skills enable")),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled skill"),

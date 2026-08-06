@@ -8,6 +8,7 @@ import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import {
   EXTENSION_ONLY_TYPES,
   WORKSPACE_CAPABILITY_EXTENSION_TYPES,
+  extensionTypes,
   toExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 
@@ -52,6 +53,20 @@ describe("root command help", () => {
         command,
       ).not.toContain("force");
       expect(doc?.usage, command).not.toContain("--force");
+    }
+  });
+
+  it("keeps activation previewable without a generic force bypass", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    for (const type of extensionTypes) {
+      for (const verb of ["enable", "disable"] as const) {
+        const command = `axm ${toExtensionTypePlural(type)} ${verb}`;
+        const doc = files.get(command);
+        expect(doc, `missing help for ${command}`).toBeDefined();
+        const flags = doc?.flags.map((flag) => flag.name) ?? [];
+        expect(flags, command).toContain("preview");
+        expect(flags, command).not.toContain("force");
+      }
     }
   });
 

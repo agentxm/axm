@@ -12,7 +12,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -22,7 +22,6 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 export const handleEnableMcpServer = Effect.fn("EnableMcpServer.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -86,18 +85,14 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag,
   preview: previewFlag,
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnableMcpServer({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnableMcpServer({ name, yes, preview }).pipe(
+    withWorkspace(scope),
+    withRuntime("mcps enable"),
+  ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a disabled MCP server"),

@@ -105,6 +105,52 @@ describe("runWorkspaceTransaction", () => {
     ),
   );
 
+  it.effect("rolls back prior nested targets when a later nested target fails", () => {
+    const laterTarget = nodePath.join(workspaceDir, "later.json");
+    return withContext(
+      runWorkspaceTransaction({
+        workspaceDir,
+        targets: [settingsPath],
+        transition: Effect.gen(function* () {
+          yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'));
+          yield* runWorkspaceTransaction({
+            workspaceDir,
+            targets: [canonicalPath],
+            transition: Effect.sync(() =>
+              nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "after\n"),
+            ),
+            validate: () => Effect.void,
+          });
+          return yield* runWorkspaceTransaction({
+            workspaceDir,
+            targets: [laterTarget],
+            transition: Effect.sync(() => nodeFs.writeFileSync(laterTarget, "created\n")).pipe(
+              Effect.andThen(
+                Effect.fail(
+                  makeAppError({ code: "internal", detail: "injected later-target failure" }),
+                ),
+              ),
+            ),
+            validate: () => Effect.void,
+          });
+        }),
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.flip,
+        Effect.tap((error) =>
+          Effect.sync(() => {
+            expect(error.detail).toBe("injected later-target failure");
+            expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
+            expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
+              "before\n",
+            );
+            expect(nodeFs.existsSync(laterTarget)).toBe(false);
+          }),
+        ),
+      ),
+    );
+  });
+
   it.effect("does not roll back a valid transition when receipt persistence fails", () =>
     withContext(
       runWorkspaceTransaction({
@@ -121,6 +167,41 @@ describe("runWorkspaceTransaction", () => {
             expect(error.detail).toContain("transition completed");
             expect(error.detail).toContain("injected receipt failure");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+          }),
+        ),
+      ),
+    ),
+  );
+
+  it.effect("does not roll back a valid outer transition when a nested receipt fails", () =>
+    withContext(
+      runWorkspaceTransaction({
+        workspaceDir,
+        targets: [settingsPath],
+        transition: Effect.gen(function* () {
+          yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'));
+          yield* runWorkspaceTransaction({
+            workspaceDir,
+            targets: [canonicalPath],
+            transition: Effect.sync(() =>
+              nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "after\n"),
+            ),
+            validate: () => Effect.void,
+            receipt: () =>
+              Effect.fail(makeAppError({ code: "internal", detail: "nested receipt unavailable" })),
+          });
+        }),
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.flip,
+        Effect.tap((error) =>
+          Effect.sync(() => {
+            expect(error.detail).toContain("receipt history could not be written");
+            expect(error.detail).toContain("nested receipt unavailable");
+            expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+            expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
+              "after\n",
+            );
           }),
         ),
       ),

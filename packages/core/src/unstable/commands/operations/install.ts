@@ -403,6 +403,7 @@ export const installCommand: (
       manifest,
       owner,
       workspaceRoot: ws.baseDir,
+      scope: ws.scope,
       force: op.args.force,
     });
 

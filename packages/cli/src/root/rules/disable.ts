@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   previewOrApplyPlan,
@@ -20,7 +20,6 @@ import { requireRuleName } from "./activation-argument.js";
 export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -55,12 +54,17 @@ export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args
             readiness: "ready",
             label: args.name,
             run: Effect.gen(function* () {
-              yield* ws.updateRuleEntry(args.name, (current) => ({
-                ...current,
-                enabled: false,
-              }));
-              yield* ruleManager.materializeDeactivate({
-                target: { type: "rule", name: args.name },
+              yield* ruleManager.runTransaction({
+                transition: Effect.gen(function* () {
+                  yield* ws.updateRuleEntry(args.name, (current) => ({
+                    ...current,
+                    enabled: false,
+                  }));
+                  yield* ruleManager.materializeDeactivate({
+                    target: { type: "rule", name: args.name },
+                  });
+                }),
+                validate: () => Effect.void,
               });
               return {
                 result: "success",
@@ -102,17 +106,16 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Disable even if retained dependencies exist")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
+  ({ name, scope, yes, preview }) =>
     Effect.gen(function* () {
       const ruleName = yield* requireRuleName(name, "disable");
-      yield* handleDisableRule({ name: ruleName, yes, force, preview });
+      yield* handleDisableRule({ name: ruleName, yes, preview });
     }).pipe(withWorkspace(scope), withRuntime("rules disable")),
 ).pipe(
   withArgvTracking(disableConfig),

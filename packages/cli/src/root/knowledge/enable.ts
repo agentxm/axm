@@ -7,8 +7,8 @@ import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { activationConfig, setKnowledgeEnabled } from "./activation.js";
 
-export const enableCommand = Command.make("enable", activationConfig, ({ name, scope }) =>
-  setKnowledgeEnabled(name, true).pipe(
+export const enableCommand = Command.make("enable", activationConfig, ({ name, scope, preview }) =>
+  setKnowledgeEnabled(name, true, preview).pipe(
     Effect.provide(KnowledgeManagerLive),
     withWorkspace(scope),
     withRuntime("knowledge enable"),

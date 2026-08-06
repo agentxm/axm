@@ -16,7 +16,6 @@ import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 export interface EnableSubagentHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 

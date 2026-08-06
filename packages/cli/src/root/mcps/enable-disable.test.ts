@@ -76,7 +76,6 @@ describe("mcps enable/disable output", () => {
         yield* handleEnableMcpServer({
           name: "context",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -98,7 +97,6 @@ describe("mcps enable/disable output", () => {
         yield* handleEnableMcpServer({
           name: "context",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -131,7 +129,6 @@ describe("mcps enable/disable output", () => {
         yield* handleEnableMcpServer({
           name: "context",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -156,7 +153,6 @@ describe("mcps enable/disable output", () => {
         yield* handleDisableMcpServer({
           name: "context",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -178,7 +174,6 @@ describe("mcps enable/disable output", () => {
         yield* handleDisableMcpServer({
           name: "context",
           yes: true,
-          force: false,
           preview: false,
         });
 

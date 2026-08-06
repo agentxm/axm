@@ -29,7 +29,7 @@ const stubKnowledgeManager = {
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   install: () => Effect.void,
-  isInstalled: () => Effect.succeed(false),
+  isInstalled: () => Effect.succeed(true),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.void,
@@ -189,7 +189,9 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* setKnowledgeEnabled("platform", false).pipe(Effect.provide(knowledgeManagerLayer));
+        yield* setKnowledgeEnabled("platform", false, false).pipe(
+          Effect.provide(knowledgeManagerLayer),
+        );
 
         expect(rendererState.results).toHaveLength(1);
         expectAppliedPlanResult(rendererState.results[0]?.data, {
@@ -201,13 +203,19 @@ describe("knowledge JSON output", () => {
 
   it.effect("enable keeps the human success line in text mode", () => {
     const { provide, logs } = makeWorkspaceHandlerTestContext();
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      knowledge: { platform: "workspace:@acme/knowledge/platform" },
+    const axmDir = path.join(tempDir, ".axm");
+    writeKnowledgeExtension(axmDir, "platform");
+    writeWorkspaceFiles(axmDir, {
+      knowledge: {
+        platform: { source: "workspace:@acme/knowledge/platform", enabled: false },
+      },
     });
 
     return provide(
       Effect.gen(function* () {
-        yield* setKnowledgeEnabled("platform", true).pipe(Effect.provide(knowledgeManagerLayer));
+        yield* setKnowledgeEnabled("platform", true, false).pipe(
+          Effect.provide(knowledgeManagerLayer),
+        );
 
         expect(logs.success).toEqual(["Enabled knowledge bundle platform"]);
       }),

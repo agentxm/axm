@@ -58,7 +58,6 @@ const defaultArgs = (
 ): DisableHandlerArgs => ({
   name,
   yes: true,
-  force: false,
   preview: false,
   ...overrides,
 });

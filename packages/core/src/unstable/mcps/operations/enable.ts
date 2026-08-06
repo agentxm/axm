@@ -9,7 +9,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CodingAgentRepository, syncInlineMcpServerToAgents } from "../../agents/index.js";
-import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { normalizeHandle, parseExtensionFqnParts } from "../../extensions/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
@@ -18,29 +17,12 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
+import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",
   { readonly serverName: string }
 >;
-
-const formatAgentSyncWarnings = (
-  serverName: string,
-  outcomes: ReadonlyArray<McpServerSyncOutcome>,
-): ReadonlyArray<string> => {
-  const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
-  if (warnings.length === 0) return [];
-
-  return [
-    `MCP agent sync warnings for ${serverName}: ${warnings
-      .map((outcome) =>
-        outcome._tag === "fallback"
-          ? `fallback(${outcome.fallbackFrom}):${outcome.reason}`
-          : outcome.reason,
-      )
-      .join(", ")}`,
-  ];
-};
 
 const enableArtifact = (args: {
   readonly lockEntry: McpServerLockEntry | undefined;
@@ -79,28 +61,47 @@ export const enableMcpServer = (
 
     if (entry.source === "inline") {
       const agentIds = yield* ws.getConfiguredAgents();
-      const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
-        workspaceRoot: ws.baseDir,
-        serverName: op.args.serverName,
-        entry: { ...entry, enabled: true },
-        scope: ws.scope,
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      );
-      const warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
+      const outcomes = yield* ws.runTransaction({
+        transition: Effect.gen(function* () {
+          const synced = yield* syncInlineMcpServerToAgents(agentIds, {
+            workspaceRoot: ws.baseDir,
+            serverName: op.args.serverName,
+            entry: { ...entry, enabled: true },
+            scope: ws.scope,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
+          const agentOutcomes = agentIds.map((agentId, index) => ({
+            agentId,
+            outcome: synced[index] ?? {
+              _tag: "failed" as const,
+              reason: "Agent sync returned no outcome",
+            },
+          }));
+          yield* requireSuccessfulMcpSync(op.args.serverName, agentOutcomes);
+          yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+            ...current,
+            enabled: true,
+          }));
+          return synced;
+        }),
+        validate: () => Effect.void,
+      });
+      const identifiedOutcomes = agentIds.map((agentId, index) => ({
+        agentId,
+        outcome: outcomes[index] ?? {
+          _tag: "failed" as const,
+          reason: "Agent sync returned no outcome",
+        },
+      }));
+      const warnings = mcpSyncWarnings(op.args.serverName, identifiedOutcomes);
       const agentOutcomes = agentIds.flatMap((agentId, index) => {
         const outcome = outcomes[index];
         return outcome !== undefined && "targets" in outcome
           ? [{ agentId, targets: outcome.targets }]
           : [];
       });
-
-      yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-        ...current,
-        enabled: true,
-      }));
-
       return {
         result: "success",
         message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
@@ -144,33 +145,60 @@ export const enableMcpServer = (
     const resolvedVersion = trust.resolvedVersion ?? "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
-    const outcomes = yield* Effect.forEach(
-      agents,
-      (agent) =>
-        agent.addMcpServer({
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
-          serverName: op.args.serverName,
-          canonicalPath,
-          owner,
-          resolvedVersion,
+    const outcomes = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const synced = yield* Effect.forEach(
+          agents,
+          (agent) =>
+            agent.addMcpServer({
+              workspaceRoot: ws.baseDir,
+              scope: ws.scope,
+              serverName: op.args.serverName,
+              canonicalPath,
+              owner,
+              resolvedVersion,
+              enabled: true,
+              configValues: entry.env,
+            }),
+          { concurrency: "unbounded" },
+        );
+        yield* requireSuccessfulMcpSync(
+          op.args.serverName,
+          agents.map((agent, index) => ({
+            agentId: agent.id,
+            outcome: synced[index] ?? {
+              _tag: "failed" as const,
+              reason: "Agent sync returned no outcome",
+            },
+          })),
+        );
+        yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+          ...current,
           enabled: true,
-          configValues: entry.env,
-        }),
-      { concurrency: "unbounded" },
+        }));
+        return synced;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
+    const warnings = mcpSyncWarnings(
+      op.args.serverName,
+      agents.map((agent, index) => ({
+        agentId: agent.id,
+        outcome: outcomes[index] ?? {
+          _tag: "failed" as const,
+          reason: "Agent sync returned no outcome",
+        },
+      })),
     );
-    const warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
     const agentOutcomes = agents.flatMap((agent, index) => {
       const outcome = outcomes[index];
       return outcome !== undefined && "targets" in outcome
         ? [{ agentId: agent.id, targets: outcome.targets }]
         : [];
     });
-    yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-      ...current,
-      enabled: true,
-    }));
-
     return {
       result: "success",
       message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),

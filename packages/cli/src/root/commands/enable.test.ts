@@ -60,7 +60,6 @@ const defaultArgs = (
 ): EnableCommandHandlerArgs => ({
   name: extensionName(name),
   yes: true,
-  force: false,
   preview: false,
   ...overrides,
 });

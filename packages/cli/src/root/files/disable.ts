@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
@@ -35,7 +35,6 @@ const filesDisableArtifact = (args: {
 export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -73,12 +72,17 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
               const lockEntry = yield* ws
                 .getLockedFilesEntry(args.name)
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              yield* ws.updateFilesEntry(args.name, (current) => ({
-                ...current,
-                enabled: false,
-              }));
-              yield* filesManager.materializeDeactivate({
-                target: { type: "files", name: args.name },
+              yield* filesManager.runTransaction({
+                transition: Effect.gen(function* () {
+                  yield* ws.updateFilesEntry(args.name, (current) => ({
+                    ...current,
+                    enabled: false,
+                  }));
+                  yield* filesManager.materializeDeactivate({
+                    target: { type: "files", name: args.name },
+                  });
+                }),
+                validate: () => Effect.void,
               });
               return {
                 result: "success",
@@ -113,15 +117,14 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Disable even if retained dependencies exist")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleDisableFiles({ name, yes, force, preview }).pipe(
+  ({ name, scope, yes, preview }) =>
+    handleDisableFiles({ name, yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("files disable"),
     ),

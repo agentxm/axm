@@ -9,7 +9,7 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unst
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { EnableCommandOperation } from "@agentxm/client-core/unstable/commands";
 import { enableCommand as runEnableCommand } from "@agentxm/client-core/unstable/commands";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -23,7 +23,6 @@ import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 export interface EnableCommandHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -126,20 +125,14 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Enable even if the command has unresolved dependencies"),
-  ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnableCommand({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("commands enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnableCommand({ name, yes, preview }).pipe(
+    withWorkspace(scope),
+    withRuntime("commands enable"),
+  ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled command"),

@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildInstallOperation,
@@ -67,7 +67,6 @@ const hookEnableArtifact = (args: {
 export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -149,18 +148,11 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Enable even if there are warnings")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnableHook({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("hooks enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnableHook({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("hooks enable")),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a hooks package"),

@@ -184,7 +184,7 @@ describe("enableMcpServer and disableMcpServer", () => {
     }),
   );
 
-  it.effect("returns disable sync warnings in result without raw warning logs", () =>
+  it.effect("fails disable when a configured agent refuses the required write", () =>
     Effect.gen(function* () {
       const entry = makeEntry(true);
       const removeSpy = vi.fn(() =>
@@ -195,36 +195,28 @@ describe("enableMcpServer and disableMcpServer", () => {
         addMcpServer: () => Effect.succeed({ _tag: "success" }),
         removeMcpServer: removeSpy,
       });
+      const updateSpy = vi.fn(() => Effect.void);
       const services = makeServices(
         axmDir,
         {
           getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
           getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry() }),
           getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry())),
-          updateMcpServerEntry: () => Effect.void,
+          updateMcpServerEntry: updateSpy,
         },
         makeAgentRepo(agent),
       );
 
-      const result = yield* disableMcpServer({
+      const error = yield* disableMcpServer({
         name: "disable-mcp-server",
         args: { serverName },
-      }).pipe(Effect.provide(services.layer));
+      }).pipe(Effect.provide(services.layer), Effect.flip);
 
-      expect(result.result).toBe("success");
-      if (result.result !== "success") {
-        throw new Error("Expected successful disable result");
-      }
-      expect(result.message).toContain("Disabled my-server");
-      expect(result.message).toContain("agent disabled MCP writes");
-      expect(result.artifact).toMatchObject({
-        path: ".axm (config/lockfile)",
-        scope: "project",
-        change: "updated",
-        targets: [{ path: ".axm (config/lockfile)", change: "updated" }],
-      });
+      expect(error.code).toBe("conflict");
+      expect(error.detail).toContain("agent disabled MCP writes");
       expect(logsByTag(services.rendererState).warn).toEqual([]);
       expect(removeSpy).toHaveBeenCalledOnce();
+      expect(updateSpy).not.toHaveBeenCalled();
     }),
   );
 });

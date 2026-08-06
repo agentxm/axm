@@ -34,6 +34,7 @@ interface WorkspaceTransactionContext {
   readonly backupDir: string;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
+  readonly pendingReceipts: Array<Effect.Effect<void, AppError>>;
   readonly protectedTargets: Set<string>;
   readonly snapshots: Array<Snapshot>;
   readonly snapshotSemaphore: Semaphore.Semaphore;
@@ -220,6 +221,22 @@ export const runWorkspaceTransaction = <A, R>(
   args: WorkspaceTransactionArgs<A, R>,
 ): Effect.Effect<A, AppError, R | FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
+    const current = yield* CurrentWorkspaceTransaction;
+    if (Option.isSome(current)) {
+      yield* Effect.forEach(
+        normalizedTargets(current.value.path, args.targets),
+        (target) => protectInContext(current.value, target),
+        { discard: true },
+      );
+      const value = yield* args.transition;
+      yield* args.validate(value);
+      if (args.receipt !== undefined) {
+        const services = yield* Effect.context<R>();
+        current.value.pendingReceipts.push(args.receipt(value).pipe(Effect.provide(services)));
+      }
+      return value;
+    }
+
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspaceDir = path.resolve(args.workspaceDir);
@@ -250,6 +267,7 @@ export const runWorkspaceTransaction = <A, R>(
                 backupDir,
                 fs,
                 path,
+                pendingReceipts: [],
                 protectedTargets: new Set(),
                 snapshots: [],
                 snapshotSemaphore: Semaphore.makeUnsafe(1),
@@ -296,15 +314,17 @@ export const runWorkspaceTransaction = <A, R>(
                   onSuccess: (value) =>
                     cleanup.pipe(
                       Effect.andThen(
-                        args.receipt === undefined
-                          ? Effect.succeed(value)
-                          : args
-                              .receipt(value)
-                              .pipe(
-                                Effect.mapError(receiptFailure),
-                                Effect.as(value),
-                                Effect.interruptible,
-                              ),
+                        Effect.forEach(
+                          args.receipt === undefined
+                            ? context.pendingReceipts
+                            : [...context.pendingReceipts, args.receipt(value)],
+                          (receipt) => receipt,
+                          { discard: true },
+                        ).pipe(
+                          Effect.mapError(receiptFailure),
+                          Effect.as(value),
+                          Effect.interruptible,
+                        ),
                       ),
                     ),
                 }),

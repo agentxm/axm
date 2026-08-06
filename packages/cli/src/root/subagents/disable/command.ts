@@ -1,5 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeFlag } from "../../../cli-flags.js";
@@ -11,15 +11,14 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Disable even if other subagents depend on it")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleDisableSubagent({ name, yes, force, preview }).pipe(
+  ({ name, scope, yes, preview }) =>
+    handleDisableSubagent({ name, yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("subagents disable"),
     ),

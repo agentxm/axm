@@ -63,7 +63,6 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleEnableHook({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -83,7 +82,6 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleEnableHook({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -107,7 +105,6 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleDisableHook({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -131,7 +128,6 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleDisableHook({
           name: "missing",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -155,7 +151,6 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleEnableHook({
           name: "missing",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -185,13 +180,11 @@ describe("hooks enable/disable no-op output", () => {
         yield* handleDisableHook({
           name: "workspace-baseline",
           yes: true,
-          force: false,
           preview: false,
         });
         yield* handleEnableHook({
           name: "workspace-baseline",
           yes: true,
-          force: false,
           preview: false,
         });
 

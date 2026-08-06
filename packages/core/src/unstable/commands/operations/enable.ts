@@ -105,8 +105,10 @@ export const enableCommand: OperationHandler<
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
+    const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
 
     const canonical = yield* usableTrustedCanonicalObservation({
@@ -176,27 +178,44 @@ export const enableCommand: OperationHandler<
           );
 
     // Render to agents concurrently
-    const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
-      commandName: op.args.commandName,
-      editSourcePath: editSourcePath.value,
-      frontmatter,
-      agentOverrides: Option.getOrUndefined(agentOverrides),
-      body,
-      manifest,
-      owner,
-      workspaceRoot: base,
-      force: false,
+    const { outcomes, successfulAgents, rawRenderedFiles } = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const rendered = yield* renderToAgents({
+          commandName: op.args.commandName,
+          editSourcePath: editSourcePath.value,
+          frontmatter,
+          agentOverrides: Option.getOrUndefined(agentOverrides),
+          body,
+          manifest,
+          owner,
+          workspaceRoot: base,
+          scope: ws.scope,
+          force: false,
+        });
+        const conflicts = rendered.outcomes.flatMap(({ agentId, outcome }) =>
+          outcome._tag === "conflict" ? [`${agentId}: ${outcome.reason}`] : [],
+        );
+        if (conflicts.length > 0) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Command rendering failed for ${op.args.commandName}: ${conflicts.join(", ")}`,
+          });
+        }
+        yield* ws.updateCommandEntry(op.args.commandName, (entry) => ({
+          ...entry,
+          enabled: true,
+        }));
+        return rendered;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(CodingAgentRepository, agentRepo),
+        Effect.provideService(WorkspaceMutations, ws),
+      ),
+      validate: () => Effect.void,
     });
     const renderingWarnings = collectRenderingWarningSummaries(outcomes);
     const renderedFiles = decodeRenderedFilesMap(rawRenderedFiles);
-
-    // Update settings entry to enabled (collapsed to string form)
-    yield* ws
-      .updateCommandEntry(op.args.commandName, (entry) => ({
-        ...entry,
-        enabled: true,
-      }))
-      .pipe(Effect.catch(() => Effect.void));
 
     return {
       result: "success",

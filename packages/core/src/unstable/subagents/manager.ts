@@ -453,7 +453,7 @@ export const SubagentManagerLive = Layer.effect(
             agent
               .addSubagent({
                 workspaceRoot: baseDir,
-                scope: "project",
+                scope: ws.scope,
                 editSourcePath: editSourcePath.value,
                 input: {
                   agentId: agent.id,
@@ -543,7 +543,7 @@ export const SubagentManagerLive = Layer.effect(
                 ).pipe(Effect.provide(fsPathLayer));
                 yield* agent.removeSubagent({
                   workspaceRoot: baseDir,
-                  scope: "project",
+                  scope: ws.scope,
                   subagentName: target.name,
                   renderedFilePaths: renderedFilePaths.map((filePath) =>
                     decodeRenderedFilePath(path.relative(baseDir, filePath)),

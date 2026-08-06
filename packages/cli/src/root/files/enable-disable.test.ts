@@ -63,7 +63,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleEnableFiles({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -83,7 +82,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleEnableFiles({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -107,7 +105,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleDisableFiles({
           name: "workspace-baseline",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -131,7 +128,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleDisableFiles({
           name: "workspace-baseline",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -169,13 +165,11 @@ describe("files enable/disable no-op output", () => {
         yield* handleDisableFiles({
           name: "workspace-baseline",
           yes: true,
-          force: false,
           preview: false,
         });
         yield* handleEnableFiles({
           name: "workspace-baseline",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -201,7 +195,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleEnableFiles({
           name: "missing",
           yes: false,
-          force: false,
           preview: false,
         });
 
@@ -225,7 +218,6 @@ describe("files enable/disable no-op output", () => {
         yield* handleDisableFiles({
           name: "missing",
           yes: false,
-          force: false,
           preview: false,
         });
 

@@ -8,7 +8,7 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unst
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { disableSkill } from "@agentxm/client-core/unstable/skills";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -21,7 +21,6 @@ import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested
 export interface DisableHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -105,18 +104,14 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Disable even if other skills depend on it")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleDisable({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("skills disable"),
-    ),
+  ({ name, scope, yes, preview }) =>
+    handleDisable({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("skills disable")),
 ).pipe(
   withArgvTracking(disableConfig),
   Command.withDescription("Disable a skill without uninstalling it"),

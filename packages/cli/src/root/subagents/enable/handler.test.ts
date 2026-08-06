@@ -57,7 +57,6 @@ const defaultArgs = (
 ): EnableSubagentHandlerArgs => ({
   name,
   yes: true,
-  force: false,
   preview: false,
   ...overrides,
 });

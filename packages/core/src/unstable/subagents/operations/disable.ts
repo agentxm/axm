@@ -83,57 +83,77 @@ export const disableSubagent: OperationHandler<
       (node) => node.type === "subagent" && node.name === op.args.subagentName,
     );
 
-    if (isImplicit) {
-      const source =
-        desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
-      if (source === undefined) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
-          suggestions: [{ description: "Provide a source when disabling this subagent" }],
-        });
-      }
-      yield* ws.setSubagentEntry(op.args.subagentName, {
-        source,
-        enabled: false,
-      });
-    } else {
-      yield* ws
-        .updateSubagentEntry(op.args.subagentName, (entry) => ({ ...entry, enabled: false }))
-        .pipe(Effect.catch(() => Effect.void));
-    }
-
     const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    yield* Effect.forEach(
-      configuredAgents,
-      (agent) =>
-        agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
-          Effect.provide(fsPathLayer),
-          Effect.flatMap((resolved) =>
-            resolved._tag === "supported"
-              ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
-                  Effect.provide(fsPathLayer),
-                  Effect.flatMap((managedPaths) => {
-                    renderedFiles[agent.id] = managedPaths.map((filePath) => ({
-                      path: path.relative(ws.baseDir, filePath),
-                    }));
-                    return agent.removeSubagent({
-                      workspaceRoot: ws.baseDir,
-                      scope: "project",
-                      subagentName: op.args.subagentName,
-                      renderedFilePaths: managedPaths.map((filePath) =>
-                        decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
-                      ),
-                    });
-                  }),
-                )
-              : Effect.void,
-          ),
-        ),
-      { concurrency: "unbounded" },
-    );
+    yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        if (isImplicit) {
+          const source =
+            desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
+          if (source === undefined) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
+              suggestions: [{ description: "Provide a source when disabling this subagent" }],
+            });
+          }
+          yield* ws.setSubagentEntry(op.args.subagentName, {
+            source,
+            enabled: false,
+          });
+        } else {
+          yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+            ...entry,
+            enabled: false,
+          }));
+        }
+
+        yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+              Effect.provide(fsPathLayer),
+              Effect.flatMap((resolved) =>
+                resolved._tag === "supported"
+                  ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
+                      Effect.provide(fsPathLayer),
+                      Effect.flatMap((managedPaths) => {
+                        renderedFiles[agent.id] = managedPaths.map((filePath) => ({
+                          path: path.relative(ws.baseDir, filePath),
+                        }));
+                        return agent
+                          .removeSubagent({
+                            workspaceRoot: ws.baseDir,
+                            scope: ws.scope,
+                            subagentName: op.args.subagentName,
+                            renderedFilePaths: managedPaths.map((filePath) =>
+                              decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                            ),
+                          })
+                          .pipe(
+                            Effect.flatMap((outcome) =>
+                              outcome._tag === "conflict"
+                                ? makeAppError({
+                                    code: "conflict",
+                                    detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
+                                  })
+                                : Effect.void,
+                            ),
+                          );
+                      }),
+                    )
+                  : Effect.void,
+              ),
+            ),
+          { concurrency: "unbounded" },
+        );
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
 
     return {
       result: "success",

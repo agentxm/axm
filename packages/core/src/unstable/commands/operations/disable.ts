@@ -65,6 +65,8 @@ export const disableCommand: OperationHandler<
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
@@ -88,34 +90,47 @@ export const disableCommand: OperationHandler<
       Effect.map(configuredRowsByName),
       Effect.catch(() => Effect.succeed({})),
     );
-    if (op.args.commandName in existingSettings) {
-      yield* ws
-        .updateCommandEntry(op.args.commandName, (entry) => ({
-          ...entry,
-          enabled: false,
-        }))
-        .pipe(Effect.catch(() => Effect.void));
-    } else if (desiredNodeBeforeDisable !== undefined) {
-      yield* ws
-        .setCommandEntry(op.args.commandName, {
-          source: desiredNodeBeforeDisable.source,
-          enabled: false,
-        })
-        .pipe(Effect.catch(() => Effect.void));
-    }
+    yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        if (op.args.commandName in existingSettings) {
+          yield* ws.updateCommandEntry(op.args.commandName, (entry) => ({
+            ...entry,
+            enabled: false,
+          }));
+        } else if (desiredNodeBeforeDisable !== undefined) {
+          yield* ws.setCommandEntry(op.args.commandName, {
+            source: desiredNodeBeforeDisable.source,
+            enabled: false,
+          });
+        }
 
-    yield* Effect.forEach(
-      configuredAgents,
-      (agent) =>
-        agent
-          .removeCommand({
-            workspaceRoot: base,
-            scope: "project",
-            commandName: op.args.commandName,
-          })
-          .pipe(Effect.catch(() => Effect.void)),
-      { concurrency: "unbounded" },
-    );
+        const outcomes = yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent.removeCommand({
+              workspaceRoot: base,
+              scope: ws.scope,
+              commandName: op.args.commandName,
+            }),
+          { concurrency: "unbounded" },
+        );
+        const conflicts = outcomes.flatMap((outcome, index) =>
+          outcome._tag === "conflict"
+            ? [`${configuredAgents[index]?.id ?? "unknown"}: ${outcome.reason}`]
+            : [],
+        );
+        if (conflicts.length > 0) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Command removal failed for ${op.args.commandName}: ${conflicts.join(", ")}`,
+          });
+        }
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
 
     const artifact = commandDisableArtifact(
       ws.scope,

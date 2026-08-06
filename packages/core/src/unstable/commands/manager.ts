@@ -292,6 +292,7 @@ export const CommandManagerLive = Layer.effect(
             manifest,
             owner,
             workspaceRoot: baseDir,
+            scope: ws.scope,
             force: false,
           }),
         );
@@ -330,7 +331,7 @@ export const CommandManagerLive = Layer.effect(
             provide(
               agent.removeCommand({
                 workspaceRoot: baseDir,
-                scope: "project",
+                scope: ws.scope,
                 commandName: target.name,
               }),
             ),

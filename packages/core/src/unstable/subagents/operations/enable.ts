@@ -91,7 +91,10 @@ export const enableSubagent: OperationHandler<
     }
 
     const baseDir = ws.baseDir;
-    const subagentSrcPath = canonical.value.observation.path;
+    const subagentSrcPath =
+      canonical.value.ref.refType === "registry" || canonical.value.ref.refType === "workspace"
+        ? path.join(canonical.value.observation.path, "src")
+        : canonical.value.observation.path;
 
     // Read and parse the subagent content file
     const expectedFilename = subagentContentFilename(op.args.subagentName);
@@ -136,54 +139,68 @@ export const enableSubagent: OperationHandler<
 
     const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
-    yield* Effect.forEach(
-      configuredAgents,
-      (agent) =>
-        agent
-          .addSubagent({
-            workspaceRoot: baseDir,
-            scope: "project",
-            editSourcePath: editSourcePath.value,
-            input: {
-              agentId: agent.id,
-              name: op.args.subagentName,
-              body: parsed.body,
-              frontmatter: renderFrontmatter,
-              agentOverrides: agentOverrides?.[agent.id],
-            },
-            force: false,
-          })
-          .pipe(
-            Effect.flatMap((outcome) => {
-              if (outcome._tag !== "success") return Effect.void;
-              return Effect.forEach(outcome.renderedFilePaths, (p) => {
-                const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
-                if (Option.isNone(relativePath)) {
-                  return Effect.fail(
-                    makeAppError({
-                      code: "internal",
-                      detail: `Rendered subagent path escapes workspace root: ${p}`,
+    yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent
+              .addSubagent({
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+                editSourcePath: editSourcePath.value,
+                input: {
+                  agentId: agent.id,
+                  name: op.args.subagentName,
+                  body: parsed.body,
+                  frontmatter: renderFrontmatter,
+                  agentOverrides: agentOverrides?.[agent.id],
+                },
+                force: false,
+              })
+              .pipe(
+                Effect.flatMap((outcome) => {
+                  if (outcome._tag === "conflict") {
+                    return makeAppError({
+                      code: "conflict",
+                      detail: `Subagent rendering failed for ${agent.id}: ${outcome.reason}`,
+                    });
+                  }
+                  if (outcome._tag !== "success") return Effect.void;
+                  return Effect.forEach(outcome.renderedFilePaths, (renderedPath) => {
+                    const relativePath = makeWorkspaceRelativePath(path, baseDir, renderedPath);
+                    if (Option.isNone(relativePath)) {
+                      return Effect.fail(
+                        makeAppError({
+                          code: "internal",
+                          detail: `Rendered subagent path escapes workspace root: ${renderedPath}`,
+                        }),
+                      );
+                    }
+                    return Effect.succeed({ path: relativePath.value });
+                  }).pipe(
+                    Effect.map((entries) => {
+                      renderedFilesMap[agent.id] = entries;
                     }),
                   );
-                }
-                return Effect.succeed({ path: relativePath.value });
-              }).pipe(
-                Effect.map((entries) => {
-                  renderedFilesMap[agent.id] = entries;
                 }),
-              );
-            }),
-          ),
-      { concurrency: "unbounded" },
-    );
+              ),
+          { concurrency: "unbounded" },
+        );
+        yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+          ...entry,
+          enabled: true,
+        }));
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
 
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
     const renderedFiles = decodeRenderedFiles(renderedFilesMap);
 
-    // Update settings entry to set enabled: true
-    yield* ws
-      .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
-      .pipe(Effect.catch(() => Effect.void));
     const version = canonical.value.trust.resolvedVersion;
 
     return {

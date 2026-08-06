@@ -7,13 +7,10 @@ import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  CodingAgentRepository,
-  DefaultCodingAgentRepository,
-} from "@agentxm/client-core/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { RenderedFilePathSchema, sanitizeName } from "@agentxm/client-core/unstable/extensions";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
@@ -96,26 +93,8 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
 
   switch (node.type) {
     case "skill": {
-      const agents = yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
-        Effect.provideService(WorkspaceMutations, ws),
-      );
-      yield* Effect.forEach(
-        agents,
-        (agent) =>
-          agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-            Effect.provide(fsPathLayer),
-            Effect.flatMap((outcome) =>
-              outcome._tag === "supported"
-                ? fs
-                    .remove(path.join(path.normalize(outcome.dir), sanitizeName(node.name)), {
-                      recursive: true,
-                    })
-                    .pipe(Effect.catch(() => Effect.void))
-                : Effect.void,
-            ),
-          ),
-        { concurrency: "unbounded" },
-      );
+      const manager = yield* SkillManager;
+      yield* manager.materializeDeactivate({ target: { type: "skill", name: node.name } });
       return;
     }
     case "command": {
@@ -129,7 +108,16 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
               scope: ws.scope,
               commandName: node.name,
             })
-            .pipe(Effect.catch(() => Effect.void)),
+            .pipe(
+              Effect.flatMap((outcome) =>
+                outcome._tag === "conflict"
+                  ? makeAppError({
+                      code: "conflict",
+                      detail: `Command removal failed for ${agent.id}: ${outcome.reason}`,
+                    })
+                  : Effect.void,
+              ),
+            ),
         { concurrency: "unbounded" },
       );
       return;
@@ -146,7 +134,20 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
               serverName: node.name,
               disableOnly: true,
             })
-            .pipe(Effect.catch(() => Effect.void)),
+            .pipe(
+              Effect.flatMap((outcome) =>
+                outcome._tag === "disabled" ||
+                outcome._tag === "nothing-runnable" ||
+                outcome._tag === "needs-input" ||
+                outcome._tag === "misconfigured" ||
+                outcome._tag === "failed"
+                  ? makeAppError({
+                      code: "conflict",
+                      detail: `MCP server removal failed for ${agent.id}: ${outcome.reason}`,
+                    })
+                  : Effect.void,
+              ),
+            ),
         { concurrency: "unbounded" },
       );
       return;
@@ -163,14 +164,25 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
                 ? findManagedSubagentFiles(resolved.dir, sanitizeName(node.name)).pipe(
                     Effect.provide(fsPathLayer),
                     Effect.flatMap((managedPaths) =>
-                      agent.removeSubagent({
-                        workspaceRoot: ws.baseDir,
-                        scope: ws.scope,
-                        subagentName: node.name,
-                        renderedFilePaths: managedPaths.map((filePath) =>
-                          decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                      agent
+                        .removeSubagent({
+                          workspaceRoot: ws.baseDir,
+                          scope: ws.scope,
+                          subagentName: node.name,
+                          renderedFilePaths: managedPaths.map((filePath) =>
+                            decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                          ),
+                        })
+                        .pipe(
+                          Effect.flatMap((outcome) =>
+                            outcome._tag === "conflict"
+                              ? makeAppError({
+                                  code: "conflict",
+                                  detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
+                                })
+                              : Effect.void,
+                          ),
                         ),
-                      }),
                     ),
                   )
                 : Effect.void,
@@ -201,7 +213,13 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
       });
       return;
     }
-    case "knowledge":
+    case "knowledge": {
+      const manager = yield* KnowledgeManager;
+      yield* manager.materializeDeactivate({
+        target: { type: "knowledge", name: node.name },
+      });
+      return;
+    }
     case "pack":
       return;
   }
@@ -238,7 +256,6 @@ interface PackActivationArgs {
   readonly name: string;
   readonly enabled: boolean;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -328,18 +345,17 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
             readiness: "ready",
             label: packIdentity,
             run: Effect.gen(function* () {
-              yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
-              if (args.enabled) {
-                yield* runMaterializeSteps(packIdentity).pipe(
-                  Effect.catch((error) =>
-                    ws
-                      .setPackEntry(args.name, { ...entry, enabled: false })
-                      .pipe(Effect.andThen(Effect.fail(error))),
-                  ),
-                );
-              } else {
-                yield* Effect.forEach(affected, dematerializeNode, { concurrency: 1 });
-              }
+              yield* ws.runTransaction({
+                transition: Effect.gen(function* () {
+                  yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                  if (args.enabled) {
+                    yield* runMaterializeSteps(packIdentity);
+                  } else {
+                    yield* Effect.forEach(affected, dematerializeNode, { concurrency: 1 });
+                  }
+                }).pipe(Effect.provide(runServices)),
+                validate: () => Effect.void,
+              });
               return {
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,
@@ -372,14 +388,13 @@ const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the pack")),
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply despite plan warnings")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 
 const makeActivationCommand = (enabled: boolean) => {
   const verb = enabled ? "enable" : "disable";
-  return Command.make(verb, activationConfig, ({ name, scope, yes, force, preview }) =>
-    handlePackActivation({ name, enabled, yes, force, preview }).pipe(
+  return Command.make(verb, activationConfig, ({ name, scope, yes, preview }) =>
+    handlePackActivation({ name, enabled, yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime(`packs ${verb}`),
     ),

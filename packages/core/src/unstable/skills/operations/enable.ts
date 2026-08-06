@@ -95,67 +95,80 @@ export const enableSkill: OperationHandler<
 
     const skillSrcPath = canonical.value.observation.path;
 
-    const resolvedTargets = yield* Effect.forEach(
-      materializationAgents,
-      (agent) =>
-        agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-          Effect.provide(fsPathLayer),
-          Effect.map((outcome) => ({ agent, outcome })),
-        ),
-      { concurrency: "unbounded" },
-    );
-    const installableTargets: ReadonlyArray<InstallableSkillTarget> = resolvedTargets.flatMap(
-      ({ agent, outcome }) =>
-        outcome._tag === "supported"
-          ? [{ agentId: agent.id, targetDir: path.normalize(outcome.dir) }]
-          : [],
-    );
-    const locations = new Map<
-      string,
-      { readonly targetDir: string; readonly agentIds: AgentId[] }
-    >();
-    for (const target of installableTargets) {
-      const current = locations.get(target.targetDir);
-      if (current === undefined) {
-        locations.set(target.targetDir, {
-          targetDir: target.targetDir,
-          agentIds: [target.agentId],
-        });
-      } else if (!current.agentIds.includes(target.agentId)) {
-        current.agentIds.push(target.agentId);
-      }
-    }
-    const builds = yield* Effect.forEach(
-      [...locations.values()],
-      (location) =>
-        Effect.gen(function* () {
-          const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
-          const build = yield* materializeCapabilityTargetedBuild({
-            baseDir: base,
-            canonicalSourcePath: skillSrcPath,
-            extensionName: sanitizedName,
-            target: capabilityRenderTargetForAgentId(targetAgentId),
-          }).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to render ${op.args.skillName} for ${targetAgentId}`,
-                cause,
-              }),
+    const { installableTargets, builds } = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const resolvedTargets = yield* Effect.forEach(
+          materializationAgents,
+          (agent) =>
+            agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+              Effect.provide(fsPathLayer),
+              Effect.map((outcome) => ({ agent, outcome })),
             ),
-          );
-          yield* ensureSkillAgentArtifact({
-            canonicalSkillSrcPath: build.artifactSourcePath,
-            targetDir: location.targetDir,
-            sanitizedName,
-            pathService: path,
-            baseDir: base,
-            provide,
-          });
-          return { targetAgentId, build };
-        }),
-      { concurrency: "unbounded" },
-    );
+          { concurrency: "unbounded" },
+        );
+        const targets: ReadonlyArray<InstallableSkillTarget> = resolvedTargets.flatMap(
+          ({ agent, outcome }) =>
+            outcome._tag === "supported"
+              ? [{ agentId: agent.id, targetDir: path.normalize(outcome.dir) }]
+              : [],
+        );
+        const locations = new Map<
+          string,
+          { readonly targetDir: string; readonly agentIds: AgentId[] }
+        >();
+        for (const target of targets) {
+          const current = locations.get(target.targetDir);
+          if (current === undefined) {
+            locations.set(target.targetDir, {
+              targetDir: target.targetDir,
+              agentIds: [target.agentId],
+            });
+          } else if (!current.agentIds.includes(target.agentId)) {
+            current.agentIds.push(target.agentId);
+          }
+        }
+        const renderedBuilds = yield* Effect.forEach(
+          [...locations.values()],
+          (location) =>
+            Effect.gen(function* () {
+              const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
+              const build = yield* materializeCapabilityTargetedBuild({
+                baseDir: base,
+                canonicalSourcePath: skillSrcPath,
+                extensionName: sanitizedName,
+                target: capabilityRenderTargetForAgentId(targetAgentId),
+              }).pipe(
+                Effect.mapError((cause) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to render ${op.args.skillName} for ${targetAgentId}`,
+                    cause,
+                  }),
+                ),
+              );
+              yield* ensureSkillAgentArtifact({
+                canonicalSkillSrcPath: build.artifactSourcePath,
+                targetDir: location.targetDir,
+                sanitizedName,
+                pathService: path,
+                baseDir: base,
+                provide,
+              });
+              return { targetAgentId, build };
+            }),
+          { concurrency: "unbounded" },
+        );
+        yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
+          ...entry,
+          enabled: true,
+        }));
+        return { installableTargets: targets, builds: renderedBuilds };
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
     for (const { targetAgentId, build } of builds) {
       for (const finding of build.findings) {
         yield* Effect.logWarning(
@@ -163,10 +176,6 @@ export const enableSkill: OperationHandler<
         );
       }
     }
-
-    yield* ws
-      .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
-      .pipe(Effect.catch(() => Effect.void));
 
     const artifact = yield* skillArtifactFromTargets({
       targets: installableTargets,

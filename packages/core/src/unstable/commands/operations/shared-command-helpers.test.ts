@@ -95,6 +95,7 @@ Deploy the app.`);
         manifest: undefined,
         owner: "@acme",
         workspaceRoot: "/workspace",
+        scope: "project",
         force: false,
       }).pipe(
         Effect.provide(
@@ -139,6 +140,7 @@ Deploy the app.`);
           manifest: undefined,
           owner: "@acme",
           workspaceRoot: "/workspace",
+          scope: "user",
           force: false,
         }).pipe(
           Effect.provide(
@@ -185,6 +187,7 @@ Plain body.`);
             manifest: undefined,
             owner: "@acme",
             workspaceRoot,
+            scope: "project",
             force: false,
           }).pipe(Effect.provide(withServices(makeRepo([kiroCliCodingAgent]), workspaceRoot)));
 

@@ -9,35 +9,17 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { AgentId } from "../../agents/index.js";
-import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
+import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 
 export type DisableMcpServerOperation = Operation<
   "disable-mcp-server",
   { readonly serverName: string }
 >;
-
-const formatAgentSyncWarnings = (
-  serverName: string,
-  outcomes: ReadonlyArray<McpServerSyncOutcome>,
-): ReadonlyArray<string> => {
-  const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
-  if (warnings.length === 0) return [];
-
-  return [
-    `MCP agent sync warnings for ${serverName}: ${warnings
-      .map((outcome) =>
-        outcome._tag === "fallback"
-          ? `fallback(${outcome.fallbackFrom}):${outcome.reason}`
-          : outcome.reason,
-      )
-      .join(", ")}`,
-  ];
-};
 
 export const disableMcpServer = (
   op: DisableMcpServerOperation,
@@ -47,6 +29,8 @@ export const disableMcpServer = (
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -60,17 +44,40 @@ export const disableMcpServer = (
     }
 
     const agents = yield* agentRepo.getConfiguredAgents();
-    const outcomes = yield* Effect.forEach(
-      agents,
-      (agent) =>
-        agent.removeMcpServer({
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
-          serverName: op.args.serverName,
-          disableOnly: true,
-        }),
-      { concurrency: "unbounded" },
-    );
+    const outcomes = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const synced = yield* Effect.forEach(
+          agents,
+          (agent) =>
+            agent.removeMcpServer({
+              workspaceRoot: ws.baseDir,
+              scope: ws.scope,
+              serverName: op.args.serverName,
+              disableOnly: true,
+            }),
+          { concurrency: "unbounded" },
+        );
+        yield* requireSuccessfulMcpSync(
+          op.args.serverName,
+          agents.map((agent, index) => ({
+            agentId: agent.id,
+            outcome: synced[index] ?? {
+              _tag: "failed" as const,
+              reason: "Agent sync returned no outcome",
+            },
+          })),
+        );
+        yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+          ...current,
+          enabled: false,
+        }));
+        return synced;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
     const syncedAgents: ReadonlyArray<{
       readonly agentId: AgentId;
       readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
@@ -80,12 +87,16 @@ export const disableMcpServer = (
         ? [{ agentId: agent.id, targets: outcome.targets }]
         : [];
     });
-    const warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
-
-    yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-      ...current,
-      enabled: false,
-    }));
+    const warnings = mcpSyncWarnings(
+      op.args.serverName,
+      agents.map((agent, index) => ({
+        agentId: agent.id,
+        outcome: outcomes[index] ?? {
+          _tag: "failed" as const,
+          reason: "Agent sync returned no outcome",
+        },
+      })),
+    );
 
     return {
       result: "success",

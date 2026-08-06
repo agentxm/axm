@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -62,7 +62,6 @@ const hookDisableArtifact = (args: {
 export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -100,12 +99,17 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
               const lockEntry = yield* ws
                 .getLockedHookEntry(args.name)
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              yield* ws.updateHookEntry(args.name, (current) => ({
-                ...current,
-                enabled: false,
-              }));
-              yield* hookManager.materializeDeactivate({
-                target: { type: "hook", name: args.name },
+              yield* hookManager.runTransaction({
+                transition: Effect.gen(function* () {
+                  yield* ws.updateHookEntry(args.name, (current) => ({
+                    ...current,
+                    enabled: false,
+                  }));
+                  yield* hookManager.materializeDeactivate({
+                    target: { type: "hook", name: args.name },
+                  });
+                }),
+                validate: () => Effect.void,
               });
               return {
                 result: "success",
@@ -140,15 +144,14 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Disable even if retained dependencies exist")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleDisableHook({ name, yes, force, preview }).pipe(
+  ({ name, scope, yes, preview }) =>
+    handleDisableHook({ name, yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("hooks disable"),
     ),

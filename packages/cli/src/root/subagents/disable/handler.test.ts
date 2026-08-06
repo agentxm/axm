@@ -116,7 +116,6 @@ describe("subagents disable.handler", () => {
         const result = yield* handleDisableSubagent({
           name: "nonexistent",
           yes: true,
-          force: false,
           preview: false,
         }).pipe(Effect.result);
 
@@ -146,7 +145,6 @@ describe("subagents disable.handler", () => {
         yield* handleDisableSubagent({
           name: "my-subagent",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -174,7 +172,6 @@ describe("subagents disable.handler", () => {
         yield* handleDisableSubagent({
           name: "my-subagent",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -271,7 +268,6 @@ describe("subagents disable.handler", () => {
         yield* handleDisableSubagent({
           name: "pack-subagent",
           yes: true,
-          force: false,
           preview: false,
         });
 
@@ -312,7 +308,6 @@ describe("subagents disable.handler", () => {
         yield* handleDisableSubagent({
           name: "my-subagent",
           yes: true,
-          force: false,
           preview: false,
         });
 

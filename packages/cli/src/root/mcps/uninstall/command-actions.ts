@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   McpServerManager,
@@ -78,25 +78,13 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const finalizeIntent = (
       parsed: ParsedMcpServerUninstallArgs,
     ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        const target: McpServerExtensionTarget = {
-          type: "mcp-server",
-          name: parsed.serverName,
-        };
-        const configured =
-          mcpServerMgr.getConfiguredSource === undefined
-            ? Option.none<string>()
-            : yield* mcpServerMgr.getConfiguredSource({ target });
-        const installed = yield* mcpServerMgr.isInstalled({ target });
-        if (Option.isNone(configured) && !installed) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `MCP server "${parsed.serverName}" is not configured or observed`,
-            suggestions: [{ description: "Check installed MCP servers and verify the name." }],
-          });
-        }
-
-        return { targets: [target] };
+      Effect.succeed({
+        targets: [
+          {
+            type: "mcp-server",
+            name: parsed.serverName,
+          } satisfies McpServerExtensionTarget,
+        ],
       });
 
     const buildUninstallPlan = (
@@ -121,6 +109,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             );
             const result = yield* step.run;
             if (result.result !== "success") return result;
+            const unchanged = result.message === "not installed";
             const sourceTarget =
               lockEntry?.type === "registry" ? mcpSourceTarget(lockEntry, "removed") : undefined;
             return {
@@ -128,12 +117,14 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               artifact: mcpServerArtifact({
                 lockEntry,
                 scope: ws.scope,
-                change: "removed",
-                targets: [
-                  { path: ".axm/axm-lock.yaml", change: "updated" },
-                  { path: ".axm/settings.json", change: "updated" },
-                  ...(sourceTarget === undefined ? [] : [sourceTarget]),
-                ],
+                change: unchanged ? "unchanged" : "removed",
+                targets: unchanged
+                  ? []
+                  : [
+                      { path: ".axm/axm-lock.yaml", change: "updated" },
+                      { path: ".axm/settings.json", change: "updated" },
+                      ...(sourceTarget === undefined ? [] : [sourceTarget]),
+                    ],
               }),
             } satisfies JobStepResult;
           }),

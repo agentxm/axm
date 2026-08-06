@@ -481,7 +481,7 @@ describe("displayPlan", () => {
         expect(state.summaries.join("\n")).toContain(".mcp.json");
         expect(state.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
-          { description: "Undo", cmd: "axm mcps remove demo" },
+          { description: "Undo", cmd: "axm mcps uninstall demo" },
         ]);
       }),
     ),

@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -61,9 +62,11 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, force: false, preview: false });
+        yield* handleMcpsImport({ yes: true, preview: false });
 
-        expect(logs.success).toEqual(["No unmanaged MCP servers imported."]);
+        expect(logs.success).toEqual([
+          "No unmanaged MCP servers imported (0 skipped, 0 conflicts).",
+        ]);
       }),
     );
   });
@@ -74,7 +77,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, force: false, preview: false });
+        yield* handleMcpsImport({ yes: true, preview: false });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -92,26 +95,26 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, force: false, preview: false });
+        yield* handleMcpsImport({ yes: true, preview: false });
 
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Import MCP servers",
         });
         expect(result).toMatchObject({
+          importedCount: 1,
+          skippedCount: 0,
+          conflictingCount: 0,
           steps: [
             {
-              label: "demo",
+              label: "Import 1 MCP server",
               status: "applied",
-              message: "Imported demo",
+              message: "Imported 1 MCP server",
               artifact: {
-                path: ".axm/settings.json:mcpServers.demo",
+                path: ".axm (config/lockfile)",
                 scope: "project",
-                change: "created",
+                change: "updated",
                 fileCount: 3,
-                targets: [
-                  { path: ".axm (config/lockfile)", change: "updated" },
-                  { path: ".mcp.json", change: "updated" },
-                ],
+                targets: [{ path: ".mcp.json", change: "updated" }],
               },
             },
           ],
@@ -123,6 +126,99 @@ describe("mcps import output", () => {
           env: { DEMO_TOKEN: "secret-value" },
           "x-axm": { managed: true, source: "inline" },
         });
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
+        expect(JSON.stringify(settings)).not.toContain("secret-value");
+      }),
+    );
+  });
+
+  it.effect("produces a deterministic redacted preview without changing source files", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const originalConfig = JSON.stringify({
+      mcpServers: {
+        zebra: { command: "node", args: ["zebra.js"] },
+        alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "private-value" } },
+      },
+    });
+    fs.writeFileSync(path.join(tempDir, ".mcp.json"), originalConfig);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ yes: false, preview: true });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "previewed",
+            importedCount: 0,
+            skippedCount: 0,
+            conflictingCount: 0,
+            steps: [{ label: "Import 2 MCP servers", message: "Candidates: alpha, zebra" }],
+          },
+        });
+        expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");
+        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
+      }),
+    );
+  });
+
+  it.effect("is idempotent and reports an already imported server as skipped", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeMcpConfig();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ yes: true, preview: false });
+        const settingsAfterImport = fs.readFileSync(
+          path.join(tempDir, ".axm", "settings.json"),
+          "utf8",
+        );
+        yield* handleMcpsImport({ yes: true, preview: false });
+
+        expect(rendererState.results[1]?.data).toMatchObject({
+          result: {
+            outcome: "no-op",
+            importedCount: 0,
+            skippedCount: 1,
+            conflictingCount: 0,
+          },
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
+          settingsAfterImport,
+        );
+      }),
+    );
+  });
+
+  it.effect("reports unsupported native config formats without parsing or exposing them", () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "settings.json"),
+      JSON.stringify({ agents: ["codex"], mcpServers: {} }),
+    );
+    fs.mkdirSync(path.join(tempDir, ".codex"), { recursive: true });
+    const toml = '[mcp_servers.demo]\ncommand = "node"\nsecret = "private-value"\n';
+    fs.writeFileSync(path.join(tempDir, ".codex", "config.toml"), toml);
+    const { provide, rendererState } = makeLayers({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ yes: true, preview: false });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "no-op",
+            importedCount: 0,
+            skippedCount: 1,
+            conflictingCount: 0,
+          },
+        });
+        expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");
+        expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toBe(toml);
       }),
     );
   });
@@ -134,9 +230,9 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, force: false, preview: false });
+        yield* handleMcpsImport({ yes: true, preview: false });
 
-        expect(logs.success).toEqual(["Imported 1 MCP server"]);
+        expect(logs.success).toEqual(["Imported 1 MCP server (0 skipped, 0 conflicts)"]);
         expect(rendererState.summaries).toEqual([
           "demo   created   3 files   .axm (config/lockfile) (updated), .mcp.json (updated)",
         ]);
@@ -144,6 +240,118 @@ describe("mcps import output", () => {
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
           { description: "Undo", cmd: "axm mcps uninstall demo" },
         ]);
+      }),
+    );
+  });
+
+  it.effect(
+    "reports conflicts before confirmation without exposing secrets or mutating files",
+    () => {
+      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({ agents: ["cursor"], mcpServers: {} }),
+      );
+      fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
+      const workspaceConfig = JSON.stringify({
+        mcpServers: {
+          demo: { command: "node", args: ["one.js"], env: { TOKEN: "first-secret" } },
+        },
+      });
+      const cursorConfig = JSON.stringify({
+        mcpServers: {
+          demo: { command: "node", args: ["two.js"], env: { TOKEN: "second-secret" } },
+        },
+      });
+      fs.writeFileSync(path.join(tempDir, ".mcp.json"), workspaceConfig);
+      fs.writeFileSync(path.join(tempDir, ".cursor", "mcp.json"), cursorConfig);
+      const { provide, promptState, rendererState } = makeLayers({ machine: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleMcpsImport({ yes: false, preview: false });
+
+          expect(promptState.confirmCalls).toEqual([]);
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              outcome: "failed",
+              importedCount: 0,
+              skippedCount: 0,
+              conflictingCount: 1,
+            },
+          });
+          expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("first-secret");
+          expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("second-secret");
+          expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(workspaceConfig);
+          expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toBe(
+            cursorConfig,
+          );
+        }),
+      );
+    },
+  );
+
+  it.effect("rolls back settings and prior native config writes when any adoption fails", () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const originalSettings = JSON.stringify({ agents: ["cursor"], mcpServers: {} });
+    fs.writeFileSync(path.join(tempDir, ".axm", "settings.json"), originalSettings);
+    fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
+    const workspaceConfig = JSON.stringify({
+      mcpServers: { zebra: { command: "node", args: ["zebra.js"] } },
+    });
+    const cursorConfig = JSON.stringify({
+      mcpServers: { alpha: { command: "node", args: ["alpha.js"] } },
+    });
+    fs.writeFileSync(path.join(tempDir, ".mcp.json"), workspaceConfig);
+    fs.writeFileSync(path.join(tempDir, ".cursor", "mcp.json"), cursorConfig);
+    const { provide, rendererState } = makeLayers({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport(
+          { yes: true, preview: false },
+          {
+            beforeAdoptionWrite: (adoption) =>
+              adoption.name === "zebra"
+                ? Effect.fail(
+                    makeAppError({ code: "internal", detail: "Injected adoption failure" }),
+                  )
+                : Effect.void,
+          },
+        );
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { outcome: "failed", importedCount: 0, conflictingCount: 0 },
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
+          originalSettings,
+        );
+        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(workspaceConfig);
+        expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toBe(
+          cursorConfig,
+        );
+      }),
+    );
+  });
+
+  it.effect("cancels without mutation when confirmation is declined", () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeMcpConfig();
+    const originalConfig = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
+    const { provide, promptState, rendererState } = makeLayers({
+      machine: true,
+      prompt: { confirmResponses: [false] },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ yes: false, preview: false });
+
+        expect(promptState.confirmCalls).toEqual([{ kind: "resolve-plan" }]);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { outcome: "cancelled", importedCount: 0 },
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
       }),
     );
   });

@@ -73,8 +73,7 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
 - `axm mcps list` (`ls`) — show installed servers and their state.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
-- `axm mcps uninstall <name>` / `axm mcps remove <name>` (`rm`) — remove a
-  server and its agent entries.
+- `axm mcps uninstall <name>` — remove a server and its AXM-owned agent entries.
 
 Authoring commands mirror the other extension types:
 

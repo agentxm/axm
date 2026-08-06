@@ -9,12 +9,7 @@ import {
   type ConfigurableAgentId,
 } from "@agentxm/client-core/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  forceFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -22,16 +17,17 @@ import {
   buildAxmMcpMetadataFromSettingsSource,
   isAxmManagedMcpEntry,
 } from "@agentxm/client-core/unstable/mcps";
-import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import {
-  type CompletedJobStep,
-  type ExecutedPlan,
-  type JobStepArtifact,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
+import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
+import type {
+  ExecutedPlan,
+  JobStepArtifact,
+  JobStepResult,
+  Plan,
+  PlanResolution,
+  PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  ResolvePlanInteraction,
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
@@ -39,25 +35,21 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  type McpImportAdoption,
+  type McpImportCandidate,
+  type McpImportPreflight,
+  type McpImportSource,
+  preflightMcpImports,
+} from "./import-preflight.js";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
-interface ImportedMcpServer {
-  readonly name: string;
-  readonly lockEntry: McpServerLockEntry;
-  readonly env: Readonly<Record<string, string>>;
-  readonly adoptions: ReadonlyArray<ImportedMcpServerAdoption>;
-}
-
-interface ImportedMcpServerAdoption {
-  readonly filePath: string;
-  readonly serversKey: string;
-  readonly name: string;
+export interface McpsImportTestHooks {
+  readonly beforeAdoptionWrite?: (adoption: McpImportAdoption) => Effect.Effect<void, AppError>;
 }
 
 interface AgentMcpConfig {
@@ -68,31 +60,26 @@ interface AgentMcpConfig {
 interface AgentMcpConfigTarget {
   readonly scope: string;
   readonly path: string;
+  readonly format: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const stringArray = (value: unknown): ReadonlyArray<string> =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-
-const stringRecord = (value: unknown): Readonly<Record<string, string>> => {
-  if (!isRecord(value)) return {};
-  const record: Record<string, string> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item === "string") record[key] = item;
-  }
-  return record;
-};
 
 const isCapabilityAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, id);
 
 const readAgentMcpConfig = (agent: unknown): Option.Option<AgentMcpConfig> => {
   if (!isRecord(agent)) return Option.none();
-  const mcp = agent["mcp"];
+  const capabilities = agent["capabilities"];
+  if (!isRecord(capabilities)) return Option.none();
+  const mcp = capabilities["mcp-server"];
   if (!isRecord(mcp)) return Option.none();
-  const config = mcp["config"];
+  const axm = mcp["axm"];
+  if (!isRecord(axm)) return Option.none();
+  const writer = axm["writer"];
+  if (!isRecord(writer)) return Option.none();
+  const config = writer["config"];
   if (!isRecord(config)) return Option.none();
   const serversKey = config["serversKey"];
   const targets = config["targets"];
@@ -102,8 +89,9 @@ const readAgentMcpConfig = (agent: unknown): Option.Option<AgentMcpConfig> => {
     if (!isRecord(target)) continue;
     const scope = target["scope"];
     const targetPath = target["path"];
-    if (typeof scope === "string" && typeof targetPath === "string") {
-      parsedTargets.push({ scope, path: targetPath });
+    const format = target["format"];
+    if (typeof scope === "string" && typeof targetPath === "string" && typeof format === "string") {
+      parsedTargets.push({ scope, path: targetPath, format });
     }
   }
   return Option.some({ serversKey, targets: parsedTargets });
@@ -137,114 +125,88 @@ const readJsonObject = (
     return isRecord(parsed) ? Option.some(parsed) : Option.none();
   });
 
-const envRefsFromRecord = (
-  env: Readonly<Record<string, string>>,
-): Readonly<Record<string, string>> =>
-  Object.fromEntries(Object.keys(env).map((name) => [name, `\${${name}}`]));
+const collectImportSources = (
+  ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+): Effect.Effect<
+  {
+    readonly sources: ReadonlyArray<McpImportSource>;
+    readonly skipped: ReadonlyArray<{ readonly name: string; readonly reason: string }>;
+  },
+  AppError
+> =>
+  Effect.gen(function* () {
+    const sources: Array<McpImportSource> = [];
+    const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
+    const sourceKeys = new Set<string>();
+    const addSource = (filePath: string, serversKey: string) => {
+      const sourceKey = `${filePath}\0${serversKey}`;
+      if (sourceKeys.has(sourceKey)) return Effect.void;
+      sourceKeys.add(sourceKey);
+      return readJsonObject(fs, filePath).pipe(
+        Effect.map(
+          Option.match({
+            onNone: () => undefined,
+            onSome: (config) => sources.push({ filePath, serversKey, config }),
+          }),
+        ),
+      );
+    };
 
-const normalizeStdio = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  const commandValue = config["command"];
-  const env = envRefsFromRecord(stringRecord(config["env"] ?? config["environment"]));
-  if (typeof commandValue === "string") {
-    return Option.some({
-      name,
-      lockEntry: {
-        type: "inline",
-        command: commandValue,
-        args: stringArray(config["args"]),
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry,
-      env,
-      adoptions: [adoption],
-    });
-  }
-  const command = stringArray(commandValue);
-  if (command.length === 0) return Option.none();
-  const executable = command[0];
-  if (executable === undefined) return Option.none();
-  return Option.some({
-    name,
-    lockEntry: {
-      type: "inline",
-      command: executable,
-      args: command.slice(1),
-      installedAt: now,
-      updatedAt: now,
-    } satisfies McpServerLockEntry,
-    env,
-    adoptions: [adoption],
+    yield* addSource(path.join(ws.baseDir, ".mcp.json"), "mcpServers");
+    const agentIds = [...(yield* ws.getConfiguredAgents())].sort((left, right) =>
+      left.localeCompare(right),
+    );
+    for (const agentId of agentIds) {
+      if (!isCapabilityAgentId(agentId)) continue;
+      const mcpConfig = readAgentMcpConfig(CONFIGURABLE_AGENTS_BY_ID[agentId]);
+      if (Option.isNone(mcpConfig)) continue;
+      const targets = mcpConfig.value.targets
+        .filter((target) => target.scope === ws.scope)
+        .sort((left, right) => left.path.localeCompare(right.path));
+      for (const target of targets) {
+        const relativeTarget = target.path.startsWith("~/") ? target.path.slice(2) : target.path;
+        const configPath = path.resolve(ws.baseDir, relativeTarget);
+        if (target.format !== "json") {
+          const exists = yield* fs
+            .exists(configPath)
+            .pipe(Effect.catch(() => Effect.succeed(false)));
+          if (exists) {
+            const finding = {
+              name: path.relative(ws.baseDir, configPath),
+              reason: `Unsupported MCP config format: ${target.format}`,
+            };
+            skipped.set(`${finding.name}\0${finding.reason}`, finding);
+          }
+          continue;
+        }
+        yield* addSource(configPath, mcpConfig.value.serversKey);
+      }
+    }
+    return { sources, skipped: Array.from(skipped.values()) };
   });
-};
-
-const normalizeRemote = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  const url = config["url"];
-  if (typeof url !== "string") return Option.none();
-  return Option.some({
-    name,
-    lockEntry: {
-      type: "inline",
-      url,
-      headers: stringRecord(config["headers"] ?? config["http_headers"]),
-      installedAt: now,
-      updatedAt: now,
-    } satisfies McpServerLockEntry,
-    env: {},
-    adoptions: [adoption],
-  });
-};
-
-const normalizeServer = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  if (isAxmManagedMcpEntry(config)) return Option.none();
-  const remote = normalizeRemote(name, config, adoption, now);
-  if (Option.isSome(remote)) return remote;
-  return normalizeStdio(name, config, adoption, now);
-};
-
-const collectFromConfig = (
-  config: Readonly<Record<string, unknown>>,
-  serversKey: string,
-  filePath: string,
-  now: DateTime.Utc,
-): ReadonlyArray<ImportedMcpServer> => {
-  const servers = config[serversKey];
-  if (!isRecord(servers)) return [];
-  return Object.entries(servers)
-    .map(([name, value]) =>
-      isRecord(value)
-        ? normalizeServer(name, value, { filePath, serversKey, name }, now)
-        : Option.none(),
-    )
-    .filter(Option.isSome)
-    .map((entry) => entry.value);
-};
 
 const writeAdoptedMcpConfig = (
   fs: FileSystem.FileSystem,
-  adoption: ImportedMcpServerAdoption,
+  adoption: McpImportAdoption,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
     const config = yield* readJsonObject(fs, adoption.filePath);
-    if (Option.isNone(config)) return;
+    if (Option.isNone(config)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP config disappeared before import: ${adoption.filePath}`,
+      });
+    }
     const servers = config.value[adoption.serversKey];
-    if (!isRecord(servers)) return;
-    const entry = servers[adoption.name];
-    if (!isRecord(entry) || isAxmManagedMcpEntry(entry)) return;
+    const entry = isRecord(servers) ? servers[adoption.name] : undefined;
+    if (!isRecord(servers) || !isRecord(entry)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP server ${adoption.name} changed before import`,
+      });
+    }
     const updatedConfig = {
       ...config.value,
       [adoption.serversKey]: {
@@ -268,192 +230,282 @@ const writeAdoptedMcpConfig = (
       );
   });
 
-const adoptImportedMcpServerConfigs = (
+const recordsEqual = (
+  left: Readonly<Record<string, string>> | undefined,
+  right: Readonly<Record<string, string>> | undefined,
+): boolean => {
+  const leftEntries = Object.entries(left ?? {}).sort(([leftKey], [rightKey]) =>
+    leftKey.localeCompare(rightKey),
+  );
+  const rightEntries = Object.entries(right ?? {}).sort(([leftKey], [rightKey]) =>
+    leftKey.localeCompare(rightKey),
+  );
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([key, value], index) => {
+      const rightEntry = rightEntries[index];
+      return rightEntry !== undefined && key === rightEntry[0] && value === rightEntry[1];
+    })
+  );
+};
+
+const candidateMatchesSettings = (
+  candidate: McpImportCandidate,
+  entry: McpServerEntry | undefined,
+): boolean =>
+  entry !== undefined &&
+  entry.source === "inline" &&
+  entry.enabled &&
+  entry.command === candidate.lockEntry.command &&
+  JSON.stringify(entry.args ?? []) === JSON.stringify(candidate.lockEntry.args ?? []) &&
+  entry.url === candidate.lockEntry.url &&
+  recordsEqual(entry.headers, candidate.lockEntry.headers) &&
+  recordsEqual(entry.env, candidate.env);
+
+const validateAdoption = (
   fs: FileSystem.FileSystem,
-  server: ImportedMcpServer,
+  adoption: McpImportAdoption,
 ): Effect.Effect<void, AppError> =>
-  Effect.forEach(server.adoptions, (adoption) => writeAdoptedMcpConfig(fs, adoption), {
-    concurrency: "unbounded",
-  }).pipe(Effect.asVoid);
-
-const collectImportableServers = (
-  ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-): Effect.Effect<ReadonlyArray<ImportedMcpServer>, AppError> =>
   Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    const configured = yield* ws.getConfiguredMcpServerEntries();
-    const configuredNames = new Set(Object.keys(configured));
-    const imports: Array<ImportedMcpServer> = [];
-    const addNew = (servers: ReadonlyArray<ImportedMcpServer>) => {
-      for (const server of servers) {
-        if (configuredNames.has(server.name)) continue;
-        const existingIndex = imports.findIndex((item) => item.name === server.name);
-        const existing = imports[existingIndex];
-        if (existing === undefined) {
-          imports.push(server);
-        } else {
-          imports[existingIndex] = {
-            ...existing,
-            adoptions: [...existing.adoptions, ...server.adoptions],
-          };
-        }
-      }
-    };
-
-    const workspaceConfigPath = path.join(ws.baseDir, ".mcp.json");
-    const workspaceConfig = yield* readJsonObject(fs, workspaceConfigPath);
-    if (Option.isSome(workspaceConfig))
-      addNew(collectFromConfig(workspaceConfig.value, "mcpServers", workspaceConfigPath, now));
-
-    const agentIds = yield* ws.getConfiguredAgents();
-    for (const agentId of agentIds) {
-      if (!isCapabilityAgentId(agentId)) continue;
-      const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
-      const mcpConfig = readAgentMcpConfig(agent);
-      if (Option.isNone(mcpConfig)) continue;
-      const targets = mcpConfig.value.targets.filter((target) => target.scope === ws.scope);
-      for (const target of targets) {
-        const configPath = path.resolve(ws.baseDir, target.path);
-        const config = yield* readJsonObject(fs, configPath);
-        if (Option.isSome(config))
-          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey, configPath, now));
-      }
+    const config = yield* readJsonObject(fs, adoption.filePath);
+    const servers = Option.isSome(config) ? config.value[adoption.serversKey] : undefined;
+    const entry = isRecord(servers) ? servers[adoption.name] : undefined;
+    if (!isRecord(entry) || !isAxmManagedMcpEntry(entry)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Failed to validate adopted MCP server ${adoption.name}`,
+      });
     }
-    return imports;
   });
 
+const applyImport = (
+  candidates: ReadonlyArray<McpImportCandidate>,
+  ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  hooks: McpsImportTestHooks,
+): Effect.Effect<void, AppError> => {
+  const adoptions = candidates.flatMap((candidate) => candidate.adoptions);
+  const setArgs = (candidate: McpImportCandidate) => ({
+    name: candidate.name,
+    lockEntry: candidate.lockEntry,
+    versionRange: Option.none(),
+    env: candidate.env,
+    enabled: true,
+  });
+  return ws.runTransaction({
+    targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
+    transition: Effect.gen(function* () {
+      for (const candidate of candidates) {
+        yield* ws.setMcpServer({ ...setArgs(candidate), commit: "authoritative" });
+      }
+      for (const adoption of adoptions) {
+        if (hooks.beforeAdoptionWrite !== undefined) {
+          yield* hooks.beforeAdoptionWrite(adoption);
+        }
+        yield* writeAdoptedMcpConfig(fs, adoption);
+      }
+    }),
+    validate: () =>
+      Effect.gen(function* () {
+        const configured = yield* ws.getConfiguredMcpServerEntries();
+        for (const candidate of candidates) {
+          if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Failed to validate imported MCP server ${candidate.name}`,
+            });
+          }
+        }
+        yield* Effect.forEach(adoptions, (adoption) => validateAdoption(fs, adoption), {
+          concurrency: 1,
+        });
+      }),
+    receipt: () =>
+      Effect.forEach(
+        candidates,
+        (candidate) => ws.setMcpServerLock({ ...setArgs(candidate), commit: "receipt" }),
+        { concurrency: 1 },
+      ).pipe(Effect.asVoid),
+  });
+};
+
+const importArtifact = (
+  preflight: McpImportPreflight,
+  ws: WorkspaceMutationsService,
+  path: Path.Path,
+): JobStepArtifact => {
+  const adoptions = preflight.candidates.flatMap((candidate) => candidate.adoptions);
+  return {
+    path: ".axm (config/lockfile)",
+    scope: ws.scope,
+    change: "updated",
+    fileCount: 2 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
+    targets: [
+      { path: ".axm (config/lockfile)", change: "updated" },
+      ...Array.from(new Set(adoptions.map((adoption) => adoption.filePath)))
+        .sort()
+        .map((filePath) => ({
+          path: path.relative(ws.baseDir, filePath),
+          change: "updated" as const,
+        })),
+    ],
+  };
+};
+
 const makePlan = (
-  servers: ReadonlyArray<ImportedMcpServer>,
+  preflight: McpImportPreflight,
   ws: WorkspaceMutationsService,
   fs: FileSystem.FileSystem,
   path: Path.Path,
-): Plan => ({
-  _tag: "Plan",
-  name: "Import MCP servers",
-  description: Option.some(`Adopt ${count(servers.length, "unmanaged MCP server")}`),
-  jobs: [
-    {
-      concurrency: 1,
-      steps: servers.map<PlannedJobStep>((server) => ({
-        label: server.name,
-        readiness: "ready",
-        run: ws
-          .setMcpServer({
-            name: server.name,
-            lockEntry: server.lockEntry,
-            versionRange: Option.none(),
-            env: server.env,
-            enabled: true,
-          })
-          .pipe(
-            Effect.flatMap(() => adoptImportedMcpServerConfigs(fs, server)),
-            Effect.as({
-              result: "success",
-              message: `Imported ${server.name}`,
-              artifact: importArtifact(ws.scope, server, ws.baseDir, path),
-            } satisfies JobStepResult),
-          ),
-      })),
-    },
-  ],
+  hooks: McpsImportTestHooks,
+): Plan => {
+  const conflictSteps = preflight.conflicts.map<PlannedJobStep>((conflict) => ({
+    label: conflict.name,
+    readiness: "error",
+    errorMessage: conflict.reason,
+  }));
+  const importSteps =
+    preflight.candidates.length === 0
+      ? []
+      : [
+          {
+            label: `Import ${count(preflight.candidates.length, "MCP server")}`,
+            readiness: "ready" as const,
+            message: `Candidates: ${preflight.candidates.map((candidate) => candidate.name).join(", ")}`,
+            artifact: importArtifact(preflight, ws, path),
+            run: applyImport(preflight.candidates, ws, fs, hooks).pipe(
+              Effect.as({
+                result: "success",
+                message: `Imported ${count(preflight.candidates.length, "MCP server")}`,
+                artifact: importArtifact(preflight, ws, path),
+              } satisfies JobStepResult),
+            ),
+          },
+        ];
+  return {
+    _tag: "Plan",
+    name: "Import MCP servers",
+    description: Option.some(`Adopt ${count(preflight.candidates.length, "unmanaged MCP server")}`),
+    jobs: [{ concurrency: 1, steps: [...conflictSteps, ...importSteps] }],
+  };
+};
+
+const cancelPlan = (plan: Plan): PlanResolution => ({
+  _tag: "CancelledPlan",
+  name: plan.name,
+  description: plan.description,
+  jobs: plan.jobs,
 });
 
-const importArtifact = (
-  scope: "project" | "user",
-  server: ImportedMcpServer,
+const importedCount = (resolution: ExecutedPlan, candidateCount: number): number => {
+  const importStep = resolution.jobs
+    .flatMap((job) => job.steps)
+    .find((step) => step.label.startsWith("Import "));
+  return importStep?.result.result === "success" ? candidateCount : 0;
+};
+
+const importSummary = (
+  candidates: ReadonlyArray<McpImportCandidate>,
   baseDir: string,
   path: Path.Path,
-): JobStepArtifact => ({
-  path: `.axm/settings.json:mcpServers.${server.name}`,
-  scope,
-  change: "created",
-  fileCount: 2 + server.adoptions.length,
-  targets: [
-    { path: ".axm (config/lockfile)", change: "updated" },
-    ...server.adoptions.map((adoption) => ({
-      path: path.relative(baseDir, adoption.filePath),
-      change: "updated" as const,
-    })),
-  ],
-});
-
-const formatArtifactTargets = (artifact: JobStepArtifact): string => {
-  if (artifact.targets === undefined || artifact.targets.length === 0) {
-    return artifact.path;
-  }
-  return artifact.targets.map((target) => `${target.path} (${target.change})`).join(", ");
-};
-
-const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
-  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
-  const artifact = step.result.artifact;
-  const details = [
-    artifact.change,
-    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    formatArtifactTargets(artifact),
-  ].filter((part): part is string => part !== undefined && part.length > 0);
-  return `${step.label}   ${details.join("   ")}`;
-};
-
-const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
-  const rows = plan.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) => {
-      const summary = formatCompletedArtifactStep(step);
-      return summary === undefined ? [] : [summary];
-    });
+): string | undefined => {
+  const rows = candidates.map((candidate) => {
+    const targets = [
+      ".axm (config/lockfile) (updated)",
+      ...candidate.adoptions.map(
+        (adoption) => `${path.relative(baseDir, adoption.filePath)} (updated)`,
+      ),
+    ];
+    return `${candidate.name}   created   ${count(2 + candidate.adoptions.length, "file")}   ${targets.join(", ")}`;
+  });
   return rows.length === 0 ? undefined : rows.join("\n");
 };
 
-export const handleMcpsImport = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
+export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
+  args: McpsImportArgs,
+  hooks: McpsImportTestHooks = {},
+) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const servers = yield* collectImportableServers(ws, fs, path);
+  const now = yield* DateTime.now;
+  const configured = yield* ws.getConfiguredMcpServerEntries();
+  const discovery = yield* collectImportSources(ws, fs, path);
+  const normalized = preflightMcpImports({
+    configuredNames: new Set(Object.keys(configured)),
+    now,
+    sources: discovery.sources,
+  });
+  const preflight = {
+    ...normalized,
+    skipped: [...normalized.skipped, ...discovery.skipped].sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) || left.reason.localeCompare(right.reason),
+    ),
+  } satisfies McpImportPreflight;
+  const plan = makePlan(preflight, ws, fs, path, hooks);
+  const confirmed =
+    args.preview || args.yes || preflight.candidates.length === 0 || preflight.conflicts.length > 0
+      ? true
+      : yield* ResolvePlanInteraction.pipe(
+          Effect.flatMap((interaction) => interaction.confirmApplyChanges()),
+        );
+  const resolution = confirmed
+    ? yield* previewOrApplyLocalPlan(plan, {
+        preview: args.preview,
+        displayApplied: false,
+      })
+    : cancelPlan(plan);
+  const appliedCount =
+    resolution._tag === "ExecutedPlan" ? importedCount(resolution, preflight.candidates.length) : 0;
+  const suggestions = [
+    { description: "Inspect MCP servers", cmd: "axm mcps list" },
+    ...(appliedCount === 1
+      ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
+      : []),
+  ];
+  const summary =
+    appliedCount > 0 ? importSummary(preflight.candidates, ws.baseDir, path) : undefined;
+  const emitted = yield* emitPlanResolutionResult("mcps.import", resolution, {
+    suggestions,
+    ...(summary === undefined ? {} : { summary }),
+    ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
+      ? { message: "No unmanaged MCP servers imported." }
+      : {}),
+    operationCounts: {
+      importedCount: appliedCount,
+      skippedCount: preflight.skipped.length,
+      conflictingCount: preflight.conflicts.length,
+    },
+  });
 
-  if (servers.length === 0) {
-    yield* emitNoOpOutcome("mcps.import", {
-      planName: "Import MCP servers",
-      message: "No unmanaged MCP servers imported.",
-      withoutSuggestions: true,
+  if (emitted) return;
+  const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
+  const countSummary = `${preflight.skipped.length} skipped, ${count(preflight.conflicts.length, "conflict")}`;
+  if (resolution._tag === "CancelledPlan") {
+    yield* renderer.warn(`MCP import cancelled (${countSummary})`);
+    return;
+  }
+  if (resolution._tag !== "ExecutedPlan") return;
+  const failed = resolution.jobs.some((job) =>
+    job.steps.some((step) => step.result.result === "error"),
+  );
+  if (failed) {
+    yield* renderer.error(`MCP import failed (${countSummary})`, {
+      suggestions,
+      withoutSuggestions: emitted,
     });
     return;
   }
-
-  const plan = makePlan(servers, ws, fs, path);
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    displayApplied: false,
-  });
-  const summary =
-    resolution._tag === "ExecutedPlan" ? summarizeExecutedArtifacts(resolution) : undefined;
-  const suggestions = [
-    { description: "Inspect MCP servers", cmd: "axm mcps list" },
-    ...(servers.length === 1
-      ? [{ description: "Undo", cmd: `axm mcps uninstall ${servers[0]?.name ?? ""}` }]
-      : []),
-  ];
-  const resultOptions = summary === undefined ? { suggestions } : { summary, suggestions };
-  const emitted = yield* emitPlanResolutionResult(
-    "mcps.import",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? resultOptions : undefined,
+  yield* renderer.success(
+    appliedCount === 0
+      ? `No unmanaged MCP servers imported (${countSummary}).`
+      : `Imported ${count(appliedCount, "MCP server")} (${countSummary})`,
+    verbosity.level === "quiet"
+      ? undefined
+      : { suggestions, ...(summary === undefined ? {} : { summary }) },
   );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    const successOptions =
-      summary === undefined
-        ? { suggestions, withoutSuggestions: emitted }
-        : { summary, suggestions, withoutSuggestions: emitted };
-    yield* renderer.success(
-      `Imported ${count(servers.length, "MCP server")}`,
-      verbosity.level === "quiet" ? undefined : successOptions,
-    );
-  }
 });
 
 const importConfig = {
@@ -461,18 +513,11 @@ const importConfig = {
     Flag.withDescription("Import to project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 
-export const importCommand = Command.make(
-  "import",
-  importConfig,
-  ({ scope, yes, force, preview }) =>
-    handleMcpsImport({ yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps import"),
-    ),
+export const importCommand = Command.make("import", importConfig, ({ scope, yes, preview }) =>
+  handleMcpsImport({ yes, preview }).pipe(withWorkspace(scope), withRuntime("mcps import")),
 ).pipe(
   withArgvTracking(importConfig),
   Command.withDescription("Import unmanaged MCP servers as inline settings entries"),

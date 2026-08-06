@@ -29,7 +29,6 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { handleInstallMcpServer } from "./install/handler.js";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -307,7 +306,13 @@ const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => (
 
 export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* handleInstallMcpServer({ source: Option.some(args.name), env: [] }, args);
+    return yield* makeAppError({
+      code: "usage",
+      detail: `mcps add only configures inline MCP servers. Use axm mcps install ${args.name} for package or source locators.`,
+      suggestions: [
+        { description: "Install the MCP server package", cmd: `axm mcps install ${args.name}` },
+      ],
+    });
   }
   if (Option.isSome(args.command) && Option.isSome(args.url)) {
     return yield* makeAppError({
@@ -364,9 +369,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
 });
 
 const addConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("MCP server name or registry reference"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Inline MCP server name")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Add to project (default) or user-level configuration"),
   ),
@@ -397,7 +400,7 @@ export const addCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(addConfig),
-  Command.withDescription("Add an inline or registry MCP server"),
+  Command.withDescription("Add an inline MCP server"),
   Command.withExamples([
     {
       command: 'axm mcps add linear --command "npx -y linear-mcp-server" --env LINEAR_API_KEY',
@@ -407,10 +410,6 @@ export const addCommand = Command.make(
       command:
         'axm mcps add sentry --url https://mcp.sentry.dev/sse --header "Authorization:Bearer ${SENTRY_TOKEN}"',
       description: "Add an inline remote MCP server",
-    },
-    {
-      command: "axm mcps add @acme/mcps/github",
-      description: "Install a registry MCP server",
     },
   ]),
 );

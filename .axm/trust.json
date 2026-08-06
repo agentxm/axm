@@ -1,0 +1,24 @@
+{
+  "trustStateVersion": 1,
+  "records": {
+    "skill:axm": {
+      "extensionType": "skill",
+      "name": "axm",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@agentxm/skills/axm",
+      "resolvedVersion": "0.2.5",
+      "contentIdentity": "20276eb6b3e13c27195c9ad13f1f339bedf074c1eedf47b61a72766d0ac9c43d"
+    },
+    "knowledge:agentxm": {
+      "extensionType": "knowledge",
+      "name": "agentxm",
+      "authority": "registry",
+      "sourceIdentity": "@agentxm/knowledge/agentxm",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+      "integrity": "sha512-bvuEFyzdFxROKUyp3SDeajmIHrX3fWjLiuhsupz/VpkYiIcNVJniE0NMOzEjCKRN0qdAJ2zsvj0cPaUSCo4yEQ==",
+      "contentIdentity": "d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728"
+    }
+  }
+}

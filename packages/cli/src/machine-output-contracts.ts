@@ -522,8 +522,6 @@ const planPaths = [
   "axm mcps import",
   "axm mcps install",
   "axm mcps new",
-  "axm mcps remove",
-  "axm mcps rm",
   "axm mcps uninstall",
   "axm mcps update",
   "axm mcps version",

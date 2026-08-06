@@ -561,7 +561,7 @@ const renderMcpAddOutcome = (
         ? [{ description: "Inspect MCP servers", cmd: "axm mcps list" }]
         : [
             { description: "Inspect MCP servers", cmd: "axm mcps list" },
-            { description: "Undo", cmd: `axm mcps remove ${serverName}` },
+            { description: "Undo", cmd: `axm mcps uninstall ${serverName}` },
           ];
     const summary =
       artifacts.length === 0

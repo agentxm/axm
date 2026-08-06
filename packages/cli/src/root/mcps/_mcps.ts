@@ -11,7 +11,6 @@ import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { mcpsPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { removeCommand } from "./remove.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
 
@@ -46,7 +45,6 @@ export const mcpsCommand = Command.make("mcps").pipe(
   ]),
   Command.withSubcommands([
     addCommand,
-    removeCommand,
     importCommand,
     installCommand,
     uninstallCommand,

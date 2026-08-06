@@ -202,6 +202,38 @@ describe("mcps add output", () => {
     );
   });
 
+  it.effect("rejects source locators with mcps install guidance before mutation", () => {
+    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeMultiAgentSettings();
+
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          handleMcpsAdd({
+            name: "@acme/mcps/demo",
+            command: Option.none(),
+            url: Option.none(),
+            env: [],
+            header: [],
+            yes: true,
+            force: false,
+            preview: false,
+          }),
+        );
+
+        expect(Result.isFailure(result)).toBe(true);
+        if (Result.isFailure(result)) {
+          expect(result.failure.code).toBe("usage");
+          expect(result.failure.detail).toContain("axm mcps install @acme/mcps/demo");
+        }
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.mcpServers).toEqual({});
+      }),
+    );
+  });
+
   it.effect("warns per agent when env defaults cannot be expanded natively", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeEnvExpansionSettings();

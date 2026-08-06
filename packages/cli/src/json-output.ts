@@ -198,6 +198,9 @@ export const PlanResolutionResultSchema = Schema.Struct({
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  importedCount: Schema.optional(Schema.Number),
+  skippedCount: Schema.optional(Schema.Number),
+  conflictingCount: Schema.optional(Schema.Number),
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   steps: Schema.Array(StepSchema),
 }).annotate({
@@ -580,6 +583,12 @@ export const emitPlanResolutionResult = <TCommand extends string>(
     readonly summary?: string;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
+    readonly message?: string;
+    readonly operationCounts?: {
+      readonly importedCount: number;
+      readonly skippedCount: number;
+      readonly conflictingCount: number;
+    };
   },
 ) =>
   Effect.gen(function* () {
@@ -590,10 +599,15 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
     });
-    const result = toPlanResolutionResult(resolution, {
+    const planResult = toPlanResolutionResult(resolution, {
       verbose: verbosity.isAtLeast("verbose"),
       debug: verbosity.level === "debug",
     });
+    const result = {
+      ...planResult,
+      ...(options?.message === undefined ? {} : { message: options.message }),
+      ...(options?.operationCounts ?? {}),
+    };
     return yield* renderer.result(
       {
         result,

@@ -267,8 +267,10 @@ export const McpServerManagerLive = Layer.effect(
         );
       }, Effect.asVoid);
 
-    const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =
-      Effect.fn("McpServerManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =>
+      Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
         const configuredAgents = yield* ws.getConfiguredAgents();
 
         yield* Effect.forEach(
@@ -284,7 +286,7 @@ export const McpServerManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        if (preserveSource === true) return;
+        if (retainCanonical) return;
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs.exists(extensionsDir).pipe(
           Effect.mapError((error) =>
@@ -327,6 +329,8 @@ export const McpServerManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
       }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "mcp-server",
@@ -364,6 +368,7 @@ export const McpServerManagerLive = Layer.effect(
         );
       }),
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: ({
         ref,

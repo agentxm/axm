@@ -475,8 +475,10 @@ export const FilesManagerLive = Layer.effect(
         }
       });
 
-    const materializeUninstall: ExtensionManager<FilesExtensionRef>["materializeUninstall"] =
-      Effect.fn("FilesManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<FilesExtensionRef>["materializeUninstall"] =>
+      Effect.fn("FilesManager.materializeRemoval")(function* ({ target }) {
         const canonical = yield* provide(
           trustedCanonicalObservation({
             workspace: ws,
@@ -546,7 +548,7 @@ export const FilesManagerLive = Layer.effect(
             ),
           );
         }
-        if (preserveSource !== true) {
+        if (!retainCanonical) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -559,6 +561,8 @@ export const FilesManagerLive = Layer.effect(
           );
         }
       }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "files",
@@ -601,6 +605,7 @@ export const FilesManagerLive = Layer.effect(
       }),
 
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("FilesManager.upsertSettingsEntry")(function* ({
         ref,

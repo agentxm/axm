@@ -220,8 +220,10 @@ export const SkillManagerLive = Layer.effect(
       lastSourceHashes.set(ref.skill.name, sourceHash);
     });
 
-    const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
-      Effect.fn("SkillManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<SkillExtensionRef>["materializeUninstall"] =>
+      Effect.fn("SkillManager.materializeRemoval")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
         const configuredAgents = yield* agentRepo
@@ -257,10 +259,12 @@ export const SkillManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        if (preserveSource !== true) {
+        if (!retainCanonical) {
           yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitized, path);
         }
       });
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "skill",
@@ -309,6 +313,7 @@ export const SkillManagerLive = Layer.effect(
         return [...refsByName.values()];
       }),
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("SkillManager.upsertSettingsEntry")(function* ({
         ref,

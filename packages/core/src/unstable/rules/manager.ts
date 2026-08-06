@@ -490,8 +490,10 @@ export const RuleManagerLive = Layer.effect(
         }
       });
 
-    const materializeUninstall: ExtensionManager<RuleExtensionRef>["materializeUninstall"] =
-      Effect.fn("RuleManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<RuleExtensionRef>["materializeUninstall"] =>
+      Effect.fn("RuleManager.materializeRemoval")(function* ({ target }) {
         const canonical = yield* provide(
           trustedCanonicalObservation({
             workspace: ws,
@@ -503,7 +505,7 @@ export const RuleManagerLive = Layer.effect(
         const packageRoot = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (preserveSource !== true && Option.isSome(packageRoot)) {
+        if (!retainCanonical && Option.isSome(packageRoot)) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -516,6 +518,8 @@ export const RuleManagerLive = Layer.effect(
           );
         }
       }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "rule",
@@ -549,6 +553,7 @@ export const RuleManagerLive = Layer.effect(
       }),
 
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("RuleManager.upsertSettingsEntry")(function* ({
         ref,

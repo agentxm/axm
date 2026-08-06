@@ -60,6 +60,18 @@ describe("axm skills uninstall", () => {
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills?.["my-skill"]).toBeUndefined();
+
+        const status = await runCli(["status", "--json"], { cwd: temp.path });
+        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
+
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path });
+        expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
+
+        const repeat = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(repeat.exitCode).toBe(0);
+        expect(getOutput(repeat)).toContain("not installed");
       } finally {
         temp.cleanup();
       }
@@ -338,6 +350,8 @@ describe("axm skills uninstall", () => {
       expect(result.stdout).toContain("skills uninstall");
       expect(result.stdout).toContain("--yes");
       expect(result.stdout).toContain("--preview");
+      expect(result.stdout).not.toContain("--keep-source");
+      expect(result.stdout).not.toContain("--delete-source");
       // Verify removed flag is not in help output
       expect(result.stdout).not.toContain("--agent");
     });

@@ -101,15 +101,15 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Managing installed extensions
 
-| Task                                        | Command                                                |
-| ------------------------------------------- | ------------------------------------------------------ |
-| List installed extensions of a type         | `axm <type> list`                                      |
-| Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>`                  |
-| Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                                  |
-| Uninstall                                   | `axm uninstall <fqn> [--keep-source\|--delete-source]` |
-| Update (omit FQN to update all)             | `axm update [<fqn>]`                                   |
-| Show extensions with available updates      | `axm outdated`                                         |
-| View published extension metadata           | `axm view <fqn> [version\|versions]`                   |
+| Task                                        | Command                               |
+| ------------------------------------------- | ------------------------------------- |
+| List installed extensions of a type         | `axm <type> list`                     |
+| Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>` |
+| Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                 |
+| Uninstall                                   | `axm uninstall <fqn>`                 |
+| Update (omit FQN to update all)             | `axm update [<fqn>]`                  |
+| Show extensions with available updates      | `axm outdated`                        |
+| View published extension metadata           | `axm view <fqn> [version\|versions]`  |
 
 ### Workspace state
 
@@ -127,6 +127,10 @@ when possible. If direct metadata or dependency edits produce trust drift,
 inspect with `axm packs repair <pack> --preview`; accept only after reviewing
 the classified changes. Configured workspace members satisfy pack dependencies
 before Registry lookup, and `packs add` records a caret constraint by default.
+
+Use disable when an installed extension should remain managed but inactive.
+Uninstall removes canonical source and managed artifacts once no declaration or
+pack still reaches them.
 
 ### Auth
 

@@ -48,7 +48,7 @@ const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
     case "registry-pattern-input":
       return `Use \`axm uninstall ${rootUninstallFqnGrammar}\`. ${genericPerTypeUninstallGuidance}`;
     case "workspace-pattern-input":
-      return "Workspace locators require an explicit source disposition. Use the matching per-type uninstall command.";
+      return "Use the matching per-type uninstall command for a workspace-authored extension.";
   }
 };
 

@@ -68,4 +68,67 @@ describe("Library lifecycle commands", () => {
       workspace.cleanup();
     }
   });
+
+  it("omits source-disposition flags from every uninstall help surface", async () => {
+    const commands: ReadonlyArray<ReadonlyArray<string>> = [
+      ["uninstall", "--help"],
+      ...[
+        "skills",
+        "commands",
+        "mcps",
+        "subagents",
+        "files",
+        "rules",
+        "hooks",
+        "knowledge",
+        "packs",
+      ].map((namespace) => [namespace, "uninstall", "--help"]),
+    ];
+
+    for (const command of commands) {
+      const result = await runCli(command);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("--scope");
+      expect(result.stdout).not.toContain("--keep-source");
+      expect(result.stdout).not.toContain("--delete-source");
+    }
+  });
+
+  it("rejects removed source-disposition flags before workspace mutation", async () => {
+    const workspace = createTempDir();
+
+    try {
+      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        cwd: workspace.path,
+      });
+      expect(setup.exitCode).toBe(0);
+      const invocations: ReadonlyArray<ReadonlyArray<string>> = [
+        ["uninstall", "@acme/skills/example"],
+        ...[
+          "skills",
+          "commands",
+          "mcps",
+          "subagents",
+          "files",
+          "rules",
+          "hooks",
+          "knowledge",
+          "packs",
+        ].map((namespace) => [namespace, "uninstall", "example"]),
+      ];
+
+      for (const invocation of invocations) {
+        for (const flag of ["--keep-source", "--delete-source"] as const) {
+          const before = snapshotAxmState(workspace.path);
+          const result = await runCli([...invocation, flag], { cwd: workspace.path });
+
+          expect(result.exitCode).not.toBe(0);
+          expect(result.stderr).toContain(flag);
+          expect(snapshotAxmState(workspace.path)).toEqual(before);
+        }
+      }
+    } finally {
+      workspace.cleanup();
+    }
+  });
 });

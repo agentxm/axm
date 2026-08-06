@@ -60,7 +60,6 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallRuleCommandIntent,
-      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
@@ -73,12 +72,7 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
               buildUninstallOperation<RuleExtensionRef>(
                 ruleManager,
                 makeWorkspaceRetentionPolicy(ws),
-                {
-                  target,
-                  ...(flags.sourceDisposition === undefined
-                    ? {}
-                    : { sourceDisposition: flags.sourceDisposition }),
-                },
+                { target },
               ),
             ),
           },

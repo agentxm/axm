@@ -58,7 +58,6 @@ export interface RootUninstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly sourceDisposition?: "keep" | "delete";
 }
 
 export interface RootUninstallHandlerArgs extends RootUninstallFlags {

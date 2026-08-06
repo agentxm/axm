@@ -182,25 +182,22 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
     }
     case "files": {
       const manager = yield* FilesManager;
-      yield* manager.materializeUninstall({
+      yield* manager.materializeDeactivate({
         target: { type: "files", name: node.name },
-        preserveSource: true,
       });
       return;
     }
     case "rule": {
       const manager = yield* RuleManager;
-      yield* manager.materializeUninstall({
+      yield* manager.materializeDeactivate({
         target: { type: "rule", name: node.name },
-        preserveSource: true,
       });
       return;
     }
     case "hook": {
       const manager = yield* HookManager;
-      yield* manager.materializeUninstall({
+      yield* manager.materializeDeactivate({
         target: { type: "hook", name: node.name },
-        preserveSource: true,
       });
       return;
     }

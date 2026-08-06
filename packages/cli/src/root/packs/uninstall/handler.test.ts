@@ -420,6 +420,43 @@ describe("packs uninstall handler", () => {
         }),
       );
     });
+
+    it.effect("preserves disabled direct skills when their pack is uninstalled", () => {
+      const { provide } = makeLayers();
+      const disabled = {
+        source: "@acme/skills/promoted-skill",
+        enabled: false,
+      };
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsSkills: { "promoted-skill": disabled },
+        settingsPacks: { "my-pack": "@acme/packs/my-pack" },
+        lockfilePacks: {
+          "my-pack": makePackLockEntry("@acme", "my-pack", {
+            resolvedSkills: {
+              "@acme/skills/promoted-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
+          }),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
+          );
+          expect(settings.skills?.["promoted-skill"]).toEqual(disabled);
+        }),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------

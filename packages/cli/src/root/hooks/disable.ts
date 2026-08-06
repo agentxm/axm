@@ -17,7 +17,6 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
@@ -105,9 +104,8 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
                 ...current,
                 enabled: false,
               }));
-              yield* hookManager.materializeUninstall({
+              yield* hookManager.materializeDeactivate({
                 target: { type: "hook", name: args.name },
-                preserveSource: isWorkspaceSourceLocator(entry.source),
               });
               return {
                 result: "success",

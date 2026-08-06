@@ -428,7 +428,6 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
 
 export interface UninstallOperationArgs<TRef extends ExtensionRef> {
   readonly target: ExtensionTargetFor<TRef>;
-  readonly sourceDisposition?: "keep" | "delete";
 }
 
 /**
@@ -452,22 +451,6 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
-    const workspaceSource =
-      Option.isSome(configuredSource) && isWorkspaceSourceLocator(configuredSource.value);
-    if (workspaceSource && args.sourceDisposition === undefined) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Cannot uninstall workspace-sourced ${args.target.type} "${args.target.name}" without an explicit source disposition`,
-        recover:
-          "Disable it, or choose whether to keep or delete the authoritative source package.",
-      });
-    }
-    if (!workspaceSource && args.sourceDisposition !== undefined) {
-      return yield* makeAppError({
-        code: "usage",
-        detail: "--keep-source and --delete-source apply only to workspace-sourced extensions",
-      });
-    }
     const transition = Effect.gen(function* () {
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
@@ -506,22 +489,16 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         };
       }
 
-      yield* manager.materializeUninstall({
-        target: args.target,
-        preserveSource: args.sourceDisposition === "keep",
-      });
+      yield* manager.materializeUninstall({ target: args.target });
       yield* manager.removeSettingsEntry({ target: args.target });
       yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
       return {
         job: {
           result: "success" as const,
-          message:
-            args.sourceDisposition === "keep"
-              ? `Removed ${toLabel(args.target)} from management and kept its source package`
-              : `Removed ${toLabel(args.target)}`,
+          message: `Removed ${toLabel(args.target)}`,
         } satisfies JobStepResult,
         receipt: "remove" as const,
-        expectedInstalled: args.sourceDisposition === "keep",
+        expectedInstalled: false,
       };
     });
 

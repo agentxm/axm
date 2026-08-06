@@ -317,8 +317,10 @@ export const CommandManagerLive = Layer.effect(
         });
       }, Effect.asVoid);
 
-    const materializeUninstall: ExtensionManager<CommandExtensionRef>["materializeUninstall"] =
-      Effect.fn("CommandManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<CommandExtensionRef>["materializeUninstall"] =>
+      Effect.fn("CommandManager.materializeRemoval")(function* ({ target }) {
         const configuredAgents = yield* agentRepo
           .getConfiguredAgents()
           .pipe(Effect.provideService(WorkspaceMutations, ws));
@@ -347,7 +349,7 @@ export const CommandManagerLive = Layer.effect(
           ),
         );
 
-        if (extensionsDirExists && preserveSource !== true) {
+        if (extensionsDirExists && !retainCanonical) {
           const scopeDirs = yield* fs.readDirectory(extensionsDir).pipe(
             Effect.mapError((error) =>
               makeAppError({
@@ -379,18 +381,22 @@ export const CommandManagerLive = Layer.effect(
         }
 
         // Remove from external extensions dir
-        const externalPath = path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, "commands", target.name);
-        yield* protectWorkspacePath(externalPath);
-        yield* fs.remove(externalPath, { recursive: true, force: true }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to remove external command source: ${externalPath}`,
-              cause: error,
-            }),
-          ),
-        );
+        if (!retainCanonical) {
+          const externalPath = path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, "commands", target.name);
+          yield* protectWorkspacePath(externalPath);
+          yield* fs.remove(externalPath, { recursive: true, force: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove external command source: ${externalPath}`,
+                cause: error,
+              }),
+            ),
+          );
+        }
       }, Effect.asVoid);
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "command",
@@ -428,6 +434,7 @@ export const CommandManagerLive = Layer.effect(
         );
       }),
       materializeUninstall,
+      materializeDeactivate,
 
       upsertSettingsEntry: Effect.fn("CommandManager.upsertSettingsEntry")(function* ({
         ref,

@@ -518,8 +518,10 @@ export const SubagentManagerLive = Layer.effect(
         });
       });
 
-    const materializeUninstall: ExtensionManager<SubagentExtensionRef>["materializeUninstall"] =
-      Effect.fn("SubagentManager.materializeUninstall")(function* ({ target, preserveSource }) {
+    const makeMaterializeRemoval = (
+      retainCanonical: boolean,
+    ): ExtensionManager<SubagentExtensionRef>["materializeUninstall"] =>
+      Effect.fn("SubagentManager.materializeRemoval")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
         const configuredAgents = yield* agentRepo
@@ -598,10 +600,12 @@ export const SubagentManagerLive = Layer.effect(
         });
 
         // --- Remove canonical source directory ---
-        if (preserveSource !== true) {
+        if (!retainCanonical) {
           yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
         }
       });
+    const materializeUninstall = makeMaterializeRemoval(false);
+    const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
       type: "subagent",
@@ -633,6 +637,7 @@ export const SubagentManagerLive = Layer.effect(
         );
       }),
       materializeUninstall,
+      materializeDeactivate,
       getLastUnmaterialization: ({ target }) =>
         Effect.succeed(lastUninstallState.get(target.name) ?? { agents: [], targets: [] }),
 

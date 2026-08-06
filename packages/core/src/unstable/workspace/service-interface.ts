@@ -233,7 +233,10 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly listMaterializable: () => Effect.Effect<ReadonlyArray<TRef>, AppError, never>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-    readonly preserveSource?: boolean;
+  }) => Effect.Effect<void, AppError, never>;
+  /** Remove active projections while retaining canonical managed content. */
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertSettingsEntry: (args: {
     readonly ref: TRef;

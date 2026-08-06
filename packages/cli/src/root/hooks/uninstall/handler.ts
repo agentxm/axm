@@ -12,7 +12,6 @@ export const handleUninstallHook = (
     readonly yes: boolean;
     readonly force: boolean;
     readonly preview: boolean;
-    readonly sourceDisposition?: "keep" | "delete";
   },
 ) =>
   Effect.gen(function* () {

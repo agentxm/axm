@@ -11,7 +11,7 @@ import {
 
 export const handleUninstall = (
   args: UninstallSubagentHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean; sourceDisposition?: "keep" | "delete" },
+  flags: { yes: boolean; force: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSubagentCommandWorkflowActions;

@@ -6,11 +6,6 @@ import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workf
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import {
-  deleteSourceFlag,
-  keepSourceFlag,
-  resolveSourceDisposition,
-} from "../../shared/source-disposition-flags.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { makeUninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
@@ -18,22 +13,18 @@ const uninstallConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured Knowledge bundle name")),
   ...scopeConfig,
   ...mutationFlags,
-  keepSource: keepSourceFlag,
-  deleteSource: deleteSourceFlag,
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, preview, keepSource, deleteSource }) =>
+  ({ name, scope, yes, preview }) =>
     Effect.gen(function* () {
-      const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
       const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
       const resolution = yield* runUninstallCommandWorkflow({ name }, actions, {
         yes,
         preview,
         displayApplied: false,
-        ...(sourceDisposition === undefined ? {} : { sourceDisposition }),
       });
       yield* emitAppliedPlanOutcome({
         command: "knowledge.uninstall",

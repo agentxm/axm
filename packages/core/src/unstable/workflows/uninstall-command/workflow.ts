@@ -39,7 +39,6 @@ export interface UninstallWorkflowFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly displayApplied?: boolean;
-  readonly sourceDisposition?: "keep" | "delete";
 }
 
 // -----------------------------------------------------------------------------

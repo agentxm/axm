@@ -13,10 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const mavenType = Schema.decodeUnknownSync(PackageTypeSchema)("maven");
@@ -89,10 +89,26 @@ const makeMavenPackage = (
   artifactId: string,
   version: string | undefined,
   source: string,
-): DetectedPackage => {
-  const purl = new PackageURL("maven", groupId, artifactId, version ?? null, null, null);
-  const purlParts = decodePurl(purl.toString());
-  return { purl: purlParts, type: mavenType, source };
+): DetectedPackage | undefined =>
+  Option.getOrUndefined(
+    makeDetectedPackage({
+      type: mavenType,
+      ...(groupId === "" ? {} : { namespace: groupId }),
+      name: artifactId,
+      ...(version === undefined ? {} : { version }),
+      source,
+    }),
+  );
+
+const appendMavenPackage = (
+  results: Array<DetectedPackage>,
+  groupId: string,
+  artifactId: string,
+  version: string | undefined,
+  source: string,
+): void => {
+  const detected = makeMavenPackage(groupId, artifactId, version, source);
+  if (detected !== undefined) results.push(detected);
 };
 
 /**
@@ -120,7 +136,7 @@ const parsePomXml = (content: string, source: string): ReadonlyArray<DetectedPac
     const rawVersion = versionMatch?.[1];
     const version = resolveVersion(rawVersion, properties);
 
-    results.push(makeMavenPackage(groupId, artifactId, version, source));
+    appendMavenPackage(results, groupId, artifactId, version, source);
   }
 
   return results;
@@ -247,7 +263,7 @@ const parseVersionCatalog = (content: string, source: string): ReadonlyArray<Det
       version = versions.get(versionRefMatch[1]);
     }
 
-    results.push(makeMavenPackage(groupId, artifactId, version, source));
+    appendMavenPackage(results, groupId, artifactId, version, source);
   }
 
   return results;
@@ -274,7 +290,7 @@ const parseDepsEdn = (content: string, source: string): ReadonlyArray<DetectedPa
     if (parts.length === 1) {
       const artifactId = parts[0];
       if (artifactId !== undefined && artifactId.trim() !== "") {
-        results.push(makeMavenPackage("", artifactId.trim(), version, source));
+        appendMavenPackage(results, "", artifactId.trim(), version, source);
       }
       continue;
     }
@@ -288,7 +304,7 @@ const parseDepsEdn = (content: string, source: string): ReadonlyArray<DetectedPa
         groupId.trim() !== "" &&
         artifactId.trim() !== ""
       ) {
-        results.push(makeMavenPackage(groupId.trim(), artifactId.trim(), version, source));
+        appendMavenPackage(results, groupId.trim(), artifactId.trim(), version, source);
       }
     }
   }

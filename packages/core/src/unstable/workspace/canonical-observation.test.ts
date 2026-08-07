@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach } from "vitest";
 import { computeSkillSourceHash } from "../skills/index.js";
+import { computeLegacySkillSourceHash } from "../skills/operations/source-hash.js";
 import { computePackageContentHash } from "../extensions/index.js";
 import type { ExtensionTrustRecord } from "../trust/index.js";
 import { observeCanonicalExtension } from "./canonical-observation.js";
@@ -57,6 +58,29 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
       expect(observed.status).toBe("usable");
       expect(observed.path).toBe(canonical);
+    }),
+  );
+
+  it.effect("accepts a legacy skill hash and reports the canonical replacement", () =>
+    Effect.gen(function* () {
+      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
+      nodeFs.mkdirSync(canonical, { recursive: true });
+      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
+      const legacyIdentity = yield* computeLegacySkillSourceHash(canonical);
+      const canonicalIdentity = yield* computeSkillSourceHash(canonical);
+
+      const observed = yield* observeCanonicalExtension({
+        baseDir: root,
+        desired: desiredSkill(),
+        trust: { ...skillTrust(), contentIdentity: legacyIdentity },
+      });
+
+      expect(observed).toMatchObject({
+        status: "usable",
+        path: canonical,
+        contentIdentity: canonicalIdentity,
+      });
+      expect(canonicalIdentity).not.toBe(legacyIdentity);
     }),
   );
 

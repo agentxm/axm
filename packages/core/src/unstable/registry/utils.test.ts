@@ -52,10 +52,11 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // -----------------------------------------------------------------------------
 
 describe("selectVersion", () => {
-  it("returns first version", () => {
+  it("returns the maximum version regardless of publication order", () => {
     const versions = [
-      makeVersionEntry({ version: exactVersion("2.0.0") }),
       makeVersionEntry({ version: exactVersion("1.0.0") }),
+      makeVersionEntry({ version: exactVersion("2.0.0") }),
+      makeVersionEntry({ version: exactVersion("1.5.0") }),
     ];
     const result = selectVersion(versions);
     expect(Option.isSome(result)).toBe(true);

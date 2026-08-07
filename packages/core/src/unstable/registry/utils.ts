@@ -31,13 +31,13 @@ import { filterMatureVersions } from "./release-age-policy.js";
 /**
  * Select the best matching version from a list of versions.
  *
- * Returns the first version (newest first).
+ * Returns the maximum non-yanked version, independent of input order.
  */
 export const selectVersion = (
   versions: ReadonlyArray<VersionEntry>,
 ): Option.Option<VersionEntry> => {
-  const [latest] = versions.filter((entry) => entry.yankedAt === undefined);
-  return latest === undefined ? Option.none() : Option.some(latest);
+  const availableVersions = versions.filter((entry) => entry.yankedAt === undefined);
+  return resolveVersionInRange(availableVersions, Option.none());
 };
 
 export const resolveVersionEntry = (

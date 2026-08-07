@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FastCheck from "effect/testing/FastCheck";
 import {
   checkForbiddenSourceEntries,
   parseZipCentralDirectory,
@@ -66,6 +67,23 @@ describe("validateArchive", () => {
       const error = yield* Effect.flip(validateArchive(zip));
       expect(error.code).toBe("duplicate_entry");
     }),
+  );
+
+  it.effect.prop(
+    "rejects Windows drive-letter paths",
+    {
+      drive: FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+      separator: FastCheck.constantFrom("/", "\\"),
+      name: FastCheck.stringMatching(/^[A-Za-z0-9]{1,24}$/),
+    },
+    ({ drive, separator, name }) =>
+      Effect.gen(function* () {
+        const fileName = `${drive}:${separator}${name}.txt`;
+        const zip = buildZip([{ fileName, content: textContent("unsafe") }]);
+        const error = yield* Effect.flip(validateArchive(zip));
+        expect(error.code).toBe("absolute_path");
+      }),
+    { fastCheck: { numRuns: 100, seed: 0x41584d } },
   );
 
   it.effect("rejects symlink entries", () =>

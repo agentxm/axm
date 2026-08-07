@@ -12,10 +12,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { readEnv } from "../utils/index.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const golangType = Schema.decodeUnknownSync(PackageTypeSchema)("golang");
@@ -68,11 +68,15 @@ const parseRequireLine = (line: string, source: string): DetectedPackage | undef
 
   const { namespace, name } = parseModulePath(modulePath);
 
-  // Construct purl string and decode through schema
-  const purl = new PackageURL("golang", namespace || null, name, version, null, null);
-  const purlParts = decodePurl(purl.toString());
-
-  return { purl: purlParts, type: golangType, source };
+  return Option.getOrUndefined(
+    makeDetectedPackage({
+      type: golangType,
+      ...(namespace === "" ? {} : { namespace }),
+      name,
+      version,
+      source,
+    }),
+  );
 };
 
 /**

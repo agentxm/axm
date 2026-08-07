@@ -5,7 +5,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FastCheck from "effect/testing/FastCheck";
+import { CONFIGURABLE_AGENTS_BY_ID, CONFIGURABLE_AGENT_IDS } from "../agent-capabilities/index.js";
 import { ExitCode } from "../app-error/index.js";
+import type { McpServerEntry } from "../settings/index.js";
 import { handle } from "../test-helpers.js";
 import {
   addMcpServerMixed,
@@ -18,6 +21,34 @@ import {
 } from "./mcp-sync.js";
 import { inspectMcpServerAcrossAgents } from "../mcps/inspection.js";
 import { readYamlEntry } from "../yaml/index.js";
+
+const configurableMcpCases = CONFIGURABLE_AGENT_IDS.flatMap((agentId) => {
+  const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+  if (capability.axm.writer === null || !("transports" in capability.native)) return [];
+  const target =
+    capability.axm.writer.config.targets.find((candidate) => candidate.scope === "project") ??
+    capability.axm.writer.config.targets.find((candidate) => candidate.scope === "user");
+  if (target === undefined) return [];
+  return [{ agentId, scope: target.scope, transports: capability.native.transports }];
+});
+
+const inlineEntry = {
+  source: "inline",
+  command: "npx",
+  args: ["-y", "example-mcp-server"],
+  enabled: true,
+  env: { EXAMPLE_TOKEN: "${EXAMPLE_TOKEN}" },
+} satisfies McpServerEntry;
+const inlineRemoteEntry = {
+  source: "inline",
+  url: "https://mcp.example.com/api",
+  enabled: true,
+  headers: {},
+  env: {},
+} satisfies McpServerEntry;
+
+const entryForTransports = (transports: ReadonlyArray<string>): McpServerEntry =>
+  transports.includes("stdio") ? inlineEntry : inlineRemoteEntry;
 
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
@@ -49,6 +80,93 @@ const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   );
 
 describe("mcp-sync helpers", () => {
+  it.effect(
+    "writes a config that inspection reads as a match for every configurable MCP agent",
+    () =>
+      withNode(
+        Effect.gen(function* () {
+          expect(configurableMcpCases.length).toBeGreaterThan(0);
+          for (const testCase of configurableMcpCases) {
+            const workspaceRoot = mkdtempSync(
+              nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
+            );
+            try {
+              const entry = entryForTransports(testCase.transports);
+              yield* withHome(
+                workspaceRoot,
+                Effect.gen(function* () {
+                  const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
+                    workspaceRoot,
+                    serverName: "example-server",
+                    scope: testCase.scope,
+                    entry,
+                  });
+                  expect(outcome._tag, testCase.agentId).toBe("success");
+                  const inspection = yield* inspectMcpServerAcrossAgents({
+                    workspaceRoot,
+                    scope: testCase.scope,
+                    agentIds: [testCase.agentId],
+                    serverName: "example-server",
+                    entry,
+                  });
+                  expect(inspection[0]?.status, testCase.agentId).toBe("match");
+                }),
+              );
+            } finally {
+              rmSync(workspaceRoot, { recursive: true, force: true });
+            }
+          }
+        }),
+      ),
+  );
+
+  it.effect.prop(
+    "preserves write-inspect agreement for arbitrary canonical server names",
+    {
+      testCase: FastCheck.constantFrom(...configurableMcpCases),
+      serverName: FastCheck.tuple(
+        FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz"),
+        FastCheck.array(FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-_"), {
+          maxLength: 30,
+        }),
+      ).map(([first, rest]) => `${first}${rest.join("")}`),
+    },
+    ({ testCase, serverName }) =>
+      withNode(
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
+          );
+          try {
+            const entry = entryForTransports(testCase.transports);
+            yield* withHome(
+              workspaceRoot,
+              Effect.gen(function* () {
+                const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
+                  workspaceRoot,
+                  serverName,
+                  scope: testCase.scope,
+                  entry,
+                });
+                expect(outcome._tag).toBe("success");
+                const inspections = yield* inspectMcpServerAcrossAgents({
+                  workspaceRoot,
+                  scope: testCase.scope,
+                  agentIds: [testCase.agentId],
+                  serverName,
+                  entry,
+                });
+                expect(inspections[0]?.status).toBe("match");
+              }),
+            );
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+      ),
+    { fastCheck: { numRuns: 100, seed: 0x41584d } },
+  );
+
   it.effect("captures output and redacts secrets from CLI output", () =>
     withNode(
       Effect.gen(function* () {

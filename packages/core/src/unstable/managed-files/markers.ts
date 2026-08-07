@@ -116,14 +116,31 @@ export const commentStyleForTarget = (target: string): Option.Option<FileComment
     : Option.some({ kind: "line", prefix: "#" });
 };
 
+const encodeMarkerValue = (value: string): string =>
+  /[\s%=~]/u.test(value) ? `~${encodeURIComponent(JSON.stringify(value))}` : value;
+
+const decodeMarkerValue = (value: string): Option.Option<string> => {
+  if (!value.startsWith("~")) return Option.some(value);
+  try {
+    const decoded: unknown = JSON.parse(decodeURIComponent(value.slice(1)));
+    return typeof decoded === "string" ? Option.some(decoded) : Option.none();
+  } catch {
+    return Option.none();
+  }
+};
+
 const markerPayload = (marker: FileRegionMarker): string => {
   const owner =
     marker.ext !== undefined
-      ? ` ext=${marker.ext}`
+      ? ` ext=${encodeMarkerValue(marker.ext)}`
       : marker.generator !== undefined
-        ? ` generator=${marker.generator}`
+        ? ` generator=${encodeMarkerValue(marker.generator)}`
         : "";
-  return `axm:${marker.kind} region=${marker.region}${owner}`;
+  const options = Object.entries(marker.options ?? {})
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([key, value]) => ` ${key}=${encodeMarkerValue(value)}`)
+    .join("");
+  return `axm:${marker.kind} region=${encodeMarkerValue(marker.region)}${owner}${options}`;
 };
 
 /**
@@ -180,11 +197,12 @@ export const parseRegionMarker = (
     const equalsIndex = part.indexOf("=");
     if (equalsIndex <= 0 || equalsIndex === part.length - 1) return Option.none();
     const key = part.slice(0, equalsIndex);
-    const value = part.slice(equalsIndex + 1);
-    if (key === "region") region = value;
-    else if (key === "ext") ext = value;
-    else if (key === "generator") generator = value;
-    else options[key] = value;
+    const value = decodeMarkerValue(part.slice(equalsIndex + 1));
+    if (Option.isNone(value)) return Option.none();
+    if (key === "region") region = value.value;
+    else if (key === "ext") ext = value.value;
+    else if (key === "generator") generator = value.value;
+    else options[key] = value.value;
   }
   if (region === undefined) return Option.none();
   const hasOptions = Object.keys(options).length > 0;

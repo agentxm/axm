@@ -4,9 +4,39 @@
 
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import * as FastCheck from "effect/testing/FastCheck";
 import { describe, expect, it } from "@effect/vitest";
 import { extensionName, handle } from "../test-helpers.js";
+import { ExtensionNameSchema, ExtensionTypeSchema } from "./common.js";
 import { formatFqn, parseFqn } from "./fqn.js";
+import { HandleSchema } from "./handle.js";
+
+const handleArbitrary = FastCheck.tuple(
+  FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789_"),
+  FastCheck.array(FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789_-"), {
+    maxLength: 20,
+  }),
+).map(([first, rest]) =>
+  Schema.decodeUnknownSync(HandleSchema)(`@${first}${rest.join("").replace(/-+$/, "")}`),
+);
+const nameArbitrary = FastCheck.tuple(
+  FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"),
+  FastCheck.array(FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-"), {
+    maxLength: 20,
+  }),
+).map(([first, rest]) =>
+  Schema.decodeUnknownSync(ExtensionNameSchema)(`${first}${rest.join("").replace(/-+$/, "")}`),
+);
+const typeArbitrary = FastCheck.constantFrom(
+  "skill",
+  "mcp-server",
+  "subagent",
+  "rule",
+  "hook",
+  "knowledge",
+  "pack",
+).map(Schema.decodeUnknownSync(ExtensionTypeSchema));
 
 describe("parseFqn", () => {
   [
@@ -99,6 +129,19 @@ describe("formatFqn", () => {
 });
 
 describe("round-trip", () => {
+  it.prop(
+    "parses every generated canonical FQN after formatting",
+    { owner: handleArbitrary, type: typeArbitrary, name: nameArbitrary },
+    ({ owner, type, name }) => {
+      const parts = { owner, type, name };
+      const formatted = formatFqn(parts);
+      const parsed = parseFqn(formatted);
+      expect(Result.isSuccess(parsed)).toBe(true);
+      if (Result.isSuccess(parsed)) expect(parsed.success).toEqual(parts);
+    },
+    { fastCheck: { numRuns: 500, seed: 0x41584d } },
+  );
+
   [
     "@acme/skills/code-review",
     "@acme/packs/fullstack",

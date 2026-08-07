@@ -19,7 +19,7 @@ export interface VersionEntryLike {
 export const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 
-const SEMVER_RANGE_PATTERN = /^[~^<>=*xXvV0-9A-Za-z| .-]+$/;
+const SEMVER_RANGE_PATTERN = /^[~^<>=*xXvV0-9A-Za-z+| .-]+$/;
 
 /**
  * Schema for an exact semver version (no ranges).
@@ -146,15 +146,16 @@ export const versionSatisfiesRange = (version: Version, range: VersionRange): bo
   semver.satisfies(version, range);
 
 /**
- * Select the first version (newest-first) that satisfies the range.
+ * Select the maximum version that satisfies the range, independent of input
+ * order.
  *
  * - `Option.none()` range or `"*"` matches any version.
  * - Invalid ranges match nothing.
  */
-export const resolveVersionInRange = (
-  versions: ReadonlyArray<VersionEntryLike>,
+export const resolveVersionInRange = <T extends VersionEntryLike>(
+  versions: ReadonlyArray<T>,
   range: Option.Option<string>,
-): Option.Option<VersionEntryLike> => {
+): Option.Option<T> => {
   const rangeStr = Option.getOrElse(range, () => "*");
 
   // Wildcard means no range filtering
@@ -165,12 +166,15 @@ export const resolveVersionInRange = (
     return Option.none();
   }
 
+  let selected: T | undefined;
   for (const version of versions) {
     if (!isWildcard && !semver.satisfies(version.version, rangeStr)) {
       continue;
     }
-    return Option.some(version);
+    if (selected === undefined || semver.compareBuild(version.version, selected.version) > 0) {
+      selected = version;
+    }
   }
 
-  return Option.none();
+  return Option.fromUndefinedOr(selected);
 };

@@ -37,16 +37,14 @@ skills:
     updatedAt: 2026-08-07T16:50:04.581Z
     sourceHash: 96d7cd88e742b7497a424ce35ac5a0c12363cee209cb77bd13c568befc492b82
   okf-author:
-    type: registry
+    type: workspace
     owner: "@craigsmitham"
+    extensionType: skill
     name: okf-author
-    resolvedVersion: 0.0.1
-    integrity: sha512-InaY5EeTb20EhOfwHxWm/SUj5zX1gmul2GY8CFH5YI38oBM4Z36q6lAGedS+3Fnguu7ajafBY90j6TuyA+c6rw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    version: 0.0.1
     installedAt: 2026-08-07T16:50:04.860Z
-    updatedAt: 2026-08-07T16:50:04.862Z
-    sourceHash: f611d2d61e164940ea675fe9f91fdae38ae6c82b1aa5188d037f7e18afc53177
+    updatedAt: 2026-08-07T20:58:25.083Z
+    sourceHash: 81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b
   effect-collections:
     type: workspace
     owner: "@axm"
@@ -139,16 +137,14 @@ skills:
     sourceHash: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
 knowledge:
   agentxm:
-    type: registry
+    type: workspace
     owner: "@agentxm"
+    extensionType: knowledge
     name: agentxm
-    resolvedVersion: 0.1.0
-    integrity: sha512-bvuEFyzdFxROKUyp3SDeajmIHrX3fWjLiuhsupz/VpkYiIcNVJniE0NMOzEjCKRN0qdAJ2zsvj0cPaUSCo4yEQ==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
+    version: 0.1.0
     installedAt: 2026-08-06T14:50:18.696Z
-    updatedAt: 2026-08-06T14:50:19.246Z
-    sourceHash: d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728
+    updatedAt: 2026-08-07T20:58:25.003Z
+    sourceHash: be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7
 packs:
   effect:
     type: workspace

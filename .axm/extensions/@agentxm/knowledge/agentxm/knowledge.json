@@ -10,15 +10,7 @@
   },
   "bundleRoot": "src",
   "description": "Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows",
-  "keywords": [
-    "agentxm",
-    "axm",
-    "knowledge",
-    "okf",
-    "extensions",
-    "registry",
-    "domain-model"
-  ],
+  "keywords": ["agentxm", "axm", "knowledge", "okf", "extensions", "registry", "domain-model"],
   "license": "CC-BY-4.0",
   "homepage": "https://agentxm.ai"
 }

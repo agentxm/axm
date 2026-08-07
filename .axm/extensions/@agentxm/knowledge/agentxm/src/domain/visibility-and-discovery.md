@@ -11,7 +11,7 @@ generated:
 # Visibility and discovery
 
 Every AgentXM extension carries a two-value **visibility**: `public` or
-`private`. One perimeter governs *both* read access and discovery — there is
+`private`. One perimeter governs _both_ read access and discovery — there is
 no separate discovery flag, and intentionally no "published and fetchable but
 hidden from listings" state.
 
@@ -44,11 +44,11 @@ unlisted" state.
 
 ## Yank vs. deprecation vs. visibility
 
-| Mechanism | Granularity | Effect |
-| --- | --- | --- |
-| Visibility | Whole extension | Who can see and fetch it at all |
-| Yank | Exact version (or an atomic all-versions snapshot) | "Stop using this" — yanked versions stop resolving for new installs; exact yanked references remain fetchable by authorized readers with a warning |
-| Deprecation | Metadata | Warning-only guidance to move on; nothing stops resolving |
+| Mechanism   | Granularity                                        | Effect                                                                                                                                             |
+| ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visibility  | Whole extension                                    | Who can see and fetch it at all                                                                                                                    |
+| Yank        | Exact version (or an atomic all-versions snapshot) | "Stop using this" — yanked versions stop resolving for new installs; exact yanked references remain fetchable by authorized readers with a warning |
+| Deprecation | Metadata                                           | Warning-only guidance to move on; nothing stops resolving                                                                                          |
 
 Yank is the version-level withdrawal mechanism; visibility is never used to
 simulate it.

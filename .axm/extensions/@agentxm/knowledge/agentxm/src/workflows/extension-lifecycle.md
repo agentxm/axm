@@ -49,7 +49,7 @@ does not.
 5. **Retire** — `axm uninstall` removes an entry; pack-driven removal is
    orphan-aware per [Pack semantics](../domain/pack-semantics.md).
 
-What the lifecycle is *not*: installing an extension never edits agent
+What the lifecycle is _not_: installing an extension never edits agent
 instructions unless the type's contract says so (Rules inject into
 instruction files; Knowledge is never injected), and a registry Library is
 not an install target at any point in this lifecycle.

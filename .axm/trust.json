@@ -12,13 +12,10 @@
     "knowledge:agentxm": {
       "extensionType": "knowledge",
       "name": "agentxm",
-      "authority": "registry",
-      "sourceIdentity": "@agentxm/knowledge/agentxm",
-      "sourceName": "default",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@agentxm/knowledge/agentxm",
       "resolvedVersion": "0.1.0",
-      "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
-      "integrity": "sha512-bvuEFyzdFxROKUyp3SDeajmIHrX3fWjLiuhsupz/VpkYiIcNVJniE0NMOzEjCKRN0qdAJ2zsvj0cPaUSCo4yEQ==",
-      "contentIdentity": "d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728"
+      "contentIdentity": "be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7"
     },
     "skill:effect-basics": {
       "extensionType": "skill",
@@ -47,13 +44,10 @@
     "skill:okf-author": {
       "extensionType": "skill",
       "name": "okf-author",
-      "authority": "registry",
-      "sourceIdentity": "@craigsmitham/skills/okf-author",
-      "sourceName": "default",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@craigsmitham/skills/okf-author",
       "resolvedVersion": "0.0.1",
-      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
-      "integrity": "sha512-InaY5EeTb20EhOfwHxWm/SUj5zX1gmul2GY8CFH5YI38oBM4Z36q6lAGedS+3Fnguu7ajafBY90j6TuyA+c6rw==",
-      "contentIdentity": "f611d2d61e164940ea675fe9f91fdae38ae6c82b1aa5188d037f7e18afc53177"
+      "contentIdentity": "81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b"
     },
     "skill:effect-collections": {
       "extensionType": "skill",

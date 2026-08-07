@@ -33,7 +33,7 @@ extensions.[^pack-schema]
   `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers`; the lockfile
   schema owns the concrete field enumeration).
 - Pack-managed dependency entries may exist as lockfile-only native installs,
-  and therefore classify as *implicit* until explicitly configured.
+  and therefore classify as _implicit_ until explicitly configured.
 - Pack-driven uninstall removes only orphaned dependency entries — never
   directly configured entries, and never dependencies still referenced by
   other packs.
@@ -52,4 +52,5 @@ Related: [Extension types](extension-types.md),
 configured/implicit/unmanaged lifecycle classification packs participate in.
 
 [^pack-schema]: Pack manifest JSON Schema.
+
 [^workspace-state]: AXM workspace-state guide (packs section).

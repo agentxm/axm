@@ -260,9 +260,11 @@ See [Testing Guide](contributing/guides/testing.md) and
 
 Wait for the user to review changes and decide when to commit.
 <!-- axm:start region=knowledge-base -->
+
 ## Knowledge Base
 
-| Name | Description |
-| --- | --- |
+| Name                                                                        | Description                                                                                                                                                |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [@agentxm/agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows |
+
 <!-- axm:end region=knowledge-base -->

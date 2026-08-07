@@ -23,17 +23,17 @@ ID (used in manifests, APIs, and persistence), a plural route segment (used in
 FQNs and CLI subcommands), and a product-facing label — the exact spellings
 are normative in [Identifier grammar](identifier-grammar.md).
 
-| Type ID | Product label | What it does |
-| --- | --- | --- |
-| `skill` | Skills | Teaches the agent reusable capabilities or workflows. Every skill carries an upstream `SKILL.md` document; native skills additionally carry a schema-validated `skill.json` manifest. |
-| `command` | Commands | User-invokable command / stored-prompt workflow surface. |
-| `mcp-server` | MCP Servers | Connects agents to tools and resources via the Model Context Protocol. |
-| `subagent` | Subagents | Defines specialized delegated sub-agents for task work. |
-| `files` | Context Files | Declaratively materializes content bytes into a workspace. It has no agent-compatibility surface and is not the semantic home for instruction files or rules. |
-| `rule` | Rules | Injects managed, rule-oriented guidance into workspace instruction files (the workspace's `rulesConfig.instructions` surface). |
-| `hook` | Hooks | Managed agent lifecycle hooks: materializes executable package bodies and merges native agent hook settings, via a `hook.json` manifest. |
-| `knowledge` | Knowledge | An isolated bundle of curated Markdown concepts (Open Knowledge Format 0.2), discoverable and readable on demand without ever being injected into agent instructions. |
-| `pack` | Packs | A curated bundle referencing multiple extensions of the eight leaf types. See [Pack semantics](pack-semantics.md). |
+| Type ID      | Product label | What it does                                                                                                                                                                          |
+| ------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skill`      | Skills        | Teaches the agent reusable capabilities or workflows. Every skill carries an upstream `SKILL.md` document; native skills additionally carry a schema-validated `skill.json` manifest. |
+| `command`    | Commands      | User-invokable command / stored-prompt workflow surface.                                                                                                                              |
+| `mcp-server` | MCP Servers   | Connects agents to tools and resources via the Model Context Protocol.                                                                                                                |
+| `subagent`   | Subagents     | Defines specialized delegated sub-agents for task work.                                                                                                                               |
+| `files`      | Context Files | Declaratively materializes content bytes into a workspace. It has no agent-compatibility surface and is not the semantic home for instruction files or rules.                         |
+| `rule`       | Rules         | Injects managed, rule-oriented guidance into workspace instruction files (the workspace's `rulesConfig.instructions` surface).                                                        |
+| `hook`       | Hooks         | Managed agent lifecycle hooks: materializes executable package bodies and merges native agent hook settings, via a `hook.json` manifest.                                              |
+| `knowledge`  | Knowledge     | An isolated bundle of curated Markdown concepts (Open Knowledge Format 0.2), discoverable and readable on demand without ever being injected into agent instructions.                 |
+| `pack`       | Packs         | A curated bundle referencing multiple extensions of the eight leaf types. See [Pack semantics](pack-semantics.md).                                                                    |
 
 ## Governing standards
 
@@ -59,4 +59,5 @@ contract and remain the system of record for manifest shape.[^schemas]
   extension installed while removing it from the agent's active surface.
 
 [^axm-readme]: AXM repository README (extension types table).
+
 [^schemas]: AXM extension manifest JSON Schemas.

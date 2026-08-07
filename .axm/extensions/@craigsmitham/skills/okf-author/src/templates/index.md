@@ -6,9 +6,9 @@ okf_version: "0.2"
 
 # {{Section / Group Heading}}
 
-* [{{Title}}]({{relative-url}}) - {{description, matching the concept's frontmatter}}
-* [{{Title}}]({{relative-url}}) - {{description, matching the concept's frontmatter}}
+- [{{Title}}]({{relative-url}}) - {{description, matching the concept's frontmatter}}
+- [{{Title}}]({{relative-url}}) - {{description, matching the concept's frontmatter}}
 
 # {{Another Section}}
 
-* [{{Subdirectory}}]({{subdir}}/) - {{what this subdirectory groups}}
+- [{{Subdirectory}}]({{subdir}}/) - {{what this subdirectory groups}}

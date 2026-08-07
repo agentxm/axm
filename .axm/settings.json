@@ -1,7 +1,5 @@
 {
-  "agents": [
-    "claude-code"
-  ],
+  "agents": ["claude-code"],
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",
@@ -23,10 +21,10 @@
     "code-review": "workspace:@axm/skills/code-review",
     "e2e-publish-check": "workspace:@local-dev/skills/e2e-publish-check",
     "axm": "workspace:@agentxm/skills/axm",
-    "okf-author": "@craigsmitham/skills/okf-author"
+    "okf-author": "workspace:@craigsmitham/skills/okf-author"
   },
   "knowledge": {
-    "agentxm": "@agentxm/knowledge/agentxm"
+    "agentxm": "workspace:@agentxm/knowledge/agentxm"
   },
   "packs": {
     "effect": "workspace:@axm/packs/effect"

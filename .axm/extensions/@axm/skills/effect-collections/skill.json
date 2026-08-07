@@ -1,6 +1,6 @@
 {
   "name": "effect-collections",
   "version": "0.1.0",
-  "profile": "@axm",
+  "owner": "@axm",
   "type": "skill"
 }

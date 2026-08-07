@@ -2,10 +2,6 @@
 
 ## 2026-08-06
 
-- **Extension-model simplification**: Removed Commands and Context Files from
-  the canonical type vocabulary, identifier grammar, schema/help inventory,
-  and related reference material. Bumped the bundle to `1.0.0` because the
-  public domain model removed two extension types.
 - **Creation**: Established the bundle with its initial concept set — seven
   domain concepts ([extension model](domain/extension-model.md),
   [extension types](domain/extension-types.md),

@@ -6,19 +6,155 @@
       "name": "axm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/axm",
-      "resolvedVersion": "0.2.5",
-      "contentIdentity": "20276eb6b3e13c27195c9ad13f1f339bedf074c1eedf47b61a72766d0ac9c43d"
+      "resolvedVersion": "0.25.5",
+      "contentIdentity": "0a4c3d1ed441d145ff98b6133f422dfe53db73c55ce0eeba27c3865809ade5ce"
     },
     "knowledge:agentxm": {
       "extensionType": "knowledge",
       "name": "agentxm",
-      "authority": "registry",
-      "sourceIdentity": "@agentxm/knowledge/agentxm",
-      "sourceName": "default",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@agentxm/knowledge/agentxm",
       "resolvedVersion": "0.1.0",
-      "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
-      "integrity": "sha512-bvuEFyzdFxROKUyp3SDeajmIHrX3fWjLiuhsupz/VpkYiIcNVJniE0NMOzEjCKRN0qdAJ2zsvj0cPaUSCo4yEQ==",
-      "contentIdentity": "d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728"
+      "contentIdentity": "be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7"
+    },
+    "skill:effect-basics": {
+      "extensionType": "skill",
+      "name": "effect-basics",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-basics",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9"
+    },
+    "skill:code-review": {
+      "extensionType": "skill",
+      "name": "code-review",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/code-review",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "c98aeff12cd9034725ca1a4d2ff8248d1dd753b648f2735b704fac33c01c5999"
+    },
+    "skill:e2e-publish-check": {
+      "extensionType": "skill",
+      "name": "e2e-publish-check",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@local-dev/skills/e2e-publish-check",
+      "resolvedVersion": "0.0.1",
+      "contentIdentity": "96d7cd88e742b7497a424ce35ac5a0c12363cee209cb77bd13c568befc492b82"
+    },
+    "skill:okf-author": {
+      "extensionType": "skill",
+      "name": "okf-author",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@craigsmitham/skills/okf-author",
+      "resolvedVersion": "0.0.1",
+      "contentIdentity": "81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b"
+    },
+    "skill:effect-collections": {
+      "extensionType": "skill",
+      "name": "effect-collections",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-collections",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a"
+    },
+    "skill:effect-concurrency": {
+      "extensionType": "skill",
+      "name": "effect-concurrency",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-concurrency",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84"
+    },
+    "skill:effect-filesystem": {
+      "extensionType": "skill",
+      "name": "effect-filesystem",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-filesystem",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e"
+    },
+    "skill:effect-iteration": {
+      "extensionType": "skill",
+      "name": "effect-iteration",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-iteration",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0"
+    },
+    "skill:effect-option": {
+      "extensionType": "skill",
+      "name": "effect-option",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-option",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d"
+    },
+    "skill:effect-schema": {
+      "extensionType": "skill",
+      "name": "effect-schema",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-schema",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361"
+    },
+    "skill:effect-service": {
+      "extensionType": "skill",
+      "name": "effect-service",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-service",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722"
+    },
+    "skill:effect-stream": {
+      "extensionType": "skill",
+      "name": "effect-stream",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-stream",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae"
+    },
+    "skill:effect-testing": {
+      "extensionType": "skill",
+      "name": "effect-testing",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-testing",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7"
+    },
+    "skill:effect-wrapping": {
+      "extensionType": "skill",
+      "name": "effect-wrapping",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/skills/effect-wrapping",
+      "resolvedVersion": "0.1.0",
+      "contentIdentity": "509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432"
+    },
+    "pack:effect": {
+      "extensionType": "pack",
+      "name": "effect",
+      "authority": "workspace",
+      "sourceIdentity": "workspace:@axm/packs/effect",
+      "resolvedVersion": "0.0.1",
+      "contentIdentity": "f3c0b17898a74062f8ba45f4f328dc2fd769c5b88577fc7cd51c672ceae37301",
+      "packManifest": {
+        "owner": "@axm",
+        "name": "effect",
+        "version": "0.0.1",
+        "dependencies": {
+          "@axm/skills/effect-testing": "^0.1.0",
+          "@axm/skills/effect-wrapping": "^0.1.0",
+          "@axm/skills/effect-schema": "^0.1.0",
+          "@axm/skills/effect-service": "^0.1.0",
+          "@axm/skills/effect-collections": "^0.1.0",
+          "@axm/skills/effect-iteration": "^0.1.0",
+          "@axm/skills/effect-basics": "^0.1.0",
+          "@axm/skills/effect-option": "^0.1.0",
+          "@axm/skills/effect-filesystem": "^0.1.0",
+          "@axm/skills/effect-concurrency": "^0.1.0",
+          "@axm/skills/effect-stream": "^0.1.0"
+        },
+        "metadataIdentity": "{\"$schema\":\"https://axm.sh/schemas/pack.schema.json\"}"
+      }
     }
   }
 }

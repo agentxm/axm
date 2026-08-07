@@ -1,7 +1,10 @@
 {
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@axm",
+  "type": "pack",
   "name": "effect",
   "version": "0.0.1",
-  "skills": {
+  "dependencies": {
     "@axm/skills/effect-testing": "^0.1.0",
     "@axm/skills/effect-wrapping": "^0.1.0",
     "@axm/skills/effect-schema": "^0.1.0",
@@ -13,9 +16,5 @@
     "@axm/skills/effect-filesystem": "^0.1.0",
     "@axm/skills/effect-concurrency": "^0.1.0",
     "@axm/skills/effect-stream": "^0.1.0"
-  },
-  "commands": {},
-  "mcps": {},
-  "profile": "@axm",
-  "type": "pack"
+  }
 }

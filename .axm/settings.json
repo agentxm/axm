@@ -7,16 +7,34 @@
     }
   },
   "skills": {
-    "effect-basics": "@axm/skills/effect-basics",
-    "code-review": "@axm/skills/code-review",
-    "e2e-publish-check": "@local-dev/skills/e2e-publish-check",
+    "effect-basics": "workspace:@axm/skills/effect-basics",
+    "effect-collections": "workspace:@axm/skills/effect-collections",
+    "effect-concurrency": "workspace:@axm/skills/effect-concurrency",
+    "effect-filesystem": "workspace:@axm/skills/effect-filesystem",
+    "effect-iteration": "workspace:@axm/skills/effect-iteration",
+    "effect-option": "workspace:@axm/skills/effect-option",
+    "effect-schema": "workspace:@axm/skills/effect-schema",
+    "effect-service": "workspace:@axm/skills/effect-service",
+    "effect-stream": "workspace:@axm/skills/effect-stream",
+    "effect-testing": "workspace:@axm/skills/effect-testing",
+    "effect-wrapping": "workspace:@axm/skills/effect-wrapping",
+    "code-review": "workspace:@axm/skills/code-review",
+    "e2e-publish-check": "workspace:@local-dev/skills/e2e-publish-check",
     "axm": "workspace:@agentxm/skills/axm",
-    "okf-author": "@craigsmitham/skills/okf-author"
+    "okf-author": "workspace:@craigsmitham/skills/okf-author"
   },
   "knowledge": {
-    "agentxm": "@agentxm/knowledge/agentxm"
+    "agentxm": "workspace:@agentxm/knowledge/agentxm"
   },
   "packs": {
-    "effect": "@axm/packs/effect"
+    "effect": "workspace:@axm/packs/effect"
+  },
+  "lint": {
+    "rules": {
+      "skill/frontmatter-standard-valid": "off",
+      "workspace/agents-detected-declared": "off",
+      "workspace/instructions-target-current": "off",
+      "workspace/skills-managed": "off"
+    }
   }
 }

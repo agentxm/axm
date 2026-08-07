@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@agentxm",
   "name": "agentxm",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "knowledge",
   "format": {
     "name": "okf",

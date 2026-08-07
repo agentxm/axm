@@ -1,13 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command, Prompt } from "effect/unstable/cli";
+import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
 
-import {
-  forceFlag,
-  isNonInteractive,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { isNonInteractive, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -42,7 +37,10 @@ const renderAdoption = (outcome: AdoptionOutcome): string =>
 const adoptConfig = {
   pet: Argument.string("pet").pipe(Argument.withDescription("Name of the pet to adopt out")),
   yes: yesFlag,
-  force: forceFlag,
+  force: Flag.boolean("force").pipe(
+    Flag.withAlias("f"),
+    Flag.withDescription("Override a sample pet adoption blocker"),
+  ),
   preview: previewFlag,
 } as const;
 

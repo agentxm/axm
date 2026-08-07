@@ -59,7 +59,7 @@ import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
-import type { ResolvedKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
+import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { PackTrustManifest, WorkspaceTrustState } from "../trust/index.js";
 import type { SourceHash } from "../extensions/index.js";
@@ -457,8 +457,8 @@ export interface WorkspaceMutationsService {
   /** Create or overwrite a hook entry in settings only. Serialized by semaphore. */
   readonly setHookEntry: (name: string, entry: HookEntry) => Effect.Effect<void, AppError>;
   /** Read, write, and remove isolated Open Knowledge Format bundles. */
-  readonly getKnowledgeProjectionConfig: () => Effect.Effect<
-    ResolvedKnowledgeProjectionConfig,
+  readonly getKnowledgeDiscoveryConfig: () => Effect.Effect<
+    ResolvedKnowledgeDiscoveryConfig,
     AppError
   >;
   readonly getConfiguredKnowledgeEntries: () => Effect.Effect<KnowledgeMap, AppError>;
@@ -631,8 +631,6 @@ export interface WorkspaceMutationsOptions {
   readonly agents?: ReadonlyArray<string>;
   /** Auto-accept setup defaults and confirmations */
   readonly yes?: boolean;
-  /** Overwrite drifted managed instruction targets */
-  readonly force?: boolean;
   /** Compute the setup plan without writing files */
   readonly preview?: boolean;
   /** Built-in source host configs (defaults to git forges only when not provided) */

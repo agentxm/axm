@@ -87,7 +87,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       expect(findings).toHaveLength(1);
       expect(findings[0]).toMatchObject({
         severity: "error",
-        message: expect.stringContaining("axm sync @test/skills/installed-skill --dry-run"),
+        message: expect.stringContaining("axm sync @test/skills/installed-skill --preview"),
       });
       expect(findings[0]?.message).toContain("discards these local modifications");
     });

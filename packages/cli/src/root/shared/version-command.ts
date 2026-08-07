@@ -354,61 +354,6 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     yield* renderer.info(verbosity.level === "quiet" ? message : `${message}\n  ${summary}`);
   });
 
-const exampleNamesByType: Record<VersionableExtensionType, string> = {
-  skill: "code-review",
-  subagent: "researcher",
-  "mcp-server": "my-server",
-  rule: "commit-style",
-  hook: "block-secrets",
-  knowledge: "platform-handbook",
-  pack: "frontend-tools",
-};
-
-const makeVersionCommand = (type: VersionableExtensionType) => {
-  const plural = extensionTypeToPlural[type];
-  const sentence = extensionTypeSentenceLabels[type];
-  const exampleName = exampleNamesByType[type];
-  const versionConfig = {
-    handle: Argument.string("handle").pipe(
-      Argument.withDescription(`Fully-qualified ${sentence} handle (@owner/${plural}/name)`),
-    ),
-    bump: Argument.string("bump").pipe(Argument.withDescription("Version bump rule or set")),
-    targetVersion: Argument.string("version").pipe(
-      Argument.withDescription("Exact semver version for set"),
-      Argument.optional,
-    ),
-    preview: previewFlag.pipe(Flag.withDescription("Print the bump without writing")),
-  } as const;
-
-  return Command.make("version", versionConfig, ({ handle, bump, targetVersion, preview }) =>
-    handleVersion({ type, handle, bump, targetVersion, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime(`${plural} version`),
-    ),
-  ).pipe(
-    withArgvTracking(versionConfig),
-    Command.withDescription(`Bump a managed ${sentence} manifest version`),
-    Command.withExamples([
-      {
-        command: `axm ${plural} version @acme/${plural}/${exampleName} patch`,
-        description: "Bump the patch version",
-      },
-      {
-        command: `axm ${plural} version @acme/${plural}/${exampleName} set 1.2.3`,
-        description: "Set an exact version",
-      },
-    ]),
-  );
-};
-
-export const skillsVersionCommand = makeVersionCommand("skill");
-export const subagentsVersionCommand = makeVersionCommand("subagent");
-export const mcpsVersionCommand = makeVersionCommand("mcp-server");
-export const packsVersionCommand = makeVersionCommand("pack");
-export const rulesVersionCommand = makeVersionCommand("rule");
-export const hooksVersionCommand = makeVersionCommand("hook");
-export const knowledgeVersionCommand = makeVersionCommand("knowledge");
-
 export interface RootVersionHandlerArgs {
   readonly handle: string;
   readonly bump: string;
@@ -469,7 +414,7 @@ export const versionCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(rootVersionConfig),
-  Command.withDescription("Bump a managed extension manifest version"),
+  Command.withDescription("Bump a project-workspace extension manifest version"),
   Command.withExamples([
     {
       command: "axm version @acme/hooks/block-secrets patch",

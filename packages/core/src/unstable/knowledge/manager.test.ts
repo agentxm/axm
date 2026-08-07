@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
@@ -70,6 +62,7 @@ const managerLayer = (
         WorkspaceMutations,
         makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
           getConfiguredKnowledgeEntries: () => Effect.succeed({}),
+          getInstructionsConfig: () => Effect.succeed(Option.some({})),
           ...overrides,
         }),
       ),
@@ -86,7 +79,7 @@ const managerLayer = (
   );
 
 describe("KnowledgeManager", () => {
-  it.effect("materializes a valid OKF bundle in isolation and rebuilds the derived index", () =>
+  it.effect("materializes a valid OKF bundle and writes its instruction discovery row", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
       try {
@@ -112,18 +105,11 @@ describe("KnowledgeManager", () => {
             ),
           ),
         ).toBe(true);
-        expect(
-          readFileSync(nodePath.join(workspaceRoot, ".agents", "knowledge", "index.md"), "utf8"),
-        ).toContain("[@acme/handbook]");
-        expect(
-          existsSync(
-            nodePath.join(workspaceRoot, ".agents", "knowledge", "@acme", "handbook", "index.md"),
-          ),
-        ).toBe(true);
+        expect(existsSync(nodePath.join(workspaceRoot, ".agents", "knowledge"))).toBe(false);
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
-        expect(instructions).toContain("region=knowledge-discovery");
-        expect(instructions).toContain("untrusted reference material");
-        expect(instructions).toContain(".agents/knowledge/index.md");
+        expect(instructions).toContain("region=knowledge-base");
+        expect(instructions).toContain("## Knowledge Base");
+        expect(instructions).toContain(".axm/extensions/external/knowledge/handbook/src/index.md");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -162,7 +148,7 @@ describe("KnowledgeManager", () => {
   );
 
   it.effect(
-    "preserves the previous canonical package and projection when replacement validation fails",
+    "preserves the previous canonical package and discovery row when replacement validation fails",
     () =>
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
@@ -191,19 +177,9 @@ describe("KnowledgeManager", () => {
             "concept.md",
           );
           expect(readFileSync(canonicalConcept, "utf8")).toContain("type: concept");
-          expect(
-            readFileSync(
-              nodePath.join(
-                workspaceRoot,
-                ".agents",
-                "knowledge",
-                "@acme",
-                "handbook",
-                "concept.md",
-              ),
-              "utf8",
-            ),
-          ).toContain("type: concept");
+          expect(readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8")).toContain(
+            "@acme/handbook",
+          );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -211,7 +187,7 @@ describe("KnowledgeManager", () => {
   );
 
   it.effect(
-    "continues healthy projection reconciliation when one locked source is unavailable",
+    "fails closed without rewriting discovery when one active locked source is unavailable",
     () =>
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
@@ -272,31 +248,15 @@ describe("KnowledgeManager", () => {
             yield* manager.sync({ dryRun: false });
             rmSync(unavailableCanonical, { recursive: true, force: true });
             rmSync(unavailableSource, { recursive: true, force: true });
-            rmSync(nodePath.join(workspaceRoot, ".agents", "knowledge", "@acme", "healthy"), {
-              recursive: true,
-              force: true,
-            });
-            return yield* manager.sync({ dryRun: false });
+            const before = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
+            const failure = yield* manager.sync({ dryRun: false }).pipe(Effect.flip);
+            return { before, failure };
           }).pipe(Effect.provide(layer));
 
-          expect(result.warnings).toHaveLength(1);
-          expect(result.warnings[0]).toContain("unavailable");
-          expect(
-            existsSync(
-              nodePath.join(workspaceRoot, ".agents", "knowledge", "@acme", "healthy", "index.md"),
-            ),
-          ).toBe(true);
-          expect(
-            lstatSync(
-              nodePath.join(workspaceRoot, ".agents", "knowledge", "@acme", "unavailable"),
-            ).isSymbolicLink(),
-          ).toBe(true);
-          const index = readFileSync(
-            nodePath.join(workspaceRoot, ".agents", "knowledge", "index.md"),
-            "utf8",
+          expect(result.failure.detail).toContain("unavailable");
+          expect(readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8")).toBe(
+            result.before,
           );
-          expect(index).toContain("[@acme/healthy]");
-          expect(index).toContain("[@acme/unavailable]");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

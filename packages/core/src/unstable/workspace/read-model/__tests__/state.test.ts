@@ -170,6 +170,35 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("accepts legacy Knowledge projection fields for one read horizon", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(
+                JSON.stringify({
+                  knowledgeConfig: {
+                    directory: "docs/legacy-knowledge",
+                    ignore: ["old"],
+                    instructions: false,
+                  },
+                }),
+              ),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const result = Option.getOrThrow(yield* api.settings);
+      expect(result.knowledgeConfig).toEqual({ instructions: false });
+    }),
+  );
+
   it.effect("fails with SettingsIoError when filesystem read fails", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;

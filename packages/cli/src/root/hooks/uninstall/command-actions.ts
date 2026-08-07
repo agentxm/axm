@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -124,10 +124,7 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
             : yield* hookManager.getConfiguredSource({ target });
         const installed = yield* hookManager.isInstalled({ target });
         if (Option.isNone(configured) && !installed) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `hooks package "${parsed.name}" is not configured or observed`,
-          });
+          return { targets: [] };
         }
         return { targets: [target] };
       });

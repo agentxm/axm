@@ -211,7 +211,9 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, pr
   ),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create an isolated Open Knowledge Format bundle"),
+  Command.withDescription(
+    "Create an Open Knowledge Format bundle in the project-workspace authoring root",
+  ),
   Command.withExamples([
     {
       command: "axm knowledge new platform",

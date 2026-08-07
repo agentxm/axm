@@ -3,7 +3,6 @@ import { rulesPublishCommand as publishCommand } from "../publish/per-type-comma
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { rulesVersionCommand as versionCommand } from "../shared/version-command.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
 import { installCommand } from "./install/command.js";
@@ -45,7 +44,6 @@ export const rulesCommand = Command.make("rules").pipe(
     disableCommand,
     updateCommand,
     instructionsCommand,
-    versionCommand,
     publishCommand,
   ]),
 );

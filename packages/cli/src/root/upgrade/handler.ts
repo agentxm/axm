@@ -40,7 +40,7 @@ import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 
 export interface UpgradeHandlerArgs {
-  readonly force: boolean;
+  readonly reinstall: boolean;
   /** Test/internal override for an observed local version. */
   readonly localVersion?: string | null;
 }
@@ -136,7 +136,7 @@ const UpgradeCoreResultSchema = Schema.Struct({
   executedCommands: Schema.Array(CommandRecordSchema),
   recommendedCommand: Schema.NullOr(RecommendedCommandSchema),
   delegatedCommand: Schema.NullOr(Schema.String),
-  force: Schema.Boolean,
+  reinstall: Schema.Boolean,
   details: Schema.Array(Schema.String),
   backupPath: Schema.NullOr(Schema.String),
 });
@@ -188,7 +188,7 @@ export const UpgradeResultSchema = Schema.Struct({
   executedCommands: UpgradeCoreResultSchema.fields.executedCommands,
   recommendedCommand: UpgradeCoreResultSchema.fields.recommendedCommand,
   delegatedCommand: UpgradeCoreResultSchema.fields.delegatedCommand,
-  force: UpgradeCoreResultSchema.fields.force,
+  reinstall: UpgradeCoreResultSchema.fields.reinstall,
   details: UpgradeCoreResultSchema.fields.details,
   backupPath: UpgradeCoreResultSchema.fields.backupPath,
 });
@@ -320,11 +320,11 @@ type UpgradeAction = "noop-current" | "noop-newer" | "refuse" | "mutate" | "manu
 
 export const decideUpgrade = (
   relation: VersionRelation,
-  force: boolean,
+  reinstall: boolean,
   supportedMethod: boolean,
 ): UpgradeAction => {
-  if (relation === "local-newer") return force ? "refuse" : "noop-newer";
-  if (relation === "current" && !force) return "noop-current";
+  if (relation === "local-newer") return reinstall ? "refuse" : "noop-newer";
+  if (relation === "current" && !reinstall) return "noop-current";
   return supportedMethod ? "mutate" : "manual";
 };
 
@@ -337,7 +337,7 @@ interface BaseResultInput {
   readonly relation: VersionRelation;
   readonly localVersion: string | null;
   readonly targetVersion: string;
-  readonly force: boolean;
+  readonly reinstall: boolean;
 }
 
 const baseResult = (input: BaseResultInput) => ({
@@ -345,7 +345,7 @@ const baseResult = (input: BaseResultInput) => ({
   versionRelation: input.relation,
   localVersion: input.localVersion,
   targetVersion: input.targetVersion,
-  force: input.force,
+  reinstall: input.reinstall,
 });
 
 const noMutationResult = (
@@ -634,7 +634,7 @@ const persistMetadata = (method: InstallMethodType, executablePath: string | nul
 const handleDelegated = (input: BaseResultInput) =>
   Effect.gen(function* () {
     const records: Array<CommandRecord> = [...input.detectionCommands];
-    const reinstall = input.relation === "current" && input.force;
+    const reinstall = input.relation === "current" && input.reinstall;
     const command = packageManagerCommand(input.method, input.targetVersion, reinstall);
     if (command === null) {
       return noMutationResult(
@@ -1158,7 +1158,7 @@ const handleScript = (
             return {
               ...scriptBaseResult(),
               resultStatus:
-                input.relation === "current" && input.force ? "reinstalled" : "upgraded",
+                input.relation === "current" && input.reinstall ? "reinstalled" : "upgraded",
               reportedVersion: installed.version,
               verification: "verified",
               mutationState: "updated",
@@ -1451,7 +1451,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   );
   const ownershipRequired =
     resolution.versionRelation !== "local-newer" &&
-    !(resolution.versionRelation === "current" && !args.force);
+    !(resolution.versionRelation === "current" && !args.reinstall);
   const method = ownershipRequired
     ? yield* resolveAmbiguousPackageManager(initiallyDetectedMethod, detectionCommands)
     : initiallyDetectedMethod;
@@ -1461,9 +1461,9 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     relation: resolution.versionRelation,
     localVersion: resolution.localVersion,
     targetVersion,
-    force: args.force,
+    reinstall: args.reinstall,
   };
-  const action = decideUpgrade(resolution.versionRelation, args.force, supportedMethod(method));
+  const action = decideUpgrade(resolution.versionRelation, args.reinstall, supportedMethod(method));
 
   const resultEffect = (() => {
     switch (action) {

@@ -66,12 +66,29 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
 
+        const preview = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["cursor"]),
+          dryRun: true,
+        }).pipe(Effect.provide(layer));
+
+        expect(preview.removedPaths).toEqual(
+          expect.arrayContaining([managedSkillLink, managedSubagent]),
+        );
+        expect(preview.preservedPaths).toEqual(
+          expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
+        );
+        expect(fs.existsSync(managedSkillLink)).toBe(true);
+        expect(fs.existsSync(managedSubagent)).toBe(true);
+
         const result = yield* cleanupManagedArtifactsForRemovedAgents({
           removedAgentIds: new Set(["cursor"]),
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual(
           expect.arrayContaining([managedSkillLink, managedSubagent]),
+        );
+        expect(result.preservedPaths).toEqual(
+          expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
         );
         expect(fs.existsSync(managedSkillLink)).toBe(false);
         expect(fs.existsSync(managedSubagent)).toBe(false);
@@ -123,6 +140,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual([]);
+        expect(result.preservedPaths).toEqual([]);
         expect(fs.existsSync(instructionFile)).toBe(true);
         expect(fs.existsSync(renderedRule)).toBe(true);
       } finally {

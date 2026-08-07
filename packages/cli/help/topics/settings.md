@@ -45,15 +45,15 @@ Feature config lives under `rulesConfig`, `skillsConfig`, `hooksConfig`,
 `knowledgeConfig`, `subagentsConfig`, `packsConfig`,
 and `mcpServersConfig`.
 
-`knowledgeConfig.directory` selects the agent-facing Knowledge projection root
-relative to the active project or user scope. It defaults to
-`.agents/knowledge`. AXM rejects absolute paths, scope escapes, the scope root,
-and paths that overlap `.axm`.
+`knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
+the canonical instruction source. It defaults to enabled; persist only the
+non-default `false`. This setting does not affect install, trust, enablement,
+search, or open behavior.
 
 ```jsonc
 {
   "knowledgeConfig": {
-    "directory": "docs/agent-knowledge",
+    "instructions": false,
   },
 }
 ```
@@ -99,7 +99,7 @@ source hosts, or adjusting `lint.rules`.
 Workspace sources are authoritative local packages. AXM protects them across
 their lifecycle:
 
-- **Install and update cannot replace source** — update reports the package unchanged and `--force` does not bypass protection.
+- **Install and update cannot replace source** — update reports the package unchanged and explicit refresh/constraint flags do not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.
 - **Uninstall removes owned state** — canonical source is deleted when nothing else reaches it; use disable to retain a managed package without activating it.
 - **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <fqn>` first.

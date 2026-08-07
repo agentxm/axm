@@ -1,6 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  breakDependenciesFlag,
+  previewFlag,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { scopeFlag } from "../../cli-flags.js";
@@ -15,7 +19,7 @@ const uninstallConfig = {
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the uninstall plan")),
-  force: forceFlag.pipe(
+  force: breakDependenciesFlag.pipe(
     Flag.withDescription("Remove even if the extension is referenced by other extensions"),
   ),
   preview: previewFlag.pipe(

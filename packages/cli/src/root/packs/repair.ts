@@ -278,7 +278,7 @@ export const repairCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(repairConfig),
-  Command.withDescription("Inspect or accept drift in a workspace-authored pack"),
+  Command.withDescription("Inspect or accept drift in a project-workspace authored pack"),
   Command.withExamples([
     {
       command: "axm packs repair my-pack --preview",

@@ -125,13 +125,16 @@ describe("axm lint command surface", () => {
     expect(reconcile.output).toMatch(/Failure|exit/);
   });
 
-  it("accepts sync --scope, --dry-run, and --json", async () => {
+  it("accepts sync --scope, --preview, and --json", async () => {
     const doc = await Effect.runPromise(captureHelpDoc(["sync"]));
     const flagNames = doc.flags.map((flag) => flag.name);
     const globalFlagNames = (doc.globalFlags ?? []).map((flag) => flag.name);
     const allFlagNames = [...flagNames, ...globalFlagNames];
     expect(allFlagNames).toContain("scope");
-    expect(allFlagNames).toContain("dry-run");
+    expect(allFlagNames).toContain("preview");
+    expect(allFlagNames).not.toContain("dry-run");
+    expect(allFlagNames).not.toContain("force");
+    expect(allFlagNames).not.toContain("accept-authority-change");
     expect(allFlagNames).toContain("json");
   });
 });

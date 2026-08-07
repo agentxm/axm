@@ -3,60 +3,80 @@ import * as Option from "effect/Option";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  buildInstallOperation,
   buildUninstallOperation,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
-import {
-  parseRegistrySourcePatternParts,
-  type ExtensionRef,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
   previewOrApplyPlan,
+  type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import {
   WorkspaceMutations,
   trustedCanonicalRef,
   type DesiredExtensionNode,
+  type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../../json-output.js";
+import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
-  readonly strictAgentSync: Option.Option<boolean>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
-}
-
-type PackLeafRef = Exclude<ExtensionRef, { readonly type: "pack" }>;
-
-interface Promotion {
-  readonly node: DesiredExtensionNode;
-  readonly ref: PackLeafRef;
 }
 
 const neverRetain: UninstallRetentionPolicy = {
   isRequiredByInstalledPack: () => Effect.succeed(false),
 };
 
-const versionRangeFor = (node: DesiredExtensionNode): Option.Option<string> =>
-  Option.fromUndefinedOr(parseRegistrySourcePatternParts(node.source)?.versionRange);
-
 const normalizeIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
+const promoteToDirectSettings = (
+  ws: WorkspaceMutationsService,
+  node: DesiredExtensionNode,
+): PlannedJobStep => {
+  const entry = { source: node.source, enabled: node.enabled };
+  const run = (() => {
+    switch (node.type) {
+      case "skill":
+        return ws.setSkillEntry(node.name, entry);
+      case "mcp-server":
+        return ws.setMcpServerEntry(node.name, { ...entry, env: {} });
+      case "subagent":
+        return ws.setSubagentEntry(node.name, entry);
+      case "rule":
+        return ws.setRuleEntry(node.name, entry);
+      case "hook":
+        return ws.setHookEntry(node.name, entry);
+      case "knowledge":
+        return ws.setKnowledgeEntry(node.name, entry);
+      case "pack":
+        return Effect.fail(
+          makeAppError({
+            code: "validation",
+            detail: `Nested pack member "${node.name}" cannot be unpacked`,
+          }),
+        );
+    }
+  })();
+  return {
+    readiness: "ready",
+    label: node.name,
+    run: run.pipe(
+      Effect.as({
+        result: "success",
+        message: `Promoted ${node.type} ${node.name}`,
+      } satisfies JobStepResult),
+    ),
+  };
+};
 
 /**
  * Handles `axm packs unpack` by promoting every desired leaf from the named
@@ -66,12 +86,6 @@ const normalizeIdentity = (identity: string): string =>
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
-  const skillManager = yield* SkillManager;
-  const mcpServerManager = yield* McpServerManager;
-  const subagentManager = yield* SubagentManager;
-  const ruleManager = yield* RuleManager;
-  const hookManager = yield* HookManager;
-  const knowledgeManager = yield* KnowledgeManager;
   const packManager = yield* PackManager;
 
   const graph = yield* ws.getDesiredStateGraph();
@@ -112,8 +126,9 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
           detail: `Trusted ${node.type} identity for "${node.name}" is unavailable`,
           suggestions: [
             {
-              description: "Repair the pack before unpacking.",
-              cmd: `axm packs install ${packNode.source} --force`,
+              description:
+                "Inspect and explicitly accept the authored pack baseline before unpacking.",
+              cmd: `axm packs repair ${packNode.identity} --preview`,
             },
           ],
         });
@@ -132,8 +147,8 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       detail: `Trusted pack identity for "${args.name}" is invalid`,
       suggestions: [
         {
-          description: "Repair the pack before unpacking.",
-          cmd: `axm packs install ${packNode.source} --force`,
+          description: "Inspect and explicitly accept the authored pack baseline before unpacking.",
+          cmd: `axm packs repair ${packNode.identity} --preview`,
         },
       ],
     });
@@ -155,18 +170,19 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
             detail: `Trusted ${node.type} identity for "${node.name}" is invalid`,
             suggestions: [
               {
-                description: "Repair the pack before unpacking.",
-                cmd: `axm packs install ${packNode.source} --force`,
+                description:
+                  "Inspect and explicitly accept the authored pack baseline before unpacking.",
+                cmd: `axm packs repair ${packNode.identity} --preview`,
               },
             ],
           });
         }
-        return { node, ref } satisfies Promotion;
+        return node;
       }),
     { concurrency: "unbounded" },
   );
 
-  const promotionSteps = promotions.map(({ node, ref }): PlannedJobStep => {
+  const promotionSteps = promotions.map((node): PlannedJobStep => {
     const alreadyDirect = node.origins.some((origin) => origin.type === "settings");
     if (alreadyDirect) {
       return {
@@ -179,25 +195,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       };
     }
 
-    const common = {
-      versionRange: versionRangeFor(node),
-      force: args.force,
-      message: `Promoted ${node.type} ${node.name}`,
-    };
-    switch (ref.type) {
-      case "skill":
-        return buildInstallOperation(skillManager, { ...common, ref });
-      case "mcp-server":
-        return buildInstallOperation(mcpServerManager, { ...common, ref });
-      case "subagent":
-        return buildInstallOperation(subagentManager, { ...common, ref });
-      case "rule":
-        return buildInstallOperation(ruleManager, { ...common, ref });
-      case "hook":
-        return buildInstallOperation(hookManager, { ...common, ref });
-      case "knowledge":
-        return buildInstallOperation(knowledgeManager, { ...common, ref });
-    }
+    return promoteToDirectSettings(ws, node);
   });
 
   const uninstallPackStep = buildUninstallOperation(packManager, neverRetain, {
@@ -207,13 +205,57 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       name: packRef.pack.name,
     },
   });
+  const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
+    ...promotions.map((node): JobStepArtifactTarget => ({
+      path: `.axm/settings.json#${node.type}.${node.name}`,
+      change: "updated",
+    })),
+    {
+      path: `.axm/extensions/${normalizeIdentity(packNode.identity)}`,
+      change: "removed",
+    } satisfies JobStepArtifactTarget,
+  ];
+  const graphStep = yield* buildAtomicPackGraphStep({
+    label: packNode.identity,
+    message: `Unpacked ${packNode.identity} into ${promotions.length} direct declaration${promotions.length === 1 ? "" : "s"}`,
+    artifact: {
+      path: "pack provenance",
+      scope: ws.scope,
+      change: "updated",
+      fileCount: promotions.length + 1,
+      targets: artifactTargets,
+    },
+    steps: [...promotionSteps, uninstallPackStep],
+    validate: validatePackGraphPostcondition({
+      requiredMembers: promotions.flatMap((node) =>
+        node.type === "pack"
+          ? []
+          : [
+              {
+                type: node.type,
+                name: node.name,
+                direct: true,
+                enabled: node.enabled,
+              },
+            ],
+      ),
+      absent: [{ type: "pack", name: packNode.name }],
+    }),
+  }).pipe(Effect.provideService(WorkspaceMutations, ws));
   const plan = {
     _tag: "Plan",
     name: "Unpack pack",
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
-    jobs: [
-      { steps: promotionSteps, concurrency: 1 as const },
-      { steps: [uninstallPackStep], concurrency: 1 as const },
+    jobs: [{ steps: [graphStep], concurrency: 1 as const }],
+    sections: [
+      {
+        title: "Direct declarations created",
+        items: promotions.map((node) => `${node.type}: ${node.name}`),
+      },
+      {
+        title: "Pack source removed",
+        items: [`.axm/extensions/${normalizeIdentity(packNode.identity)}`],
+      },
     ],
   } satisfies Plan;
 

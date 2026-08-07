@@ -376,7 +376,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, agent, 
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("skills new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new skill"),
+  Command.withDescription("Create a new skill in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },
     {

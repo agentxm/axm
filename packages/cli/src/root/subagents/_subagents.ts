@@ -1,7 +1,6 @@
 import { Command } from "effect/unstable/cli";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
-import { subagentsVersionCommand } from "../shared/version-command.js";
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { listCommand } from "./list/command.js";
@@ -36,10 +35,6 @@ export const subagentsCommand = Command.make("subagents").pipe(
       command: "axm subagents list",
       description: "See what subagents are installed",
     },
-    {
-      command: "axm subagents version @acme/subagents/researcher patch",
-      description: "Bump a subagent version",
-    },
   ]),
   Command.withSubcommands([
     installCommand,
@@ -51,6 +46,5 @@ export const subagentsCommand = Command.make("subagents").pipe(
     publishCommand,
     enableCommand,
     disableCommand,
-    subagentsVersionCommand,
   ]),
 );

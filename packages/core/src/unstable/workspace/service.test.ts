@@ -112,33 +112,30 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  describe("Knowledge projection config", () => {
-    it.effect("resolves the default directory relative to the active scope root", () =>
+  describe("Knowledge instruction config", () => {
+    it.effect("enables the discovery table by default", () =>
       Effect.gen(function* () {
         const ws = yield* getService({ scope: "project" });
-        const config = yield* ws.getKnowledgeProjectionConfig();
+        const config = yield* ws.getKnowledgeDiscoveryConfig();
 
-        expect(config).toEqual({
-          directory: ".agents/knowledge",
-          dir: path.join(fs.realpathSync(projectDir), ".agents", "knowledge"),
-        });
+        expect(config).toEqual({ instructions: true });
       }),
     );
 
-    it.effect("resolves a custom configured directory", () =>
+    it.effect("disables the discovery table when configured", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
           path.join(projectDir, ".axm", "settings.json"),
           JSON.stringify({
             agents: ["claude-code"],
-            knowledgeConfig: { directory: "docs/agent-knowledge" },
+            knowledgeConfig: { instructions: false },
           }),
         );
 
         const ws = yield* getService({ scope: "project" });
-        const config = yield* ws.getKnowledgeProjectionConfig();
+        const config = yield* ws.getKnowledgeDiscoveryConfig();
 
-        expect(config.dir).toBe(path.join(fs.realpathSync(projectDir), "docs", "agent-knowledge"));
+        expect(config).toEqual({ instructions: false });
       }),
     );
   });

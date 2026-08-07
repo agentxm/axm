@@ -110,18 +110,14 @@ describe("axm mcps new", () => {
 
       const status = await runCli(["status"], { cwd: temp.path });
       expect(status.exitCode).toBe(1);
-      expect(status.stdout + status.stderr).toContain(
-        "axm sync @other/mcps/context --accept-authority-change",
-      );
+      expect(status.stdout + status.stderr).toContain("axm adopt @other/mcps/context --preview");
 
       const refused = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
-      expect(refused.exitCode).toBe(1);
+      expect(refused.exitCode).not.toBe(0);
       expect(refused.stdout + refused.stderr).not.toContain("workspace:workspace:");
-      expect(refused.stdout + refused.stderr).toContain(
-        "axm sync @other/mcps/context --accept-authority-change",
-      );
+      expect(refused.stdout + refused.stderr).toContain("axm adopt @other/mcps/context --preview");
 
-      const recovered = await runCli(["sync", "@other/mcps/context", "--accept-authority-change"], {
+      const recovered = await runCli(["adopt", "@other/mcps/context", "--yes"], {
         cwd: temp.path,
       });
       expect(recovered.exitCode).toBe(0);

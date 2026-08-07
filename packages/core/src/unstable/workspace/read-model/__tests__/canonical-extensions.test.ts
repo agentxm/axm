@@ -103,6 +103,27 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
     }),
   );
 
+  it.effect("emits MCP package roots that do not use a src directory", () =>
+    Effect.gen(function* () {
+      const { occurrences } = yield* runScanner({
+        workspaceRoot: WORKSPACE_ROOT,
+        userHome: USER_HOME,
+        project: {
+          axmExtensions: {
+            "@owner/mcps/tools/mcp.json": "{}\n",
+          },
+        },
+      });
+
+      expect(occurrences).toHaveLength(1);
+      expect(occurrences[0]).toMatchObject({
+        type: "mcp-server",
+        name: "tools",
+        contentLocation: "/ws/.axm/extensions/@owner/mcps/tools",
+      });
+    }),
+  );
+
   it.effect("emits one external-axm occurrence per external/<type>/<name>", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({

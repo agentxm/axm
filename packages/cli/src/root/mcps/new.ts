@@ -336,7 +336,7 @@ export const newCommand = Command.make(
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("mcps new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new MCP server"),
+  Command.withDescription("Create a new MCP server in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm mcps new context", description: "Create a new MCP server manifest" },
     {

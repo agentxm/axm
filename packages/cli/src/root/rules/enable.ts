@@ -1,6 +1,8 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
@@ -8,6 +10,7 @@ import {
   previewOrApplyPlan,
   type JobStepArtifact,
   type Plan,
+  type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { resolveConfiguredRule, WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -15,7 +18,11 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { requireRuleName } from "./activation-argument.js";
+import {
+  activeInstructionsConfig,
+  instructionReconciliationReadiness,
+  reconcileInstructionTransition,
+} from "./instruction-reconciliation.js";
 
 export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: {
   readonly name: string;
@@ -24,6 +31,8 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
 }) {
   const ws = yield* WorkspaceMutations;
   const ruleManager = yield* RuleManager;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const scope = ws.scope;
   const configured = yield* ws.getConfiguredRuleEntries();
   const entry = configured[args.name];
@@ -43,6 +52,56 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
   }
 
   const { ref, versionRange } = yield* resolveConfiguredRule(args.name, entry.source);
+  const installStep = buildInstallOperation(ruleManager, {
+    ref,
+    versionRange,
+    message: `Enabled ${args.name}`,
+    buildArtifact: () =>
+      Effect.succeed({
+        path: ".axm/settings.json",
+        scope,
+        change: "updated",
+      } satisfies JobStepArtifact),
+  });
+  const instructionsConfig = yield* activeInstructionsConfig(ws);
+  const readiness = Option.isSome(instructionsConfig)
+    ? yield* instructionReconciliationReadiness({ ws, config: instructionsConfig.value })
+    : Option.none();
+  const activationStep: PlannedJobStep =
+    installStep.readiness === "error"
+      ? installStep
+      : Option.match(readiness, {
+          onSome: (error) => ({
+            label: installStep.label,
+            readiness: "error",
+            errorMessage: error.detail,
+          }),
+          onNone: () => {
+            const transition = Option.isSome(instructionsConfig)
+              ? reconcileInstructionTransition({
+                  ws,
+                  config: instructionsConfig.value,
+                  transition: installStep.run,
+                }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fs),
+                  Effect.provideService(Path.Path, path),
+                )
+              : installStep.run;
+            const run = ruleManager.runTransaction({ transition, validate: () => Effect.void });
+            return installStep.readiness === "warn"
+              ? {
+                  label: installStep.label,
+                  readiness: "warn",
+                  warnMessage: installStep.warnMessage,
+                  run,
+                }
+              : {
+                  label: installStep.label,
+                  readiness: "ready",
+                  run,
+                };
+          },
+        });
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable rules",
@@ -50,19 +109,7 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     jobs: [
       {
         concurrency: 1,
-        steps: [
-          buildInstallOperation(ruleManager, {
-            ref,
-            versionRange,
-            message: `Enabled ${args.name}`,
-            buildArtifact: () =>
-              Effect.succeed({
-                path: ".axm/settings.json",
-                scope,
-                change: "updated",
-              } satisfies JobStepArtifact),
-          }),
-        ],
+        steps: [activationStep],
       },
     ],
   };
@@ -83,10 +130,7 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
 });
 
 const enableConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("Name of the rule"),
-    Argument.optional,
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Name of the rule")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
@@ -95,10 +139,7 @@ const enableConfig = {
 } as const;
 
 export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  Effect.gen(function* () {
-    const ruleName = yield* requireRuleName(name, "enable");
-    yield* handleEnableRule({ name: ruleName, yes, preview });
-  }).pipe(withWorkspace(scope), withRuntime("rules enable")),
+  handleEnableRule({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("rules enable")),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a rule"),

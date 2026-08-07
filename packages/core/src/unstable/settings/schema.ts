@@ -1027,17 +1027,19 @@ export const RulesConfigSchema = Schema.Struct({
 export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
 
 export const KnowledgeConfigSchema = Schema.Struct({
-  directory: Schema.optionalKey(
-    Schema.String.annotate({
-      description: "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
-      default: ".agents/knowledge",
-      examples: [".agents/knowledge", "docs/agent-knowledge"],
+  instructions: Schema.optionalKey(
+    Schema.Boolean.annotate({
+      description:
+        "Whether active Knowledge is synchronized into the canonical instruction source. Omit true; persist only false.",
+      default: true,
+      examples: [false],
     }),
   ),
 }).annotate({
   identifier: "KnowledgeConfig",
   title: "Knowledge Config",
-  description: "Agent-facing projection settings for knowledge bundles.",
+  description:
+    "Knowledge discovery settings. Omit the config to synchronize active bundles into instructions; set instructions to false to disable that table.",
 });
 
 /** @experimental */
@@ -1102,7 +1104,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
  * - knowledge: Desired Open Knowledge Format bundles by name to source string
- * - knowledgeConfig: Agent-facing Knowledge projection options
+ * - knowledgeConfig: Knowledge discovery-table options
  * - subagents: Desired subagents by name to version specifier
  * - packs: Desired packs by name to version specifier
  * - mcpServers: Desired MCP servers by name to version specifier
@@ -1171,12 +1173,12 @@ const SettingsBaseSchema = Schema.Struct({
   ),
   knowledge: Schema.optionalKey(
     Schema.Union([KnowledgeMapSchema]).annotate({
-      description: "Desired Open Knowledge Format bundles, isolated from agent instruction files.",
+      description: "Desired Open Knowledge Format bundles discovered from agent instruction files.",
     }),
   ),
   knowledgeConfig: Schema.optionalKey(
     Schema.Union([KnowledgeConfigSchema]).annotate({
-      description: "Feature-level and projection options for knowledge bundle management.",
+      description: "Feature-level instruction discovery options for knowledge bundle management.",
     }),
   ),
   subagents: Schema.optionalKey(

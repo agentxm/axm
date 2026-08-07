@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstall } from "./handler.js";
@@ -24,7 +24,7 @@ const installConfig = {
     Flag.withDescription("Install every skill found in the source without prompting"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
-  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the skill already exists")),
+  force: reinstallFlag.pipe(Flag.withDescription("Reinstall a skill that already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),

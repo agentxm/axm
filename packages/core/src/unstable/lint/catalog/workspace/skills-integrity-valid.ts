@@ -51,16 +51,17 @@ const LOCKFILE_REL = ".axm/axm-lock.yaml";
 const simpleName = (name: string): string => name.split("/").at(-1) ?? name;
 
 const hasSourceActual = (
-  row: {
+  actual: ReadonlyArray<{
     readonly key: { readonly name: string };
-    readonly actual: ReadonlyArray<{ readonly origin: { readonly _tag: string } }>;
-  },
+    readonly origin: { readonly _tag: string };
+  }>,
   name: string,
 ): boolean =>
-  row.key.name === simpleName(name) &&
-  row.actual.some(
-    (actual) =>
-      actual.origin._tag === "canonical-axm-skill" || actual.origin._tag === "external-axm-skill",
+  actual.some(
+    (occurrence) =>
+      occurrence.key.name === simpleName(name) &&
+      (occurrence.origin._tag === "canonical-axm-skill" ||
+        occurrence.origin._tag === "external-axm-skill"),
   );
 
 const integrityFinding = (name: string, reason: string): AutofixableFinding => ({
@@ -169,12 +170,12 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
       if (Option.isNone(lockOption)) {
         return EMPTY_LINT_FINDINGS;
       }
-      const installed = yield* scoped.skills.installed;
+      const actual = yield* scoped.skills.actual;
 
       const probes = Object.entries(lockOption.value.skills).map(([name, entry]) => ({
         name,
         entry,
-        exists: installed.some((row) => hasSourceActual(row, name)),
+        exists: hasSourceActual(actual, name),
       }));
       const violations = collectIntegrityViolations(
         settingsResult.success.value,
@@ -198,12 +199,12 @@ export const skillsIntegrityValidRule: AutofixingRule<WorkspaceRuleContext> = {
       if (Option.isNone(lockOption)) {
         return EMPTY_OPERATIONS;
       }
-      const installed = yield* scoped.skills.installed;
+      const actual = yield* scoped.skills.actual;
 
       const probes = Object.entries(lockOption.value.skills).map(([name, entry]) => ({
         name,
         entry,
-        exists: installed.some((row) => hasSourceActual(row, name)),
+        exists: hasSourceActual(actual, name),
       }));
       const violation = collectIntegrityViolations(
         settingsResult.success.value,

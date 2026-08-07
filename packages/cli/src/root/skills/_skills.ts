@@ -9,7 +9,6 @@ import { newCommand } from "./new.js";
 import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { skillsVersionCommand } from "../shared/version-command.js";
 import { copyCommand } from "./copy.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 
@@ -42,10 +41,6 @@ export const skillsCommand = Command.make("skills").pipe(
       description: "Install from a GitHub repository",
     },
     { command: "axm skills list", description: "See what skills are installed" },
-    {
-      command: "axm skills version @acme/skills/code-review patch",
-      description: "Bump a skill version",
-    },
   ]),
   Command.withSubcommands([
     installCommand,
@@ -57,7 +52,6 @@ export const skillsCommand = Command.make("skills").pipe(
     copyCommand,
     enableCommand,
     disableCommand,
-    skillsVersionCommand,
     publishCommand,
   ]),
 );

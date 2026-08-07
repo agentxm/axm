@@ -60,7 +60,12 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ## Quick Reference
 
-`--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
+`--json` requests machine-readable output. On installed-state commands,
+`--scope user` targets `$HOME/.axm` instead of the project workspace;
+suggestions and artifacts retain that selection. Authoring commands (`new`,
+skill copy, adopt, demote, version, pack authoring, and publish) are
+project-workspace only and reject `--scope`. Install/uninstall/update accept a
+registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
 <!-- axm:generated:extension-type-namespace-set -->
 
@@ -68,7 +73,18 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 <!-- /axm:generated -->
 
+Knowledge bundles stay canonical under `.axm/extensions`; active bundles are
+listed in the managed `Knowledge Base` table in the canonical instruction file.
+Use `knowledgeConfig.instructions: false` only to suppress that table. It does
+not disable install, trust, search, or open behavior; use `axm knowledge disable`
+to retain a bundle without active discovery.
+
 ### Workspace setup & discovery
+
+`axm setup` only initializes a scope that has no settings. After initialization,
+change coding-agent membership with `axm agents add <id>` or `axm agents remove
+<id>` so membership and every owned per-agent artifact change atomically.
+Rerunning setup, including with different `--agent` flags, is a no-op.
 
 | Task                                          | Command                         |
 | --------------------------------------------- | ------------------------------- |
@@ -77,6 +93,13 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 | Add / remove a coding agent harness           | `axm agents <add\|remove> <id>` |
 | Inspect agent instruction files               | `axm rules instructions`        |
 | Update AXM itself                             | `axm upgrade`                   |
+
+Rule activation always requires an installed rule name: use `axm rules enable
+<name>` or `axm rules disable <name>`. Global instruction-file ownership is a
+separate capability under `axm rules instructions enable|disable|status`.
+These transitions reconcile the canonical Rules region, every configured alias,
+and the managed `.gitignore` block atomically; resolve reported drift through
+the reviewable `axm lint --fix` plan.
 
 ### Creating & publishing extensions
 
@@ -97,6 +120,12 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 | Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>` |
 | Set an exact version                      | `axm version <fqn> set <x.y.z>`           |
 
+Publish preflights the complete selection before any upload and stops at the
+first runtime failure. Existing versions fail by default; use
+`--on-existing verify` only for an integrity-equivalent no-op. Use `--backfill`
+only for an unpublished lower SemVer. Unsafe archives cannot be bypassed, and
+`--include-dependencies` / `--include-dependency` are pack-only flags.
+
 ### Managing installed extensions
 
 | Task                                        | Command                               |
@@ -113,11 +142,12 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 | Task                                  | Command                                     |
 | ------------------------------------- | ------------------------------------------- |
-| Reconcile the entire workspace        | `axm sync --dry-run` then `axm sync`        |
+| Reconcile the entire workspace        | `axm sync --preview` then `axm sync`        |
 | Reconcile one root or extension type  | `axm sync <fqn>` / `axm sync --type <type>` |
 | Inspect local reconciliation blockers | `axm status`                                |
 | Lint workspace (read-only)            | `axm lint`                                  |
 | Reconcile workspace configuration     | `axm lint --fix`                            |
+| Preview one inline MCP drift repair   | `axm mcps repair <name> --preview`          |
 | Remove unmanaged extension artifacts  | `axm prune`                                 |
 
 For workspace-authored pack edits, use `axm packs add`, `remove`, or `version`
@@ -125,6 +155,14 @@ when possible. If direct metadata or dependency edits produce trust drift,
 inspect with `axm packs repair <pack> --preview`; accept only after reviewing
 the classified changes. Configured workspace members satisfy pack dependencies
 before Registry lookup, and `packs add` records a caret constraint by default.
+
+Pack install, update, enable/disable, uninstall, and unpack operate on one pack
+and its complete member graph atomically. Use `--preview` to inspect the exact
+canonical sources created, updated, or removed. A failed member or unmet
+postcondition rolls back the whole graph. Unpack promotes member provenance to
+direct settings before removing the pack; no bypass flag is required or
+supported. Reinstall options never accept authored-pack trust drift—use the
+explicit `packs repair` review flow.
 
 Use disable when an installed extension should remain managed but inactive.
 Uninstall removes canonical source and managed artifacts once no declaration or

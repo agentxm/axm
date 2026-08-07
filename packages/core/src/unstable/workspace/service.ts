@@ -80,7 +80,7 @@ import {
 import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
-import { resolveKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
+import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import {
   readWorkspaceTrustState,
   TRUST_STATE_FILENAME,
@@ -1125,18 +1125,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredKnowledgeEntries"),
         ),
 
-      getKnowledgeProjectionConfig: () =>
+      getKnowledgeDiscoveryConfig: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.flatMap((settings) =>
-            resolveKnowledgeProjectionConfig({
-              scopeRoot: baseDir,
-              axmDir: workspaceDir,
-              ...(settings.knowledgeConfig?.directory === undefined
-                ? {}
-                : { directory: settings.knowledgeConfig.directory }),
-            }).pipe(Effect.provide(fsLayer)),
+          Effect.map((settings) =>
+            resolveKnowledgeDiscoveryConfig({
+              ...(settings.knowledgeConfig?.instructions === false ? { instructions: false } : {}),
+            }),
           ),
-          Effect.withSpan("WorkspaceMutations.getKnowledgeProjectionConfig"),
+          Effect.withSpan("WorkspaceMutations.getKnowledgeDiscoveryConfig"),
         ),
 
       getLockedKnowledge: () =>

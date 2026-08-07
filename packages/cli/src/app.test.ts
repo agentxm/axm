@@ -15,6 +15,10 @@ import {
 import { run } from "./app.js";
 import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
 import { LearnMore } from "./formatter.js";
+import {
+  INSTALLED_STATE_SCOPE_COMMANDS,
+  PROJECT_ONLY_AUTHORING_COMMANDS,
+} from "./root/scope-contract.js";
 
 const groupCommandNames = (doc: HelpDoc, group: string): ReadonlyArray<string> =>
   (doc.subcommands ?? [])
@@ -31,6 +35,55 @@ class ExitCalled extends Error {
 }
 
 describe("root command help", () => {
+  it("exposes only the root version command and intention-revealing override flags", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    const versionCommands = Array.from(files.keys()).filter((command) =>
+      command.endsWith(" version"),
+    );
+    expect(versionCommands).toEqual(["axm version"]);
+
+    for (const [command, doc] of files) {
+      const flags = doc.flags.map((flag) => flag.name);
+      expect(flags, command).not.toContain("force");
+      expect(flags, command).not.toContain("wizard");
+    }
+
+    const expectedFlags: ReadonlyArray<readonly [string, string]> = [
+      ["axm install", "reinstall"],
+      ["axm skills install", "reinstall"],
+      ["axm mcps install", "reinstall"],
+      ["axm subagents install", "reinstall"],
+      ["axm hooks install", "reinstall"],
+      ["axm packs install", "reinstall"],
+      ["axm rules install", "reinstall"],
+      ["axm update", "refresh"],
+      ["axm mcps update", "refresh"],
+      ["axm skills update", "ignore-version-constraints"],
+      ["axm subagents update", "ignore-version-constraints"],
+      ["axm uninstall", "break-dependencies"],
+      ["axm skills uninstall", "break-dependencies"],
+      ["axm mcps uninstall", "break-dependencies"],
+      ["axm subagents uninstall", "break-dependencies"],
+      ["axm hooks uninstall", "break-dependencies"],
+      ["axm packs uninstall", "break-dependencies"],
+      ["axm rules uninstall", "break-dependencies"],
+      ["axm agents add", "accept-warnings"],
+      ["axm agents remove", "accept-warnings"],
+      ["axm mcps add", "accept-warnings"],
+      ["axm packs add", "replace-existing"],
+      ["axm packs remove", "allow-empty"],
+    ];
+
+    for (const [command, expectedFlag] of expectedFlags) {
+      const doc = files.get(command);
+      expect(doc, `missing help for ${command}`).toBeDefined();
+      expect(
+        doc?.flags.map((flag) => flag.name),
+        command,
+      ).toContain(expectedFlag);
+    }
+  });
+
   it("keeps every create and skill-copy surface create-only", async () => {
     const files = await Effect.runPromise(collectHelpFiles());
     const createCommands = [
@@ -65,6 +118,50 @@ describe("root command help", () => {
         expect(flags, command).toContain("preview");
         expect(flags, command).not.toContain("force");
       }
+    }
+  });
+
+  it("exposes only fail-closed publish controls", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    const retiredFlags = ["allow-older", "allow-unsafe-archive", "force", "skip-existing"];
+
+    for (const [command, doc] of files) {
+      if (command !== "axm publish" && !command.endsWith(" publish")) continue;
+      const flags = doc.flags.map((flag) => flag.name);
+      expect(flags, command).toContain("backfill");
+      for (const retired of retiredFlags) {
+        expect(flags, command).not.toContain(retired);
+      }
+      if (command === "axm packs publish") {
+        expect(flags).toContain("include-dependencies");
+        expect(flags).toContain("include-dependency");
+      } else {
+        expect(flags, command).not.toContain("include-dependencies");
+        expect(flags, command).not.toContain("include-dependency");
+      }
+    }
+  });
+
+  it("enforces installed-state and project-only authoring scope contracts", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+
+    for (const command of INSTALLED_STATE_SCOPE_COMMANDS) {
+      const doc = files.get(command);
+      expect(doc, `missing help for ${command}`).toBeDefined();
+      expect(
+        doc?.flags.map((flag) => flag.name),
+        command,
+      ).toContain("scope");
+    }
+
+    for (const command of PROJECT_ONLY_AUTHORING_COMMANDS) {
+      const doc = files.get(command);
+      expect(doc, `missing help for ${command}`).toBeDefined();
+      expect(
+        doc?.flags.map((flag) => flag.name),
+        command,
+      ).not.toContain("scope");
+      expect(doc?.description.toLowerCase(), command).toContain("project-workspace");
     }
   });
 
@@ -172,6 +269,82 @@ describe("root command parser output", () => {
       expect(stdoutWrites, command).toEqual([]);
       expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
         `Unrecognized flag: ${unknownFlag}`,
+      );
+    }
+  });
+
+  it("rejects retired publish bypasses and non-pack dependency flags during parsing", async () => {
+    const invocations = [
+      ["publish", "--allow-older"],
+      ["publish", "--allow-unsafe-archive"],
+      ["publish", "--force"],
+      ["publish", "--skip-existing"],
+      ["skills", "publish", "--include-dependencies"],
+      ["skills", "publish", "--include-dependency", "@acme/skills/review"],
+    ];
+
+    for (const invocation of invocations) {
+      stdoutWrites.length = 0;
+      stderrWrites.length = 0;
+      consoleErrorWrites.length = 0;
+      await expect(run([...invocation, "--non-interactive"])).rejects.toMatchObject({
+        code: ExitCode.Usage,
+      });
+      expect(stdoutWrites).toEqual([]);
+      expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(
+        `Unrecognized flag: ${invocation.at(-1)?.startsWith("--") === true ? invocation.at(-1) : invocation.at(-2)}`,
+      );
+    }
+
+    await expect(
+      run(["publish", "--on-existing", "skip", "--non-interactive"]),
+    ).rejects.toMatchObject({ code: ExitCode.Usage });
+  });
+
+  it("rejects every retired global, version, and generic override spelling", async () => {
+    const invocations: ReadonlyArray<{
+      readonly args: ReadonlyArray<string>;
+      readonly detail: string;
+    }> = [
+      { args: ["--wizard", "status"], detail: "Unrecognized flag: --wizard" },
+      { args: ["-vv", "status"], detail: "Unrecognized flag: -vv" },
+      { args: ["skills", "version"], detail: 'Unknown subcommand "version"' },
+      { args: ["upgrade", "--force"], detail: "Unrecognized flag: --force" },
+      { args: ["skills", "install", "--force"], detail: "Unrecognized flag: --force" },
+    ];
+
+    for (const invocation of invocations) {
+      stdoutWrites.length = 0;
+      stderrWrites.length = 0;
+      consoleErrorWrites.length = 0;
+      await expect(run([...invocation.args, "--non-interactive"])).rejects.toMatchObject({
+        code: ExitCode.Usage,
+      });
+      expect(stdoutWrites).toEqual([]);
+      expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(invocation.detail);
+    }
+  });
+
+  it("rejects user scope on project-only authoring commands during parsing", async () => {
+    const invocations = [
+      ["publish", "--scope", "user"],
+      ["skills", "copy", "./source", "@acme/skills/copied", "--scope", "user"],
+      ["adopt", "@acme/skills/review", "--scope", "user"],
+      ["demote", "@acme/skills/review", "@acme/skills/review", "--scope", "user"],
+      ["skills", "new", "review", "--scope", "user"],
+      ["version", "@acme/skills/review", "patch", "--scope", "user"],
+    ];
+
+    for (const invocation of invocations) {
+      stdoutWrites.length = 0;
+      stderrWrites.length = 0;
+      consoleErrorWrites.length = 0;
+      await expect(run([...invocation, "--non-interactive"])).rejects.toMatchObject({
+        code: ExitCode.Usage,
+      });
+      expect(stdoutWrites).toEqual([]);
+      expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(
+        "Unrecognized flag: --scope",
       );
     }
   });

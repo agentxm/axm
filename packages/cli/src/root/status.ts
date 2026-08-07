@@ -1,19 +1,21 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import {
-  DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
   observeCanonicalExtension,
   type CanonicalObservation,
   type DesiredExtensionNode,
+  type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
+import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
+import { commandForScope } from "./shared/scoped-command.js";
 
 const WorkspaceHealthProblemSchema = Schema.Struct({
   code: Schema.String,
@@ -37,6 +39,7 @@ type WorkspaceHealthProblem = Schema.Schema.Type<typeof WorkspaceHealthProblemSc
 export const canonicalHealthProblem = (
   node: DesiredExtensionNode,
   observation: CanonicalObservation,
+  scope: WorkspaceScope = "project",
 ): WorkspaceHealthProblem | undefined => {
   if (observation.status === "usable" || observation.status === "not-applicable") {
     return undefined;
@@ -48,9 +51,12 @@ export const canonicalHealthProblem = (
       code: "canonical-locally-modified",
       extensionType: node.type,
       identity,
-      detail: `Canonical content was modified since its last recorded authoring/publish baseline${pathDetail}. Publishing preserves the authored content.`,
-      blocking: false,
-      recoveryAction: `axm publish ${identity}`,
+      detail:
+        scope === "project"
+          ? `Canonical content was modified since its last recorded authoring/publish baseline${pathDetail}. Publishing preserves the authored content.`
+          : `Canonical content is a legacy user-scope authored source${pathDetail}; authoring is project-workspace only.`,
+      blocking: scope === "user",
+      recoveryAction: scope === "project" ? `axm publish ${identity}` : null,
     };
   }
   if (observation.status === "locally-modified") {
@@ -62,18 +68,22 @@ export const canonicalHealthProblem = (
       blocking: true,
       recoveryAction:
         node.type === "pack"
-          ? `axm packs repair ${identity} --preview`
-          : `axm sync ${identity} --dry-run`,
+          ? scope === "project"
+            ? `axm packs repair ${identity} --preview`
+            : commandForScope(`axm sync ${identity} --preview`, scope)
+          : commandForScope(`axm sync ${identity} --preview`, scope),
     };
   }
   const recoveryAction =
     observation.status === "missing-trust"
-      ? `axm sync ${identity}`
+      ? commandForScope(`axm sync ${identity}`, scope)
       : observation.status === "wrong-origin" && isWorkspaceSourceLocator(node.source)
-        ? `axm sync ${identity} --accept-authority-change`
+        ? scope === "project"
+          ? `axm adopt ${identity} --preview`
+          : null
         : observation.status === "wrong-origin"
           ? null
-          : `axm sync ${identity} --dry-run`;
+          : commandForScope(`axm sync ${identity} --preview`, scope);
   return {
     code: `canonical-${observation.status}`,
     extensionType: node.type,
@@ -138,7 +148,10 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
           identity: problem.pack,
           detail: problem.detail,
           blocking: true,
-          recoveryAction: `axm packs repair ${problem.pack} --preview`,
+          recoveryAction:
+            ws.scope === "project"
+              ? `axm packs repair ${problem.pack} --preview`
+              : commandForScope(`axm sync ${problem.pack} --preview`, ws.scope),
         };
       case "pack-canonical-unusable":
         return {
@@ -147,7 +160,10 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
           identity: problem.pack,
           detail: `Canonical content is ${problem.status}${problem.path === undefined ? "" : ` at ${problem.path}`}`,
           blocking: true,
-          recoveryAction: `axm packs repair ${problem.pack} --preview`,
+          recoveryAction:
+            ws.scope === "project"
+              ? `axm packs repair ${problem.pack} --preview`
+              : commandForScope(`axm sync ${problem.pack} --preview`, ws.scope),
         };
       case "projection-collision":
         return {
@@ -189,7 +205,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     ({ node, observation }) => {
       const identity = node.identity.replace(/^workspace:/, "");
       if (node.type === "pack" && graphPackProblems.has(identity)) return [];
-      const problem = canonicalHealthProblem(node, observation);
+      const problem = canonicalHealthProblem(node, observation, ws.scope);
       return problem === undefined ? [] : [problem];
     },
   );
@@ -233,7 +249,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
         identity,
         detail: "One or more configured agent projections are missing or stale",
         blocking: true,
-        recoveryAction: `axm sync ${identity} --dry-run`,
+        recoveryAction: commandForScope(`axm sync ${identity} --preview`, ws.scope),
       },
     ];
   });
@@ -280,10 +296,14 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
   }
 });
 
-const statusConfig = {} as const;
+const statusConfig = {
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Inspect project (default) or user-level workspace state"),
+  ),
+} as const;
 
-export const statusCommand = Command.make("status", statusConfig, () =>
-  handleStatus().pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("status")),
+export const statusCommand = Command.make("status", statusConfig, ({ scope }) =>
+  handleStatus().pipe(withWorkspace(scope), withRuntime("status")),
 ).pipe(
   withArgvTracking(statusConfig),
   Command.withDescription("Inspect local workspace health and reconciliation blockers"),

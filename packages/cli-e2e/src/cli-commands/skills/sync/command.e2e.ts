@@ -76,7 +76,7 @@ describe("axm sync configured GitHub skills", () => {
       const projection = path.join(temp.path, ".agents", "skills", "quality");
       expect(fs.existsSync(projection)).toBe(false);
 
-      const preview = await runCli(["sync", "--dry-run", "--json"], {
+      const preview = await runCli(["sync", "--preview", "--json"], {
         cwd: temp.path,
       });
       expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);

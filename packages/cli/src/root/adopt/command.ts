@@ -1,20 +1,30 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildInstallOperation,
   fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
+  targetFromRef,
+  toStepKey,
 } from "@agentxm/client-core/unstable/extensions";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
+import {
+  installMcpServer,
+  McpServerManager,
+  type WorkspaceMcpServerRef,
+} from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -26,9 +36,57 @@ import {
   resolveWorkspaceExtensionRef,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+
+const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(function* (
+  ref: WorkspaceMcpServerRef,
+) {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const renderer = yield* CliRenderer;
+  const agentRepo = yield* CodingAgentRepository;
+  const source = `workspace:${ref.owner}/mcps/${ref.name}`;
+  const transition = installMcpServer({
+    name: "install-mcp-server",
+    args: {
+      ref,
+      force: false,
+      allowWorkspaceSourceTransition: true,
+      versionRange: Option.none(),
+      skipSettings: Option.none(),
+      env: Option.none(),
+    },
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(WorkspaceMutations, ws),
+    Effect.provideService(CliRenderer, renderer),
+    Effect.provideService(CodingAgentRepository, agentRepo),
+  );
+  return {
+    key: toStepKey(targetFromRef(ref)),
+    label: `Adopt ${ref.owner}/mcps/${ref.name}`,
+    readiness: "ready",
+    run: ws.runTransaction({
+      targets: [ref.location],
+      transition,
+      validate: () =>
+        ws.getConfiguredMcpServerEntries().pipe(
+          Effect.flatMap((configured) =>
+            configured[ref.name]?.source === source
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Adopted MCP server ${ref.name} did not retain ${source} as its configured source`,
+                }),
+          ),
+        ),
+      receipt: () => Effect.void,
+    }),
+  } satisfies PlannedJobStep;
+});
 
 const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   const ws = yield* WorkspaceMutations;
@@ -52,6 +110,9 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
           versionRange: Option.none(),
         });
       case "mcp-server":
+        if (ref.refType === "workspace") {
+          return yield* workspaceMcpAdoptionOperation(ref);
+        }
         return buildInstallOperation(yield* McpServerManager, {
           ref,
           versionRange: Option.none(),
@@ -114,16 +175,15 @@ const config = {
   fqn: Argument.string("fqn").pipe(
     Argument.withDescription("Canonical extension FQN (@owner/<plural-type>/name)"),
   ),
-  scope: scopeFlag,
   yes: yesFlag,
   preview: previewFlag,
 } as const;
 
-export const adoptCommand = Command.make("adopt", config, ({ fqn, scope, yes, preview }) =>
-  handleAdopt({ fqn, yes, preview }).pipe(withWorkspace(scope), withRuntime("adopt")),
+export const adoptCommand = Command.make("adopt", config, ({ fqn, yes, preview }) =>
+  handleAdopt({ fqn, yes, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
 ).pipe(
   withArgvTracking(config),
-  Command.withDescription("Adopt a canonical package into workspace authorship"),
+  Command.withDescription("Adopt a canonical package into project-workspace authorship"),
   Command.withExamples([
     {
       command: "axm adopt @acme/skills/code-review",

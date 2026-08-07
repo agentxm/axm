@@ -205,8 +205,8 @@ describe("workspace trust state", () => {
       );
       expect(error.detail).not.toContain("workspace:workspace:");
       expect(error.suggestions).toContainEqual({
-        description: "Accept the relocated workspace authoring source",
-        cmd: "axm sync @other/skills/review --accept-authority-change",
+        description: "Preview adoption of the relocated workspace authoring source",
+        cmd: "axm adopt @other/skills/review --preview",
       });
 
       yield* validateRefTrustTransition(state, relocated, {

@@ -388,7 +388,7 @@ export const newCommand = Command.make(
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("hooks new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new hook"),
+  Command.withDescription("Create a new hook in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm hooks new tool-audit", description: "Scaffold a new hook" },
     {

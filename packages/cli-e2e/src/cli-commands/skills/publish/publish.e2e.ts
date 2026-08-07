@@ -123,7 +123,7 @@ describe("axm skills publish", () => {
             "publish",
             "@test/skills/my-publish-skill",
             "--on-existing",
-            "skip",
+            "verify",
             "--yes",
             "--quiet",
           ],

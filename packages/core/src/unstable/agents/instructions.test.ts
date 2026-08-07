@@ -6,13 +6,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  assertInstructionTargetsSafe,
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
   listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
+  removeManagedInstructionTargets,
   resolveInstructionMechanism,
   syncInstructions,
+  syncInstructionsGitignore,
 } from "./instructions.js";
 import { AGENTS } from "./registry.js";
 
@@ -304,6 +307,105 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("blocks an unowned alias even when its body matches the source", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Workspace\n");
+
+        const result = yield* Effect.result(
+          assertInstructionTargetsSafe({
+            workspaceRoot: tempDir,
+            scope: "project",
+            configuredAgents: ["claude-code"],
+            config: { fileName: "AGENTS.md", gitignoreAliases: false },
+            symlinkSupported: true,
+          }),
+        );
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("conflict");
+          expect(result.failure.detail).toContain("CLAUDE.md");
+        }
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
+      }),
+    ),
+  );
+
+  it.effect("never replaces an unowned alias directory", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.mkdirSync(path.join(tempDir, "CLAUDE.md"));
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md", "keep.txt"), "keep\n");
+
+        const result = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          force: true,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+
+        expect(result.written).toEqual([]);
+        expect(result.status.items[0]?.health).toBe("drift");
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md", "keep.txt"), "utf-8")).toBe(
+          "keep\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("removes only current AXM-owned aliases", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+
+        const removed = yield* removeManagedInstructionTargets({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          dryRun: false,
+          symlinkSupported: true,
+        });
+
+        expect(removed).toEqual([path.join(tempDir, "CLAUDE.md")]);
+        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+        expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toBe("# Workspace\n");
+      }),
+    ),
+  );
+
+  it.effect("preflights every alias before removing any owned target", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+        fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Human content\n");
+
+        const result = yield* Effect.result(
+          removeManagedInstructionTargets({
+            workspaceRoot: tempDir,
+            scope: "project",
+            configuredAgents: ["claude-code", "gemini-cli"],
+            config: { fileName: "AGENTS.md", gitignoreAliases: false },
+            dryRun: false,
+            symlinkSupported: true,
+          }),
+        );
+
+        expect(result._tag).toBe("Failure");
+        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(true);
+        expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Human content\n");
+      }),
+    ),
+  );
+
   it.effect("reports native rules directories AXM does not sync", () =>
     run(
       Effect.gen(function* () {
@@ -388,6 +490,68 @@ describe("agent instructions", () => {
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).not.toContain(
           "# >>> axm:instructions >>>",
         );
+      }),
+    ),
+  );
+
+  it.effect("preserves gitignore bytes outside the managed block", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        const before =
+          "dist/  \r\n\r\n# >>> axm:instructions >>>\r\n**/OLD.md\r\n# <<< axm:instructions <<<\r\n\r\n# keep  \r\n";
+        fs.writeFileSync(path.join(tempDir, ".gitignore"), before);
+
+        yield* syncInstructionsGitignore({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          desired: true,
+          dryRun: false,
+        });
+
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(
+          "dist/  \r\n\r\n# >>> axm:instructions >>>\r\n**/CLAUDE.md\r\n# <<< axm:instructions <<<\r\n\r\n# keep  \r\n",
+        );
+
+        yield* syncInstructionsGitignore({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          desired: false,
+          dryRun: false,
+        });
+
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(
+          "dist/  \r\n\r\n\r\n# keep  \r\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("refuses to overwrite malformed gitignore ownership markers", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        const malformed = "dist/\n# >>> axm:instructions >>>\n**/CLAUDE.md\n";
+        fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
+
+        const result = yield* Effect.result(
+          syncInstructionsGitignore({
+            workspaceRoot: tempDir,
+            configuredAgents: ["claude-code"],
+            config: { fileName: "AGENTS.md", gitignoreAliases: true },
+            desired: true,
+            dryRun: false,
+          }),
+        );
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("conflict");
+          expect(result.failure.detail).toContain("malformed AXM ownership markers");
+        }
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(malformed);
       }),
     ),
   );

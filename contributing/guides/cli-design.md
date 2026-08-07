@@ -468,10 +468,9 @@ When a user runs a group command without a subcommand:
 
 ## Flags
 
-Consistent flag semantics let users build intuition. When `--force` means the
-same thing on every command, users transfer knowledge instead of memorizing
-per-command exceptions. Agents benefit even more — they can apply a single
-mental model across the entire CLI.
+Intention-revealing flags let users understand which safety boundary a command
+can cross. AXM does not expose a generic `--force`; each override names the
+specific behavior it enables.
 
 Effect CLI provides built-in `--help` and `--version`. `axm` adds a small set
 of global and per-command flags.
@@ -486,27 +485,32 @@ Registered once at the root:
 - `--debug`
 - `--quiet` / `-q`
 
-`--log-level` and `--completions` are not axm global flags. Effect CLI enables
-every built-in by default; AXM opts into the built-ins it keeps by providing
-`CliConfig.layer({ builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard] })`
-in the layer stack the CLI program runs with (see `run` in
-`packages/cli/src/app.ts`). Logger severity is driven by the verbosity flags
-instead of `--log-level`.
+`--log-level`, `--completions`, and `--wizard` are not AXM global flags. Effect
+CLI enables every built-in by default; AXM opts into help plus its custom
+`--version` action in the layer stack the CLI program runs with (see `run` in
+`packages/cli/src/app.ts`). The custom version action intentionally has no
+`-v` alias because `-v` means `--verbose`. Logger severity is driven by the
+verbosity flags instead of `--log-level`; `--debug` is the only debug spelling.
 
 ### Per-Command Flag Semantics
 
-Reusable per-command flags live in `@agentxm/client-core/unstable/cli-flags`. Their
-meanings are fixed across all commands:
+Reusable per-command flags live in `@agentxm/client-core/unstable/cli-flags`.
+Their meanings are fixed across all commands:
 
-| Flag             | Behavior                                                      | Does NOT imply |
-| ---------------- | ------------------------------------------------------------- | -------------- |
-| `--yes` / `-y`   | Skips confirmation prompts only                               | `--force`      |
-| `--force` / `-f` | Overrides blocking constraints (conflicts, existing files)    | `--yes`        |
-| `--preview`      | Display-only; no side effects unless followed by confirmation | —              |
+| Flag                           | Behavior                                                       |
+| ------------------------------ | -------------------------------------------------------------- |
+| `--yes` / `-y`                 | Skips confirmation prompts only                                |
+| `--preview`                    | Displays the plan without applying it                          |
+| `--reinstall`                  | Re-materializes content that is already installed              |
+| `--refresh`                    | Runs an update even when the installed version is current      |
+| `--ignore-version-constraints` | Permits an update outside the configured version constraint    |
+| `--break-dependencies`         | Removes an extension even when another extension references it |
+| `--accept-warnings`            | Applies a plan despite unresolved preflight warnings           |
+| `--replace-existing`           | Replaces an existing extension declaration in a pack           |
+| `--allow-empty`                | Removes the last extension declaration from a pack             |
 
-`--yes` answers "are you sure?" prompts. `--force` pushes past "this will
-overwrite X" blockers. They are independent — forcing past a blocker still
-requires confirmation unless `--yes` is also passed.
+`--yes` answers "are you sure?" and does not weaken validation or dependency
+checks. Safety overrides remain independent of confirmation.
 
 Machine-output rules for `--json` live in
 [CLI Renderer Guide](./cli-renderer.md).
@@ -514,7 +518,7 @@ Machine-output rules for `--json` live in
 ### Flags Checklist
 
 - [ ] **Reserved shorts honored** — Does not reuse reserved short flags
-      (`-y`, `-f`, `-h`, `-v`)
+      (`-y`, `-h`, `-v`)
 - [ ] **Consistent meaning** — Flag means the same thing across all commands
       that use it
 - [ ] **Supported behavior** — Flag is only exposed when the command implements

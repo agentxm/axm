@@ -1,5 +1,7 @@
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { scopeFlag } from "../../cli-flags.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { addCommand } from "./add.js";
@@ -7,12 +9,19 @@ import { capabilitiesCommand } from "./capabilities.js";
 import { handleAgentsList, listCommand } from "./list.js";
 import { removeCommand } from "./remove.js";
 
-export const agentsCommand = Command.make("agents", {}, () =>
+const agentsConfig = {
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Inspect project (default) or user-level coding-agent state"),
+  ),
+} as const;
+
+export const agentsCommand = Command.make("agents", agentsConfig, ({ scope }) =>
   handleAgentsList({ detected: false, available: false }).pipe(
-    withWorkspace("project"),
+    withWorkspace(scope),
     withRuntime("agents"),
   ),
 ).pipe(
+  withArgvTracking(agentsConfig),
   Command.withDescription("Manage coding-agent harnesses configured for AXM"),
   Command.annotate(
     LearnMore,

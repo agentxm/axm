@@ -175,7 +175,7 @@ describe("isUpgradeCommand", () => {
   });
 
   it("returns true when upgrade is first arg with flags", () => {
-    expect(isUpgradeCommand(["upgrade", "--force"])).toBe(true);
+    expect(isUpgradeCommand(["upgrade", "--reinstall"])).toBe(true);
   });
 
   it("returns false when upgrade is not the first arg", () => {

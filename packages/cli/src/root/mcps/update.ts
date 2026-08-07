@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, refreshFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -25,7 +25,7 @@ const updateConfig = {
     Flag.withDescription("Update only specific MCP servers by name or glob pattern"),
   ),
   yes: yesFlag,
-  force: forceFlag,
+  force: refreshFlag,
   preview: previewFlag,
 } as const;
 

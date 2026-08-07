@@ -38,13 +38,17 @@ export type {
 } from "./types.js";
 
 export {
+  assertInstructionTargetsSafe,
+  assertInstructionsGitignoreSafe,
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
   listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
+  reconcileInstructionTargets,
   resolveInstructionMechanism,
   resolveInstructionsConfig,
+  removeManagedInstructionTargets,
   syncInstructionTarget,
   syncInstructions,
   syncInstructionsGitignore,

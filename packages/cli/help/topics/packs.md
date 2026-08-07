@@ -16,14 +16,16 @@ Use `axm packs show <name-or-fqn>` to compare desired membership with the last
 successful resolution receipt. If an intentional edit causes trust drift, run
 `axm packs repair <name-or-fqn> --preview`, review the classified changes, and
 then use `--accept-current`. Repair works from workspace state and canonical
-content without Registry access. Never edit `.axm/trust.json` or the receipt.
+content without Registry access. Reinstall options never accept an
+authored pack's changed trust baseline. Never edit `.axm/trust.json` or the
+receipt.
 
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
 When publishing an authored pack, AXM publishes any included workspace-authored
-dependencies first, then publishes the pack. Existing dependency versions are
-verified instead of republished, so retrying a partially completed publication
-is safe.
+dependencies first, then publishes the pack. Add `--on-existing verify` when a
+retry should accept already-published dependency versions with identical
+archive integrity. A mismatch blocks the full selection before any upload.
 
 ## Pack dependencies
 
@@ -64,13 +66,26 @@ needed before the pack can be released.
 
 Packs support the same lifecycle verbs as other extension types:
 
+- `axm packs install <fqn> [--preview]` resolves the complete member graph
+  before applying it. The preview names every canonical package that will be
+  created or updated and every exclusive package that will be deleted.
 - `axm packs update [--preview]` re-resolves every enabled pack's configured
   version constraint and reconciles additions, removals, and shared members.
 - `axm packs disable <name> [--preview]` keeps the settings entry, lock data,
-  trust baseline, and canonical packages, but removes projections contributed
-  only by that pack.
+  trust baseline, and canonical packages, but removes active artifacts and
+  Knowledge discovery contributed only by that pack.
 - `axm packs enable <name> [--preview]` restores the pack and its exclusive
   members from retained trusted content without advancing locked versions.
+- `axm packs uninstall <name> [--preview]` removes the pack and only members
+  whose final origin disappears.
+- `axm packs unpack <name> [--preview]` promotes each member to direct settings
+  provenance and then removes the pack.
+
+Each verb applies one pack and its complete member graph as a single
+transaction. If a pack or member cannot reach its promised postcondition, AXM
+rolls back the whole graph. Disabling retains canonical content, trust, and
+receipt history for offline re-enable; unpack preserves members by promoting
+their provenance in the same transaction that removes the pack.
 
 Direct intent has precedence over membership: an explicit member
 `enabled: false` stays disabled even when an enabled pack requires it. A direct

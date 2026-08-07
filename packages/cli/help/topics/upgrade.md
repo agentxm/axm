@@ -8,8 +8,8 @@ installer may mutate the installation.
 
 - An older or unknown local version upgrades only through a supported detected
   installer.
-- An equal version is unchanged unless `--force` requests a reinstall.
-- A newer local version is never downgraded. With `--force`, AXM refuses the
+- An equal version is unchanged unless `--reinstall` requests a reinstall.
+- A newer local version is never downgraded. With `--reinstall`, AXM refuses the
   downgrade and exits 1.
 - Unknown or conflicting install ownership requires manual action; AXM does not
   substitute npm or run a recovery installer automatically.

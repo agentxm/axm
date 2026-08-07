@@ -27,6 +27,10 @@ import {
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  CONFIGURABLE_AGENTS_BY_ID,
+  type ConfigurableAgentId,
+} from "@agentxm/client-core/unstable/agent-capabilities";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
@@ -89,6 +93,9 @@ export const parseEnvFlag = (
     }
     return parsed;
   });
+
+const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
+  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -329,35 +336,59 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       });
 
     const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Install MCP server",
-        description: Option.some(`Install MCP server ${intent.ref.server.name}`),
-        jobs: [
-          {
-            concurrency: 1 as const,
-            steps: [
-              {
-                key: `mcp-server:${intent.ref.server.name}`,
-                label: intent.ref.server.name,
-                readiness: "ready" as const,
-                run: provide(
-                  installMcpServer({
-                    name: "install-mcp-server",
-                    args: {
-                      ref: intent.ref,
-                      force: intent.force,
-                      versionRange: intent.versionRange,
-                      skipSettings: Option.none(),
-                      env: Option.some(intent.env ?? {}),
-                    },
-                  }),
-                ),
-              },
-            ],
-          },
-        ],
-      } satisfies Plan);
+      Effect.gen(function* () {
+        if (ws.scope === "user") {
+          const configuredAgents = yield* ws.getConfiguredAgents();
+          const refused = configuredAgents.flatMap((agentId) => {
+            if (!isConfigurableAgentId(agentId)) {
+              return [`${agentId}: no MCP capability catalog entry`];
+            }
+            const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+            if (capability.axm.writer === null || !("transports" in capability.native)) {
+              return [`${agentId}: no MCP config support`];
+            }
+            return capability.axm.writer.config.targets.some((target) => target.scope === ws.scope)
+              ? []
+              : [`${agentId}: no ${ws.scope} MCP config target`];
+          });
+          if (refused.length > 0) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Cannot install MCP servers in user scope for the configured agent placement: ${refused.join("; ")}`,
+            });
+          }
+        }
+
+        return {
+          _tag: "Plan",
+          name: "Install MCP server",
+          description: Option.some(`Install MCP server ${intent.ref.server.name}`),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps: [
+                {
+                  key: `mcp-server:${intent.ref.server.name}`,
+                  label: intent.ref.server.name,
+                  readiness: "ready" as const,
+                  run: provide(
+                    installMcpServer({
+                      name: "install-mcp-server",
+                      args: {
+                        ref: intent.ref,
+                        force: intent.force,
+                        versionRange: intent.versionRange,
+                        skipSettings: Option.none(),
+                        env: Option.some(intent.env ?? {}),
+                      },
+                    }),
+                  ),
+                },
+              ],
+            },
+          ],
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

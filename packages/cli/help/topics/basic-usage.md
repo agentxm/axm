@@ -35,7 +35,8 @@ After running `axm setup`, AXM configures a workspace settings file at [`.axm/se
 Use `axm agents list` to inspect configured and detected coding agents. Use
 `axm agents add <id>` or `axm agents remove <id>` for day-2 agent changes so
 AXM also creates or removes the per-agent managed artifacts for installed
-extensions.
+extensions. `axm setup` only initializes an absent scope; rerunning it never
+changes existing agent membership.
 
 Extensions are typically referenced by their full name: `<@owner>/<skills|subagents|...>/<name>` and vendored under `.axm/extensions/<@owner>/<type>/<name>`. Non-registry sourced extensions are vendored under `.axm/extensions/external/<type>/<name>`. `.axm` should not be ignored by source control. `.axm/settings.json` declares intent, `.axm/trust.json` preserves security-critical source identity, and the v3 `.axm/axm-lock.yaml` file records optional resolution and materialization receipt history. Agent-specific paths and render state are derived from settings, manifests, AXM ownership markers, and the local workspace.
 
@@ -50,11 +51,23 @@ agent artifacts.
 ### Publishing extensions
 
 Use `axm publish` to publish all extensions authored in the selected workspace,
-or pass explicit selectors. Bulk selections skip already-published versions and
-report them; a single explicit selector errors instead unless you pass
-`--on-existing skip`. Use `--on-existing verify` for an idempotent publish
-that rejects immutable-version content drift. `axm version` only changes
-workspace-sourced manifests.
+or pass explicit selectors. AXM preflights the full selection before uploading
+anything. Existing versions are immutable and fail by default; use
+`--on-existing verify` for an idempotent no-op that requires identical archive
+integrity. Use `--backfill` only for an unpublished version below the highest
+published SemVer. `axm version` only changes workspace-sourced manifests.
+
+### Project and user scope
+
+Installed-state commands accept `--scope project|user`; project is the default.
+The selected scope is isolated for setup, install, update, activation, listing,
+status, sync, lint, pruning, agent membership, and pack lifecycle operations.
+Runnable recovery suggestions retain a non-default user scope.
+
+Authoring commands are project-workspace only: `new`, skill copy, adopt, demote,
+version, pack authoring, and publish do not accept `--scope`. Create authored
+packages in the project workspace, then install published versions into user
+scope when user-level availability is needed.
 
 ### Enabling and disabling extensions
 

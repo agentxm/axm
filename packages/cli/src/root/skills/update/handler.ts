@@ -299,7 +299,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           code: "internal",
           detail: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
           recover: "Re-fetch the skill source.",
-          cmd: "axm skills install --force <source>",
+          cmd: "axm skills install --reinstall <source>",
         });
       }
 

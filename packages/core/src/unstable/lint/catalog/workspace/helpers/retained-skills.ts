@@ -50,7 +50,4 @@ export const isImplicitRetainedSkill = (
   entry: SkillLockEntry,
   declaredSkills: Readonly<Record<string, unknown>>,
   retainedFqns: ReadonlySet<string>,
-): boolean =>
-  !(name in declaredSkills) &&
-  entry.retainedByPack === true &&
-  retainedFqns.has(lockEntryFqn(entry, name));
+): boolean => !(name in declaredSkills) && retainedFqns.has(lockEntryFqn(entry, name));

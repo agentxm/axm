@@ -35,6 +35,14 @@ export {
   type ParityExemption,
 } from "./parity/exemptions.js";
 export {
+  EXTENSION_LIFECYCLE_CONTRACT,
+  LIFECYCLE_MUTATION_VERBS,
+  type ExtensionLifecycleContract,
+  type LifecycleMutationVerb,
+  type LifecycleScopeSupport,
+  type LifecycleUpdateSelection,
+} from "./parity/lifecycle.js";
+export {
   obligationsVerifiedBy,
   OBLIGATION_IDS,
   OBLIGATION_TIERS,

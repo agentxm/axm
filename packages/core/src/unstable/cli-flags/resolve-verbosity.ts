@@ -8,8 +8,8 @@ export const resolveVerbosityFromArgv = (argv: ReadonlyArray<string>): Verbosity
   if (argv.includes("--quiet") || argv.includes("-q")) return "quiet";
   for (let i = argv.length - 1; i >= 0; i--) {
     const arg = argv[i];
-    if (arg === "--debug" || arg === "-vv") return "debug";
-    if (arg === "--verbose") return "verbose";
+    if (arg === "--debug") return "debug";
+    if (arg === "--verbose" || arg === "-v") return "verbose";
   }
   return "normal";
 };

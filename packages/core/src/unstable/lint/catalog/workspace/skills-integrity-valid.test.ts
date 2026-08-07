@@ -48,6 +48,27 @@ const skillLockEntry = (args: { readonly owner: string; readonly name: string })
   sourceHash: "sha256-of-original-publisher-bytes",
 });
 
+const packLockEntry = (args: { readonly owner: string; readonly name: string }) => ({
+  type: "registry",
+  owner: args.owner,
+  name: args.name,
+  resolvedVersion: "1.0.0",
+  integrity: "sha512-stub",
+  sourceName: "default",
+  publisherBindingId: "hbnd_test",
+  installedAt: "2026-04-21T00:00:00.000Z",
+  updatedAt: "2026-04-21T00:00:00.000Z",
+  resolvedSkills: {
+    [`${args.owner}/skills/my-skill`]: {
+      version: "1.0.0",
+      publisherBindingId: "hbnd_test",
+    },
+  },
+  resolvedCommands: {},
+  resolvedMcpServers: {},
+  resolvedSubagents: {},
+});
+
 describe("workspace/skills-integrity-valid", () => {
   it.effect(
     "does not report a present tree whose content differs from sourceHash (workspace-owned)",
@@ -94,6 +115,30 @@ describe("workspace/skills-integrity-valid", () => {
       const finding = findings[0];
       expect(finding?.kind).toBe("autofixable");
       expect(finding?.message).toContain("its installed source directory is missing");
+    }),
+  );
+
+  it.effect("accepts retained canonical content for a disabled pack-provided skill", () =>
+    Effect.gen(function* () {
+      const state = emptyWorkspaceState();
+      state.settings = {
+        agents: ["claude-code"],
+        packs: { starter: { source: "@examples/packs/starter@1.0.0", enabled: false } },
+      };
+      state.lockfile = {
+        lockfileVersion: 3,
+        skills: {
+          "my-skill": skillLockEntry({ owner: "@examples", name: "my-skill" }),
+        },
+        packs: {
+          starter: packLockEntry({ owner: "@examples", name: "starter" }),
+        },
+      };
+      state.existingPaths.add(".axm/extensions/@examples/skills/my-skill/src/SKILL.md");
+
+      const findings = yield* runCheck(state);
+
+      expect(findings).toEqual([]);
     }),
   );
 

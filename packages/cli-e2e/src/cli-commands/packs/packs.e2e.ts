@@ -266,6 +266,43 @@ describe("axm packs new", () => {
       cleanup();
     }
   });
+
+  it("requires explicit repair for authored pack drift even with --reinstall", async () => {
+    const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      const create = await runCli(["packs", "new", "drifted-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(create.exitCode, create.stderr).toBe(0);
+
+      const trustPath = path.join(temp.path, ".axm", "trust.json");
+      const trustBefore = fs.readFileSync(trustPath, "utf8");
+      const manifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        "drifted-pack",
+        "pack.json",
+      );
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      fs.writeFileSync(
+        manifestPath,
+        `${JSON.stringify({ ...manifest, description: "Unreviewed change" }, null, 2)}\n`,
+      );
+
+      const install = await runCli(["install", "--reinstall", "--yes"], { cwd: temp.path });
+
+      expect(install.exitCode).not.toBe(0);
+      expect(install.stderr).toContain("packs repair @test/packs/drifted-pack --preview");
+      expect(fs.readFileSync(trustPath, "utf8")).toBe(trustBefore);
+    } finally {
+      cleanup();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -982,7 +1019,7 @@ describe("axm packs install", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs uninstall", () => {
-  it("fails for a literal pack not in the lockfile or settings", async () => {
+  it("is idempotent for a literal pack not in the lockfile or settings", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -995,8 +1032,8 @@ describe("axm packs uninstall", () => {
         cwd: temp.path,
       });
 
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stdout + result.stderr).toContain('Pack "nonexistent-pack" is not installed');
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      expect(JSON.parse(fs.readFileSync(settingsPath, "utf8"))).toEqual(settings);
     } finally {
       temp.cleanup();
     }

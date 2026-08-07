@@ -182,7 +182,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, pr
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("packs new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new empty pack"),
+  Command.withDescription("Create a new empty pack in the project-workspace authoring root"),
   Command.withExamples([
     {
       command: "axm packs new frontend-tools",

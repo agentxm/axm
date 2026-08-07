@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -17,11 +17,9 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const PackMemberSchema = Schema.Struct({
@@ -32,6 +30,7 @@ const PackMemberSchema = Schema.Struct({
 });
 
 export const PackShowResultSchema = Schema.Struct({
+  scope: Schema.Literals(["project", "user"] as const),
   pack: Schema.String,
   sourceAuthority: Schema.String,
   canonicalPath: Schema.String,
@@ -48,6 +47,7 @@ type PackShowResult = Schema.Schema.Type<typeof PackShowResultSchema>;
 
 const ShowDetail = {
   fields: {
+    scope: { label: "Scope" },
     pack: { label: "Pack" },
     sourceAuthority: { label: "Source authority" },
     canonicalPath: { label: "Canonical path" },
@@ -194,6 +194,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
   if (trustStatus === "drifted") drift.unshift("canonical content differs from trust baseline");
   const fqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
   const result: PackShowResult = {
+    scope: ws.scope,
     pack: fqn,
     sourceAuthority: isWorkspaceSourceLocator(source) ? "workspace" : "registry",
     canonicalPath: manifestPath,
@@ -231,10 +232,11 @@ const showConfig = {
   target: Argument.string("name-or-fqn").pipe(
     Argument.withDescription("Configured pack name or fully qualified identity"),
   ),
+  scope: scopeFlag.pipe(Flag.withDescription("Inspect project (default) or user-level pack state")),
 } as const;
 
-export const showCommand = Command.make("show", showConfig, ({ target }) =>
-  handlePacksShow(target).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs show")),
+export const showCommand = Command.make("show", showConfig, ({ target, scope }) =>
+  handlePacksShow(target).pipe(withWorkspace(scope), withRuntime("packs show")),
 ).pipe(
   withArgvTracking(showConfig),
   Command.withDescription("Inspect desired, trusted, canonical, and resolved pack state"),

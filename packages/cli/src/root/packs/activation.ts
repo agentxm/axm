@@ -18,6 +18,8 @@ import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import {
   previewOrApplyPlan,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
@@ -37,6 +39,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
+import { validatePackGraphPostcondition } from "./graph-transition.js";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -199,7 +202,6 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
   );
   if (!hasMembers) return;
   const { steps } = yield* collectMaterializeSteps({
-    force: false,
     retainedOnly: true,
     selection: { target: Option.some(packIdentity), type: Option.none() },
   });
@@ -286,6 +288,22 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
   const previewItems = args.enabled
     ? yield* retainedPackMembers(args.name)
     : affected.map((node) => `${node.type}: ${node.name}`);
+  const memberTargets: ReadonlyArray<JobStepArtifactTarget> = args.enabled
+    ? previewItems.map((item) => ({
+        path: `.axm/extensions/${item.slice(item.indexOf(": ") + 2)}`,
+        change: "unchanged",
+      }))
+    : affected.map((node) => ({
+        path: `.axm/extensions/${normalizedPackIdentity(node.identity)}`,
+        change: "unchanged",
+      }));
+  const activationArtifact = {
+    path: ".axm/settings.json",
+    scope: ws.scope,
+    change: "updated",
+    fileCount: memberTargets.length + 1,
+    targets: [{ path: ".axm/settings.json", change: "updated" }, ...memberTargets],
+  } satisfies JobStepArtifact;
 
   const plan: Plan = {
     _tag: "Plan",
@@ -306,6 +324,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
           {
             readiness: "ready",
             label: packIdentity,
+            artifact: activationArtifact,
             run: Effect.gen(function* () {
               yield* ws.runTransaction({
                 transition: Effect.gen(function* () {
@@ -316,12 +335,29 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
                     yield* Effect.forEach(affected, dematerializeNode, { concurrency: 1 });
                   }
                 }).pipe(Effect.provide(runServices)),
-                validate: () => Effect.void,
+                validate: () =>
+                  validatePackGraphPostcondition({
+                    requiredPacks: [
+                      {
+                        name: args.name,
+                        identity: packIdentity,
+                        enabled: args.enabled,
+                      },
+                    ],
+                    ...(args.enabled
+                      ? {}
+                      : {
+                          absent: affected.map((node) => ({
+                            type: node.type,
+                            name: node.name,
+                          })),
+                        }),
+                  }).pipe(Effect.provideService(WorkspaceMutations, ws)),
               });
               return {
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,
-                artifact: { path: ".axm/settings.json", scope: ws.scope, change: "updated" },
+                artifact: activationArtifact,
               } satisfies JobStepResult;
             }).pipe(Effect.provide(runServices)),
           },

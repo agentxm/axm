@@ -41,7 +41,6 @@ import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constra
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveSkillInstallSource } from "./install/resolve-skill-install-source.js";
@@ -235,16 +234,15 @@ const config = {
     Flag.withDescription("Source skill name when the source contains more than one"),
     Flag.optional,
   ),
-  scope: scopeFlag,
   yes: yesFlag,
   preview: previewFlag,
 } as const;
 
 export const copyCommand = Command.make("copy", config, (parsed) =>
-  handleCopySkill(parsed).pipe(withWorkspace(parsed.scope), withRuntime("skills copy")),
+  handleCopySkill(parsed).pipe(withWorkspace("project"), withRuntime("skills copy")),
 ).pipe(
   withArgvTracking(config),
-  Command.withDescription("Copy a skill into workspace authorship"),
+  Command.withDescription("Copy a skill into project-workspace authorship"),
   Command.withExamples([
     {
       command: "axm skills copy ./external-skill @acme/skills/my-skill",

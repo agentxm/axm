@@ -9,7 +9,7 @@ import {
   type McpServerSyncTarget,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
@@ -386,7 +386,7 @@ const addConfig = {
     Flag.atLeast(0),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
+  force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 

@@ -23,6 +23,7 @@ import { LOCK_ENTRY_SCHEMA_BY_TYPE } from "../../lockfile/schema.js";
 import { READ_MODEL_EXTENSION_FAMILY_BY_TYPE } from "../../workspace/read-model/service.js";
 import { CATALOG_EXTENSION_TYPES, type CatalogExtensionType } from "../schema.js";
 import { exemptedObligations } from "./exemptions.js";
+import { EXTENSION_LIFECYCLE_CONTRACT, LIFECYCLE_MUTATION_VERBS } from "./lifecycle.js";
 import { obligationsVerifiedBy, type ObligationId } from "./obligations.js";
 import { WORKSPACE_RECONCILIATION_OBLIGATIONS } from "./reconciliation.js";
 
@@ -74,10 +75,25 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
   "2.11-ownership-safe-prune": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
   "2.12-workspace-reconciliation": (type) =>
     WORKSPACE_RECONCILIATION_OBLIGATIONS[type] !== undefined,
+  "2.13-transactional-postcondition": (type) => {
+    const contract = EXTENSION_LIFECYCLE_CONTRACT[type];
+    return (
+      contract.preview &&
+      contract.transactionalPostcondition &&
+      LIFECYCLE_MUTATION_VERBS.every((verb) => contract.mutations.includes(verb))
+    );
+  },
   "6.1-e2e-install-row": null,
+  "6.2-lifecycle-postconditions": null,
+  "6.3-preview-apply-equivalence": null,
+  "6.4-idempotent-validity": null,
+  "6.5-scope-isolation": null,
+  "6.6-pack-reachability": null,
   "7.1-help-topic": null,
   "8.6-entity-key": null,
   "8.7-lifecycle-verbs": null,
+  "8.8-lifecycle-flags": null,
+  "8.9-scope-surface": null,
 };
 
 const coreObligations = obligationsVerifiedBy(TIER);

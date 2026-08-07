@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-29
-version: 0.1.0
+last-reviewed: 2026-08-06
+version: 0.2.0
 description: How the extension type table drives every per-type surface, what the
   parity obligations and exemption ledger enforce, and the checklist for adding a
   new extension type. Read before adding an extension type, adding a per-type
@@ -13,7 +13,7 @@ depends-on: []
 
 AXM has nine extension types. Every one of them needs the same surfaces: a
 plural command namespace, a manifest schema, a lock entry, a help topic, a
-renderer entity, an install path an end-to-end test drives. Historically those
+renderer entity, and an install path driven by an end-to-end test. Historically those
 surfaces were added type by type, so a type added late silently skipped
 whichever ones nobody remembered. This guide covers the machinery that makes
 that impossible, and what you have to do when you add the tenth type.
@@ -26,6 +26,7 @@ that impossible, and what you have to do when you add the tenth type.
 - [`parity/obligations.ts`](../../packages/core/src/unstable/extension-types/parity/obligations.ts) — The obligations and the tier that verifies each
 - [`parity/exemptions.ts`](../../packages/core/src/unstable/extension-types/parity/exemptions.ts) — The debt ledger
 - [`parity/reconciliation.ts`](../../packages/core/src/unstable/extension-types/parity/reconciliation.ts) — Workspace reconciliation and source applicability, including pack
+- [`parity/lifecycle.ts`](../../packages/core/src/unstable/extension-types/parity/lifecycle.ts) — Capability-derived mutation, scope, update-selection, preview, and transaction contract
 - [`scripts/parity-ledger-check.ts`](../../scripts/parity-ledger-check.ts) — The shrink-only ledger gate
 - [Workspace State](./workspace-state.md) — Desired, observed, trust, receipt, and per-type reconciliation rules
 
@@ -62,6 +63,12 @@ Derive from the axes, not from name literals. Root help groups its commands by
 `workspaceCapability` rather than excluding `rules` by name, so the tenth type
 lands in the right group without anyone editing the group.
 
+The lifecycle contract follows the same rule. It derives required mutations,
+scope behavior, update selection, confirmation behavior, preview support, and
+transactional postconditions from the table's axes. The generated E2E matrix
+copies that contract into the distribution-test project without adding a core
+dependency or a second hand-maintained type list.
+
 ## Obligations, tiers, and the ledger
 
 An obligation is one statement that must hold for every catalog type — "the
@@ -72,11 +79,11 @@ change to every reference.
 
 Each obligation names the tier that can observe it:
 
-| Tier        | Suite                                                                                      | Sees                                   |
-| ----------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
-| `core-test` | [`parity.test.ts`](../../packages/core/src/unstable/extension-types/parity/parity.test.ts) | Schemas, lock entries, settings config |
-| `cli-test`  | [`parity-cli.test.ts`](../../packages/cli/src/parity-cli.test.ts)                          | Help topics, renderer entities         |
-| `e2e`       | [`root-install.e2e.test.ts`](../../packages/cli-e2e/src/root-install.e2e.test.ts)          | Real publish-then-install round trips  |
+| Tier        | Suite                                                                                                                                                                                | Sees                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `core-test` | [`parity.test.ts`](../../packages/core/src/unstable/extension-types/parity/parity.test.ts), [`transaction.test.ts`](../../packages/core/src/unstable/workspace/transaction.test.ts)  | Schemas, lock/settings contracts, transaction rollback                                  |
+| `cli-test`  | [`parity-cli.test.ts`](../../packages/cli/src/parity-cli.test.ts)                                                                                                                    | Executable command tree, lifecycle flags, help topics, renderer entities                |
+| `e2e`       | [`root-install.e2e.test.ts`](../../packages/cli-e2e/src/root-install.e2e.test.ts), [`activation-lifecycle.e2e.test.ts`](../../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) | Publish/install, update/activation/uninstall, preview purity, idempotency, scope, packs |
 
 Every suite iterates the types from the catalog and compares what it observed
 against the ledger, filtered to its own tier, with exact equality. That
@@ -115,8 +122,9 @@ literals may appear in the parity harness. Everywhere else, derive.
    topic must cite its standard's URL — `help-standards.test.ts` enforces it.
 5. **Register the command** in `EXTENSION_TYPE_COMMANDS`. Root help picks up
    the group placement from the `workspaceCapability` axis.
-6. **Add the e2e install row**, or a matching `6.1-e2e-install-row` ledger row
-   naming what blocks it.
+6. **Run the generated E2E matrix.** A new table row automatically enters
+   install, lifecycle, scope, idempotency, and pack-reachability coverage.
+   Implement the missing behavior rather than adding a type-name branch.
 7. **Decide every remaining obligation.** Either meet it, or add a ledger row
    with a reason and a tracking issue. The conformance suites will not let you
    skip this step.

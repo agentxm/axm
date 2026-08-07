@@ -108,7 +108,13 @@ describe("subagents install handler — error propagation", () => {
     );
     const ActionsLayer = Layer.provide(
       InstallSubagentCommandWorkflowActionsLive,
-      Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer, SMLayer),
+      Layer.mergeAll(
+        handlerTestContext.baseLayer,
+        handlerTestContext.wsLayer,
+        SPLayer,
+        SMLayer,
+        CodingAgentRepositoryLive,
+      ),
     );
     const FullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,

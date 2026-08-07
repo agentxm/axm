@@ -221,7 +221,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, title, 
   ),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new rule"),
+  Command.withDescription("Create a new rule in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm rules new commit-style", description: "Scaffold a new rule" },
     {

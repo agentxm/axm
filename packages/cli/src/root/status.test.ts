@@ -55,7 +55,7 @@ describe("canonicalHealthProblem", () => {
       detail:
         "Canonical content differs from its trusted source baseline at /workspace/.axm/extensions/@test/skills/draft-skill. Applying sync restores trusted source content and discards these local modifications.",
       blocking: true,
-      recoveryAction: "axm sync @test/skills/draft-skill --dry-run",
+      recoveryAction: "axm sync @test/skills/draft-skill --preview",
     });
   });
 
@@ -100,7 +100,7 @@ describe("canonicalHealthProblem", () => {
       }),
     ).toMatchObject({
       code: "canonical-wrong-origin",
-      recoveryAction: "axm sync @other/skills/draft-skill --accept-authority-change",
+      recoveryAction: "axm adopt @other/skills/draft-skill --preview",
     });
   });
 
@@ -123,6 +123,40 @@ describe("canonicalHealthProblem", () => {
     ).toMatchObject({
       code: "canonical-missing-trust",
       recoveryAction: "axm sync @test/skills/draft-skill",
+    });
+  });
+
+  it("keeps installed-state recovery in user scope", () => {
+    const node = {
+      type: "skill",
+      name: "draft-skill",
+      identity: "@test/skills/draft-skill",
+      source: "@test/skills/draft-skill@1.0.0",
+      enabled: true,
+      constraints: ["1.0.0"],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+
+    expect(canonicalHealthProblem(node, observation, "user")).toMatchObject({
+      blocking: true,
+      recoveryAction: "axm sync @test/skills/draft-skill --preview --scope user",
+    });
+  });
+
+  it("does not redirect legacy user-scope authoring into the project workspace", () => {
+    const node = {
+      type: "skill",
+      name: "draft-skill",
+      identity: "workspace:@test/skills/draft-skill",
+      source: "workspace:@test/skills/draft-skill",
+      enabled: true,
+      constraints: [],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+
+    expect(canonicalHealthProblem(node, observation, "user")).toMatchObject({
+      blocking: true,
+      recoveryAction: null,
     });
   });
 });

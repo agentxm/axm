@@ -3,20 +3,24 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Config from "effect/Config";
+import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as References from "effect/References";
+import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfigService,
+  getCommandSemanticProperties,
   makeFoundationLayer,
   resolveCliFormat,
+  setCommandSemanticProperties,
   withCliErrorHandling,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -75,6 +79,7 @@ import {
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import { loadVersion } from "./version.js";
+import { suggestionsForScope } from "./root/shared/scoped-command.js";
 
 export { verboseFlag, debugFlag };
 
@@ -131,7 +136,17 @@ export const runtimeBaseLayer = Layer.mergeAll(
   Logger.layer([], { mergeWithExisting: false }),
 );
 
-export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
+const versionGlobalFlag = GlobalFlag.action({
+  flag: Flag.boolean("version").pipe(Flag.withDescription("Show version information")),
+  run: Effect.fnUntraced(function* (_, context) {
+    const formatter = yield* CliOutput.Formatter;
+    yield* Console.log(formatter.formatVersion(context.command.name, context.version));
+  }),
+});
+
+export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, versionGlobalFlag] });
+
+export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConfigLayer);
 
 /**
  * Verbosity-driven logging: the logger set stays binary (consolePretty only at
@@ -323,7 +338,7 @@ const flagUnreadableLockfile = Effect.gen(function* () {
 
 export const withWorkspace =
   (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
-  <A, E, R>(program: Effect.Effect<A, E, R>) =>
+  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
       const envConfig = yield* readRuntimeEnvConfig;
       const resolved = typeof options === "string" ? { scope: options } : options;
@@ -342,6 +357,29 @@ export const withWorkspace =
               ).pipe(withDegradedLockfileReads),
             ),
           ),
+      ).pipe(
+        Effect.mapError((error) => {
+          if (error._tag !== "AppError" || error.suggestions === undefined) return error;
+          return new AppError({
+            code: error.code,
+            title: error.title,
+            detail: error.detail,
+            ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
+            ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
+            ...(error.action === undefined ? {} : { action: error.action }),
+            suggestions: suggestionsForScope(error.suggestions, resolved.scope),
+            cause: error.cause,
+          });
+        }),
+        Effect.ensuring(
+          Effect.gen(function* () {
+            const semanticProperties = yield* getCommandSemanticProperties;
+            yield* setCommandSemanticProperties({
+              ...semanticProperties,
+              "cli.scope": resolved.scope,
+            });
+          }),
+        ),
       );
     });
 

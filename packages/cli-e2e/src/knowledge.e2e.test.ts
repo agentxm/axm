@@ -17,6 +17,7 @@ const createKnowledgePackage = (packageRoot: string) => {
     type: "knowledge",
     name: "platform",
     version: "1.0.0",
+    description: "Platform architecture and operational guidance.",
     format: { name: "okf", version: "0.2" },
     bundleRoot: "src",
   });
@@ -66,21 +67,26 @@ describe("axm knowledge lifecycle", () => {
         "knowledge",
         "platform",
       );
-      const defaultProjection = path.join(temp.path, ".agents", "knowledge", "@acme", "platform");
       expect(fs.existsSync(path.join(canonical, "src", "architecture.md"))).toBe(true);
-      expect(fs.existsSync(path.join(defaultProjection, "architecture.md"))).toBe(true);
-      expect(fs.existsSync(path.join(defaultProjection, "knowledge.json"))).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, ".agents", "knowledge"))).toBe(false);
       expect(fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf8")).toContain(
         "platform:",
       );
-      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
-        "untrusted reference material",
+      const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
+      expect(installedInstructions).toContain("## Knowledge Base");
+      expect(installedInstructions).toContain(
+        "[@acme/platform](.axm/extensions/external/knowledge/platform/src/index.md)",
       );
+      expect(installedInstructions).toContain("Platform architecture and operational guidance.");
 
       fs.writeFileSync(
         path.join(sourceRoot, "src", "architecture.md"),
         "---\ntype: reference\ndescription: Updated platform architecture\n---\n# Updated architecture\n",
       );
+      writeJson(path.join(sourceRoot, "knowledge.json"), {
+        ...readJson(path.join(sourceRoot, "knowledge.json")),
+        description: "Updated platform guidance.",
+      });
       const update = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
         cwd: temp.path,
       });
@@ -91,48 +97,80 @@ describe("axm knowledge lifecycle", () => {
       expect(fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf8")).toContain(
         "platform:",
       );
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
+        "Updated platform guidance.",
+      );
 
       writeJson(settingsPath, {
         ...readJson(settingsPath),
-        knowledgeConfig: { directory: "docs/agent-knowledge" },
+        knowledgeConfig: { directory: "docs/legacy", ignore: ["old"] },
       });
-      const preview = await runCli(["sync", "--dry-run", "--non-interactive"], {
+      const legacyLint = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(legacyLint.stdout).toContain("workspace/knowledge-config-current");
+      const legacyFix = await runCli(["lint", "--fix", "--json"], {
+        cwd: temp.path,
+      });
+      expect(legacyFix.exitCode, legacyFix.stdout + legacyFix.stderr).toBe(0);
+      expect(readJson(settingsPath)["knowledgeConfig"]).toBeUndefined();
+
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        knowledgeConfig: { instructions: false },
+      });
+      const preview = await runCli(["sync", "--preview", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(preview.exitCode).toBe(0);
-      expect(fs.existsSync(defaultProjection)).toBe(true);
-      expect(fs.existsSync(path.join(temp.path, "docs", "agent-knowledge"))).toBe(false);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
+        "## Knowledge Base",
+      );
 
       const sync = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
       expect({ exitCode: sync.exitCode, output: sync.stdout + sync.stderr }).toEqual({
         exitCode: 0,
         output: expect.any(String),
       });
-      const relocated = path.join(temp.path, "docs", "agent-knowledge", "@acme", "platform");
-      expect({
-        relocated: fs.existsSync(relocated),
-        output: sync.stdout + sync.stderr,
-      }).toEqual({ relocated: true, output: expect.any(String) });
-      expect(fs.existsSync(defaultProjection)).toBe(false);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "## Knowledge Base",
+      );
+      expect(fs.existsSync(canonical)).toBe(true);
+      const searchWhileHidden = await runCli(["knowledge", "search", "architecture"], {
+        cwd: temp.path,
+      });
+      expect(searchWhileHidden.exitCode).toBe(0);
+      expect(searchWhileHidden.stdout).toContain("Updated architecture");
+
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        knowledgeConfig: {},
+      });
+      const restoreTable = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
+      expect(restoreTable.exitCode, restoreTable.stdout + restoreTable.stderr).toBe(0);
 
       const disable = await runCli(["knowledge", "disable", "platform"], { cwd: temp.path });
       expect(disable.exitCode, disable.stdout + disable.stderr).toBe(0);
-      expect(fs.existsSync(relocated)).toBe(false);
       expect(fs.existsSync(canonical)).toBe(true);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "@acme/platform",
+      );
 
       const enable = await runCli(["knowledge", "enable", "platform"], { cwd: temp.path });
       expect(enable.exitCode, enable.stdout + enable.stderr).toBe(0);
-      expect(fs.existsSync(relocated)).toBe(true);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
+        "@acme/platform",
+      );
 
       const uninstall = await runCli(
         ["knowledge", "uninstall", "platform", "--yes", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(uninstall.exitCode).toBe(0);
-      expect(fs.existsSync(relocated)).toBe(false);
       expect(fs.existsSync(canonical)).toBe(false);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "@acme/platform",
+      );
     } finally {
       temp.cleanup();
     }
-  }, 30_000);
+  }, 60_000);
 });

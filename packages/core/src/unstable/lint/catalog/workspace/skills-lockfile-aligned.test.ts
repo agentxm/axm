@@ -81,7 +81,7 @@ const packLockEntry = (args: {
 });
 
 describe("workspace/skills-lockfile-aligned", () => {
-  it.effect("does not report lockfile-only skills retained by an installed pack", () =>
+  it.effect("derives lockfile-only skill retention from an installed pack", () =>
     Effect.gen(function* () {
       const state = emptyWorkspaceState();
       state.settings = {
@@ -96,7 +96,6 @@ describe("workspace/skills-lockfile-aligned", () => {
             owner: "@examples",
             name: "foo-add-flag",
             resolvedVersion: "0.1.0",
-            retainedByPack: true,
           }),
         },
         packs: {

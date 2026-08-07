@@ -347,7 +347,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("overwrites existing skill with --force", async () => {
+    it("overwrites existing skill with --reinstall", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--non-interactive"], {
@@ -359,9 +359,9 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        // Second install with --force should succeed
+        // Second install with --reinstall should succeed
         const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--force"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--reinstall"],
           { cwd: temp.path },
         );
 
@@ -383,7 +383,7 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--yes");
       expect(result.stdout).toContain("--skill");
       expect(result.stdout).toContain("--scope");
-      expect(result.stdout).toContain("--force");
+      expect(result.stdout).toContain("--reinstall");
       expect(result.stdout).toContain("--preview");
       // Verify removed flags are not in help output
       expect(result.stdout).not.toContain("--list");
@@ -463,7 +463,7 @@ describe("axm skills install", () => {
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 
-        // Run preview with force - should show repair due to hash mismatch
+        // Run preview with reinstall - should show repair due to hash mismatch
         const result = await runCli(
           [
             "skills",
@@ -473,7 +473,7 @@ describe("axm skills install", () => {
             "my-skill",
             "--preview",
             "--non-interactive",
-            "--force",
+            "--reinstall",
           ],
           { cwd: temp.path },
         );
@@ -851,8 +851,8 @@ describe("axm skills install", () => {
     });
   });
 
-  describe("force flag with new format (reconciliation)", () => {
-    it.skip("--force reinstalls skill with updated lockfile entry", async () => {
+  describe("reinstall flag with new format (reconciliation)", () => {
+    it.skip("--reinstall reinstalls skill with updated lockfile entry", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--non-interactive"], {
@@ -872,9 +872,9 @@ describe("axm skills install", () => {
         // Wait a bit to ensure timestamp difference
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Force reinstall
+        // Explicit reinstall
         const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--force"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--reinstall"],
           { cwd: temp.path },
         );
 

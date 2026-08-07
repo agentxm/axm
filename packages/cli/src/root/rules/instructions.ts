@@ -1,6 +1,8 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type {
   InstructionsConfig,
@@ -8,24 +10,30 @@ import type {
 } from "@agentxm/client-core/unstable/settings";
 import {
   getInstructionsStatus,
+  removeManagedInstructionTargets,
   resolveInstructionsConfig,
 } from "@agentxm/client-core/unstable/agents";
+import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   CliRenderer,
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  disableInstructionManagement,
+  instructionReconciliationReadiness,
+  instructionStateIsCurrent,
+  reconcileInstructionTransition,
+} from "./instruction-reconciliation.js";
 
 interface InstructionTableItem {
   readonly agentId: string;
@@ -99,10 +107,7 @@ const rawInstructionsConfigEquals = (
 const makeInstructionsConfigPlan = (args: {
   readonly name: string;
   readonly description: string;
-  readonly stepLabel: string;
-  readonly stepMessage: string;
-  readonly config: InstructionsConfigValue;
-  readonly ws: WorkspaceMutationsService;
+  readonly step: PlannedJobStep;
 }): Plan => ({
   _tag: "Plan",
   name: args.name,
@@ -110,23 +115,7 @@ const makeInstructionsConfigPlan = (args: {
   jobs: [
     {
       concurrency: 1,
-      steps: [
-        {
-          label: args.stepLabel,
-          readiness: "ready",
-          run: args.ws.setInstructionsConfig(args.config).pipe(
-            Effect.as({
-              result: "success",
-              message: args.stepMessage,
-              artifact: {
-                path: ".axm/settings.json",
-                scope: args.ws.scope,
-                change: "updated",
-              },
-            } satisfies JobStepResult),
-          ),
-        },
-      ],
+      steps: [args.step],
     },
   ],
 });
@@ -186,15 +175,32 @@ export const handleInstructionsStatus = Effect.fn("Rules.instructions.status")(f
 export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(function* (args: {
   readonly fileName: string;
   readonly gitignore: boolean;
+  readonly preview?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
+  const ruleManager = yield* RuleManager;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const config = {
     fileName: args.fileName,
     gitignoreAliases: args.gitignore,
   } satisfies InstructionsConfig;
   const current = yield* ws.getInstructionsConfig();
 
-  if (Option.isSome(current) && rawInstructionsConfigEquals(current.value, config)) {
+  const resolvedConfig = resolveInstructionsConfig(config);
+  const previousConfig =
+    Option.isSome(current) && current.value !== false
+      ? Option.some(resolveInstructionsConfig(current.value))
+      : Option.none();
+  const configChanged =
+    Option.isSome(previousConfig) &&
+    (previousConfig.value.fileName !== resolvedConfig.fileName ||
+      previousConfig.value.gitignoreAliases !== resolvedConfig.gitignoreAliases);
+  const alreadyCurrent =
+    Option.isSome(current) &&
+    rawInstructionsConfigEquals(current.value, config) &&
+    (yield* instructionStateIsCurrent({ ws, config: resolvedConfig }));
+  if (alreadyCurrent) {
     yield* emitNoOpOutcome("rules.instructions.enable", {
       planName: "Enable instruction-file management",
       message: "Instruction-file management is already enabled.",
@@ -203,22 +209,85 @@ export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(f
     return;
   }
 
+  const readiness = yield* instructionReconciliationReadiness({
+    ws,
+    config: configChanged && Option.isSome(previousConfig) ? previousConfig.value : resolvedConfig,
+  });
+  const step: PlannedJobStep = Option.match(readiness, {
+    onNone: () => ({
+      label: "Enable instruction-file management",
+      readiness: "ready",
+      artifact: {
+        path: ".axm/settings.json",
+        scope: ws.scope,
+        change: "updated",
+      },
+      run: ws
+        .runTransaction({
+          transition: reconcileInstructionTransition({
+            ws,
+            config: resolvedConfig,
+            ...(configChanged && Option.isSome(previousConfig)
+              ? { preflightConfig: previousConfig.value }
+              : {}),
+            transition: Effect.gen(function* () {
+              if (configChanged && Option.isSome(previousConfig)) {
+                const agents = yield* ws.getConfiguredAgents();
+                yield* removeManagedInstructionTargets({
+                  workspaceRoot: ws.baseDir,
+                  scope: ws.scope,
+                  configuredAgents: agents,
+                  config: previousConfig.value,
+                  dryRun: false,
+                });
+              }
+              yield* ws.setInstructionsConfig(config);
+              yield* ruleManager.reconcileInstructions;
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            ),
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+          validate: () => Effect.void,
+        })
+        .pipe(
+          Effect.as({
+            result: "success",
+            message: "Enabled and reconciled instruction-file management",
+            artifact: {
+              path: ".axm/settings.json",
+              scope: ws.scope,
+              change: "updated",
+            },
+          } satisfies JobStepResult),
+        ),
+    }),
+    onSome: (error) => ({
+      label: "Enable instruction-file management",
+      readiness: "error",
+      errorMessage: error.detail,
+    }),
+  });
   const resolution = yield* previewOrApplyLocalPlan(
     makeInstructionsConfigPlan({
       name: "Enable instruction-file management",
       description: `Use ${config.fileName} as the source instruction file`,
-      stepLabel: "Enable instruction-file management",
-      stepMessage: "Enabled instruction-file management",
-      config,
-      ws,
+      step,
     }),
-    { preview: false },
+    { preview: args.preview === true },
   );
   yield* emitPlanResolutionResult("rules.instructions.enable", resolution);
 });
 
-export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")(function* () {
+export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")(function* (args?: {
+  readonly preview?: boolean;
+}) {
   const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const current = yield* ws.getInstructionsConfig();
 
   if (Option.isNone(current) || current.value === false) {
@@ -230,16 +299,50 @@ export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")
     return;
   }
 
+  const config = resolveInstructionsConfig(current.value);
+  const readiness = yield* instructionReconciliationReadiness({ ws, config });
+  const step: PlannedJobStep = Option.match(readiness, {
+    onNone: () => ({
+      label: "Disable instruction-file management",
+      readiness: "ready",
+      artifact: {
+        path: ".axm/settings.json",
+        scope: ws.scope,
+        change: "updated",
+      },
+      run: ws
+        .runTransaction({
+          transition: disableInstructionManagement({ ws, config }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+          validate: () => Effect.void,
+        })
+        .pipe(
+          Effect.as({
+            result: "success",
+            message: "Disabled instruction-file management and removed owned aliases",
+            artifact: {
+              path: ".axm/settings.json",
+              scope: ws.scope,
+              change: "updated",
+            },
+          } satisfies JobStepResult),
+        ),
+    }),
+    onSome: (error) => ({
+      label: "Disable instruction-file management",
+      readiness: "error",
+      errorMessage: error.detail,
+    }),
+  });
   const resolution = yield* previewOrApplyLocalPlan(
     makeInstructionsConfigPlan({
       name: "Disable instruction-file management",
       description: "Turn off instruction-file propagation",
-      stepLabel: "Disable instruction-file management",
-      stepMessage: "Disabled instruction-file management",
-      config: false,
-      ws,
+      step,
     }),
-    { preview: false },
+    { preview: args?.preview === true },
   );
   yield* emitPlanResolutionResult("rules.instructions.disable", resolution);
 });
@@ -262,19 +365,21 @@ const instructionsEnableConfig = {
     Flag.withDescription("Manage propagated alias files in .gitignore"),
     Flag.withDefault(true),
   ),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
 const instructionsDisableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable project (default) or user-level configuration"),
   ),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
 } as const;
 
 const instructionsEnableCommand = Command.make(
   "enable",
   instructionsEnableConfig,
-  ({ scope, fileName, gitignore }) =>
-    handleInstructionsEnable({ fileName, gitignore }).pipe(
+  ({ scope, fileName, gitignore, preview }) =>
+    handleInstructionsEnable({ fileName, gitignore, preview }).pipe(
       withWorkspace(scope),
       withRuntime("rules instructions enable"),
     ),
@@ -290,13 +395,32 @@ const instructionsEnableCommand = Command.make(
   ]),
 );
 
-const instructionsDisableCommand = Command.make("disable", instructionsDisableConfig, ({ scope }) =>
-  handleInstructionsDisable().pipe(withWorkspace(scope), withRuntime("rules instructions disable")),
+const instructionsDisableCommand = Command.make(
+  "disable",
+  instructionsDisableConfig,
+  ({ scope, preview }) =>
+    handleInstructionsDisable({ preview }).pipe(
+      withWorkspace(scope),
+      withRuntime("rules instructions disable"),
+    ),
 ).pipe(
   withArgvTracking(instructionsDisableConfig),
   Command.withDescription("Disable instruction-file management"),
   Command.withExamples([
     { command: "axm rules instructions disable", description: "Disable instruction files" },
+  ]),
+);
+
+const instructionsStatusCommand = Command.make("status", instructionsStatusConfig, ({ scope }) =>
+  handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("rules instructions status")),
+).pipe(
+  withArgvTracking(instructionsStatusConfig),
+  Command.withDescription("Inspect instruction-file management status"),
+  Command.withExamples([
+    {
+      command: "axm rules instructions status",
+      description: "Inspect instruction files",
+    },
   ]),
 );
 
@@ -315,5 +439,9 @@ export const instructionsCommand = Command.make(
       description: "Repair instruction-file drift",
     },
   ]),
-  Command.withSubcommands([instructionsEnableCommand, instructionsDisableCommand]),
+  Command.withSubcommands([
+    instructionsStatusCommand,
+    instructionsEnableCommand,
+    instructionsDisableCommand,
+  ]),
 );

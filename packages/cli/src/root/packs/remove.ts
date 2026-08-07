@@ -23,7 +23,7 @@ import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
-  forceFlag,
+  allowEmptyFlag,
   previewFlag,
   Verbosity,
   yesFlag,
@@ -252,7 +252,7 @@ const removeConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Remove even if it would leave the pack empty")),
+  force: allowEmptyFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -268,7 +268,7 @@ export const removeCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(removeConfig),
-  Command.withDescription("Remove an extension from a pack manifest"),
+  Command.withDescription("Remove an extension from a project-workspace pack manifest"),
   Command.withExamples([
     {
       command: "axm packs remove frontend-tools @acme/skills/code-review",

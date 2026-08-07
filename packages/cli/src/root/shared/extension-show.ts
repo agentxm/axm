@@ -28,6 +28,7 @@ import {
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { commandForScope } from "./scoped-command.js";
 
 /**
  * Per-agent placement row. `mcp-server` fills every field from its live config
@@ -139,7 +140,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       suggestions: [
         {
           description: `Inspect installed ${label} entries`,
-          cmd: `axm ${toExtensionTypePlural(args.type)} list`,
+          cmd: commandForScope(`axm ${toExtensionTypePlural(args.type)} list`, ws.scope),
         },
       ],
     });

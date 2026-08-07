@@ -75,6 +75,7 @@ const emptyHookManager = {
 const emptyRuleManager = {
   ...managerLifecycleStubs,
   type: "rule",
+  reconcileInstructions: Effect.die("not used"),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),

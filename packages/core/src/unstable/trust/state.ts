@@ -124,8 +124,8 @@ export const validateRefTrustTransition = (
     const suggestion =
       ref.refType === "workspace" && record.authority === "workspace"
         ? {
-            description: "Accept the relocated workspace authoring source",
-            cmd: `axm sync ${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name} --accept-authority-change`,
+            description: "Preview adoption of the relocated workspace authoring source",
+            cmd: `axm adopt ${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name} --preview`,
           }
         : {
             description:
@@ -173,7 +173,7 @@ export const validateRefTrustTransition = (
         detail: `Version downgrade refused for ${ref.type} "${name}": ${record.resolvedVersion} -> ${proposedVersion}.`,
         suggestions: [
           {
-            description: "Reinstall the exact older version explicitly with `--force`.",
+            description: "Reinstall the exact older version explicitly with `--reinstall`.",
           },
         ],
       }),

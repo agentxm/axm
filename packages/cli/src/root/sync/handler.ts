@@ -12,13 +12,13 @@ import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 import {
   CodingAgentRepository,
+  assertInstructionTargetsSafe,
+  assertInstructionsGitignoreSafe,
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
   pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
   syncInlineMcpServerToAgents,
-  syncInstructionTarget,
-  syncInstructionsGitignore,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -53,14 +53,11 @@ import {
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
-  applyPlan,
   previewOrApplyPlan,
-  resolvePlan,
+  type Job,
   type JobStepArtifact,
   type JobStepResult,
-  type Operation,
   type Plan,
-  type PlanResolution,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -93,9 +90,11 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
-  readonly dryRun: boolean;
-  readonly force: boolean;
-  readonly acceptAuthorityChange?: boolean;
+  readonly preview: boolean;
+}
+
+export interface SyncTestHooks {
+  readonly beforeMaterialization?: () => Effect.Effect<void, AppError>;
 }
 
 const PLAN_NAME = "Sync workspace";
@@ -249,13 +248,21 @@ const skillSyncArtifact = (args: {
   readonly ref: SkillExtensionRef;
   readonly agentRepo: CodingAgentRepositoryService;
   readonly fs: FileSystem.FileSystem;
+  readonly materializationAgentIds?: ReadonlyArray<string>;
   readonly path: Path.Path;
   readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
 }): Effect.Effect<JobStepArtifact, AppError, never> =>
   Effect.gen(function* () {
-    const materializationAgents = yield* args.agentRepo
-      .getMaterializationAgents()
-      .pipe(Effect.provideService(WorkspaceMutations, args.ws));
+    const materializationAgents =
+      args.materializationAgentIds === undefined
+        ? yield* args.agentRepo
+            .getMaterializationAgents()
+            .pipe(Effect.provideService(WorkspaceMutations, args.ws))
+        : yield* args.agentRepo.all.pipe(
+            Effect.map((agents) =>
+              agents.filter((agent) => args.materializationAgentIds?.includes(agent.id) === true),
+            ),
+          );
     const resolved = yield* Effect.forEach(
       materializationAgents,
       (agent) =>
@@ -308,7 +315,6 @@ const buildMcpServerSyncOperation = ({
   renderer,
   agentRepo,
   force,
-  allowWorkspaceSourceTransition,
   transitionLabel,
   manager,
 }: {
@@ -319,7 +325,6 @@ const buildMcpServerSyncOperation = ({
   readonly renderer: ServiceMap.Service.Shape<typeof CliRenderer>;
   readonly agentRepo: CodingAgentRepositoryService;
   readonly force: boolean;
-  readonly allowWorkspaceSourceTransition: boolean;
   readonly transitionLabel: string;
   readonly manager: ServiceMap.Service.Shape<typeof McpServerManager>;
 }): PlannedJobStep => {
@@ -329,7 +334,7 @@ const buildMcpServerSyncOperation = ({
       yield* manager.validateTrustTransition({
         ref,
         allowSourceTransition: false,
-        allowWorkspaceSourceTransition,
+        allowWorkspaceSourceTransition: false,
         allowDowngrade: false,
       });
     }
@@ -338,7 +343,7 @@ const buildMcpServerSyncOperation = ({
       args: {
         ref,
         force,
-        allowWorkspaceSourceTransition,
+        allowWorkspaceSourceTransition: false,
         versionRange: Option.none(),
         skipSettings: Option.some(true),
       },
@@ -405,7 +410,7 @@ const buildInlineMcpServerSyncOperation = ({
     if (driftWarnings.length > 0 && !force) {
       return {
         result: "error",
-        message: `Inline MCP server ${name} has drifted agent configs; rerun with --force to overwrite`,
+        message: `Inline MCP server ${name} has drifted agent configs; preview the targeted repair with axm mcps repair ${name} --preview`,
         error: makeAppError({
           code: "conflict",
           detail: `Inline MCP server ${name} has drifted agent configs`,
@@ -490,6 +495,9 @@ const isObservedMaterializationCurrent = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
   node: DesiredExtensionNode,
   configuredAgents: ReadonlyArray<string>,
+  agentRepo: CodingAgentRepositoryService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
 ): Effect.Effect<boolean, AppError> =>
   ws.records
     .getExtensionInventory(node.type, {
@@ -499,11 +507,11 @@ const isObservedMaterializationCurrent = (
         : {}),
     })
     .pipe(
-      Effect.map((inventory) => {
+      Effect.flatMap((inventory) => {
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
-        if (observed === undefined) return false;
+        if (observed === undefined) return Effect.succeed(false);
         if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
-          return true;
+          return Effect.succeed(true);
         }
         const hasProjectionOrigin = (() => {
           switch (node.type) {
@@ -520,16 +528,45 @@ const isObservedMaterializationCurrent = (
               return true;
           }
         })();
-        if (!hasProjectionOrigin) return false;
-        return configuredAgents.every((agentId) => observed.agents.includes(agentId));
+        if (!hasProjectionOrigin) return Effect.succeed(false);
+        if (node.type !== "skill") {
+          return Effect.succeed(
+            configuredAgents.every((agentId) => observed.agents.includes(agentId)),
+          );
+        }
+
+        return agentRepo.all.pipe(
+          Effect.flatMap((agents) => {
+            const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
+            if (configured.length !== configuredAgents.length) return Effect.succeed(false);
+            return Effect.forEach(
+              configured,
+              (agent) =>
+                agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fs),
+                  Effect.provideService(Path.Path, path),
+                  Effect.map((outcome) => {
+                    if (outcome._tag === "unsupported" || outcome._tag === "disabled") return true;
+                    if (outcome._tag === "misconfigured") return false;
+                    const expectedPath = path.relative(
+                      ws.baseDir,
+                      path.join(outcome.dir, sanitizeName(node.name)),
+                    );
+                    return observed.paths.includes(expectedPath);
+                  }),
+                ),
+              { concurrency: "unbounded" },
+            ).pipe(Effect.map((results) => results.every(Boolean)));
+          }),
+        );
       }),
     );
 
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* (args?: {
-  readonly force: boolean;
   readonly selection: SyncSelection;
   readonly retainedOnly?: boolean;
-  readonly acceptAuthorityChange?: boolean;
+  /** Desired agent set for membership preflight before settings are committed. */
+  readonly configuredAgents?: ReadonlyArray<string>;
 }) {
   const skillManager = yield* SkillManager;
   const mcpServerManager = yield* McpServerManager;
@@ -542,8 +579,31 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const validateMaterializeTrust = (ref: ExtensionRef) => {
+    const options = {
+      allowSourceTransition: false,
+      allowWorkspaceSourceTransition: false,
+      allowDowngrade: false,
+    };
+    switch (ref.type) {
+      case "skill":
+        return skillManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "mcp-server":
+        return mcpServerManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "subagent":
+        return subagentManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "rule":
+        return ruleManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "hook":
+        return hookManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "knowledge":
+        return knowledgeManager.validateTrustTransition?.({ ref, ...options }) ?? Effect.void;
+      case "pack":
+        return Effect.void;
+    }
+  };
   const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = args?.configuredAgents ?? (yield* ws.getConfiguredAgents());
   const desiredState = yield* ws.getDesiredStateGraph();
   const selection = args?.selection ?? { target: Option.none(), type: Option.none() };
   const isScoped = Option.isSome(selection.target) || Option.isSome(selection.type);
@@ -592,9 +652,11 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ws,
           node,
           configuredAgents,
+          agentRepo,
+          fs,
+          path,
         );
-        const materialize =
-          (args?.force ?? false) || observation.status !== "usable" || !materializationCurrent;
+        const materialize = observation.status !== "usable" || !materializationCurrent;
         const force = args?.retainedOnly === true ? false : materialize;
         const ref = yield* Effect.gen(function* () {
           if (observation.status === "usable" && trust !== undefined) {
@@ -619,15 +681,11 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           }
           return yield* resolveDesiredExtensionRef(node, observation.status);
         });
-        const allowWorkspaceSourceTransition =
-          args?.acceptAuthorityChange === true &&
-          ref.refType === "workspace" &&
-          trust?.authority === "workspace";
+        yield* validateMaterializeTrust(ref);
         return {
           ref,
           force,
           materialize,
-          allowWorkspaceSourceTransition,
           transitionLabel: [
             node.name,
             `previous source=${
@@ -638,7 +696,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
             `previous version=${trust?.resolvedVersion ?? "none"}`,
             `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
-            `reason=${args?.force === true ? "forced" : observation.status !== "usable" ? observation.status : "stale-projection"}`,
+            `reason=${observation.status !== "usable" ? observation.status : "stale-projection"}`,
             `downgrade=${
               trust?.resolvedVersion !== undefined &&
               (ref.refType === "registry" || ref.refType === "workspace") &&
@@ -656,7 +714,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     readonly ref: TRef;
     readonly force: boolean;
     readonly materialize: boolean;
-    readonly allowWorkspaceSourceTransition: boolean;
     readonly transitionLabel: string;
   };
   const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
@@ -672,7 +729,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -681,7 +737,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -690,7 +745,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -699,7 +753,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -708,7 +761,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -717,7 +769,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -742,28 +793,39 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     ),
     ([name, entry]) =>
       Effect.gen(function* () {
-        if (args?.force !== true) {
-          const inspections = yield* inspectMcpServerAcrossAgents({
-            workspaceRoot: ws.baseDir,
-            scope: ws.scope,
-            agentIds: configuredAgents,
-            serverName: name,
-            entry,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          );
-          const current = inspections.every(
-            (inspection) => inspection.status === "match" || inspection.status === "unsupported",
-          );
-          if (current) return Option.none<PlannedJobStep>();
+        const inspections = yield* inspectMcpServerAcrossAgents({
+          workspaceRoot: ws.baseDir,
+          scope: ws.scope,
+          agentIds: configuredAgents,
+          serverName: name,
+          entry,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        const current = inspections.every(
+          (inspection) => inspection.status === "match" || inspection.status === "unsupported",
+        );
+        if (current) return Option.none<PlannedJobStep>();
+        const conflicts = inspections.filter(
+          (inspection) => inspection.status === "drift" || inspection.status === "unmanaged",
+        );
+        if (conflicts.length > 0) {
+          return Option.some<PlannedJobStep>({
+            key: `mcp-server:inline:${name}`,
+            label: `mcp-server ${name}`,
+            readiness: "error",
+            errorMessage: `Inline MCP server ${name} has drifted native config at ${conflicts
+              .map((inspection) => inspection.path)
+              .join(", ")}; preview the exact repair with axm mcps repair ${name} --preview`,
+          });
         }
         return Option.some(
           buildInlineMcpServerSyncOperation({
             name,
             entry,
             agentIds: configuredAgents,
-            force: args?.force ?? false,
+            force: false,
             fs,
             path,
             ws,
@@ -793,30 +855,39 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         outcomes.some((outcome) => outcome._tag === "success" && outcome.targets !== undefined),
       ),
     ));
-  const skillMaterializeStep = ({
-    ref,
-    force,
-    allowWorkspaceSourceTransition,
-    transitionLabel,
-  }: Reconciled<SkillExtensionRef>) =>
-    buildMaterializeOperation(skillManager, {
-      ref,
-      force,
-      allowWorkspaceSourceTransition,
-      label: transitionLabel,
-      message: `Synced skill ${ref.skill.name}`,
-      buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
+  const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
+    Effect.gen(function* () {
+      const buildArtifact = () =>
+        skillSyncArtifact({
+          ref,
+          agentRepo,
+          fs,
+          ...(args?.configuredAgents === undefined
+            ? {}
+            : { materializationAgentIds: configuredAgents }),
+          path,
+          ws,
+        });
+      const artifact = yield* buildArtifact();
+      return {
+        ...buildMaterializeOperation(skillManager, {
+          ref,
+          force,
+          label: transitionLabel,
+          message: `Synced skill ${ref.skill.name}`,
+          buildArtifact,
+        }),
+        artifact,
+      } satisfies PlannedJobStep;
     });
   const subagentMaterializeStep = ({
     ref,
     force,
-    allowWorkspaceSourceTransition,
     transitionLabel,
   }: Reconciled<SubagentExtensionRef>) =>
     buildMaterializeOperation(subagentManager, {
       ref,
       force,
-      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced subagent ${ref.subagent.name}`,
       buildArtifact: () => subagentSyncArtifact({ ref, ws }),
@@ -824,24 +895,28 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const knowledgeMaterializeStep = ({
     ref,
     force,
-    allowWorkspaceSourceTransition,
     transitionLabel,
   }: Reconciled<KnowledgeExtensionRef>) =>
     buildMaterializeOperation(knowledgeManager, {
       ref,
       force,
-      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced knowledge ${ref.knowledge.name}`,
     });
 
+  const skillSteps = yield* Effect.forEach(
+    skillRefs.filter(({ materialize }) => materialize),
+    skillMaterializeStep,
+    { concurrency: "unbounded" },
+  );
+
   return {
     expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
     steps: [
-      ...skillRefs.filter(({ materialize }) => materialize).map(skillMaterializeStep),
+      ...skillSteps,
       ...mcpServerRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+        .map(({ ref, force, transitionLabel }) =>
           buildMcpServerSyncOperation({
             ref,
             fs,
@@ -850,7 +925,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             renderer,
             agentRepo,
             force,
-            allowWorkspaceSourceTransition,
             transitionLabel,
             manager: mcpServerManager,
           }),
@@ -870,21 +944,19 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
       ...ruleRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+        .map(({ ref, force, transitionLabel }) =>
           buildMaterializeOperation(ruleManager, {
             ref,
             force,
-            allowWorkspaceSourceTransition,
             label: transitionLabel,
           }),
         ),
       ...hookRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+        .map(({ ref, force, transitionLabel }) =>
           buildMaterializeOperation(hookManager, {
             ref,
             force,
-            allowWorkspaceSourceTransition,
             label: transitionLabel,
           }),
         ),
@@ -897,37 +969,57 @@ const makeSyncPlan = ({
   materializeSteps,
   knowledgeStep,
   trustMigrationStep,
+  cleanupStep,
+  instructionStep,
   name = PLAN_NAME,
   description = PLAN_DESCRIPTION,
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
   readonly knowledgeStep: Option.Option<PlannedJobStep>;
   readonly trustMigrationStep: Option.Option<PlannedJobStep>;
+  readonly cleanupStep: Option.Option<PlannedJobStep>;
+  readonly instructionStep: Option.Option<PlannedJobStep>;
   readonly name?: string;
   readonly description?: string;
-}): Plan => ({
-  _tag: "Plan",
-  name,
-  description: Option.some(description),
-  jobs: [
-    ...(materializeSteps.length > 0
-      ? [{ concurrency: "unbounded" as const, steps: materializeSteps }]
-      : []),
-    ...(Option.isSome(knowledgeStep)
-      ? [{ concurrency: 1 as const, steps: [knowledgeStep.value] }]
-      : []),
-    ...(Option.isSome(trustMigrationStep)
-      ? [{ concurrency: 1 as const, steps: [trustMigrationStep.value] }]
-      : []),
-  ],
-});
+}): Plan => {
+  const ruleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") === true);
+  const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
+  const jobs: Array<Job> = [];
+  if (Option.isSome(trustMigrationStep)) {
+    jobs.push({ concurrency: 1, steps: [trustMigrationStep.value] });
+  }
+  if (nonRuleSteps.length > 0) {
+    jobs.push({ concurrency: "unbounded", steps: nonRuleSteps });
+  }
+  if (Option.isSome(knowledgeStep)) {
+    jobs.push({ concurrency: 1, steps: [knowledgeStep.value] });
+  }
+  if (ruleSteps.length > 0) {
+    jobs.push({ concurrency: "unbounded", steps: ruleSteps });
+  }
+  if (Option.isSome(cleanupStep)) {
+    jobs.push({ concurrency: 1, steps: [cleanupStep.value] });
+  }
+  if (Option.isSome(instructionStep)) {
+    jobs.push({ concurrency: 1, steps: [instructionStep.value] });
+  }
+  return {
+    _tag: "Plan",
+    name,
+    description: Option.some(description),
+    jobs,
+  };
+};
 
 const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* () {
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
   const preview = yield* manager.sync({ dryRun: true });
   if (!preview.changed && preview.warnings.length === 0) return Option.none<PlannedJobStep>();
-  const config = yield* ws.getKnowledgeProjectionConfig();
+  const instructions = yield* ws.getInstructionsConfig();
+  const instructionFile = resolveInstructionsConfig(
+    Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
+  ).fileName;
   const details = preview.artifacts
     .filter((artifact) => artifact.change !== "unchanged")
     .map(
@@ -936,8 +1028,8 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* ()
     );
   const message = [...details, ...preview.warnings].join("; ");
   return Option.some({
-    key: "knowledge:projection",
-    label: "Knowledge projections",
+    key: "knowledge:discovery",
+    label: "Knowledge discovery",
     readiness: "ready",
     ...(message.length === 0 ? {} : { message }),
     run: manager.sync({ dryRun: false }).pipe(
@@ -948,11 +1040,11 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* ()
         return {
           result: "success",
           message: result.changed
-            ? "Reconciled Knowledge projections"
-            : "Knowledge projections already current",
+            ? "Reconciled Knowledge discovery"
+            : "Knowledge discovery already current",
           ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
           artifact: {
-            path: config.directory,
+            path: instructionFile,
             scope: ws.scope,
             change: result.changed ? "updated" : "unchanged",
             ...(mechanism === undefined ? {} : { mechanism }),
@@ -1003,20 +1095,53 @@ const collectTrustMigrationStep = Effect.fn("Sync.collectTrustMigrationStep")(fu
   });
 });
 
-interface SyncInstructionTargetIntentArgs {
-  readonly root: string;
-  readonly agentId: string;
-  readonly force: boolean;
-}
+const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
+  expectedSubagentNames: ReadonlySet<string>,
+) {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
+  const preview = yield* cleanupStaleManagedSubagentFiles({
+    expectedSubagentNames,
+    dryRun: true,
+  });
+  if (preview.removedPaths.length === 0) return Option.none<PlannedJobStep>();
+  return Option.some<PlannedJobStep>({
+    key: "subagent:cleanup",
+    label: "stale managed subagent files",
+    readiness: "ready",
+    artifact: {
+      path: "stale managed subagent files",
+      scope: ws.scope,
+      change: "removed",
+      fileCount: preview.removedPaths.length,
+      targets: preview.removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
+    },
+    run: cleanupStaleManagedSubagentFiles({ expectedSubagentNames }).pipe(
+      Effect.map((result): JobStepResult => ({
+        result: "success",
+        message: `Removed ${count(result.removedPaths.length, "stale managed subagent file")}`,
+        artifact: {
+          path: "stale managed subagent files",
+          scope: ws.scope,
+          change: "removed",
+          fileCount: result.removedPaths.length,
+          targets: result.removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
+        },
+      })),
+      Effect.provideService(WorkspaceMutations, ws),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(CodingAgentRepository, agentRepo),
+    ),
+  });
+});
 
-interface SyncInstructionsGitignoreIntentArgs {
-  readonly desired: boolean;
-}
-
-const collectInstructionOperations = Effect.fn("Sync.collectInstructionOperations")(function* () {
+const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* () {
   const ws = yield* WorkspaceMutations;
   const config = yield* ws.getInstructionsConfig();
-  if (Option.isNone(config) || config.value === false) return [];
+  if (Option.isNone(config) || config.value === false) return Option.none<PlannedJobStep>();
 
   const configuredAgents = yield* ws.getConfiguredAgents();
   const resolvedConfig = resolveInstructionsConfig(config.value);
@@ -1026,193 +1151,87 @@ const collectInstructionOperations = Effect.fn("Sync.collectInstructionOperation
     configuredAgents,
     config: resolvedConfig,
   });
-  const operations: Array<Operation<string, unknown>> = [];
-  for (const item of status.items) {
-    const fixableHealth =
-      item.health === "missing-target" || item.health === "drift" || item.health === "broken-link";
-    const fixableMechanism = item.mechanism === "symlink" || item.mechanism === "copy";
-    if (!fixableHealth || !fixableMechanism) continue;
-    operations.push({
-      name: "sync-instruction-target",
-      args: {
-        root: item.root,
-        agentId: item.agentId,
-        force: item.health === "drift",
-      } satisfies SyncInstructionTargetIntentArgs,
-    });
-  }
-
   const gitignore = yield* getInstructionsGitignoreStatus({
     workspaceRoot: ws.baseDir,
     configuredAgents,
     config: resolvedConfig,
   });
-  if (!gitignore.current) {
-    operations.push({
-      name: "sync-instructions-gitignore",
-      args: { desired: gitignore.desired } satisfies SyncInstructionsGitignoreIntentArgs,
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const sourcesExist = yield* Effect.forEach(
+    status.roots,
+    (root) =>
+      fs
+        .exists(path.join(root, resolvedConfig.fileName))
+        .pipe(Effect.catch(() => Effect.succeed(false))),
+    { concurrency: "unbounded" },
+  );
+  const current =
+    sourcesExist.every(Boolean) &&
+    gitignore.current &&
+    status.items.every(
+      (item) => (item.mechanism !== "symlink" && item.mechanism !== "copy") || item.health === "ok",
+    );
+  if (current) return Option.none<PlannedJobStep>();
+
+  const readiness = yield* Effect.result(
+    Effect.all(
+      [
+        assertInstructionTargetsSafe({
+          workspaceRoot: ws.baseDir,
+          scope: ws.scope,
+          configuredAgents,
+          config: resolvedConfig,
+        }),
+        assertInstructionsGitignoreSafe(ws.baseDir),
+      ],
+      { concurrency: 1, discard: true },
+    ),
+  );
+  if (readiness._tag === "Failure") {
+    return Option.some<PlannedJobStep>({
+      key: "instruction:reconcile",
+      readiness: "error",
+      label: "instruction files",
+      errorMessage: readiness.failure.detail,
     });
   }
-  return operations;
+
+  const manager = yield* RuleManager;
+  return Option.some<PlannedJobStep>({
+    key: "instruction:reconcile",
+    readiness: "ready",
+    label: "instruction files",
+    artifact: {
+      path: resolvedConfig.fileName,
+      scope: ws.scope,
+      change: "updated",
+    },
+    run: manager.reconcileInstructions.pipe(
+      Effect.map((): JobStepResult => ({
+        result: "success",
+        message: "Reconciled canonical instructions, aliases, and gitignore entries",
+        artifact: {
+          path: resolvedConfig.fileName,
+          scope: ws.scope,
+          change: "updated",
+        },
+      })),
+    ),
+  });
 });
 
-const buildInstructionStep = (
-  op: Operation<string, unknown>,
-): Effect.Effect<PlannedJobStep, never, WorkspaceMutations | FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const config = yield* ws.getInstructionsConfig().pipe(Effect.orDie);
-    if (Option.isNone(config) || config.value === false) {
-      return {
-        key: op.name,
-        readiness: "error",
-        label: op.name,
-        errorMessage: "Instruction-file management is disabled",
-      };
-    }
-    const resolvedConfig = resolveInstructionsConfig(config.value);
-    switch (op.name) {
-      case "sync-instruction-target": {
-        const args = op.args;
-        if (
-          typeof args !== "object" ||
-          args === null ||
-          !("root" in args) ||
-          !("agentId" in args) ||
-          !("force" in args) ||
-          typeof args.root !== "string" ||
-          typeof args.agentId !== "string" ||
-          typeof args.force !== "boolean"
-        ) {
-          return {
-            key: op.name,
-            readiness: "error",
-            label: op.name,
-            errorMessage: "Instruction target operation is malformed",
-          };
-        }
-        const run = syncInstructionTarget({
-          root: args.root,
-          agentId: args.agentId,
-          config: resolvedConfig,
-          force: args.force,
-          dryRun: false,
-        }).pipe(
-          Effect.map((written) => ({
-            result: "success" as const,
-            message: Option.isSome(written)
-              ? `Updated ${written.value}`
-              : "Instruction target already current",
-          })),
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        );
-        return args.force
-          ? {
-              key: `instruction:${args.root}:${args.agentId}`,
-              readiness: "warn",
-              warnMessage: `Overwriting drifted instruction file for ${args.agentId}`,
-              label: `${args.agentId} instruction file`,
-              run,
-            }
-          : {
-              key: `instruction:${args.root}:${args.agentId}`,
-              readiness: "ready",
-              label: `${args.agentId} instruction file`,
-              run,
-            };
-      }
-      case "sync-instructions-gitignore": {
-        const args = op.args;
-        if (
-          typeof args !== "object" ||
-          args === null ||
-          !("desired" in args) ||
-          typeof args.desired !== "boolean"
-        ) {
-          return {
-            key: op.name,
-            readiness: "error",
-            label: op.name,
-            errorMessage: "Instruction gitignore operation is malformed",
-          };
-        }
-        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.orDie);
-        return {
-          key: "instruction:gitignore",
-          readiness: "ready",
-          label: "instruction gitignore entries",
-          run: syncInstructionsGitignore({
-            workspaceRoot: ws.baseDir,
-            configuredAgents,
-            config: resolvedConfig,
-            desired: args.desired,
-            dryRun: false,
-          }).pipe(
-            Effect.map((written) => ({
-              result: "success" as const,
-              message: Option.isSome(written)
-                ? `Updated ${written.value}`
-                : "Instruction gitignore entries already current",
-            })),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-        };
-      }
-      default:
-        return {
-          key: op.name,
-          readiness: "error",
-          label: op.name,
-          errorMessage: `Unknown instruction operation: ${op.name}`,
-        };
-    }
-  });
+// Rule materialization and instruction reconciliation are ordered explicitly in
+// the plan so aliases are updated only after canonical content is current.
 
-const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function* (
-  dryRun: boolean,
+export const handleSync = Effect.fn("Sync.handle")(function* (
+  args: HandleSyncArgs,
+  hooks: SyncTestHooks = {},
 ) {
-  const operations = yield* collectInstructionOperations();
-  if (operations.length === 0) return;
-  const steps = yield* Effect.forEach(operations, buildInstructionStep, {
-    concurrency: "unbounded",
-  });
-  const plan = resolvePlan({
-    name: "Sync instruction files",
-    description: "Propagate configured agent instruction files",
-    steps,
-  });
-  if (dryRun) {
-    yield* displayPlan(plan);
-    return;
-  }
-  const executed = yield* applyPlan(plan);
-  yield* displayPlan(executed);
-});
-
-// Context-files materialization owns the canonical AGENTS.md content; instruction
-// aliases are synced only after that phase has finished.
-
-export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const target = args.target ?? Option.none<string>();
   const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
-  if (args.acceptAuthorityChange === true && Option.isNone(target)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--accept-authority-change requires one extension FQN",
-      suggestions: [
-        {
-          description: "Inspect the exact recovery command for the affected extension",
-          cmd: "axm status",
-        },
-      ],
-    });
-  }
   const selection = { target, type };
   const scoped = Option.isSome(target) || Option.isSome(type);
   const scopeLabel = Option.isSome(target)
@@ -1227,9 +1246,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
     () =>
       Effect.gen(function* () {
         const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
-          force: args.force,
           selection,
-          acceptAuthorityChange: args.acceptAuthorityChange === true,
         });
         const knowledgeStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
@@ -1237,34 +1254,42 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
         const trustMigrationStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectTrustMigrationStep();
-
-        // A degraded lockfile is work even when nothing needs materializing: `axm sync`
-        // is the command users are pointed at to recover one, so it must not short-circuit
-        // to a no-op before reconciliation has had a chance to run.
-        const lockfileNeedsRecovery = !scoped && (yield* ws.getLockfileState()) !== "ok";
+        const cleanupStep: Option.Option<PlannedJobStep> = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectCleanupStep(expectedSubagentNames);
+        const instructionStep: Option.Option<PlannedJobStep> = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectInstructionStep();
         return {
           steps,
-          expectedSubagentNames,
           knowledgeStep,
           trustMigrationStep,
-          lockfileNeedsRecovery,
+          cleanupStep,
+          instructionStep,
         };
       }),
     { successMessage: `Resolved ${scopeLabel} sync` },
   );
-  const { steps, expectedSubagentNames, knowledgeStep, trustMigrationStep, lockfileNeedsRecovery } =
-    preflight;
-
-  if (
-    steps.length === 0 &&
-    Option.isNone(knowledgeStep) &&
-    Option.isNone(trustMigrationStep) &&
-    !lockfileNeedsRecovery
-  ) {
-    if (!scoped) yield* renderInstructionPhase(args.dryRun);
-    if (!scoped && !args.dryRun) {
-      yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
+  const { steps, knowledgeStep, trustMigrationStep, cleanupStep, instructionStep } = preflight;
+  const materializeSteps = steps.map((step, index): PlannedJobStep => {
+    if (index !== 0 || hooks.beforeMaterialization === undefined || step.readiness === "error") {
+      return step;
     }
+    return {
+      ...step,
+      run: hooks.beforeMaterialization().pipe(Effect.andThen(step.run)),
+    };
+  });
+
+  const baseSteps = [
+    ...materializeSteps,
+    ...Option.toArray(knowledgeStep),
+    ...Option.toArray(trustMigrationStep),
+    ...Option.toArray(cleanupStep),
+    ...Option.toArray(instructionStep),
+  ];
+  const lockfileNeedsRecovery = (yield* ws.getLockfileState()) !== "ok";
+  if (baseSteps.length === 0 && !lockfileNeedsRecovery) {
     yield* emitNoOpOutcome("sync", {
       planName,
       planDescription,
@@ -1276,42 +1301,44 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   }
 
   const plan = makeSyncPlan({
-    materializeSteps: steps,
+    materializeSteps,
     knowledgeStep,
     trustMigrationStep,
+    cleanupStep,
+    instructionStep,
     name: planName,
     description: planDescription,
   });
 
-  // `previewOrApplyPlan` rather than `applyPlan`: it prepends the lockfile
-  // recovery job when the lockfile is missing or unreadable.
-  const resolution: PlanResolution = scoped
-    ? args.dryRun
-      ? {
-          _tag: "PreviewedPlan",
-          name: plan.name,
-          description: plan.description,
-          jobs: plan.jobs,
-        }
-      : yield* renderer.withSpinner(`Applying ${plan.name}`, () => applyPlan(plan), {
-          successMessage: `Finished applying ${plan.name}`,
-        })
-    : yield* previewOrApplyPlan(plan, {
-        yes: true,
-        preview: args.dryRun,
-        displayApplied: false,
-      });
-
-  if (resolution._tag !== "ExecutedPlan") {
-    if (resolution._tag === "PreviewedPlan" && !scoped) yield* renderInstructionPhase(true);
-    yield* emitPlanResolutionResult("sync", resolution);
-    return;
+  const readinessErrors = plan.jobs.flatMap((job) =>
+    job.steps.flatMap((step) =>
+      step.readiness === "error" ? [`${step.label}: ${step.errorMessage}`] : [],
+    ),
+  );
+  if (readinessErrors.length > 0) {
+    yield* displayPlan(plan);
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Sync plan has errors that prevent execution: ${readinessErrors.join("; ")}`,
+    });
   }
 
-  if (!scoped) {
-    yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
-    yield* renderInstructionPhase(false);
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: true,
+    preview: args.preview,
+    displayApplied: false,
+  });
+  if (resolution._tag === "ExecutedPlan") yield* displayPlan(resolution);
+  const emitted = yield* emitPlanResolutionResult("sync", resolution);
+  if (
+    !emitted &&
+    resolution._tag === "ExecutedPlan" &&
+    resolution.jobs.every((job) => job.steps.length === 0)
+  ) {
+    yield* renderer.success(
+      scoped
+        ? `${scopeLabel} materialization is up to date`
+        : "Workspace materialization is up to date",
+    );
   }
-  yield* displayPlan(resolution);
-  yield* emitPlanResolutionResult("sync", resolution);
 });

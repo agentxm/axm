@@ -4,8 +4,9 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliError, CliOutput, Command } from "effect/unstable/cli";
 
+import { AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   InteractiveRenderer,
   MachineRenderer,
@@ -59,15 +60,12 @@ import {
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
+type CommandProgramError = AppError | CliError.CliError;
 
 /**
  * Effect CLI built-ins kept for axm: `--completions` and `--log-level` are
  * intentionally absent — verbosity flags own logger severity instead.
  */
-export const cliConfigLayer = CliConfig.layer({
-  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard],
-});
-
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
     "Open extension manager for AI coding agents.\n  Manage skills, MCP servers, subagents, rules, hooks, knowledge, and packs across your AI coding agents from a single CLI.",
@@ -155,7 +153,16 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
   await runCliMain(
     (argv) => {
       const isJson = hasExplicitJsonFlag(argv);
-      const commandProgram = Command.runWith(rootCommand, { version })(argv);
+      const commandProgram = argv.includes("-vv")
+        ? Effect.fail<CommandProgramError>(
+            makeAppError({
+              code: "usage",
+              detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
+            }),
+          )
+        : Command.runWith(rootCommand, { version })(argv).pipe(
+            Effect.mapError((error): CommandProgramError => error),
+          );
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
       });
@@ -179,7 +186,6 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             baseLayer,
             updateCheckServicesLayer,
             rendererLayer,
-            cliConfigLayer,
             CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),
         ),

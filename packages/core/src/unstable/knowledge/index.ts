@@ -25,15 +25,14 @@ export type {
 } from "./refs.js";
 export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
 export {
-  DEFAULT_KNOWLEDGE_DIRECTORY,
-  resolveKnowledgeProjectionConfig,
-  type ResolvedKnowledgeProjectionConfig,
-} from "./projection-config.js";
+  resolveKnowledgeDiscoveryConfig,
+  type ResolvedKnowledgeDiscoveryConfig,
+} from "./discovery-config.js";
 export {
   KNOWLEDGE_MATERIALIZATION_STATE,
-  reconcileKnowledgeProjection,
-  type KnowledgeProjectionArtifact,
-  type KnowledgeProjectionBundle,
-  type KnowledgeProjectionResult,
-} from "./projection.js";
+  reconcileKnowledgeDiscovery,
+  type KnowledgeDiscoveryArtifact,
+  type KnowledgeDiscoveryBundle,
+  type KnowledgeDiscoveryResult,
+} from "./discovery.js";
 export { knowledgeReconciliationAdapter } from "./reconciliation-adapter.js";

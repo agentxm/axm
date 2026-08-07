@@ -30,7 +30,7 @@ import {
   parseExtensionFqnParts,
   toLabel,
 } from "@agentxm/client-core/unstable/extensions";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
@@ -38,6 +38,7 @@ import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -144,35 +145,22 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           });
         }
 
-        const targets = yield* Effect.forEach(
-          parsed.packNames,
-          (name): Effect.Effect<PackExtensionTarget, AppError> => {
-            const node = graph.nodes.find(
-              (candidate) => candidate.type === "pack" && candidate.name === name,
-            );
-            const identity = node === undefined ? undefined : parseExtensionFqnParts(node.identity);
-            if (node !== undefined && identity?.type === "pack") {
-              return Effect.succeed({
+        const targets = parsed.packNames.flatMap((name) => {
+          const node = graph.nodes.find(
+            (candidate) => candidate.type === "pack" && candidate.name === name,
+          );
+          const identity = node === undefined ? undefined : parseExtensionFqnParts(node.identity);
+          if (node !== undefined && identity?.type === "pack") {
+            return [
+              {
                 type: "pack",
                 name: node.name,
                 owner: identity.owner,
-              } satisfies PackExtensionTarget);
-            }
-
-            return Effect.fail(
-              makeAppError({
-                code: "not_found",
-                detail: `Pack "${name}" is not installed`,
-                suggestions: [
-                  {
-                    description: `Use the fully-qualified \`@owner/packs/${name}\` form, or inspect installed packs.`,
-                    cmd: "axm packs list",
-                  },
-                ],
-              }),
-            );
-          },
-        );
+              } satisfies PackExtensionTarget,
+            ];
+          }
+          return [];
+        });
 
         return { packsToUninstall: targets };
       });
@@ -189,6 +177,9 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+        const exclusiveMemberPolicy = {
+          isRequiredByInstalledPack: () => Effect.succeed(false),
+        };
 
         const graph = yield* ws.getDesiredStateGraph();
         if (!graph.complete) {
@@ -228,10 +219,21 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           });
         }
 
-        // Order: pack targets first, then dependency targets
+        // Remove members while their pack-derived desired state and trust are
+        // still observable, then retire the owning pack.
         const packTargets = [...allTargets.values()].filter((t) => t.type === "pack");
         const depTargets = [...allTargets.values()].filter((t) => t.type !== "pack");
-        const orderedTargets = [...packTargets, ...depTargets];
+        const orderedTargets = [...depTargets, ...packTargets];
+        const sourcePathByTarget = new Map(
+          graph.nodes.map((node) => [
+            `${node.type}:${node.name}`,
+            `.axm/extensions/${
+              node.identity.startsWith("workspace:")
+                ? node.identity.slice("workspace:".length)
+                : node.identity
+            }`,
+          ]),
+        );
 
         const steps = orderedTargets.map((target): PlannedJobStep => {
           if (target.type === "pack") {
@@ -239,31 +241,39 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           }
 
           if (target.type === "skill") {
-            return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
+            return buildUninstallOperation<SkillExtensionRef>(skillMgr, exclusiveMemberPolicy, {
               target,
             });
           }
 
           if (target.type === "mcp-server") {
-            return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
-              target,
-            });
+            return buildUninstallOperation<McpServerExtensionRef>(
+              mcpServerMgr,
+              exclusiveMemberPolicy,
+              {
+                target,
+              },
+            );
           }
 
           if (target.type === "subagent") {
-            return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
-              target,
-            });
+            return buildUninstallOperation<SubagentExtensionRef>(
+              subagentMgr,
+              exclusiveMemberPolicy,
+              {
+                target,
+              },
+            );
           }
 
           if (target.type === "rule") {
-            return buildUninstallOperation<RuleExtensionRef>(ruleManager, retentionPolicy, {
+            return buildUninstallOperation<RuleExtensionRef>(ruleManager, exclusiveMemberPolicy, {
               target,
             });
           }
 
           if (target.type === "hook") {
-            return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
+            return buildUninstallOperation<HookExtensionRef>(hookManager, exclusiveMemberPolicy, {
               target,
             });
           }
@@ -271,7 +281,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           if (target.type === "knowledge") {
             return buildUninstallOperation<KnowledgeExtensionRef>(
               knowledgeManager,
-              retentionPolicy,
+              exclusiveMemberPolicy,
               { target },
             );
           }
@@ -283,6 +293,23 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
+        const graphStep = yield* buildAtomicPackGraphStep({
+          label: count(intent.packsToUninstall.length, "pack"),
+          message: `Uninstalled ${count(intent.packsToUninstall.length, "pack")} and ${count(depTargets.length, "exclusive member")}`,
+          artifact: {
+            path: "pack graph",
+            scope: ws.scope,
+            change: "removed",
+            fileCount: orderedTargets.length,
+            targets: orderedTargets.map((target) => ({
+              path: sourcePathByTarget.get(`${target.type}:${target.name}`) ?? toLabel(target),
+              change: "removed",
+            })),
+          },
+          steps,
+          validate: validatePackGraphPostcondition({ absent: orderedTargets }),
+        }).pipe(Effect.provideService(WorkspaceMutations, ws));
+
         return {
           _tag: "Plan",
           name:
@@ -292,7 +319,13 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
                 ? "Uninstall pack"
                 : `Uninstall ${count(intent.packsToUninstall.length, "pack")}`,
           description: Option.none(),
-          jobs: [{ concurrency: 1 as const, steps }],
+          jobs: [{ concurrency: 1, steps: [graphStep] }],
+          sections: [
+            {
+              title: "Pack graph removals",
+              items: orderedTargets.map((target) => `${target.type}: ${target.name}`),
+            },
+          ],
         } satisfies Plan;
       });
 

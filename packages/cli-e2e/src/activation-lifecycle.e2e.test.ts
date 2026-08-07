@@ -16,6 +16,78 @@ const extensionName = (plural: string): string => `atomic-${plural}`;
 const canonicalDirectory = (workspace: string, plural: string): string =>
   path.join(workspace, ".axm", "extensions", "@test", plural, extensionName(plural));
 
+const snapshotTree = (root: string): Readonly<Record<string, string>> => {
+  const snapshot: Record<string, string> = {};
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      const relative = path.relative(root, absolute);
+      if (entry.isDirectory()) {
+        snapshot[relative] = "directory";
+        visit(absolute);
+      } else if (entry.isSymbolicLink()) {
+        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
+      } else {
+        snapshot[relative] = `file:${fs.readFileSync(absolute).toString("base64")}`;
+      }
+    }
+  };
+  visit(root);
+  return snapshot;
+};
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) {
+    throw new Error("Expected a JSON command result with a plan");
+  }
+  const result = document["result"];
+  const steps = result["steps"];
+  if (!Array.isArray(steps)) {
+    throw new Error("Expected a JSON command result with plan steps");
+  }
+  return {
+    totalSteps: result["totalSteps"],
+    labels: steps.map((step) => (isRecord(step) ? step["label"] : undefined)),
+  };
+};
+
+const runLifecycleMutation = async (
+  workspace: string,
+  command: ReadonlyArray<string>,
+  confirmation: ReadonlyArray<string>,
+): Promise<void> => {
+  const before = snapshotTree(workspace);
+  const preview = await runCli(
+    [...command, ...confirmation, "--preview", "--json", "--non-interactive"],
+    { cwd: workspace },
+  );
+  expect(preview.exitCode, `preview ${command.join(" ")}\n${preview.stdout}${preview.stderr}`).toBe(
+    0,
+  );
+  expect(snapshotTree(workspace), `preview purity for ${command.join(" ")}`).toEqual(before);
+
+  const applied = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
+    cwd: workspace,
+  });
+  expect(applied.exitCode, `apply ${command.join(" ")}\n${applied.stdout}${applied.stderr}`).toBe(
+    0,
+  );
+  expect(planFrom(applied.stdout), `preview/apply plan for ${command.join(" ")}`).toEqual(
+    planFrom(preview.stdout),
+  );
+  const afterApply = snapshotTree(workspace);
+
+  const second = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
+    cwd: workspace,
+  });
+  expect(second.exitCode, `second ${command.join(" ")}\n${second.stdout}${second.stderr}`).toBe(0);
+  expect(snapshotTree(workspace), `idempotency for ${command.join(" ")}`).toEqual(afterApply);
+};
+
 const expectCleanWorkspace = async (cwd: string, context: string): Promise<void> => {
   for (const command of [["status"], ["lint"]]) {
     const result = await runCli(command, { cwd });
@@ -61,29 +133,85 @@ describe("extension activation lifecycle", () => {
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
-        const confirmation = row.type === "knowledge" ? [] : ["--yes"];
-        const disabled = await runCli(
-          [row.plural, "disable", name, ...confirmation, "--non-interactive"],
-          { cwd: temp.path },
-        );
-        expect(disabled.exitCode, `disable ${row.type}\n${disabled.stdout}${disabled.stderr}`).toBe(
-          0,
-        );
+        const selection = row.updateSelection === "name-filter" ? ["--name", name] : [];
+        await runLifecycleMutation(temp.path, [row.plural, "update", ...selection], ["--yes"]);
+        await expectCleanWorkspace(temp.path, `${row.type} updated`);
+      }
+
+      for (const row of EXTENSION_TYPE_MATRIX) {
+        const name = extensionName(row.plural);
+        const confirmation = row.activationConfirmation ? ["--yes"] : [];
+        await runLifecycleMutation(temp.path, [row.plural, "disable", name], confirmation);
         expect(
           fs.existsSync(canonicalDirectory(temp.path, row.plural)),
           `${row.type} canonical package retained after disable`,
         ).toBe(true);
         await expectCleanWorkspace(temp.path, `${row.type} disabled`);
 
-        const enabled = await runCli(
-          [row.plural, "enable", name, ...confirmation, "--non-interactive"],
-          { cwd: temp.path },
-        );
-        expect(enabled.exitCode, `enable ${row.type}\n${enabled.stdout}${enabled.stderr}`).toBe(0);
+        await runLifecycleMutation(temp.path, [row.plural, "enable", name], confirmation);
+        if (row.workspaceCapability === "instructions") {
+          const instructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
+          expect(instructions).toContain("region=rules");
+          expect(instructions).toContain("region=knowledge-base");
+          expect(fs.readFileSync(path.join(temp.path, "CLAUDE.md"), "utf8")).toBe(instructions);
+        }
         await expectCleanWorkspace(temp.path, `${row.type} re-enabled`);
+      }
+
+      for (const row of EXTENSION_TYPE_MATRIX) {
+        const name = extensionName(row.plural);
+        await runLifecycleMutation(temp.path, [row.plural, "uninstall", name], ["--yes"]);
+        await expectCleanWorkspace(temp.path, `${row.type} uninstalled`);
       }
     } finally {
       temp.cleanup();
+    }
+  }, 300_000);
+
+  it("isolates project and user inventory for every extension type", async () => {
+    const workspace = createTempDir();
+    const userHome = createTempDir("axm-lifecycle-user-");
+    const env = { AXM_USER_HOME: userHome.path, HOME: userHome.path };
+
+    try {
+      const projectSetup = await runCli(
+        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        { cwd: workspace.path, env },
+      );
+      expect(projectSetup.exitCode, projectSetup.stdout + projectSetup.stderr).toBe(0);
+      const userSetup = await runCli(
+        ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
+        { cwd: workspace.path, env },
+      );
+      expect(userSetup.exitCode, userSetup.stdout + userSetup.stderr).toBe(0);
+
+      for (const row of EXTENSION_TYPE_MATRIX) {
+        const name = extensionName(row.plural);
+        const created = await runCli(
+          [row.plural, "new", name, "--owner", "@test", "--yes", "--non-interactive"],
+          {
+            cwd: workspace.path,
+            env,
+          },
+        );
+        expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
+
+        const projectList = await runCli([row.plural, "list", "--scope", "project", "--json"], {
+          cwd: workspace.path,
+          env,
+        });
+        const userList = await runCli([row.plural, "list", "--scope", "user", "--json"], {
+          cwd: workspace.path,
+          env,
+        });
+        expect(projectList.exitCode, projectList.stdout + projectList.stderr).toBe(0);
+        expect(userList.exitCode, userList.stdout + userList.stderr).toBe(0);
+        expect(projectList.stdout, `${row.type} project inventory`).toContain(name);
+        expect(userList.stdout, `${row.type} user inventory`).not.toContain(name);
+      }
+    } finally {
+      workspace.cleanup();
+      userHome.cleanup();
     }
   }, 90_000);
 });

@@ -63,7 +63,6 @@ describe("axm source smoke", () => {
       for (const flag of [
         "--help",
         "--version",
-        "--wizard",
         "--non-interactive",
         "--verbose",
         "--debug",
@@ -74,6 +73,18 @@ describe("axm source smoke", () => {
       }
       expect(output).not.toContain("--completions");
       expect(output).not.toContain("--log-level");
+      expect(output).not.toContain("--wizard");
+      expect(output).not.toContain("-vv");
+      expect(output).not.toContain("--version, -v");
     },
   );
+
+  it("rejects the retired -vv debug spelling", { timeout: 30_000 }, async () => {
+    const result = await runAxm(["-vv", "status", "--non-interactive"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("Unrecognized flag: -vv");
+    expect(result.stderr).toContain("Use --debug");
+  });
 });

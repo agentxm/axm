@@ -35,6 +35,7 @@ import {
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
   type HookExtensionsApi,
+  type InstalledPackForKnowledge,
   type InstalledPackForHooks,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
@@ -202,6 +203,7 @@ interface PackMemberSets {
   readonly subagents: ReadonlyArray<ExtensionName>;
   readonly rules: ReadonlyArray<ExtensionName>;
   readonly hooks: ReadonlyArray<ExtensionName>;
+  readonly knowledge: ReadonlyArray<ExtensionName>;
 }
 
 // ---------------------------------------------------------------------------
@@ -318,6 +320,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedRules ?? {});
         const hookNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedHooks ?? {});
+        const knowledgeNames =
+          resolvedSome === null
+            ? []
+            : memberNamesFromResolvedMap(resolvedSome.resolvedKnowledge ?? {});
         return {
           key: row.key,
           skills: skillNames,
@@ -325,6 +331,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           subagents: subagentNames,
           rules: ruleNames,
           hooks: hookNames,
+          knowledge: knowledgeNames,
         };
       });
     }),
@@ -393,6 +400,18 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
         })),
       ),
     );
+  const knowledgeInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForKnowledge>> =
+    installedPackMembers.pipe(
+      Effect.map((packs) =>
+        packs.map((p) => ({
+          ref: { key: p.key },
+          knowledge: p.knowledge.map((name) => ({
+            name,
+            providingPack: { key: p.key },
+          })),
+        })),
+      ),
+    );
 
   const skills = yield* makeSkillExtensionsApi({
     scope,
@@ -438,6 +457,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
+    installedPacks: knowledgeInstalledPacks,
     diagnostics,
   });
 

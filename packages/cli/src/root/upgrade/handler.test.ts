@@ -207,9 +207,12 @@ describe("decideUpgrade", () => {
     ["unknown-local", true, false, "manual"],
   ];
 
-  it.each(rows)("%s force=%s supported=%s => %s", (relation, force, supported, expected) => {
-    expect(decideUpgrade(relation, force, supported)).toBe(expected);
-  });
+  it.each(rows)(
+    "%s reinstall=%s supported=%s => %s",
+    (relation, reinstall, supported, expected) => {
+      expect(decideUpgrade(relation, reinstall, supported)).toBe(expected);
+    },
+  );
 });
 
 describe("upgrade helpers", () => {
@@ -306,7 +309,7 @@ describe("upgrade JSON contract", () => {
         ],
         recommendedCommand: null,
         delegatedCommand: "npm install -g axm.sh@2.0.0",
-        force: false,
+        reinstall: false,
         details: [],
         backupPath: null,
       };
@@ -325,7 +328,6 @@ describe("upgrade JSON contract", () => {
         "executablePath",
         "executedCommands",
         "failedCount",
-        "force",
         "installMethod",
         "localVersion",
         "message",
@@ -335,6 +337,7 @@ describe("upgrade JSON contract", () => {
         "planName",
         "readyCount",
         "recommendedCommand",
+        "reinstall",
         "reportedVersion",
         "resultStatus",
         "steps",
@@ -396,7 +399,7 @@ describe("delegated upgrades", () => {
     const harness = makeHarness(method);
     return Effect.runPromise(
       Effect.gen(function* () {
-        yield* handleUpgrade({ force: false });
+        yield* handleUpgrade({ reinstall: false });
         const result = resultFrom(harness.renderer);
         expect(result).toMatchObject({
           resultStatus: "upgraded",
@@ -437,7 +440,7 @@ describe("delegated upgrades", () => {
         { subprocess },
       );
 
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
 
       const result = resultFrom(harness.renderer);
       expect(result).toMatchObject({
@@ -472,7 +475,7 @@ describe("delegated upgrades", () => {
       });
       const method = new Homebrew({ execPath: "/opt/homebrew/Cellar/axm/1/bin/axm" });
       const upgrade = makeHarness(method, { subprocess });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(upgrade.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(upgrade.layer));
       expect(upgrade.subprocess.calls).toContainEqual(
         expect.objectContaining({
           executable: "brew",
@@ -490,7 +493,7 @@ describe("delegated upgrades", () => {
         version: LOCAL_VERSION,
         subprocess: reinstallProcess,
       });
-      yield* handleUpgrade({ force: true }).pipe(Effect.provide(reinstall.layer));
+      yield* handleUpgrade({ reinstall: true }).pipe(Effect.provide(reinstall.layer));
       expect(reinstall.subprocess.calls).toContainEqual(
         expect.objectContaining({
           executable: "brew",
@@ -509,7 +512,7 @@ describe("delegated upgrades", () => {
           invocation.executable === "axm" ? commandResult(LOCAL_VERSION) : commandResult(),
         ),
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(unchanged.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(unchanged.layer));
       expect(resultFrom(unchanged.renderer)).toMatchObject({
         resultStatus: "upgrade-incomplete",
         verification: "unchanged",
@@ -523,7 +526,7 @@ describe("delegated upgrades", () => {
           invocation.executable === "axm" ? commandResult("", 1, "not found") : commandResult(),
         ),
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(unavailable.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(unavailable.layer));
       expect(resultFrom(unavailable.renderer)).toMatchObject({
         resultStatus: "upgrade-unverified",
         verification: "unavailable",
@@ -539,7 +542,7 @@ describe("delegated upgrades", () => {
             : commandResult(),
         ),
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(failed.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(failed.layer));
       const result = resultFrom(failed.renderer);
       expect(result).toMatchObject({
         resultStatus: "upgrade-incomplete",
@@ -554,14 +557,14 @@ describe("delegated upgrades", () => {
     }),
   );
 
-  it.effect("does not mutate for current/unknown, local-newer/force, or modern Yarn", () =>
+  it.effect("does not mutate for current/unknown, local-newer/reinstall, or modern Yarn", () =>
     Effect.gen(function* () {
       const currentProcess = makeSubprocess();
       const current = makeHarness(new Unknown({ reason: "ambiguous" }), {
         version: LOCAL_VERSION,
         subprocess: currentProcess,
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(current.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(current.layer));
       expect(resultFrom(current.renderer)).toMatchObject({
         resultStatus: "already-up-to-date",
         blockedCount: 0,
@@ -575,7 +578,7 @@ describe("delegated upgrades", () => {
         version: TARGET_VERSION,
         subprocess: refusedProcess,
       });
-      yield* handleUpgrade({ force: true, localVersion: newer }).pipe(
+      yield* handleUpgrade({ reinstall: true, localVersion: newer }).pipe(
         Effect.provide(refused.layer),
       );
       expect(resultFrom(refused.renderer)).toMatchObject({
@@ -594,7 +597,7 @@ describe("delegated upgrades", () => {
         }),
         { subprocess: yarnProcess },
       );
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(yarn.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(yarn.layer));
       expect(resultFrom(yarn.renderer)).toMatchObject({
         resultStatus: "manual-action-required",
         blockedCount: 1,
@@ -610,7 +613,7 @@ describe("delegated upgrades", () => {
       const verbose = makeHumanHarness(new Npm({ importUrl: "file:///npm/axm" }), {
         verbose: true,
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(verbose.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(verbose.layer));
       expect(verbose.logs.info).toContain("Detection: unknown (low)");
       expect(verbose.logs.info.some((line) => line.startsWith("delegation: npm "))).toBe(true);
       expect(verbose.logs.info.some((line) => line.startsWith("Verification "))).toBe(true);
@@ -619,7 +622,7 @@ describe("delegated upgrades", () => {
         quiet: true,
         verbose: true,
       });
-      yield* handleUpgrade({ force: false }).pipe(Effect.provide(quiet.layer));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(quiet.layer));
       expect(quiet.logs.info).toEqual([]);
       expect(quiet.logs.warn).toHaveLength(1);
       expect(quiet.logs.warn[0]).toContain("Next:");
@@ -636,7 +639,7 @@ describe("transactional script upgrade", () => {
       const subprocess = makeSubprocess();
       const harness = makeHarness(new Script({ execPath: target }), { subprocess });
       try {
-        yield* handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer));
+        yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
         expect(resultFrom(harness.renderer)).toMatchObject({
           resultStatus: "upgraded",
           verification: "verified",
@@ -666,7 +669,7 @@ describe("transactional script upgrade", () => {
       const harness = makeHarness(new Script({ execPath: target }), { httpClient });
       try {
         const error = yield* Effect.flip(
-          handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer)),
+          handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer)),
         );
         expect(error.code).toBe("validation");
         expect(fs.readFileSync(target, "utf8")).toBe("old");
@@ -692,7 +695,7 @@ describe("transactional script upgrade", () => {
       });
       const harness = makeHarness(new Script({ execPath: target }), { subprocess });
       try {
-        yield* handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer));
+        yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
         expect(resultFrom(harness.renderer)).toMatchObject({
           resultStatus: "rolled-back",
           mutationState: "rolled-back",
@@ -718,7 +721,7 @@ describe("transactional script upgrade", () => {
       );
       const harness = makeHarness(new Script({ execPath: target }));
       try {
-        yield* handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer));
+        yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
         expect(resultFrom(harness.renderer)).toMatchObject({
           resultStatus: "manual-action-required",
           mutationState: "not-attempted",
@@ -741,7 +744,7 @@ describe("transactional script upgrade", () => {
       fs.symlinkSync(target, link);
       const harness = makeHarness(new Script({ execPath: link }));
       try {
-        yield* handleUpgrade({ force: false }).pipe(Effect.provide(harness.layer));
+        yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
         expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
         expect(fs.readFileSync(target)).toEqual(Buffer.from(BINARY));
         expect(resultFrom(harness.renderer)).toMatchObject({
@@ -780,7 +783,7 @@ describe("transactional script upgrade", () => {
       };
       const harness = makeHarness(new Script({ execPath: target }), { subprocess });
       try {
-        const fiber = yield* handleUpgrade({ force: false }).pipe(
+        const fiber = yield* handleUpgrade({ reinstall: false }).pipe(
           Effect.provide(harness.layer),
           Effect.forkChild,
         );

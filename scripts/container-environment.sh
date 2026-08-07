@@ -172,9 +172,9 @@ smoke() {
   run_ci bash -lc '
     set -euo pipefail
     test "$(id -u)" != "0"
-    test "$(node --version)" = "v22.22.2"
+    test "$(node --version)" = "v22.23.2"
     test "$(pnpm --version)" = "11.20.0"
-    test "$(bun --version)" = "1.3.5"
+    test "$(bun --version)" = "1.3.14"
     git status --short >/dev/null
   '
 }

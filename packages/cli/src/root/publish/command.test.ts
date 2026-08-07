@@ -6,11 +6,14 @@ import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/client-core
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
+  isEffectCliExit,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -451,7 +454,7 @@ describe("root publish", () => {
       JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
     );
     fs.writeFileSync(skillBody, "---\nname: review\ndescription: Review code\n---\n\n# Review\n");
-    const { provide } = makeContext();
+    const { provide } = makeContext(false);
     const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
     return provide(
@@ -515,7 +518,7 @@ describe("root publish", () => {
 
     it.effect("bulk publish fails preflight before uploading any candidate by default", () => {
       writeTwoSkillSettings();
-      const { provide, rendererState } = makeContext();
+      const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
@@ -553,7 +556,7 @@ describe("root publish", () => {
 
     it.effect("a single explicit selector still errors on an existing version", () => {
       writeTwoSkillSettings();
-      const { provide } = makeContext();
+      const { provide } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
@@ -584,7 +587,7 @@ describe("root publish", () => {
 
     it.effect("does not publish remaining candidates when one conflicts", () => {
       writeTwoSkillSettings();
-      const { provide, rendererState } = makeContext();
+      const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
@@ -658,7 +661,7 @@ describe("root publish", () => {
 
     describe("version monotonicity", () => {
       it.effect("rejects a version below the highest published version", () => {
-        const { provide } = makeContext();
+        const { provide } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -707,7 +710,7 @@ describe("root publish", () => {
       });
 
       it.effect("compares by semver rather than registry index order", () => {
-        const { provide } = makeContext();
+        const { provide } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -733,7 +736,7 @@ describe("root publish", () => {
       });
 
       it.effect("does not let --backfill overwrite an existing version", () => {
-        const { provide, rendererState } = makeContext();
+        const { provide, rendererState } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -756,7 +759,7 @@ describe("root publish", () => {
 
     describe("archive guardrails", () => {
       it.effect("refuses an archive containing node_modules", () => {
-        const { provide } = makeContext();
+        const { provide } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -782,7 +785,7 @@ describe("root publish", () => {
       });
 
       it.effect("refuses an archive containing a .env file", () => {
-        const { provide } = makeContext();
+        const { provide } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -834,17 +837,16 @@ describe("root publish", () => {
       );
     };
 
-    it.effect("omits version for an item with no resolved version", () => {
+    it.effect("emits one failed machine result and omits an unresolved version", () => {
       writeRegistrySourcedSkill();
       const { provide, rendererState } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleRootPublish(
+          const exit = yield* handleRootPublish(
             args(registryUrl, { preview: false, selectors: ["@acme/skills/review"] }),
-          ).pipe(Effect.flip);
-          expect(getAppError(error).detail).toContain("Failed to publish");
+          ).pipe(Effect.exit);
 
           const data = at(rendererState.results, 0).data;
           const result = expectPublishResult(data, { mode: "apply", count: 1 });
@@ -854,6 +856,12 @@ describe("root publish", () => {
           expect(property(item, "action")).toBe("error");
           expect(Object.keys(item)).not.toContain("version");
           expect(JSON.stringify(data)).not.toContain("0.0.0");
+          expect(rendererState.results).toHaveLength(1);
+          expect(rendererState.results[0]?.ok).toBe(false);
+          expect(Exit.isFailure(exit)).toBe(true);
+          if (Exit.isFailure(exit)) {
+            expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
+          }
         }),
       );
     });

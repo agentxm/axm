@@ -9,6 +9,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as semver from "semver";
 
 import {
+  exitCodeFor,
   makeAppError,
   type AppError,
   type AppErrorCode,
@@ -23,7 +24,7 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionNameSchema,
@@ -1073,12 +1074,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return selectedResult(entry, decodedResult.success);
   });
   if (preflightErrors.length > 0) {
-    yield* emitPublishResult("publish", {
+    const emitted = yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
       selection: selectionOutput,
       results: preflightResults,
     });
-    return yield* aggregatePublishFailure(preflightErrors.length, preflightErrors);
+    const failure = aggregatePublishFailure(preflightErrors.length, preflightErrors);
+    return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
   }
 
   const isRemoteRegistry =
@@ -1170,7 +1172,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       result.action === "error" ? result : { ...result, status: "pending" },
     );
   }
-  yield* emitPublishResult("publish", {
+  const emitted = yield* emitPublishResult("publish", {
     mode: args.preview ? "preview" : "apply",
     ...(authenticationPreconditions.length === 0
       ? {}
@@ -1180,7 +1182,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
   const failed = results.filter((result) => result.status === "failed");
   if (failed.length > 0) {
-    return yield* aggregatePublishFailure(failed.length, [...preflightErrors, ...failedStepErrors]);
+    const failure = aggregatePublishFailure(failed.length, [
+      ...preflightErrors,
+      ...failedStepErrors,
+    ]);
+    return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
   }
 });
 

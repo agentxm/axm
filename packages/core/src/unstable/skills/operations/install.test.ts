@@ -589,7 +589,8 @@ describe("installSkill", () => {
 
     it.effect("sanitizes skill name for canonical directory", () =>
       Effect.gen(function* () {
-        const src = setupSource("My Awesome Skill!!");
+        const displayName = "My Awesome Skill!!";
+        const src = setupSource(displayName);
         const { axmDir, base } = setupBase();
         const ref: LocalSkillRef = {
           type: "skill",
@@ -599,7 +600,7 @@ describe("installSkill", () => {
           skill: {
             // Assertion needed: this test intentionally passes an unsanitized local skill
             // name so installSkill exercises the runtime sanitization path.
-            name: "My Awesome Skill!!" as unknown as LocalSkillRef["skill"]["name"],
+            name: displayName as unknown as LocalSkillRef["skill"]["name"],
             description: Option.some("A test skill"),
             metadata: Option.none(),
           },
@@ -621,14 +622,13 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Should be sanitized to lowercase with hyphens
         const canonical = path.join(
           base,
           ".axm",
           "extensions",
           "external",
           "skills",
-          "my-awesome-skill",
+          sanitizeName(displayName),
         );
         expect(fs.existsSync(canonical)).toBe(true);
       }),

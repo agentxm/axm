@@ -11,6 +11,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
+import { sanitizeName } from "../../extensions/utils.js";
 import {
   WorkspaceMutations,
   type SetSkillArgs,
@@ -592,34 +593,81 @@ describe("uninstallSkill", () => {
   describe("sanitized name usage", () => {
     it.effect("uses sanitizeName for filesystem paths", () =>
       Effect.gen(function* () {
+        const displayName = "My Awesome Skill!!";
+        const sanitizedName = sanitizeName(displayName);
         const { axmDir, base } = setupWorkspace({
-          skillName: "my-awesome-skill",
+          skillName: sanitizedName,
           agents: ["claude-code"],
           lockfileSkills: {
-            "My Awesome Skill!!": makeLocalLockEntry(["claude-code"]),
+            [displayName]: makeLocalLockEntry(["claude-code"]),
           },
           lockfileSkillsYaml: {
-            "My Awesome Skill!!": makeLocalLockEntryYaml(["claude-code"]),
+            [displayName]: makeLocalLockEntryYaml(["claude-code"]),
           },
         });
 
-        const result = yield* uninstallSkill(makeOp({ skillName: "My Awesome Skill!!" })).pipe(
+        const result = yield* uninstallSkill(makeOp({ skillName: displayName })).pipe(
           Effect.provide(
             withServices(axmDir, {
-              "My Awesome Skill!!": makeLocalLockEntry(["claude-code"]),
+              [displayName]: makeLocalLockEntry(["claude-code"]),
             }),
           ),
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled My Awesome Skill!!");
+        expect(result.message).toBe(`Uninstalled ${displayName}`);
 
         // The sanitized path should be removed from canonical location
         expect(
+          fs.existsSync(path.join(base, ".axm", "extensions", "external", "skills", sanitizedName)),
+        ).toBe(false);
+      }),
+    );
+
+    it.effect("does not remove a colliding display name's files", () =>
+      Effect.gen(function* () {
+        const firstName = "My Awesome Skill!!";
+        const secondName = "My@Awesome/Skill!!";
+        const firstSanitized = sanitizeName(firstName);
+        const secondSanitized = sanitizeName(secondName);
+        const lockfileSkills = {
+          [firstName]: makeLocalLockEntry([]),
+          [secondName]: makeLocalLockEntry([]),
+        };
+        const { axmDir, base } = setupWorkspace({
+          skillName: firstSanitized,
+          agents: [],
+          createSymlinks: false,
+          lockfileSkills,
+          lockfileSkillsYaml: {
+            [firstName]: makeLocalLockEntryYaml([]),
+            [secondName]: makeLocalLockEntryYaml([]),
+          },
+        });
+        const secondPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          secondSanitized,
+        );
+        fs.mkdirSync(secondPath, { recursive: true });
+        fs.writeFileSync(path.join(secondPath, "SKILL.md"), `# ${secondName}`);
+
+        expect(firstSanitized).not.toBe(secondSanitized);
+
+        const result = yield* uninstallSkill(makeOp({ skillName: firstName })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(
           fs.existsSync(
-            path.join(base, ".axm", "extensions", "external", "skills", "my-awesome-skill"),
+            path.join(base, ".axm", "extensions", "external", "skills", firstSanitized),
           ),
         ).toBe(false);
+        expect(fs.existsSync(secondPath)).toBe(true);
       }),
     );
   });

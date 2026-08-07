@@ -6,7 +6,11 @@ import { execa } from "execa";
 
 import type { CliResult, RunCliOptions } from "./types.js";
 
-const DEFAULT_TIMEOUT = 30000;
+// E2E commands run concurrently and can exceed 30 seconds under load even
+// when the command is healthy. Keep the subprocess budget aligned with the
+// Vitest E2E ceiling so Execa does not SIGTERM a live Effect runtime and turn
+// resource contention into a misleading "All fibers interrupted" failure.
+const DEFAULT_TIMEOUT = 120000;
 
 const resolveArtifactPath = (artifactPath: string | URL): string =>
   artifactPath instanceof URL

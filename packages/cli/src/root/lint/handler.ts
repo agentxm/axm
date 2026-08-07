@@ -58,6 +58,7 @@ import {
   buildPackRuleContexts,
   buildSkillRuleContexts,
   collectAutofixableEntries,
+  composePath,
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
@@ -116,7 +117,52 @@ export interface HandleLintArgs {
   readonly fix: boolean;
   readonly strict: boolean;
   readonly details: boolean;
+  readonly displayWorkspaceRoot?: string;
 }
+
+type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
+
+const remapAbsolutePath = (
+  value: string,
+  sourceRoot: string,
+  displayRoot: string,
+  path: PathRemapper,
+): string => {
+  if (!path.isAbsolute(value)) return value;
+  const relative = path.relative(sourceRoot, value);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return value;
+  return relative === "" ? displayRoot : path.join(displayRoot, relative);
+};
+
+/** Replace temporary staged-snapshot roots without changing lint semantics. */
+export const remapLintSummaryPaths = (
+  summary: LintSummary,
+  sourceRoot: string,
+  displayRoot: string,
+  path: PathRemapper,
+): LintSummary => ({
+  ...summary,
+  findings: summary.findings.map((entry) => {
+    const remappedDisplayRoot = remapAbsolutePath(entry.displayRoot, sourceRoot, displayRoot, path);
+    const location = entry.finding.location;
+    const remappedLocation =
+      location === undefined
+        ? undefined
+        : {
+            ...location,
+            file: remapAbsolutePath(location.file, sourceRoot, displayRoot, path),
+          };
+    return {
+      ...entry,
+      displayRoot: remappedDisplayRoot,
+      path: composePath(remappedDisplayRoot, remappedLocation),
+      finding:
+        remappedLocation === undefined
+          ? entry.finding
+          : { ...entry.finding, location: remappedLocation },
+    };
+  }),
+});
 
 // -----------------------------------------------------------------------------
 // Root resolution
@@ -1502,7 +1548,11 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     },
     config,
   });
-  const summary = summarizeEvaluations(evaluations, config);
+  const rawSummary = summarizeEvaluations(evaluations, config);
+  const summary =
+    args.displayWorkspaceRoot === undefined
+      ? rawSummary
+      : remapLintSummaryPaths(rawSummary, workspaceRoot, args.displayWorkspaceRoot, path);
 
   // -- Apply fixes (optional) --
   let fixSummary: Option.Option<FixSummary> = Option.none();

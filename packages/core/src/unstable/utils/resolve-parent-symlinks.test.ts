@@ -87,4 +87,21 @@ describe("resolveParentSymlinks", () => {
       }),
     ),
   );
+
+  it.effect("resolves the nearest existing ancestor when parents are missing", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const realDir = path.join(tmpDir, "real-dir");
+        fs.mkdirSync(realDir);
+
+        const symlinkDir = path.join(tmpDir, "symlink-dir");
+        fs.symlinkSync(realDir, symlinkDir);
+
+        const result = yield* resolveParentSymlinks(
+          path.join(symlinkDir, "missing", "nested", "file.txt"),
+        );
+        expect(result).toBe(path.join(realDir, "missing", "nested", "file.txt"));
+      }),
+    ),
+  );
 });

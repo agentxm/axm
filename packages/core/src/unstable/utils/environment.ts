@@ -14,6 +14,11 @@ import * as Option from "effect/Option";
 // eslint-disable-next-line no-restricted-properties -- Centralized env var access point; all callers use these helpers
 export const readEnv = (name: string): string | undefined => process.env[name];
 
+/** Snapshot the current environment for isolated child-process configuration. */
+export const readEnvironment = (): Readonly<Record<string, string | undefined>> =>
+  // eslint-disable-next-line no-restricted-properties -- Centralized env var access point; callers filter the snapshot before passing it to child processes
+  ({ ...process.env });
+
 /** Read an optional env var. Centralized access point for process.env. */
 export const envOption = (name: string): Effect.Effect<Option.Option<string>> =>
   Effect.sync(() => Option.fromUndefinedOr(readEnv(name)));

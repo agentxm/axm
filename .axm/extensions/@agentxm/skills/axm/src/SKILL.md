@@ -33,7 +33,13 @@ metadata:
    - `pack/*` → `axm help packs`
    - workspace/config findings → `axm help settings`
 4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/copy/ignore/prune choices with a recommended option using the signals in the topic help.
-5. **Preflight registry identity before publish or install work**: Run
+5. **Review Git hooks before editing**: For Git-hook setup, read `axm help
+git-hooks`, inspect the existing hook manager and CI gate, and propose the
+   exact diff plus strictness, formatter order, missing-AXM, and bypass policies.
+   Get consent before editing shared hook files with normal tools. Preserve
+   existing checks, stage only the intended changes, then run `axm lint
+--staged` with the chosen strictness.
+6. **Preflight registry identity before publish or install work**: Run
    `axm whoami --json` before preparing a publish or registry install. Treat exit
    `13` (`auth_required`) as an expected probe result, but propagate every other
    unexpected nonzero exit. Portable wrappers:
@@ -151,6 +157,7 @@ only for an unpublished lower SemVer. Unsafe archives cannot be bypassed, and
 | Reconcile one root or extension type  | `axm sync <fqn>` / `axm sync --type <type>` |
 | Inspect local reconciliation blockers | `axm status`                                |
 | Lint workspace (read-only)            | `axm lint`                                  |
+| Lint the exact Git index              | `axm lint --staged`                         |
 | Reconcile workspace configuration     | `axm lint --fix`                            |
 | Preview one inline MCP drift repair   | `axm mcps repair <name> --preview`          |
 | Remove unmanaged extension artifacts  | `axm prune`                                 |

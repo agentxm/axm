@@ -368,6 +368,10 @@ const setupSuggestions = (args: {
     suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
   }
 
+  if (args.scope === "project") {
+    suggestions.push({ description: "Set up staged lint hooks", cmd: "axm help git-hooks" });
+  }
+
   if (args.telemetryEnabled) {
     suggestions.push({
       description:

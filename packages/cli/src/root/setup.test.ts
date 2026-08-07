@@ -308,6 +308,7 @@ describe("setup.handler", () => {
             { description: "Inspect configured agents", cmd: "axm agents list" },
             { description: "Inspect installed skills", cmd: "axm skills list" },
             { description: "Discover recommended extensions", cmd: "axm discover" },
+            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
             telemetrySuggestion,
           ]);
         }),
@@ -327,6 +328,7 @@ describe("setup.handler", () => {
             { description: "Inspect configured agents", cmd: "axm agents list" },
             { description: "Inspect installed skills", cmd: "axm skills list" },
             { description: "Discover recommended extensions", cmd: "axm discover" },
+            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
             telemetrySuggestion,
           ]);
         }),
@@ -422,11 +424,13 @@ describe("setup.handler", () => {
             { description: "Inspect configured agents", cmd: "axm agents list" },
             { description: "Inspect installed skills", cmd: "axm skills list" },
             { description: "Discover recommended extensions", cmd: "axm discover" },
+            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
             telemetrySuggestion,
             { description: "Inspect configured agents", cmd: "axm agents list" },
             { description: "Manage coding-agent membership", cmd: "axm agents --help" },
             { description: "Inspect installed skills", cmd: "axm skills list" },
             { description: "Discover recommended extensions", cmd: "axm discover" },
+            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
             telemetrySuggestion,
           ]);
         }),

@@ -118,6 +118,7 @@ export interface HandleLintArgs {
   readonly strict: boolean;
   readonly details: boolean;
   readonly displayWorkspaceRoot?: string;
+  readonly ruleOverrides?: LintConfig["rules"];
 }
 
 type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
@@ -1486,7 +1487,13 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   });
 
   // -- Load settings + lockfile + config --
-  const config = yield* loadLintConfig(workspaceRoot);
+  const loadedConfig = yield* loadLintConfig(workspaceRoot);
+  const config =
+    args.ruleOverrides === undefined
+      ? loadedConfig
+      : ({
+          rules: { ...loadedConfig.rules, ...args.ruleOverrides },
+        } satisfies LintConfig);
 
   // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());

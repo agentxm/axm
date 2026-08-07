@@ -41,16 +41,14 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * FQNs of every registry pack the lockfile records as installed. Non-registry
- * pack entries carry no owner, so they cannot match an `@owner/packs/<name>`
- * recommendation and are skipped.
+ * FQNs of every pack the lockfile records as installed. Both Registry and
+ * workspace-authored pack receipts carry the owner and name needed to match an
+ * `@owner/packs/<name>` recommendation.
  */
 const installedPackFqns = (lockfile: Lockfile): ReadonlySet<string> => {
   const fqns = new Set<string>();
   for (const entry of Object.values(lockfile.packs ?? {})) {
-    if (entry.type === "registry") {
-      fqns.add(`${entry.owner}/packs/${entry.name}`);
-    }
+    fqns.add(`${entry.owner}/packs/${entry.name}`);
   }
   return fqns;
 };

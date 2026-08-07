@@ -73,6 +73,10 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
       strict: args.strict,
       details: args.details,
       displayWorkspaceRoot: snapshot.gitRoot,
+      // Instruction aliases are generated, intentionally gitignored workspace
+      // state, so they cannot be evaluated from the exact Git index. Full
+      // `axm lint --strict` (recommended for pre-push and CI) still checks them.
+      ruleOverrides: { "workspace/instructions-target-current": "off" },
     }).pipe(withWorkspace({ scope: "project", projectRoot: snapshot.workspaceRoot }));
   }
 

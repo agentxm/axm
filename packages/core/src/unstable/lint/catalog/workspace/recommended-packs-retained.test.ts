@@ -31,14 +31,18 @@ const skillManifest = (args: {
 
 const makeContext = (args: {
   readonly manifests?: ReadonlyArray<InstalledExtensionManifest>;
-  readonly installedPacks?: ReadonlyArray<{ readonly owner: string; readonly name: string }>;
+  readonly installedPacks?: ReadonlyArray<{
+    readonly owner: string;
+    readonly name: string;
+    readonly source?: "registry" | "workspace";
+  }>;
   readonly omitAccessor?: boolean;
 }): WorkspaceRuleContext => {
   const packs = Object.fromEntries(
     (args.installedPacks ?? []).map((pack) => [
       pack.name,
       {
-        type: "registry",
+        type: pack.source ?? "registry",
         owner: pack.owner,
         name: pack.name,
         resolvedSkills: {},
@@ -108,6 +112,25 @@ describe("workspace/recommended-packs-retained", () => {
             }),
           ],
           installedPacks: [{ owner: "@acme", name: "bricks" }],
+        }),
+      );
+
+      expect(findings).toEqual([]);
+    }),
+  );
+
+  it.effect("stays silent when a recommended workspace pack is installed", () =>
+    Effect.gen(function* () {
+      const findings = yield* recommendedPacksRetainedRule.check(
+        makeContext({
+          manifests: [
+            skillManifest({
+              name: "brick-building",
+              standalone: false,
+              recommendedPacks: ["@acme/packs/bricks"],
+            }),
+          ],
+          installedPacks: [{ owner: "@acme", name: "bricks", source: "workspace" }],
         }),
       );
 

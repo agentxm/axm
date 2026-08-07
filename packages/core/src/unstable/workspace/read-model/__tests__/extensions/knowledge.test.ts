@@ -132,11 +132,11 @@ describe("makeKnowledgeExtensionsApi", () => {
         canonicalOccurrences: [
           makeCanonicalOccurrence({
             scope: "project",
-            type: "files",
+            type: "rule",
             origin: "canonical-axm",
             name: "index",
             owner: "@acme",
-            contentLocation: "/ws/.axm/knowledge",
+            contentLocation: "/ws/.axm/rules/index",
           }),
         ],
       });

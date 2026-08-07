@@ -46,12 +46,7 @@ import {
 import type { AgentDescriptor, AgentId } from "../../agents/types.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
-import {
-  installSkill,
-  buildRenderedFilesFromResults,
-  computeSkillSourceHash,
-  renderTargetAgentIdForLocation,
-} from "./install.js";
+import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 
@@ -1314,45 +1309,6 @@ describe("installSkill", () => {
   });
 
   describe("rendered files tracking", () => {
-    it("uses the configured profile when universal shares a directory with one agent", () => {
-      expect(renderTargetAgentIdForLocation(["universal", "codex"])).toBe("codex");
-      expect(renderTargetAgentIdForLocation(["universal", "codex", "cline"])).toBe("universal");
-    });
-
-    it.effect("renders capability-targeted skills into the build store per agent", () =>
-      Effect.gen(function* () {
-        const src = setupSource();
-        fs.writeFileSync(
-          path.join(src, "SKILL.md"),
-          [
-            "# Review",
-            "",
-            '<axm-region id="review">',
-            "Review directly.",
-            "</axm-region>",
-            '<axm-enhance when="subagents" replaces="review">',
-            "Delegate the review.",
-            "</axm-enhance>",
-            "",
-          ].join("\n"),
-        );
-        const { axmDir, base } = setupBase();
-        const setSkillFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
-
-        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir, { setSkillFn, configuredAgents: ["codex"] })),
-        );
-
-        expect(result.result).toBe("success");
-        expect(
-          fs.readFileSync(path.join(base, ".agents", "skills", "my-skill", "SKILL.md"), "utf8"),
-        ).toBe("# Review\n\nDelegate the review.\n");
-        const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
-        expect(lockEntry).not.toHaveProperty("renderInputs");
-        expect(lockEntry["sourceHash"]).toBeDefined();
-      }),
-    );
-
     it.effect("symlink-mode install records source identity without rendered files", () =>
       Effect.gen(function* () {
         const src = setupSource();

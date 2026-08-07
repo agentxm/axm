@@ -20,7 +20,7 @@ const viewConfig = {
     Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
-  type: Flag.choice("type", ["skill", "command", "subagent"] as const).pipe(
+  type: Flag.choice("type", ["skill", "subagent"] as const).pipe(
     Flag.withDescription("Resource type for bare-name lookup"),
     Flag.optional,
   ),
@@ -44,7 +44,7 @@ export const viewCommand = Command.make("view", viewConfig, ({ handle, field, re
       description: "Show published metadata for an extension",
     },
     {
-      command: "axm view @acme/commands/my-cmd version",
+      command: "axm view @acme/subagents/reviewer version",
       description: "Print the latest published version",
     },
     {

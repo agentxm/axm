@@ -49,23 +49,6 @@ export const firebenderAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Firebender custom commands live under .firebender/commands; the firebender.json commands key is deprecated in favor of command files and agents.",
-        docs: [],
-        sources: ["https://firebendercorp.mintlify.app/api-reference/syntax"],
-        scopes: ["user", "project"],
-        directory: ".firebender/commands",
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

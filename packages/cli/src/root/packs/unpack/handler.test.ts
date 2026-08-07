@@ -17,8 +17,6 @@ import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive, type RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -54,11 +52,9 @@ const initWorkspace = (
   axmDir: string,
   options: {
     skills?: Record<string, unknown>;
-    commands?: Record<string, unknown>;
     mcps?: Record<string, unknown>;
     packs?: Record<string, unknown>;
     lockSkills?: Record<string, unknown>;
-    lockCommands?: Record<string, unknown>;
     lockMcpServers?: Record<string, unknown>;
     lockPacks?: Record<string, unknown>;
   } = {},
@@ -71,7 +67,6 @@ const initWorkspace = (
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
-      ...(options.commands ? { commands: options.commands } : {}),
       ...(options["mcps"] ? { mcpServers: options["mcps"] } : {}),
       ...(options.packs ? { packs: options.packs } : {}),
     }),
@@ -81,7 +76,6 @@ const initWorkspace = (
     YAML.stringify({
       lockfileVersion: 3,
       skills: options.lockSkills ?? {},
-      ...(options.lockCommands ? { commands: options.lockCommands } : {}),
       ...(options.lockMcpServers ? { mcpServers: options.lockMcpServers } : {}),
       ...(options.lockPacks ? { packs: options.lockPacks } : {}),
     }),
@@ -93,7 +87,6 @@ const createCanonicalDirs = (
   baseDir: string,
   opts: {
     skills?: ReadonlyArray<{ owner: string; name: string }>;
-    commands?: ReadonlyArray<{ owner: string; name: string }>;
     mcpServers?: ReadonlyArray<{ owner: string; name: string }>;
   },
 ) => {
@@ -109,11 +102,6 @@ const createCanonicalDirs = (
     );
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${skill.name}`);
-  }
-  for (const cmd of opts.commands ?? []) {
-    const cmdDir = path.join(baseDir, ".axm", "extensions", cmd.owner, "commands", cmd.name);
-    fs.mkdirSync(cmdDir, { recursive: true });
-    fs.writeFileSync(path.join(cmdDir, "run.sh"), "#!/bin/bash");
   }
   for (const srv of opts.mcpServers ?? []) {
     const srvDir = path.join(baseDir, ".axm", "extensions", srv.owner, "mcps", srv.name);
@@ -229,10 +217,8 @@ describe("packs unpack.handler", () => {
     const ManagersLayer = Layer.provide(
       Layer.mergeAll(
         SkillManagerLive,
-        CommandManagerLive,
         McpServerManagerLive,
         SubagentManagerLive,
-        FilesManagerLive,
         RuleManagerLive,
         HookManagerLive,
         KnowledgeManagerLive,
@@ -302,7 +288,6 @@ describe("packs unpack.handler", () => {
                 publisherBindingId: "hbnd_test",
               },
             },
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -416,7 +401,6 @@ describe("packs unpack.handler", () => {
                 publisherBindingId: "hbnd_test",
               },
             },
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -504,7 +488,6 @@ describe("packs unpack.handler", () => {
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {
               "@test/subagents/reviewer": {

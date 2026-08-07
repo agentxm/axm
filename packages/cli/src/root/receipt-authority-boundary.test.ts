@@ -7,8 +7,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const rootDir = path.join(repoRoot, "packages/cli/src/root");
 
 const extensionFamilyDirs = [
-  "commands",
-  "files",
   "hooks",
   "knowledge",
   "mcps",
@@ -19,9 +17,7 @@ const extensionFamilyDirs = [
 ] as const;
 
 const coreAuthorityDirs = [
-  "commands",
   "extensions",
-  "files",
   "hooks",
   "knowledge",
   "mcps",
@@ -42,8 +38,6 @@ const coreAuthorityDirs = [
  */
 const allowedReceiptReaders = [
   // Read-only presentation and maintenance.
-  "packages/cli/src/root/commands/list.ts",
-  "packages/cli/src/root/files/list.ts",
   "packages/cli/src/root/hooks/list.ts",
   "packages/cli/src/root/knowledge/inspect.ts",
   "packages/cli/src/root/mcps/list.ts",
@@ -53,14 +47,6 @@ const allowedReceiptReaders = [
   "packages/cli/src/root/skills/list.ts",
 
   // Best-effort history/artifact enrichment on mutation paths.
-  "packages/cli/src/root/commands/install/command-actions.ts",
-  "packages/cli/src/root/commands/new.ts",
-  "packages/cli/src/root/commands/uninstall/command-actions.ts",
-  "packages/cli/src/root/files/disable.ts",
-  "packages/cli/src/root/files/enable.ts",
-  "packages/cli/src/root/files/install/command-actions.ts",
-  "packages/cli/src/root/files/new.ts",
-  "packages/cli/src/root/files/uninstall/command-actions.ts",
   "packages/cli/src/root/hooks/disable.ts",
   "packages/cli/src/root/hooks/enable.ts",
   "packages/cli/src/root/hooks/install/command-actions.ts",

@@ -6,7 +6,6 @@ import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
   manifestFilenameForType,
   resolveManifest,
-  validateCommandManifestHasNoAgentOverridesField,
   validateManifestHasNoAgentsField,
   validateDeclaredManifestAlignment,
 } from "./manifest-policy.js";
@@ -44,11 +43,9 @@ describe("manifestFilenameForType", () => {
   it("maps every extension type to a manifest file", () => {
     const filenameByType: Record<ExtensionType, string> = {
       skill: "skill.json",
-      command: "command.json",
       "mcp-server": "mcp.json",
       subagent: "subagent.json",
       pack: "pack.json",
-      files: "files.json",
       rule: "rule.json",
       hook: "hook.json",
       knowledge: "knowledge.json",
@@ -107,17 +104,17 @@ describe("resolveManifest", () => {
     Effect.gen(function* () {
       const manifest = JSON.stringify({
         owner: "@acme",
-        type: "command",
-        name: "release-notes",
+        type: "subagent",
+        name: "researcher",
         version: "1.0.0",
         agents: ["claude-code"],
       });
 
       const error = yield* Effect.flip(
         resolveManifest({
-          type: "command",
-          entries: [makeEntry("command.json")],
-          readEntry: makeReadEntry({ "command.json": manifest }),
+          type: "subagent",
+          entries: [makeEntry("subagent.json")],
+          readEntry: makeReadEntry({ "subagent.json": manifest }),
         }),
       );
 
@@ -138,8 +135,8 @@ describe("resolveManifest", () => {
         // companion-package error.
         const manifest = JSON.stringify({
           owner: "@acme",
-          type: "command",
-          name: "release-notes",
+          type: "subagent",
+          name: "researcher",
           version: "1.0.0",
           agents: ["claude-code"],
           packages: [{ purl: "pkg:npm/example" }],
@@ -147,9 +144,9 @@ describe("resolveManifest", () => {
 
         const error = yield* Effect.flip(
           resolveManifest({
-            type: "command",
-            entries: [makeEntry("command.json")],
-            readEntry: makeReadEntry({ "command.json": manifest }),
+            type: "subagent",
+            entries: [makeEntry("subagent.json")],
+            readEntry: makeReadEntry({ "subagent.json": manifest }),
           }),
         );
 
@@ -158,34 +155,6 @@ describe("resolveManifest", () => {
           expect(error.code).toBe("manifest_schema_invalid");
         }
       }),
-  );
-
-  it.effect("rejects deprecated command manifest agentOverrides fields", () =>
-    Effect.gen(function* () {
-      const manifest = JSON.stringify({
-        owner: "@acme",
-        type: "command",
-        name: "release-notes",
-        version: "1.0.0",
-        agentOverrides: {
-          codex: { model: "o3" },
-        },
-      });
-
-      const error = yield* Effect.flip(
-        resolveManifest({
-          type: "command",
-          entries: [makeEntry("command.json")],
-          readEntry: makeReadEntry({ "command.json": manifest }),
-        }),
-      );
-
-      expect(error._tag).toBe("ManifestError");
-      if (error._tag === "ManifestError") {
-        expect(error.code).toBe("manifest_schema_invalid");
-        expect(error.detail).toContain("command content file frontmatter");
-      }
-    }),
   );
 
   it.effect("resolves a valid pack manifest with FQN dependencies", () =>
@@ -205,33 +174,6 @@ describe("resolveManifest", () => {
       });
 
       expect(resolved.identity.name).toBe("my-pack");
-    }),
-  );
-
-  it.effect("resolves a valid context manifest", () =>
-    Effect.gen(function* () {
-      const manifest = JSON.stringify({
-        owner: "@acme",
-        type: "files",
-        name: "baseline-files",
-        version: "1.0.0",
-        contents: [
-          {
-            source: { kind: "static", path: "README.md" },
-            target: "README.md",
-            mode: "sync-once",
-          },
-        ],
-      });
-
-      const resolved = yield* resolveManifest({
-        type: "files",
-        entries: [makeEntry("files.json"), makeEntry("src/README.md")],
-        readEntry: makeReadEntry({ "files.json": manifest }),
-      });
-
-      expect(resolved.identity.name).toBe("baseline-files");
-      expect(resolved.identity.type).toBe("files");
     }),
   );
 
@@ -333,23 +275,6 @@ describe("validateManifestHasNoAgentsField", () => {
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") {
       expect(result.failure.detail).toContain("settings.agents");
-    }
-  });
-});
-
-describe("validateCommandManifestHasNoAgentOverridesField", () => {
-  it("fails with guidance to move overrides to content frontmatter", () => {
-    const result = validateCommandManifestHasNoAgentOverridesField("command.json", {
-      owner: "@acme",
-      type: "command",
-      name: "release-notes",
-      version: "1.0.0",
-      agentOverrides: { codex: { model: "o3" } },
-    });
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.detail).toContain("command content file frontmatter");
     }
   });
 });

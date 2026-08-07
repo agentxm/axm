@@ -11,9 +11,6 @@ import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "../../extensions/discovery-walk.js";
-import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../../commands/index.js";
-import type { CommandExtensionRef } from "../../commands/index.js";
-import { filesPackagesInDir, type FilesExtensionRef } from "../../files/index.js";
 import { getTreeSha } from "../../git/index.js";
 import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
 import {
@@ -31,13 +28,6 @@ import { fileUrlToPath } from "../../sources/index.js";
 import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/index.js";
 
 type ExternalSource = GitBasedSource | LocalSource;
-
-type CommandDiscovery = {
-  readonly type: "command";
-  readonly owner: Handle;
-  readonly name: ExtensionName;
-  readonly location: string;
-};
 
 type SubagentDiscovery = {
   readonly type: "subagent";
@@ -197,29 +187,6 @@ const manifestDirs = (
   return scan(root, 0);
 };
 
-const readCommandDiscovery = (dir: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const manifestPath = path.join(dir, COMMAND_MANIFEST_FILENAME);
-    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
-    if (Option.isNone(raw)) return Option.none<CommandDiscovery>();
-    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw.value).pipe(
-      Effect.option,
-    );
-    if (Option.isNone(json)) return Option.none<CommandDiscovery>();
-    const manifest = yield* Schema.decodeUnknownEffect(CommandManifestSchema)(json.value).pipe(
-      Effect.option,
-    );
-    if (Option.isNone(manifest)) return Option.none<CommandDiscovery>();
-    return Option.some({
-      type: "command",
-      owner: manifest.value.owner,
-      name: manifest.value.name,
-      location: `file://${dir}`,
-    } satisfies CommandDiscovery);
-  });
-
 const readSubagentDiscovery = (dir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -267,17 +234,6 @@ const readKnowledgeDiscovery = (dir: string) =>
     } satisfies KnowledgeDiscovery);
   });
 
-const commandDiscoveries = (
-  root: string,
-): Effect.Effect<ReadonlyArray<CommandDiscovery>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const dirs = yield* manifestDirs(root, COMMAND_MANIFEST_FILENAME);
-    const discoveries = yield* Effect.forEach(dirs, (dir) => readCommandDiscovery(dir), {
-      concurrency: "unbounded",
-    });
-    return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
-  });
-
 const subagentDiscoveries = (
   root: string,
 ): Effect.Effect<ReadonlyArray<SubagentDiscovery>, never, FileSystem.FileSystem | Path.Path> =>
@@ -298,34 +254,6 @@ const knowledgeDiscoveries = (
       concurrency: "unbounded",
     });
     return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
-  });
-
-const commandRef = (source: ExternalSource, basePath: string, discovery: CommandDiscovery) =>
-  Effect.gen(function* () {
-    const command = { name: discovery.name };
-    switch (source.type) {
-      case "local":
-        return {
-          type: "command",
-          refType: "local",
-          command,
-          source,
-          location: discovery.location,
-        } satisfies CommandExtensionRef;
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos":
-      case "git":
-        return {
-          type: "command",
-          refType: "git-hosted",
-          command,
-          source,
-          location: discovery.location,
-          gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
-        } satisfies CommandExtensionRef;
-    }
   });
 
 const subagentRef = (source: ExternalSource, basePath: string, discovery: SubagentDiscovery) =>
@@ -385,16 +313,6 @@ const knowledgeRef = (source: ExternalSource, basePath: string, discovery: Knowl
     }
   });
 
-const commandRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
-  Effect.gen(function* () {
-    const root = yield* searchRootFor(source, basePath);
-    const discoveries = yield* commandDiscoveries(root);
-    const matching = discoveries.filter((discovery) => matchesIdentity(discovery, options));
-    return yield* Effect.forEach(matching, (discovery) => commandRef(source, basePath, discovery), {
-      concurrency: "unbounded",
-    });
-  });
-
 const subagentRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
   Effect.gen(function* () {
     const root = yield* searchRootFor(source, basePath);
@@ -415,44 +333,6 @@ const knowledgeRefsInDir = (source: ExternalSource, basePath: string, options: F
     return yield* Effect.forEach(
       matching,
       (discovery) => knowledgeRef(source, basePath, discovery),
-      { concurrency: "unbounded" },
-    );
-  });
-
-const filesRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
-  Effect.gen(function* () {
-    const root = yield* searchRootFor(source, basePath);
-    const discovered = yield* filesPackagesInDir(root, { fullDepth: true });
-    const matching = discovered.filter(({ manifest }) => matchesIdentity(manifest, options));
-    return yield* Effect.forEach(
-      matching,
-      (discovery) =>
-        Effect.gen(function* () {
-          const file = { name: discovery.manifest.name };
-          switch (source.type) {
-            case "local":
-              return {
-                type: "files",
-                refType: "local",
-                file,
-                source,
-                location: discovery.location,
-              } satisfies FilesExtensionRef;
-            case "github":
-            case "gitlab":
-            case "bitbucket":
-            case "azurerepos":
-            case "git":
-              return {
-                type: "files",
-                refType: "git-hosted",
-                file,
-                source,
-                location: discovery.location,
-                gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
-              } satisfies FilesExtensionRef;
-          }
-        }),
       { concurrency: "unbounded" },
     );
   });
@@ -535,12 +415,8 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
 
 const identityKey = (ref: ExtensionRef): string | undefined => {
   switch (ref.type) {
-    case "command":
-      return `${ref.type}:${ref.command.name}`;
     case "subagent":
       return `${ref.type}:${ref.subagent.name}`;
-    case "files":
-      return `${ref.type}:${ref.file.name}`;
     case "rule":
       return `${ref.type}:${ref.rule.name}`;
     case "hook":
@@ -583,14 +459,8 @@ export const discoverConventionRefs = (
       ...(options.type === "skill" || options.type === "*"
         ? yield* skillRefsInDir(source, basePath, options)
         : []),
-      ...(options.type === "command" || options.type === "*"
-        ? yield* commandRefsInDir(source, basePath, options)
-        : []),
       ...(options.type === "subagent" || options.type === "*"
         ? yield* subagentRefsInDir(source, basePath, options)
-        : []),
-      ...(options.type === "files" || options.type === "*"
-        ? yield* filesRefsInDir(source, basePath, options)
         : []),
       ...(options.type === "rule" || options.type === "*"
         ? yield* ruleRefsInDir(source, basePath, options)

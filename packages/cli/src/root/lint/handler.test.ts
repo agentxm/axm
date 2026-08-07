@@ -26,8 +26,6 @@ import {
   logsByTag,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -39,8 +37,6 @@ import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 
-import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
-import { InstallFilesCommandWorkflowActionsLive } from "../files/install/command-actions.js";
 import { InstallHookCommandWorkflowActionsLive } from "../hooks/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
@@ -96,17 +92,9 @@ describe("axm lint handler", () => {
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
     );
-    const commandsLayer = Layer.provideMerge(
-      InstallCommandCommandWorkflowActionsLive,
-      CommandManagerLive,
-    );
     const mcpServersLayer = Layer.provideMerge(
       InstallMcpServerCommandWorkflowActionsLive,
       McpServerManagerLive,
-    );
-    const contextLayer = Layer.provideMerge(
-      InstallFilesCommandWorkflowActionsLive,
-      FilesManagerLive,
     );
     const hooksLayer = Layer.provideMerge(InstallHookCommandWorkflowActionsLive, HookManagerLive);
     const rulesLayer = Layer.provideMerge(InstallRuleCommandWorkflowActionsLive, RuleManagerLive);
@@ -120,8 +108,6 @@ describe("axm lint handler", () => {
     );
     const packsLayer = Layer.provideMerge(InstallPackCommandWorkflowActionsLive, PackManagerLive);
     const coreExtensions = Layer.mergeAll(
-      commandsLayer,
-      contextLayer,
       hooksLayer,
       KnowledgeManagerLive,
       mcpServersLayer,

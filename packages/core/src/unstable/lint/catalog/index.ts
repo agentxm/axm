@@ -16,10 +16,8 @@
 
 import { skillRules } from "./skill.js";
 import { packRules } from "./pack.js";
-import { commandRules } from "./command.js";
 import { subagentRules } from "./subagent.js";
 import { mcpServerRules } from "./mcp-server.js";
-import { filesRules } from "./files.js";
 import { hookRules } from "./hook.js";
 import { ruleRules } from "./rule.js";
 import { knowledgeRules } from "./knowledge.js";
@@ -27,10 +25,8 @@ import { workspaceRules } from "./workspace.js";
 
 export { skillRules } from "./skill.js";
 export { packRules } from "./pack.js";
-export { commandRules } from "./command.js";
 export { subagentRules } from "./subagent.js";
 export { mcpServerRules } from "./mcp-server.js";
-export { filesRules } from "./files.js";
 export { hookRules } from "./hook.js";
 export { ruleRules } from "./rule.js";
 export { knowledgeRules } from "./knowledge.js";
@@ -55,13 +51,6 @@ export {
   type PackAccessorPlatform,
 } from "./pack-accessor/platform.js";
 export { buildPackRuleContexts, type InstalledPackInfo } from "./pack-accessor/contexts.js";
-
-export {
-  makePlatformFilesAccessor,
-  type FilesAccessorPlatform,
-} from "./files-accessor/platform.js";
-export { makeVftFilesAccessor, type FilesVFTNode } from "./files-accessor/vft.js";
-export { buildFilesRuleContexts, type InstalledFilesInfo } from "./files-accessor/contexts.js";
 
 // Phase 3c workspace read-model builder helpers.
 export {
@@ -98,10 +87,8 @@ export {
 export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...skillRules.map((r) => r.id),
   ...packRules.map((r) => r.id),
-  ...commandRules.map((r) => r.id),
   ...subagentRules.map((r) => r.id),
   ...mcpServerRules.map((r) => r.id),
-  ...filesRules.map((r) => r.id),
   ...hookRules.map((r) => r.id),
   ...ruleRules.map((r) => r.id),
   ...knowledgeRules.map((r) => r.id),

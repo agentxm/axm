@@ -66,17 +66,7 @@ const groupLabel = (group: string | undefined): string => {
 };
 
 /** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = [
-  "agents",
-  "commands",
-  "files",
-  "hooks",
-  "mcps",
-  "packs",
-  "rules",
-  "skills",
-  "subagents",
-];
+const CORE_COMMANDS = ["agents", "hooks", "mcps", "packs", "rules", "skills", "subagents"];
 const CORE_GROUP_LABEL = "CORE";
 
 /** Compact group that should render above the descriptive Core block. */
@@ -140,9 +130,7 @@ const wrapCommandRows = (
 const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   agents: "Manage target coding agents",
   auth: "Manage registry authentication",
-  commands: "Manage slash-command extensions",
   discover: "Find extensions for this project",
-  files: "Manage context file utility extensions",
   help: "Show topic and command help",
   install: "Install extensions from the registry",
   lint: "Check workspace configuration",

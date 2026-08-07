@@ -167,10 +167,8 @@ const patchRequiredMap = <T>(
 };
 
 const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockfile): Lockfile => {
-  const commands = patchOptionalMap(fresh.commands, base.commands, next.commands);
   const subagents = patchOptionalMap(fresh.subagents, base.subagents, next.subagents);
   const mcpServers = patchOptionalMap(fresh.mcpServers, base.mcpServers, next.mcpServers);
-  const files = patchOptionalMap(fresh.files, base.files, next.files);
   const rules = patchOptionalMap(fresh.rules, base.rules, next.rules);
   const hooks = patchOptionalMap(fresh.hooks, base.hooks, next.hooks);
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
@@ -182,10 +180,8 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...lockfileRestEntries(fresh),
     lockfileVersion: LOCKFILE_VERSION,
     skills: patchRequiredMap(fresh.skills, base.skills, next.skills),
-    ...(commands !== undefined ? { commands } : {}),
     ...(subagents !== undefined ? { subagents } : {}),
     ...(mcpServers !== undefined ? { mcpServers } : {}),
-    ...(files !== undefined ? { files } : {}),
     ...(rules !== undefined ? { rules } : {}),
     ...(hooks !== undefined ? { hooks } : {}),
     ...(knowledge !== undefined ? { knowledge } : {}),
@@ -456,7 +452,7 @@ export const applyLockfileUpdates = (
  * Applies a batch of lockfile updates and writes the result once.
  *
  * This is intended for sync flows that discover multiple render-hash changes
- * while reconciling Context Files package targets.
+ * while reconciling managed package targets.
  *
  * @experimental This API is unstable and may change without notice.
  */

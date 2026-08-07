@@ -37,24 +37,6 @@ export const rovodevAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Rovo Dev saved prompts are stored under .rovodev/prompts.",
-        docs: [],
-        sources: [
-          "https://support.atlassian.com/bitbucket-cloud/docs/rovo-dev-advanced-agentic-configuration/",
-        ],
-        scopes: ["user", "project"],
-        directory: ".rovodev/prompts",
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

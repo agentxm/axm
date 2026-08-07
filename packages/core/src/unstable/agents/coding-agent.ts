@@ -11,12 +11,9 @@
 
 import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
-import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
-import type { CommandFrontmatter } from "../commands/command-content.js";
-import type { CommandManifest } from "../commands/manifest-schema.js";
 import type { Handle } from "../extensions/handle.js";
 import type { RenderedFilePath } from "../extensions/rendered-files.js";
 import type { ArtifactChange } from "../plan/plan.js";
@@ -64,67 +61,6 @@ export interface RemoveMcpServerArgs {
   readonly serverName: string;
   readonly disableOnly?: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// Command types
-// ---------------------------------------------------------------------------
-
-/**
- * Inputs for resolving an agent's effective commands directory.
- */
-export interface ResolveCommandsDirArgs {
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-}
-
-/**
- * Tagged outcome for commands-directory resolution.
- */
-export type ResolveCommandsDirOutcome =
-  | { readonly _tag: "supported"; readonly dir: string; readonly warnings: ReadonlyArray<string> }
-  | { readonly _tag: "unsupported"; readonly reason: string }
-  | { readonly _tag: "disabled"; readonly reason: string }
-  | { readonly _tag: "misconfigured"; readonly reason: string };
-
-/**
- * Inputs for adding a command to an agent's commands directory.
- */
-export interface AddCommandArgs {
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-  readonly commandName: string;
-  readonly editSourcePath: string;
-  readonly frontmatter: Option.Option<CommandFrontmatter>;
-  readonly body: string;
-  readonly manifest: CommandManifest;
-  readonly agentOverrides: Option.Option<Readonly<Record<string, unknown>>>;
-  readonly force: boolean;
-}
-
-/**
- * Inputs for removing a command from an agent's commands directory.
- */
-export interface RemoveCommandArgs {
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-  readonly commandName: string;
-}
-
-/**
- * Outcome of a command sync operation (add or remove).
- */
-export type CommandSyncOutcome =
-  | {
-      readonly _tag: "success";
-      readonly renderedFilePath: string;
-      readonly warnings: ReadonlyArray<string>;
-    }
-  | {
-      readonly _tag: "skipped";
-      readonly reason: string;
-    }
-  | { readonly _tag: "unsupported"; readonly reason: string }
-  | { readonly _tag: "conflict"; readonly reason: string };
 
 // ---------------------------------------------------------------------------
 // Subagent types
@@ -220,7 +156,7 @@ export type McpServerSyncOutcome =
  * Agent-specific extension installation behavior.
  *
  * Each coding agent knows how to resolve its skills directory,
- * manage MCP server configuration entries, and manage command files.
+ * manage MCP server configuration entries, and manage subagent files.
  */
 export interface CodingAgent {
   readonly id: AgentId;
@@ -233,15 +169,6 @@ export interface CodingAgent {
   readonly removeMcpServer: (
     args: RemoveMcpServerArgs,
   ) => Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
-  readonly resolveEffectiveCommandsDir: (
-    args: ResolveCommandsDirArgs,
-  ) => Effect.Effect<ResolveCommandsDirOutcome, AppError, FileSystem.FileSystem | Path.Path>;
-  readonly addCommand: (
-    args: AddCommandArgs,
-  ) => Effect.Effect<CommandSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
-  readonly removeCommand: (
-    args: RemoveCommandArgs,
-  ) => Effect.Effect<CommandSyncOutcome, AppError, FileSystem.FileSystem | Path.Path>;
   readonly resolveEffectiveSubagentsDir: (
     args: ResolveSubagentsDirArgs,
   ) => Effect.Effect<ResolveSubagentsDirOutcome, AppError, FileSystem.FileSystem | Path.Path>;

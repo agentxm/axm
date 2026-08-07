@@ -215,28 +215,23 @@ const collectStateCandidates = Effect.fn("RootPrune.collectState")(function* () 
   }
 
   const desired = new Set(graph.nodes.map((node) => `${node.type}:${node.name}`));
-  const [skills, commands, mcpServers, subagents, packs, files, rules, hooks, knowledge] =
-    yield* Effect.all(
-      [
-        ws.getLockedSkills(),
-        ws.getLockedCommands(),
-        ws.getLockedMcpServers(),
-        ws.getLockedSubagents(),
-        ws.getLockedPacks(),
-        ws.getLockedFiles(),
-        ws.getLockedRules(),
-        ws.getLockedHooks(),
-        ws.getLockedKnowledge(),
-      ],
-      { concurrency: "unbounded" },
-    );
+  const [skills, mcpServers, subagents, packs, rules, hooks, knowledge] = yield* Effect.all(
+    [
+      ws.getLockedSkills(),
+      ws.getLockedMcpServers(),
+      ws.getLockedSubagents(),
+      ws.getLockedPacks(),
+      ws.getLockedRules(),
+      ws.getLockedHooks(),
+      ws.getLockedKnowledge(),
+    ],
+    { concurrency: "unbounded" },
+  );
   const lockCandidates: ReadonlyArray<PruneCandidate> = [
     ...staleLockCandidates("skill", skills, desired, ws.removeSkillLock),
-    ...staleLockCandidates("command", commands, desired, ws.removeCommandLock),
     ...staleLockCandidates("mcp-server", mcpServers, desired, ws.removeMcpServerLock),
     ...staleLockCandidates("subagent", subagents, desired, ws.removeSubagentLock),
     ...staleLockCandidates("pack", packs, desired, ws.removePackLock),
-    ...staleLockCandidates("files", files, desired, ws.removeFilesLock),
     ...staleLockCandidates("rule", rules, desired, ws.removeRuleLock),
     ...staleLockCandidates("hook", hooks, desired, ws.removeHookLock),
     ...staleLockCandidates("knowledge", knowledge, desired, ws.removeKnowledgeLock),

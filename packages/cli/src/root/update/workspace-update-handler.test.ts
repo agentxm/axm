@@ -14,19 +14,10 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
-import { InstallFilesCommandWorkflowActions } from "../files/install/command-actions.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
-
-const unusedInstallFilesActions = {
-  parseArgs: () => Effect.die("unused"),
-  resolveSourceRequests: () => Effect.die("unused"),
-  discoverRefs: () => Effect.die("unused"),
-  finalizeIntent: () => Effect.die("unused"),
-  buildPlan: () => Effect.die("unused"),
-} satisfies ServiceMap.Service.Shape<typeof InstallFilesCommandWorkflowActions>;
 
 const unusedInstallHookActions = {
   parseArgs: () => Effect.die("unused"),
@@ -65,36 +56,6 @@ describe("workspace update handler output", () => {
   afterEach(() => {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("emits files update JSON no-op for an empty files configuration", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallFilesCommandWorkflowActions, unusedInstallFilesActions),
-    );
-    const provide = makeEffectProvide(fullLayer);
-    writeWorkspaceFiles(path.join(tempDir, ".axm"));
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleWorkspaceUpdate({
-          command: "files.update",
-          type: Option.some("files"),
-          planName: "Update files",
-          planDescription: Option.some("Update configured files packages"),
-          flags: { yes: false, preview: false },
-        });
-
-        const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
-          planName: "Update files",
-          message: "No configured context files.",
-        });
-        expect(result).toMatchObject({
-          planDescription: "Update configured files packages",
-        });
-      }),
-    );
   });
 
   it.effect("emits hooks update JSON no-op for an empty hooks configuration", () => {

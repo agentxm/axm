@@ -72,7 +72,7 @@ export const readPackageVersionAtRef = (ref: string, path: string): string =>
   readVersionFromJson(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
 const readSkillCliVersionFromContent = (content: string, source: string): string => {
-  const match = /^cli-version:[ \t]*["']?([^"'\s]+)["']?[ \t]*$/m.exec(content);
+  const match = /^[ \t]*agentxm\.ai\/cli-version:[ \t]*["']?([^"'\s]+)["']?[ \t]*$/m.exec(content);
   return match?.[1] ?? fail(`Missing cli-version release stamp in ${source}.`);
 };
 
@@ -115,8 +115,8 @@ export const stampSkillCliVersion = (version: string, path: string = AXM_SKILL_D
   const content = readFileSync(path, "utf8");
   const updated = replaceExactlyOnce(
     content,
-    /^cli-version:[ \t]*.+$/gm,
-    `cli-version: "${version}"`,
+    /^[ \t]*agentxm\.ai\/cli-version:[ \t]*.+$/gm,
+    `  agentxm.ai/cli-version: "${version}"`,
     path,
   );
   writeFileSync(path, updated, "utf8");

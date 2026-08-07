@@ -91,11 +91,6 @@ export interface PackFileAccessor {
 // Manifest-rooted accessors for non-skill extension types
 // -----------------------------------------------------------------------------
 
-export interface CommandFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
 export interface SubagentFileAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
@@ -119,12 +114,6 @@ export interface RuleFileAccessor {
 export interface KnowledgeFileAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-export interface FilesAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-  readonly listFiles: (path: string) => Effect.Effect<ReadonlyArray<string>, FileAccessError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -196,6 +185,8 @@ export interface SkillRuleContext<S = SkillContent> {
 export interface SkillContent {
   readonly isNative: boolean;
   readonly skillJson: unknown;
+  /** Agent-facing skill directory name used for the standard name-match check. */
+  readonly expectedName?: string;
 }
 
 /**
@@ -242,16 +233,6 @@ export interface PackContent {
   readonly packJson: unknown;
 }
 
-export interface CommandRuleContext<S = CommandContent> {
-  readonly subject: S;
-  readonly files: CommandFileAccessor;
-  readonly displayRoot: string;
-}
-
-export interface CommandContent {
-  readonly commandJson: unknown;
-}
-
 export interface SubagentRuleContext<S = SubagentContent> {
   readonly subject: S;
   readonly files: SubagentFileAccessor;
@@ -280,16 +261,6 @@ export interface HookRuleContext<S = HookContent> {
 
 export interface HookContent {
   readonly hookJson: unknown;
-}
-
-export interface FilesRuleContext<S = FilesContent> {
-  readonly subject: S;
-  readonly files: FilesAccessor;
-  readonly displayRoot: string;
-}
-
-export interface FilesContent {
-  readonly filesJson: unknown;
 }
 
 /**

@@ -131,7 +131,7 @@ const seedLockfileMissing = (): WorkspaceState => {
 /**
  * `workspace/lockfile-valid` missing arm with one declaration of every
  * installable type. The missing-arm autofix used to emit install ops for only
- * four of the nine families, so `axm lint --fix` rebuilt a partial lockfile
+ * only part of the catalog, so `axm lint --fix` rebuilt a partial lockfile
  * and a second run still reported the same finding.
  */
 const seedLockfileMissingEveryType = (): WorkspaceState => {
@@ -139,10 +139,8 @@ const seedLockfileMissingEveryType = (): WorkspaceState => {
   state.settings = {
     agents: ["claude-code"],
     skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
-    commands: { deploy: "@acme/commands/deploy@1.0.0" },
     subagents: { critic: "@acme/subagents/critic@1.0.0" },
     mcpServers: { database: "@acme/mcps/database@1.0.0" },
-    files: { "house-style": "@acme/files/house-style@1.0.0" },
     rules: { conventions: "@acme/rules/conventions@1.0.0" },
     hooks: { "pre-commit": "@acme/hooks/pre-commit@1.0.0" },
     knowledge: { domain: "@acme/knowledge/domain@1.0.0" },

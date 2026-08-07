@@ -36,10 +36,8 @@ type Rows = ReadonlyArray<ReturnType<typeof row>>;
 
 const makeContext = (rows: {
   readonly skills?: Rows;
-  readonly commands?: Rows;
   readonly mcpServers?: Rows;
   readonly subagents?: Rows;
-  readonly files?: Rows;
   readonly rules?: Rows;
   readonly hooks?: Rows;
   readonly knowledge?: Rows;
@@ -49,10 +47,8 @@ const makeContext = (rows: {
   ({
     workspace: {
       skills: { installed: Effect.succeed(rows.skills ?? []) },
-      commands: { installed: Effect.succeed(rows.commands ?? []) },
       mcpServers: { installed: Effect.succeed(rows.mcpServers ?? []) },
       subagents: { installed: Effect.succeed(rows.subagents ?? []) },
-      files: { installed: Effect.succeed(rows.files ?? []) },
       rules: { installed: Effect.succeed(rows.rules ?? []) },
       hooks: { installed: Effect.succeed(rows.hooks ?? []) },
       knowledge: { installed: Effect.succeed(rows.knowledge ?? []) },
@@ -81,7 +77,7 @@ describe("workspace/configured-but-not-installed", () => {
     Effect.gen(function* () {
       const findings = yield* configuredButNotInstalledRule.check(
         makeContext({
-          commands: [row({ type: "command", name: "deploy", origin: "pack-member" })],
+          hooks: [row({ type: "hook", name: "deploy", origin: "pack-member" })],
         }),
       );
 
@@ -115,7 +111,6 @@ describe("workspace/configured-but-not-installed", () => {
     Effect.gen(function* () {
       const findings = yield* configuredButNotInstalledRule.check(
         makeContext({
-          files: [row({ type: "files", name: "house-style", plural: "files" })],
           rules: [row({ type: "rule", name: "conventions" })],
           hooks: [row({ type: "hook", name: "pre-commit" })],
           knowledge: [row({ type: "knowledge", name: "domain", plural: "knowledge" })],
@@ -123,7 +118,6 @@ describe("workspace/configured-but-not-installed", () => {
       );
 
       expect(findings.map((finding) => finding.message)).toEqual([
-        expect.stringContaining("context files 'house-style' is configured"),
         expect.stringContaining("rule 'conventions' is configured"),
         expect.stringContaining("hook 'pre-commit' is configured"),
         expect.stringContaining("knowledge bundle 'domain' is configured"),

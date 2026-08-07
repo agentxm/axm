@@ -1,8 +1,8 @@
 /**
  * The five-rule manifest envelope every non-pack per-extension catalog ships.
  *
- * `command`, `subagent`, `mcp-server`, `files`, `hook`, `rule`, and
- * `knowledge` each enforce the same five invariants against their own
+ * `skill`, `subagent`, `mcp-server`, `hook`, `rule`, and `knowledge` each
+ * enforce the same five invariants against their own
  * manifest:
  *
  * 1. `<ns>/manifest-present`             — the manifest file exists.
@@ -55,7 +55,7 @@ export type ManifestEnvelopeSchema<A, I> = Schema.Codec<A, I> & {
  * @experimental This API is unstable and may change without notice.
  */
 export interface ManifestEnvelopeOptions<C, A, I> {
-  /** Rule-id namespace; matches the context kind (`command`, `hook`, ...). */
+  /** Rule-id namespace; matches the context kind (`skill`, `hook`, ...). */
   readonly namespace: string;
   /** Accessor-relative manifest filename stamped on `location.file`. */
   readonly manifestFile: string;

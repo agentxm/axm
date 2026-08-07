@@ -69,28 +69,6 @@ export interface UninstallPackIntent {
 }
 
 /** @experimental */
-export interface InstallCommandIntent {
-  readonly name: string;
-  readonly source: string;
-  readonly force: boolean;
-}
-
-/** @experimental */
-export interface UninstallCommandIntent {
-  readonly name: string;
-}
-
-/** @experimental */
-export interface EnableCommandIntent {
-  readonly name: string;
-}
-
-/** @experimental */
-export interface DisableCommandIntent {
-  readonly name: string;
-}
-
-/** @experimental */
 export interface InstallMcpServerIntent {
   readonly name: string;
   readonly source: string;
@@ -121,28 +99,6 @@ export interface InstallSubagentIntent {
 
 /** @experimental */
 export interface UninstallSubagentIntent {
-  readonly name: string;
-}
-
-/** @experimental */
-export interface InstallFilesIntent {
-  readonly name: string;
-  readonly source: string;
-  readonly force: boolean;
-}
-
-/** @experimental */
-export interface UninstallFilesIntent {
-  readonly name: string;
-}
-
-/** @experimental */
-export interface EnableFilesIntent {
-  readonly name: string;
-}
-
-/** @experimental */
-export interface DisableFilesIntent {
   readonly name: string;
 }
 
@@ -285,34 +241,6 @@ export const uninstallPackOp = (
   args: intent,
 });
 
-export const installCommandOp = (
-  intent: InstallCommandIntent,
-): Operation<"install-command", InstallCommandIntent> => ({
-  name: "install-command",
-  args: intent,
-});
-
-export const uninstallCommandOp = (
-  intent: UninstallCommandIntent,
-): Operation<"uninstall-command", UninstallCommandIntent> => ({
-  name: "uninstall-command",
-  args: intent,
-});
-
-export const enableCommandOp = (
-  intent: EnableCommandIntent,
-): Operation<"enable-command", EnableCommandIntent> => ({
-  name: "enable-command",
-  args: intent,
-});
-
-export const disableCommandOp = (
-  intent: DisableCommandIntent,
-): Operation<"disable-command", DisableCommandIntent> => ({
-  name: "disable-command",
-  args: intent,
-});
-
 export const installMcpServerOp = (
   intent: InstallMcpServerIntent,
 ): Operation<"install-mcp-server", InstallMcpServerIntent> => ({
@@ -352,34 +280,6 @@ export const uninstallSubagentOp = (
   intent: UninstallSubagentIntent,
 ): Operation<"uninstall-subagent", UninstallSubagentIntent> => ({
   name: "uninstall-subagent",
-  args: intent,
-});
-
-export const installFilesOp = (
-  intent: InstallFilesIntent,
-): Operation<"install-files", InstallFilesIntent> => ({
-  name: "install-files",
-  args: intent,
-});
-
-export const uninstallFilesOp = (
-  intent: UninstallFilesIntent,
-): Operation<"uninstall-files", UninstallFilesIntent> => ({
-  name: "uninstall-files",
-  args: intent,
-});
-
-export const enableFilesOp = (
-  intent: EnableFilesIntent,
-): Operation<"enable-files", EnableFilesIntent> => ({
-  name: "enable-files",
-  args: intent,
-});
-
-export const disableFilesOp = (
-  intent: DisableFilesIntent,
-): Operation<"disable-files", DisableFilesIntent> => ({
-  name: "disable-files",
   args: intent,
 });
 
@@ -516,20 +416,12 @@ export const PER_EXTENSION_OPERATION_NAMES = [
   "disable-skill",
   "install-pack",
   "uninstall-pack",
-  "install-command",
-  "uninstall-command",
-  "enable-command",
-  "disable-command",
   "install-mcp-server",
   "uninstall-mcp-server",
   "install-subagent",
   "uninstall-subagent",
   "enable-subagent",
   "disable-subagent",
-  "install-files",
-  "uninstall-files",
-  "enable-files",
-  "disable-files",
   "install-rule",
   "uninstall-rule",
   "enable-rule",
@@ -567,9 +459,7 @@ export const isPerExtensionOperationName = (name: string): name is PerExtensionO
  * autofix — each declaration produces a reinstall intent, and the handler
  * side-effects recreate the lockfile.
  *
- * Subagents, context files, rules, hooks, and knowledge bundles used to be
- * skipped, so `axm lint --fix` on a missing lockfile silently rebuilt a
- * partial one.
+ * All installable families participate so `axm lint --fix` rebuilds a complete lockfile.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -583,17 +473,11 @@ export const collectMissingLockfileInstallOps = (
   for (const [name, entry] of Object.entries(settings.packs ?? {})) {
     ops.push(installPackOp({ name, source: entry.source, force: false }));
   }
-  for (const [name, entry] of Object.entries(settings.commands ?? {})) {
-    ops.push(installCommandOp({ name, source: entry.source, force: false }));
-  }
   for (const [name, entry] of Object.entries(settings.subagents ?? {})) {
     ops.push(installSubagentOp({ name, source: entry.source, force: false }));
   }
   for (const [name, entry] of Object.entries(settings.mcpServers ?? {})) {
     ops.push(installMcpServerOp({ name, source: entry.source, force: false }));
-  }
-  for (const [name, entry] of Object.entries(settings.files ?? {})) {
-    ops.push(installFilesOp({ name, source: entry.source, force: false }));
   }
   for (const [name, entry] of Object.entries(settings.rules ?? {})) {
     ops.push(installRuleOp({ name, source: entry.source, force: false }));

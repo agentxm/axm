@@ -42,17 +42,14 @@ const stalePackLock = {
   installedAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
   resolvedSkills: {},
-  resolvedCommands: {},
   resolvedMcpServers: {},
   resolvedSubagents: {},
 };
 
 const canonicalTypeDirectories = [
   "skills",
-  "commands",
   "mcps",
   "subagents",
-  "files",
   "rules",
   "hooks",
   "knowledge",
@@ -186,7 +183,6 @@ describe("root.prune.handler", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       lockfileSkills: { "stale-skill": staleLocalLock },
-      lockfileCommands: { "stale-command": staleLocalLock },
       lockfileMcpServers: {
         "stale-mcp": {
           type: "inline",
@@ -197,7 +193,6 @@ describe("root.prune.handler", () => {
       },
       lockfileSubagents: { "stale-subagent": staleLocalLock },
       lockfilePacks: { "stale-pack": stalePackLock },
-      lockfileFiles: { "stale-files": staleLocalLock },
       lockfileRules: { "stale-rule": staleLocalLock },
       lockfileHooks: { "stale-hook": staleLocalLock },
       lockfileKnowledge: { "stale-knowledge": staleLocalLock },
@@ -211,11 +206,9 @@ describe("root.prune.handler", () => {
         const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
         for (const key of [
           "skills",
-          "commands",
           "mcpServers",
           "subagents",
           "packs",
-          "files",
           "rules",
           "hooks",
           "knowledge",

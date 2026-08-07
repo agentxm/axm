@@ -41,7 +41,7 @@ describe("mcps install flags", () => {
 describe("uninstall --scope parity", () => {
   // Every install counterpart already accepts --scope; without it these verbs
   // could only ever uninstall from the project workspace.
-  it.each([["skills"], ["commands"], ["mcps"], ["subagents"], ["hooks"]])(
+  it.each([["skills"], ["mcps"], ["subagents"], ["hooks"]])(
     "%s uninstall accepts --scope",
     async (group) => {
       const output = await Effect.runPromise(captureHelp([group, "uninstall"]));

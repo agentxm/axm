@@ -3,7 +3,7 @@
  *
  * Defines the foundational type hierarchy used by all extension types.
  * Per-type concrete refs live in their respective feature folders
- * (skills/refs.ts, commands/refs.ts, etc.).
+ * (skills/refs.ts, mcps/refs.ts, etc.).
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -110,13 +110,6 @@ export type SkillExtensionRefBase<
 };
 
 /** @experimental */
-export type CommandExtensionRefBase<
-  TRefType extends RefType,
-  TSource extends Source,
-> = ExtensionRefBase<"command", TRefType, TSource> & {
-  readonly command: { readonly name: ExtensionName };
-};
-
 /** @experimental */
 export type McpServerExtensionRefBase<
   TRefType extends RefType,
@@ -139,13 +132,6 @@ export type SubagentExtensionRefBase<
 };
 
 /** @experimental */
-export type FilesExtensionRefBase<
-  TRefType extends RefType,
-  TSource extends Source,
-> = ExtensionRefBase<"files", TRefType, TSource> & {
-  readonly file: { readonly name: ExtensionName };
-};
-
 /** @experimental */
 export type PackRefBase<TRefType extends RefType, TSource extends Source> = ExtensionRefBase<
   "pack",

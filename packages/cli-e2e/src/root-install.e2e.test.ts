@@ -119,27 +119,6 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
   }
 };
 
-const publishCommandToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
-
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["commands", "new", name, "--owner", OWNER, "--yes"], {
-      cwd: workspace.path,
-    });
-    expect(createResult.exitCode).toBe(0);
-
-    const publishResult = await runCli(
-      ["commands", "publish", registryFqn("commands", name), "--yes"],
-      { cwd: workspace.path, env: PUBLISH_ENV },
-    );
-    expect(publishResult.exitCode).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
-
 const publishSubagentToRegistry = async (registryPath: string, name: string) => {
   const workspace = createTempDir();
 
@@ -401,11 +380,9 @@ const expectConfiguredEntriesInstalled = (
  */
 const PUBLISHERS = {
   skill: publishSkillToRegistry,
-  command: publishCommandToRegistry,
   subagent: publishSubagentToRegistry,
   "mcp-server": publishMcpServerToRegistry,
   pack: publishPackToRegistry,
-  files: publishScaffoldedToRegistry("files"),
   hook: publishScaffoldedToRegistry("hooks"),
   knowledge: publishScaffoldedToRegistry("knowledge"),
   rule: publishScaffoldedToRegistry("rules"),
@@ -536,9 +513,9 @@ describe("axm install", () => {
 
     try {
       await publishSkillToRegistry(registryDir.path, "workspace-skill");
-      await publishCommandToRegistry(registryDir.path, "workspace-command");
       await publishSubagentToRegistry(registryDir.path, "workspace-subagent");
       await publishMcpServerToRegistry(registryDir.path, "workspace-mcp");
+      await publishScaffoldedToRegistry("rules")(registryDir.path, "workspace-rule");
       await publishMcpServerToRegistry(registryDir.path, "pack-mcp");
       await publishPackToRegistry(registryDir.path, "workspace-pack", {
         dependencies: {
@@ -550,9 +527,9 @@ describe("axm install", () => {
       await initWorkspace(workspace.path, registryDir.path);
       configureWorkspaceEntries(workspace.path, {
         skills: { "workspace-skill": registryFqn("skills", "workspace-skill") },
-        commands: { "workspace-command": registryFqn("commands", "workspace-command") },
         subagents: { "workspace-subagent": registryFqn("subagents", "workspace-subagent") },
         mcpServers: { "workspace-mcp": registryFqn("mcps", "workspace-mcp") },
+        rules: { "workspace-rule": registryFqn("rules", "workspace-rule") },
         packs: { "workspace-pack": registryFqn("packs", "workspace-pack") },
       });
 
@@ -565,9 +542,9 @@ describe("axm install", () => {
       expect(labels.some((label) => label.includes("pack-mcp"))).toBe(true);
 
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["workspace-skill"]);
-      expectConfiguredEntriesInstalled(workspace.path, "commands", ["workspace-command"]);
       expectConfiguredEntriesInstalled(workspace.path, "subagents", ["workspace-subagent"]);
       expectConfiguredEntriesInstalled(workspace.path, "mcps", ["workspace-mcp"]);
+      expectConfiguredEntriesInstalled(workspace.path, "rules", ["workspace-rule"]);
       expectConfiguredEntriesInstalled(workspace.path, "packs", ["workspace-pack"]);
 
       const settings = readSettings(workspace.path);
@@ -618,12 +595,12 @@ describe("axm install", () => {
 
     try {
       await publishSkillToRegistry(registryDir.path, "shared-name");
-      await publishCommandToRegistry(registryDir.path, "shared-name");
+      await publishScaffoldedToRegistry("rules")(registryDir.path, "shared-name");
 
       await initWorkspace(workspace.path, registryDir.path);
       configureWorkspaceEntries(workspace.path, {
         skills: { "shared-name": registryFqn("skills", "shared-name") },
-        commands: { "shared-name": registryFqn("commands", "shared-name") },
+        rules: { "shared-name": registryFqn("rules", "shared-name") },
       });
 
       const result = await runJsonCommand(workspace.path, ["install"]);
@@ -632,7 +609,7 @@ describe("axm install", () => {
       expect(result.stdout.result.appliedCount).toBe(2);
       expect(result.stdout.result.totalSteps).toBe(2);
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
-      expectConfiguredEntriesInstalled(workspace.path, "commands", ["shared-name"]);
+      expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);
     } finally {
       registryDir.cleanup();
       workspace.cleanup();

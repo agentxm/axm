@@ -79,11 +79,11 @@ export interface CanonicalExtensionOccurrence {
  * subject-specific dirs that the agent registry does not currently encode and
  * are therefore out of scope for the agent-dir scanner.
  */
-export type AgentDirSubjectType = "skill" | "command" | "subagent";
+export type AgentDirSubjectType = "skill" | "subagent";
 
 /**
  * One materialization observed under a per-agent rendered directory
- * (`.claude/skills/`, `.cursor/commands/`, `.codex/agents/`, `.roomodes`,
+ * (`.claude/skills/`, `.codex/agents/`, `.roomodes`,
  * etc.). The origin discriminator carries the agent id so per-subject modules
  * can map cleanly into agent-specific origins.
  *

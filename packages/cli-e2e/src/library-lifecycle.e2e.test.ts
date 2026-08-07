@@ -72,17 +72,9 @@ describe("Library lifecycle commands", () => {
   it("omits source-disposition flags from every uninstall help surface", async () => {
     const commands: ReadonlyArray<ReadonlyArray<string>> = [
       ["uninstall", "--help"],
-      ...[
-        "skills",
-        "commands",
-        "mcps",
-        "subagents",
-        "files",
-        "rules",
-        "hooks",
-        "knowledge",
-        "packs",
-      ].map((namespace) => [namespace, "uninstall", "--help"]),
+      ...["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"].map(
+        (namespace) => [namespace, "uninstall", "--help"],
+      ),
     ];
 
     for (const command of commands) {
@@ -104,17 +96,9 @@ describe("Library lifecycle commands", () => {
       expect(setup.exitCode).toBe(0);
       const invocations: ReadonlyArray<ReadonlyArray<string>> = [
         ["uninstall", "@acme/skills/example"],
-        ...[
-          "skills",
-          "commands",
-          "mcps",
-          "subagents",
-          "files",
-          "rules",
-          "hooks",
-          "knowledge",
-          "packs",
-        ].map((namespace) => [namespace, "uninstall", "example"]),
+        ...["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"].map(
+          (namespace) => [namespace, "uninstall", "example"],
+        ),
       ];
 
       for (const invocation of invocations) {

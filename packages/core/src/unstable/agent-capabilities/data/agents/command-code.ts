@@ -37,23 +37,6 @@ export const commandCodeAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Skills are also surfaced in Command Code's slash menu; custom commands and skills share the same invocation surface.\n",
-        docs: [],
-        sources: ["https://commandcode.ai/docs/skills"],
-        scopes: ["user", "project"],
-        directory: ".commandcode/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

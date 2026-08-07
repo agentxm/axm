@@ -41,23 +41,6 @@ export const clineAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Cline Workflows are user-authored Markdown files invoked as slash commands (/name.md), stored in .clinerules/workflows (project) and ~/Documents/Cline/Workflows (user).",
-        docs: [],
-        sources: ["https://docs.cline.bot/features/commands-and-shortcuts/overview"],
-        scopes: ["user", "project"],
-        directory: ".clinerules/workflows",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

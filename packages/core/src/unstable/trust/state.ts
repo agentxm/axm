@@ -4,8 +4,6 @@ import type { ExtensionRef } from "../extensions/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import * as Effect from "effect/Effect";
 import type {
-  CommandLockEntry,
-  FilesLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   Lockfile,
@@ -25,10 +23,8 @@ import * as semver from "semver";
 
 type LeafLockEntry =
   | SkillLockEntry
-  | CommandLockEntry
   | McpServerLockEntry
   | SubagentLockEntry
-  | FilesLockEntry
   | RuleLockEntry
   | HookLockEntry
   | KnowledgeLockEntry;
@@ -50,14 +46,10 @@ const refName = (ref: ExtensionRef): string => {
   switch (ref.type) {
     case "skill":
       return ref.skill.name;
-    case "command":
-      return ref.command.name;
     case "mcp-server":
       return ref.server.name;
     case "subagent":
       return ref.subagent.name;
-    case "files":
-      return ref.file.name;
     case "rule":
       return ref.rule.name;
     case "hook":
@@ -291,10 +283,8 @@ const addLeafRecords = (
 export const trustStateFromLockfile = (lockfile: Lockfile): WorkspaceTrustState => {
   const records: Record<string, ExtensionTrustRecord> = {};
   addLeafRecords(records, "skill", lockfile.skills);
-  addLeafRecords(records, "command", lockfile.commands);
   addLeafRecords(records, "mcp-server", lockfile.mcpServers);
   addLeafRecords(records, "subagent", lockfile.subagents);
-  addLeafRecords(records, "files", lockfile.files);
   addLeafRecords(records, "rule", lockfile.rules);
   addLeafRecords(records, "hook", lockfile.hooks);
   addLeafRecords(records, "knowledge", lockfile.knowledge);

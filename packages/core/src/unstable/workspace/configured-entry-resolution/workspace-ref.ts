@@ -4,16 +4,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import {
-  CommandManifestSchema,
-  COMMAND_MANIFEST_FILENAME,
-} from "../../commands/manifest-schema.js";
-import type { WorkspaceCommandRef } from "../../commands/refs.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 import { computePackageContentHash } from "../../extensions/package-hash.js";
 import { validatePathSafety } from "../../extensions/utils.js";
-import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../../files/manifest-schema.js";
-import type { WorkspaceFilesRef } from "../../files/refs.js";
 import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../../hooks/manifest-schema.js";
 import type { WorkspaceHookRef } from "../../hooks/refs.js";
 import {
@@ -47,10 +40,8 @@ import type { WorkspaceScope } from "../scope.js";
 
 const WorkspaceManifestSchema = Schema.Union([
   SkillManifestSchema,
-  CommandManifestSchema,
   McpServerManifestSchema,
   SubagentManifestSchema,
-  FilesManifestSchema,
   RuleManifestSchema,
   HookManifestSchema,
   KnowledgeManifestSchema,
@@ -59,10 +50,8 @@ const WorkspaceManifestSchema = Schema.Union([
 
 type WorkspaceExtensionRef =
   | WorkspaceSkillRef
-  | WorkspaceCommandRef
   | WorkspaceMcpServerRef
   | WorkspaceSubagentRef
-  | WorkspaceFilesRef
   | WorkspaceRuleRef
   | WorkspaceHookRef
   | WorkspaceKnowledgeRef
@@ -72,14 +61,10 @@ const manifestFilename = (type: ExtensionType): string => {
   switch (type) {
     case "skill":
       return SKILL_MANIFEST_FILENAME;
-    case "command":
-      return COMMAND_MANIFEST_FILENAME;
     case "mcp-server":
       return MCP_SERVER_MANIFEST_FILENAME;
     case "subagent":
       return SUBAGENT_MANIFEST_FILENAME;
-    case "files":
-      return FILES_MANIFEST_FILENAME;
     case "rule":
       return RULE_MANIFEST_FILENAME;
     case "hook":
@@ -95,14 +80,10 @@ const pluralType = (type: ExtensionType): string => {
   switch (type) {
     case "skill":
       return "skills";
-    case "command":
-      return "commands";
     case "mcp-server":
       return "mcps";
     case "subagent":
       return "subagents";
-    case "files":
-      return "files";
     case "rule":
       return "rules";
     case "hook":
@@ -231,13 +212,6 @@ export const resolveWorkspaceExtensionRef = (args: {
             metadata: Option.none(),
           },
         };
-      case "command":
-        return {
-          type: "command",
-          refType: "workspace",
-          ...details,
-          command: { name: manifest.name },
-        };
       case "mcp-server":
         return {
           type: "mcp-server",
@@ -255,13 +229,6 @@ export const resolveWorkspaceExtensionRef = (args: {
             description: Option.fromUndefinedOr(manifest.description),
           },
           ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
-        };
-      case "files":
-        return {
-          type: "files",
-          refType: "workspace",
-          ...details,
-          file: { name: manifest.name },
         };
       case "rule":
         return {

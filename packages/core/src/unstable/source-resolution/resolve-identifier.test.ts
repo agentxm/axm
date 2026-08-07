@@ -273,10 +273,8 @@ const desiredOverride = (type: CatalogExtensionType): Partial<WorkspaceMutations
 
 const desiredOverrideFor = {
   skill: desiredOverride("skill"),
-  command: desiredOverride("command"),
   "mcp-server": desiredOverride("mcp-server"),
   subagent: desiredOverride("subagent"),
-  files: desiredOverride("files"),
   rule: desiredOverride("rule"),
   hook: desiredOverride("hook"),
   knowledge: desiredOverride("knowledge"),

@@ -39,8 +39,6 @@ import {
 import type { PackInstallHandlerArgs } from "./handler.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -171,8 +169,6 @@ describe("packs install handler", () => {
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
       SkillManagerLive,
-      CommandManagerLive,
-      FilesManagerLive,
       HookManagerLive,
       KnowledgeManagerLive,
       RuleManagerLive,
@@ -223,8 +219,6 @@ describe("packs install handler", () => {
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
       SkillManagerLive,
-      CommandManagerLive,
-      FilesManagerLive,
       HookManagerLive,
       KnowledgeManagerLive,
       RuleManagerLive,
@@ -489,7 +483,6 @@ describe("packs install handler", () => {
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -701,7 +694,7 @@ describe("packs install handler", () => {
       name: string,
       opts?: {
         skills?: ReturnType<typeof dependencyConstraintMap>;
-        commands?: ReturnType<typeof dependencyConstraintMap>;
+        hooks?: ReturnType<typeof dependencyConstraintMap>;
         mcpServers?: ReturnType<typeof dependencyConstraintMap>;
       },
     ): PackRef => ({
@@ -711,7 +704,7 @@ describe("packs install handler", () => {
         name: extensionName(name),
         dependencies: {
           ...(opts?.skills ?? {}),
-          ...(opts?.commands ?? {}),
+          ...(opts?.hooks ?? {}),
           ...(opts?.mcpServers ?? {}),
         },
       },
@@ -865,12 +858,12 @@ describe("packs install handler", () => {
               },
             ]);
           }
-          if (options.type === "command") {
+          if (options.type === "hook") {
             return Effect.succeed([
               {
-                type: "command",
+                type: "hook",
                 refType: "registry",
-                command: { name: extensionName("existing-cmd") },
+                hook: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
@@ -903,7 +896,6 @@ describe("packs install handler", () => {
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -1083,10 +1075,10 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("builds skill, command, and mcp-server ops from pack resolved maps", () => {
+    it.effect("builds skill, hook, and mcp-server ops from pack resolved maps", () => {
       const packRef = makePackRef("multi-pack", {
         skills: constraints({ "@acme/skills/code-review": "1.0.0" }),
-        commands: constraints({ "@acme/commands/lint": "2.0.0" }),
+        hooks: constraints({ "@acme/hooks/lint": "2.0.0" }),
         mcpServers: constraints({ "@acme/mcps/analytics": "3.0.0" }),
       });
 
@@ -1118,12 +1110,12 @@ describe("packs install handler", () => {
               },
             ]);
           }
-          if (options.type === "command") {
+          if (options.type === "hook") {
             return Effect.succeed([
               {
-                type: "command",
+                type: "hook",
                 refType: "registry",
-                command: { name: extensionName("lint") },
+                hook: { name: extensionName("lint") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
@@ -1197,7 +1189,7 @@ describe("packs install handler", () => {
     it.effect("includes dependency extensions in install plan", () => {
       const packRef = makePackRef("dep-pack", {
         skills: constraints({ "@acme/skills/existing-skill": "1.0.0" }),
-        commands: constraints({ "@acme/commands/existing-cmd": "1.0.0" }),
+        hooks: constraints({ "@acme/hooks/existing-cmd": "1.0.0" }),
       });
 
       const mockService: SourceHostProvidersService = {
@@ -1228,12 +1220,12 @@ describe("packs install handler", () => {
               },
             ]);
           }
-          if (options.type === "command") {
+          if (options.type === "hook") {
             return Effect.succeed([
               {
-                type: "command",
+                type: "hook",
                 refType: "registry",
-                command: { name: extensionName("existing-cmd") },
+                hook: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
                   location: new URL("file:///tmp/reg"),
@@ -1374,7 +1366,6 @@ describe("packs install handler", () => {
                 publisherBindingId: "hbnd_test",
               },
             },
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },
@@ -1429,7 +1420,6 @@ describe("packs install handler", () => {
                 publisherBindingId: "hbnd_test",
               },
             },
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           },

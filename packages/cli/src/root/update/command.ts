@@ -40,8 +40,8 @@ export const updateCommand = Command.make(
       description: "Update a skill by fully qualified registry name",
     },
     {
-      command: "axm update @acme/commands/release-notes@^1.2.0",
-      description: "Update a command with a version constraint",
+      command: "axm update @acme/hooks/session-audit@^1.2.0",
+      description: "Update a hook with a version constraint",
     },
     {
       command: "axm update --preview",

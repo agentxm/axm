@@ -8,7 +8,6 @@ import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildInstallOperation,
@@ -18,7 +17,6 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/client-core/unstable/extensions";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -31,8 +29,6 @@ import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources"
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
   WorkspaceMutations,
-  resolveConfiguredCommand,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -65,14 +61,10 @@ const configuredEntry = Effect.fn("Demote.configuredEntry")(function* (
   switch (type) {
     case "skill":
       return (yield* ws.getConfiguredSkillEntries())[name];
-    case "command":
-      return (yield* ws.getConfiguredCommandEntries())[name];
     case "mcp-server":
       return (yield* ws.getConfiguredMcpServerEntries())[name];
     case "subagent":
       return (yield* ws.getConfiguredSubagentEntries())[name];
-    case "files":
-      return (yield* ws.getConfiguredFilesEntries())[name];
     case "rule":
       return (yield* ws.getConfiguredRuleEntries())[name];
     case "hook":
@@ -99,17 +91,11 @@ const restoreDisabledState = Effect.fn("Demote.restoreDisabledState")(function* 
     case "skill":
       yield* ws.updateSkillEntry(name, disable);
       return;
-    case "command":
-      yield* ws.updateCommandEntry(name, disable);
-      return;
     case "mcp-server":
       yield* ws.updateMcpServerEntry(name, disable);
       return;
     case "subagent":
       yield* ws.updateSubagentEntry(name, disable);
-      return;
-    case "files":
-      yield* ws.updateFilesEntry(name, disable);
       return;
     case "rule":
       yield* ws.updateRuleEntry(name, disable);
@@ -153,13 +139,6 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           allowWorkspaceReplacement: true,
         });
       }
-      case "command": {
-        const resolved = yield* resolveConfiguredCommand(parsed.name, source);
-        return buildInstallOperation(yield* CommandManager, {
-          ...resolved,
-          allowWorkspaceReplacement: true,
-        });
-      }
       case "mcp-server": {
         const resolved = yield* resolveConfiguredMcpServer(parsed.name, source);
         return buildInstallOperation(yield* McpServerManager, {
@@ -170,13 +149,6 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
       case "subagent": {
         const resolved = yield* resolveConfiguredSubagent(parsed.name, source);
         return buildInstallOperation(yield* SubagentManager, {
-          ...resolved,
-          allowWorkspaceReplacement: true,
-        });
-      }
-      case "files": {
-        const resolved = yield* resolveConfiguredFiles(parsed.name, source);
-        return buildInstallOperation(yield* FilesManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });

@@ -39,22 +39,6 @@ export const codeartsAgentAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "CodeArts Agent discovers Markdown slash commands by filename.",
-        docs: [],
-        sources: ["https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0010.html"],
-        scopes: ["user", "project"],
-        directory: ".codeartsdoer/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

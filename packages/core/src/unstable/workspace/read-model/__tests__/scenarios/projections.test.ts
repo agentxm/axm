@@ -54,10 +54,6 @@ const settingsJson = (params: {
     string,
     string | { readonly source: string; readonly enabled?: boolean }
   >;
-  readonly commands?: Record<
-    string,
-    string | { readonly source: string; readonly enabled?: boolean }
-  >;
   readonly subagents?: Record<
     string,
     string | { readonly source: string; readonly enabled?: boolean }
@@ -66,7 +62,6 @@ const settingsJson = (params: {
 }): object => {
   const out: Record<string, unknown> = {};
   if (params.skills !== undefined) out["skills"] = params.skills;
-  if (params.commands !== undefined) out["commands"] = params.commands;
   if (params.subagents !== undefined) out["subagents"] = params.subagents;
   if (params.packs !== undefined) out["packs"] = params.packs;
   return out;
@@ -80,7 +75,6 @@ const lockfileWithPack = (params: {
   readonly packName: string;
   readonly resolvedSkills?: RawResolvedExtensionMap;
   readonly resolvedSubagents?: RawResolvedExtensionMap;
-  readonly resolvedCommands?: RawResolvedExtensionMap;
   readonly resolvedMcpServers?: RawResolvedExtensionMap;
   readonly extraSkillEntries?: Record<string, unknown>;
 }): object => ({
@@ -99,7 +93,6 @@ const lockfileWithPack = (params: {
       installedAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
       resolvedSkills: params.resolvedSkills ?? {},
-      resolvedCommands: params.resolvedCommands ?? {},
       resolvedMcpServers: params.resolvedMcpServers ?? {},
       resolvedSubagents: params.resolvedSubagents ?? {},
     },
@@ -474,7 +467,6 @@ describe("projection: packs are not installed as pack members", () => {
                   installedAt: "2026-01-01T00:00:00.000Z",
                   updatedAt: "2026-01-01T00:00:00.000Z",
                   resolvedSkills: {},
-                  resolvedCommands: {},
                   resolvedMcpServers: {},
                   resolvedSubagents: {},
                 },
@@ -492,7 +484,6 @@ describe("projection: packs are not installed as pack members", () => {
                   installedAt: "2026-01-01T00:00:00.000Z",
                   updatedAt: "2026-01-01T00:00:00.000Z",
                   resolvedSkills: {},
-                  resolvedCommands: {},
                   resolvedMcpServers: {},
                   resolvedSubagents: {},
                 },

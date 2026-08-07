@@ -49,10 +49,9 @@ const SETTINGS_REL = ".axm/settings.json";
 const hasAnyDeclaration = (settings: Settings): boolean => {
   const skills = Object.keys(settings.skills ?? {}).length;
   const packs = Object.keys(settings.packs ?? {}).length;
-  const commands = Object.keys(settings.commands ?? {}).length;
   const subagents = Object.keys(settings.subagents ?? {}).length;
   const mcpServers = Object.keys(settings.mcpServers ?? {}).length;
-  return skills + packs + commands + subagents + mcpServers > 0;
+  return skills + packs + subagents + mcpServers > 0;
 };
 
 const makeMissingFinding = (): AutofixableFinding => ({

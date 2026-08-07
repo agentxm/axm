@@ -7,11 +7,9 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const OWNER = "@test";
 const CREATE_TYPES = [
   "skills",
-  "commands",
   "mcps",
   "subagents",
   "packs",
-  "files",
   "rules",
   "hooks",
   "knowledge",
@@ -105,7 +103,7 @@ describe("create-only extension commands", () => {
       fs.mkdirSync(source, { recursive: true });
       fs.writeFileSync(
         path.join(source, "SKILL.md"),
-        "---\nname: source\ndescription: Source\n---\n\nSource\n",
+        "---\nname: source-skill\ndescription: Source\n---\n\nSource\n",
       );
       const destination = path.join(
         workspace.path,

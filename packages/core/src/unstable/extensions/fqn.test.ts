@@ -31,16 +31,8 @@ describe("parseFqn", () => {
       expected: { owner: "@test123", type: "pack", name: "tool456" },
     },
     {
-      input: "@acme/commands/deploy",
-      expected: { owner: "@acme", type: "command", name: "deploy" },
-    },
-    {
       input: "@acme/subagents/reviewer",
       expected: { owner: "@acme", type: "subagent", name: "reviewer" },
-    },
-    {
-      input: "@acme/files/project-rules",
-      expected: { owner: "@acme", type: "files", name: "project-rules" },
     },
     {
       input: "@acme/rules/review-checklist",
@@ -94,17 +86,11 @@ describe("formatFqn", () => {
     expect(formatFqn({ owner: handle("@x"), type: "pack", name: extensionName("y") })).toBe(
       "@x/packs/y",
     );
-    expect(formatFqn({ owner: handle("@x"), type: "command", name: extensionName("y") })).toBe(
-      "@x/commands/y",
-    );
     expect(formatFqn({ owner: handle("@x"), type: "mcp-server", name: extensionName("y") })).toBe(
       "@x/mcps/y",
     );
     expect(formatFqn({ owner: handle("@x"), type: "subagent", name: extensionName("y") })).toBe(
       "@x/subagents/y",
-    );
-    expect(formatFqn({ owner: handle("@x"), type: "files", name: extensionName("y") })).toBe(
-      "@x/files/y",
     );
     expect(formatFqn({ owner: handle("@x"), type: "rule", name: extensionName("y") })).toBe(
       "@x/rules/y",
@@ -116,10 +102,8 @@ describe("round-trip", () => {
   [
     "@acme/skills/code-review",
     "@acme/packs/fullstack",
-    "@acme/commands/deploy",
     "@acme/mcps/database",
     "@acme/subagents/reviewer",
-    "@ac/files/project-rules",
     "@acme/rules/review-checklist",
   ].forEach((input) => {
     it.effect(`formatFqn(parseFqn(${input})) === ${input}`, () =>

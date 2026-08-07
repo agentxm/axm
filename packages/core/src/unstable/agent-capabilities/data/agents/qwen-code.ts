@@ -37,23 +37,6 @@ export const qwenCodeAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Qwen Code supports custom slash commands as Markdown files. AXM can materialize project-scope command files through the descriptor fallback; user-scope command sync is not implemented.",
-        docs: [],
-        sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/"],
-        scopes: ["user", "project"],
-        directory: ".qwen/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

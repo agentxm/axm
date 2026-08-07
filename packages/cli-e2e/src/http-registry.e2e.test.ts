@@ -53,10 +53,8 @@ const isBlocked = (entry: ScaffoldPublish | BlockedPublish): entry is BlockedPub
  */
 const HTTP_PUBLISH = {
   skill: { newArgs: ["--agent", "claude-code"] },
-  command: { newArgs: [] },
   subagent: { newArgs: ["--agent", "claude-code"] },
   knowledge: { newArgs: [] },
-  files: { newArgs: [] },
   hook: { newArgs: [] },
   rule: { newArgs: [] },
   "mcp-server": {

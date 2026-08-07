@@ -12,11 +12,6 @@
 export type {
   AzureReposSourceHostConfig,
   BitbucketSourceHostConfig,
-  CommandEntry,
-  CommandsMap,
-  FilesEntry,
-  FileInputValuesMap,
-  FilesMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
   HookEntry,
@@ -41,16 +36,8 @@ export type {
   SubagentEntry,
   SubagentsMap,
   SourceHostConfig,
-  WorkspaceVarsMap,
 } from "./schema.js";
 export {
-  CommandEntryObjectSchema,
-  CommandEntrySchema,
-  CommandsMapSchema,
-  FilesEntryObjectSchema,
-  FilesEntrySchema,
-  FileInputValuesMapSchema,
-  FilesMapSchema,
   HookEntryObjectSchema,
   HookEntrySchema,
   HooksMapSchema,
@@ -79,7 +66,6 @@ export {
   SubagentEntrySchema,
   SubagentsMapSchema,
   SourceHostConfigSchema,
-  WorkspaceVarsMapSchema,
 } from "./schema.js";
 
 // Settings I/O

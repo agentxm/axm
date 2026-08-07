@@ -72,7 +72,6 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   installedAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
   resolvedSkills: {},
-  resolvedCommands: {},
   resolvedMcpServers: {},
   resolvedSubagents: {},
   ...overrides,

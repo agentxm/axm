@@ -110,7 +110,7 @@ describe("parseSkillMd", () => {
         "name: my-skill",
         "description: A useful skill",
         "metadata:",
-        "  internal: true",
+        '  internal: "true"',
         "  category: testing",
         "---",
         "",
@@ -123,7 +123,7 @@ describe("parseSkillMd", () => {
       const skill = Option.getOrThrow(result);
       expect(Option.isSome(skill.metadata)).toBe(true);
       const metadata = Option.getOrThrow(skill.metadata);
-      expect(metadata).toEqual({ internal: true, category: "testing" });
+      expect(metadata).toEqual({ internal: "true", category: "testing" });
     });
 
     it("returns None metadata when frontmatter has no metadata field", () => {
@@ -143,7 +143,7 @@ describe("parseSkillMd", () => {
       expect(Option.isNone(skill.metadata)).toBe(true);
     });
 
-    it("returns None metadata when metadata is an array", () => {
+    it("rejects metadata when it is an array", () => {
       const content = [
         "---",
         "name: my-skill",
@@ -158,12 +158,10 @@ describe("parseSkillMd", () => {
 
       const result = parseSkillMd(content);
 
-      expect(Option.isSome(result)).toBe(true);
-      const skill = Option.getOrThrow(result);
-      expect(Option.isNone(skill.metadata)).toBe(true);
+      expect(Option.isNone(result)).toBe(true);
     });
 
-    it("returns None metadata when metadata is a string", () => {
+    it("rejects metadata when it is a string", () => {
       const content = [
         "---",
         "name: my-skill",
@@ -176,12 +174,10 @@ describe("parseSkillMd", () => {
 
       const result = parseSkillMd(content);
 
-      expect(Option.isSome(result)).toBe(true);
-      const skill = Option.getOrThrow(result);
-      expect(Option.isNone(skill.metadata)).toBe(true);
+      expect(Option.isNone(result)).toBe(true);
     });
 
-    it("returns None metadata when metadata is a number", () => {
+    it("rejects metadata when it is a number", () => {
       const content = [
         "---",
         "name: my-skill",
@@ -194,9 +190,61 @@ describe("parseSkillMd", () => {
 
       const result = parseSkillMd(content);
 
-      expect(Option.isSome(result)).toBe(true);
-      const skill = Option.getOrThrow(result);
-      expect(Option.isNone(skill.metadata)).toBe(true);
+      expect(Option.isNone(result)).toBe(true);
     });
+
+    it("rejects non-string metadata values", () => {
+      const result = parseSkillMd(
+        [
+          "---",
+          "name: my-skill",
+          "description: A useful skill",
+          "metadata:",
+          "  version: 1",
+          "---",
+        ].join("\n"),
+      );
+      expect(Option.isNone(result)).toBe(true);
+    });
+  });
+
+  it("rejects non-standard top-level fields", () => {
+    const result = parseSkillMd(
+      ["---", "name: my-skill", "description: A useful skill", "invocable: true", "---"].join("\n"),
+    );
+    expect(Option.isNone(result)).toBe(true);
+  });
+
+  it("accepts the complete pinned standard frontmatter shape", () => {
+    const result = parseSkillMd(
+      [
+        "---",
+        "name: my-skill",
+        "description: A useful skill",
+        "license: Apache-2.0",
+        "compatibility: Requires git",
+        "metadata:",
+        '  version: "1"',
+        "allowed-tools: Bash(git:*) Read",
+        "---",
+      ].join("\n"),
+    );
+    expect(Option.isSome(result)).toBe(true);
+  });
+
+  it("rejects a name that does not match the NFKC-normalized directory name", () => {
+    const result = parseSkillMd(
+      "---\nname: café-review\ndescription: Review content.\n---\n",
+      "other-skill",
+    );
+    expect(Option.isNone(result)).toBe(true);
+  });
+
+  it("accepts an NFKC-equivalent directory name", () => {
+    const result = parseSkillMd(
+      "---\nname: cafe\u0301-review\ndescription: Review content.\n---\n",
+      "café-review",
+    );
+    expect(Option.isSome(result)).toBe(true);
   });
 });

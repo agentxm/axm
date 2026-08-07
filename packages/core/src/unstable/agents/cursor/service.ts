@@ -6,14 +6,7 @@
 
 import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
-import {
-  agentCommandsProjectDir,
-  agentSkillsProjectDir,
-  agentSubagentsProjectDir,
-} from "../descriptor-paths.js";
-
-/** @experimental */
-export const CURSOR_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("cursor");
+import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
 export const CURSOR_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("cursor");
@@ -22,7 +15,6 @@ export const cursorCodingAgent = makeProjectOnlyCodingAgent({
   agentId: "cursor",
   displayName: "Cursor",
   skillsProjectDir: agentSkillsProjectDir("cursor"),
-  commandsProjectDir: CURSOR_COMMANDS_PROJECT_DIR,
   subagentsProjectDir: CURSOR_SUBAGENTS_PROJECT_DIR,
   mcp: {
     addMcpServer: (args) => addMcpServerFromManifest("cursor", args),

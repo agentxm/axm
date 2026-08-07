@@ -18,8 +18,8 @@ export const PACK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/pack.schema.json
 /**
  * Schema for pack manifest files (pack.json).
  *
- * Packs bundle multiple extensions (skills, commands, MCP servers, subagents)
- * for convenient distribution and installation. Each extension entry
+ * Packs bundle multiple extensions (skills, MCP servers, subagents, rules,
+ * hooks, and knowledge bundles) for convenient distribution and installation. Each extension entry
  * maps a fully qualified name to a semver version range.
  *
  * @experimental This API is unstable and may change without notice.
@@ -42,7 +42,7 @@ export const PackManifestSchema = Schema.Struct({
   identifier: "PackManifest",
   title: "Pack Manifest",
   description:
-    "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, Context Files packages, and rules into a single installable unit.",
+    "Extension manifest file for extension packs. Bundles a curated set of skills, MCP servers, subagents, rules, hooks, and knowledge bundles into a single installable unit.",
 });
 
 /**

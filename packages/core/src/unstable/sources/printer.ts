@@ -7,8 +7,6 @@
 
 import * as Option from "effect/Option";
 import type {
-  CommandLockEntry,
-  FilesLockEntry,
   McpServerLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
@@ -26,9 +24,7 @@ import type { SourceParams } from "./types.js";
 
 type SourceLockEntry =
   | SkillLockEntry
-  | CommandLockEntry
   | McpServerLockEntry
-  | FilesLockEntry
   | RuleLockEntry
   | HookLockEntry
   | KnowledgeLockEntry

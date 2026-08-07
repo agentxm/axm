@@ -28,7 +28,6 @@ import type {
 } from "../../../registry/index.js";
 import type { ExtensionRef } from "../../../extensions/index.js";
 import type { RegistrySkillRef } from "../../../skills/index.js";
-import type { RegistryCommandRef } from "../../../commands/index.js";
 import type { RegistryMcpServerRef } from "../../../mcps/index.js";
 import type { RegistryPackRef } from "../../../packs/index.js";
 import type { RegistrySubagentRef } from "../../../subagents/index.js";
@@ -224,14 +223,6 @@ const expectRegistryMcpServerRef = (ref: ExtensionRef): RegistryMcpServerRef => 
   return ref;
 };
 
-const expectRegistryCommandRef = (ref: ExtensionRef): RegistryCommandRef => {
-  if (ref.type !== "command" || ref.refType !== "registry") {
-    throw new Error("Expected registry command ref");
-  }
-
-  return ref;
-};
-
 const expectRegistryPackRef = (ref: ExtensionRef): RegistryPackRef => {
   if (ref.type !== "pack" || ref.refType !== "registry") {
     throw new Error("Expected registry pack ref");
@@ -356,43 +347,6 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it.effect("maps command entries to CommandExtensionRef", () => {
-    const registry = makeTestRegistry();
-    const entries: ReadonlyArray<RegistryExtensionManifest> = [
-      makeManifest({
-        type: "command",
-        name: "my-command",
-        version: "1.5.0",
-        integrity: "sha512-cmd",
-      }),
-    ];
-
-    const client = createMockClient({
-      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
-    });
-
-    const provider = createLocalRegistrySourceHostProvider(client);
-
-    return runEffect(
-      Effect.gen(function* () {
-        const refs = yield* provider.find(registry.source, {
-          ...defaultFindOptions,
-          type: "command",
-        });
-
-        expect(refs).toHaveLength(1);
-        const ref = at(refs, 0);
-        expect(ref.type).toBe("command");
-        expect(ref.refType).toBe("registry");
-        const cmdRef = expectRegistryCommandRef(ref);
-        expect(cmdRef.command.name).toBe("my-command");
-        expect(cmdRef.owner).toBe("@test");
-        expect(cmdRef.name).toBe("my-command");
-        expect(cmdRef.version).toBe("1.5.0");
-      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
-    );
-  });
-
   it.effect("maps subagent entries to SubagentExtensionRef", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
@@ -474,7 +428,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         dependencies: {
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
-          "@acme/commands/formatter": "^1.5.0",
+          "@acme/hooks/formatter": "^1.5.0",
           "@acme/mcps/db": "^3.0.0",
         },
         integrity: "sha512-mixed",
@@ -499,7 +453,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.dependencies).toEqual({
           "@acme/skills/code-review": "^1.0.0",
           "@acme/skills/linter": "^2.0.0",
-          "@acme/commands/formatter": "^1.5.0",
+          "@acme/hooks/formatter": "^1.5.0",
           "@acme/mcps/db": "^3.0.0",
         });
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),

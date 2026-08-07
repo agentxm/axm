@@ -37,22 +37,6 @@ export const continueAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
-        docs: [],
-        sources: ["https://docs.continue.dev/customize/deep-dives/prompts"],
-        scopes: ["user", "project"],
-        directory: ".continue/prompts",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

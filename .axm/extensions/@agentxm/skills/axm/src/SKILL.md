@@ -1,9 +1,9 @@
 ---
 name: axm
 description: |
-  AXM - Agent Extension Manager: Use for any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover) on agent skills, subagents, slash commands/stored prompts, MCP servers, context packages, rule extensions, hook extensions, or packs — e.g. "create a skill", "make a /command", "add a subagent", "build an MCP server", "publish an extension". Use this BEFORE hand-authoring or editing any SKILL.md, slash-command, subagent, MCP, rule, hook, or extension manifest file: route extension authoring through AXM instead of writing these files directly.
-invocable: true
-cli-version: "0.24.15"
+  AXM - Agent Extension Manager: Use for any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover) on agent skills, subagents, MCP servers, rules, hooks, knowledge bundles, or packs — e.g. "create a skill", "add a subagent", "build an MCP server", or "publish an extension". Use this before hand-authoring or editing any SKILL.md, subagent, MCP, rule, hook, knowledge, or extension manifest file: route extension authoring through AXM instead of writing these files directly.
+metadata:
+  agentxm.ai/cli-version: "0.24.15"
 ---
 
 # /axm - Agent Extension Manager
@@ -23,9 +23,7 @@ cli-version: "0.24.15"
 3. **Resolve lint with help topics**: On any `axm lint` finding, read `axm help basic-usage` and the subject topic before acting:
    - `skill/*` and `workspace/skills-managed` → `axm help skills`
    - `subagent/*` → `axm help subagents`
-   - `command/*` → `axm help commands`
    - `mcp-server/*` → `axm help mcp-schema`
-   - `files/*` → `axm help files`
    - `hook/*` → `axm help hook-schema`
    - `pack/*` → `axm help packs`
    - workspace/config findings → `axm help settings`
@@ -58,7 +56,7 @@ cli-version: "0.24.15"
 
 ### CLI Introspection
 
-Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-schema, files, packs, settings, exit-codes, etc.).
+Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, mcp-schema, rules, hooks, knowledge, packs, settings, exit-codes, etc.).
 
 ## Quick Reference
 
@@ -66,7 +64,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 <!-- axm:generated:extension-type-namespace-set -->
 
-`<type>` ∈ {`skills`, `commands`, `mcps`, `subagents`, `files`, `rules`, `hooks`, `knowledge`, `packs`}
+`<type>` ∈ {`skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, `packs`}
 
 <!-- /axm:generated -->
 

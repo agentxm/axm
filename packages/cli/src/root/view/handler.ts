@@ -181,7 +181,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
 const resolveBareViewHandle = (handle: string) =>
   Effect.gen(function* () {
     const attempts = yield* Effect.forEach(
-      ["skill", "command", "subagent"] as const,
+      ["skill", "subagent"] as const,
       (resourceType) =>
         Effect.scoped(
           resolveIdentifier({

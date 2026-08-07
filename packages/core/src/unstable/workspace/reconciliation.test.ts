@@ -14,8 +14,6 @@ import YAML from "yaml";
 import type { Settings } from "../settings/index.js";
 import { extensionName, handle } from "../test-helpers.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
-import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
-import { filesReconciliationAdapter } from "../files/reconciliation-adapter.js";
 import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
 import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
@@ -31,11 +29,9 @@ import {
 
 const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, [
   skillReconciliationAdapter,
-  commandReconciliationAdapter,
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
   packReconciliationAdapter,
-  filesReconciliationAdapter,
   ruleReconciliationAdapter,
   hookReconciliationAdapter,
   knowledgeReconciliationAdapter,
@@ -96,10 +92,10 @@ describe("reconciliation", () => {
   it("orders declarations deterministically by type then name", () => {
     const result = dedupeDeclarations([
       {
-        type: "commands",
+        type: "hooks",
         owner: handle("@acme"),
         name: extensionName("zeta"),
-        source: "@acme/commands/zeta@^1",
+        source: "@acme/hooks/zeta@^1",
         declarationSourceOrConstraint: "^1",
         order: 0,
         origin: "settings",
@@ -127,7 +123,7 @@ describe("reconciliation", () => {
     expect(result.declarations.map((d) => `${d.type}:${d.name}`)).toEqual([
       "skills:alpha",
       "skills:beta",
-      "commands:zeta",
+      "hooks:zeta",
     ]);
   });
 
@@ -244,7 +240,6 @@ describe("reconciliation", () => {
             name: "toolkit",
             version: "2.0.0",
             resolvedSkills: {},
-            resolvedCommands: {},
             resolvedMcpServers: {},
             resolvedSubagents: {},
           }),
@@ -366,55 +361,49 @@ describe("reconciliation", () => {
     ),
   );
 
-  it.effect(
-    "defers registry files, rule, hook, and knowledge declarations instead of dropping them",
-    () =>
-      withContext(
-        Effect.gen(function* () {
-          const axmDir = path.join(tempDir, ".axm");
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(axmDir, "axm-lock.yaml"),
-            "lockfileVersion: 12345\nskills:\n  tool:\n    installedAt: not-a-date\n",
-          );
+  it.effect("defers registry rule, hook, and knowledge declarations instead of dropping them", () =>
+    withContext(
+      Effect.gen(function* () {
+        const axmDir = path.join(tempDir, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(axmDir, "axm-lock.yaml"),
+          "lockfileVersion: 12345\nskills:\n  tool:\n    installedAt: not-a-date\n",
+        );
 
-          const settings: Settings = {
-            skills: {},
-            files: {
-              baseline: { source: "@acme/files/baseline@^1", enabled: true, inputs: {} },
-            },
-            rules: {
-              "commit-style": { source: "@acme/rules/commit-style@^1", enabled: true },
-            },
-            hooks: {
-              guard: { source: "@acme/hooks/guard@^1", enabled: true },
-            },
-            knowledge: {
-              handbook: { source: "@acme/knowledge/handbook@^1", enabled: true },
-            },
-          };
+        const settings: Settings = {
+          skills: {},
+          rules: {
+            "commit-style": { source: "@acme/rules/commit-style@^1", enabled: true },
+          },
+          hooks: {
+            guard: { source: "@acme/hooks/guard@^1", enabled: true },
+          },
+          knowledge: {
+            handbook: { source: "@acme/knowledge/handbook@^1", enabled: true },
+          },
+        };
 
-          const result = yield* runReconcileMaterializeOperation(
-            {
-              baseDir: tempDir,
-              now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
-              configuredOwner: Option.some(handle("@community")),
-              agents: ["claude-code"],
-              settings,
-            },
-            axmDir,
-            "invalid",
-            { allowMissingDeclarations: true },
-          );
+        const result = yield* runReconcileMaterializeOperation(
+          {
+            baseDir: tempDir,
+            now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
+            configuredOwner: Option.some(handle("@community")),
+            agents: ["claude-code"],
+            settings,
+          },
+          axmDir,
+          "invalid",
+          { allowMissingDeclarations: true },
+        );
 
-          expect(result.result).toBe("success");
-          expect(result.message).toContain("deferred to install");
-          expect(result.message).toContain("files/baseline");
-          expect(result.message).toContain("rules/commit-style");
-          expect(result.message).toContain("hooks/guard");
-          expect(result.message).toContain("knowledge/handbook");
-        }),
-      ),
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("deferred to install");
+        expect(result.message).toContain("rules/commit-style");
+        expect(result.message).toContain("hooks/guard");
+        expect(result.message).toContain("knowledge/handbook");
+      }),
+    ),
   );
 
   it.effect("backs up and regenerates an invalid lockfile when a registry skill is declared", () =>

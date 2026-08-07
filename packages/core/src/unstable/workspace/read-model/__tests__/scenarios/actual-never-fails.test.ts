@@ -126,14 +126,10 @@ describe("workspace-root escape fails the factory", () => {
           const project = ctx.scope("project");
           const skillsExit = yield* Effect.exit(project.skills.actual);
           expect(Exit.isSuccess(skillsExit)).toBe(true);
-          const commandsExit = yield* Effect.exit(project.commands.actual);
-          expect(Exit.isSuccess(commandsExit)).toBe(true);
           const mcpExit = yield* Effect.exit(project.mcpServers.actual);
           expect(Exit.isSuccess(mcpExit)).toBe(true);
           const subagentsExit = yield* Effect.exit(project.subagents.actual);
           expect(Exit.isSuccess(subagentsExit)).toBe(true);
-          const filesExit = yield* Effect.exit(project.files.actual);
-          expect(Exit.isSuccess(filesExit)).toBe(true);
           const rulesExit = yield* Effect.exit(project.rules.actual);
           expect(Exit.isSuccess(rulesExit)).toBe(true);
           const packsExit = yield* Effect.exit(project.packs.actual);

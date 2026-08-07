@@ -49,9 +49,9 @@ describe("discoverConventionRefs", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("normalizes human-authored skill names into AXM extension names", () =>
+  it.effect("discovers a standards-conforming skill without rewriting its name", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty"), "Pretty Skill");
+      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "pretty-skill");
 
       const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",
@@ -69,9 +69,9 @@ describe("discoverConventionRefs", () => {
     }),
   );
 
-  it.effect("matches targeted skill discovery by normalized name", () =>
+  it.effect("matches targeted skill discovery by its standards-conforming name", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty"), "Pretty Skill");
+      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "pretty-skill");
 
       const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",
@@ -89,20 +89,18 @@ describe("discoverConventionRefs", () => {
     }),
   );
 
-  it.effect("rejects skills whose names normalize to the same identity", () =>
+  it.effect("ignores skills whose names do not conform to Agent Skills", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty-a"), "Pretty Skill");
-      writeSkill(path.join(tempDir, "skills", "pretty-b"), "pretty-skill");
+      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "Pretty Skill");
 
-      const error = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",
         names: [],
         owner: Option.none(),
         versionRange: Option.none(),
-      }).pipe(Effect.flip, Effect.provide(NodeServices.layer));
+      }).pipe(Effect.provide(NodeServices.layer));
 
-      expect(error.code).toBe("validation");
-      expect(error.detail).toContain("skill:pretty-skill");
+      expect(refs).toStrictEqual([]);
     }),
   );
 

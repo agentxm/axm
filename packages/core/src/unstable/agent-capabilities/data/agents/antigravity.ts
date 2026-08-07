@@ -52,23 +52,6 @@ export const antigravityAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          'Custom slash commands ("workflows") are Markdown files under .agents/workflows (project) or ~/.gemini/antigravity-cli/global_workflows (user). Commands have no industry spec yet.\n',
-        docs: [],
-        sources: ["https://antigravity.google/docs/rules-workflows"],
-        scopes: ["user", "project"],
-        directory: ".agents/workflows",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -35,8 +35,6 @@ describe("extension type catalog", () => {
     expect(getStandardForExtensionType("skill")?.id).toBe("agent-skills");
     expect(getStandardForExtensionType("mcp-server")?.id).toBe("mcp");
     expect(getStandardForExtensionType("rule")?.id).toBe("agents-md");
-    expect(getStandardForExtensionType("files")).toBe(null);
-    expect(getStandardForExtensionType("command")).toBe(null);
     expect(getStandardForExtensionType("subagent")).toBe(null);
     expect(getStandardForExtensionType("hook")).toBe(null);
     expect(getStandardForExtensionType("knowledge")?.id).toBe("okf-0.2");
@@ -46,7 +44,7 @@ describe("extension type catalog", () => {
     expect(isSpecTracked("skill")).toBe(true);
     expect(isSpecTracked("mcp-server")).toBe(true);
     expect(isSpecTracked("rule")).toBe(true);
-    expect(isSpecTracked("files")).toBe(false);
+    expect(isSpecTracked("hook")).toBe(false);
   });
 
   it("gives every entry docs distinct from its governing standard", () => {
@@ -68,24 +66,17 @@ describe("extension type catalog", () => {
   });
 
   it("derives the axis arrays from the table in canonical order", () => {
-    expect(PER_AGENT_EXTENSION_TYPES).toEqual([
-      "skill",
-      "command",
-      "mcp-server",
-      "subagent",
-      "hook",
-    ]);
-    expect(WORKSPACE_EXTENSION_TYPES).toEqual(["files", "rule", "knowledge"]);
+    expect(PER_AGENT_EXTENSION_TYPES).toEqual(["skill", "mcp-server", "subagent", "hook"]);
+    expect(WORKSPACE_EXTENSION_TYPES).toEqual(["rule", "knowledge"]);
     expect(REGISTRY_EXTENSION_TYPES).toEqual(extensionTypes.filter((type) => type !== "pack"));
-    expect(INPUT_EXTENSION_TYPES).toEqual(["mcp-server", "files"]);
+    expect(INPUT_EXTENSION_TYPES).toEqual(["mcp-server"]);
     expect(BODY_GOVERNED_EXTENSION_TYPES).toEqual(["skill", "knowledge"]);
     expect(EXTENSION_TYPE_TABLE.pack.placement).toBe("container");
   });
 
-  it("documents rule and files as distinct markdown capabilities", () => {
+  it("documents rules as behavior-governing instructions", () => {
     expect(getExtensionTypeDefinition("rule").description).toContain(
       "behavior-governing instructions",
     );
-    expect(getExtensionTypeDefinition("files").description).toContain("Context material");
   });
 });

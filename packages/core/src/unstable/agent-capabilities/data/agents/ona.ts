@@ -29,17 +29,6 @@ export const onaAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Organization Skills may expose slash-command triggers through Ona settings, but the vendor does not document a repository command directory.",
-        docs: [],
-        sources: ["https://ona.com/docs/ona/skills"],
-      },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

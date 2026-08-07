@@ -91,7 +91,6 @@ describe("main CLI help", () => {
     expect(output).toContain("START HERE");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
-    expect(output).toContain("commands");
     expect(output).toContain("mcps");
     expect(output).toContain("agents");
   });
@@ -99,7 +98,6 @@ describe("main CLI help", () => {
   it.each([
     { args: ["skills"], expected: ["install", "list", "publish"] },
     { args: ["packs"], expected: ["install", "publish", "unpack"] },
-    { args: ["commands"], expected: ["install", "uninstall"] },
     { args: ["mcps"], expected: ["install", "uninstall"] },
     { args: ["auth"], expected: ["login", "whoami", "token"] },
   ])("shows group help for $args", async ({ args, expected }) => {
@@ -122,7 +120,6 @@ describe("main CLI help", () => {
       expected: ["List detected skills", "--agent"],
     },
     { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
-    { args: ["commands", "install", "--help"], expected: ["--scope"] },
     { args: ["mcps", "install", "--help"], expected: ["--scope"] },
   ])("shows leaf help for $args", async ({ args, expected }) => {
     const result = await runCli(args);

@@ -128,29 +128,24 @@ export const evaluateAllCatalogs = (args: {
   readonly config: LintConfig;
 }): Effect.Effect<GroupEvaluations> =>
   Effect.gen(function* () {
-    const [skill, pack, command, subagent, mcpServer, files, hook, rule, knowledge, workspace] =
-      yield* Effect.all(
-        [
-          evaluateContexts(LINT_CATALOGS.skill, args.contexts.skill, args.config),
-          evaluateContexts(LINT_CATALOGS.pack, args.contexts.pack, args.config),
-          evaluateContexts(LINT_CATALOGS.command, args.contexts.command, args.config),
-          evaluateContexts(LINT_CATALOGS.subagent, args.contexts.subagent, args.config),
-          evaluateContexts(LINT_CATALOGS["mcp-server"], args.contexts["mcp-server"], args.config),
-          evaluateContexts(LINT_CATALOGS.files, args.contexts.files, args.config),
-          evaluateContexts(LINT_CATALOGS.hook, args.contexts.hook, args.config),
-          evaluateContexts(LINT_CATALOGS.rule, args.contexts.rule, args.config),
-          evaluateContexts(LINT_CATALOGS.knowledge, args.contexts.knowledge, args.config),
-          evaluateContexts(LINT_CATALOGS.workspace, args.contexts.workspace, args.config),
-        ],
-        { concurrency: "unbounded" },
-      );
+    const [skill, pack, subagent, mcpServer, hook, rule, knowledge, workspace] = yield* Effect.all(
+      [
+        evaluateContexts(LINT_CATALOGS.skill, args.contexts.skill, args.config),
+        evaluateContexts(LINT_CATALOGS.pack, args.contexts.pack, args.config),
+        evaluateContexts(LINT_CATALOGS.subagent, args.contexts.subagent, args.config),
+        evaluateContexts(LINT_CATALOGS["mcp-server"], args.contexts["mcp-server"], args.config),
+        evaluateContexts(LINT_CATALOGS.hook, args.contexts.hook, args.config),
+        evaluateContexts(LINT_CATALOGS.rule, args.contexts.rule, args.config),
+        evaluateContexts(LINT_CATALOGS.knowledge, args.contexts.knowledge, args.config),
+        evaluateContexts(LINT_CATALOGS.workspace, args.contexts.workspace, args.config),
+      ],
+      { concurrency: "unbounded" },
+    );
     return {
       skill,
       pack,
-      command,
       subagent,
       "mcp-server": mcpServer,
-      files,
       hook,
       rule,
       knowledge,

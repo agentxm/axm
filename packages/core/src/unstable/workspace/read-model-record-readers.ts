@@ -333,16 +333,6 @@ export const makeReadModelRecordReaders = (args: {
                 packMemberNames,
               });
             }
-            case "command": {
-              const installed = yield* scoped.commands.installed;
-              const unmanaged = yield* scoped.commands.unmanaged;
-              return collectReadModelRecordRows({
-                type,
-                installed,
-                unmanaged,
-                packMemberNames,
-              });
-            }
             case "mcp-server": {
               const installed = yield* scoped.mcpServers.installed;
               const unmanaged = yield* scoped.mcpServers.unmanaged;
@@ -366,16 +356,6 @@ export const makeReadModelRecordReaders = (args: {
             case "subagent": {
               const installed = yield* scoped.subagents.installed;
               const unmanaged = yield* scoped.subagents.unmanaged;
-              return collectReadModelRecordRows({
-                type,
-                installed,
-                unmanaged,
-                packMemberNames,
-              });
-            }
-            case "files": {
-              const installed = yield* scoped.files.installed;
-              const unmanaged = yield* scoped.files.unmanaged;
               return collectReadModelRecordRows({
                 type,
                 installed,
@@ -520,21 +500,6 @@ export const makeReadModelRecordReaders = (args: {
                 packMemberNames,
               });
             }
-            case "command": {
-              const installed = yield* scoped.commands.installed;
-              const resolved = yield* scoped.commands.resolved;
-              const unmanaged = yield* scoped.commands.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
-            }
             case "mcp-server": {
               const installed = yield* scoped.mcpServers.installed;
               const resolved = yield* scoped.mcpServers.resolved;
@@ -584,21 +549,6 @@ export const makeReadModelRecordReaders = (args: {
               const installed = yield* scoped.rules.installed;
               const resolved = yield* scoped.rules.resolved;
               const unmanaged = yield* scoped.rules.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
-            }
-            case "files": {
-              const installed = yield* scoped.files.installed;
-              const resolved = yield* scoped.files.resolved;
-              const unmanaged = yield* scoped.files.unmanaged;
               return projectStandardInventory({
                 scope: scoped.scope,
                 type,

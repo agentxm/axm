@@ -77,8 +77,6 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
   switch (type) {
     case "skill":
       return entrySource((yield* ws.getConfiguredSkillEntries())[name]);
-    case "command":
-      return entrySource((yield* ws.getConfiguredCommandEntries())[name]);
     case "mcp-server":
       return entrySource((yield* ws.getConfiguredMcpServerEntries())[name]);
     case "subagent":
@@ -87,8 +85,6 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
       return entrySource((yield* ws.getConfiguredPackEntries())[name]);
     case "hook":
       return entrySource((yield* ws.getConfiguredHookEntries())[name]);
-    case "files":
-      return entrySource((yield* ws.getConfiguredFilesEntries())[name]);
     case "rule":
       return entrySource((yield* ws.getConfiguredRuleEntries())[name]);
     case "knowledge":
@@ -359,11 +355,9 @@ export const handleVersion = (args: VersionHandlerArgs) =>
   });
 
 const exampleNamesByType: Record<VersionableExtensionType, string> = {
-  command: "my-cmd",
   skill: "code-review",
   subagent: "researcher",
   "mcp-server": "my-server",
-  files: "workspace-baseline",
   rule: "commit-style",
   hook: "block-secrets",
   knowledge: "platform-handbook",
@@ -407,12 +401,10 @@ const makeVersionCommand = (type: VersionableExtensionType) => {
   );
 };
 
-export const commandsVersionCommand = makeVersionCommand("command");
 export const skillsVersionCommand = makeVersionCommand("skill");
 export const subagentsVersionCommand = makeVersionCommand("subagent");
 export const mcpsVersionCommand = makeVersionCommand("mcp-server");
 export const packsVersionCommand = makeVersionCommand("pack");
-export const filesVersionCommand = makeVersionCommand("files");
 export const rulesVersionCommand = makeVersionCommand("rule");
 export const hooksVersionCommand = makeVersionCommand("hook");
 export const knowledgeVersionCommand = makeVersionCommand("knowledge");
@@ -480,8 +472,8 @@ export const versionCommand = Command.make(
   Command.withDescription("Bump a managed extension manifest version"),
   Command.withExamples([
     {
-      command: "axm version @acme/commands/my-cmd patch",
-      description: "Bump a command's patch version",
+      command: "axm version @acme/hooks/block-secrets patch",
+      description: "Bump a hook's patch version",
     },
     {
       command: "axm version @acme/skills/code-review minor",

@@ -8,7 +8,7 @@ import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js
 const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 
-type UninstallSurface = "skills" | "commands" | "subagents" | "packs";
+type UninstallSurface = "skills" | "rules" | "subagents" | "packs";
 
 interface PackPublishOptions {
   readonly dependencies?: Record<string, string>;
@@ -85,13 +85,13 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
   }
 };
 
-const publishCommandToRegistry = async (registryPath: string, name: string) => {
+const publishRuleToRegistry = async (registryPath: string, name: string) => {
   const workspace = createTempDir();
 
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(["commands", "new", name, "--owner", OWNER, "--yes"], {
+    const createResult = await runCli(["rules", "new", name, "--owner", OWNER, "--yes"], {
       cwd: workspace.path,
     });
     expect(
@@ -99,10 +99,10 @@ const publishCommandToRegistry = async (registryPath: string, name: string) => {
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
     ).toBe(0);
 
-    const publishResult = await runCli(
-      ["commands", "publish", registryFqn("commands", name), "--yes"],
-      { cwd: workspace.path, env: PUBLISH_ENV },
-    );
+    const publishResult = await runCli(["rules", "publish", registryFqn("rules", name), "--yes"], {
+      cwd: workspace.path,
+      env: PUBLISH_ENV,
+    });
     expect(
       publishResult.exitCode,
       `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
@@ -282,12 +282,12 @@ const uninstallCases: ReadonlyArray<UninstallCase> = [
     },
   },
   {
-    label: "command",
-    surface: "commands",
-    name: "root-uninstall-command",
+    label: "rule",
+    surface: "rules",
+    name: "root-uninstall-rule",
     version: "0.1.0",
     publishToRegistry: (registryPath: string) =>
-      publishCommandToRegistry(registryPath, "root-uninstall-command"),
+      publishRuleToRegistry(registryPath, "root-uninstall-rule"),
   },
   {
     label: "subagent",

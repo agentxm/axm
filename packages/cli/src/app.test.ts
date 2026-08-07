@@ -35,11 +35,9 @@ describe("root command help", () => {
     const files = await Effect.runPromise(collectHelpFiles());
     const createCommands = [
       "skills",
-      "commands",
       "mcps",
       "subagents",
       "packs",
-      "files",
       "rules",
       "hooks",
       "knowledge",

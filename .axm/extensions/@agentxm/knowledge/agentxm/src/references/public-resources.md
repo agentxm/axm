@@ -6,7 +6,7 @@ status: stable
 stale_after: 2027-02-06
 generated:
   by: claude/fable-5
-  at: 2026-08-06T13:04:04Z
+  at: 2026-08-06T22:57:10Z
 ---
 
 # Public resources
@@ -24,8 +24,8 @@ generated:
 
 - Extension manifest and workspace JSON Schemas under
   [axm.sh/schemas](https://axm.sh/schemas/): `settings`, `axm-lock`, `trust`,
-  `axm-package-meta`, `skill`, `command`, `mcp`, `subagent`, `files`, `rule`,
-  `hook`, `knowledge`, and `pack` (`*.schema.json`).
+  `axm-package-meta`, `skill`, `mcp`, `subagent`, `rule`, `hook`, `knowledge`,
+  and `pack` (`*.schema.json`).
 - The registry REST API is self-describing via OpenAPI at
   registry.agentxm.ai.
 
@@ -33,8 +33,8 @@ generated:
 
 `axm help` topics are the system of record for CLI behavior — including
 `getting-started`, `basic-usage`, `authoring`, `workspace-state`,
-`machine-output`, `exit-codes`, per-type topics (`skills`, `commands`,
-`mcps`, `subagents`, `files`, `rules`, `hooks`, `knowledge`, `packs`), and
+`machine-output`, `exit-codes`, per-type topics (`skills`, `mcps`,
+`subagents`, `rules`, `hooks`, `knowledge`, `packs`), and
 `package-extensions`.
 
 ## Source and standards

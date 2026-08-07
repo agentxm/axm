@@ -11,8 +11,6 @@ import {
   AgentExecutableResolver,
   CodingAgentRepositoryLive,
 } from "@agentxm/client-core/unstable/agents";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -48,19 +46,6 @@ const emptySkillManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
 
-const emptyCommandManager = {
-  ...managerLifecycleStubs,
-  type: "command",
-  isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
-  listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
-} satisfies ServiceMap.Service.Shape<typeof CommandManager>;
-
 const emptyMcpServerManager = {
   ...managerLifecycleStubs,
   type: "mcp-server",
@@ -73,19 +58,6 @@ const emptyMcpServerManager = {
   upsertLockfileEntry: () => Effect.void,
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
-
-const emptyFilesManager = {
-  ...managerLifecycleStubs,
-  type: "files",
-  isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
-  listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
-} satisfies ServiceMap.Service.Shape<typeof FilesManager>;
 
 const emptyHookManager = {
   ...managerLifecycleStubs,
@@ -157,9 +129,7 @@ const emptyPackManager = {
 
 const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(SkillManager, emptySkillManager),
-  Layer.succeed(CommandManager, emptyCommandManager),
   Layer.succeed(McpServerManager, emptyMcpServerManager),
-  Layer.succeed(FilesManager, emptyFilesManager),
   Layer.succeed(HookManager, emptyHookManager),
   Layer.succeed(RuleManager, emptyRuleManager),
   Layer.succeed(SubagentManager, emptySubagentManager),

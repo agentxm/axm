@@ -43,22 +43,6 @@ export const forgecodeAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "ForgeCode custom commands are Markdown files under .forge/commands.",
-        docs: [],
-        sources: ["https://forgecode.dev/docs/commands/"],
-        scopes: ["user", "project"],
-        directory: ".forge/commands",
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

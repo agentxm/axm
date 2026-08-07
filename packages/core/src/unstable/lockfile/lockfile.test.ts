@@ -20,7 +20,6 @@ import {
   type SkillLockEntry,
 } from "./schema.js";
 import {
-  applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
   commitTrustSnapshotUpdate,
   commitLockfileUpdates,
@@ -394,78 +393,6 @@ describe("lockfile", () => {
           expect(written.knowledge).toBeDefined();
           expect(written.knowledge["team/handbook"]).toBeDefined();
           expect(written.skills["pr-review"]).toBeDefined();
-        }),
-      ),
-    );
-
-    it("applies lockfile updates in order without writing", () => {
-      const lockfile: Lockfile = {
-        lockfileVersion: 3,
-        skills: {},
-        files: {},
-      };
-
-      const updated = applyLockfileUpdates(lockfile, [
-        (current) => ({
-          ...current,
-          files: {
-            ...current.files,
-            baseline: {
-              type: "local",
-              path: "./files/baseline",
-              installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
-              resolvedInputs: {},
-            },
-          },
-        }),
-        (current) => {
-          const baseline = current.files?.["baseline"];
-          if (baseline === undefined) return current;
-          return {
-            ...current,
-            files: {
-              ...current.files,
-              baseline: {
-                ...baseline,
-                resolvedInputs: { projectName: "AgentXM" },
-              },
-            },
-          };
-        },
-      ]);
-
-      expect(updated.files?.["baseline"]?.resolvedInputs).toEqual({ projectName: "AgentXM" });
-      expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(false);
-    });
-
-    it.effect("commits batched lockfile updates with one write", () =>
-      withContext(
-        Effect.gen(function* () {
-          const lockfile: Lockfile = {
-            lockfileVersion: 3,
-            skills: {},
-            files: {},
-          };
-
-          yield* commitLockfileUpdates(axmDir, lockfile, [
-            (current) => ({
-              ...current,
-              files: {
-                ...current.files,
-                baseline: {
-                  type: "local",
-                  path: "./files/baseline",
-                  installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
-                  updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
-                  resolvedInputs: { projectName: "AgentXM" },
-                },
-              },
-            }),
-          ]);
-
-          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
-          expect(result.files.baseline.resolvedInputs.projectName).toBe("AgentXM");
         }),
       ),
     );

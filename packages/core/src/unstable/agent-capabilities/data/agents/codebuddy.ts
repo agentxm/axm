@@ -37,22 +37,6 @@ export const codebuddyAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "CodeBuddy custom slash commands are Markdown files in .codebuddy/commands.",
-        docs: [],
-        sources: ["https://www.codebuddy.ai/docs/cli/slash-commands"],
-        scopes: ["user", "project"],
-        directory: ".codebuddy/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

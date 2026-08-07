@@ -13,8 +13,6 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { RenderedFilePathSchema, sanitizeName } from "@agentxm/client-core/unstable/extensions";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -68,10 +66,8 @@ const retainedPackMembers = Effect.fn("PacksActivation.retainedPackMembers")(fun
     onNone: () => [],
     onSome: (entry) => [
       ...Object.keys(entry.resolvedSkills).map((member) => `skill: ${member}`),
-      ...Object.keys(entry.resolvedCommands).map((member) => `command: ${member}`),
       ...Object.keys(entry.resolvedMcpServers).map((member) => `mcp-server: ${member}`),
       ...Object.keys(entry.resolvedSubagents).map((member) => `subagent: ${member}`),
-      ...Object.keys(entry.resolvedFiles ?? {}).map((member) => `files: ${member}`),
       ...Object.keys(entry.resolvedRules ?? {}).map((member) => `rule: ${member}`),
       ...Object.keys(entry.resolvedHooks ?? {}).map((member) => `hook: ${member}`),
       ...Object.keys(entry.resolvedKnowledge ?? {}).map((member) => `knowledge: ${member}`),
@@ -95,31 +91,6 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
     case "skill": {
       const manager = yield* SkillManager;
       yield* manager.materializeDeactivate({ target: { type: "skill", name: node.name } });
-      return;
-    }
-    case "command": {
-      const agents = yield* agentRepo.getConfiguredAgents();
-      yield* Effect.forEach(
-        agents,
-        (agent) =>
-          agent
-            .removeCommand({
-              workspaceRoot: ws.baseDir,
-              scope: ws.scope,
-              commandName: node.name,
-            })
-            .pipe(
-              Effect.flatMap((outcome) =>
-                outcome._tag === "conflict"
-                  ? makeAppError({
-                      code: "conflict",
-                      detail: `Command removal failed for ${agent.id}: ${outcome.reason}`,
-                    })
-                  : Effect.void,
-              ),
-            ),
-        { concurrency: "unbounded" },
-      );
       return;
     }
     case "mcp-server": {
@@ -192,13 +163,6 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
       );
       return;
     }
-    case "files": {
-      const manager = yield* FilesManager;
-      yield* manager.materializeDeactivate({
-        target: { type: "files", name: node.name },
-      });
-      return;
-    }
     case "rule": {
       const manager = yield* RuleManager;
       yield* manager.materializeDeactivate({
@@ -269,9 +233,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     | SourceHostProviders
     | WorkspaceMutations
     | CodingAgentRepository
-    | CommandManager
     | FileSystem.FileSystem
-    | FilesManager
     | HookManager
     | KnowledgeManager
     | McpServerManager

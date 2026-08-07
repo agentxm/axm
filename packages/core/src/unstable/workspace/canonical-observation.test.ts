@@ -111,25 +111,25 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("does not reuse a trusted Registry version outside desired constraints", () =>
     Effect.gen(function* () {
       const desired: DesiredExtensionNode = {
-        type: "command",
+        type: "rule",
         name: "release",
-        identity: "@acme/commands/release",
-        source: "@acme/commands/release@^2.0.0",
+        identity: "@acme/rules/release",
+        source: "@acme/rules/release@^2.0.0",
         enabled: true,
         constraints: ["^2.0.0"],
         origins: [
           {
             type: "settings",
-            source: "@acme/commands/release@^2.0.0",
+            source: "@acme/rules/release@^2.0.0",
             enabled: true,
           },
         ],
       };
       const trust: ExtensionTrustRecord = {
-        extensionType: "command",
+        extensionType: "rule",
         name: "release",
         authority: "registry",
-        sourceIdentity: "@acme/commands/release",
+        sourceIdentity: "@acme/rules/release",
         resolvedVersion: "1.9.0",
         publisherBindingId: "hbnd_one",
         contentIdentity: "unreached",
@@ -147,29 +147,29 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("distinguishes corrupt and incomplete packages", () =>
     Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "commands", "release");
+      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
       nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "command.json"), "{");
+      nodeFs.writeFileSync(nodePath.join(canonical, "rule.json"), "{");
       const desired: DesiredExtensionNode = {
-        type: "command",
+        type: "rule",
         name: "release",
-        identity: "@acme/commands/release",
-        source: "@acme/commands/release@^1.0.0",
+        identity: "@acme/rules/release",
+        source: "@acme/rules/release@^1.0.0",
         enabled: true,
         constraints: ["^1.0.0"],
         origins: [
           {
             type: "settings",
-            source: "@acme/commands/release@^1.0.0",
+            source: "@acme/rules/release@^1.0.0",
             enabled: true,
           },
         ],
       };
       const trust: ExtensionTrustRecord = {
-        extensionType: "command",
+        extensionType: "rule",
         name: "release",
         authority: "registry",
-        sourceIdentity: "@acme/commands/release",
+        sourceIdentity: "@acme/rules/release",
         resolvedVersion: "1.2.0",
         publisherBindingId: "hbnd_one",
         integrity: "sha512-one",
@@ -184,10 +184,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       ).toBe("corrupt");
 
       nodeFs.writeFileSync(
-        nodePath.join(canonical, "command.json"),
+        nodePath.join(canonical, "rule.json"),
         JSON.stringify({
           owner: "@acme",
-          type: "command",
+          type: "rule",
           name: "release",
           version: "1.2.0",
         }),
@@ -220,15 +220,15 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
-  it.effect("includes behavior-bearing command frontmatter in content identity", () =>
+  it.effect("includes behavior-bearing rule content in content identity", () =>
     Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "commands", "release");
+      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
       nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
       nodeFs.writeFileSync(
-        nodePath.join(canonical, "command.json"),
+        nodePath.join(canonical, "rule.json"),
         JSON.stringify({
           owner: "@acme",
-          type: "command",
+          type: "rule",
           name: "release",
           version: "1.2.0",
         }),
@@ -237,25 +237,25 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       nodeFs.writeFileSync(contentPath, "---\ndescription: Safe\n---\n\nRun release\n");
       const contentIdentity = yield* computePackageContentHash(canonical);
       const desired: DesiredExtensionNode = {
-        type: "command",
+        type: "rule",
         name: "release",
-        identity: "@acme/commands/release",
-        source: "@acme/commands/release@^1.0.0",
+        identity: "@acme/rules/release",
+        source: "@acme/rules/release@^1.0.0",
         enabled: true,
         constraints: ["^1.0.0"],
         origins: [
           {
             type: "settings",
-            source: "@acme/commands/release@^1.0.0",
+            source: "@acme/rules/release@^1.0.0",
             enabled: true,
           },
         ],
       };
       const trust: ExtensionTrustRecord = {
-        extensionType: "command",
+        extensionType: "rule",
         name: "release",
         authority: "registry",
-        sourceIdentity: "@acme/commands/release",
+        sourceIdentity: "@acme/rules/release",
         resolvedVersion: "1.2.0",
         publisherBindingId: "hbnd_one",
         contentIdentity,

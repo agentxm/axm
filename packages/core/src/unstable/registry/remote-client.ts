@@ -164,7 +164,6 @@ const toRegistryManifest = (
 
 const remoteDiscoveryTypes: ReadonlyArray<ExtensionType> = [
   "skill",
-  "command",
   "mcp-server",
   "subagent",
   "pack",

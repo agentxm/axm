@@ -51,10 +51,8 @@ interface InstalledRow {
  */
 const INSTALLED_ROWS_BY_TYPE = {
   skill: (workspace: WorkspaceReadModel) => workspace.skills.installed,
-  command: (workspace: WorkspaceReadModel) => workspace.commands.installed,
   "mcp-server": (workspace: WorkspaceReadModel) => workspace.mcpServers.installed,
   subagent: (workspace: WorkspaceReadModel) => workspace.subagents.installed,
-  files: (workspace: WorkspaceReadModel) => workspace.files.installed,
   rule: (workspace: WorkspaceReadModel) => workspace.rules.installed,
   hook: (workspace: WorkspaceReadModel) => workspace.hooks.installed,
   knowledge: (workspace: WorkspaceReadModel) => workspace.knowledge.installed,
@@ -70,10 +68,8 @@ const INSTALLED_ROWS_BY_TYPE = {
  */
 const READ_ORDER: ReadonlyArray<ExtensionType> = [
   "skill",
-  "command",
   "mcp-server",
   "subagent",
-  "files",
   "rule",
   "hook",
   "knowledge",

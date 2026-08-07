@@ -61,23 +61,13 @@ describe("DefaultCodingAgentRepository", () => {
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
   );
 
-  it.effect("uses descriptor command and subagent directories for fallback agents", () =>
+  it.effect("uses descriptor subagent directories for fallback agents", () =>
     Effect.gen(function* () {
       const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
       expect(agent?.id).toBe("qoder");
       if (!agent) {
         throw new Error("Expected configured agent");
       }
-
-      const commands = yield* agent.resolveEffectiveCommandsDir({
-        workspaceRoot: "/workspace",
-        scope: "project",
-      });
-      expect(commands).toEqual({
-        _tag: "supported",
-        dir: "/workspace/.qoder/commands",
-        warnings: [],
-      });
 
       const subagents = yield* agent.resolveEffectiveSubagentsDir({
         workspaceRoot: "/workspace",

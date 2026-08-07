@@ -30,7 +30,6 @@ import {
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   LockfileSchema,
-  type FilesLockEntry,
   type HookLockEntry,
   type RegistryPackLockEntry,
   ResolvedExtensionMapSchema,
@@ -219,19 +218,8 @@ export const makeBaseWorkspaceMock = (
     getMinimumReleaseAge: () => Effect.succeed("24h"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkillEntries: () => Effect.succeed({}),
-    getConfiguredFilesEntries: () => Effect.succeed({}),
     getConfiguredRuleEntries: () => Effect.succeed({}),
     getConfiguredHookEntries: () => Effect.succeed({}),
-    getWorkspaceVars: () => Effect.succeed({}),
-    getLockedFiles: () => Effect.succeed({}),
-    getLockedFilesEntry: () => Effect.succeed(Option.none<FilesLockEntry>()),
-    setFiles: () => Effect.void,
-    setFilesLock: () => Effect.void,
-    removeFiles: () => Effect.void,
-    removeFilesSettings: () => Effect.void,
-    removeFilesLock: () => Effect.void,
-    updateFilesEntry: () => Effect.void,
-    setFilesEntry: () => Effect.void,
     getLockedRules: () => Effect.succeed({}),
     getLockedRuleEntry: () => Effect.succeed(Option.none<RuleLockEntry>()),
     setRule: () => Effect.void,
@@ -292,15 +280,9 @@ export const makeBaseWorkspaceMock = (
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
-    getLockedCommands: () => Effect.succeed({}),
-    getLockedCommand: () => Effect.succeed(Option.none()),
-    setCommand: () => Effect.void,
-    setCommandLock: () => Effect.void,
-    removeCommand: () => Effect.void,
     getLockedSubagents: () => Effect.succeed({}),
     getLockedSubagent: () => Effect.succeed(Option.none()),
     getConfiguredSubagentEntries: () => Effect.succeed({}),
-    getConfiguredCommandEntries: () => Effect.succeed({}),
     setSubagent: () => Effect.void,
     setSubagentLock: () => Effect.void,
     removeSubagent: () => Effect.void,
@@ -317,10 +299,6 @@ export const makeBaseWorkspaceMock = (
     updateMcpServerEntry: () => Effect.void,
     setMcpServerEntry: () => Effect.void,
     removeSkillLock: () => Effect.void,
-    removeCommandSettings: () => Effect.void,
-    removeCommandLock: () => Effect.void,
-    updateCommandEntry: () => Effect.void,
-    setCommandEntry: () => Effect.void,
     removeMcpServerSettings: () => Effect.void,
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
@@ -369,8 +347,6 @@ export interface WriteWorkspaceFilesOptions {
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
-  readonly commands?: Record<string, unknown> | undefined;
-  readonly files?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
   readonly hooks?: Record<string, unknown> | undefined;
   readonly knowledge?: Record<string, unknown> | undefined;
@@ -378,8 +354,6 @@ export interface WriteWorkspaceFilesOptions {
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
-  readonly lockfileCommands?: Record<string, unknown> | undefined;
-  readonly lockfileFiles?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfileHooks?: Record<string, unknown> | undefined;
   readonly lockfileKnowledge?: Record<string, unknown> | undefined;
@@ -395,8 +369,6 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
-    ...(hasEntries(opts.commands) && { commands: opts.commands }),
-    ...(hasEntries(opts.files) && { files: opts.files }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
     ...(hasEntries(opts.knowledge) && { knowledge: opts.knowledge }),
@@ -409,8 +381,6 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   const lockfile: Record<string, unknown> = {
     lockfileVersion: 3,
     skills: opts.lockfileSkills ?? {},
-    ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
-    ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
     ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
     ...(hasEntries(opts.lockfileHooks) && { hooks: opts.lockfileHooks }),
     ...(hasEntries(opts.lockfileKnowledge) && { knowledge: opts.lockfileKnowledge }),
@@ -542,7 +512,6 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
   readonly resolvedSkills?: ResolvedExtensionMap;
-  readonly resolvedCommands?: ResolvedExtensionMap;
   readonly resolvedMcpServers?: ResolvedExtensionMap;
   readonly resolvedSubagents?: ResolvedExtensionMap;
   readonly installedAt?: DateTime.Utc;
@@ -558,7 +527,6 @@ export const makeRegistryPackLockEntry = (opts: {
     installedAt: opts.installedAt ?? TEST_DATE,
     updatedAt: opts.updatedAt ?? TEST_DATE,
     resolvedSkills: opts.resolvedSkills ?? {},
-    resolvedCommands: opts.resolvedCommands ?? {},
     resolvedMcpServers: opts.resolvedMcpServers ?? {},
     resolvedSubagents: opts.resolvedSubagents ?? {},
   });

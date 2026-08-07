@@ -78,14 +78,12 @@ export const makeCanonicalExtensionsScanner = (
  * without a fixed primary file return `null`.
  *
  * - `skill` → `SKILL.md` (fixed)
- * - `command` → `${name}.md` (e.g., `review-pr.md`)
  * - `subagent` → `${name}.md` (e.g., `code-reviewer.md`)
  */
 const subjectFileNameFor = (type: ExtensionType, name: string): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
-    case "command":
     case "subagent":
       return `${name}.md`;
     default:
@@ -106,14 +104,10 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
   switch (entry) {
     case "skills":
       return "skill";
-    case "commands":
-      return "command";
     case "mcps":
       return "mcp-server";
     case "subagents":
       return "subagent";
-    case "files":
-      return "files";
     case "rules":
       return "rule";
     case "hooks":

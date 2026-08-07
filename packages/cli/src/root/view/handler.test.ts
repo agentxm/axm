@@ -29,10 +29,7 @@ const initWorkspace = (root: string, registryRoot: string) => {
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
     }),
   );
-  fs.writeFileSync(
-    path.join(root, ".axm", "axm-lock.yaml"),
-    "lockfileVersion: 3\nskills: {}\ncommands: {}\n",
-  );
+  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 };
 
 const writeIndex = (registryRoot: string) => {

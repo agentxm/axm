@@ -46,7 +46,7 @@ const basename = (file: string): string => {
 /**
  * Describe the document at `file` for use as the subject of a finding message.
  *
- * Keyed by basename, so both bare accessor-relative filenames (`command.json`,
+ * Keyed by basename, so both bare accessor-relative filenames (`hook.json`,
  * as the per-extension rules pass) and workspace-relative paths
  * (`.axm/settings.json`, as `issues-to-findings` passes) resolve.
  *

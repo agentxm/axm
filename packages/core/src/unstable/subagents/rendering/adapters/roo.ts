@@ -15,7 +15,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { LossyRenderingWarning } from "../../../commands/rendering-warnings.js";
+import type { LossyRenderingWarning } from "../types.js";
 import { applyOverrides } from "../overrides.js";
 import type { SubagentRenderInput } from "../types.js";
 

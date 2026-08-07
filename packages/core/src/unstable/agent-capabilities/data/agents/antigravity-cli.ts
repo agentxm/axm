@@ -36,18 +36,6 @@ export const antigravityCliAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Antigravity calls Markdown prompt commands workflows.",
-        docs: [],
-        sources: ["https://antigravity.google/docs/rules-workflows"],
-        scopes: ["user", "project"],
-        directory: ".agents/workflows",
-      },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -50,8 +50,8 @@ does not erase the trust baseline.
 
 ## Extension coverage
 
-The model covers skills, commands, MCP servers, subagents, context files, rules,
-hooks, knowledge bundles, and packs. Packs are containers with authoritative
+The model covers skills, MCP servers, subagents, rules, hooks, knowledge
+bundles, and packs. Packs are containers with authoritative
 dependency manifests; they do not have ordinary activation or per-agent
 projection behavior.
 

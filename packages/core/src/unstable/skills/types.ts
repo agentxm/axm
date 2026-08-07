@@ -23,5 +23,5 @@ export interface Skill {
   /** Description of the skill */
   readonly description: string;
   /** Optional metadata from SKILL.md frontmatter */
-  readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
+  readonly metadata: Option.Option<Record.ReadonlyRecord<string, string>>;
 }

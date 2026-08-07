@@ -73,7 +73,6 @@ const baseAgent = {
         writer: null,
       },
     },
-    command: unsupportedCapability,
     "mcp-server": unsupportedCapability,
     subagent: unsupportedCapability,
     hook: unsupportedHookCapability,
@@ -106,7 +105,6 @@ describe("agent capability derivation", () => {
   it("lists supported leaf extension types for an agent", () => {
     expect(getSupportedExtensionTypesForAgent(agentById("claude-code"))).toEqual([
       "skill",
-      "command",
       "mcp-server",
       "subagent",
       "rule",
@@ -151,7 +149,6 @@ describe("agent capability derivation", () => {
     ).toBe(false);
   });
   it("does not infer support for capabilities an agent lacks natively", () => {
-    expect(agentSupportsType(agentById("github-copilot-cli"), "command")).toBe(false);
     const inferred = AGENTS.flatMap((agent) =>
       PER_AGENT_EXTENSION_TYPES.filter(
         (type) =>
@@ -292,17 +289,6 @@ describe("agent capability derivation", () => {
       "windsurf",
     ]);
   });
-  it("reports no compatible agents for types the catalog models no capability for", () => {
-    // `files` lost its per-agent capability slot when the slot was found to be
-    // unpopulated for all 54 agents. The slot was always `via: "none"`, so this
-    // already returned no agents; pinned so removing the slot stays a pure
-    // refactor rather than silently widening compatibility to every agent.
-    expect(getSupportedAgentsForExtensionType("files", AGENTS)).toEqual([]);
-    expect(
-      getSupportedAgentsForExtension({ type: "pack", memberTypes: ["skill", "files"] }, AGENTS),
-    ).toEqual([]);
-  });
-
   it("does not treat empty packs as vacuously compatible", () => {
     expect(getSupportedAgentsForExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
   });
@@ -322,11 +308,6 @@ describe("agent capability derivation", () => {
         agentStatus: "native",
         axmStatus: "supported",
         standardsCompliance: "full",
-      },
-      {
-        type: "command",
-        agentStatus: "native-deprecated",
-        axmStatus: "supported",
       },
       {
         type: "mcp-server",
@@ -439,15 +420,8 @@ describe("agent capability derivation", () => {
       "unknown",
     ]);
   });
-  it("captures the Codex and Pi worked examples", () => {
-    const codexCommand = agentById("codex").capabilities.command;
+  it("captures the Pi subagent worked example", () => {
     const piSubagents = agentById("pi").capabilities.subagent;
-    expect(agentCapabilityStatus(codexCommand)).toBe("native-deprecated");
-    expect(axmIntegrationStatus(codexCommand)).toBe("supported");
-    expect(codexCommand.native.vendorStatus).toMatchObject({
-      state: "deprecated",
-      supersededByType: "skill",
-    });
     expect(agentCapabilityStatus(piSubagents)).toBe("plugin");
     expect(axmIntegrationStatus(piSubagents)).toBe("unsupported");
     expect(piSubagents.native.availability).toMatchObject({
@@ -519,22 +493,6 @@ describe("agent capability derivation", () => {
         rootDir: ".sample-root",
         capabilities: {
           ...baseAgent.capabilities,
-          command: {
-            native: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/commands"],
-              scopes: ["project"],
-              directory: ".sample/commands",
-            },
-            axm: {
-              status: "supported",
-              lastVerified: "2026-05-16",
-              writer: null,
-            },
-          },
           subagent: {
             native: {
               availability: { via: "native" },
@@ -586,7 +544,6 @@ describe("agent capability derivation", () => {
         },
         user: { markers: [] },
       },
-      commands: { dir: ".sample/commands", scopes: ["project"] },
       subagents: { dir: ".sample/agents", scopes: ["project"] },
       instructions: { kind: "own-file", file: "SAMPLE.md", importSyntax: "at-path" },
     });

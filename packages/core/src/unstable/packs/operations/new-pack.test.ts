@@ -117,7 +117,6 @@ describe("newPack", () => {
         expect(manifest.version).toBe("0.0.1");
         expect(manifest.dependencies).toEqual({});
         expect(manifest.skills).toBeUndefined();
-        expect(manifest.commands).toBeUndefined();
         expect(manifest["mcps"]).toBeUndefined();
       }),
     );

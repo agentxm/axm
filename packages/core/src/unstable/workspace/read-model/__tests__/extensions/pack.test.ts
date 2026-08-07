@@ -6,9 +6,8 @@
  * namespace passes an empty installed-pack set into the projection helper for
  * its own derivation.
  *
- * Resolved member groups (`resolvedSkills`, `resolvedCommands`, etc.) read
- * directly from the installed pack lockfile entry's `resolvedSkills` /
- * `resolvedCommands` / `resolvedMcpServers` / `resolvedSubagents` maps.
+ * Resolved member groups read directly from the installed pack lockfile
+ * entry's six non-pack resolved dependency maps.
  * Phase 7's pack module exposes these on the resolved payload; Phase 9 then
  * threads them into other subjects' `installedPacks` inputs.
  */
@@ -71,7 +70,6 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         resolvedSkills: {
           "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
         },
-        resolvedCommands: {},
         resolvedMcpServers: {},
         resolvedSubagents: {},
       },

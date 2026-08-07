@@ -51,25 +51,6 @@ export const geminiCliAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Custom slash commands are TOML files under .gemini/commands (project) or ~/.gemini/commands (user); AXM bridges its command extension format to TOML.\n",
-        docs: [],
-        sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md",
-        ],
-        scopes: ["user", "project"],
-        directory: ".gemini/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -7,8 +7,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -60,21 +58,6 @@ const writeSubagentExtension = (baseDir: string, name: string) => {
   fs.writeFileSync(
     path.join(subagentDir, "src", `${name}.md`),
     `---\nname: ${name}\ndescription: Test subagent\n---\n\n# ${name}\n`,
-  );
-};
-
-const writeCommandExtension = (baseDir: string, name: string) => {
-  const commandDir = path.join(baseDir, ".axm", "extensions", "@acme", "commands", name);
-  writeJson(path.join(commandDir, "command.json"), {
-    owner: "@acme",
-    type: "command",
-    name,
-    version: "1.0.0",
-  });
-  fs.mkdirSync(path.join(commandDir, "src"), { recursive: true });
-  fs.writeFileSync(
-    path.join(commandDir, "src", `${name}.md`),
-    `---\nname: ${name}\ndescription: Test command\n---\n\n# ${name}\n`,
   );
 };
 
@@ -176,8 +159,6 @@ describe("root sync handler", () => {
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
-        CommandManagerLive,
-        FilesManagerLive,
         HookManagerLive,
         KnowledgeManagerLive,
         McpServerManagerLive,
@@ -641,25 +622,6 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("renders settings-owned command extensions", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        commands: {
-          review: "workspace:@acme/commands/review",
-        },
-      });
-      writeCommandExtension(tempDir, "review");
-
-      yield* provide(handleSync({ dryRun: false, force: false }));
-
-      const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
-      expect(fs.existsSync(renderedCommand)).toBe(true);
-      expect(fs.readFileSync(renderedCommand, "utf-8")).toContain("# review");
-    }),
-  );
-
   it.effect("syncs only the requested extension FQN", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
@@ -667,24 +629,22 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         skills: {
           review: "workspace:@acme/skills/review",
-        },
-        commands: {
-          release: "workspace:@acme/commands/release",
+          release: "workspace:@acme/skills/release",
         },
       });
       writeSkillExtension(tempDir, "review");
-      writeCommandExtension(tempDir, "release");
+      writeSkillExtension(tempDir, "release");
 
       yield* provide(
         handleSync({
-          target: Option.some("@acme/commands/release"),
+          target: Option.some("@acme/skills/release"),
           dryRun: false,
           force: false,
         }),
       );
 
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-        planName: "Sync @acme/commands/release",
+        planName: "Sync @acme/skills/release",
         totalSteps: 1,
       });
       const steps = planResultSteps(result);
@@ -693,13 +653,15 @@ describe("root sync handler", () => {
         status: "applied",
       });
       expect(property(expectRecord(steps[0]), "label")).toContain(
-        "previous source=none; proposed source=workspace:@acme/commands/release",
+        "previous source=none; proposed source=workspace:@acme/skills/release",
       );
       expect(property(expectRecord(steps[0]), "label")).toContain(
         "previous version=none; proposed version=1.0.0",
       );
       expect(property(expectRecord(steps[0]), "label")).toContain("downgrade=no");
-      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release", "SKILL.md"))).toBe(
+        true,
+      );
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
     }),
   );
@@ -712,12 +674,12 @@ describe("root sync handler", () => {
         skills: {
           review: "workspace:@acme/skills/review",
         },
-        commands: {
-          release: "workspace:@acme/commands/release",
+        subagents: {
+          release: "workspace:@acme/subagents/release",
         },
       });
       writeSkillExtension(tempDir, "review");
-      writeCommandExtension(tempDir, "release");
+      writeSubagentExtension(tempDir, "release");
 
       yield* provide(
         handleSync({
@@ -730,7 +692,7 @@ describe("root sync handler", () => {
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
         true,
       );
-      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "release.md"))).toBe(false);
     }),
   );
 
@@ -811,161 +773,6 @@ describe("root sync handler", () => {
       ).not.toContain("# Newer");
       expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
-    }),
-  );
-
-  it.effect("renders settings-owned Context Files packages", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: [],
-        files: {
-          "context-kit": "./extensions/context-kit",
-        },
-      });
-      const fileDir = path.join(tempDir, "extensions", "context-kit");
-      writeJson(path.join(fileDir, "files.json"), {
-        owner: "@acme",
-        type: "files",
-        name: "context-kit",
-        version: "1.0.0",
-        contents: [
-          {
-            source: { kind: "static", path: "context.md" },
-            target: "files/context.md",
-            mode: "sync-always",
-          },
-        ],
-      });
-      fs.mkdirSync(path.join(fileDir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(fileDir, "src", "context.md"), "# Context\n");
-
-      yield* provide(handleSync({ dryRun: false, force: false }));
-
-      const renderedFile = path.join(tempDir, "files", "context.md");
-      expect(fs.existsSync(renderedFile)).toBe(true);
-      expect(fs.readFileSync(renderedFile, "utf-8")).toContain("# Context");
-    }),
-  );
-
-  it.effect(
-    "renders workspace-owned generator regions when no extensions need materialization",
-    () =>
-      Effect.gen(function* () {
-        const { provide } = makeLayers();
-        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-          agents: [],
-        });
-        fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
-        fs.writeFileSync(path.join(tempDir, "src", "index.ts"), "");
-        const readmePath = path.join(tempDir, "README.md");
-        fs.writeFileSync(
-          readmePath,
-          [
-            "# Project",
-            "<!-- axm:start region=files generator=file-index -->",
-            "old",
-            "<!-- axm:end region=files generator=file-index -->",
-            "",
-          ].join("\n"),
-        );
-
-        yield* provide(handleSync({ dryRun: false, force: false }));
-
-        const readme = fs.readFileSync(readmePath, "utf-8");
-        expect(readme).toContain("- README.md");
-        expect(readme).toContain("- src/index.ts");
-      }),
-  );
-
-  it.effect("emits JSON plan output for workspace-owned generator regions", () =>
-    Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: [],
-      });
-      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(tempDir, "src", "index.ts"), "");
-      fs.writeFileSync(
-        path.join(tempDir, "README.md"),
-        [
-          "# Project",
-          "<!-- axm:start region=files generator=file-index -->",
-          "old",
-          "<!-- axm:end region=files generator=file-index -->",
-          "",
-        ].join("\n"),
-      );
-
-      yield* provide(handleSync({ dryRun: false, force: false }));
-
-      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-      });
-      expect(result).toMatchObject({
-        steps: [
-          {
-            label: "workspace generator regions",
-            status: "applied",
-            artifact: {
-              scope: "project",
-              change: "updated",
-              fileCount: 1,
-            },
-          },
-        ],
-      });
-    }),
-  );
-
-  it.effect("reports workspace generator dry-runs without writing files", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: [],
-      });
-      const readmePath = path.join(tempDir, "README.md");
-      const original = [
-        "# Project",
-        "<!-- axm:start region=files generator=file-index -->",
-        "old",
-        "<!-- axm:end region=files generator=file-index -->",
-        "",
-      ].join("\n");
-      fs.writeFileSync(readmePath, original);
-
-      yield* provide(handleSync({ dryRun: true, force: false }));
-
-      expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
-    }),
-  );
-
-  it.effect("emits JSON preview for workspace generator dry-runs", () =>
-    Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: [],
-      });
-      const readmePath = path.join(tempDir, "README.md");
-      const original = [
-        "# Project",
-        "<!-- axm:start region=files generator=file-index -->",
-        "old",
-        "<!-- axm:end region=files generator=file-index -->",
-        "",
-      ].join("\n");
-      fs.writeFileSync(readmePath, original);
-
-      yield* provide(handleSync({ dryRun: true, force: false }));
-
-      expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
-      const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        totalSteps: 1,
-      });
-      expect(planResultSteps(result)).toEqual([
-        expect.objectContaining({ label: "workspace generator regions", status: "ready" }),
-      ]);
     }),
   );
 

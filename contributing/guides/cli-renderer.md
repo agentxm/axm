@@ -326,7 +326,7 @@ them to the same flat envelope:
 {
   "ok": true,
   "result": {},
-  "summary": "Created command @acme/commands/review",
+  "summary": "Created hook @acme/hooks/review",
   "suggestions": [
     { "description": "Edit `.axm/extensions/.../review.md`" },
     { "description": "Apply changes", "cmd": "axm sync" }

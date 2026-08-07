@@ -2,8 +2,8 @@
  * Shared factories for the `standalone` / `recommendedPacks` coherence rules.
  *
  * Both fields come from `NonPackManifestFields` in
- * `extensions/common.ts`, so every non-pack catalog (`skill`, `command`,
- * `subagent`, `mcp-server`, `files`, `hook`) enforces the same two invariants
+ * `extensions/common.ts`, so every non-pack catalog (`skill`, `subagent`,
+ * `mcp-server`, `rule`, `hook`, `knowledge`) enforces the same two invariants
  * against its own manifest. Rather than copy twelve near-identical rule
  * bodies, each catalog registers a rule produced here and parameterized by
  * namespace and manifest accessor — the same shape `shared/schema-rule.ts`
@@ -27,7 +27,7 @@ import { isManifestJsonParseFailure } from "./manifest-json.js";
  * @experimental This API is unstable and may change without notice.
  */
 export interface RecommendedPacksRuleOptions<C> {
-  /** Rule-id namespace; matches the context kind (`skill`, `command`, ...). */
+  /** Rule-id namespace; matches the context kind (`skill`, `hook`, ...). */
   readonly namespace: string;
   /** Accessor-relative manifest filename stamped on `location.file`. */
   readonly manifestFile: string;

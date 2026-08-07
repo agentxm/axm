@@ -14,8 +14,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import { PackManager, type PackRef } from "@agentxm/client-core/unstable/packs";
-import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
   KnowledgeManager,
@@ -92,8 +90,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const ws = yield* WorkspaceMutations;
     const packMgr = yield* PackManager;
     const skillMgr = yield* SkillManager;
-    const commandMgr = yield* CommandManager;
-    const contextManager = yield* FilesManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
     const mcpServerMgr = yield* McpServerManager;
@@ -248,12 +244,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          if (target.type === "command") {
-            return buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, {
-              target,
-            });
-          }
-
           if (target.type === "mcp-server") {
             return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
               target,
@@ -262,12 +252,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (target.type === "subagent") {
             return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
-              target,
-            });
-          }
-
-          if (target.type === "files") {
-            return buildUninstallOperation<FilesExtensionRef>(contextManager, retentionPolicy, {
               target,
             });
           }

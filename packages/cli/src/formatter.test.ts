@@ -106,14 +106,14 @@ describe("makeAxmFormatter", () => {
       const annotations = ServiceMap.make(
         LearnMore,
         formatLearnMore([
-          ["axm files install @ac/files/workspace-baseline", "Install a Context Files package"],
+          ["axm knowledge install @ac/knowledge/workspace-baseline", "Install a Knowledge bundle"],
         ]),
       );
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
 
       expect(output).toContain(
-        "LEARN MORE\n  axm files install @ac/files/workspace-baseline\n    Install a Context Files package",
+        "LEARN MORE\n  axm knowledge install @ac/knowledge/workspace-baseline\n    Install a Knowledge bundle",
       );
     });
   });
@@ -126,12 +126,6 @@ describe("makeAxmFormatter", () => {
           {
             group: "EXTENSIONS",
             commands: [
-              {
-                name: "files",
-                alias: undefined,
-                shortDescription: "files",
-                description: "",
-              },
               {
                 name: "mcps",
                 alias: "mcps",
@@ -161,8 +155,8 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toMatch(/CORE\n {2}agents\s+Manage target coding agents/);
       expect(output).toMatch(/ {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}files\s+Manage context file utility extensions/);
       expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server configuration and extensions/);
+      expect(output).not.toMatch(/^ {2}(commands|files)\b/m);
       expect(output).toContain("START HERE\n  help, setup");
       expect(output).toContain("AUTH\n  login");
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
@@ -204,7 +198,7 @@ describe("makeAxmFormatter", () => {
 
     it("adds a section break before subcommand examples", () => {
       const doc = makeHelpDoc({
-        usage: "axm files <subcommand> [flags]",
+        usage: "axm rules <subcommand> [flags]",
         subcommands: [
           {
             group: undefined,
@@ -212,8 +206,7 @@ describe("makeAxmFormatter", () => {
               {
                 name: "disable",
                 alias: undefined,
-                shortDescription:
-                  "Disable a Context Files package without removing sync-once targets",
+                shortDescription: "Disable a rule package without removing its authored source",
                 description: "",
               },
             ],
@@ -221,14 +214,14 @@ describe("makeAxmFormatter", () => {
         ],
         examples: [
           {
-            command: "axm files install @ac/files/workspace-baseline",
-            description: "Install a Context Files package",
+            command: "axm rules install @ac/rules/workspace-baseline",
+            description: "Install a rule package",
           },
         ],
       });
       const output = formatter.formatHelpDoc(doc);
 
-      expect(output).toContain("targets\n\nEXAMPLES");
+      expect(output).toContain("authored source\n\nEXAMPLES");
     });
 
     it("renders Start here above Core, with remaining compact groups after", () => {

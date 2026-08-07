@@ -48,13 +48,13 @@ export const installCommand = Command.make(
       description: "Install a skill by fully qualified registry name",
     },
     {
-      command: "axm install @acme/commands/release-notes@^1.2.0",
-      description: "Install a command with a version constraint",
+      command: "axm install @acme/hooks/session-audit@^1.2.0",
+      description: "Install a hook with a version constraint",
     },
     {
       command: "axm install github:acme/agent-extensions//tools@v1.0.0",
       description:
-        "Discover and install skills, commands, files, rules, hooks, knowledge, and subagents from a locator",
+        "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge from a locator",
     },
     {
       command: "axm install @acme/packs/frontend-tools --preview",

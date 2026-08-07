@@ -12,17 +12,9 @@ import {
   toPlanResolutionResult,
 } from "../../json-output.js";
 import {
-  UninstallCommandCommandWorkflowActions,
-  type UninstallCommandHandlerArgs,
-} from "../commands/uninstall/command-actions.js";
-import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
 } from "../mcps/uninstall/command-actions.js";
-import {
-  UninstallFilesCommandWorkflowActions,
-  type UninstallFilesHandlerArgs,
-} from "../files/uninstall/command-actions.js";
 import {
   UninstallHookCommandWorkflowActions,
   type UninstallHookHandlerArgs,
@@ -68,14 +60,10 @@ const uninstallSuggestions = (type: RootUninstallableType): ReadonlyArray<Sugges
   switch (type) {
     case "skill":
       return [{ description: "Inspect installed skills", cmd: "axm skills list" }];
-    case "command":
-      return [{ description: "Inspect installed commands", cmd: "axm commands list" }];
     case "mcp-server":
       return [{ description: "Inspect MCP servers", cmd: "axm mcps list" }];
-    case "files":
-      return [{ description: "Inspect installed files packages", cmd: "axm files list" }];
     case "rule":
-      return [{ description: "Inspect instruction-file management", cmd: "axm rules" }];
+      return [{ description: "Inspect installed rules", cmd: "axm rules list" }];
     case "hook":
       return [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }];
     case "knowledge":
@@ -97,12 +85,8 @@ const uninstallNoOpMessage = (
       return alreadyAbsent
         ? `No skills uninstalled; ${name} is not installed.`
         : "No skills uninstalled.";
-    case "command":
-      return "No commands uninstalled.";
     case "mcp-server":
       return "No MCP servers uninstalled.";
-    case "files":
-      return "No files packages uninstalled.";
     case "rule":
       return "No rules uninstalled.";
     case "hook":
@@ -127,19 +111,9 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallHandlerArgs = { skill: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
-        case "command": {
-          const actions = yield* UninstallCommandCommandWorkflowActions;
-          const uninstallArgs: UninstallCommandHandlerArgs = { commandName: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
-        }
         case "mcp-server": {
           const actions = yield* UninstallMcpServerCommandWorkflowActions;
           const uninstallArgs: UninstallMcpServerHandlerArgs = { serverName: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
-        }
-        case "files": {
-          const actions = yield* UninstallFilesCommandWorkflowActions;
-          const uninstallArgs: UninstallFilesHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
         case "rule": {

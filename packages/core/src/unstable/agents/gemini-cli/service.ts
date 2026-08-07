@@ -9,35 +9,18 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { envOption } from "../../utils/index.js";
 import type { CodingAgent } from "../coding-agent.js";
-import { userScopeRefusal } from "../scope-refusal.js";
-import {
-  addCommandViaResolve,
-  removeCommandViaResolve,
-  type CommandSyncConfig,
-} from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
-import {
-  agentCommandsProjectDir,
-  agentSkillsProjectDir,
-  agentSubagentsProjectDir,
-} from "../descriptor-paths.js";
+import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 const GEMINI_DOCS_DEFAULT_DIR = agentSkillsProjectDir("gemini-cli");
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
 
 /** @experimental */
-export const GEMINI_CLI_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("gemini-cli");
-
-/** @experimental */
 export const GEMINI_CLI_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("gemini-cli");
 /** @experimental */
 export const GEMINI_CLI_SUBAGENTS_USER_DIR = ".gemini/agents";
-
-const geminiCommandConfig: CommandSyncConfig = {
-  agentId: "gemini-cli",
-};
 
 export const geminiCliCodingAgent: CodingAgent = {
   id: "gemini-cli",
@@ -67,37 +50,6 @@ export const geminiCliCodingAgent: CodingAgent = {
     }),
   addMcpServer: (args) => addMcpServerFromManifest("gemini-cli", args),
   removeMcpServer: (args) => removeMcpServerFromManifest("gemini-cli", args),
-  resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      if (scope === "user") {
-        return {
-          _tag: "unsupported",
-          reason: userScopeRefusal({
-            agentId: "gemini-cli",
-            agentName: "Gemini CLI",
-            type: "commands",
-          }),
-        } as const;
-      }
-      return {
-        _tag: "supported",
-        dir: path.resolve(workspaceRoot, GEMINI_CLI_COMMANDS_PROJECT_DIR),
-        warnings: [],
-      } as const;
-    }),
-  addCommand: (args) =>
-    addCommandViaResolve(
-      geminiCliCodingAgent.resolveEffectiveCommandsDir(args),
-      args,
-      geminiCommandConfig,
-    ),
-  removeCommand: (args) =>
-    removeCommandViaResolve(
-      geminiCliCodingAgent.resolveEffectiveCommandsDir(args),
-      args,
-      geminiCommandConfig,
-    ),
   resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

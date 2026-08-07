@@ -52,7 +52,7 @@ import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import {
   AXM_SKILL_JSON,
-  AXM_SKILL_MD,
+  AXM_SKILL_SOURCE_FILES,
   AXM_SKILL_VERSION,
 } from "../__generated__/bundled-axm-skill.js";
 
@@ -180,7 +180,6 @@ const installBundledAxmSkill = Effect.gen(function* () {
     sanitizedName,
   );
   const skillJsonPath = path.join(canonicalPath, "skill.json");
-  const skillMdPath = path.join(skillSrcPath, "SKILL.md");
   const fsPathLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
@@ -193,9 +192,19 @@ const installBundledAxmSkill = Effect.gen(function* () {
   yield* fs
     .writeFileString(skillJsonPath, AXM_SKILL_JSON)
     .pipe(Effect.mapError(mapBundledSkillWriteError(skillJsonPath)));
-  yield* fs
-    .writeFileString(skillMdPath, AXM_SKILL_MD)
-    .pipe(Effect.mapError(mapBundledSkillWriteError(skillMdPath)));
+  yield* Effect.forEach(
+    AXM_SKILL_SOURCE_FILES,
+    (sourceFile) => {
+      const destination = path.join(skillSrcPath, sourceFile.path);
+      return fs
+        .makeDirectory(path.dirname(destination), { recursive: true })
+        .pipe(
+          Effect.andThen(fs.writeFile(destination, Buffer.from(sourceFile.base64, "base64"))),
+          Effect.mapError(mapBundledSkillWriteError(destination)),
+        );
+    },
+    { concurrency: "unbounded", discard: true },
+  );
 
   const configuredAgents = yield* agentRepo
     .getConfiguredAgents()

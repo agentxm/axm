@@ -169,7 +169,7 @@ describe("axm skills publish", () => {
         fs.mkdirSync(srcDir, { recursive: true });
         fs.writeFileSync(
           path.join(srcDir, "SKILL.md"),
-          '---\nname: "code-review"\n---\n\n# Code Review\n',
+          '---\nname: "code-review"\ndescription: "Review code changes"\n---\n\n# Code Review\n',
         );
         fs.writeFileSync(
           path.join(extensionDir, "skill.json"),

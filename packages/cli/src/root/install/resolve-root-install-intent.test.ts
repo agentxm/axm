@@ -9,10 +9,8 @@ describe("resolveRootInstallIntent", () => {
     Effect.gen(function* () {
       const cases = [
         { source: "@acme/skills/code-review", type: "skill" },
-        { source: "@acme/commands/release-notes@^1.2.0", type: "command" },
         { source: "@acme/mcps/dev-server", type: "mcp-server" },
         { source: "@acme/subagents/researcher", type: "subagent" },
-        { source: "@ac/files/policy", type: "files" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
       ] as const;
 
@@ -53,9 +51,7 @@ describe("resolveRootInstallIntent", () => {
         .join("\n");
 
       expect(guidance).toContain("axm skills install code-review");
-      expect(guidance).toContain(
-        "skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs",
-      );
+      expect(guidance).toContain("skills, mcps, subagents, rules, hooks, knowledge, packs");
     }),
   );
 
@@ -79,7 +75,7 @@ describe("resolveRootInstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs");
+      ).toContain("skills, mcps, subagents, rules, hooks, knowledge, packs");
     }),
   );
 

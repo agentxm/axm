@@ -61,7 +61,6 @@ const subjectFileNameForExtensionType = (type: ExtensionType, name: string): str
   switch (type) {
     case "skill":
       return "SKILL.md";
-    case "command":
     case "subagent":
       return `${name}.md`;
     default:
@@ -73,7 +72,6 @@ const subjectFileNameForAgentDir = (type: AgentDirSubjectType, name: string): st
   switch (type) {
     case "skill":
       return "SKILL.md";
-    case "command":
     case "subagent":
       return `${name}.md`;
   }

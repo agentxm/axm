@@ -37,23 +37,6 @@ export const qoderAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Qoder CLI supports built-in slash commands plus user/project prompt commands as Markdown files. AXM can materialize project-scope command files through the descriptor fallback; user-scope command sync is not implemented.",
-        docs: [],
-        sources: ["https://docs.qoder.com/en/cli/command"],
-        scopes: ["user", "project"],
-        directory: ".qoder/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -38,21 +38,6 @@ export const zencoderAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Zencoder exposes saved prompts through its product UI, but the vendor documentation does not define a filesystem command directory AXM can target.",
-        docs: [],
-        sources: ["https://docs.zencoder.ai/llms-full.txt"],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

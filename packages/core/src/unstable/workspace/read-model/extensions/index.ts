@@ -31,29 +31,6 @@ export {
 } from "./skill.js";
 
 // ---------------------------------------------------------------------------
-// Command subject
-// ---------------------------------------------------------------------------
-
-export {
-  makeCommandExtensionsApi,
-  type ActualCommand,
-  type ActualCommands,
-  type CommandDetectionOrigin,
-  type CommandExtensionsApi,
-  type CommandExtensionsApiDeps,
-  type CommandPackMember,
-  type CommandScanners,
-  type CommandScopedLoaders,
-  type DeclaredCommand,
-  type DeclaredCommands,
-  type InstalledCommand,
-  type InstalledPackForCommands,
-  type ResolvedCommand,
-  type ResolvedCommands,
-  type UnmanagedCommand,
-} from "./command.js";
-
-// ---------------------------------------------------------------------------
 // MCP server subject
 // ---------------------------------------------------------------------------
 
@@ -98,29 +75,6 @@ export {
   type SubagentScopedLoaders,
   type UnmanagedSubagent,
 } from "./subagent.js";
-
-// ---------------------------------------------------------------------------
-// context subject
-// ---------------------------------------------------------------------------
-
-export {
-  makeFilesExtensionsApi,
-  type ActualFilesPackage,
-  type ActualFiles,
-  type DeclaredFilesPackage,
-  type DeclaredFiles,
-  type FilesDetectionOrigin,
-  type FilesExtensionsApi,
-  type FilesExtensionsApiDeps,
-  type FilesPackMember,
-  type FilesScanners,
-  type FilesScopedLoaders,
-  type InstalledFilesPackage,
-  type InstalledPackForFiles,
-  type ResolvedFilesPackage,
-  type ResolvedFiles,
-  type UnmanagedFilesPackage,
-} from "./files.js";
 
 // ---------------------------------------------------------------------------
 // Hook subject

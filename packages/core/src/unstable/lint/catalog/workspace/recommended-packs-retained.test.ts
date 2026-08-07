@@ -42,7 +42,6 @@ const makeContext = (args: {
         owner: pack.owner,
         name: pack.name,
         resolvedSkills: {},
-        resolvedCommands: {},
         resolvedSubagents: {},
         resolvedMcpServers: {},
       },

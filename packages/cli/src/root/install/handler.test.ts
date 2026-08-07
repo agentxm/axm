@@ -8,14 +8,6 @@ import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import {
-  InstallCommandCommandWorkflowActions,
-  type InstallCommandHandlerArgs,
-} from "../commands/install/command-actions.js";
-import {
-  InstallFilesCommandWorkflowActions,
-  type InstallFilesHandlerArgs,
-} from "../files/install/command-actions.js";
-import {
   InstallHookCommandWorkflowActions,
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
@@ -46,7 +38,6 @@ import {
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
-  getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultSteps,
@@ -124,24 +115,6 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("skill")),
     };
 
-    const commandActions = {
-      parseArgs: (args: InstallCommandHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "command",
-            source: args.source,
-            yes: args.yes,
-            force: args.force,
-            preview: args.preview,
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("command")),
-    };
-
     const mcpServerActions = {
       parseArgs: (args: InstallMcpServerHandlerArgs) =>
         Effect.sync(() => {
@@ -158,24 +131,6 @@ describe("root install handler", () => {
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
       buildPlan: () => Effect.succeed(makePlan("mcp-server")),
-    };
-
-    const contextActions = {
-      parseArgs: (args: InstallFilesHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "files",
-            source: args.source,
-            yes: false,
-            force: false,
-            preview: true,
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("files")),
     };
 
     const subagentActions = {
@@ -285,23 +240,9 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallCommandCommandWorkflowActions,
-        commandActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallCommandCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
         InstallMcpServerCommandWorkflowActions,
         mcpServerActions as unknown as ServiceMap.Service.Shape<
           typeof InstallMcpServerCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallFilesCommandWorkflowActions,
-        contextActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallFilesCommandWorkflowActions
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -364,9 +305,7 @@ describe("root install handler", () => {
 
       const sources = [
         "@acme/skills/code-review",
-        "@acme/commands/release-notes",
         "@acme/mcps/dev-server",
-        "@ac/files/workspace-baseline",
         "@acme/rules/review-policy",
         "@acme/hooks/tool-audit",
         "@acme/knowledge/handbook",
@@ -380,70 +319,13 @@ describe("root install handler", () => {
 
       expect(calls).toEqual([
         { type: "skill", source: "@acme/skills/code-review", ...flags },
-        { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
-        { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "rule", source: "@acme/rules/review-policy", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
         { type: "knowledge", source: "@acme/knowledge/handbook", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
-    }),
-  );
-
-  it.effect("includes workspace generator writes in files install JSON output", () =>
-    Effect.gen(function* () {
-      const calls: Array<InstallCall> = [];
-      const { provide, rendererState } = makeLayers(calls, { machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: [],
-        owner: "@axm",
-      });
-      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(tempDir, "src", "index.ts"), "");
-      fs.writeFileSync(
-        path.join(tempDir, "README.md"),
-        [
-          "# Project",
-          "<!-- axm:start region=files generator=file-index -->",
-          "old",
-          "<!-- axm:end region=files generator=file-index -->",
-          "",
-        ].join("\n"),
-      );
-
-      yield* provide(
-        handleInstall({
-          source: Option.some("@ac/files/workspace-baseline"),
-          yes: true,
-          force: false,
-          preview: false,
-        }),
-      );
-
-      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-        planName: "Install files",
-        totalSteps: 2,
-        appliedCount: 2,
-      });
-      expect(result).toMatchObject({
-        steps: [
-          {
-            label: "files",
-            status: "applied",
-          },
-          {
-            label: "workspace generator regions",
-            status: "applied",
-            artifact: {
-              scope: "project",
-              change: "updated",
-              fileCount: 1,
-            },
-          },
-        ],
-      });
     }),
   );
 
@@ -529,14 +411,6 @@ describe("root install handler", () => {
           force: false,
           preview: true,
         },
-        { type: "command", source: "github:acme/extensions", ...flags },
-        {
-          type: "files",
-          source: "github:acme/extensions",
-          yes: false,
-          force: false,
-          preview: true,
-        },
         { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
         { type: "hook", source: "github:acme/extensions", yes: false, force: false, preview: true },
         {
@@ -554,37 +428,6 @@ describe("root install handler", () => {
           preview: true,
         },
       ]);
-    }),
-  );
-
-  it.effect("rejects shorthand command declarations on workspace install", () =>
-    Effect.gen(function* () {
-      const calls: Array<InstallCall> = [];
-      const { provide } = makeLayers(calls);
-
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        owner: "@axm",
-        commands: {
-          "example-command": "^1.0.0",
-        },
-      });
-
-      const error = yield* provide(
-        handleInstall({
-          source: Option.none(),
-          yes: false,
-          force: false,
-          preview: true,
-        }).pipe(Effect.flip),
-      );
-      const appError = getAppError(error);
-
-      expect(appError.code).toBe("validation");
-      expect(appError.detail).toBe('The configured command entry "example-command" is invalid.');
-      expect(appError.suggestions?.[0]?.description).toBe(
-        'Use a name like "@owner/commands/name".',
-      );
     }),
   );
 });

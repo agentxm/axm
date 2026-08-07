@@ -9,10 +9,6 @@ import {
 import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 
 import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
-import {
-  mergePlanResolution,
-  runFilesWorkspaceGeneratorPhase,
-} from "../files/workspace-generator-phase.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
@@ -65,32 +61,22 @@ export const handleWorkspaceInstall = (args: {
       yes: args.flags.yes,
       preview: args.flags.preview,
     });
-    let outputResolution: PlanResolution = resolution;
-    if (
-      resolution._tag === "ExecutedPlan" &&
-      (Option.isNone(args.type) || args.type.value === "files")
-    ) {
-      const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
-        dryRun: false,
-      });
-      outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
-    }
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(outputResolution, {
+        planResolutionToSummary(resolution, {
           subjectType: workspaceInstallSubjectType(args.type),
           sourceKind: "workspace",
         }),
       ),
     );
-    const result = toPlanResolutionResult(outputResolution);
+    const result = toPlanResolutionResult(resolution);
     yield* emitAppliedPlanOutcome({
       command: args.command,
       headline:
         result.outcome === "no-op"
-          ? unchangedPlanHeadline(outputResolution, "Configured extensions are already up to date")
+          ? unchangedPlanHeadline(resolution, "Configured extensions are already up to date")
           : args.planName,
-      resolution: outputResolution,
+      resolution,
       reportInstallationCoverage: Option.isNone(args.type) || args.type.value !== "knowledge",
       suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
     });

@@ -91,7 +91,7 @@ describe("toLabelWithCompanions", () => {
 describe("toStepKey", () => {
   it("includes the extension type for non-pack targets", () => {
     expect(toStepKey({ type: "skill", name: "lint" })).toBe("skill:lint");
-    expect(toStepKey({ type: "command", name: "lint" })).toBe("command:lint");
+    expect(toStepKey({ type: "rule", name: "lint" })).toBe("rule:lint");
   });
 
   it("includes the owner for pack targets", () => {

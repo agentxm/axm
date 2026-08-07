@@ -8,7 +8,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
+/** Warning emitted when a target agent cannot represent a source field exactly. */
+export interface LossyRenderingWarning {
+  readonly agent: string;
+  readonly feature: string;
+  readonly message: string;
+}
 import type { AgentOverrides } from "../../extensions/agent-overrides.js";
 import type { RelativePath } from "../../utils/path-types.js";
 

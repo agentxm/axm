@@ -162,10 +162,8 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       ? []
       : [
           locked.value.resolvedSkills,
-          locked.value.resolvedCommands,
           locked.value.resolvedMcpServers,
           locked.value.resolvedSubagents,
-          locked.value.resolvedFiles ?? {},
           locked.value.resolvedRules ?? {},
           locked.value.resolvedHooks ?? {},
           locked.value.resolvedKnowledge ?? {},

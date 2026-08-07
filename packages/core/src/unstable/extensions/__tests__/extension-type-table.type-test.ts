@@ -27,13 +27,13 @@ import type {
   StandardsCompliance,
 } from "../../agent-capabilities/schema.js";
 
-type _PerAgentExpected = "skill" | "command" | "mcp-server" | "subagent" | "hook";
+type _PerAgentExpected = "skill" | "mcp-server" | "subagent" | "hook";
 type _PerAgentNoExtra = [Exclude<PerAgentType, _PerAgentExpected>] extends [never] ? true : false;
 const _perAgentNoExtra = true as const satisfies _PerAgentNoExtra;
 type _PerAgentNoMissing = [Exclude<_PerAgentExpected, PerAgentType>] extends [never] ? true : false;
 const _perAgentNoMissing = true as const satisfies _PerAgentNoMissing;
 
-type _WorkspaceExpected = "files" | "rule" | "knowledge";
+type _WorkspaceExpected = "rule" | "knowledge";
 type _WorkspaceNoExtra = [Exclude<WorkspaceType, _WorkspaceExpected>] extends [never]
   ? true
   : false;
@@ -49,7 +49,7 @@ const _registryNoExtra = true as const satisfies _RegistryNoExtra;
 type _RegistryNoMissing = [Exclude<_RegistryExpected, RegistryType>] extends [never] ? true : false;
 const _registryNoMissing = true as const satisfies _RegistryNoMissing;
 
-type _InputExpected = "mcp-server" | "files";
+type _InputExpected = "mcp-server";
 type _InputNoExtra = [Exclude<InputType, _InputExpected>] extends [never] ? true : false;
 const _inputNoExtra = true as const satisfies _InputNoExtra;
 type _InputNoMissing = [Exclude<_InputExpected, InputType>] extends [never] ? true : false;
@@ -132,7 +132,7 @@ type _SpecTrackedNoMissing = [Exclude<_SpecTrackedExpected, SpecTrackedType>] ex
   : false;
 const _specTrackedNoMissing = true as const satisfies _SpecTrackedNoMissing;
 
-// Alignment pins with the extension-types registries: the catalog's 8-member
+// Alignment pins with the extension-types registries: the catalog's 6-member
 // union is exactly the registry-distributed set, and the leaf set is exactly
 // the registry set minus knowledge.
 type _CatalogIsRegistry = [Exclude<CatalogExtensionType, RegistryType>] extends [never]

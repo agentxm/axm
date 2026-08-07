@@ -38,22 +38,6 @@ export const grokCliAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Grok exposes built-in pager commands and user-invocable skills, but no separate user-authored command directory is documented.",
-        docs: [],
-        sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-        reason: "AXM has not implemented Grok CLI command installation.",
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

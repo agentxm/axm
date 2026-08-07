@@ -38,23 +38,6 @@ export const neovateAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Neovate custom slash commands are Markdown files in .neovate/commands (project) and ~/.neovate/commands (user); also reads .claude/commands.",
-        docs: [],
-        sources: ["https://github.com/neovateai/neovate-code/blob/master/src/slashCommand.ts"],
-        scopes: ["user", "project"],
-        directory: ".neovate/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

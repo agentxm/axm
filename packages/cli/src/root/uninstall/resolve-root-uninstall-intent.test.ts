@@ -9,10 +9,8 @@ describe("resolveRootUninstallIntent", () => {
     Effect.gen(function* () {
       const cases = [
         { source: "@acme/skills/code-review", type: "skill", name: "code-review" },
-        { source: "@acme/commands/release-notes@^1.2.0", type: "command", name: "release-notes" },
         { source: "@acme/mcps/dev-server", type: "mcp-server", name: "dev-server" },
         { source: "@acme/subagents/researcher", type: "subagent", name: "researcher" },
-        { source: "@ac/files/policy", type: "files", name: "policy" },
         { source: "@acme/packs/frontend-tools@1.2.3", type: "pack", name: "frontend-tools" },
       ] as const;
 
@@ -34,9 +32,6 @@ describe("resolveRootUninstallIntent", () => {
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("axm skills uninstall review");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm commands uninstall review");
     }),
   );
 
@@ -75,7 +70,7 @@ describe("resolveRootUninstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs");
+      ).toContain("skills, mcps, subagents, rules, hooks, knowledge, packs");
     }),
   );
 

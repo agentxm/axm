@@ -30,7 +30,6 @@ import {
   commitTrustSnapshotUpdate,
   type ResolvedExtension,
   type ResolvedExtensionMap,
-  type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
   type RulesLockMap,
@@ -56,11 +55,7 @@ import {
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
-  type CommandEntry,
-  type CommandsMap,
   createDefaultSettings,
-  type FilesEntry,
-  type FilesMap,
   type HookEntry,
   type HooksMap,
   type KnowledgeEntry,
@@ -119,8 +114,6 @@ import {
   type WorkspaceMutationsOptions,
   type SetSkillArgs,
   type SetPackArgs,
-  type SetCommandArgs,
-  type SetFilesArgs,
   type SetRuleArgs,
   type SetHookArgs,
   type SetKnowledgeArgs,
@@ -587,10 +580,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     ): Effect.Effect<
       {
         readonly resolvedSkills: ResolvedExtensionMap;
-        readonly resolvedCommands: ResolvedExtensionMap;
         readonly resolvedMcpServers: ResolvedExtensionMap;
         readonly resolvedSubagents: ResolvedExtensionMap;
-        readonly resolvedFiles: ResolvedExtensionMap;
         readonly resolvedRules: ResolvedExtensionMap;
         readonly resolvedHooks: ResolvedExtensionMap;
         readonly resolvedKnowledge: ResolvedExtensionMap;
@@ -603,10 +594,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Record<string, ResolvedExtension>
         > = {
           skill: {},
-          command: {},
           "mcp-server": {},
           subagent: {},
-          files: {},
           rule: {},
           hook: {},
           knowledge: {},
@@ -671,10 +660,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         }
         return {
           resolvedSkills: groups.skill,
-          resolvedCommands: groups.command,
           resolvedMcpServers: groups["mcp-server"],
           resolvedSubagents: groups.subagent,
-          resolvedFiles: groups.files,
           resolvedRules: groups.rule,
           resolvedHooks: groups.hook,
           resolvedKnowledge: groups.knowledge,
@@ -805,178 +792,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((s): McpServersMap => s.mcpServers ?? {}),
           Effect.withSpan("WorkspaceMutations.getConfiguredMcpServerEntries"),
         ),
-
-      getConfiguredFilesEntries: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): FilesMap => s.files ?? {}),
-          Effect.withSpan("WorkspaceMutations.getConfiguredFilesEntries"),
-        ),
-
-      getWorkspaceVars: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => s.vars ?? {}),
-          Effect.withSpan("WorkspaceMutations.getWorkspaceVars"),
-        ),
-
-      getLockedFiles: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.files ?? {})),
-
-      getLockedFilesEntry: (name: string) =>
-        readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromUndefinedOr((lf.files ?? {})[name])),
-        ),
-
-      setFiles: ({ name, lockEntry, versionRange, commit }: SetFilesArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            const source =
-              lockEntry.type === "registry"
-                ? (() => {
-                    const fqn = formatFqn({
-                      owner: lockEntry.owner,
-                      type: "files",
-                      name: decodeExtensionNameSync(name),
-                    });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-                  })()
-                : printSourceParams(lockEntryToSourceParams(lockEntry));
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentContext: FilesMap = currentSettings.files ?? {};
-            const currentEntry = currentContext[name];
-            const inputs = currentEntry?.inputs ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              files: {
-                ...currentContext,
-                [name]: { source, enabled: true, inputs },
-              },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedContext = currentLockfile.files ?? {};
-            const previous = currentLockedContext[name];
-            const updatedLockfile = {
-              ...currentLockfile,
-              files: {
-                ...currentLockedContext,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
-              },
-            };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setFiles")),
-
-      setFilesLock: ({ name, lockEntry, commit }: SetFilesArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedContext = currentLockfile.files ?? {};
-            const previous = currentLockedContext[name];
-            const updatedLockfile = {
-              ...currentLockfile,
-              files: {
-                ...currentLockedContext,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
-              },
-            };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setFilesLock")),
-
-      removeFiles: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentContext: FilesMap = currentSettings.files ?? {};
-            const remainingSettings =
-              name in currentContext
-                ? (() => {
-                    const { [name]: _, ...remainingContext } = currentContext;
-                    void _;
-                    return { ...currentSettings, files: remainingContext };
-                  })()
-                : currentSettings;
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedContext = currentLockfile.files ?? {};
-            const remainingLockfile =
-              name in currentLockedContext
-                ? (() => {
-                    const { [name]: _, ...remainingContext } = currentLockedContext;
-                    void _;
-                    return { ...currentLockfile, files: remainingContext };
-                  })()
-                : currentLockfile;
-
-            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              remainingLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeFiles")),
-
-      removeFilesSettings: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentContext: FilesMap = currentSettings.files ?? {};
-            if (!(name in currentContext)) return;
-            const { [name]: _, ...remainingContext } = currentContext;
-            void _;
-            yield* writeSettings(workspaceDir, {
-              ...currentSettings,
-              files: remainingContext,
-            }).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeFilesSettings")),
-
-      removeFilesLock: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedContext: FilesLockMap = currentLockfile.files ?? {};
-            if (!(name in currentLockedContext)) return;
-            const { [name]: _, ...remainingContext } = currentLockedContext;
-            void _;
-            const updatedLockfile = {
-              ...currentLockfile,
-              files: remainingContext,
-            };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeFilesLock")),
-
-      updateFilesEntry: (name: string, updater: (entry: FilesEntry) => FilesEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentContext: FilesMap = currentSettings.files ?? {};
-            const existingEntry = currentContext[name];
-            if (existingEntry === undefined) return;
-            yield* writeSettings(workspaceDir, {
-              ...currentSettings,
-              files: { ...currentContext, [name]: updater(existingEntry) },
-            }).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.updateFilesEntry")),
-
-      setFilesEntry: (name: string, entry: FilesEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentContext: FilesMap = currentSettings.files ?? {};
-            yield* writeSettings(workspaceDir, {
-              ...currentSettings,
-              files: { ...currentContext, [name]: entry },
-            }).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setFilesEntry")),
 
       getConfiguredRuleEntries: () =>
         readSettingsSafe(workspaceDir).pipe(
@@ -1905,135 +1720,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
       // -----------------------------------------------------------------------
-      // Command methods
-      // -----------------------------------------------------------------------
-
-      getLockedCommands: () =>
-        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.commands ?? {})),
-
-      getLockedCommand: (name: string) =>
-        readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromUndefinedOr((lf.commands ?? {})[name])),
-        ),
-
-      setCommand: ({ name, lockEntry, versionRange, commit }: SetCommandArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            // Update settings
-            const source =
-              lockEntry.type === "registry"
-                ? (() => {
-                    const fqn = formatFqn({
-                      owner: lockEntry.owner,
-                      type: "command",
-                      name: decodeExtensionNameSync(name),
-                    });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-                  })()
-                : printSourceParams(lockEntryToSourceParams(lockEntry));
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              commands: { ...currentCommands, [name]: { source, enabled: true } },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            // Update lockfile
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedCommands = currentLockfile.commands ?? {};
-            const updatedLockfile = {
-              ...currentLockfile,
-              commands: {
-                ...currentLockedCommands,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
-              },
-            };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setCommand")),
-
-      setCommandLock: ({ name, lockEntry, commit }: SetCommandArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            // Update lockfile only (skip settings) — used for pack dependencies
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedCommands = currentLockfile.commands ?? {};
-            const updatedLockfile = {
-              ...currentLockfile,
-              commands: {
-                ...currentLockedCommands,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
-              },
-            };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
-          }),
-        ),
-
-      removeCommand: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            // Update settings
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const hasSettingsEntry = name in currentCommands;
-
-            if (hasSettingsEntry) {
-              const { [name]: _, ...remainingCommands } = currentCommands;
-              void _;
-              const updatedSettings = { ...currentSettings, commands: remainingCommands };
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-            }
-
-            // Update lockfile
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedCommands = currentLockfile.commands ?? {};
-            if (name in currentLockedCommands) {
-              const { [name]: __, ...remainingLockedCommands } = currentLockedCommands;
-              void __;
-              const updatedLockfile = {
-                ...currentLockfile,
-                commands: remainingLockedCommands,
-              };
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
-                currentLockfile,
-                updatedLockfile,
-              ).pipe(Effect.provide(fsLayer));
-            }
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeCommand")),
-
-      updateCommandEntry: (name: string, updater: (entry: CommandEntry) => CommandEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const existingEntry = currentCommands[name];
-            if (existingEntry === undefined) return;
-            const updated = updater(existingEntry);
-            const updatedSettings = {
-              ...currentSettings,
-              commands: { ...currentCommands, [name]: updated },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.updateCommandEntry")),
-
-      setCommandEntry: (name: string, entry: CommandEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              commands: { ...currentCommands, [name]: entry },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setCommandEntry")),
-
-      // -----------------------------------------------------------------------
       // Subagent methods
       // -----------------------------------------------------------------------
 
@@ -2049,12 +1735,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         readSettingsSafe(workspaceDir).pipe(
           Effect.map((s): SubagentsMap => s.subagents ?? {}),
           Effect.withSpan("WorkspaceMutations.getConfiguredSubagentEntries"),
-        ),
-
-      getConfiguredCommandEntries: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): CommandsMap => s.commands ?? {}),
-          Effect.withSpan("WorkspaceMutations.getConfiguredCommandEntries"),
         ),
 
       setSubagent: ({ name, lockEntry, versionRange, commit }: SetSubagentArgs) =>
@@ -2403,36 +2083,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeSkillLock")),
-
-      removeCommandSettings: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            if (!(name in currentCommands)) return;
-            const { [name]: _, ...remainingCommands } = currentCommands;
-            void _;
-            const updatedSettings = { ...currentSettings, commands: remainingCommands };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
-      removeCommandLock: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedCommands = currentLockfile.commands ?? {};
-            if (!(name in currentLockedCommands)) return;
-            const { [name]: _, ...remainingCommands } = currentLockedCommands;
-            void _;
-            const updatedLockfile = { ...currentLockfile, commands: remainingCommands };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ),
 
       removeMcpServerSettings: (name: string) =>
         withMutex(

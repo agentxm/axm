@@ -3,7 +3,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { CommandExtensionRef } from "../commands/refs.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
@@ -60,7 +59,7 @@ const resolveWorkspaceFromDisk = (
   env: DiskRefEnv,
   settingsName: string,
   source: string,
-  expectedType: "skill" | "command" | "mcp-server" | "subagent" | "pack",
+  expectedType: "skill" | "mcp-server" | "subagent" | "pack",
 ) =>
   resolveWorkspaceExtensionRef({
     settingsName,
@@ -135,23 +134,6 @@ export const configuredSkillsToDiskRefs = (
         ),
       );
     },
-    { concurrency: "unbounded" },
-  ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
-
-export const configuredCommandsToDiskRefs = (
-  env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredRecordRow>>,
-): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
-  Effect.forEach(
-    enabledConfiguredEntries(configured),
-    ([settingsName, entry]) =>
-      isWorkspaceSourceLocator(entry.source)
-        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "command").pipe(
-            Effect.map((ref) =>
-              ref.type === "command" ? Option.some(ref) : Option.none<CommandExtensionRef>(),
-            ),
-          )
-        : Effect.succeed(Option.none<CommandExtensionRef>()),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 

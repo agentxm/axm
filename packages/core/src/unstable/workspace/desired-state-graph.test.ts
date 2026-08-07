@@ -42,10 +42,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
     Effect.gen(function* () {
       writePack(root, "@acme", "complete", {
         "@acme/skills/review": "^1.0.0",
-        "@acme/commands/release": "^1.0.0",
         "@acme/mcps/browser": "^1.0.0",
         "@acme/subagents/planner": "^1.0.0",
-        "@acme/files/baseline": "^1.0.0",
         "@acme/rules/security": "^1.0.0",
         "@acme/hooks/preflight": "^1.0.0",
         "@acme/knowledge/handbook": "^1.0.0",
@@ -64,10 +62,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       expect(graph.problems).toEqual([]);
       expect(graph.nodes.map((node) => node.type)).toEqual([
         "skill",
-        "command",
         "mcp-server",
         "subagent",
-        "files",
         "rule",
         "hook",
         "knowledge",
@@ -75,7 +71,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       ]);
       expect(
         graph.nodes.filter((node) => node.origins.some((origin) => origin.type === "pack")),
-      ).toHaveLength(8);
+      ).toHaveLength(6);
     }),
   );
 

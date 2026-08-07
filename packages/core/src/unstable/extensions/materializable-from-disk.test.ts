@@ -10,7 +10,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  configuredCommandsToDiskRefs,
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
@@ -46,12 +45,6 @@ layer(NodeServices.layer, { excludeTestServices: true })(
           name: "review",
           version: "1.0.0",
         });
-        writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/commands/deploy/command.json"), {
-          owner: "@acme",
-          type: "command",
-          name: "deploy",
-          version: "1.0.0",
-        });
         writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
           owner: "@acme",
           type: "mcp-server",
@@ -70,22 +63,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
           version: "1.0.0",
         });
 
-        const [skills, commands, mcpServers, subagents] = yield* Effect.all([
+        const [skills, mcpServers, subagents] = yield* Effect.all([
           configuredSkillsToDiskRefs(env, {
             review: {
               type: "skill",
               name: "review",
               source: "@acme/skills/review",
-              enabled: true,
-              packagingKind: "native",
-              lifecycle: "configured",
-            },
-          }),
-          configuredCommandsToDiskRefs(env, {
-            deploy: {
-              type: "command",
-              name: "deploy",
-              source: "@acme/commands/deploy",
               enabled: true,
               packagingKind: "native",
               lifecycle: "configured",
@@ -114,7 +97,6 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         ]);
 
         expect(skills).toEqual([]);
-        expect(commands).toEqual([]);
         expect(mcpServers).toEqual([]);
         expect(subagents).toEqual([]);
       }),

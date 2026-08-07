@@ -116,10 +116,8 @@ const REMOVED_SETTINGS_KEY_ISSUES: ReadonlyArray<{
 
 const REMOVED_IGNORE_CONFIG_KEYS: ReadonlyArray<string> = [
   "skillsConfig",
-  "commandsConfig",
   "mcpServersConfig",
   "subagentsConfig",
-  "filesConfig",
   "hooksConfig",
   "knowledgeConfig",
   "packsConfig",

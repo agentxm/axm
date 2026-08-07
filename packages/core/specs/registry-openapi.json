@@ -644,6 +644,14 @@
                 "schema": { "$ref": "#/components/schemas/ForbiddenError" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "description": "Revokes the access token identified by tokenId.",
@@ -1323,6 +1331,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Permanently delete a whole Extension",
@@ -1531,6 +1547,11 @@
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
                     },
+                    "warnings": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/PublishLintFinding" },
+                      "readOnly": true
+                    },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": [
@@ -1542,6 +1563,7 @@
                     "sha256_hex",
                     "published_at",
                     "publish_status",
+                    "warnings",
                     "links"
                   ],
                   "additionalProperties": false
@@ -2154,6 +2176,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Yank an extension version",
@@ -2266,6 +2296,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Un-yank an extension version"
@@ -2352,6 +2390,14 @@
           },
           "404": {
             "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -3532,19 +3578,9 @@
       },
       "ExtensionType": {
         "type": "string",
-        "enum": [
-          "skill",
-          "command",
-          "mcp-server",
-          "subagent",
-          "files",
-          "rule",
-          "hook",
-          "knowledge",
-          "pack"
-        ],
+        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
         "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack."
+        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
       },
       "ExtensionName": {
         "type": "string",
@@ -3937,19 +3973,9 @@
       },
       "ExtensionTypePlural": {
         "type": "string",
-        "enum": [
-          "skills",
-          "commands",
-          "mcps",
-          "subagents",
-          "files",
-          "rules",
-          "hooks",
-          "knowledge",
-          "packs"
-        ],
+        "enum": ["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"],
         "title": "Extension Type (Plural)",
-        "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
+        "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs)."
       },
       "Bugs": {
         "type": "object",
@@ -4095,19 +4121,6 @@
         "description": "Request body for deprecating an extension."
       },
       "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
-      "PublishIdentity": {
-        "type": "object",
-        "properties": {
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": { "$ref": "#/components/schemas/ExtensionType" },
-          "name": { "$ref": "#/components/schemas/ExtensionName" },
-          "version": { "$ref": "#/components/schemas/Version" }
-        },
-        "required": ["owner", "type", "name", "version"],
-        "additionalProperties": false,
-        "title": "Publish Identity",
-        "description": "URL-path identity of the extension version under publish."
-      },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
@@ -4185,6 +4198,19 @@
         "additionalProperties": false,
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
+      },
+      "PublishIdentity": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["owner", "type", "name", "version"],
+        "additionalProperties": false,
+        "title": "Publish Identity",
+        "description": "URL-path identity of the extension version under publish."
       },
       "ExtensionLintFailedError": {
         "type": "object",
@@ -4418,10 +4444,10 @@
         "type": "string",
         "allOf": [
           {
-            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
             "title": "Extension FQN",
             "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-            "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
+            "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
           }
         ]
       },

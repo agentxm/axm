@@ -3,14 +3,12 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
-import { CommandManifestSchema, COMMAND_MANIFEST_FILENAME } from "../commands/manifest-schema.js";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   type ExtensionName,
   type ExtensionType,
 } from "../extensions/common.js";
-import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../files/manifest-schema.js";
 import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../hooks/manifest-schema.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 import {
@@ -47,11 +45,9 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
 
 export const MANIFEST_FILENAME_BY_TYPE = {
   skill: SKILL_MANIFEST_FILENAME,
-  command: COMMAND_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   pack: PACK_MANIFEST_FILENAME,
-  files: FILES_MANIFEST_FILENAME,
   rule: RULE_MANIFEST_FILENAME,
   hook: HOOK_MANIFEST_FILENAME,
   knowledge: KNOWLEDGE_MANIFEST_FILENAME,
@@ -76,11 +72,9 @@ export type ManifestIdentity = Schema.Schema.Type<typeof ManifestIdentitySchema>
 
 const MANIFEST_SCHEMA_BY_TYPE = {
   skill: SkillManifestSchema,
-  command: CommandManifestSchema,
   "mcp-server": McpServerManifestSchema,
   subagent: SubagentManifestSchema,
   pack: PackManifestSchema,
-  files: FilesManifestSchema,
   rule: RuleManifestSchema,
   hook: HookManifestSchema,
   knowledge: KnowledgeManifestSchema,
@@ -208,20 +202,6 @@ export const validateManifestHasNoAgentsField = (
   );
 };
 
-export const validateCommandManifestHasNoAgentOverridesField = (
-  fileName: string,
-  raw: unknown,
-): Result.Result<void, ManifestError> => {
-  if (!hasOwnField(raw, "agentOverrides")) return Result.void;
-
-  return Result.fail(
-    new ManifestError({
-      code: "manifest_schema_invalid",
-      detail: `Manifest file "${fileName}" must not include "agentOverrides"; move agentOverrides to the command content file frontmatter.`,
-    }),
-  );
-};
-
 export const resolveManifest = (
   input: ManifestResolutionInput,
 ): Effect.Effect<ResolvedManifest, ManifestError | ArchiveGuardrailError> =>
@@ -265,12 +245,6 @@ export const resolveManifest = (
     );
 
     yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestEntry.fileName, parsed));
-    if (input.type === "command") {
-      yield* Effect.fromResult(
-        validateCommandManifestHasNoAgentOverridesField(manifestEntry.fileName, parsed),
-      );
-    }
-
     const schema = manifestSchemaForType(input.type);
     yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
       Effect.mapError((error) => {

@@ -19,15 +19,6 @@ export const EXTENSION_TYPE_MATRIX = [
     e2eExemptions: [],
   },
   {
-    type: "command",
-    plural: "commands",
-    label: "Command",
-    sentenceLabel: "command",
-    placement: "per-agent",
-    installInputs: false,
-    e2eExemptions: [],
-  },
-  {
     type: "mcp-server",
     plural: "mcps",
     label: "MCP Server",
@@ -43,15 +34,6 @@ export const EXTENSION_TYPE_MATRIX = [
     sentenceLabel: "subagent",
     placement: "per-agent",
     installInputs: false,
-    e2eExemptions: [],
-  },
-  {
-    type: "files",
-    plural: "files",
-    label: "Context Files",
-    sentenceLabel: "context files",
-    placement: "workspace",
-    installInputs: true,
     e2eExemptions: [],
   },
   {

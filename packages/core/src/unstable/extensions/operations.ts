@@ -25,7 +25,7 @@ import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 /**
  * Derive an ExtensionTarget from an ExtensionRef.
  *
- * Pack targets include owner; skill/command/mcp-server targets are name-only.
+ * Pack targets include owner; leaf-extension targets are name-only.
  */
 export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
   switch (ref.type) {
@@ -33,14 +33,10 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "skill", name: ref.skill.name };
     case "pack":
       return { type: "pack", name: ref.pack.name, owner: ref.owner };
-    case "command":
-      return { type: "command", name: ref.command.name };
     case "mcp-server":
       return { type: "mcp-server", name: ref.server.name };
     case "subagent":
       return { type: "subagent", name: ref.subagent.name };
-    case "files":
-      return { type: "files", name: ref.file.name };
     case "rule":
       return { type: "rule", name: ref.rule.name };
     case "hook":

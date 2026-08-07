@@ -12,7 +12,12 @@ Run `axm help skill-schema` to print the raw JSON Schema.
 
 The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
 
-`SKILL.md` is Markdown with YAML frontmatter. Only `name` is required, and it must match both the manifest's `name` and the skill directory name. Everything else in the frontmatter passes through verbatim to the rendered agent file.
+`SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
+required, and `name` must match both the manifest's `name` and the agent-facing
+skill directory name. AXM validates the pinned Agent Skills fields: `name`,
+`description`, `license`, `compatibility`, `metadata`, and the experimental
+`allowed-tools`. The Markdown body and every other file under `src/` remain
+opaque and are materialized faithfully.
 
 ## Writing the `description` for model invocation
 
@@ -39,30 +44,9 @@ description: Reviews TypeScript diffs for Effect idioms and common bugs. Use whe
 Weaker: `description: Helps with code.` — no triggers, so the model rarely
 knows when to load it.
 
-This applies only to model invocation. A `user-invocable`-only skill is run
-explicitly by name and does not rely on description matching.
-
-## Invocation modes
-
-A skill can be invoked by the **model** (loaded automatically when its `description` matches the task) or by the **user** (run explicitly, e.g. `/skill-name`). By default it's **both**. Two optional frontmatter booleans narrow this:
-
-| Frontmatter                      | Model | User | Use for                                                                        |
-| -------------------------------- | ----- | ---- | ------------------------------------------------------------------------------ |
-| _(omit both)_                    | yes   | yes  | Default — most skills                                                          |
-| `disable-model-invocation: true` | no    | yes  | Side-effecting actions (deploy, commit, release) you don't want auto-triggered |
-| `user-invocable: false`          | yes   | no   | Background knowledge that isn't a meaningful command                           |
-
-```yaml
----
-name: deploy-prod
-description: Deploy the current branch to production.
-disable-model-invocation: true
----
-```
-
-These are **best-effort passthrough**: AXM copies them verbatim but does not validate them, and only some agents honor them (Claude Code, Cursor, VS Code Copilot). Others ignore the keys and keep the skill model-invokable (opencode, Amp, Antigravity), or gate invocation through their own config instead (Codex). Treat them as a portability hint, **not** an access-control guarantee.
-
-**When user-only behavior must hold across every agent, ship a `command` extension instead** — it materializes into each agent's native command system rather than relying on frontmatter the agent may ignore. See `axm help commands`.
+Invocation behavior outside the standard frontmatter is agent-specific. Keep
+such configuration outside `SKILL.md`; AXM does not accept vendor-only
+frontmatter fields in a portable skill.
 
 ## Authoring and editing skills
 

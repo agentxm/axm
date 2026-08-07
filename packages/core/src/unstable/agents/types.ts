@@ -31,26 +31,6 @@ export interface AgentSkillsDescriptor {
 }
 
 // -----------------------------------------------------------------------------
-// Agent Commands Configuration
-// -----------------------------------------------------------------------------
-
-/**
- * Commands-specific configuration for an agent.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface AgentCommandsDescriptor {
-  /** Primary commands directory, relative to cwd (e.g., ".claude/commands") */
-  readonly dir: string;
-  /**
-   * Scopes the agent itself supports for commands. `dir` is a single
-   * workspace-relative path, so AXM writes project scope only; a "user" entry
-   * here means the agent has a user-scope surface AXM does not manage yet.
-   */
-  readonly scopes: ReadonlyArray<Scope>;
-}
-
-// -----------------------------------------------------------------------------
 // Agent Subagents Configuration
 // -----------------------------------------------------------------------------
 
@@ -64,7 +44,7 @@ export interface AgentSubagentsDescriptor {
   readonly dir: string;
   /**
    * Scopes the agent itself supports for subagents. See
-   * {@link AgentCommandsDescriptor.scopes}.
+   * The scopes the agent itself supports for subagents.
    */
   readonly scopes: ReadonlyArray<Scope>;
   /**
@@ -167,8 +147,6 @@ export interface AgentDescriptor {
   readonly rootDir?: string | undefined;
   /** Skills installation configuration */
   readonly skills: AgentSkillsDescriptor;
-  /** Commands installation configuration (optional — not all agents support commands) */
-  readonly commands?: AgentCommandsDescriptor;
   /** Subagents installation configuration (optional — not all agents support subagents) */
   readonly subagents?: AgentSubagentsDescriptor;
   /** Workspace instruction-file convention for this coding agent. */

@@ -25,7 +25,6 @@ export { AGENTS, getAgentIds } from "./registry.js";
 // Types and constants
 export { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "./types.js";
 export type {
-  AgentCommandsDescriptor,
   AgentDescriptor,
   AgentDetectionDescriptor,
   AgentDetectionMarker,
@@ -60,21 +59,16 @@ export {
 
 // Coding agent service contracts (used by extension managers)
 export type {
-  AddCommandArgs,
   AddMcpServerArgs,
   AddSubagentArgs,
   CodingAgent,
   CodingAgentRepositoryService,
   CodingAgentRepositoryShape,
-  CommandSyncOutcome,
   McpServerSyncFallbackSource,
   McpServerSyncOutcome,
   McpServerSyncTarget,
-  RemoveCommandArgs,
   RemoveMcpServerArgs,
   RemoveSubagentArgs,
-  ResolveCommandsDirArgs,
-  ResolveCommandsDirOutcome,
   ResolveSkillsDirArgs,
   ResolveSkillsDirOutcome,
   ResolveSubagentsDirArgs,
@@ -85,16 +79,6 @@ export { CodingAgentRepository } from "./coding-agent.js";
 
 // Constants (path helpers)
 export { getHome, getConfigHome } from "./constants.js";
-
-// Command sync helpers
-export {
-  writeCommandFile,
-  removeCommandFile,
-  addCommandViaResolve,
-  removeCommandViaResolve,
-  resolveCommandRelativePath,
-  type CommandSyncConfig,
-} from "./command-sync.js";
 
 // Agent factory
 export { makeProjectOnlyCodingAgent, type ProjectOnlyAgentConfig } from "./project-only-agent.js";

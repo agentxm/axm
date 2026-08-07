@@ -38,18 +38,6 @@ export const qoderCnAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://help.aliyun.com/zh/lingma/using-the-cli"],
-        scopes: ["user", "project"],
-        directory: ".qoder/commands",
-      },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

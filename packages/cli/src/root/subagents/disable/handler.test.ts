@@ -251,7 +251,6 @@ describe("subagents disable.handler", () => {
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           resolvedSkills: {},
-          resolvedCommands: {},
           resolvedMcpServers: {},
           resolvedSubagents: {
             "@acme/subagents/pack-subagent": {

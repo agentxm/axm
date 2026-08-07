@@ -52,10 +52,8 @@ export interface ParityExemption {
  */
 export const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<ParityExemption>> = {
   skill: [],
-  command: [],
   "mcp-server": [],
   subagent: [],
-  files: [],
   rule: [],
   hook: [],
   knowledge: [],

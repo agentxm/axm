@@ -47,7 +47,6 @@
           "resolvedSkills": {
             "@acme/skills/retained-skill": { "version": "1.0.0", "publisherBindingId": "hbnd_test" }
           },
-          "resolvedCommands": {},
           "resolvedMcpServers": {},
           "resolvedSubagents": {}
         }

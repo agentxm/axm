@@ -17,8 +17,6 @@ import { LearnMore } from "./formatter.js";
 
 /** Extension group segment paired with the help topic its footer must name. */
 const groupHelpTopics = [
-  ["commands", "commands"],
-  ["files", "files"],
   ["hooks", "hooks"],
   ["knowledge", "knowledge"],
   ["mcps", "mcps"],

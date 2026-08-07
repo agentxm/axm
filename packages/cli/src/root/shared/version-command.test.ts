@@ -30,18 +30,13 @@ const initWorkspace = (root: string) => {
       sources: [],
     }),
   );
-  fs.writeFileSync(
-    path.join(root, ".axm", "axm-lock.yaml"),
-    "lockfileVersion: 3\nskills: {}\ncommands: {}\n",
-  );
+  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 };
 
 const MANIFEST_FILES = {
-  commands: { filename: "command.json", type: "command" },
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
   mcps: { filename: "mcp.json", type: "mcp-server" },
-  files: { filename: "files.json", type: "files" },
   rules: { filename: "rule.json", type: "rule" },
   hooks: { filename: "hook.json", type: "hook" },
   knowledge: { filename: "knowledge.json", type: "knowledge" },
@@ -88,10 +83,8 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
         installedAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
         resolvedSkills: {},
-        resolvedCommands: {},
         resolvedMcpServers: {},
         resolvedSubagents: {},
-        resolvedFiles: {},
         resolvedRules: {},
         resolvedHooks: {},
         resolvedKnowledge: {},
@@ -117,27 +110,6 @@ describe("version command handler", () => {
   afterEach(() => {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("bumps a command manifest patch version", () => {
-    const manifestPath = writeManifest(tempDir, "commands", "my-cmd", "1.2.3");
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleVersion({
-          type: "command",
-          handle: "@test/commands/my-cmd",
-          bump: "patch",
-          targetVersion: Option.none(),
-          preview: false,
-        });
-
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-        expect(manifest.version).toBe("1.2.4");
-        expect(logs.success).toContain("Updated command @test/commands/my-cmd 1.2.3 -> 1.2.4");
-      }),
-    );
   });
 
   it.effect("previews a skill version bump without writing", () => {
@@ -279,26 +251,6 @@ describe("root version command handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("infers command type from FQN and bumps patch", () => {
-    const manifestPath = writeManifest(tempDir, "commands", "my-cmd", "1.2.3");
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleRootVersion({
-          handle: "@test/commands/my-cmd",
-          bump: "patch",
-          targetVersion: Option.none(),
-          preview: false,
-        });
-
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-        expect(manifest.version).toBe("1.2.4");
-        expect(logs.success).toContain("Updated command @test/commands/my-cmd 1.2.3 -> 1.2.4");
-      }),
-    );
-  });
-
   it.effect("infers skill type from FQN and previews minor", () => {
     const manifestPath = writeManifest(tempDir, "skills", "code-review", "1.2.3");
     const { provide, logs } = makeWorkspaceHandlerTestContext();
@@ -382,26 +334,6 @@ describe("root version command handler", () => {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("2.0.0");
         expect(logs.success).toContain("Updated pack @test/packs/frontend-tools 0.1.0 -> 2.0.0");
-      }),
-    );
-  });
-
-  it.effect("infers files type from FQN and bumps patch", () => {
-    const manifestPath = writeManifest(tempDir, "files", "my-file", "0.1.0");
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleRootVersion({
-          handle: "@test/files/my-file",
-          bump: "patch",
-          targetVersion: Option.none(),
-          preview: false,
-        });
-
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-        expect(manifest.version).toBe("0.1.1");
-        expect(logs.success).toContain("Updated context files @test/files/my-file 0.1.0 -> 0.1.1");
       }),
     );
   });

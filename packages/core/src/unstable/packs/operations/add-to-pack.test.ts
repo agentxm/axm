@@ -294,14 +294,14 @@ describe("addToPack", () => {
   });
 
   describe("FQN storage", () => {
-    it.effect("writes command FQNs to manifest dependencies", () =>
+    it.effect("writes hook FQNs to manifest dependencies", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
         const result = yield* addToPack(
           makeOp({
-            additions: { "@acme/commands/my-cmd": "^1.0.0" },
+            additions: { "@acme/hooks/my-hook": "^1.0.0" },
             manifestHash,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -318,8 +318,8 @@ describe("addToPack", () => {
           "pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.dependencies["@acme/commands/my-cmd"]).toBe("^1.0.0");
-        expect(manifest.commands).toBeUndefined();
+        expect(manifest.dependencies["@acme/hooks/my-hook"]).toBe("^1.0.0");
+        expect(manifest.hooks).toBeUndefined();
       }),
     );
 
@@ -361,7 +361,7 @@ describe("addToPack", () => {
           makeOp({
             additions: {
               "@acme/skills/my-skill": "^1.0.0",
-              "@acme/commands/my-cmd": "^2.0.0",
+              "@acme/hooks/my-hook": "^2.0.0",
               "@acme/mcps/my-server": "^3.0.0",
             },
             manifestHash,
@@ -381,7 +381,7 @@ describe("addToPack", () => {
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
-        expect(manifest.dependencies["@acme/commands/my-cmd"]).toBe("^2.0.0");
+        expect(manifest.dependencies["@acme/hooks/my-hook"]).toBe("^2.0.0");
         expect(manifest.dependencies["@acme/mcps/my-server"]).toBe("^3.0.0");
       }),
     );

@@ -52,7 +52,7 @@ const makeDiscoveredSkill = (skill: Skill, fullPath: string): DiscoveredSkill =>
 export interface DiscoveryOptions {
   /** Exhaustive recursive search even if root skill found */
   readonly fullDepth: boolean;
-  /** Include skills with metadata.internal: true */
+  /** Include skills with metadata.internal: "true" */
   readonly includeInternal: boolean;
 }
 
@@ -100,7 +100,7 @@ export const getPriorityDirectories = (): ReadonlyArray<string> => {
 const isInternalSkill = (skill: Skill): boolean =>
   Option.match(skill.metadata, {
     onNone: () => false,
-    onSome: (m: Record<string, unknown>) => m["internal"] === true,
+    onSome: (metadata) => metadata["internal"] === "true",
   });
 
 const shouldIncludeSkill = (
@@ -136,7 +136,7 @@ const tryParseSkillInDir = (dir: string) =>
     const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<Skill>();
 
-    return parseSkillMd(content.value);
+    return parseSkillMd(content.value, path.basename(dir));
   });
 
 const discoverSkillInDir = (

@@ -497,10 +497,10 @@ describe("MachineRenderer", () => {
         yield* run(
           Effect.gen(function* () {
             const r = yield* CliRenderer;
-            yield* r.list("command", {
-              items: [{ name: "my-command" }],
+            yield* r.list("hook", {
+              items: [{ name: "my-hook" }],
               count: 1,
-              summary: "Created command @acme/commands/my-command",
+              summary: "Created hook @acme/hooks/my-hook",
               suggestions: [
                 { description: "Edit the file", cmd: "axm edit" },
                 { description: "Apply changes", cmd: "axm sync" },
@@ -513,10 +513,10 @@ describe("MachineRenderer", () => {
         expect(parseStdout()[0]).toEqual({
           ok: true,
           result: {
-            items: [{ name: "my-command" }],
+            items: [{ name: "my-hook" }],
             count: 1,
           },
-          summary: "Created command @acme/commands/my-command",
+          summary: "Created hook @acme/hooks/my-hook",
           suggestions: [
             { description: "Edit the file", cmd: "axm edit" },
             { description: "Apply changes", cmd: "axm sync" },

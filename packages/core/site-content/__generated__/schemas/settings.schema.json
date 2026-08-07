@@ -218,28 +218,6 @@
       "title": "Source Host Config",
       "description": "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
     },
-    "FilesInputValue": {
-      "anyOf": [
-        { "type": "string" },
-        {
-          "anyOf": [
-            { "type": "number" },
-            { "type": "string", "enum": ["NaN"] },
-            { "type": "string", "enum": ["Infinity"] },
-            { "type": "string", "enum": ["-Infinity"] }
-          ]
-        },
-        { "type": "boolean" }
-      ],
-      "title": "Files Input Value",
-      "description": "Scalar value used to render files templates."
-    },
-    "WorkspaceVarsMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/FilesInputValue" },
-      "title": "Workspace Vars Map",
-      "description": "Scalar workspace variables available to Context Files templates."
-    },
     "SkillEntry": {
       "anyOf": [
         { "type": "string" },
@@ -282,115 +260,6 @@
     "SkillsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
-        }
-      ]
-    },
-    "CommandEntry": {
-      "anyOf": [
-        { "type": "string" },
-        {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/commands/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
-              ]
-            },
-            "enabled": {
-              "type": "boolean",
-              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
-              "default": true
-            }
-          },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Command Entry Object",
-          "description": "A command entry with source and an optional enabled flag."
-        }
-      ],
-      "title": "Command Entry",
-      "description": "A command entry: a source string, or an object with source plus optional flags.",
-      "examples": [
-        "@acme/commands/code-review@^1.0.0",
-        { "source": "github:acme/agent-extensions", "enabled": false }
-      ]
-    },
-    "CommandsMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/CommandEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
-        }
-      ]
-    },
-    "FilesInputValuesMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/FilesInputValue" },
-      "title": "Files Input Values Map",
-      "description": "Scalar values supplied to a Context Files package entry."
-    },
-    "FilesEntry": {
-      "anyOf": [
-        { "type": "string" },
-        {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/files/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
-              ]
-            },
-            "enabled": {
-              "type": "boolean",
-              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
-              "default": true
-            },
-            "inputs": { "$ref": "#/definitions/FilesInputValuesMap" }
-          },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Files Entry Object",
-          "description": "A Context Files package entry with source, optional flags, and scalar input values."
-        }
-      ],
-      "title": "Files Entry",
-      "description": "A Context Files package entry: a source string, or an object with source plus optional flags and inputs.",
-      "examples": [
-        "@ac/files/workspace-baseline@^1.0.0",
-        { "source": "@ac/files/workspace-baseline@^1.0.0", "inputs": { "projectName": "agentxm" } }
-      ]
-    },
-    "FilesMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/FilesEntry" },
       "allOf": [
         {
           "propertyNames": {
@@ -818,21 +687,9 @@
           "description": "Named source hosts used to resolve source-scheme entry references.",
           "items": { "$ref": "#/definitions/SourceHostConfig" }
         },
-        "vars": {
-          "anyOf": [{ "$ref": "#/definitions/WorkspaceVarsMap" }],
-          "description": "Scalar workspace variables available to Context Files templates."
-        },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
           "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
-        },
-        "commands": {
-          "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
-          "description": "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`."
-        },
-        "files": {
-          "anyOf": [{ "$ref": "#/definitions/FilesMap" }],
-          "description": "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
         },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
@@ -876,13 +733,6 @@
           "skills": {
             "code-review": "@acme/skills/code-review@^1.0.0",
             "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false }
-          },
-          "vars": { "projectName": "agentxm" },
-          "files": {
-            "workspace-baseline": {
-              "source": "@ac/files/workspace-baseline@^1.0.0",
-              "inputs": { "projectName": "AgentXM" }
-            }
           },
           "lint": { "rules": { "workspace/settings-schema-valid": "error" } }
         }

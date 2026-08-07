@@ -24,10 +24,6 @@ import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import {
   collectAllUpdateEntries,
-  collectCommandCurrency,
-  collectCommandSourceFreshness,
-  collectFilesCurrency,
-  collectFilesSourceFreshness,
   collectHookCurrency,
   collectHookSourceFreshness,
   collectKnowledgeCurrency,
@@ -267,16 +263,12 @@ const collectByType = (type: ExtensionType, client: Parameters<typeof collectSki
   switch (type) {
     case "skill":
       return withSourceFreshness(collectSkillCurrency(client), collectSkillSourceFreshness);
-    case "command":
-      return withSourceFreshness(collectCommandCurrency(client), collectCommandSourceFreshness);
     case "mcp-server":
       return withSourceFreshness(collectMcpServerCurrency(client), collectMcpServerSourceFreshness);
     case "subagent":
       return withSourceFreshness(collectSubagentCurrency(client), collectSubagentSourceFreshness);
     case "pack":
       return collectPackCurrency(client);
-    case "files":
-      return withSourceFreshness(collectFilesCurrency(client), collectFilesSourceFreshness);
     case "rule":
       return withSourceFreshness(collectRuleCurrency(client), collectRuleSourceFreshness);
     case "hook":

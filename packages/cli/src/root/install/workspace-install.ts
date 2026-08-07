@@ -12,8 +12,6 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
-  resolveConfiguredCommand,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -31,10 +29,6 @@ import {
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 
-import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
-import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
-import { InstallFilesCommandWorkflowActions } from "../files/install/command-actions.js";
-import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
@@ -72,8 +66,6 @@ type WorkspaceInstallCollectorContext =
   | WorkspaceMutations
   | SourceHostProviders
   | InstallSkillCommandWorkflowActions
-  | InstallCommandCommandWorkflowActions
-  | InstallFilesCommandWorkflowActions
   | InstallHookCommandWorkflowActions
   | InstallKnowledgeCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
@@ -204,27 +196,6 @@ const resolveSubagentIntent = (name: string, source: string) =>
     ),
   );
 
-const resolveCommandIntent = (name: string, source: string) =>
-  resolveConfiguredCommand(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-          force: false,
-        }) satisfies InstallCommandCommandIntent,
-    ),
-  );
-
-const resolveFileIntent = (name: string, source: string) =>
-  resolveConfiguredFiles(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-        }) satisfies InstallFilesCommandIntent,
-    ),
-  );
-
 const resolveRuleIntent = (name: string, source: string) =>
   resolveConfiguredRule(name, source).pipe(
     Effect.map(
@@ -290,44 +261,6 @@ const collectSkillPlans = () =>
       entries,
       ([name, entry]) =>
         resolveSkillIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
-      { concurrency: "unbounded" },
-    );
-
-    return toCollectedWorkspaceInstallPlans({ plans });
-  });
-
-const collectCommandPlans = () =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallCommandCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredCommandEntries();
-    const entries = enabledConfiguredEntries(configured);
-
-    const plans = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        resolveCommandIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
-      { concurrency: "unbounded" },
-    );
-
-    return toCollectedWorkspaceInstallPlans({ plans });
-  });
-
-const collectFilePlans = () =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallFilesCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredFilesEntries();
-    const entries = enabledConfiguredEntries(configured);
-
-    const plans = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        resolveFileIntent(name, entry.source).pipe(
           Effect.flatMap((intent) => actions.buildPlan(intent)),
         ),
       { concurrency: "unbounded" },
@@ -457,8 +390,6 @@ const collectPackPlans = () =>
 // type can never again be silently dropped from workspace install.
 const workspaceInstallCollectorsByType = {
   skill: collectSkillPlans,
-  command: collectCommandPlans,
-  files: collectFilePlans,
   rule: collectRulePlans,
   hook: collectHookPlans,
   knowledge: collectKnowledgePlans,

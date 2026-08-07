@@ -95,8 +95,8 @@ describe("JSON-mode channel contract (--json)", () => {
     });
   });
 
-  describe("partial-failure class", () => {
-    it("axm sync --json preserves one document when some steps apply and another fails", async () => {
+  describe("atomic-failure class", () => {
+    it("axm sync --json preserves one document and rolls back when any step fails", async () => {
       const temp = createTempDir();
       try {
         const setup = await runCli(
@@ -143,6 +143,7 @@ describe("JSON-mode channel contract (--json)", () => {
             2,
           ),
         );
+        const mcpBefore = fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8");
         fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
           recursive: true,
           force: true,
@@ -156,12 +157,8 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(isRecord(stdoutDocument)).toBe(true);
         if (!isRecord(stdoutDocument)) return;
         expect(stdoutDocument["ok"]).toBe(false);
-        const plan = stdoutDocument["result"];
-        expect(isRecord(plan)).toBe(true);
-        if (!isRecord(plan)) return;
-        expect(plan["outcome"]).toBe("partial");
-        expect(plan["failedCount"]).toBe(1);
-        expect(Number(plan["appliedCount"])).toBeGreaterThan(0);
+        expect(stdoutDocument).not.toHaveProperty("result");
+        expect(fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8")).toBe(mcpBefore);
       } finally {
         temp.cleanup();
       }

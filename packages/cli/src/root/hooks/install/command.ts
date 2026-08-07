@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Option from "effect/Option";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
@@ -18,7 +18,7 @@ const installConfig = {
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
-  force: forceFlag.pipe(Flag.withDescription("Reinstall even if the hooks package already exists")),
+  force: reinstallFlag.pipe(Flag.withDescription("Reinstall a hooks package that already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),

@@ -31,10 +31,18 @@ export const OBLIGATION_IDS = [
   "2.9-read-model-family",
   "2.11-ownership-safe-prune",
   "2.12-workspace-reconciliation",
+  "2.13-transactional-postcondition",
   "6.1-e2e-install-row",
+  "6.2-lifecycle-postconditions",
+  "6.3-preview-apply-equivalence",
+  "6.4-idempotent-validity",
+  "6.5-scope-isolation",
+  "6.6-pack-reachability",
   "7.1-help-topic",
   "8.6-entity-key",
   "8.7-lifecycle-verbs",
+  "8.8-lifecycle-flags",
+  "8.9-scope-surface",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -78,10 +86,51 @@ export const PARITY_OBLIGATIONS = {
       "content, projections, and every supported source class.",
     verifiedBy: "core-test",
   },
+  "2.13-transactional-postcondition": {
+    id: "2.13-transactional-postcondition",
+    description:
+      "Every lifecycle mutation participates in the shared transaction boundary and validates " +
+      "its durable postcondition before receipt history is written.",
+    verifiedBy: "core-test",
+  },
   "6.1-e2e-install-row": {
     id: "6.1-e2e-install-row",
     description:
       "The cli-e2e install matrix drives a real publish-then-install round trip for the type.",
+    verifiedBy: "e2e",
+  },
+  "6.2-lifecycle-postconditions": {
+    id: "6.2-lifecycle-postconditions",
+    description:
+      "The distribution e2e matrix drives enable, disable, and uninstall through clean " +
+      "workspace postconditions for the type.",
+    verifiedBy: "e2e",
+  },
+  "6.3-preview-apply-equivalence": {
+    id: "6.3-preview-apply-equivalence",
+    description:
+      "Lifecycle preview is side-effect free and reports the same plan steps that apply executes.",
+    verifiedBy: "e2e",
+  },
+  "6.4-idempotent-validity": {
+    id: "6.4-idempotent-validity",
+    description:
+      "A successful lifecycle mutation leaves lint and status clean, and its aligned second run " +
+      "does not corrupt workspace state.",
+    verifiedBy: "e2e",
+  },
+  "6.5-scope-isolation": {
+    id: "6.5-scope-isolation",
+    description:
+      "Project and user installed-state views are isolated for the type, with unsupported " +
+      "materialization refused by the selected agent capability.",
+    verifiedBy: "e2e",
+  },
+  "6.6-pack-reachability": {
+    id: "6.6-pack-reachability",
+    description:
+      "The type remains correct when reached directly, only through a pack, shared by both, " +
+      "and disabled while retained.",
     verifiedBy: "e2e",
   },
   "7.1-help-topic": {
@@ -103,6 +152,18 @@ export const PARITY_OBLIGATIONS = {
     description:
       "The CLI type group registers update, enable, and disable lifecycle verbs, with " +
       "container-placement types free to route those verbs through container-specific planners.",
+    verifiedBy: "cli-test",
+  },
+  "8.8-lifecycle-flags": {
+    id: "8.8-lifecycle-flags",
+    description:
+      "Every lifecycle mutation exposes preview and only behavior-specific safety controls; " +
+      "removed generic aliases are unreachable.",
+    verifiedBy: "cli-test",
+  },
+  "8.9-scope-surface": {
+    id: "8.9-scope-surface",
+    description: "Every installed-state lifecycle command exposes the project/user scope selector.",
     verifiedBy: "cli-test",
   },
 } as const satisfies Record<ObligationId, ObligationDef>;

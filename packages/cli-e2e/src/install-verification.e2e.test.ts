@@ -322,7 +322,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
     JSON.stringify({ pid: process.pid, targetPath: binaryPath, backupPath: null }),
   );
   try {
-    const lockedResult = await runBinary(["upgrade", "--force", "--json"], { env });
+    const lockedResult = await runBinary(["upgrade", "--reinstall", "--json"], { env });
     if (lockedResult.exitCode !== 1) {
       throw new Error(
         `Locked upgrade exited ${lockedResult.exitCode}; stdout: ${lockedResult.stdout}; stderr: ${lockedResult.stderr}`,

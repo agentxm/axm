@@ -251,6 +251,8 @@ describe("axm packs publish", () => {
             "publish",
             `${owner}/packs/retry-pack`,
             "--include-dependencies",
+            "--on-existing",
+            "verify",
             "--yes",
             "--json",
           ],

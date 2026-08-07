@@ -53,7 +53,7 @@ describe("axm setup", () => {
           force: true,
         });
 
-        const preview = await runCli(["sync", "--dry-run", "--json"], {
+        const preview = await runCli(["sync", "--preview", "--json"], {
           cwd: temp.path,
           env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
         });
@@ -205,6 +205,30 @@ describe("axm setup", () => {
         temp.cleanup();
       }
     });
+
+    it("does not change membership when rerun with a different explicit agent", async () => {
+      const temp = createTempDir();
+      try {
+        const first = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: temp.path },
+        );
+        expect(first.exitCode, `${first.stderr}\n${first.stdout}`).toBe(0);
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const before = fs.readFileSync(settingsPath);
+
+        const second = await runCli(["setup", "--agent", "cursor", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+        });
+
+        expect(second.exitCode, `${second.stderr}\n${second.stdout}`).toBe(0);
+        expect(fs.readFileSync(settingsPath)).toEqual(before);
+        expect(second.stdout + second.stderr).toContain("axm agents add");
+        expect(second.stdout + second.stderr).toContain("axm agents remove");
+      } finally {
+        temp.cleanup();
+      }
+    });
   });
 
   describe("--help", () => {
@@ -215,6 +239,7 @@ describe("axm setup", () => {
       expect(result.stdout).toContain("Set up AXM in the current project");
       expect(result.stdout).toContain("--scope");
       expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--force");
     });
   });
 

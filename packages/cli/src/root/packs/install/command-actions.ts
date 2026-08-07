@@ -17,11 +17,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  parseExtensionFqnParts,
   type ExtensionName,
   type ExtensionRef,
+  type ExtensionType,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
@@ -45,7 +48,11 @@ import {
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
+import {
+  installMcpServer,
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcps";
 import {
   SubagentManager,
   type SubagentExtensionRef,
@@ -55,9 +62,15 @@ import {
   buildInstallOperation,
   targetFromRef,
   toLabel,
+  toLabelWithCompanions,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { parseMinimumReleaseAge } from "@agentxm/client-core/unstable/registry";
 import type {
   HookExtensionTarget,
@@ -71,6 +84,7 @@ import type {
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -156,13 +170,18 @@ type PackDependencyNameSets = {
   readonly knowledge: Set<string>;
 };
 
-type DroppedPackDependencyTarget =
+type PackDependencyTarget =
   | SkillExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
   | RuleExtensionTarget
   | HookExtensionTarget
   | KnowledgeExtensionTarget;
+
+interface DroppedPackDependency {
+  readonly target: PackDependencyTarget;
+  readonly sourcePath: string;
+}
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   skill: new Set<string>(),
@@ -210,8 +229,8 @@ const collectDroppedPackDependencyTargets = (args: {
   readonly graph: DesiredStateGraph;
   readonly replacingPackIdentity: string;
   readonly nextDependencies: PackDependencyNameSets;
-}): ReadonlyArray<DroppedPackDependencyTarget> => {
-  const droppedTargets: Array<DroppedPackDependencyTarget> = [];
+}): ReadonlyArray<DroppedPackDependency> => {
+  const droppedTargets: Array<DroppedPackDependency> = [];
   for (const node of args.graph.nodes) {
     if (node.type === "pack") continue;
     const belongedToReplacedPack = node.origins.some(
@@ -224,7 +243,14 @@ const collectDroppedPackDependencyTargets = (args: {
         (origin.type === "pack" && origin.pack !== args.replacingPackIdentity),
     );
     if (!retainedElsewhere) {
-      droppedTargets.push({ type: node.type, name: node.name });
+      const identity = parseExtensionFqnParts(node.identity);
+      droppedTargets.push({
+        target: { type: node.type, name: node.name },
+        sourcePath:
+          identity === undefined
+            ? toLabel({ type: node.type, name: node.name })
+            : `${REGISTRY_EXTENSIONS_DIR}/${identity.owner}/${registryPluralSegment(identity.type)}/${identity.name}`,
+      });
     }
   }
 
@@ -262,8 +288,8 @@ const formatRegistrySourceLabel = ({
   return source.location.href;
 };
 
-const registryPluralSegment = (ref: ExtensionRef): string => {
-  switch (ref.type) {
+const registryPluralSegment = (type: ExtensionType): string => {
+  switch (type) {
     case "skill":
       return "skills";
     case "pack":
@@ -290,7 +316,7 @@ const registrySourceArtifact = (args: {
   const target = targetFromRef(args.ref);
   const sourcePath =
     args.ref.refType === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref)}/${
+      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref.type)}/${
           args.ref.name
         }`
       : toLabel(target);
@@ -303,6 +329,11 @@ const registrySourceArtifact = (args: {
     targets: [{ path: sourcePath, change }],
   };
 };
+
+const registrySourcePath = (ref: ExtensionRef): string =>
+  ref.refType === "registry"
+    ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${registryPluralSegment(ref.type)}/${ref.name}`
+    : toLabel(targetFromRef(ref));
 
 const resolveMinimumReleaseAge = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
@@ -354,6 +385,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const fsSvc = yield* FileSystem.FileSystem;
+    const agentRepo = yield* CodingAgentRepository;
     const packMgr = yield* PackManager;
     const pathSvc = yield* Path.Path;
     const skillMgr = yield* SkillManager;
@@ -376,6 +408,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(Path.Path, pathSvc),
+      Layer.succeed(CodingAgentRepository, agentRepo),
     );
 
     // Assertion needed: strips service requirements (R) from inner effects.
@@ -762,18 +795,34 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           }
 
           if (ref.type === "mcp-server") {
-            return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? mcpServerMgr.isInstalled({
-                    target: { type: "mcp-server", name: ref.server.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
-            });
+            const base = {
+              key: `mcp-server:${ref.server.name}`,
+              label: toLabelWithCompanions(
+                { type: "mcp-server", name: ref.server.name },
+                ref.refType === "registry" ? ref.packages : [],
+              ),
+              run: provide(
+                installMcpServer({
+                  name: "install-mcp-server",
+                  args: {
+                    ref,
+                    force: false,
+                    versionRange: Option.none(),
+                    skipSettings: Option.some(true),
+                    strictAgentSync: Option.some(true),
+                    env: Option.none(),
+                  },
+                }),
+              ),
+            };
+            const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
+            return warnings.length === 0
+              ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)
+              : ({
+                  ...base,
+                  readiness: "warn",
+                  warnMessage: warnings.join("; "),
+                } satisfies PlannedJobStep);
           }
 
           if (ref.type === "subagent") {
@@ -852,7 +901,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 replacingPackIdentity: existingPack.identity,
                 nextDependencies,
               });
-        const uninstallSteps = droppedTargets.map((target): PlannedJobStep => {
+        const uninstallSteps = droppedTargets.map(({ target }): PlannedJobStep => {
           if (target.type === "skill") {
             return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
               target,
@@ -898,6 +947,60 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
+        const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+        const resolvedTargets = refs.map(targetFromRef);
+        const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
+          ...refs.map((ref): JobStepArtifactTarget => {
+            const target = targetFromRef(ref);
+            return {
+              path: registrySourcePath(ref),
+              change: graph.nodes.some(
+                (node) => node.type === target.type && node.name === target.name,
+              )
+                ? "updated"
+                : "created",
+            };
+          }),
+          ...droppedTargets.map((dropped): JobStepArtifactTarget => ({
+            path: dropped.sourcePath,
+            change: "removed",
+          })),
+        ];
+        const graphStep = yield* buildAtomicPackGraphStep({
+          label: packIdentity,
+          message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
+          artifact: {
+            path: "pack graph",
+            scope: ws.scope,
+            change: "updated",
+            fileCount: refs.length + droppedTargets.length,
+            targets: artifactTargets,
+          },
+          steps: [...installSteps, ...uninstallSteps],
+          validate: validatePackGraphPostcondition({
+            requiredPacks: [
+              {
+                name: intent.packToInstall.name,
+                identity: packIdentity,
+                enabled: true,
+              },
+            ],
+            requiredMembers: resolvedTargets.flatMap((target) =>
+              target.type === "pack"
+                ? []
+                : [
+                    {
+                      type: target.type,
+                      name: target.name,
+                      packIdentity,
+                      enabled: true,
+                    },
+                  ],
+            ),
+            absent: droppedTargets.map(({ target }) => target),
+          }),
+        }).pipe(Effect.provideService(WorkspaceMutations, ws));
+
         return {
           _tag: "Plan",
           name: "Install pack",
@@ -905,7 +1008,16 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             intent.diagnosticLines === undefined
               ? Option.none()
               : Option.some(intent.diagnosticLines.join("\n")),
-          jobs: [{ concurrency: 1 as const, steps: [...installSteps, ...uninstallSteps] }],
+          jobs: [{ concurrency: 1, steps: [graphStep] }],
+          sections: [
+            {
+              title: "Pack graph transition",
+              items: [
+                ...installSteps.map((step) => `${step.label} (${step.readiness})`),
+                ...droppedTargets.map(({ target }) => `remove ${target.type}: ${target.name}`),
+              ],
+            },
+          ],
         } satisfies Plan;
       });
 

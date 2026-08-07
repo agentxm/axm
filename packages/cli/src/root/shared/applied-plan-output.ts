@@ -10,7 +10,9 @@ import type {
   JobStepArtifact,
   PlanResolution,
 } from "@agentxm/client-core/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
+import { suggestionsForScope } from "./scoped-command.js";
 
 const formatArtifactTargets = (artifact: JobStepArtifact): string => {
   if (artifact.targets === undefined || artifact.targets.length === 0) {
@@ -208,15 +210,17 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
 }) =>
   Effect.gen(function* () {
     const verbosity = yield* Verbosity;
+    const ws = yield* WorkspaceMutations;
     const failed =
       args.resolution._tag === "ExecutedPlan" ? hasFailedSteps(args.resolution) : false;
     const coverage =
       args.reportInstallationCoverage === true && args.resolution._tag === "ExecutedPlan" && !failed
         ? installationCoverage(args.resolution)
         : undefined;
-    const baseSuggestions = failed
-      ? (args.failureSuggestions ?? defaultFailureSuggestions)
-      : args.suggestions;
+    const baseSuggestions = suggestionsForScope(
+      failed ? (args.failureSuggestions ?? defaultFailureSuggestions) : args.suggestions,
+      ws.scope,
+    );
     const suggestions =
       coverage !== undefined && coverage.agents.length === 0
         ? [materializationSuggestion(coverage.scope), ...baseSuggestions]

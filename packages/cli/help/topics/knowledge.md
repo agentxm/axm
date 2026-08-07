@@ -1,14 +1,14 @@
 # Knowledge
 
 Knowledge bundles live canonically in
-`./.axm/extensions/<@owner>/knowledge/<name>` and expose their `src/` roots
-through an agent-facing projection.
+`./.axm/extensions/<@owner>/knowledge/<name>`. Active bundles are discoverable
+from a compact table in the canonical workspace instruction file.
 
 A knowledge bundle is portable reference material — architecture notes, domain
 vocabulary, runbooks — packaged as a tree of Markdown concept documents. Unlike
-rules, a bundle is never injected into an agent's instruction files. It is
-installed, indexed, and read on demand, so an agent (or a person) can search it
-without spending context on material the task does not need.
+rules, bundle content is not injected into agent instructions. AXM adds only a
+name, publisher description, and canonical link; bundle content is opened on
+demand, without spending context on material the task does not need.
 
 Bundles use [Open Knowledge Format
 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md),
@@ -123,37 +123,33 @@ axm knowledge update --preview
 axm knowledge uninstall platform
 ```
 
-## Agent-facing projection
+## Instruction discovery
 
-Enabled bundles are projected by manifest identity under
-`.agents/knowledge/@owner/name` by default. AXM prefers relative directory
-symlinks and falls back to managed copies when symlinks are unavailable. The
-aggregate `.agents/knowledge/index.md` lists enabled bundles deterministically,
-and a managed instruction-file region directs agents to that index while
-identifying Knowledge content as untrusted reference material.
+When instruction management is enabled, AXM writes one managed `Knowledge Base`
+table to the canonical instruction source. Rows sort by owner and bundle name,
+and link directly to each installed bundle's canonical `src/index.md`. Existing
+instruction aliases continue to propagate from that canonical source.
 
-`.agents/knowledge` is an AXM convention rather than a native agent discovery
-directory. Set `knowledgeConfig.directory` in `.axm/settings.json` to choose
-another path relative to the active project or user scope:
+Discovery is enabled by default. Disable only the table with:
 
 ```jsonc
 {
   "knowledgeConfig": {
-    "directory": "docs/agent-knowledge",
+    "instructions": false,
   },
 }
 ```
 
-The path must remain inside the active scope and must not overlap `.axm`.
-Changing it and running `axm sync` builds and verifies the new projection before
-removing AXM-managed artifacts from the old location. Unknown files are
-preserved.
+This does not uninstall, distrust, or disable Knowledge, and search/open remain
+available. Global instruction ownership remains under `rulesConfig.instructions`;
+when that setting is absent or false, Knowledge does not mutate instruction
+files.
 
 `axm sync` restores missing canonical content from exact locked registry
 versions or pinned git trees, treats local and workspace sources as
-authoritative, and reconciles the projection without advancing versions. Use
-`axm sync --dry-run` to preview creates, updates, removals, and the selected
-symlink or copy mechanism.
+authoritative, and reconciles the table without advancing versions. Use
+`axm sync --preview` to preview table changes and conservative cleanup of legacy
+AXM-managed Knowledge projections. Unknown files are preserved.
 
 ## Discovery
 
@@ -188,7 +184,7 @@ or an object with `source` plus optional flags:
 Use `axm knowledge disable <name>` to drop a bundle out of search and discovery
 while keeping it installed, and `axm knowledge enable <name>` to restore it.
 Prefer the CLI over hand-editing — it normalizes the shape and refreshes the
-concept index.
+instruction discovery table.
 
 ## Publishing
 
@@ -204,5 +200,5 @@ exists.
 - `axm knowledge --help` — full knowledge subcommand surface
 - `axm help knowledge-schema` — raw `knowledge.json` JSON Schema
 - `axm help settings` — workspace state and the `knowledge` map
-- `axm help workspace-state` — bundle, index, and discovery reconciliation
+- `axm help workspace-state` — bundle and discovery reconciliation
 - `axm help authoring` — descriptions, keywords, and READMEs for the registry

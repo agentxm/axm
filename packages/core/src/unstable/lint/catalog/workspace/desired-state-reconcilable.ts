@@ -69,7 +69,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
             observation.type === "pack" && observation.status === "locally-modified"
               ? ` Run \`axm packs repair ${observation.name} --preview\` to inspect the supported recovery.`
               : observation.status === "locally-modified"
-                ? ` Review \`axm sync ${identity} --dry-run\`; applying sync restores trusted source content and discards these local modifications.`
+                ? ` Review \`axm sync ${identity} --preview\`; applying sync restores trusted source content and discards these local modifications.`
                 : " Run `axm status` to inspect the blocking local state.";
           return [
             {

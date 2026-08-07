@@ -434,11 +434,7 @@ export const makeBaseWorkspaceMock = (
     updateHookEntry: () => Effect.void,
     setHookEntry: () => Effect.void,
     getConfiguredKnowledgeEntries: () => Effect.succeed({}),
-    getKnowledgeProjectionConfig: () =>
-      Effect.succeed({
-        directory: ".agents/knowledge",
-        dir: path.join(path.dirname(axmDir), ".agents", "knowledge"),
-      }),
+    getKnowledgeDiscoveryConfig: () => Effect.succeed({ instructions: true }),
     getLockedKnowledge: () => Effect.succeed({}),
     getLockedKnowledgeEntry: () => Effect.succeed(Option.none()),
     setKnowledge: () => Effect.void,

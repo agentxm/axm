@@ -66,6 +66,50 @@ describe("runWorkspaceTransaction", () => {
     ),
   );
 
+  it.effect("restores every authoritative state family after an injected write failure", () => {
+    const trustPath = nodePath.join(workspaceDir, "trust.json");
+    const canonicalFile = nodePath.join(canonicalPath, "content.txt");
+    const projectionPath = nodePath.join(tempDir, ".claude", "skills", "demo", "SKILL.md");
+    nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });
+    nodeFs.writeFileSync(trustPath, '{"trusted":true}\n');
+    nodeFs.writeFileSync(projectionPath, "projected before\n");
+
+    const families = [
+      { family: "desired settings", target: settingsPath },
+      { family: "observed canonical content", target: canonicalFile },
+      { family: "managed projection", target: projectionPath },
+      { family: "trust state", target: trustPath },
+    ] as const;
+
+    return withContext(
+      Effect.forEach(
+        families,
+        ({ family, target }) => {
+          const before = nodeFs.readFileSync(target, "utf8");
+          return runWorkspaceTransaction({
+            workspaceDir,
+            targets: [target],
+            transition: Effect.sync(() => nodeFs.writeFileSync(target, `${family} changed\n`)).pipe(
+              Effect.andThen(
+                Effect.fail(makeAppError({ code: "internal", detail: `${family} failure` })),
+              ),
+            ),
+            validate: () => Effect.void,
+          }).pipe(
+            Effect.flip,
+            Effect.tap((error) =>
+              Effect.sync(() => {
+                expect(error.detail).toBe(`${family} failure`);
+                expect(nodeFs.readFileSync(target, "utf8"), family).toBe(before);
+              }),
+            ),
+          );
+        },
+        { discard: true },
+      ),
+    );
+  });
+
   it.effect("removes targets that did not exist before a failed transition", () => {
     const createdPath = nodePath.join(workspaceDir, "created.json");
     return withContext(
@@ -81,6 +125,28 @@ describe("runWorkspaceTransaction", () => {
       }).pipe(
         Effect.flip,
         Effect.tap(() => Effect.sync(() => expect(nodeFs.existsSync(createdPath)).toBe(false))),
+      ),
+    );
+  });
+
+  it.effect("removes a workspace state directory created for a failed transition", () => {
+    const absentWorkspaceDir = nodePath.join(tempDir, "new-workspace", ".axm");
+    const createdPath = nodePath.join(absentWorkspaceDir, "settings.json");
+    return withContext(
+      runWorkspaceTransaction({
+        workspaceDir: absentWorkspaceDir,
+        targets: [createdPath],
+        transition: Effect.sync(() => nodeFs.writeFileSync(createdPath, "created\n")).pipe(
+          Effect.andThen(
+            Effect.fail(makeAppError({ code: "internal", detail: "injected transition failure" })),
+          ),
+        ),
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.flip,
+        Effect.tap(() =>
+          Effect.sync(() => expect(nodeFs.existsSync(absentWorkspaceDir)).toBe(false)),
+        ),
       ),
     );
   });

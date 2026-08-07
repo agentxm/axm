@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { detectAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  forceFlag,
+  acceptWarningsFlag,
   previewFlag,
   Verbosity,
   yesFlag,
@@ -29,6 +29,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
+import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
@@ -46,6 +47,14 @@ export interface AgentsAddArgs {
 const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJobStep => ({
   label: `Add ${agentId}`,
   readiness: "ready",
+  artifact: {
+    path: AGENT_SETTINGS_PATH,
+    scope: ws.scope,
+    agents: [agentId],
+    change: "updated",
+    fileCount: 1,
+    targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+  },
   run: ws.addConfiguredAgent(agentId).pipe(
     Effect.as({
       result: "success",
@@ -125,8 +134,13 @@ const attachMaterializationArtifact = (
   step: PlannedJobStep,
 ): PlannedJobStep => {
   if (step.readiness === "error") return step;
+  const artifact =
+    step.artifact === undefined
+      ? materializationArtifact(ws, agentIds)
+      : filterMaterializationArtifact(step.artifact, agentIds);
   return {
     ...step,
+    artifact,
     run: Effect.gen(function* () {
       const result = yield* step.run;
       if (result.result === "error") return result;
@@ -257,16 +271,35 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
 
   const materialize = yield* renderer.withSpinner(
     "Resolving installed extension materialization",
-    () => collectMaterializeSteps(),
+    () =>
+      collectMaterializeSteps({
+        selection: { target: Option.none(), type: Option.none() },
+        configuredAgents: [...configured, ...agentIds],
+      }),
     { successMessage: "Resolved installed extension materialization" },
   );
   const materializeSteps = materialize.steps.map((step) =>
     attachMaterializationArtifact(ws, agentIds, step),
   );
-  const plan = makePlan(agentIds, [
-    ...agentIds.map((agentId) => addAgentStep(ws, agentId)),
-    ...materializeSteps,
-  ]);
+  const steps = [...agentIds.map((agentId) => addAgentStep(ws, agentId)), ...materializeSteps];
+  const atomicSteps = yield* makeAtomicMembershipSteps({
+    ws,
+    steps,
+    validate: () =>
+      ws.getConfiguredAgents().pipe(
+        Effect.flatMap((current) => {
+          const currentSet = new Set(current);
+          const missing = agentIds.filter((agentId) => !currentSet.has(agentId));
+          return missing.length === 0
+            ? Effect.void
+            : makeAppError({
+                code: "internal",
+                detail: `Agent membership transition did not configure: ${missing.join(", ")}`,
+              });
+        }),
+      ),
+  });
+  const plan = makePlan(agentIds, atomicSteps);
 
   // Goes through the reconciling resolver rather than the local one: adding an
   // agent materializes installed extensions, which needs a readable lockfile.
@@ -316,7 +349,7 @@ const addConfig = {
   ),
   detected: Flag.boolean("detected").pipe(Flag.withDescription("Add detected agents")),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
+  force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 

@@ -14,8 +14,8 @@
  * cannot become occurrences; `actual` is therefore scoped to the materialized
  * bundle package directory by construction.
  *
- * Pack lock entries carry no `resolvedKnowledge` map, so the projection runs
- * with `TPackMember = never`: bundles are installed directly or not at all.
+ * Pack-resolved Knowledge members participate in the same direct-over-pack
+ * projection as every other extension type.
  */
 
 import * as Effect from "effect/Effect";
@@ -72,9 +72,14 @@ export interface ActualKnowledgeBundle {
 }
 export type ActualKnowledge = ReadonlyArray<ActualKnowledgeBundle>;
 
+export interface KnowledgePackMember {
+  readonly name: ExtensionName;
+  readonly providingPack: InstalledPackRef;
+}
+
 export interface InstalledKnowledgeBundle {
   readonly key: ExtensionKey<"knowledge">;
-  readonly installationOrigin: InstallationOrigin<DeclaredKnowledgeBundle, never>;
+  readonly installationOrigin: InstallationOrigin<DeclaredKnowledgeBundle, KnowledgePackMember>;
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedKnowledgeBundle>;
   readonly actual: ReadonlyArray<ActualKnowledgeBundle>;
@@ -137,7 +142,13 @@ export interface KnowledgeExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: KnowledgeScopedLoaders;
   readonly scanners: KnowledgeScanners;
+  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForKnowledge>>;
   readonly diagnostics: Diagnostics;
+}
+
+export interface InstalledPackForKnowledge {
+  readonly ref: InstalledPackRef;
+  readonly knowledge: ReadonlyArray<KnowledgePackMember>;
 }
 
 export interface KnowledgeExtensionsApi {
@@ -167,10 +178,7 @@ const knowledgePolicy = (
   DeclaredKnowledge,
   ResolvedKnowledge,
   ActualKnowledge,
-  // `never` rather than a member type: pack lock entries carry no
-  // `resolvedKnowledge` map, so the projection helper never invokes
-  // pack-member callbacks.
-  never,
+  KnowledgePackMember,
   InstalledKnowledgeBundle,
   UnmanagedKnowledgeBundle
 > => ({
@@ -181,9 +189,7 @@ const knowledgePolicy = (
   resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  // `m: never` — the helper invocation passes `TPackMember = never`, so this
-  // callback is statically uninhabitable. Returning `m` satisfies `string`.
-  packMemberName: (m) => m,
+  packMemberName: (member) => member.name,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -224,18 +230,16 @@ export const makeKnowledgeExtensionsApi = (
       return filterMapOccurrences(canonical, "knowledge", (occ) => canonicalToActual(occ, scope));
     });
 
-    const installedPacks: Effect.Effect<
-      ReadonlyArray<{ readonly ref: InstalledPackRef; readonly members: ReadonlyArray<never> }>
-    > = Effect.succeed([]);
-
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,
-        installedPacks,
-        packMembers: (pack) => pack.members,
+        installedPacks: deps.installedPacks,
+        packMembers: (pack: {
+          readonly knowledge: ReadonlyArray<KnowledgePackMember>;
+        }): ReadonlyArray<KnowledgePackMember> => pack.knowledge,
         packRef: (pack) => pack.ref,
         policy: knowledgePolicy(scope),
         diagnostics,

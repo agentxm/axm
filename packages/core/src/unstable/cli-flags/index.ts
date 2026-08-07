@@ -24,6 +24,7 @@ export const jsonFlag = GlobalFlag.setting("axm-json")({
 
 export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
+    Flag.withAlias("v"),
     Flag.withDescription("Show additional diagnostic details for errors"),
   ),
 });
@@ -67,9 +68,32 @@ export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withDescription("Auto-accept confirmation prompts"),
 );
 
-export const forceFlag = Flag.boolean("force").pipe(
-  Flag.withAlias("f"),
-  Flag.withDescription("Override constraints that would cause failure"),
+export const reinstallFlag = Flag.boolean("reinstall").pipe(
+  Flag.withDescription("Reinstall content that is already installed"),
+);
+
+export const refreshFlag = Flag.boolean("refresh").pipe(
+  Flag.withDescription("Run update even when the installed version is already current"),
+);
+
+export const ignoreVersionConstraintsFlag = Flag.boolean("ignore-version-constraints").pipe(
+  Flag.withDescription("Update even when the configured version constraint excludes the result"),
+);
+
+export const breakDependenciesFlag = Flag.boolean("break-dependencies").pipe(
+  Flag.withDescription("Remove the target even when another extension still references it"),
+);
+
+export const acceptWarningsFlag = Flag.boolean("accept-warnings").pipe(
+  Flag.withDescription("Apply the plan even when preflight reports unresolved warnings"),
+);
+
+export const replaceExistingFlag = Flag.boolean("replace-existing").pipe(
+  Flag.withDescription("Replace the pack's existing declaration for this extension"),
+);
+
+export const allowEmptyFlag = Flag.boolean("allow-empty").pipe(
+  Flag.withDescription("Remove the extension even when the pack would become empty"),
 );
 
 export const previewFlag = Flag.boolean("preview").pipe(

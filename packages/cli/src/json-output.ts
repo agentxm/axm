@@ -37,6 +37,7 @@ import {
   formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 
 export interface PlanResolutionResultOptions {
   readonly verbose?: boolean;
@@ -594,6 +595,10 @@ export const emitPlanResolutionResult = <TCommand extends string>(
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const verbosity = yield* Verbosity;
+    const suggestions =
+      options?.suggestions === undefined
+        ? undefined
+        : yield* suggestionsForCurrentWorkspace(options.suggestions);
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
@@ -615,6 +620,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       PlanResolutionDocumentSchema,
       {
         ...options,
+        ...(suggestions === undefined ? {} : { suggestions }),
         ok: result.outcome !== "failed" && result.outcome !== "partial",
       },
     );
@@ -717,16 +723,13 @@ export const emitNoOpResult = <TCommand extends string>(
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
   },
-) => {
-  const options = {
-    ...(args.suggestions !== undefined ? { suggestions: args.suggestions } : {}),
-    ...(args.withoutSuggestions !== undefined
-      ? { withoutSuggestions: args.withoutSuggestions }
-      : {}),
-  };
-
-  return Effect.gen(function* () {
+) =>
+  Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const suggestions =
+      args.suggestions === undefined
+        ? undefined
+        : yield* suggestionsForCurrentWorkspace(args.suggestions);
     return yield* renderer.result(
       {
         result: {
@@ -745,7 +748,11 @@ export const emitNoOpResult = <TCommand extends string>(
         },
       },
       PlanResolutionDocumentSchema,
-      options,
+      {
+        ...(suggestions === undefined ? {} : { suggestions }),
+        ...(args.withoutSuggestions === undefined
+          ? {}
+          : { withoutSuggestions: args.withoutSuggestions }),
+      },
     );
   });
-};

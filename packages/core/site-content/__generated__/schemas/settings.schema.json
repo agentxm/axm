@@ -425,16 +425,16 @@
     "KnowledgeConfig": {
       "type": "object",
       "properties": {
-        "directory": {
-          "type": "string",
-          "description": "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
-          "default": ".agents/knowledge",
-          "examples": [".agents/knowledge", "docs/agent-knowledge"]
+        "instructions": {
+          "type": "boolean",
+          "description": "Whether active Knowledge is synchronized into the canonical instruction source. Omit true; persist only false.",
+          "default": true,
+          "examples": [false]
         }
       },
       "additionalProperties": false,
       "title": "Knowledge Config",
-      "description": "Agent-facing projection settings for knowledge bundles."
+      "description": "Knowledge discovery settings. Omit the config to synchronize active bundles into instructions; set instructions to false to disable that table."
     },
     "SubagentEntry": {
       "anyOf": [
@@ -701,11 +701,11 @@
         },
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
-          "description": "Desired Open Knowledge Format bundles, isolated from agent instruction files."
+          "description": "Desired Open Knowledge Format bundles discovered from agent instruction files."
         },
         "knowledgeConfig": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeConfig" }],
-          "description": "Feature-level and projection options for knowledge bundle management."
+          "description": "Feature-level instruction discovery options for knowledge bundle management."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

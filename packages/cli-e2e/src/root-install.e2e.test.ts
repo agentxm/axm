@@ -41,7 +41,13 @@ interface JsonCommandResult {
       readonly outcome: string;
       readonly appliedCount: number;
       readonly totalSteps: number;
-      readonly steps: ReadonlyArray<{ readonly label: string }>;
+      readonly steps: ReadonlyArray<{
+        readonly label: string;
+        readonly artifact?: {
+          readonly path?: string;
+          readonly targets?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+        };
+      }>;
     };
   };
   readonly stderr: string;
@@ -399,6 +405,16 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
   return publish;
 };
 
+const expectCleanWorkspace = async (workspacePath: string, context: string): Promise<void> => {
+  for (const command of [["status"], ["lint"]]) {
+    const result = await runCli(command, { cwd: workspacePath });
+    expect(
+      result.exitCode,
+      `${context}: axm ${command.join(" ")}\n${result.stdout}${result.stderr}`,
+    ).toBe(0);
+  }
+};
+
 describe("axm install", () => {
   it("classifies every extension type as covered or ledgered", () => {
     // A type with neither a publisher nor a ledger row would silently vanish
@@ -411,6 +427,141 @@ describe("axm install", () => {
     // leaves stale debt behind.
     expect(installCases.filter((row) => row.e2eExemptions.length > 0)).toStrictEqual([]);
   });
+
+  it("moves every leaf type through one atomic pack graph", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const workspace = createTempDir();
+    const leafRows = installCases.filter((row) => row.type !== "pack");
+    const packName = "all-leaves";
+    const memberName = (row: ExtensionTypeMatrixRow): string => `pack-${row.type}`;
+
+    try {
+      for (const row of leafRows) {
+        await publisherFor(row)(registryDir.path, memberName(row));
+      }
+      await publishPackToRegistry(registryDir.path, packName, {
+        dependencies: Object.fromEntries(
+          leafRows.map((row) => [registryFqn(row.plural, memberName(row)), "*"]),
+        ),
+      });
+
+      await initWorkspace(workspace.path, registryDir.path);
+      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const initialSettings = readSettings(workspace.path);
+      initialSettings.lint = {
+        rules: {
+          "hook/matcher-raw-portability": "off",
+          "workspace/agents-detected-declared": "off",
+        },
+      };
+      fs.writeFileSync(settingsPath, JSON.stringify(initialSettings, null, 2));
+
+      const installed = await runJsonCommand(
+        workspace.path,
+        ["packs", "install"],
+        [registryFqn("packs", packName)],
+      );
+      expect(installed.stdout.result.outcome).toBe("applied");
+      const installedJson = JSON.stringify(installed.stdout.result);
+      for (const row of leafRows) {
+        expect(installedJson).toContain(memberName(row));
+      }
+      await expectCleanWorkspace(workspace.path, "all leaf members installed");
+
+      const disablePreview = await runJsonCommand(
+        workspace.path,
+        ["packs", "disable", packName],
+        ["--preview"],
+      );
+      expect(disablePreview.stdout.result.outcome).toBe("previewed");
+      const disablePreviewJson = JSON.stringify(disablePreview.stdout.result);
+      for (const row of leafRows) {
+        expect(disablePreviewJson).toContain(memberName(row));
+      }
+
+      const disabled = await runJsonCommand(workspace.path, ["packs", "disable", packName]);
+      expect(disabled.stdout.result.outcome).toBe("applied");
+      for (const row of leafRows) {
+        const canonical = extensionDirForSurface(workspace.path, row.plural, memberName(row));
+        expect(fs.existsSync(canonical), `${row.type} canonical root retained`).toBe(true);
+        if (row.type === "skill") {
+          expect(fs.existsSync(path.join(canonical, "src")), "skill canonical src retained").toBe(
+            true,
+          );
+        }
+      }
+      await expectCleanWorkspace(workspace.path, "all leaf members disabled");
+
+      const enabled = await runJsonCommand(workspace.path, ["packs", "enable", packName]);
+      expect(enabled.stdout.result.outcome).toBe("applied");
+      await expectCleanWorkspace(workspace.path, "all leaf members enabled");
+
+      const unpackPreview = await runJsonCommand(
+        workspace.path,
+        ["packs", "unpack", packName],
+        ["--preview"],
+      );
+      expect(unpackPreview.stdout.result.outcome).toBe("previewed");
+      const unpackPreviewJson = JSON.stringify(unpackPreview.stdout.result);
+      expect(unpackPreviewJson).toContain(`@test/packs/${packName}`);
+      for (const row of leafRows) {
+        expect(unpackPreviewJson).toContain(memberName(row));
+      }
+
+      const unpacked = await runJsonCommand(workspace.path, ["packs", "unpack", packName]);
+      expect(unpacked.stdout.result.outcome).toBe("applied");
+      const finalSettings = readSettings(workspace.path);
+      expect(finalSettings.packs?.[packName]).toBeUndefined();
+      for (const row of leafRows) {
+        expect(finalSettings[settingsKeyForSurface(row.plural)]?.[memberName(row)]).toBeDefined();
+      }
+      await expectCleanWorkspace(workspace.path, "all leaf members unpacked");
+
+      const reinstalled = await runJsonCommand(workspace.path, [
+        "packs",
+        "install",
+        `@test/packs/${packName}`,
+      ]);
+      expect(reinstalled.stdout.result.outcome).toBe("applied");
+      for (const row of leafRows) {
+        const removedDirect = await runJsonCommand(workspace.path, [
+          "uninstall",
+          registryFqn(row.plural, memberName(row)),
+        ]);
+        expect(removedDirect.stdout.result.outcome).toBe("applied");
+        expect(
+          fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
+          `${row.type} canonical root retained by pack`,
+        ).toBe(true);
+      }
+      await expectCleanWorkspace(workspace.path, "all leaf members pack-only");
+
+      const uninstallPreview = await runJsonCommand(
+        workspace.path,
+        ["packs", "uninstall", packName],
+        ["--preview"],
+      );
+      expect(uninstallPreview.stdout.result.outcome).toBe("previewed");
+      const uninstallPreviewJson = JSON.stringify(uninstallPreview.stdout.result);
+      expect(uninstallPreviewJson).toContain(`@test/packs/${packName}`);
+      for (const row of leafRows) {
+        expect(uninstallPreviewJson).toContain(memberName(row));
+      }
+
+      const uninstalled = await runJsonCommand(workspace.path, ["packs", "uninstall", packName]);
+      expect(uninstalled.stdout.result.outcome).toBe("applied");
+      for (const row of leafRows) {
+        expect(
+          fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
+          `${row.type} exclusive canonical root removed`,
+        ).toBe(false);
+      }
+      await expectCleanWorkspace(workspace.path, "all leaf members uninstalled");
+    } finally {
+      registryDir.cleanup();
+      workspace.cleanup();
+    }
+  }, 120_000);
 
   for (const row of uncoveredCases) {
     it.skip(`installs a published ${row.sentenceLabel} — ${row.e2eExemptions.join(", ")}`, () => {
@@ -498,7 +649,7 @@ describe("axm install", () => {
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
         expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.appliedCount).toBe(surface === "packs" ? 4 : 2);
+        expect(result.stdout.result.appliedCount).toBe(2);
         expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
@@ -537,9 +688,13 @@ describe("axm install", () => {
       const labels = result.stdout.result.steps.map((step) => step.label);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(6);
+      expect(result.stdout.result.appliedCount).toBe(5);
       expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
-      expect(labels.some((label) => label.includes("pack-mcp"))).toBe(true);
+      expect(
+        result.stdout.result.steps.some((step) =>
+          step.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
+        ),
+      ).toBe(true);
 
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["workspace-skill"]);
       expectConfiguredEntriesInstalled(workspace.path, "subagents", ["workspace-subagent"]);

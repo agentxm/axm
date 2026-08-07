@@ -13,6 +13,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "./scope.js";
 import { WorkspaceMutations } from "./service-interface.js";
+import { protectWorkspacePath } from "./transaction.js";
 
 // Match the full managed-file banner ("AXM managed file — do not edit
 // directly…"), not a bare "AXM managed" substring: the loose form would flag —
@@ -26,7 +27,10 @@ export interface RenderedFileCleanupResult {
 
 export interface RemovedAgentArtifactCleanupResult {
   readonly removedPaths: ReadonlyArray<string>;
+  readonly preservedPaths: ReadonlyArray<string>;
 }
+
+type RemovedAgentCleanupPaths = RemovedAgentArtifactCleanupResult;
 
 const extensionNameFromFilename = (fileName: string): string => {
   const dotIndex = fileName.indexOf(".");
@@ -41,16 +45,23 @@ const isWithin = (path: Path.Path, parent: string, child: string): boolean => {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 };
 
-const removePath = (fs: FileSystem.FileSystem, filePath: string): Effect.Effect<void, AppError> =>
-  fs.remove(filePath, { recursive: true }).pipe(
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to remove managed agent artifact: ${filePath}`,
-        cause: error,
-      }),
-    ),
-  );
+const removePath = (
+  fs: FileSystem.FileSystem,
+  filePath: string,
+  dryRun: boolean,
+): Effect.Effect<void, AppError> =>
+  dryRun
+    ? Effect.void
+    : protectWorkspacePath(filePath).pipe(
+        Effect.andThen(fs.remove(filePath, { recursive: true })),
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to remove managed agent artifact: ${filePath}`,
+            cause: error,
+          }),
+        ),
+      );
 
 const safeReadDirectory = (fs: FileSystem.FileSystem, dir: string, recursive = false) =>
   fs
@@ -72,9 +83,11 @@ const cleanupSkillArtifactsInDir = (args: {
   readonly path: Path.Path;
   readonly baseDir: string;
   readonly skillsDir: string;
+  readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
     const removedPaths: Array<string> = [];
+    const preservedPaths: Array<string> = [];
     const entries = yield* safeReadDirectory(args.fs, args.skillsDir);
     const extensionsDir = args.path.join(args.baseDir, REGISTRY_EXTENSIONS_DIR);
 
@@ -83,30 +96,42 @@ const cleanupSkillArtifactsInDir = (args: {
       const linkTarget = yield* args.fs.readLink(artifactPath).pipe(Effect.option);
       if (linkTarget._tag === "Some") {
         const resolvedTarget = args.path.resolve(args.skillsDir, linkTarget.value);
-        if (!isWithin(args.path, extensionsDir, resolvedTarget)) continue;
-        yield* removePath(args.fs, artifactPath);
+        if (!isWithin(args.path, extensionsDir, resolvedTarget)) {
+          preservedPaths.push(artifactPath);
+          continue;
+        }
+        yield* removePath(args.fs, artifactPath, args.dryRun);
         removedPaths.push(artifactPath);
         continue;
       }
 
       const stat = yield* args.fs.stat(artifactPath).pipe(Effect.option);
-      if (stat._tag === "None" || stat.value.type !== "Directory") continue;
+      if (stat._tag === "None") continue;
+      if (stat.value.type !== "Directory") {
+        preservedPaths.push(artifactPath);
+        continue;
+      }
       const managedCopy = yield* hasManagedSkillCopyMarker(args.fs, args.path, artifactPath);
-      if (!managedCopy) continue;
-      yield* removePath(args.fs, artifactPath);
+      if (!managedCopy) {
+        preservedPaths.push(artifactPath);
+        continue;
+      }
+      yield* removePath(args.fs, artifactPath, args.dryRun);
       removedPaths.push(artifactPath);
     }
 
-    return removedPaths;
+    return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
   });
 
 const cleanupSubagentArtifactsInDir = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly subagentsDir: string;
+  readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
     const removedPaths: Array<string> = [];
+    const preservedPaths: Array<string> = [];
     const entries = yield* safeReadDirectory(args.fs, args.subagentsDir);
 
     for (const entry of entries) {
@@ -114,12 +139,15 @@ const cleanupSubagentArtifactsInDir = (args: {
       const stat = yield* args.fs.stat(filePath).pipe(Effect.option);
       if (stat._tag === "None" || stat.value.type !== "File") continue;
       const content = yield* safeReadFileString(args.fs, filePath);
-      if (!hasAxmManagedMarker(content)) continue;
-      yield* removePath(args.fs, filePath);
+      if (!hasAxmManagedMarker(content)) {
+        preservedPaths.push(filePath);
+        continue;
+      }
+      yield* removePath(args.fs, filePath, args.dryRun);
       removedPaths.push(filePath);
     }
 
-    return removedPaths;
+    return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
   });
 
 /** Discover one subagent's AXM-managed files without mutating the workspace. */
@@ -148,13 +176,14 @@ interface RemovedAgentCleanupContext {
   readonly agent: CodingAgent;
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
+  readonly dryRun: boolean;
 }
 
 type RemovedAgentCleanup = (
   context: RemovedAgentCleanupContext,
-) => Effect.Effect<ReadonlyArray<string>, AppError, FileSystem.FileSystem | Path.Path>;
+) => Effect.Effect<RemovedAgentCleanupPaths, AppError, FileSystem.FileSystem | Path.Path>;
 
-const NO_PATHS: ReadonlyArray<string> = [];
+const NO_PATHS: RemovedAgentCleanupPaths = { removedPaths: [], preservedPaths: [] };
 
 const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
   Effect.gen(function* () {
@@ -167,6 +196,7 @@ const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
       path: context.path,
       baseDir: context.workspaceRoot,
       skillsDir: skillsDir.dir,
+      dryRun: context.dryRun,
     });
   });
 
@@ -181,6 +211,7 @@ const cleanupAgentSubagents: RemovedAgentCleanup = (context) =>
       fs: context.fs,
       path: context.path,
       subagentsDir: subagentsDir.dir,
+      dryRun: context.dryRun,
     });
   });
 
@@ -195,9 +226,13 @@ const cleanupAgentMcpServers: RemovedAgentCleanup = (context) =>
       workspaceRoot: context.workspaceRoot,
       declaredServerNames: new Set<string>(),
       scope: context.scope,
+      dryRun: context.dryRun,
     });
     if (outcome._tag !== "success") return NO_PATHS;
-    return (outcome.targets ?? []).map((target) => target.path);
+    return {
+      removedPaths: (outcome.targets ?? []).map((target) => target.path),
+      preservedPaths: [],
+    } satisfies RemovedAgentCleanupPaths;
   });
 
 /**
@@ -228,18 +263,21 @@ const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
       const next = yield* stripManagedHooksFromJson(configPath, writer.settingsKey, raw);
       if (next === raw) continue;
 
-      yield* context.fs.writeFileString(configPath, next).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to strip managed hooks from: ${configPath}`,
-            cause: error,
-          }),
-        ),
-      );
+      if (!context.dryRun) {
+        yield* protectWorkspacePath(configPath);
+        yield* context.fs.writeFileString(configPath, next).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to strip managed hooks from: ${configPath}`,
+              cause: error,
+            }),
+          ),
+        );
+      }
       removedPaths.push(configPath);
     }
-    return removedPaths;
+    return { removedPaths, preservedPaths: [] } satisfies RemovedAgentCleanupPaths;
   });
 
 /**
@@ -267,6 +305,7 @@ const cleanupByExtensionType = {
  */
 export const cleanupManagedArtifactsForRemovedAgents = (args: {
   readonly removedAgentIds: ReadonlySet<string>;
+  readonly dryRun?: boolean;
 }): Effect.Effect<
   RemovedAgentArtifactCleanupResult,
   AppError,
@@ -279,6 +318,7 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
     const agentRepo = yield* CodingAgentRepository;
     const agents = yield* agentRepo.all;
     const removedPaths: Array<string> = [];
+    const preservedPaths: Array<string> = [];
 
     for (const agent of agents) {
       if (!args.removedAgentIds.has(agent.id)) continue;
@@ -289,17 +329,24 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
         agent,
         workspaceRoot: ws.baseDir,
         scope: ws.scope,
+        dryRun: args.dryRun === true,
       };
       for (const type of PER_AGENT_EXTENSION_TYPES) {
-        removedPaths.push(...(yield* cleanupByExtensionType[type](context)));
+        const result = yield* cleanupByExtensionType[type](context);
+        removedPaths.push(...result.removedPaths);
+        preservedPaths.push(...result.preservedPaths);
       }
     }
 
-    return { removedPaths };
+    return {
+      removedPaths: [...new Set(removedPaths)],
+      preservedPaths: [...new Set(preservedPaths)],
+    };
   });
 
 export const cleanupStaleManagedSubagentFiles = (args: {
   readonly expectedSubagentNames: ReadonlySet<string>;
+  readonly dryRun?: boolean;
 }): Effect.Effect<
   RenderedFileCleanupResult,
   AppError,
@@ -343,15 +390,18 @@ export const cleanupStaleManagedSubagentFiles = (args: {
           args.expectedSubagentNames.has(extensionNameFromFilename(entry));
         if (expected) continue;
 
-        yield* fs.remove(filePath).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to remove stale managed subagent file: ${filePath}`,
-              cause: error,
-            }),
-          ),
-        );
+        if (args.dryRun !== true) {
+          yield* protectWorkspacePath(filePath);
+          yield* fs.remove(filePath).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove stale managed subagent file: ${filePath}`,
+                cause: error,
+              }),
+            ),
+          );
+        }
         removedPaths.push(filePath);
       }
     }

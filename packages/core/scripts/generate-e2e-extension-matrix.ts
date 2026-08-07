@@ -14,19 +14,22 @@ import * as path from "node:path";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
 
 import { exemptedObligations } from "../src/unstable/extension-types/parity/exemptions.js";
+import { EXTENSION_LIFECYCLE_CONTRACT } from "../src/unstable/extension-types/parity/lifecycle.js";
+import { obligationsVerifiedBy } from "../src/unstable/extension-types/parity/obligations.js";
 import { EXTENSION_TYPE_TABLE, extensionTypes } from "../src/unstable/extensions/common.js";
 
 const CORE_ROOT = path.join(import.meta.dirname, "..");
 const OUTPUT_PATH = path.join(CORE_ROOT, "../cli-e2e/src/__generated__/extension-type-matrix.ts");
 
-// Packs are not a catalog type, so they carry no ledger rows.
 const e2eExemptions: Readonly<Record<string, ReadonlyArray<string>>> = exemptedObligations("e2e");
+const e2eObligations = obligationsVerifiedBy("e2e");
 
 // Publishability is a CLI-owned decision (`PUBLISHABLE_TYPES`), so it is not
 // emitted here — importing it would invert the core → cli dependency. The e2e
 // suite carries its own total record of per-type publishers instead.
 const rows = extensionTypes.map((type) => {
   const row = EXTENSION_TYPE_TABLE[type];
+  const lifecycle = EXTENSION_LIFECYCLE_CONTRACT[type];
   return {
     type,
     plural: row.plural,
@@ -34,6 +37,12 @@ const rows = extensionTypes.map((type) => {
     sentenceLabel: row.sentenceLabel,
     placement: row.placement,
     installInputs: row.installInputs,
+    workspaceCapability: row.workspaceCapability,
+    mutations: lifecycle.mutations,
+    scopeSupport: lifecycle.scopeSupport,
+    updateSelection: lifecycle.updateSelection,
+    activationConfirmation: lifecycle.activationConfirmation,
+    e2eObligations,
     e2eExemptions: e2eExemptions[type] ?? [],
   };
 });
@@ -47,6 +56,12 @@ const rowEntries = rows
     sentenceLabel: ${JSON.stringify(row.sentenceLabel)},
     placement: ${JSON.stringify(row.placement)},
     installInputs: ${JSON.stringify(row.installInputs)},
+    workspaceCapability: ${JSON.stringify(row.workspaceCapability)},
+    mutations: ${JSON.stringify(row.mutations)},
+    scopeSupport: ${JSON.stringify(row.scopeSupport)},
+    updateSelection: ${JSON.stringify(row.updateSelection)},
+    activationConfirmation: ${JSON.stringify(row.activationConfirmation)},
+    e2eObligations: ${JSON.stringify(row.e2eObligations)},
     e2eExemptions: ${JSON.stringify(row.e2eExemptions)},
   },`,
   )

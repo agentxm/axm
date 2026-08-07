@@ -3,7 +3,6 @@ import { Command } from "effect/unstable/cli";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
-import { knowledgeVersionCommand as versionCommand } from "../shared/version-command.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
 import { installCommand } from "./install/command.js";
@@ -50,7 +49,6 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
     lintCommand,
     enableCommand,
     disableCommand,
-    versionCommand,
     publishCommand,
   ]),
 );

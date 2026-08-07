@@ -22,7 +22,7 @@ import {
   runPublishAuthorization,
 } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   ExtensionDependencyConstraintMapSchema,
@@ -82,22 +82,18 @@ import {
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { scopeFlag } from "../../cli-flags.js";
 import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import {
-  allowOlderFlag,
-  allowUnsafeArchiveFlag,
+  backfillFlag,
   onExistingFlag,
   resolveExistingVersionPolicy,
-  skipExistingFlag,
   type OnExistingPolicy,
 } from "../shared/publish-flags.js";
 import {
   alreadyPublishedVersionConflict,
   nonMonotonicVersionConflict,
 } from "../shared/publish-preflight.js";
-import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 
 /**
  * Publish policy, total over every extension type: a new type cannot be added
@@ -202,18 +198,12 @@ interface PublishCandidate extends SelectedEntry {
   readonly archive: Uint8Array;
   readonly integrity: string;
   readonly action: "publish" | "skip";
-  readonly existingVersionPolicy: ExistingVersionPolicy;
+  readonly backfill: boolean;
 }
 
 interface TargetRegistry {
   readonly name: string;
   readonly url: string;
-}
-
-/** Explicit opt-outs from the publish safety gates, each behind its own flag. */
-interface PublishOverrides {
-  readonly allowOlder: boolean;
-  readonly allowUnsafeArchive: boolean;
 }
 
 export interface RootPublishHandlerArgs {
@@ -226,11 +216,8 @@ export interface RootPublishHandlerArgs {
   readonly registry: Option.Option<string>;
   readonly registryUrl: Option.Option<string>;
   readonly onExisting: Option.Option<ExistingVersionPolicy>;
-  readonly skipExisting: boolean;
-  readonly allowOlder: boolean;
-  readonly allowUnsafeArchive: boolean;
+  readonly backfill: boolean;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
@@ -633,7 +620,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   policy: ExistingVersionPolicy,
   registry: TargetRegistry,
   visibility: Option.Option<ExtensionVisibility>,
-  overrides: PublishOverrides,
+  backfillRequested: boolean,
 ) {
   if (selected.skipReason !== undefined) return undefined;
   if (!isPublishableType(selected.type)) return undefined;
@@ -746,23 +733,20 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       }),
     ),
   );
-  if (!overrides.allowUnsafeArchive) {
-    yield* checkForbiddenSourceEntries(archiveEntries).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Refusing to publish ${selected.fqn}: ${cause.message}`,
-          suggestions: [
-            {
-              description:
-                "Remove the entry from the extension directory, or re-run with --allow-unsafe-archive to publish it anyway.",
-            },
-          ],
-          cause,
-        }),
-      ),
-    );
-  }
+  yield* checkForbiddenSourceEntries(archiveEntries).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Refusing to publish ${selected.fqn}: ${cause.message}`,
+        suggestions: [
+          {
+            description: "Remove the unsafe entry from the extension directory.",
+          },
+        ],
+        cause,
+      }),
+    ),
+  );
   yield* Effect.fromResult(enforceArchiveSizeLimit(archive.length)).pipe(
     Effect.mapError((cause) =>
       makeAppError({
@@ -789,6 +773,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ? index.value.versions.find((entry) => entry.version === manifest.version)
     : undefined;
   let action: "publish" | "skip" = "publish";
+  let backfill = false;
   if (existing !== undefined) {
     if (policy === "error") {
       return yield* alreadyPublishedVersionConflict({
@@ -809,7 +794,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       });
     }
     action = "skip";
-  } else if (Option.isSome(index) && !overrides.allowOlder) {
+  } else if (Option.isSome(index)) {
     // The registry index is ordered by publish time, not by semver, so the
     // highest published version has to be reduced over every entry. Yanked
     // versions count: their version numbers stay burned.
@@ -819,11 +804,14 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       undefined,
     );
     if (highestPublished !== undefined && semver.lt(manifest.version, highestPublished)) {
-      return yield* nonMonotonicVersionConflict({
-        fqn: selected.fqn,
-        version: manifest.version,
-        highestPublished,
-      });
+      if (!backfillRequested) {
+        return yield* nonMonotonicVersionConflict({
+          fqn: selected.fqn,
+          version: manifest.version,
+          highestPublished,
+        });
+      }
+      backfill = true;
     }
   }
   return {
@@ -838,7 +826,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     archive,
     integrity,
     action,
-    existingVersionPolicy: policy,
+    backfill,
   } satisfies PublishCandidate;
 });
 
@@ -982,14 +970,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
-  const bulkSelection = args.selectors.length !== 1 || args.selectors.some(isGlobPattern);
-  const effectivePolicy = yield* resolveExistingVersionPolicy({
-    onExisting: args.onExisting,
-    skipExisting: args.skipExisting,
-    bulkSelection,
-  });
-  const includedDependencyPolicy: ExistingVersionPolicy =
-    Option.isNone(args.onExisting) && !args.skipExisting ? "verify" : effectivePolicy;
+  const effectivePolicy = resolveExistingVersionPolicy(args.onExisting);
   const prepared = yield* renderer.withSpinner(
     "Preparing publish candidates",
     () =>
@@ -1009,16 +990,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           selection.entries,
           (entry) =>
             Effect.result(
-              decodeCandidate(
-                entry,
-                entry.includedDependency === true ? includedDependencyPolicy : effectivePolicy,
-                registry,
-                args.visibility,
-                {
-                  allowOlder: args.allowOlder,
-                  allowUnsafeArchive: args.allowUnsafeArchive,
-                },
-              ),
+              decodeCandidate(entry, effectivePolicy, registry, args.visibility, args.backfill),
             ),
           { concurrency: 4 },
         );
@@ -1051,6 +1023,21 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return;
   }
 
+  const preflightResults = selected.map((entry, index) => {
+    const decodedResult = decoded[index];
+    if (decodedResult === undefined) return selectedResult(entry, undefined);
+    if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
+    return selectedResult(entry, decodedResult.success);
+  });
+  if (preflightErrors.length > 0) {
+    yield* emitPublishResult("publish", {
+      mode: args.preview ? "preview" : "apply",
+      selection: selectionOutput,
+      results: preflightResults,
+    });
+    return yield* aggregatePublishFailure(preflightErrors.length, preflightErrors);
+  }
+
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
@@ -1060,7 +1047,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
     authenticated: Option.isSome(storedToken),
     hasPublishCandidates: candidates.some((candidate) => candidate.action === "publish"),
   });
-  const publishConcurrency = isRemoteRegistry && Option.isNone(storedToken) ? 1 : 4;
 
   const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
     const run = publishCandidate(candidate, registry, args.visibility).pipe(
@@ -1074,30 +1060,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
     );
     return {
       readiness: "ready",
-      label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
-      run:
-        candidate.existingVersionPolicy === "error"
-          ? run
-          : run.pipe(
-              Effect.catch(
-                recoverPublishConflictAsSkipExisting({
-                  registryUrl: registry.url,
-                  target: {
-                    fqn: candidate.fqn,
-                    identity: {
-                      owner: candidate.owner,
-                      type: candidate.type,
-                      name: candidate.name,
-                      version: candidate.version,
-                    },
-                  },
-                  scope: args.scope,
-                  ...(candidate.existingVersionPolicy === "verify"
-                    ? { expectedIntegrity: candidate.integrity }
-                    : {}),
-                }),
-              ),
-            ),
+      label: `${candidate.action === "skip" ? "Verify" : candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
+      run,
     };
   };
 
@@ -1120,10 +1084,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
     .map(candidateStep);
   const jobs =
     dependencySteps.length === 0
-      ? [{ concurrency: publishConcurrency, steps: remainingSteps }]
+      ? [{ concurrency: 1, steps: remainingSteps }]
       : [
-          { concurrency: publishConcurrency, steps: dependencySteps },
-          { concurrency: publishConcurrency, steps: remainingSteps },
+          { concurrency: 1, steps: dependencySteps },
+          { concurrency: 1, steps: remainingSteps },
         ];
 
   const plan: Plan = {
@@ -1148,12 +1112,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
       : [];
-  const baseResults = selected.map((entry, index) => {
-    const decodedResult = decoded[index];
-    if (decodedResult === undefined) return selectedResult(entry, undefined);
-    if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
-    return selectedResult(entry, decodedResult.success);
-  });
+  const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
   if (resolution._tag === "ExecutedPlan") {
     const byLabel = new Map(
@@ -1162,7 +1121,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
     results = baseResults.map((result) => {
       if (result.action !== "publish") return result;
       const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
-      const step = byLabel.get(`Publish ${fqn}`);
+      const candidate = candidates.find((item) => item.fqn === fqn);
+      const step =
+        candidate === undefined
+          ? undefined
+          : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
       if (step === undefined) return result;
       if (step.result.result === "error") {
         return {
@@ -1231,7 +1194,6 @@ const publishConfig = {
     Flag.withDescription("Exclude a matching selector"),
     Flag.atLeast(0),
   ),
-  scope: scopeFlag,
   registry: Flag.string("registry").pipe(
     Flag.withDescription("Target a specific named registry"),
     Flag.optional,
@@ -1241,17 +1203,12 @@ const publishConfig = {
     Flag.optional,
   ),
   onExisting: onExistingFlag,
-  skipExisting: skipExistingFlag,
-  allowOlder: allowOlderFlag,
-  allowUnsafeArchive: allowUnsafeArchiveFlag,
+  backfill: backfillFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for one explicit publish"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Proceed past blocked plan steps; never overwrites a published version"),
-  ),
   preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
 } as const;
 
@@ -1266,20 +1223,17 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     registry: parsed.registry,
     registryUrl: parsed.registryUrl,
     onExisting: parsed.onExisting,
-    skipExisting: parsed.skipExisting,
-    allowOlder: parsed.allowOlder,
-    allowUnsafeArchive: parsed.allowUnsafeArchive,
+    backfill: parsed.backfill,
     yes: parsed.yes,
-    force: parsed.force,
     preview: parsed.preview,
-    scope: parsed.scope,
+    scope: "project",
     visibility: parsed.visibility,
     includeDependencies: false,
     includeDependency: [],
-  }).pipe(withWorkspace(parsed.scope), Effect.provide(AuthLayer), withRuntime("publish")),
+  }).pipe(withWorkspace("project"), Effect.provide(AuthLayer), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
-  Command.withDescription("Publish authored or selected extensions to a registry"),
+  Command.withDescription("Publish project-workspace extensions to a registry"),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {

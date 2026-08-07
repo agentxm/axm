@@ -200,7 +200,9 @@ const scanCanonicalForOwner = (
             (packageDir) =>
               Effect.gen(function* () {
                 const nameDir =
-                  extensionType === "pack" ? packageDir : path.join(packageDir, "src");
+                  extensionType === "pack" || extensionType === "mcp-server"
+                    ? packageDir
+                    : path.join(packageDir, "src");
                 const nameDirExists = yield* fs.readDirectory(nameDir).pipe(
                   Effect.as(true),
                   Effect.catch(() => Effect.succeed(false)),

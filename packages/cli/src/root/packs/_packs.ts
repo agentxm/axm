@@ -1,6 +1,5 @@
 import { Command } from "effect/unstable/cli";
 
-import { packsVersionCommand } from "../shared/version-command.js";
 import { addCommand } from "./add.js";
 import { disableCommand, enableCommand } from "./activation.js";
 import { installCommand } from "./install/command.js";
@@ -41,10 +40,6 @@ export const packsCommand = Command.make("packs").pipe(
       command: "axm packs publish @acme/packs/frontend-tools",
       description: "Share your pack on the registry",
     },
-    {
-      command: "axm packs version @acme/packs/frontend-tools patch",
-      description: "Bump a pack version",
-    },
   ]),
   Command.withSubcommands([
     listCommand,
@@ -60,6 +55,5 @@ export const packsCommand = Command.make("packs").pipe(
     publishCommand,
     unpackCommand,
     updateCommand,
-    packsVersionCommand,
   ]),
 );

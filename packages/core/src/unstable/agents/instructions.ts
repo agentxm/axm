@@ -52,6 +52,9 @@ export interface InstructionsSyncResult {
   readonly skipped: ReadonlyArray<string>;
 }
 
+type ManagedInstructionTargetState = "absent" | "owned-current" | "owned-drift" | "unowned";
+type ManagedGitignoreRegionState = "absent" | "complete" | "malformed";
+
 export interface InstructionsGitignoreStatus {
   readonly file: string;
   readonly desired: boolean;
@@ -264,6 +267,9 @@ const readFileOption = (filePath: string) =>
     return yield* fs.readFileString(filePath).pipe(Effect.option);
   });
 
+const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
+  path.resolve(left) === path.resolve(right);
+
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
   Object.values(AGENTS).find((descriptor) => descriptor.id === agentId);
 
@@ -313,8 +319,10 @@ const targetForDescriptor = (
 
 const inspectTarget = (args: {
   readonly sourceContent: Option.Option<string>;
+  readonly sourcePath: string;
   readonly targetPath: string;
   readonly mechanism: InstructionMechanism;
+  readonly sourceFileName: string;
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -325,15 +333,13 @@ const inspectTarget = (args: {
     const brokenLink =
       Option.isSome(linkTarget) &&
       !(yield* fileExists(path.resolve(path.dirname(args.targetPath), linkTarget.value)));
-    const targetContent = yield* readFileOption(args.targetPath);
-    const contentDrift =
-      Option.isSome(args.sourceContent) &&
-      Option.isSome(targetContent) &&
-      normalizeInstructionFileBody(args.sourceContent.value) !==
-        normalizeInstructionFileBody(targetContent.value);
-    const symlinkDrift =
-      args.mechanism === "symlink" && targetExists && Option.isNone(linkTarget) && contentDrift;
-    const drift = args.mechanism === "copy" ? contentDrift : symlinkDrift;
+    const state = yield* inspectManagedTargetState({
+      sourcePath: args.sourcePath,
+      targetPath: args.targetPath,
+      sourceContent: args.sourceContent,
+      sourceFileName: args.sourceFileName,
+    });
+    const drift = state === "owned-drift" || state === "unowned";
     return {
       sourceExists,
       targetExists,
@@ -400,8 +406,10 @@ export const getInstructionsStatus = (args: {
               const sourceContent = yield* readFileOption(sourcePath);
               const inspected = yield* inspectTarget({
                 sourceContent,
+                sourcePath,
                 targetPath,
                 mechanism,
+                sourceFileName: args.config.fileName,
               });
               const health = toInstructionHealth({ ...inspected, mechanism });
               return {
@@ -477,6 +485,211 @@ const withManagedCopyBanner = (args: {
   });
 };
 
+const isManagedCopy = (args: {
+  readonly targetPath: string;
+  readonly sourceFileName: string;
+  readonly content: string;
+}): boolean => {
+  const format = managedFileFormatForPath(args.targetPath);
+  if (format === undefined) return false;
+  const body = stripManagedFileBanner(args.content, format);
+  if (body === args.content) return false;
+  return (
+    withManagedCopyBanner({
+      targetPath: args.targetPath,
+      sourceFileName: args.sourceFileName,
+      content: body,
+    }) === args.content
+  );
+};
+
+const inspectManagedTargetState = (args: {
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  readonly sourceContent: Option.Option<string>;
+  readonly sourceFileName: string;
+}): Effect.Effect<ManagedInstructionTargetState, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const state = (value: ManagedInstructionTargetState): ManagedInstructionTargetState => value;
+    if (isSamePath(path, args.sourcePath, args.targetPath)) return state("owned-current");
+
+    const linkTarget = yield* fs.readLink(args.targetPath).pipe(Effect.option);
+    if (Option.isSome(linkTarget)) {
+      return isSamePath(
+        path,
+        path.resolve(path.dirname(args.targetPath), linkTarget.value),
+        args.sourcePath,
+      )
+        ? state("owned-current")
+        : state("unowned");
+    }
+
+    const targetExists = yield* fs
+      .exists(args.targetPath)
+      .pipe(Effect.catch(() => Effect.succeed(true)));
+    const targetContent = yield* readFileOption(args.targetPath);
+    if (Option.isNone(targetContent)) {
+      return state(targetExists ? "unowned" : "absent");
+    }
+    if (
+      !isManagedCopy({
+        targetPath: args.targetPath,
+        sourceFileName: args.sourceFileName,
+        content: targetContent.value,
+      })
+    ) {
+      return state("unowned");
+    }
+    if (Option.isNone(args.sourceContent)) return state("owned-drift");
+    return withManagedCopyBanner({
+      targetPath: args.targetPath,
+      sourceFileName: args.sourceFileName,
+      content: args.sourceContent.value,
+    }) === targetContent.value
+      ? state("owned-current")
+      : state("owned-drift");
+  });
+
+const managedTargetStates = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+  readonly symlinkSupported?: boolean;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
+    const symlinkSupported =
+      args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
+    return yield* Effect.forEach(
+      roots,
+      (root) =>
+        Effect.gen(function* () {
+          const sourcePath = path.join(root, args.config.fileName);
+          const sourceContent = yield* readFileOption(sourcePath);
+          return yield* Effect.forEach(
+            args.configuredAgents,
+            (agentId) =>
+              Effect.gen(function* () {
+                const descriptor = findAgentDescriptor(agentId);
+                if (descriptor?.instructions === undefined) return Option.none();
+                const mechanism = resolveInstructionMechanism(
+                  descriptor.instructions,
+                  symlinkSupported,
+                );
+                if (mechanism === "native" || mechanism === "adapter") return Option.none();
+                const targetPath = yield* targetForDescriptor(
+                  root,
+                  args.config.fileName,
+                  descriptor.instructions,
+                  mechanism,
+                );
+                const state = yield* inspectManagedTargetState({
+                  sourcePath,
+                  targetPath,
+                  sourceContent,
+                  sourceFileName: args.config.fileName,
+                });
+                return Option.some({ sourcePath, targetPath, state });
+              }),
+            { concurrency: 1 },
+          );
+        }),
+      { concurrency: 1 },
+    ).pipe(
+      Effect.map((nested) =>
+        nested
+          .flat()
+          .filter(Option.isSome)
+          .map((item) => item.value),
+      ),
+    );
+  });
+
+export const assertInstructionTargetsSafe = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+  readonly symlinkSupported?: boolean;
+}) =>
+  Effect.gen(function* () {
+    const states = yield* managedTargetStates(args);
+    const blockers = states.filter(
+      (item) => item.state === "owned-drift" || item.state === "unowned",
+    );
+    if (blockers.length === 0) return;
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Instruction reconciliation would overwrite files with drifted or unknown ownership: ${blockers
+        .map((item) => item.targetPath)
+        .join(", ")}`,
+      suggestions: [
+        {
+          description: "Inspect instruction-file ownership and drift",
+          cmd: "axm rules instructions",
+        },
+      ],
+    });
+  });
+
+export const removeManagedInstructionTargets = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+  readonly dryRun: boolean;
+  readonly symlinkSupported?: boolean;
+}) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const states = yield* managedTargetStates(args);
+    const blockers = states.filter(
+      (item) => item.state === "owned-drift" || item.state === "unowned",
+    );
+    if (blockers.length > 0) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Instruction cleanup would remove files with drifted or unknown ownership: ${blockers
+          .map((item) => item.targetPath)
+          .join(", ")}`,
+        suggestions: [
+          {
+            description: "Inspect instruction-file ownership and drift",
+            cmd: "axm rules instructions",
+          },
+        ],
+      });
+    }
+    const removable = states.filter(
+      (item) => item.state === "owned-current" && item.sourcePath !== item.targetPath,
+    );
+    if (!args.dryRun) {
+      yield* Effect.forEach(
+        removable,
+        (item) =>
+          protectWorkspacePath(item.targetPath).pipe(
+            Effect.andThen(
+              fs.remove(item.targetPath, { force: true }).pipe(
+                Effect.mapError((cause) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to remove managed instruction target: ${item.targetPath}`,
+                    cause,
+                  }),
+                ),
+              ),
+            ),
+          ),
+        { concurrency: 1, discard: true },
+      );
+    }
+    return removable.map((item) => item.targetPath);
+  });
+
 const syncOneTarget = (args: {
   readonly sourcePath: string;
   readonly targetPath: string;
@@ -488,7 +701,31 @@ const syncOneTarget = (args: {
 }) =>
   Effect.gen(function* () {
     if (args.mechanism === "native" || args.mechanism === "adapter") return Option.none<string>();
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const linkTarget = yield* fs.readLink(args.targetPath).pipe(Effect.option);
+    if (
+      Option.isSome(linkTarget) &&
+      isSamePath(
+        path,
+        path.resolve(path.dirname(args.targetPath), linkTarget.value),
+        args.sourcePath,
+      )
+    ) {
+      return Option.none<string>();
+    }
     const targetContent = yield* readFileOption(args.targetPath);
+    const targetExists = yield* fs
+      .exists(args.targetPath)
+      .pipe(Effect.catch(() => Effect.succeed(true)));
+    if (Option.isNone(targetContent) && targetExists) return Option.none<string>();
+    const state = yield* inspectManagedTargetState({
+      sourcePath: args.sourcePath,
+      targetPath: args.targetPath,
+      sourceContent: Option.some(args.sourceContent),
+      sourceFileName: args.sourceFileName,
+    });
+    if (state === "unowned" && !args.force) return Option.none<string>();
     const replace = canReplaceTarget({
       force: args.force,
       sourceContent: args.sourceContent,
@@ -515,30 +752,75 @@ const syncOneTarget = (args: {
 const managedRegion = (patterns: ReadonlyArray<string>): string =>
   patterns.length === 0 ? "" : `${START_MARKER}\n${patterns.join("\n")}\n${END_MARKER}\n`;
 
-const hasManagedRegion = (content: string): boolean => {
+const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionState => {
   const start = content.indexOf(START_MARKER);
   const end = content.indexOf(END_MARKER);
-  return start >= 0 && end >= start;
+  if (start < 0 && end < 0) return "absent";
+  if (
+    start >= 0 &&
+    end >= start &&
+    content.lastIndexOf(START_MARKER) === start &&
+    content.lastIndexOf(END_MARKER) === end
+  ) {
+    return "complete";
+  }
+  return "malformed";
 };
+
+const hasManagedRegion = (content: string): boolean =>
+  managedGitignoreRegionState(content) === "complete";
+
+const lineEndingFor = (content: string): "\r\n" | "\n" =>
+  content.includes("\r\n") ? "\r\n" : "\n";
+
+const withLineEnding = (content: string, lineEnding: "\r\n" | "\n"): string =>
+  content.replace(/\r?\n/g, lineEnding);
 
 const replaceManagedRegion = (content: string, region: string): string => {
   const start = content.indexOf(START_MARKER);
   const end = content.indexOf(END_MARKER);
   if (start >= 0 && end >= start) {
-    const after = end + END_MARKER.length;
-    const prefix = content.slice(0, start).trimEnd();
-    const suffix = content.slice(after).trimStart();
-    return [prefix, region.trimEnd(), suffix].filter((part) => part !== "").join("\n\n") + "\n";
+    const afterMarker = end + END_MARKER.length;
+    const afterRegion = content.startsWith("\r\n", afterMarker)
+      ? afterMarker + 2
+      : content.startsWith("\n", afterMarker)
+        ? afterMarker + 1
+        : afterMarker;
+    return (
+      content.slice(0, start) +
+      withLineEnding(region, lineEndingFor(content)) +
+      content.slice(afterRegion)
+    );
   }
   if (region.length === 0) return content;
-  const prefix = content.trimEnd();
-  return [prefix, region.trimEnd()].filter((part) => part !== "").join("\n\n") + "\n";
+  const lineEnding = lineEndingFor(content);
+  const separator = content.length > 0 && !content.endsWith("\n") ? lineEnding : "";
+  return content + separator + withLineEnding(region, lineEnding);
 };
 
 const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     return path.join(workspaceRoot, ".gitignore");
+  });
+
+export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
+  Effect.gen(function* () {
+    const filePath = yield* instructionGitignorePath(workspaceRoot);
+    const current = yield* readFileOption(filePath);
+    if (Option.isNone(current) || managedGitignoreRegionState(current.value) !== "malformed") {
+      return;
+    }
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+      suggestions: [
+        {
+          description: "Inspect instruction-file ownership and drift",
+          cmd: "axm rules instructions",
+        },
+      ],
+    });
   });
 
 const desiredGitignoreRegion = (args: {
@@ -573,6 +855,18 @@ const writeGitignoreRegion = (args: {
       configuredAgents: args.configuredAgents,
     });
     const current = yield* readFileOption(filePath);
+    if (Option.isSome(current) && managedGitignoreRegionState(current.value) === "malformed") {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+        suggestions: [
+          {
+            description: "Inspect instruction-file ownership and drift",
+            cmd: "axm rules instructions",
+          },
+        ],
+      });
+    }
     if (region.length === 0 && Option.isNone(current)) return Option.none<string>();
     if (region.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
       return Option.none<string>();
@@ -603,7 +897,10 @@ export const getInstructionsGitignoreStatus = (args: {
     }
 
     const currentContent = yield* readFileOption(file);
-    const current = Option.isSome(currentContent) && hasManagedRegion(currentContent.value);
+    const currentRegionState = Option.isSome(currentContent)
+      ? managedGitignoreRegionState(currentContent.value)
+      : "absent";
+    const current = currentRegionState === "complete";
     const region = desiredGitignoreRegion({
       desired: args.config.gitignoreAliases,
       sourceFileName: args.config.fileName,
@@ -618,8 +915,9 @@ export const getInstructionsGitignoreStatus = (args: {
       file,
       desired,
       current:
-        Option.isSome(currentContent) &&
-        (currentContent.value === next || (region.length === 0 && !current)),
+        currentRegionState !== "malformed" &&
+        ((region.length === 0 && !current) ||
+          (Option.isSome(currentContent) && currentContent.value === next)),
     };
   });
 
@@ -750,4 +1048,34 @@ export const syncInstructions = (args: {
       ],
       skipped: status.items.filter((item) => item.health !== "ok").map((item) => item.targetFile),
     };
+  });
+
+export const reconcileInstructionTargets = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly config: ResolvedInstructionsConfig;
+  readonly symlinkSupported?: boolean;
+}): Effect.Effect<InstructionsSyncResult, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const result = yield* syncInstructions({
+      ...args,
+      force: true,
+      dryRun: false,
+    });
+    const gitignore = yield* getInstructionsGitignoreStatus({
+      workspaceRoot: args.workspaceRoot,
+      configuredAgents: args.configuredAgents,
+      config: args.config,
+    });
+    const targetsCurrent = result.status.items.every(
+      (item) => (item.mechanism !== "symlink" && item.mechanism !== "copy") || item.health === "ok",
+    );
+    if (!targetsCurrent || !gitignore.current) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: "Instruction reconciliation did not reach the desired state",
+      });
+    }
+    return result;
   });

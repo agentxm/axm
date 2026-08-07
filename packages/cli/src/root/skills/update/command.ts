@@ -1,6 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  ignoreVersionConstraintsFlag,
+  previewFlag,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
@@ -26,9 +30,7 @@ const updateConfig = {
   // merged into one filter set.
   skill: Flag.string("skill").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Update even if version constraints would prevent it"),
-  ),
+  force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
 } as const;
 

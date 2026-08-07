@@ -4,8 +4,8 @@ AXM keeps four kinds of state separate:
 
 - **Desired** — `.axm/settings.json` and configured pack manifests say what the
   workspace wants.
-- **Observed** — canonical packages, managed agent projections, native config,
-  and ownership markers say what actually exists.
+- **Observed** — canonical packages, managed agent artifacts and instruction
+  regions, native config, and ownership markers say what actually exists.
 - **Trust** — `.axm/trust.json` preserves source identity, immutable revisions,
   content identity, and Registry publisher epochs.
 - **Receipt** — `.axm/axm-lock.yaml` records successful resolution and
@@ -14,7 +14,7 @@ AXM keeps four kinds of state separate:
 `axm sync` performs workspace-wide reconciliation of desired and observed state
 using the trust baseline. Use `axm sync <fqn>` for one root and required pack
 members, or `axm sync --type <type>` to limit reconciliation by extension type.
-Run `axm sync --dry-run` before a workspace-wide apply. Sync
+Run `axm sync --preview` before a workspace-wide apply. Sync
 does not treat receipt rows as declarations or proof of installation. Missing,
 stale, or malformed receipt history does not create install, update, uninstall,
 prune, or repair work.
@@ -24,6 +24,13 @@ prune, or repair work.
 AXM stops destructive reconciliation when a configured pack manifest is missing
 or invalid, constraints conflict, or the trust baseline cannot prove that
 same-name canonical content belongs to the configured source.
+
+Sync preflights materialization, Knowledge, generator, trust migration, cleanup,
+and instruction work before applying any step. A readiness error blocks the
+whole plan, and a runtime failure blocks every later job. Drifted AXM-managed
+inline MCP entries are never overwritten by sync; review their exact targets
+with `axm mcps repair <name> --preview` and apply that targeted recovery
+explicitly.
 
 A Registry publisher-epoch change is never crossed unattended. Local and
 `workspace:` content is not treated as remotely recoverable. Inline MCP servers
@@ -35,12 +42,12 @@ canonical package.
 - Edit desired intent through AXM commands or `.axm/settings.json`.
 - Do not hand-edit `.axm/trust.json` or `.axm/axm-lock.yaml`.
 - Check `.axm/` into source control.
-- Use `axm sync --dry-run --json` to inspect the same plan apply would run.
+- Use `axm sync --preview --json` to inspect the same plan apply would run.
 - Use `axm status` to inspect deterministic local blockers.
 - After intentionally relocating a workspace-authored extension, use the exact
-  `axm sync <fqn> --accept-authority-change` command reported by `axm status` to
-  re-anchor its trust record. This never authorizes Registry or cross-authority
-  transitions.
+  `axm adopt <fqn> --preview` command reported by `axm status`, review its target,
+  then apply `axm adopt <fqn>`. This never authorizes an unattended Registry or
+  cross-authority transition.
 - Use `axm packs repair <name-or-fqn> --preview` for authored-pack trust drift.
 - Use `axm lint` for read-only diagnostics and `axm lint --fix` to reconcile.
 
@@ -54,6 +61,12 @@ The model covers skills, MCP servers, subagents, rules, hooks, knowledge
 bundles, and packs. Packs are containers with authoritative
 dependency manifests; they do not have ordinary activation or per-agent
 projection behavior.
+
+Active Knowledge is resolved from this desired-state graph, including enabled
+pack dependencies and shared dependencies. A direct `enabled: false`
+declaration wins over pack activation. Its canonical package, trust, and receipt
+remain valid while its instruction-table row and active search/open discovery
+are absent.
 
 ## Where to go next
 

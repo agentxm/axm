@@ -13,8 +13,14 @@ import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../tru
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
-import { resolveInstructionsConfig } from "../agents/instructions.js";
-import { makeAppError } from "../app-error/index.js";
+import {
+  assertInstructionTargetsSafe,
+  assertInstructionsGitignoreSafe,
+  reconcileInstructionTargets,
+  resolveInstructionsConfig,
+  type ResolvedInstructionsConfig,
+} from "../agents/instructions.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
@@ -57,10 +63,13 @@ import {
   type WorkspaceRuleRef,
 } from "./index.js";
 
-export class RuleManager extends ServiceMap.Service<
-  RuleManager,
-  ExtensionManager<RuleExtensionRef>
->()("@agentxm/client-core/unstable/rules/manager/RuleManager") {}
+export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
+  readonly reconcileInstructions: Effect.Effect<MaterializedFileTarget, AppError>;
+}
+
+export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerService>()(
+  "@agentxm/client-core/unstable/rules/manager/RuleManager",
+) {}
 
 const RULES_REGION = "rules";
 
@@ -285,6 +294,21 @@ export const RuleManagerLive = Layer.effect(
         };
       });
 
+    const activeInstructions = () =>
+      Effect.gen(function* () {
+        const config = yield* ws.getInstructionsConfig();
+        if (Option.isNone(config) || config.value === false) {
+          return Option.none<{
+            readonly config: ResolvedInstructionsConfig;
+            readonly agents: ReadonlyArray<string>;
+          }>();
+        }
+        return Option.some({
+          config: resolveInstructionsConfig(config.value),
+          agents: yield* ws.getConfiguredAgents(),
+        });
+      });
+
     const readRuleBody = (packageRoot: string) =>
       fs.readFileString(path.join(packageRoot, "src", RULE_BODY_FILENAME)).pipe(
         Effect.flatMap(parseFrontmatterEffect),
@@ -372,6 +396,23 @@ export const RuleManagerLive = Layer.effect(
       readonly excludeName?: string;
     }) =>
       Effect.gen(function* () {
+        const instructions = yield* activeInstructions();
+        if (Option.isSome(instructions)) {
+          yield* provide(
+            Effect.all(
+              [
+                assertInstructionTargetsSafe({
+                  workspaceRoot: baseDir,
+                  scope: ws.scope,
+                  configuredAgents: instructions.value.agents,
+                  config: instructions.value.config,
+                }),
+                assertInstructionsGitignoreSafe(baseDir),
+              ],
+              { concurrency: 1, discard: true },
+            ),
+          );
+        }
         const target = yield* sourceFileTarget();
         const style = commentStyleForTarget(target.relative);
         if (Option.isNone(style)) {
@@ -433,6 +474,17 @@ export const RuleManagerLive = Layer.effect(
             }),
           ),
         );
+
+        if (Option.isSome(instructions)) {
+          yield* provide(
+            reconcileInstructionTargets({
+              workspaceRoot: baseDir,
+              scope: ws.scope,
+              configuredAgents: instructions.value.agents,
+              config: instructions.value.config,
+            }),
+          );
+        }
 
         return decodeMaterializedTarget({
           target: target.relative,
@@ -523,6 +575,7 @@ export const RuleManagerLive = Layer.effect(
 
     return {
       type: "rule",
+      reconcileInstructions: writeRulesRegion(),
       runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws

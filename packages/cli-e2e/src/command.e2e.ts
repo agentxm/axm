@@ -119,7 +119,7 @@ describe("main CLI help", () => {
       args: ["skills", "ls", "--help"],
       expected: ["List detected skills", "--agent"],
     },
-    { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
+    { args: ["packs", "unpack", "--help"], expected: ["--preview"] },
     { args: ["mcps", "install", "--help"], expected: ["--scope"] },
   ])("shows leaf help for $args", async ({ args, expected }) => {
     const result = await runCli(args);
@@ -137,6 +137,15 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).not.toContain("--agent");
+  });
+
+  it("does not expose bypass flags on packs unpack", async () => {
+    const result = await runCli(["packs", "unpack", "--help"]);
+    const output = getOutput(result);
+
+    expect(result.exitCode).toBe(0);
+    expect(output).not.toContain("--strict-agent-sync");
+    expect(output).not.toContain("--force");
   });
 
   it("uses add/install/uninstall as the only MCP configuration grammar", async () => {

@@ -48,11 +48,8 @@ const args = (
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
   onExisting: Option.none(),
-  skipExisting: false,
-  allowOlder: false,
-  allowUnsafeArchive: false,
+  backfill: false,
   yes: true,
-  force: false,
   preview: true,
   scope: "project",
   visibility: Option.none(),
@@ -514,7 +511,7 @@ describe("root publish", () => {
       return item;
     };
 
-    it.effect("bulk publish skips already-published versions by default", () => {
+    it.effect("bulk publish fails preflight before uploading any candidate by default", () => {
       writeTwoSkillSettings();
       const { provide, rendererState } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
@@ -523,15 +520,31 @@ describe("root publish", () => {
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
           writeSkill("deploy", "1.1.0");
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          const error = getAppError(
+            yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("conflict");
 
           const items = resultItems(at(rendererState.results, 1).data, "apply", 2);
           const review = itemNamed(items, "review");
-          expect(property(review, "action")).toBe("skip");
-          expect(property(review, "reason")).toBe("version_already_published");
+          expect(property(review, "action")).toBe("error");
+          expect(property(review, "status")).toBe("failed");
           const deploy = itemNamed(items, "deploy");
           expect(property(deploy, "action")).toBe("publish");
-          expect(property(deploy, "status")).toBe("success");
+          expect("status" in deploy).toBe(false);
+
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/deploy"],
+              preview: false,
+            }),
+          );
+          expect(
+            property(
+              itemNamed(resultItems(at(rendererState.results, 2).data, "apply", 1), "deploy"),
+              "status",
+            ),
+          ).toBe("success");
         }),
       );
     });
@@ -559,69 +572,15 @@ describe("root publish", () => {
             ),
           ).toBe(true);
           expect(
-            suggestions.some((suggestion) => suggestion.description.includes("--on-existing skip")),
+            suggestions.some((suggestion) =>
+              suggestion.description.includes("--on-existing verify"),
+            ),
           ).toBe(true);
         }),
       );
     });
 
-    it.effect("--skip-existing behaves as --on-existing skip for an explicit selector", () => {
-      writeTwoSkillSettings();
-      const { provide, rendererState } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
-          yield* handleRootPublish(
-            args(registryUrl, {
-              selectors: ["@acme/skills/review"],
-              preview: false,
-              skipExisting: true,
-            }),
-          );
-          yield* handleRootPublish(
-            args(registryUrl, {
-              selectors: ["@acme/skills/review"],
-              preview: false,
-              onExisting: Option.some("skip"),
-            }),
-          );
-
-          const viaAlias = itemNamed(
-            resultItems(at(rendererState.results, 1).data, "apply", 1),
-            "review",
-          );
-          const viaPolicy = itemNamed(
-            resultItems(at(rendererState.results, 2).data, "apply", 1),
-            "review",
-          );
-          for (const item of [viaAlias, viaPolicy]) {
-            expect(property(item, "action")).toBe("skip");
-            expect(property(item, "reason")).toBe("version_already_published");
-          }
-        }),
-      );
-    });
-
-    it.effect("rejects --skip-existing combined with a contradictory --on-existing", () => {
-      const { provide } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-
-      return provide(
-        Effect.gen(function* () {
-          const error = getAppError(
-            yield* handleRootPublish(
-              args(registryUrl, { skipExisting: true, onExisting: Option.some("error") }),
-            ).pipe(Effect.flip),
-          );
-          expect(error.code).toBe("usage");
-          expect(error.detail).toContain("--skip-existing");
-        }),
-      );
-    });
-
-    it.effect("publishes remaining candidates when one conflicts under the error policy", () => {
+    it.effect("does not publish remaining candidates when one conflicts", () => {
       writeTwoSkillSettings();
       const { provide, rendererState } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
@@ -643,11 +602,16 @@ describe("root publish", () => {
           expect(property(review, "status")).toBe("failed");
           expect(at(rendererState.results, 1).ok).toBe(false);
           const deploy = itemNamed(items, "deploy");
-          expect(property(deploy, "status")).toBe("success");
+          expect("status" in deploy).toBe(false);
 
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
-          const rerunItems = resultItems(at(rendererState.results, 2).data, "apply", 2);
-          expect(property(itemNamed(rerunItems, "deploy"), "action")).toBe("skip");
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/deploy"],
+              preview: false,
+            }),
+          );
+          const rerunItems = resultItems(at(rendererState.results, 2).data, "apply", 1);
+          expect(property(itemNamed(rerunItems, "deploy"), "status")).toBe("success");
         }),
       );
     });
@@ -714,13 +678,13 @@ describe("root publish", () => {
               ),
             ).toBe(true);
             expect(
-              suggestions.some((suggestion) => suggestion.description.includes("--allow-older")),
+              suggestions.some((suggestion) => suggestion.description.includes("--backfill")),
             ).toBe(true);
           }),
         );
       });
 
-      it.effect("--allow-older publishes the older version", () => {
+      it.effect("--backfill publishes the older unpublished version", () => {
         const { provide, rendererState } = makeContext();
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
@@ -730,32 +694,12 @@ describe("root publish", () => {
             yield* handleRootPublish(args(registryUrl, { preview: false }));
 
             writeReviewSkill("1.0.5");
-            yield* handleRootPublish(explicit(registryUrl, { allowOlder: true }));
+            yield* handleRootPublish(explicit(registryUrl, { backfill: true }));
 
             const item = reviewItem(at(rendererState.results, 1).data);
             expect(property(item, "action")).toBe("publish");
             expect(property(item, "status")).toBe("success");
             expect(property(item, "version")).toBe("1.0.5");
-          }),
-        );
-      });
-
-      it.effect("--force does not bypass the monotonicity gate", () => {
-        const { provide } = makeContext();
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-
-        return provide(
-          Effect.gen(function* () {
-            writeReviewSkill("1.1.0");
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
-
-            writeReviewSkill("1.0.5");
-            const error = getAppError(
-              yield* handleRootPublish(explicit(registryUrl, { force: true })).pipe(Effect.flip),
-            );
-
-            expect(error.code).toBe("conflict");
-            expect(error.detail).toContain("lower than the highest published version 1.1.0");
           }),
         );
       });
@@ -773,7 +717,7 @@ describe("root publish", () => {
             // Publishing out of order leaves 1.5.0 first in the index, so an
             // index-order "latest" would wrongly accept anything above it.
             writeReviewSkill("1.5.0");
-            yield* handleRootPublish(explicit(registryUrl, { allowOlder: true }));
+            yield* handleRootPublish(explicit(registryUrl, { backfill: true }));
 
             writeReviewSkill("1.9.0");
             const error = getAppError(
@@ -786,7 +730,7 @@ describe("root publish", () => {
         );
       });
 
-      it.effect("leaves the first publish and equal-version policy untouched", () => {
+      it.effect("does not let --backfill overwrite an existing version", () => {
         const { provide, rendererState } = makeContext();
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
@@ -799,7 +743,7 @@ describe("root publish", () => {
             );
 
             const error = getAppError(
-              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+              yield* handleRootPublish(explicit(registryUrl, { backfill: true })).pipe(Effect.flip),
             );
             expect(error.code).toBe("conflict");
             expect(error.detail).toContain("already published");
@@ -828,11 +772,9 @@ describe("root publish", () => {
 
             expect(error.code).toBe("validation");
             expect(error.detail).toContain("node_modules/leftover.js");
-            expect(
-              (error.suggestions ?? []).some((suggestion) =>
-                suggestion.description.includes("--allow-unsafe-archive"),
-              ),
-            ).toBe(true);
+            expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
+              "Remove the unsafe entry from the extension directory.",
+            );
           }),
         );
       });
@@ -852,28 +794,6 @@ describe("root publish", () => {
 
             expect(error.code).toBe("validation");
             expect(error.detail).toContain(".env");
-          }),
-        );
-      });
-
-      it.effect("--allow-unsafe-archive publishes the archive anyway", () => {
-        const { provide, rendererState } = makeContext();
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-
-        return provide(
-          Effect.gen(function* () {
-            writeReviewSkill("1.0.0");
-            fs.mkdirSync(path.join(skillDir(), "node_modules"), { recursive: true });
-            fs.writeFileSync(
-              path.join(skillDir(), "node_modules", "leftover.js"),
-              "module.exports = {}\n",
-            );
-
-            yield* handleRootPublish(explicit(registryUrl, { allowUnsafeArchive: true }));
-
-            const item = reviewItem(at(rendererState.results, 0).data);
-            expect(property(item, "action")).toBe("publish");
-            expect(property(item, "status")).toBe("success");
           }),
         );
       });

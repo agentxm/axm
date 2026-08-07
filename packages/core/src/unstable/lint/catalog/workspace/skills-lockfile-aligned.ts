@@ -7,12 +7,10 @@
  *
  * 1. **Missing** — every declared skill has a matching lock entry.
  *    Autofix: `install-skill` with `force: false` per missing declaration.
- * 2. **Orphan** — every skill lock entry has a matching declaration **or**
- *    is `retainedByPack: true` AND a matching installed declared pack
- *    declares it. Autofix: `uninstall-skill` per orphan lock entry.
- *    Retention carve-out: `retainedByPack: true` entries whose FQN appears
- *    in the resolved-map of at least one installed declared pack are NOT
- *    orphans.
+ * 2. **Orphan** — every skill lock entry has a matching declaration **or** a
+ *    matching installed declared pack declares it. Autofix: `uninstall-skill`
+ *    per orphan lock entry. Pack membership is derived from the authoritative
+ *    installed-pack graph rather than the legacy `retainedByPack` receipt hint.
  * 3. **Version skew** — each lock entry's `resolvedVersion` satisfies the
  *    declared version constraint (for registry sources). Autofix:
  *    `install-skill` with `force: true`.

@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
 import {
   KnowledgeManager,
@@ -50,10 +50,7 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             : yield* manager.getConfiguredSource({ target });
         const installed = yield* manager.isInstalled({ target });
         if (Option.isNone(configured) && !installed) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `knowledge bundle "${parsed.name}" is not configured or observed`,
-          });
+          return { targets: [] };
         }
         return { targets: [target] };
       }),

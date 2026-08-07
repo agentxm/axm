@@ -17,6 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
@@ -209,6 +210,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const renderer = yield* CliRenderer;
     const subagentMgr = yield* SubagentManager;
+    const agentRepo = yield* CodingAgentRepository;
     const ws = yield* WorkspaceMutations;
     const pathSvc = yield* Path.Path;
     const fsSvc = yield* FileSystem.FileSystem;
@@ -386,6 +388,36 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallSubagentCommandIntent) =>
       Effect.gen(function* () {
+        if (ws.scope === "user") {
+          const agents = yield* agentRepo
+            .getConfiguredAgents()
+            .pipe(Effect.provideService(WorkspaceMutations, ws));
+          const placements = yield* Effect.forEach(
+            agents,
+            (agent) =>
+              agent
+                .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
+                .pipe(
+                  Effect.provideService(FileSystem.FileSystem, fsSvc),
+                  Effect.provideService(Path.Path, pathSvc),
+                  Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                ),
+            { concurrency: "unbounded" },
+          );
+          const refused = placements.flatMap(({ agentId, outcome }) =>
+            outcome._tag === "unsupported"
+              ? [`${agentId}: ${outcome.reason}`]
+              : outcome._tag === "misconfigured" || outcome._tag === "disabled"
+                ? [`${agentId}: ${outcome.reason}`]
+                : [],
+          );
+          if (refused.length > 0) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Cannot install subagents in user scope for the configured agent placement: ${refused.join("; ")}`,
+            });
+          }
+        }
         const steps = yield* Effect.forEach(
           intent.subagentsToInstall,
           (entry) =>
@@ -425,7 +457,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
                   return {
                     path: ref.subagent.name,
-                    scope: "project",
+                    scope: ws.scope,
                     ...(configuredAgents.length > 0 ? { agents: configuredAgents } : {}),
                     ...(version !== undefined ? { version } : {}),
                     change,

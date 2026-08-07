@@ -19,7 +19,8 @@ export const alreadyPublishedVersionConflict = (args: {
         cmd: `axm version ${args.fqn} patch`,
       },
       {
-        description: "Re-run with --on-existing skip to skip already-published versions.",
+        description:
+          "Re-run with --on-existing verify only when the local archive should be byte-equivalent to the published version.",
       },
     ],
   });
@@ -39,7 +40,7 @@ export const nonMonotonicVersionConflict = (args: {
       },
       {
         description:
-          "Re-run with --allow-older only if publishing an older unpublished version is intentional.",
+          "Re-run with --backfill only if publishing an older unpublished version is intentional.",
       },
     ],
   });

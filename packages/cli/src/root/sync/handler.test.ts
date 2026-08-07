@@ -7,6 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -195,7 +196,7 @@ describe("root sync handler", () => {
         agents: [],
       });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(logs.success).toEqual(["Workspace materialization is up to date"]);
       expect(rendererState.spinnerMessages).toEqual([
@@ -212,7 +213,7 @@ describe("root sync handler", () => {
         agents: [],
       });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(logs.success).toEqual([]);
       expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -243,7 +244,7 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
       expect(trust.records["skill:review"]).toMatchObject({
@@ -276,7 +277,7 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ dryRun: true, force: false }));
+      yield* provide(handleSync({ preview: true }));
 
       expect(fs.existsSync(path.join(axmDir, "trust.json"))).toBe(false);
     }),
@@ -289,7 +290,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, { agents: [] });
       fs.rmSync(path.join(axmDir, "axm-lock.yaml"), { force: true });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
       expect(written.lockfileVersion).toBe(3);
@@ -304,7 +305,7 @@ describe("root sync handler", () => {
       fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
 
       // Mirrors the CLI's `withWorkspace` boundary.
-      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: false, force: false })));
+      yield* provide(withDegradedLockfileReads(handleSync({ preview: false })));
 
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
@@ -331,7 +332,7 @@ describe("root sync handler", () => {
       const corrupt = "lockfileVersion: 3\nskills: []\n";
       fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), corrupt);
 
-      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: true, force: false })));
+      yield* provide(withDegradedLockfileReads(handleSync({ preview: true })));
 
       // A dry run reports the recovery it would perform without performing it.
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
@@ -354,7 +355,7 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
@@ -392,7 +393,7 @@ describe("root sync handler", () => {
         },
       });
 
-      const error = yield* provide(handleSync({ dryRun: false, force: false })).pipe(Effect.flip);
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
 
       expect(error.detail).toContain("incomplete desired extension graph");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
@@ -412,7 +413,7 @@ describe("root sync handler", () => {
       });
       writeMcpServerExtension(tempDir, "browser");
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"browser"');
       expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toContain(
@@ -433,7 +434,7 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ dryRun: true, force: false }));
+      yield* provide(handleSync({ preview: true }));
 
       const preview = expectPreviewedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
@@ -449,7 +450,7 @@ describe("root sync handler", () => {
       expect(JSON.stringify(previewSteps)).not.toContain("browser");
 
       rendererState.results.length = 0;
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       const applied = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
@@ -473,7 +474,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("refuses to overwrite drifted inline MCP agent configs without force", () =>
+  it.effect("refuses to overwrite drifted inline MCP agent configs", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
@@ -498,47 +499,121 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
 
-      const payload = expectRecord(rendererState.results[0]?.data);
-      const result = expectRecord(property(payload, "result"));
-      expect(property(result, "failedCount")).toBe(1);
+      expect(error.detail).toContain("axm mcps repair demo --preview");
+      expect(rendererState.results).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"python"');
     }),
   );
 
-  it.effect("overwrites drifted inline MCP agent configs with force", () =>
+  it.effect("blocks every phase when instruction preflight finds an unowned target", () =>
     Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      const { provide } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: { release: "workspace:@acme/skills/release" },
+      });
+      writeSkillExtension(tempDir, "release");
       writeSettings(tempDir, {
         agents: ["claude-code"],
-        mcpServers: {
-          demo: {
-            enabled: true,
-            command: "node",
-            args: ["server.js"],
-            env: {},
-          },
+        skills: { release: "workspace:@acme/skills/release" },
+        rulesConfig: {
+          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
         },
       });
-      writeJson(path.join(tempDir, ".mcp.json"), {
-        mcpServers: {
-          demo: {
-            "x-axm": { managed: true, source: "inline" },
-            type: "stdio",
-            command: "python",
-          },
-        },
-      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human-owned\n");
 
-      yield* provide(handleSync({ dryRun: false, force: true }));
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+
+      expect(error.detail).toContain("Instruction reconciliation would overwrite");
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
+      expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("# Human-owned\n");
+    }),
+  );
+
+  it.effect("blocks cleanup and instructions after an earlier runtime failure", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: { release: "workspace:@acme/skills/release" },
+      });
+      writeSkillExtension(tempDir, "release");
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        skills: { release: "workspace:@acme/skills/release" },
+        rulesConfig: {
+          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
+        },
+      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      writeRenderedSubagent(tempDir, ".claude", "stale", true);
+
+      yield* provide(
+        handleSync(
+          { preview: false },
+          {
+            beforeMaterialization: () =>
+              Effect.fail(
+                makeAppError({ code: "internal", detail: "Injected materialization failure" }),
+              ),
+          },
+        ),
+      );
 
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));
-      expect(property(result, "failedCount")).toBe(0);
-      const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
-      expect(config.mcpServers.demo.command).toBe("node");
+      expect(property(result, "outcome")).toBe("failed");
+      expect(property(result, "failedCount")).toBe(1);
+      expect(property(result, "blockedCount")).toBe(2);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+    }),
+  );
+
+  it.effect("resolves the same cleanup and instruction targets for preview and apply", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["claude-code"] });
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        rulesConfig: {
+          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
+        },
+      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      writeRenderedSubagent(tempDir, ".claude", "stale", true);
+
+      yield* provide(handleSync({ preview: true }));
+      yield* provide(handleSync({ preview: false }));
+
+      const preview = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 2,
+      });
+      const applied = expectAppliedPlanResult(rendererState.results[1]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 2,
+      });
+      const projection = (step: unknown) => {
+        const record = expectRecord(step);
+        return {
+          label: property(record, "label"),
+          artifact: property(record, "artifact"),
+        };
+      };
+      expect(planResultSteps(preview).map(projection)).toEqual(
+        planResultSteps(applied).map(projection),
+      );
+
+      yield* provide(handleSync({ preview: false }));
+      expectNoOpPlanResult(rendererState.results[2]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
     }),
   );
 
@@ -579,12 +654,10 @@ describe("root sync handler", () => {
         "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
       );
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
 
-      const payload = expectRecord(rendererState.results[0]?.data);
-      const result = expectRecord(property(payload, "result"));
-      expect(property(result, "outcome")).toBe("failed");
-      expect(property(result, "failedCount")).toBe(1);
+      expect(error.detail).toContain("Source authority would change");
+      expect(rendererState.results).toEqual([]);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
         false,
       );
@@ -615,7 +688,7 @@ describe("root sync handler", () => {
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# Solo\n");
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "solo", "SKILL.md"))).toBe(true);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "solo"))).toBe(false);
@@ -638,8 +711,7 @@ describe("root sync handler", () => {
       yield* provide(
         handleSync({
           target: Option.some("@acme/skills/release"),
-          dryRun: false,
-          force: false,
+          preview: false,
         }),
       );
 
@@ -684,8 +756,7 @@ describe("root sync handler", () => {
       yield* provide(
         handleSync({
           type: Option.some("skill"),
-          dryRun: false,
-          force: false,
+          preview: false,
         }),
       );
 
@@ -721,15 +792,27 @@ describe("root sync handler", () => {
           },
         },
       });
+      writeSettings(tempDir, {
+        agents: [],
+        knowledge: {
+          handbook: "workspace:@acme/knowledge/handbook",
+        },
+        rulesConfig: {
+          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
+        },
+      });
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
-      const index = path.join(tempDir, ".agents", "knowledge", "index.md");
+      const index = path.join(tempDir, "AGENTS.md");
       expect(fs.existsSync(index)).toBe(true);
       expect(fs.readFileSync(index, "utf-8")).toContain("[@acme/handbook]");
       expect(
-        fs.existsSync(path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "index.md")),
+        fs.existsSync(
+          path.join(axmDir, "extensions", "@acme", "knowledge", "handbook", "src", "index.md"),
+        ),
       ).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".agents", "knowledge"))).toBe(false);
     }),
   );
 
@@ -757,17 +840,35 @@ describe("root sync handler", () => {
       const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
       const lockfileBefore = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8");
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(
         fs.readFileSync(
-          path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "concept.md"),
+          path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "knowledge",
+            "handbook",
+            "src",
+            "concept.md",
+          ),
           "utf8",
         ),
       ).toContain("# Locked");
       expect(
         fs.readFileSync(
-          path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "concept.md"),
+          path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "knowledge",
+            "handbook",
+            "src",
+            "concept.md",
+          ),
           "utf8",
         ),
       ).not.toContain("# Newer");
@@ -776,7 +877,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("omits instruction gitignore work from non-git dry-runs", () =>
+  it.effect("includes instruction reconciliation in non-git previews without gitignore work", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeSettings(tempDir, {
@@ -790,12 +891,15 @@ describe("root sync handler", () => {
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
-      yield* provide(handleSync({ dryRun: true, force: false }));
+      yield* provide(handleSync({ preview: true }));
 
-      expectNoOpPlanResult(rendererState.results[0]?.data, {
+      const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+        totalSteps: 1,
       });
+      expect(planResultSteps(result)).toMatchObject([
+        { label: "instruction files", status: "ready" },
+      ]);
       const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");
       expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
@@ -814,7 +918,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "review");
       writeRenderedSubagent(tempDir, ".cursor", "review", true);
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".cursor", "agents", "review.md"))).toBe(false);
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "review.md"))).toBe(true);
@@ -836,7 +940,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "review");
       writeRenderedSubagent(tempDir, ".claude", "review", true);
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "review.md"))).toBe(false);
     }),
@@ -851,7 +955,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "orphan");
       writeRenderedSubagent(tempDir, ".claude", "orphan", true);
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "orphan.md"))).toBe(false);
     }),
@@ -865,7 +969,7 @@ describe("root sync handler", () => {
       });
       writeRenderedSubagent(tempDir, ".claude", "manual", false);
 
-      yield* provide(handleSync({ dryRun: false, force: false }));
+      yield* provide(handleSync({ preview: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "manual.md"))).toBe(true);
     }),

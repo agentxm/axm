@@ -38,7 +38,6 @@ import {
   resolveConfiguredSubagent,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
@@ -242,16 +241,15 @@ const config = {
   source: Argument.string("source").pipe(
     Argument.withDescription("Replacement registry, git, or local source"),
   ),
-  scope: scopeFlag,
   yes: yesFlag,
   preview: previewFlag,
 } as const;
 
 export const demoteCommand = Command.make("demote", config, (parsed) =>
-  handleDemote(parsed).pipe(withWorkspace(parsed.scope), withRuntime("demote")),
+  handleDemote(parsed).pipe(withWorkspace("project"), withRuntime("demote")),
 ).pipe(
   withArgvTracking(config),
-  Command.withDescription("Explicitly remove workspace source authority"),
+  Command.withDescription("Explicitly remove project-workspace source authority"),
   Command.withExamples([
     {
       command: "axm demote @acme/skills/code-review @acme/skills/code-review",

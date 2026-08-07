@@ -34,7 +34,7 @@ import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
-  forceFlag,
+  replaceExistingFlag,
   previewFlag,
   Verbosity,
   yesFlag,
@@ -401,7 +401,7 @@ const addConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Add without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Add even if the extension is already in the pack")),
+  force: replaceExistingFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -417,7 +417,7 @@ export const addCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(addConfig),
-  Command.withDescription("Add an extension to a pack manifest"),
+  Command.withDescription("Add an extension to a project-workspace pack manifest"),
   Command.withExamples([
     {
       command: "axm packs add frontend-tools @acme/skills/code-review",

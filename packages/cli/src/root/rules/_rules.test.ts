@@ -1,12 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { Command, CliOutput } from "effect/unstable/cli";
 
 import { rootCommand } from "../../app.js";
 import { makeAxmFormatter } from "../../formatter.js";
 import { baseLayer } from "../../runtime.js";
-import { requireRuleName } from "./activation-argument.js";
 
 const captureHelp = (path: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -25,6 +23,12 @@ const captureHelp = (path: ReadonlyArray<string>) =>
     return output;
   });
 
+const parseCommand = (path: ReadonlyArray<string>) =>
+  Command.runWith(rootCommand, { version: "0.0.0-test" })(path).pipe(
+    Effect.provide(baseLayer),
+    Effect.result,
+  );
+
 describe("rules command group", () => {
   it("lists the extension lifecycle verbs", async () => {
     const output = await Effect.runPromise(captureHelp(["rules"]));
@@ -37,7 +41,6 @@ describe("rules command group", () => {
       "disable",
       "update",
       "instructions",
-      "version",
     ]) {
       expect(output).toContain(verb);
     }
@@ -45,25 +48,16 @@ describe("rules command group", () => {
 
   it("keeps instruction-file management under the instructions subcommand", async () => {
     const output = await Effect.runPromise(captureHelp(["rules", "instructions"]));
+    expect(output).toContain("status");
     expect(output).toContain("enable");
     expect(output).toContain("disable");
   });
 
-  it.effect("rejects a bare activation verb with a pointer to the new spelling", () =>
-    Effect.gen(function* () {
-      const result = yield* Effect.result(requireRuleName(Option.none(), "enable"));
+  it("requires a rule name for activation verbs at parse time", async () => {
+    const enable = await Effect.runPromise(parseCommand(["rules", "enable"]));
+    const disable = await Effect.runPromise(parseCommand(["rules", "disable"]));
 
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure") {
-        expect(result.failure.code).toBe("usage");
-        expect(result.failure.suggestions?.[0]?.cmd).toBe("axm rules instructions enable");
-      }
-    }),
-  );
-
-  it.effect("passes an explicit rule name through", () =>
-    Effect.gen(function* () {
-      expect(yield* requireRuleName(Option.some("commit-style"), "disable")).toBe("commit-style");
-    }),
-  );
+    expect(enable._tag).toBe("Failure");
+    expect(disable._tag).toBe("Failure");
+  });
 });

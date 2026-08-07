@@ -46,14 +46,14 @@ const CurrentWorkspaceTransaction = ServiceMap.Reference<
   defaultValue: () => Option.none(),
 });
 
-export interface WorkspaceTransactionArgs<A, R> {
+export interface WorkspaceTransactionArgs<A, E, R> {
   readonly workspaceDir: string;
   /** Authoritative files or directories that the transition may mutate. */
   readonly targets: ReadonlyArray<string>;
   /** Desired, trust, canonical, projection, and native-configuration mutation. */
-  readonly transition: Effect.Effect<A, AppError, R>;
+  readonly transition: Effect.Effect<A, E, R>;
   /** Confirms the complete durable postcondition before receipt history is written. */
-  readonly validate: (value: A) => Effect.Effect<void, AppError, R>;
+  readonly validate: (value: A) => Effect.Effect<void, E, R>;
   /** Optional non-authoritative receipt write, performed after the postcondition is valid. */
   readonly receipt?: (value: A) => Effect.Effect<void, AppError, R>;
 }
@@ -217,9 +217,9 @@ const receiptFailure = (error: AppError): AppError =>
  * failed transition or postcondition check restores the exact pre-operation
  * paths. Receipt history is deliberately outside that rollback boundary.
  */
-export const runWorkspaceTransaction = <A, R>(
-  args: WorkspaceTransactionArgs<A, R>,
-): Effect.Effect<A, AppError, R | FileSystem.FileSystem | Path.Path> =>
+export const runWorkspaceTransaction = <A, E, R>(
+  args: WorkspaceTransactionArgs<A, E, R>,
+): Effect.Effect<A, AppError | E, R | FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const current = yield* CurrentWorkspaceTransaction;
     if (Option.isSome(current)) {
@@ -244,6 +244,16 @@ export const runWorkspaceTransaction = <A, R>(
 
     return yield* semaphore.withPermits(1)(
       Effect.gen(function* () {
+        const workspaceDirExisted = yield* fs
+          .exists(workspaceDir)
+          .pipe(
+            Effect.mapError((error) =>
+              transactionError(
+                `Failed to inspect workspace state directory ${workspaceDir}`,
+                error,
+              ),
+            ),
+          );
         yield* fs
           .makeDirectory(workspaceDir, { recursive: true })
           .pipe(
@@ -332,12 +342,19 @@ export const runWorkspaceTransaction = <A, R>(
               );
             }),
           (_, exit) => {
+            const releaseTarget =
+              Exit.isFailure(exit) && !workspaceDirExisted ? workspaceDir : lockPath;
             const release = fs
-              .remove(lockPath, { force: true })
+              .remove(releaseTarget, {
+                force: true,
+                ...(releaseTarget === workspaceDir ? { recursive: true } : {}),
+              })
               .pipe(
                 Effect.mapError((error) =>
                   transactionError(
-                    `Failed to release workspace transaction lock ${lockPath}`,
+                    releaseTarget === workspaceDir
+                      ? `Failed to remove workspace state directory after rollback ${workspaceDir}`
+                      : `Failed to release workspace transaction lock ${lockPath}`,
                     error,
                   ),
                 ),

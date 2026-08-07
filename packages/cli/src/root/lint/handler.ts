@@ -93,7 +93,7 @@ import {
   observeCanonicalExtension,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import { SettingsSchema, writeSettings } from "@agentxm/client-core/unstable/settings";
 import {
   buildInstallOperation,
   buildUninstallOperation,
@@ -184,6 +184,18 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
     errors: "all",
   });
   return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
+};
+
+const withoutLegacyKnowledgeConfig = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null || !("knowledgeConfig" in value)) return value;
+  const config = Reflect.get(value, "knowledgeConfig");
+  if (typeof config !== "object" || config === null) return value;
+  return {
+    ...value,
+    knowledgeConfig: Object.fromEntries(
+      Object.entries(config).filter(([key]) => key !== "directory" && key !== "ignore"),
+    ),
+  };
 };
 
 /**
@@ -1496,6 +1508,43 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   let fixSummary: Option.Option<FixSummary> = Option.none();
   let fixResolution = Option.none<typeof PlanResolutionResultSchema.Type>();
   if (args.fix) {
+    if (
+      summary.findings.some(
+        (finding) => finding.finding.ruleId === "workspace/knowledge-config-current",
+      )
+    ) {
+      const settingsPath = path.join(ws.path, "settings.json");
+      const raw = yield* fs.readFileString(settingsPath).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to read settings for Knowledge configuration migration: ${settingsPath}`,
+            cause,
+          }),
+        ),
+      );
+      const parsed = yield* Effect.try({
+        try: (): unknown => JSON.parse(raw),
+        catch: (cause) =>
+          makeAppError({
+            code: "validation",
+            detail: "Cannot migrate legacy Knowledge settings because settings JSON is invalid",
+            cause,
+          }),
+      });
+      const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+        withoutLegacyKnowledgeConfig(parsed),
+      ).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "validation",
+            detail: "Cannot migrate legacy Knowledge settings because settings are invalid",
+            cause,
+          }),
+        ),
+      );
+      yield* writeSettings(ws.path, decoded);
+    }
     const autofixable = collectAutofixableEntries(evaluations);
     const opsEffect = Effect.forEach(
       autofixable,

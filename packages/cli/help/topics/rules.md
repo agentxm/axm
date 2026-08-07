@@ -85,7 +85,15 @@ axm rules uninstall <name>
 Rules are tracked in `.axm/settings.json` under `rules` and in
 `.axm/axm-lock.yaml` under `rules`. `axm rules disable <name>` keeps a rule
 installed but omits it from the rendered guidance region; `axm rules enable
-<name>` restores it.
+<name>` restores it. The rule name is always required. Bare `rules enable` and
+`rules disable` commands are usage errors; global instruction-file ownership
+lives under `axm rules instructions`.
+
+Every rule install, update, activation, deactivation, uninstall, and sync
+recomputes the complete `region=rules` block and reconciles all configured
+instruction aliases plus the managed `.gitignore` block in one transaction.
+Other managed regions, including Knowledge discovery, retain their content and
+relative order.
 
 Run `axm help rule-schema` to inspect the raw `rule.json` schema.
 
@@ -109,12 +117,14 @@ Rule extensions:
 
 Instruction-file management:
 
-- `axm rules instructions` — show source file, target file, mechanism, and
-  health for each configured agent.
+- `axm rules instructions` / `axm rules instructions status` — show source
+  file, target file, mechanism, and health for each configured agent.
 - `axm rules instructions enable [--file AGENTS.md] [--gitignore|--no-gitignore]`
-  — turn management on and write the resolved config to settings.
-- `axm rules instructions disable` — set `instructions: false` so AXM stops
-  touching instruction files.
+  — turn management on, preserve or seed the canonical source, and reconcile
+  owned aliases and `.gitignore`. Add `--preview` to inspect the plan.
+- `axm rules instructions disable` — remove only current AXM-owned aliases and
+  the managed `.gitignore` block, preserve the canonical source and its human
+  content, then set `instructions: false`. Add `--preview` to inspect the plan.
 
 ## Diagnosis and repair
 
@@ -125,6 +135,11 @@ stale managed `.gitignore` blocks.
 Use `axm lint --fix` to repair autofixable instruction drift. `axm sync` also
 propagates configured instruction files after materializing extension
 artifacts.
+
+Rule and instruction-management transitions fail closed when an alias is
+unowned or drifted; settings and files remain unchanged. Inspect the files,
+then use the explicit `axm lint --fix` recovery plan when overwriting the drift
+is intended. There is no generic force flag for these transitions.
 
 ## Alias gitignore propagation
 

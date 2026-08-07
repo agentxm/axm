@@ -34,8 +34,10 @@ Run setup in the project you want AXM to manage:
 axm setup
 ```
 
-Setup is idempotent. It creates `.axm/`, detects supported coding agents,
-records workspace settings, and initializes workspace state. Read
+Setup is initialization-only. When the selected scope has no settings, it
+creates `.axm/`, detects supported coding agents, records the initial agent
+membership, and initializes workspace state. Running setup again is a no-op,
+even when different `--agent` flags are supplied. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
@@ -45,8 +47,9 @@ auto-detection.
 
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. If you adopt another coding agent later, run `axm agents add <id>`;
-do not hand-edit `settings.agents`, because the command also materializes
-installed extensions into that agent's directories.
+use `axm agents remove <id>` when retiring one. Do not rerun setup or hand-edit
+`settings.agents`, because the membership commands also create or remove the
+owned per-agent artifacts for installed extensions atomically.
 
 ## Add your first extension
 

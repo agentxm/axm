@@ -271,27 +271,21 @@ describe("packs uninstall handler", () => {
       );
     });
 
-    it.effect("errors when pack is not installed", () => {
+    it.effect("succeeds as a no-op when the pack is not installed", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
+          yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
             yes: false,
             force: false,
             preview: false,
-          }).pipe(
-            Effect.catchTag("AppError", (e) =>
-              Effect.succeed({ error: true, code: e.code, message: e.detail }),
-            ),
-          );
-
-          expect(result).toMatchObject({
-            error: true,
-            code: "not_found",
-            message: expect.stringContaining("nonexistent-pack"),
           });
+
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs).toBeUndefined();
         }),
       );
     });

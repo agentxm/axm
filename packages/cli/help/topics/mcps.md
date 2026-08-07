@@ -68,6 +68,9 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   `--env` and `--header` for its inputs.
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
   inline AXM entries.
+- `axm mcps repair <name> --preview` — inspect the exact native config targets
+  for one drifted inline server, then run without `--preview` to replace only
+  those entries after confirmation.
 - `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
   latest resolved version.
 - `axm mcps list` (`ls`) — show installed servers and their state.
@@ -79,7 +82,7 @@ Authoring commands mirror the other extension types:
 
 - `axm mcps new <name>` — scaffold an `mcp.json` under your workspace
   owner.
-- `axm mcps version @owner/mcps/<name> <patch|minor|major>` — bump the manifest
+- `axm version @owner/mcps/<name> <patch|minor|major>` — bump the manifest
   version.
 - `axm mcps publish @owner/mcps/<name>` — validate and upload a new version to
   the registry.
@@ -99,7 +102,8 @@ The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 `mcp_servers`, `context_servers`). Local transports render as `command`/`args`;
 remote transports render as `url`/`headers`. AXM only edits its own entries and
 backs up each file before writing, so servers added by other tools are left
-untouched. Run `axm sync` after editing settings to re-materialize.
+untouched. `axm sync` fails closed when an AXM-managed native entry has drifted;
+use `axm mcps repair <name> --preview` for the explicit targeted recovery.
 
 ## Settings and lockfile
 

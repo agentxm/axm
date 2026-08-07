@@ -19,23 +19,23 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["--verbose"])).toBe("verbose");
   });
 
-  it('returns "normal" for -v because the CLI reserves it for --version', () => {
-    expect(resolveVerbosityFromArgv(["-v"])).toBe("normal");
+  it('returns "verbose" for -v', () => {
+    expect(resolveVerbosityFromArgv(["-v"])).toBe("verbose");
   });
 
   it('returns "debug" for --debug', () => {
     expect(resolveVerbosityFromArgv(["--debug"])).toBe("debug");
   });
 
-  it('returns "debug" for -vv', () => {
-    expect(resolveVerbosityFromArgv(["-vv"])).toBe("debug");
+  it("does not recognize the removed -vv alias", () => {
+    expect(resolveVerbosityFromArgv(["-vv"])).toBe("normal");
   });
 
-  it("quiet wins when combined with the reserved -v version flag", () => {
+  it("quiet wins when combined with -v", () => {
     expect(resolveVerbosityFromArgv(["-q", "-v"])).toBe("quiet");
   });
 
-  it("ignores -v when resolving verbosity", () => {
+  it("quiet wins over -v regardless of order", () => {
     expect(resolveVerbosityFromArgv(["-v", "-q"])).toBe("quiet");
   });
 
@@ -49,6 +49,6 @@ describe("resolveVerbosityFromArgv", () => {
   });
 
   it("ignores non-verbosity flags", () => {
-    expect(resolveVerbosityFromArgv(["--json", "--force", "-v"])).toBe("normal");
+    expect(resolveVerbosityFromArgv(["--json", "--force"])).toBe("normal");
   });
 });

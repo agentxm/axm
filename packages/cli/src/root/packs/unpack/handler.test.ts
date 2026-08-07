@@ -147,9 +147,7 @@ const defaultArgs = (
   overrides: Partial<UnpackHandlerArgs> = {},
 ): UnpackHandlerArgs => ({
   name,
-  strictAgentSync: Option.none(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });
@@ -335,12 +333,12 @@ describe("packs unpack.handler", () => {
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "Unpack pack",
-            totalSteps: 3,
+            totalSteps: 1,
           });
           const steps = planResultSteps(result);
-          const uninstallStep = expectRecord(expectDefined(steps[2], "Expected uninstall step"));
-          expect(property(uninstallStep, "status")).toBe("applied");
-          expect(property(uninstallStep, "message")).toBe("Removed @test/frontend-tools");
+          const graphStep = expectRecord(expectDefined(steps[0], "Expected graph step"));
+          expect(property(graphStep, "status")).toBe("applied");
+          expect(property(graphStep, "message")).toContain("Unpacked @test/packs/frontend-tools");
         }),
       );
     });

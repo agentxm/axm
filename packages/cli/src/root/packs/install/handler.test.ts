@@ -429,7 +429,7 @@ describe("packs install handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Already installed (no --force)
+  // Already installed (no explicit reinstall)
   // ---------------------------------------------------------------------------
 
   describe("already installed", () => {
@@ -605,8 +605,8 @@ describe("packs install handler", () => {
             preview: true,
           });
 
-          const allSuccess = logs.success.join("\n");
-          expect(allSuccess).toContain("react-testing (pkg:npm/react)");
+          const output = [...logs.info, ...logs.message, ...logs.success].join("\n");
+          expect(output).toContain("react-testing (pkg:npm/react)");
         }),
       );
     });
@@ -676,10 +676,10 @@ describe("packs install handler", () => {
             preview: true,
           });
 
-          const allSuccess = logs.success.join("\n");
+          const output = [...logs.info, ...logs.message, ...logs.success].join("\n");
           // Extension name shows up without any parenthesized compatibility info
-          expect(allSuccess).toContain("plain-skill");
-          expect(allSuccess).not.toContain("pkg:");
+          expect(output).toContain("plain-skill");
+          expect(output).not.toContain("pkg:");
         }),
       );
     });
@@ -784,7 +784,20 @@ describe("packs install handler", () => {
       const packArchiveDir = path.join(tempDir, "pack-archive");
       fs.mkdirSync(packArchiveDir, { recursive: true });
 
-      const packRef = makePackRef("test-pack");
+      const packRef = {
+        ...makePackRef("test-pack"),
+        version: exactVersion("2.1.0"),
+      } satisfies PackRef;
+      fs.writeFileSync(
+        path.join(packArchiveDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "test-pack",
+          version: "2.1.0",
+          dependencies: {},
+        }),
+      );
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
@@ -1283,7 +1296,7 @@ describe("packs install handler", () => {
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
-          expect(allLogs).toContain('"totalSteps":3');
+          expect(allLogs).toContain('"totalSteps":1');
         }),
       );
     });
@@ -1383,8 +1396,22 @@ describe("packs install handler", () => {
             versionRange: Option.none(),
           });
 
-          const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));
-          expect(labels).toEqual(["@acme/prune-pack", "kept-skill", "dropped-skill"]);
+          const steps = plan.jobs.flatMap((job) => job.steps);
+          expect(steps.map((step) => step.label)).toEqual(["@acme/packs/prune-pack"]);
+          expect(steps[0]?.artifact?.targets).toEqual([
+            {
+              path: ".axm/extensions/@acme/packs/prune-pack",
+              change: "updated",
+            },
+            {
+              path: ".axm/extensions/@acme/skills/kept-skill",
+              change: "updated",
+            },
+            {
+              path: ".axm/extensions/@acme/skills/dropped-skill",
+              change: "removed",
+            },
+          ]);
         }),
       );
     });
@@ -1436,15 +1463,18 @@ describe("packs install handler", () => {
             versionRange: Option.none(),
           });
 
-          const labels = plan.jobs.flatMap((job) => job.steps.map((step) => step.label));
-          expect(labels).toEqual(["@acme/prune-pack"]);
+          const steps = plan.jobs.flatMap((job) => job.steps);
+          expect(steps.map((step) => step.label)).toEqual(["@acme/packs/prune-pack"]);
+          expect(steps[0]?.artifact?.targets?.some((target) => target.change === "removed")).toBe(
+            false,
+          );
         }),
       );
     });
   });
 
   // ---------------------------------------------------------------------------
-  // --force propagation to workspace previewOrApplyPlan
+  // Explicit reinstall propagation to workspace previewOrApplyPlan
   // ---------------------------------------------------------------------------
 
   describe("readiness gate", () => {

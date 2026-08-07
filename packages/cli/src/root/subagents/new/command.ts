@@ -36,7 +36,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, agent, 
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("subagents new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new subagent"),
+  Command.withDescription("Create a new subagent in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm subagents new my-subagent", description: "Scaffold a new subagent" },
     {

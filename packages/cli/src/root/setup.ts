@@ -1,7 +1,6 @@
 import { AGENTS, CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import {
-  forceFlag,
   isNonInteractive,
   jsonFlag,
   nonInteractiveFlag,
@@ -17,7 +16,11 @@ import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
+  AXM_DIR_NAME,
   bootstrapWorkspace,
+  getUserScopeDir,
+  protectWorkspacePath,
+  runWorkspaceTransaction,
   scanAllSubagentFiles,
   type AgentSubagentSummary,
   type WorkspaceMutationsOptions,
@@ -150,7 +153,6 @@ interface SetupSkillInstallerService {
   readonly installDefaultSkill: (args: {
     readonly scope: WorkspaceScope;
     readonly yes: boolean;
-    readonly force: boolean;
     readonly preview: boolean;
   }) => Effect.Effect<void, AppError | PromptCancelled, Verbosity>;
 }
@@ -186,6 +188,7 @@ const installBundledAxmSkill = Effect.gen(function* () {
   );
   const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, fsPathLayer);
 
+  yield* protectWorkspacePath(canonicalPath);
   yield* fs
     .makeDirectory(skillSrcPath, { recursive: true })
     .pipe(Effect.mapError(mapBundledSkillWriteError(skillSrcPath)));
@@ -330,13 +333,31 @@ const setupSuggestions = (args: {
   readonly telemetryEnabled: boolean;
 }): ReadonlyArray<SuggestedAction> => {
   if (args.status === "preview") {
-    return [{ description: "Apply setup", cmd: "axm setup --yes" }];
+    return [
+      {
+        description: "Apply setup",
+        cmd: `axm setup --yes${args.scope === "user" ? " --scope user" : ""}`,
+      },
+    ];
   }
 
   const suggestions: Array<SuggestedAction> = [
-    { description: "Inspect configured agents", cmd: "axm agents list" },
-    { description: "Inspect installed skills", cmd: "axm skills list" },
+    {
+      description: "Inspect configured agents",
+      cmd: `axm agents list${args.scope === "user" ? " --scope user" : ""}`,
+    },
+    {
+      description: "Inspect installed skills",
+      cmd: `axm skills list${args.scope === "user" ? " --scope user" : ""}`,
+    },
   ];
+
+  if (args.status === "already-initialized") {
+    suggestions.splice(1, 0, {
+      description: "Manage coding-agent membership",
+      cmd: `axm agents --help${args.scope === "user" ? " --scope user" : ""}`,
+    });
+  }
 
   if (args.agentCount === 0) {
     suggestions.unshift({
@@ -362,9 +383,13 @@ const setupMessage = (args: {
   readonly initialized: boolean;
   readonly agentNames: string;
   readonly agentCount: number;
+  readonly membershipRequested: boolean;
 }): string => {
   if (args.preview) return "Setup plan ready";
   if (!args.initialized) {
+    if (args.membershipRequested) {
+      return "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents";
+    }
     return args.agentCount > 0
       ? `Workspace already initialized with agents: ${args.agentNames}`
       : "Workspace already initialized with no coding agents";
@@ -567,31 +592,54 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly scope: WorkspaceScope;
   readonly agents?: ReadonlyArray<string>;
   readonly yes?: boolean;
-  readonly force?: boolean;
   readonly preview?: boolean;
 }) {
   const renderer = yield* CliRenderer;
   const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
   yield* renderSetupBranding(renderer);
 
   const workspaceOptions: WorkspaceMutationsOptions = {
     scope: args.scope,
     ...(args.agents !== undefined && args.agents.length > 0 ? { agents: args.agents } : {}),
     ...(args.yes !== undefined ? { yes: args.yes } : {}),
-    ...(args.force !== undefined ? { force: args.force } : {}),
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
   };
-  const { settings, location, initialized } = yield* bootstrapWorkspace(workspaceOptions);
-  const defaultSkillInstalled = initialized && args.preview !== true;
-  if (defaultSkillInstalled) {
-    const installer = yield* SetupSkillInstaller;
-    yield* installer.installDefaultSkill({
-      scope: args.scope,
-      yes: args.yes ?? false,
-      force: args.force ?? false,
-      preview: args.preview ?? false,
-    });
-  }
+  const installer = yield* SetupSkillInstaller;
+  const initialize = Effect.gen(function* () {
+    const result = yield* bootstrapWorkspace(workspaceOptions);
+    if (result.initialized) {
+      yield* installer.installDefaultSkill({
+        scope: args.scope,
+        yes: args.yes ?? false,
+        preview: args.preview ?? false,
+      });
+    }
+    return result;
+  });
+  const workspaceDir =
+    args.scope === "user"
+      ? yield* getUserScopeDir()
+      : path.join(yield* Effect.sync(() => process.cwd()), AXM_DIR_NAME);
+  const settingsExists = yield* fs.exists(path.join(workspaceDir, "settings.json")).pipe(
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to inspect setup state: ${workspaceDir}`,
+        cause: error,
+      }),
+    ),
+  );
+  const { settings, location, initialized, wouldInitialize } =
+    args.preview === true || settingsExists
+      ? yield* initialize
+      : yield* runWorkspaceTransaction({
+          workspaceDir,
+          targets: [],
+          transition: initialize,
+          validate: () => Effect.void,
+        });
+  const defaultSkillInstalled = initialized;
   const agentIds = settings.agents ?? [];
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
@@ -631,8 +679,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
     agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
-  const status =
-    args.preview === true ? "preview" : initialized ? "initialized" : "already-initialized";
+  const status = wouldInitialize ? "preview" : initialized ? "initialized" : "already-initialized";
   const suggestions = setupSuggestions({
     status,
     agentCount: allAgents.length,
@@ -640,10 +687,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     telemetryEnabled,
   });
   const message = setupMessage({
-    preview: args.preview === true,
+    preview: wouldInitialize,
     initialized,
     agentNames,
     agentCount: allAgents.length,
+    membershipRequested: (args.agents?.length ?? 0) > 0,
   });
   const planFields = setupPlanFields({
     status,
@@ -726,21 +774,16 @@ const setupConfig = {
     Flag.atLeast(0),
   ),
   yes: yesFlag,
-  force: forceFlag,
   preview: previewFlag,
 } as const;
 
-export const setupCommand = Command.make(
-  "setup",
-  setupConfig,
-  ({ scope, agent, yes, force, preview }) =>
-    handleSetup({
-      scope,
-      yes,
-      force,
-      preview,
-      ...(agent.length > 0 ? { agents: agent } : {}),
-    }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup")),
+export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, yes, preview }) =>
+  handleSetup({
+    scope,
+    yes,
+    preview,
+    ...(agent.length > 0 ? { agents: agent } : {}),
+  }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup")),
 ).pipe(
   withArgvTracking(setupConfig),
   Command.withDescription("Set up AXM in the current project"),

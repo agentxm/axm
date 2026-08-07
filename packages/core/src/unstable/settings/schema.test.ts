@@ -112,7 +112,7 @@ describe("Settings schema", () => {
 
     it("round-trips supported feature config blocks through schema encode", () => {
       const input = {
-        knowledgeConfig: { directory: "docs/agent-knowledge" },
+        knowledgeConfig: { instructions: false },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
@@ -120,16 +120,24 @@ describe("Settings schema", () => {
       expect(encoded).toEqual(input);
     });
 
-    it("accepts an empty Knowledge config so the workspace can resolve the default directory", () => {
+    it("accepts an empty Knowledge config so instruction discovery defaults on", () => {
       expect(Schema.decodeUnknownSync(KnowledgeConfigSchema)({})).toEqual({});
     });
 
-    it("accepts a custom Knowledge projection directory", () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        knowledgeConfig: { directory: "docs/agent-knowledge" },
-      });
-
-      expect(result.knowledgeConfig?.directory).toBe("docs/agent-knowledge");
+    it("exposes only the current Knowledge instruction setting", () => {
+      expect(
+        Schema.decodeUnknownSync(SettingsSchema)({
+          knowledgeConfig: { instructions: false },
+        }).knowledgeConfig,
+      ).toEqual({ instructions: false });
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)(
+          {
+            knowledgeConfig: { directory: "docs/agent-knowledge" },
+          },
+          { onExcessProperty: "error" },
+        ),
+      ).toThrow();
     });
   });
 

@@ -9,7 +9,7 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  forceFlag,
+  acceptWarningsFlag,
   previewFlag,
   Verbosity,
   yesFlag,
@@ -24,17 +24,19 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
+  previewOrApplyPlan,
 } from "@agentxm/client-core/unstable/plan";
 import {
   cleanupManagedArtifactsForRemovedAgents,
+  type RemovedAgentArtifactCleanupResult,
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
 
 const AGENT_SETTINGS_PATH = ".axm/settings.json";
@@ -71,26 +73,55 @@ const provideCleanupServices = <A>(
 const cleanupStep = (
   removedAgentIds: ReadonlySet<string>,
   services: CleanupServices,
+  preview: RemovedAgentArtifactCleanupResult,
 ): PlannedJobStep => ({
   label: "Remove managed agent artifacts",
   readiness: "ready",
+  artifact: {
+    path: "managed agent artifacts",
+    scope: services.ws.scope,
+    agents: [...removedAgentIds],
+    change: preview.removedPaths.length === 0 ? "unchanged" : "removed",
+    fileCount: preview.removedPaths.length,
+    targets: [
+      ...preview.removedPaths.map((removedPath): JobStepArtifactTarget => ({
+        path: services.path.relative(services.ws.baseDir, removedPath),
+        change: "removed",
+      })),
+      ...preview.preservedPaths.map((preservedPath): JobStepArtifactTarget => ({
+        path: services.path.relative(services.ws.baseDir, preservedPath),
+        change: "unchanged",
+      })),
+    ],
+  },
   run: provideCleanupServices(
     cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
       Effect.map(
         (result) =>
           ({
             result: "success",
-            message: `Removed ${count(result.removedPaths.length, "managed artifact")}`,
+            message: [
+              `Removed ${count(result.removedPaths.length, "managed artifact")}`,
+              ...(result.preservedPaths.length === 0
+                ? []
+                : [`preserved ${count(result.preservedPaths.length, "unowned artifact")}`]),
+            ].join("; "),
             artifact: {
               path: "managed agent artifacts",
               scope: services.ws.scope,
               agents: [...removedAgentIds],
               change: result.removedPaths.length === 0 ? "unchanged" : "removed",
               fileCount: result.removedPaths.length,
-              targets: result.removedPaths.map((removedPath): JobStepArtifactTarget => ({
-                path: services.path.relative(services.ws.baseDir, removedPath),
-                change: "removed",
-              })),
+              targets: [
+                ...result.removedPaths.map((removedPath): JobStepArtifactTarget => ({
+                  path: services.path.relative(services.ws.baseDir, removedPath),
+                  change: "removed",
+                })),
+                ...result.preservedPaths.map((preservedPath): JobStepArtifactTarget => ({
+                  path: services.path.relative(services.ws.baseDir, preservedPath),
+                  change: "unchanged",
+                })),
+              ],
             },
           }) satisfies JobStepResult,
       ),
@@ -138,6 +169,14 @@ const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
 const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJobStep => ({
   label: `Remove ${agentId}`,
   readiness: "ready",
+  artifact: {
+    path: AGENT_SETTINGS_PATH,
+    scope: ws.scope,
+    agents: [agentId],
+    change: "updated",
+    fileCount: 1,
+    targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+  },
   run: ws.removeConfiguredAgent(agentId).pipe(
     Effect.as({
       result: "success",
@@ -190,12 +229,35 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
 
   const removedAgentIds = new Set(agentIds);
   const cleanupServices = { ws, fs, path, agentRepo };
-  const plan = makePlan(agentIds, [
-    cleanupStep(removedAgentIds, cleanupServices),
+  const cleanupPreview = yield* provideCleanupServices(
+    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds, dryRun: true }),
+    cleanupServices,
+  );
+  const steps = [
+    cleanupStep(removedAgentIds, cleanupServices, cleanupPreview),
     ...agentIds.map((agentId) => removeAgentStep(ws, agentId)),
-  ]);
+  ];
+  const atomicSteps = yield* makeAtomicMembershipSteps({
+    ws,
+    steps,
+    validate: () =>
+      ws.getConfiguredAgents().pipe(
+        Effect.flatMap((current) => {
+          const currentSet = new Set(current);
+          const retained = agentIds.filter((agentId) => currentSet.has(agentId));
+          return retained.length === 0
+            ? Effect.void
+            : makeAppError({
+                code: "internal",
+                detail: `Agent membership transition did not remove: ${retained.join(", ")}`,
+              });
+        }),
+      ),
+  });
+  const plan = makePlan(agentIds, atomicSteps);
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
     preview: args.preview,
     displayApplied: false,
   });
@@ -240,7 +302,7 @@ const removeConfig = {
     Flag.withDescription("Remove agents from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
+  force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 

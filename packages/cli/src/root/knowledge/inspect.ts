@@ -43,14 +43,27 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const locked = yield* ws.getLockedKnowledge();
-  const configured = yield* ws.getConfiguredKnowledgeEntries();
-  const entries = Object.entries(locked)
+  const graph = yield* ws.getDesiredStateGraph();
+  if (!graph.complete) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail:
+        "Knowledge desired state cannot be inspected until pack and declaration problems are fixed",
+    });
+  }
+  const entries = graph.nodes
     .filter(
-      ([name]) =>
-        (selectedName === undefined || name === selectedName) &&
-        configured[name]?.enabled !== false,
+      (node) =>
+        node.type === "knowledge" &&
+        node.enabled &&
+        (selectedName === undefined || node.name === selectedName),
     )
-    .sort(([left], [right]) => left.localeCompare(right));
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((node): readonly [string, KnowledgeLockEntry] | undefined => {
+      const entry = locked[node.name];
+      return entry === undefined ? undefined : [node.name, entry];
+    })
+    .filter((entry): entry is readonly [string, KnowledgeLockEntry] => entry !== undefined);
   if (selectedName !== undefined && entries.length === 0) {
     return yield* makeAppError({
       code: "not_found",

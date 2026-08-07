@@ -44,7 +44,11 @@ import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
+import {
+  trustedRegistryVersionForRef,
+  trustRecordKey,
+  validateRefTrustTransition,
+} from "../trust/index.js";
 import { isWorkspaceSourceLocator, type RegistrySource } from "../sources/index.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
@@ -289,6 +293,20 @@ export const PackManagerLive = Layer.effect(
           return yield* makeAppError({
             code: "validation",
             detail: `Workspace pack package is missing: ${packDir}`,
+          });
+        }
+        const trust = yield* ws.getTrustState();
+        const record = trust.records[trustRecordKey("pack", ref.name)];
+        if (record?.authority === "workspace" && record.contentIdentity !== ref.sourceHash) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Workspace pack ${ref.owner}/packs/${ref.name} differs from its trusted baseline`,
+            suggestions: [
+              {
+                description: "Inspect the authored changes before accepting a new baseline.",
+                cmd: `axm packs repair ${ref.owner}/packs/${ref.name} --preview`,
+              },
+            ],
           });
         }
         return;

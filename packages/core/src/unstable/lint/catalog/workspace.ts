@@ -11,6 +11,7 @@
  * | `workspace/initialized`                 | error    | —           |
  * | `workspace/settings-schema-valid`       | error    | —           |
  * | `workspace/settings-keys-recognized`    | error    | —           |
+ * | `workspace/knowledge-config-current`    | warning  | autofixing  |
  * | `workspace/lockfile-valid`              | error    | autofixing  |
  * | `workspace/desired-state-reconcilable`  | error    | —           |
  * | `workspace/authored-content-unpublished` | warning  | —           |
@@ -18,6 +19,7 @@
  * | `workspace/agents-detected-declared`    | warning  | —           |
  * | `workspace/skills-declarations-valid`   | error    | —           |
  * | `workspace/packs-declarations-valid`    | error    | —           |
+ * | `workspace/knowledge-state-valid`       | error    | —           |
  * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
  * | `workspace/skills-integrity-valid`      | error    | autofixing  |
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
@@ -69,6 +71,8 @@ import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-tar
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { authoredContentUnpublishedRule } from "./workspace/authored-content-unpublished.js";
+import { knowledgeConfigCurrentRule } from "./workspace/knowledge-config-current.js";
+import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -86,6 +90,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
+  knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
   authoredContentUnpublishedRule,
@@ -99,6 +104,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,
+  knowledgeStateValidRule,
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
   mcpServerSharedTargetCompatibleRule,

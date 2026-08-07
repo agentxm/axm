@@ -15,6 +15,7 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { ResolvePlanInteractionTest } from "@agentxm/client-core/unstable/workspace";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -66,7 +67,13 @@ describe("agents remove.handler", () => {
     readonly machine?: boolean;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-    const baseLayer = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const interaction = ResolvePlanInteractionTest();
+    const baseLayer = Layer.mergeAll(
+      NodeServices.layer,
+      renderer.layer,
+      TestFlagsLayer(),
+      interaction.layer,
+    );
     const wsLayer = Layer.provide(
       coreWorkspaceLayer({
         scope: "project",
@@ -103,7 +110,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: []\n",
+      lockfile: "lockfileVersion: 3\nskills: {}\n",
     });
 
     return provide(
@@ -128,7 +135,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: []\n",
+      lockfile: "lockfileVersion: 3\nskills: {}\n",
     });
 
     return provide(
@@ -158,7 +165,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: []\n",
+      lockfile: "lockfileVersion: 3\nskills: {}\n",
     });
 
     return provide(
@@ -211,7 +218,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: []\n",
+      lockfile: "lockfileVersion: 3\nskills: {}\n",
     });
     const sourceDir = path.join(tempDir, ".axm", "extensions", "@agentxm", "skills", "axm", "src");
     const skillsDir = path.join(tempDir, ".opencode", "skills");

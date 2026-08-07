@@ -18,6 +18,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/initialized", severity: "error" },
   { id: "workspace/settings-schema-valid", severity: "error" },
   { id: "workspace/settings-keys-recognized", severity: "error" },
+  { id: "workspace/knowledge-config-current", severity: "warning" },
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/desired-state-reconcilable", severity: "error" },
   { id: "workspace/authored-content-unpublished", severity: "warning" },
@@ -32,6 +33,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-declarations-valid", severity: "error" },
   { id: "workspace/packs-declarations-valid", severity: "error" },
   { id: "workspace/configured-but-not-installed", severity: "error" },
+  { id: "workspace/knowledge-state-valid", severity: "error" },
   { id: "workspace/mcps-transport-exclusivity", severity: "warning" },
   { id: "workspace/mcps-no-secret-literal", severity: "warning" },
   { id: "workspace/mcps-shared-target-compatible", severity: "error" },
@@ -73,6 +75,7 @@ describe("workspaceRules", () => {
   it("registers the expected autofixing rule-ids", () => {
     const autofixingIds = workspaceRules.filter((r) => r.kind === "autofixing").map((r) => r.id);
     expect(autofixingIds).toEqual([
+      "workspace/knowledge-config-current",
       "workspace/lockfile-valid",
       "workspace/instructions-target-current",
       "workspace/instructions-gitignore-current",

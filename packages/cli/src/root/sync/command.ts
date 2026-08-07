@@ -19,25 +19,13 @@ const syncConfig = {
     "knowledge",
   ] as const).pipe(Flag.withDescription("Reconcile only one extension type"), Flag.optional),
   scope: scopeFlag.pipe(Flag.withDescription("Sync project (default) or user-level configuration")),
-  dryRun: Flag.boolean("dry-run").pipe(
+  preview: Flag.boolean("preview").pipe(
     Flag.withDescription("Preview the materialization plan without applying it"),
-  ),
-  force: Flag.boolean("force").pipe(
-    Flag.withDescription("Overwrite drifted managed MCP server agent configs"),
-  ),
-  acceptAuthorityChange: Flag.boolean("accept-authority-change").pipe(
-    Flag.withDescription("Re-anchor one relocated workspace-authored extension"),
   ),
 } as const;
 
-export const syncCommand = Command.make(
-  "sync",
-  syncConfig,
-  ({ target, type, scope, dryRun, force, acceptAuthorityChange }) =>
-    handleSync({ target, type, dryRun, force, acceptAuthorityChange }).pipe(
-      withWorkspace(scope),
-      withRuntime("sync"),
-    ),
+export const syncCommand = Command.make("sync", syncConfig, ({ target, type, scope, preview }) =>
+  handleSync({ target, type, preview }).pipe(withWorkspace(scope), withRuntime("sync")),
 ).pipe(
   withArgvTracking(syncConfig),
   Command.withDescription("Materialize configured workspace files"),
@@ -47,24 +35,16 @@ export const syncCommand = Command.make(
       description: "Rebuild managed workspace files",
     },
     {
-      command: "axm sync --dry-run",
+      command: "axm sync --preview",
       description: "Preview what would be materialized without writing files",
     },
     {
-      command: "axm sync @acme/packs/frontend-tools --dry-run",
+      command: "axm sync @acme/packs/frontend-tools --preview",
       description: "Preview reconciliation for one pack and its members",
     },
     {
       command: "axm sync --type skill",
       description: "Reconcile only configured skills",
-    },
-    {
-      command: "axm sync --force",
-      description: "Overwrite drifted managed MCP server agent configs",
-    },
-    {
-      command: "axm sync @acme/mcps/context --accept-authority-change",
-      description: "Re-anchor a relocated workspace-authored extension",
     },
     {
       command: "axm sync --scope user",

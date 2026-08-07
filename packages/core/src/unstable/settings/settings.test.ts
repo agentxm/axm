@@ -131,13 +131,13 @@ describe("settings", () => {
       ),
     );
 
-    it.effect("round-trips retained feature config shape", () =>
+    it.effect("round-trips the non-default Knowledge instruction setting", () =>
       withContext(
         Effect.gen(function* () {
           const settings: Settings = {
             agents: ["claude-code"],
             skills: { commit: { source: "^1.0.0", enabled: true } },
-            knowledgeConfig: { directory: "docs/agent-knowledge" },
+            knowledgeConfig: { instructions: false },
           };
 
           yield* writeSettings(axmDir, settings);

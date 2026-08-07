@@ -5,10 +5,11 @@
  * Runtime/service provisioning stays in runtime.ts.
  */
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
-import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 
 import {
   nonInteractiveFlag,
@@ -31,11 +32,19 @@ const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
 
 /**
- * Effect CLI built-ins kept for the spike: `--completions` and `--log-level`
- * are intentionally absent, mirroring the main CLI.
+ * The long-only version action leaves `-v` available for verbose output.
+ * Completions, log-level, and wizard built-ins are intentionally absent.
  */
+const versionGlobalFlag = GlobalFlag.action({
+  flag: Flag.boolean("version").pipe(Flag.withDescription("Show version information")),
+  run: Effect.fnUntraced(function* (_, context) {
+    const formatter = yield* CliOutput.Formatter;
+    yield* Console.log(formatter.formatVersion(context.command.name, context.version));
+  }),
+});
+
 const cliConfigLayer = CliConfig.layer({
-  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard],
+  builtIns: [GlobalFlag.Help, versionGlobalFlag],
 });
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(

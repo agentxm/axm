@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, refreshFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { scopeFlag } from "../../cli-flags.js";
@@ -16,7 +16,7 @@ const updateConfig = {
     Flag.withDescription("Update in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the update plan")),
-  force: forceFlag.pipe(Flag.withDescription("Update even if already at the latest version")),
+  force: refreshFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be updated without making changes"),
   ),

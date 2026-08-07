@@ -119,7 +119,6 @@ const REMOVED_IGNORE_CONFIG_KEYS: ReadonlyArray<string> = [
   "mcpServersConfig",
   "subagentsConfig",
   "hooksConfig",
-  "knowledgeConfig",
   "packsConfig",
 ];
 
@@ -132,6 +131,16 @@ const removedIgnoreConfigIssues = (value: object): ReadonlyArray<string> =>
       `${key}.ignore: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.`,
     ];
   });
+
+const withoutLegacyKnowledgeConfig = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null || !("knowledgeConfig" in value)) return value;
+  const config = Reflect.get(value, "knowledgeConfig");
+  if (typeof config !== "object" || config === null) return value;
+  const current = Object.fromEntries(
+    Object.entries(config).filter(([key]) => key !== "directory" && key !== "ignore"),
+  );
+  return { ...value, knowledgeConfig: current };
+};
 
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
@@ -159,9 +168,12 @@ const loadSettings = (
       }
     }
 
-    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
-      onExcessProperty: "error",
-    }).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+      withoutLegacyKnowledgeConfig(parsed),
+      {
+        onExcessProperty: "error",
+      },
+    ).pipe(
       Effect.mapError((error) => {
         const authoredGuidance = containsRemovedAuthoredProperty(parsed)
           ? [

@@ -1,6 +1,5 @@
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
-import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -16,7 +15,6 @@ import { makeAppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
-  enabledConfiguredEntries,
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
@@ -46,7 +44,7 @@ import {
   type KnowledgeManifest,
 } from "./manifest-schema.js";
 import { inspectKnowledgeBundle, type KnowledgeInspection } from "./okf.js";
-import { reconcileKnowledgeProjection, type KnowledgeProjectionBundle } from "./projection.js";
+import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -384,12 +382,11 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
-    const getInstructionsPath = () =>
+    const getInstructionsTarget = () =>
       Effect.gen(function* () {
         const config = yield* ws.getInstructionsConfig();
-        const resolved = resolveInstructionsConfig(
-          Option.isSome(config) && config.value !== false ? config.value : undefined,
-        );
+        const enabled = Option.isSome(config) && config.value !== false;
+        const resolved = resolveInstructionsConfig(enabled ? config.value : undefined);
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
         if (Option.isNone(relative)) {
           return yield* makeAppError({
@@ -397,7 +394,11 @@ export const KnowledgeManagerLive = Layer.effect(
             detail: `Knowledge discovery instruction target escapes workspace: ${resolved.fileName}`,
           });
         }
-        return path.resolve(baseDir, relative.value);
+        return {
+          path: path.resolve(baseDir, relative.value),
+          enabled,
+          preserveSource: enabled,
+        };
       });
 
     const canonicalRoot = (name: string, locked: KnowledgeLockEntry): string =>
@@ -417,42 +418,58 @@ export const KnowledgeManagerLive = Layer.effect(
         readonly manifest: KnowledgeManifest;
         readonly inspection: KnowledgeInspection;
       },
-    ): KnowledgeProjectionBundle => ({
+    ): KnowledgeDiscoveryBundle => ({
       owner: inspected.manifest.owner,
       name: inspected.manifest.name,
       sourceDir: path.join(root, KNOWLEDGE_SOURCE_DIR),
       ...(inspected.manifest.description === undefined
         ? {}
         : { description: inspected.manifest.description }),
-      version: inspected.manifest.version,
-      conceptCount: inspected.inspection.concepts.length,
     });
 
-    const reconcileProjection = (options?: {
+    const activeKnowledgeNodes = () =>
+      ws.getDesiredStateGraph().pipe(
+        Effect.flatMap((graph) =>
+          graph.complete
+            ? Effect.succeed(
+                graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
+              )
+            : makeAppError({
+                code: "conflict",
+                detail:
+                  "Knowledge desired state cannot be reconciled until pack and declaration problems are fixed",
+              }),
+        ),
+      );
+
+    const reconcileDiscovery = (options?: {
       readonly include?: { readonly ref: KnowledgeExtensionRef; readonly root: string };
       readonly excludeName?: string;
       readonly dryRun?: boolean;
       readonly preserveNames?: ReadonlySet<string>;
     }) =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const desired = yield* activeKnowledgeNodes();
         const locked = yield* getKnowledgeLockEntries(ws);
-        const installed = Array.getSomes(
-          yield* Effect.forEach(
-            enabledConfiguredEntries(configured).filter(
-              ([name]) =>
-                name !== options?.include?.ref.knowledge.name &&
-                name !== options?.excludeName &&
-                options?.preserveNames?.has(name) !== true,
-            ),
-            ([name]) =>
-              Effect.gen(function* () {
-                const lockEntry = locked[name];
-                if (lockEntry === undefined) return Option.none<KnowledgeProjectionBundle>();
-                const root = canonicalRoot(name, lockEntry);
-                return Option.some(toProjectionBundle(root, yield* inspectPackage(root)));
-              }),
+        const installed = yield* Effect.forEach(
+          desired.filter(
+            (node) =>
+              node.name !== options?.include?.ref.knowledge.name &&
+              node.name !== options?.excludeName &&
+              options?.preserveNames?.has(node.name) !== true,
           ),
+          (node) =>
+            Effect.gen(function* () {
+              const lockEntry = locked[node.name];
+              if (lockEntry === undefined) {
+                return yield* makeAppError({
+                  code: "conflict",
+                  detail: `Active Knowledge bundle is not locked: ${node.name}`,
+                });
+              }
+              const root = canonicalRoot(node.name, lockEntry);
+              return toProjectionBundle(root, yield* inspectPackage(root));
+            }),
         );
         const included =
           options?.include === undefined
@@ -463,15 +480,17 @@ export const KnowledgeManagerLive = Layer.effect(
                   yield* inspectPackage(options.include.root),
                 ),
               ];
-        const config = yield* ws.getKnowledgeProjectionConfig();
-        const instructionsPath = yield* getInstructionsPath();
+        const config = yield* ws.getKnowledgeDiscoveryConfig();
+        const instructionsTarget = yield* getInstructionsTarget();
         return yield* provide(
-          reconcileKnowledgeProjection({
+          reconcileKnowledgeDiscovery({
             scopeRoot: baseDir,
             axmDir: ws.path,
             config,
             bundles: [...installed, ...included],
-            instructionsPath,
+            instructionsPath: instructionsTarget.path,
+            instructionManagementEnabled: instructionsTarget.enabled,
+            preserveInstructionsSource: instructionsTarget.preserveSource,
             ...(options?.preserveNames === undefined
               ? {}
               : { preserveBundleNames: options.preserveNames }),
@@ -556,50 +575,49 @@ export const KnowledgeManagerLive = Layer.effect(
       dryRun: boolean,
     ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>> =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const desired = yield* activeKnowledgeNodes();
         const locked = yield* getKnowledgeLockEntries(ws);
-        const warnings: Array<string> = [];
         const prepared: Array<PreparedKnowledgePackage> = [];
-        const unavailableNames = new Set<string>();
-        for (const [name] of enabledConfiguredEntries(configured)) {
+        for (const { name } of desired) {
           const entry = locked[name];
           if (entry === undefined) {
-            warnings.push(`Knowledge bundle is configured but not locked: ${name}`);
-            unavailableNames.add(name);
-            continue;
+            return yield* makeAppError({
+              code: "conflict",
+              detail: `Active Knowledge bundle is not locked: ${name}`,
+            });
           }
           const root = canonicalRoot(name, entry);
           const inspection = yield* Effect.result(inspectPackage(root));
           if (Result.isSuccess(inspection)) continue;
-          if (dryRun) {
-            warnings.push(`Knowledge bundle requires lock-backed restore: ${name}`);
-            unavailableNames.add(name);
-            continue;
-          }
           const restored = yield* Effect.result(Effect.scoped(restoreLockedPackage(name, entry)));
           if (Result.isFailure(restored)) {
-            warnings.push(`${name}: ${restored.failure.detail}`);
-            unavailableNames.add(name);
+            yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
+              discard: true,
+            });
+            return yield* makeAppError({
+              code: "unavailable",
+              detail: `Active Knowledge bundle could not be restored: ${name}. ${restored.failure.detail}`,
+              cause: restored.failure,
+            });
           } else prepared.push(restored.success);
         }
-        const projected = yield* Effect.result(
-          reconcileProjection({
-            dryRun,
-            ...(unavailableNames.size === 0 ? {} : { preserveNames: unavailableNames }),
-          }),
-        );
-        if (Result.isFailure(projected)) {
+        const discovered = yield* Effect.result(reconcileDiscovery({ dryRun }));
+        if (Result.isFailure(discovered)) {
           yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
             discard: true,
           });
-          return yield* projected.failure;
+          return yield* discovered.failure;
         }
-        yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
-        const projection = projected.success;
+        yield* Effect.forEach(
+          dryRun ? [...prepared].reverse() : prepared,
+          (item) => (dryRun ? item.rollback : item.commit),
+          { discard: true },
+        );
+        const discovery = discovered.success;
         return {
-          changed: prepared.length > 0 || projection.changed,
-          warnings,
-          artifacts: projection.artifacts,
+          changed: prepared.length > 0 || discovery.changed,
+          warnings: [],
+          artifacts: discovery.artifacts,
         };
       });
 
@@ -635,13 +653,20 @@ export const KnowledgeManagerLive = Layer.effect(
                 versionRange: args.versionRange,
                 commit: "authoritative",
               });
-              yield* reconcileProjection({
+              const locked = yield* getKnowledgeLockEntries(ws);
+              const pendingNames = new Set(
+                (yield* activeKnowledgeNodes())
+                  .filter((node) => node.name !== name && locked[node.name] === undefined)
+                  .map((node) => node.name),
+              );
+              yield* reconcileDiscovery({
                 include: { ref: args.ref, root: prepared.root },
                 excludeName: name,
+                preserveNames: pendingNames,
               });
               return { name, lockEntry };
             }).pipe(
-              Effect.tapError(() => prepared.commit),
+              Effect.tapError(() => prepared.rollback),
               Effect.tap(() => prepared.commit),
             );
           }),
@@ -699,7 +724,7 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           );
         }
-        yield* reconcileProjection({ excludeName: target.name });
+        yield* reconcileDiscovery({ excludeName: target.name });
       }, Effect.asVoid);
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
@@ -713,7 +738,7 @@ export const KnowledgeManagerLive = Layer.effect(
           .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       refreshCatalog: () =>
         ws.runTransaction({
-          transition: reconcileProjection().pipe(Effect.asVoid),
+          transition: reconcileDiscovery().pipe(Effect.asVoid),
           validate: () => Effect.void,
         }),
       sync: ({ dryRun }) =>
@@ -741,12 +766,12 @@ export const KnowledgeManagerLive = Layer.effect(
           });
         }
         const prepared = yield* preparePackage(ref, force === true);
-        const projection = yield* Effect.result(
-          reconcileProjection({ include: { ref, root: prepared.root } }),
+        const discovery = yield* Effect.result(
+          reconcileDiscovery({ include: { ref, root: prepared.root } }),
         );
-        if (Result.isFailure(projection)) {
+        if (Result.isFailure(discovery)) {
           yield* prepared.rollback;
-          return yield* projection.failure;
+          return yield* discovery.failure;
         }
         yield* prepared.commit;
         lastInstallState.set(ref.knowledge.name, {
@@ -759,22 +784,20 @@ export const KnowledgeManagerLive = Layer.effect(
           .getConfiguredKnowledgeEntries()
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       listMaterializable: () =>
-        ws
-          .getConfiguredKnowledgeEntries()
-          .pipe(
-            Effect.flatMap((entries) =>
-              Effect.scoped(
-                Effect.forEach(
-                  enabledConfiguredEntries(entries),
-                  ([name, entry]) =>
-                    provide(resolveConfiguredKnowledge(name, entry.source)).pipe(
-                      Effect.map(({ ref }) => ref),
-                    ),
-                  { concurrency: "unbounded" },
-                ),
+        activeKnowledgeNodes().pipe(
+          Effect.flatMap((nodes) =>
+            Effect.scoped(
+              Effect.forEach(
+                nodes,
+                (node) =>
+                  provide(resolveConfiguredKnowledge(node.name, node.source)).pipe(
+                    Effect.map(({ ref }) => ref),
+                  ),
+                { concurrency: "unbounded" },
               ),
             ),
           ),
+        ),
       materializeUninstall,
       materializeDeactivate,
       upsertSettingsEntry: ({ ref, versionRange }) =>

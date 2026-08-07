@@ -1,3 +1,15 @@
+## 0.25.1 (2026-08-07)
+
+### 🚀 Features
+
+- Make setup initialization-only, apply coding-agent membership with owned artifacts atomically, reconcile Rules instruction ownership in fail-closed transactions, make sync a single fail-closed preview/apply plan with targeted MCP drift recovery, apply each pack with its complete member graph as one rollback-safe lifecycle transition, render active Knowledge as a canonical instruction-table index without duplicate projections, make publish preflight the full selection before fail-fast immutable uploads with explicit verification and backfill policies, consistently isolate installed state by project/user scope while keeping authoring project-only, and simplify the CLI to one version command, conventional verbosity flags, and intention-revealing override controls.
+  Enforce the same capability-derived lifecycle, preview, transaction, idempotency, scope, and pack-reachability postconditions across every extension type.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.25.0 (2026-08-07)
 
 ### 🚀 Features

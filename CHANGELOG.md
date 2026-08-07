@@ -1,3 +1,18 @@
+## 0.25.4 (2026-08-07)
+
+### 🚀 Features
+
+- Lint the exact staged Git workspace and document safe hook integration. ([#119](https://github.com/agentxm/axm/pull/119))
+
+### 🩹 Fixes
+
+- Refresh dependencies and runtime pins. ([e1a781db](https://github.com/agentxm/axm/commit/e1a781db))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @osintorg
+
 ## 0.25.3 (2026-08-07)
 
 ### 🩹 Fixes

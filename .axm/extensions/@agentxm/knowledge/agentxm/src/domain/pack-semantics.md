@@ -5,7 +5,7 @@ tags: [packs, dependencies, resolution, composition]
 status: stable
 generated:
   by: claude/fable-5
-  at: 2026-08-06T22:57:10Z
+  at: 2026-08-06T13:04:04Z
 sources:
   - id: pack-schema
     resource: https://axm.sh/schemas/pack.schema.json
@@ -30,17 +30,17 @@ extensions.[^pack-schema]
   bundle of leaf extensions, not a hierarchy of meta-packs.
 - Pack resolution materializes exact dependency maps keyed by FQN and pinned
   version (surfaced in the workspace lockfile as per-type maps such as
-  `resolvedSkills`, `resolvedMcpServers`, and `resolvedSubagents`; the lockfile
+  `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers`; the lockfile
   schema owns the concrete field enumeration).
 - Pack-managed dependency entries may exist as lockfile-only native installs,
-  and therefore classify as _implicit_ until explicitly configured.
+  and therefore classify as *implicit* until explicitly configured.
 - Pack-driven uninstall removes only orphaned dependency entries — never
   directly configured entries, and never dependencies still referenced by
   other packs.
 
 ## Dependency invariants
 
-- Pack manifests contribute desired members for all six non-pack extension
+- Pack manifests contribute desired members for all eight non-pack extension
   types; resolution maps are keyed by FQN and pinned version.[^workspace-state]
 - Dependency removal during pack uninstall is orphan-aware across the
   remaining pack references.
@@ -52,5 +52,4 @@ Related: [Extension types](extension-types.md),
 configured/implicit/unmanaged lifecycle classification packs participate in.
 
 [^pack-schema]: Pack manifest JSON Schema.
-
 [^workspace-state]: AXM workspace-state guide (packs section).

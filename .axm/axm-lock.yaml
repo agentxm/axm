@@ -5,16 +5,138 @@ skills:
     owner: "@agentxm"
     extensionType: skill
     name: axm
-    version: 0.2.5
+    version: 0.25.4
     installedAt: 2026-07-29T00:51:41.963Z
-    updatedAt: 2026-07-29T00:51:41.963Z
-    sourceHash: 20276eb6b3e13c27195c9ad13f1f339bedf074c1eedf47b61a72766d0ac9c43d
-commands: {}
-subagents: {}
-mcpServers: {}
-files: {}
-rules: {}
-hooks: {}
+    updatedAt: 2026-08-07T16:51:45.406Z
+    sourceHash: e857c6f79328e022dd3275573919012a1193011e7b1adb28350033c1c9936f0c
+  effect-basics:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-basics
+    version: 0.1.0
+    installedAt: 2026-08-07T16:50:04.474Z
+    updatedAt: 2026-08-07T16:50:04.476Z
+    sourceHash: 0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9
+  code-review:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: code-review
+    version: 0.1.0
+    installedAt: 2026-08-07T16:50:04.524Z
+    updatedAt: 2026-08-07T16:50:04.525Z
+    sourceHash: c98aeff12cd9034725ca1a4d2ff8248d1dd753b648f2735b704fac33c01c5999
+  e2e-publish-check:
+    type: workspace
+    owner: "@local-dev"
+    extensionType: skill
+    name: e2e-publish-check
+    version: 0.0.1
+    installedAt: 2026-08-07T16:50:04.577Z
+    updatedAt: 2026-08-07T16:50:04.581Z
+    sourceHash: 96d7cd88e742b7497a424ce35ac5a0c12363cee209cb77bd13c568befc492b82
+  okf-author:
+    type: registry
+    owner: "@craigsmitham"
+    name: okf-author
+    resolvedVersion: 0.0.1
+    integrity: sha512-InaY5EeTb20EhOfwHxWm/SUj5zX1gmul2GY8CFH5YI38oBM4Z36q6lAGedS+3Fnguu7ajafBY90j6TuyA+c6rw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-07T16:50:04.860Z
+    updatedAt: 2026-08-07T16:50:04.862Z
+    sourceHash: f611d2d61e164940ea675fe9f91fdae38ae6c82b1aa5188d037f7e18afc53177
+  effect-collections:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-collections
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.514Z
+    updatedAt: 2026-08-07T16:51:13.516Z
+    sourceHash: c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a
+  effect-concurrency:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-concurrency
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.556Z
+    updatedAt: 2026-08-07T16:51:13.558Z
+    sourceHash: 9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84
+  effect-filesystem:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-filesystem
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.598Z
+    updatedAt: 2026-08-07T16:51:13.599Z
+    sourceHash: 217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e
+  effect-iteration:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-iteration
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.633Z
+    updatedAt: 2026-08-07T16:51:13.635Z
+    sourceHash: f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0
+  effect-option:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-option
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.668Z
+    updatedAt: 2026-08-07T16:51:13.670Z
+    sourceHash: 72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d
+  effect-schema:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-schema
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.704Z
+    updatedAt: 2026-08-07T16:51:13.705Z
+    sourceHash: ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361
+  effect-service:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-service
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.740Z
+    updatedAt: 2026-08-07T16:51:13.741Z
+    sourceHash: bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722
+  effect-stream:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-stream
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.773Z
+    updatedAt: 2026-08-07T16:51:13.775Z
+    sourceHash: a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae
+  effect-testing:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-testing
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.811Z
+    updatedAt: 2026-08-07T16:51:13.813Z
+    sourceHash: ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7
+  effect-wrapping:
+    type: workspace
+    owner: "@axm"
+    extensionType: skill
+    name: effect-wrapping
+    version: 0.1.0
+    installedAt: 2026-08-07T16:51:13.849Z
+    updatedAt: 2026-08-07T16:51:13.850Z
+    sourceHash: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
 knowledge:
   agentxm:
     type: registry
@@ -27,4 +149,76 @@ knowledge:
     installedAt: 2026-08-06T14:50:18.696Z
     updatedAt: 2026-08-06T14:50:19.246Z
     sourceHash: d6fcae4b963c0093568b2872129cde8609c5920ed563eb340035ccbf5dffb728
-packs: {}
+packs:
+  effect:
+    type: workspace
+    owner: "@axm"
+    extensionType: pack
+    name: effect
+    version: 0.0.1
+    sourceHash: f3c0b17898a74062f8ba45f4f328dc2fd769c5b88577fc7cd51c672ceae37301
+    installedAt: 2026-08-07T16:51:17.868Z
+    updatedAt: 2026-08-07T16:51:17.871Z
+    resolvedSkills:
+      "@axm/skills/effect-testing":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-testing
+        contentIdentity: ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7
+      "@axm/skills/effect-wrapping":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-wrapping
+        contentIdentity: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
+      "@axm/skills/effect-schema":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-schema
+        contentIdentity: ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361
+      "@axm/skills/effect-service":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-service
+        contentIdentity: bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722
+      "@axm/skills/effect-collections":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-collections
+        contentIdentity: c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a
+      "@axm/skills/effect-iteration":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-iteration
+        contentIdentity: f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0
+      "@axm/skills/effect-basics":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-basics
+        contentIdentity: 0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9
+      "@axm/skills/effect-option":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-option
+        contentIdentity: 72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d
+      "@axm/skills/effect-filesystem":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-filesystem
+        contentIdentity: 217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e
+      "@axm/skills/effect-concurrency":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-concurrency
+        contentIdentity: 9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84
+      "@axm/skills/effect-stream":
+        source: workspace
+        version: 0.1.0
+        sourceIdentity: workspace:@axm/skills/effect-stream
+        contentIdentity: a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae
+    resolvedMcpServers: {}
+    resolvedSubagents: {}
+    resolvedRules: {}
+    resolvedHooks: {}
+    resolvedKnowledge: {}
+commands: {}
+files: {}

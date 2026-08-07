@@ -30,7 +30,7 @@ axm knowledge open agentxm domain/identifier-grammar
 
 ## Relationship to other documentation
 
-This bundle is curated knowledge _about_ the platform. Executable contracts
+This bundle is curated knowledge *about* the platform. Executable contracts
 (JSON Schemas, OpenAPI specs), CLI help topics (`axm help <topic>`), and the
 product documentation at [axm.sh](https://axm.sh) and
 [agentxm.ai](https://agentxm.ai) remain the systems of record for their own

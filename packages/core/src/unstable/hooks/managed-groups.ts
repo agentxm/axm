@@ -65,6 +65,23 @@ export const isManagedHookCommand = (value: unknown): boolean =>
   typeof value["command"] === "string" &&
   value["command"].includes(".axm/extensions/");
 
+const structurallyEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => structurallyEqual(value, right[index]))
+    );
+  }
+  if (!isRecord(left) || !isRecord(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => key in right && structurallyEqual(left[key], right[key]))
+  );
+};
+
 export const stripManagedHookGroups = (hooks: Record<string, unknown>): Record<string, unknown> => {
   const next: Record<string, unknown> = {};
   for (const [event, groups] of Object.entries(hooks)) {
@@ -121,9 +138,13 @@ export const updateHooksJson = (
 
     for (const [event, groups] of Object.entries(renderedHooks)) {
       const existingGroups = existingHooks[event];
-      existingHooks[event] = Array.isArray(existingGroups)
-        ? [...existingGroups, groups].flat()
-        : groups;
+      const renderedGroups = Array.isArray(groups) ? groups : [groups];
+      const retainedGroups = Array.isArray(existingGroups)
+        ? existingGroups.filter(
+            (existing) => !renderedGroups.some((rendered) => structurallyEqual(existing, rendered)),
+          )
+        : [];
+      existingHooks[event] = [...retainedGroups, ...renderedGroups];
     }
 
     const hooksKeys = Object.keys(existingHooks);

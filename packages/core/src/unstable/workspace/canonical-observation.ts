@@ -16,6 +16,7 @@ import { McpServerManifestSchema } from "../mcps/index.js";
 import { PackManifestSchema } from "../packs/index.js";
 import { RuleManifestSchema } from "../rules/index.js";
 import { computeSkillSourceHash, SkillManifestSchema } from "../skills/index.js";
+import { computeLegacySkillSourceHash } from "../skills/operations/source-hash.js";
 import { SubagentManifestSchema } from "../subagents/index.js";
 import type { ExtensionTrustRecord } from "../trust/index.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
@@ -266,6 +267,26 @@ export const observeCanonicalExtension = ({
       };
     }
     if (trust.contentIdentity !== observedIdentity) {
+      if (
+        desired.type === "skill" &&
+        trust.authority !== "registry" &&
+        trust.authority !== "workspace"
+      ) {
+        const src = path.join(root, "src");
+        const hashRoot = (yield* fs.exists(src).pipe(Effect.orElseSucceed(() => false)))
+          ? src
+          : root;
+        const legacyIdentity = yield* computeLegacySkillSourceHash(hashRoot).pipe(Effect.result);
+        if (Result.isSuccess(legacyIdentity) && trust.contentIdentity === legacyIdentity.success) {
+          return {
+            type: desired.type,
+            name: desired.name,
+            status: "usable",
+            path: root,
+            contentIdentity: observedIdentity,
+          };
+        }
+      }
       return {
         type: desired.type,
         name: desired.name,

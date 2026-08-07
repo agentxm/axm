@@ -495,6 +495,33 @@ describe("lockfile", () => {
       ),
     );
 
+    it.effect("removes an optional map instead of persisting an empty object", () =>
+      withContext(
+        Effect.gen(function* () {
+          const knowledgeEntry: KnowledgeLockEntry = {
+            type: "local",
+            path: "knowledge/platform",
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+          };
+          const base: Lockfile = {
+            lockfileVersion: 3,
+            skills: {},
+            knowledge: { platform: knowledgeEntry },
+          };
+          yield* writeLockfile(axmDir, base);
+          yield* commitLockfileSnapshotUpdate(axmDir, base, {
+            lockfileVersion: 3,
+            skills: {},
+            knowledge: {},
+          });
+
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written).not.toHaveProperty("knowledge");
+        }),
+      ),
+    );
+
     it.effect("breaks a stale advisory lock and releases its own lock", () =>
       withContext(
         Effect.gen(function* () {

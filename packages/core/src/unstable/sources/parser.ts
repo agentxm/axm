@@ -115,7 +115,7 @@ const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
 export const parseInputPattern = (input: string): Option.Option<InputParseResult> => {
   const wrap = (pattern: InputPattern): InputParseResult => ({ pattern, originalInput: input });
   // 1. SCP-style git address (user@host:path) — must check before URL
-  const scpMatch = input.match(SCP_PATTERN);
+  const scpMatch = input.includes("://") ? null : input.match(SCP_PATTERN);
   if (scpMatch && scpMatch[1] && scpMatch[2] && scpMatch[3]) {
     return Option.some(
       wrap({

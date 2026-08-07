@@ -146,7 +146,7 @@ const patchOptionalMap = <T>(
   for (const [key, value] of Object.entries(next ?? {})) {
     patched[key] = value;
   }
-  return Object.keys(patched).length === 0 && next === undefined ? undefined : patched;
+  return Object.keys(patched).length === 0 ? undefined : patched;
 };
 
 const patchRequiredMap = <T>(

@@ -10,9 +10,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
+import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
@@ -99,11 +99,15 @@ const depToPurl = (
   const { namespace, name } = parsePackageName(resolvedName);
   const version = isExactVersion(resolvedSpecifier) ? resolvedSpecifier : undefined;
 
-  // Construct purl string and decode through schema
-  const purl = new PackageURL("npm", namespace ?? null, name, version ?? null, null, null);
-  const purlParts = decodePurl(purl.toString());
-
-  return { purl: purlParts, type: npmType, source };
+  return Option.getOrUndefined(
+    makeDetectedPackage({
+      type: npmType,
+      ...(namespace === undefined ? {} : { namespace }),
+      name,
+      ...(version === undefined ? {} : { version }),
+      source,
+    }),
+  );
 };
 
 /**

@@ -3420,7 +3420,7 @@ describe("WorkspaceMutationsService", () => {
         expect(settings.mcpServers).toBeUndefined();
 
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).not.toHaveProperty("implicit");
+        expect(lockfile.mcpServers).toBeUndefined();
       }),
     );
   });
@@ -3547,7 +3547,7 @@ describe("WorkspaceMutationsService", () => {
 
         // Lockfile should NOT have the mcp server
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).not.toHaveProperty("my-mcp");
+        expect(lockfile.mcpServers).toBeUndefined();
       }),
     );
 
@@ -3662,7 +3662,7 @@ describe("WorkspaceMutationsService", () => {
 
         // Lockfile should NOT have the pack
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.packs).not.toHaveProperty("starter-pack");
+        expect(lockfile.packs).toBeUndefined();
       }),
     );
 

@@ -283,7 +283,7 @@ const managedTomlEnd = (serverName: string): string => `# axm managed mcp-server
 const stripManagedTomlBlock = (raw: string, serverName: string): string => {
   const start = managedTomlStart(serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const end = managedTomlEnd(serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return raw.replace(new RegExp(`\\n?${start}[\\s\\S]*?${end}\\n?`, "g"), "\n").trimEnd();
+  return raw.replace(new RegExp(`\\n?${start}[\\s\\S]*?${end}\\n?`, "g"), "\n");
 };
 
 const upsertToml = (args: {
@@ -301,7 +301,7 @@ const upsertToml = (args: {
     .filter((line) => line !== parentHeader)
     .join("\n")
     .trim();
-  const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : "";
+  const prefix = trimmed.length === 0 ? "" : trimmed.endsWith("\n") ? trimmed : `${trimmed}\n`;
   return `${prefix}${managedTomlStart(args.serverName)}\n${block}\n${managedTomlEnd(args.serverName)}\n`;
 };
 
@@ -324,7 +324,7 @@ const removeToml = (args: {
     );
   }
   const stripped = stripManagedTomlBlock(args.raw, args.serverName);
-  return stripped.length > 0 ? `${stripped}\n` : "";
+  return stripped.length === 0 ? "" : stripped.endsWith("\n") ? stripped : `${stripped}\n`;
 };
 
 const pickProjectTarget = (

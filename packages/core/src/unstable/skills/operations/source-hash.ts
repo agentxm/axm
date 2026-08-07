@@ -1,9 +1,17 @@
+import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Effect from "effect/Effect";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
 import { computeSourceHash } from "../../extensions/index.js";
 
-export const computeSkillSourceHash = (canonicalPath: string) =>
+// Source hashes are advisory change markers. Reusing the package-content
+// algorithm gives every relative path and byte sequence an unambiguous NUL-
+// separated representation. Legacy markers remain readable during migration
+// and refresh to this representation on the next install or update.
+export const computeSkillSourceHash = computePackageContentHash;
+
+/** Computes the pre-package-hash skill marker solely for migration checks. */
+export const computeLegacySkillSourceHash = (canonicalPath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -19,8 +27,6 @@ export const computeSkillSourceHash = (canonicalPath: string) =>
             ? fs.readFileString(full).pipe(Effect.map((content) => `${entry}\n${content}`))
             : Effect.succeed(entry),
         ),
-        // Recurse into nested directories so changes to nested files change the
-        // hash instead of being ignored (misclassified as unchanged).
         Effect.catch(() => Effect.succeed(entry)),
       );
     });

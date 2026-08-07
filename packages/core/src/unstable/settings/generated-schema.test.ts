@@ -204,7 +204,7 @@ describe("generated schemas", () => {
     const versionRange = getAnnotatedAllOfRecord(getDefinition(packSchema, "VersionRange"));
     expect(versionRange["title"]).toBe("Version Range");
     expect(versionRange["description"]).toContain("semver version range");
-    expect(versionRange["pattern"]).toBe("^[~^<>=*xXvV0-9A-Za-z| .-]+$");
+    expect(versionRange["pattern"]).toBe("^[~^<>=*xXvV0-9A-Za-z+| .-]+$");
     expect(versionRange["examples"]).toContain(">=1 <3");
   });
 

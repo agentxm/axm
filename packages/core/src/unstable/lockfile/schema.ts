@@ -188,7 +188,7 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  * - updatedAt: ISO 8601 timestamp of last update (DateTime.Utc in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
  * - sourceHash: advisory SHA-256 change marker of the canonical skill source
- *   captured at install time (shallow: top-level `src/` files only; optional).
+ *   captured at install time (canonical recursive package content; optional).
  *   Used for created/updated/unchanged reporting, never as a tamper check —
  *   installed content is workspace-owned and may be rewritten by
  *   content-preserving tools after install

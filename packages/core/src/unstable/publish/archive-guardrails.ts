@@ -175,7 +175,8 @@ const checkAbsolutePaths = (
   entries: readonly ZipEntry[],
 ): Effect.Effect<void, ArchiveGuardrailError> => {
   for (const entry of entries) {
-    if (entry.fileName.startsWith("/") || entry.fileName.startsWith("\\")) {
+    const normalized = entry.fileName.replace(/\\/g, "/");
+    if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized)) {
       return Effect.fail(
         new ArchiveGuardrailError({
           code: "absolute_path",

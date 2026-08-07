@@ -8,6 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
 import { parse as parseToml } from "smol-toml";
+import type { McpConfigTarget } from "../agent-capabilities/index.js";
 import { parseYaml, readYamlEntry } from "../yaml/index.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
 
@@ -182,6 +183,44 @@ describe("agent MCP config writer", () => {
           expect(raw).toBe('model = "gpt-5"\n');
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(removeResult.targets).toEqual([{ path: "agent.toml", change: "updated" }]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("removes mixed-case underscore TOML markers without trimming user whitespace", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-marker-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.toml");
+          const original = 'model = "gpt-5"  \n\n';
+          writeFileSync(configPath, original);
+          const target: McpConfigTarget = {
+            scope: "project",
+            path: "agent.toml",
+            format: "toml",
+          };
+
+          yield* writeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "My_Server",
+            serversKey: "mcp_servers",
+            target,
+            entry: { command: "npx" },
+          });
+          yield* removeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "My_Server",
+            serversKey: "mcp_servers",
+            target,
+            activationField: { required: null, accepted: [null] },
+            disableOnly: false,
+          });
+
+          expect(readFileSync(configPath, "utf8")).toBe(original);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

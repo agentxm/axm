@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
+import * as FastCheck from "effect/testing/FastCheck";
 import { extensionName, handle, versionRange } from "../test-helpers.js";
 import { type InputPattern, parseInputPattern } from "./parser.js";
 
@@ -93,6 +94,22 @@ describe("parseInputPattern", () => {
         path: "/absolute/path/to/skill",
       });
     });
+
+    it.prop(
+      "classifies credentialed URLs with ports as URLs rather than SCP addresses",
+      {
+        protocol: FastCheck.constantFrom("http", "https"),
+        user: FastCheck.stringMatching(/^[a-z][a-z0-9]{0,12}$/),
+        port: FastCheck.integer({ min: 1, max: 65_535 }),
+        owner: FastCheck.stringMatching(/^[a-z][a-z0-9-]{0,12}$/),
+        repo: FastCheck.stringMatching(/^[a-z][a-z0-9-]{0,12}$/),
+      },
+      ({ protocol, user, port, owner, repo }) => {
+        const input = `${protocol}://${user}@github.com:${port}/${owner}/${repo}.git`;
+        expectSome(input, { pattern: "url-input", url: new URL(input) });
+      },
+      { fastCheck: { numRuns: 100, seed: 0x41584d } },
+    );
 
     it("classifies file:// URL with nested path as FilePathPattern", () => {
       expectSome("file:///Users/dev/skills/my-skill", {

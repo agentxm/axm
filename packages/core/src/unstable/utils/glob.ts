@@ -21,10 +21,37 @@ export const expandGlob = (
   pattern: string,
   names: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  const regexSource = `^${escaped.replace(/\*/g, ".*")}$`;
-  const regex = new RegExp(regexSource);
-  return names.filter((name) => regex.test(name));
+  const matches = (name: string): boolean => {
+    let patternIndex = 0;
+    let nameIndex = 0;
+    let wildcardIndex = -1;
+    let wildcardNameIndex = 0;
+
+    while (nameIndex < name.length) {
+      const token = pattern[patternIndex];
+      if (token !== undefined && token !== "*" && token === name[nameIndex]) {
+        patternIndex += 1;
+        nameIndex += 1;
+      } else if (token === "*") {
+        wildcardIndex = patternIndex;
+        wildcardNameIndex = nameIndex;
+        patternIndex += 1;
+      } else if (wildcardIndex >= 0) {
+        patternIndex = wildcardIndex + 1;
+        wildcardNameIndex += 1;
+        nameIndex = wildcardNameIndex;
+      } else {
+        return false;
+      }
+    }
+
+    while (pattern[patternIndex] === "*") {
+      patternIndex += 1;
+    }
+    return patternIndex === pattern.length;
+  };
+
+  return names.filter(matches);
 };
 
 /**

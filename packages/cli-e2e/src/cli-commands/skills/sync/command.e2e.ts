@@ -42,13 +42,22 @@ describe("axm sync configured GitHub skills", () => {
         "quality",
       );
       fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(canonicalDir, "SKILL.md"),
-        "---\nname: quality\ndescription: Review project quality.\n---\n",
-      );
-      const contentIdentity = crypto
+      const skillContents = "---\nname: quality\ndescription: Review project quality.\n---\n";
+      fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), skillContents);
+      const legacyContentIdentity = crypto
         .createHash("sha256")
-        .update("SKILL.md\n---\nname: quality\ndescription: Review project quality.\n---\n")
+        .update(`SKILL.md\n${skillContents}`)
+        .digest("hex");
+      const packageContentDigest = crypto
+        .createHash("sha256")
+        .update("SKILL.md")
+        .update("\0")
+        .update(skillContents)
+        .update("\0")
+        .digest("hex");
+      const canonicalContentIdentity = crypto
+        .createHash("sha256")
+        .update(packageContentDigest)
         .digest("hex");
 
       const installedAt = "2026-07-29T00:00:00.000Z";
@@ -60,7 +69,7 @@ describe("axm sync configured GitHub skills", () => {
             name: "quality",
             authority: "github",
             sourceIdentity: "github:qualitymd/quality.md",
-            contentIdentity,
+            contentIdentity: legacyContentIdentity,
           },
         },
       });
@@ -95,7 +104,7 @@ describe("axm sync configured GitHub skills", () => {
         name: "quality",
         authority: "github",
         sourceIdentity: "github:qualitymd/quality.md",
-        contentIdentity,
+        contentIdentity: canonicalContentIdentity,
       });
       expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).skills.quality).toBe(
         "github:qualitymd/quality.md",

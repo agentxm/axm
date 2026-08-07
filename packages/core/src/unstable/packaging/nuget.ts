@@ -13,10 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { readEnv } from "../utils/index.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
@@ -47,13 +47,28 @@ const makeNugetPackage = (
   name: string,
   version: string | undefined,
   source: string,
-): DetectedPackage => {
+): DetectedPackage | undefined => {
   const loweredName = name.toLowerCase();
   const resolvedVersion = version !== undefined && isExactVersion(version) ? version : undefined;
 
-  const purl = new PackageURL("nuget", null, loweredName, resolvedVersion ?? null, null, null);
-  const purlParts = decodePurl(purl.toString());
-  return { purl: purlParts, type: nugetType, source };
+  return Option.getOrUndefined(
+    makeDetectedPackage({
+      type: nugetType,
+      name: loweredName,
+      ...(resolvedVersion === undefined ? {} : { version: resolvedVersion }),
+      source,
+    }),
+  );
+};
+
+const appendNugetPackage = (
+  results: Array<DetectedPackage>,
+  name: string,
+  version: string | undefined,
+  source: string,
+): void => {
+  const detected = makeNugetPackage(name, version, source);
+  if (detected !== undefined) results.push(detected);
 };
 
 /**
@@ -79,7 +94,7 @@ const parseProjectFile = (content: string, source: string): ReadonlyArray<Detect
     const name = extractAttribute(tag, "Include");
     if (name === undefined) continue;
     const version = extractAttribute(tag, "Version");
-    results.push(makeNugetPackage(name, version, source));
+    appendNugetPackage(results, name, version, source);
   }
 
   // Match PackageReference with child elements (e.g. <Version> child)
@@ -96,7 +111,7 @@ const parseProjectFile = (content: string, source: string): ReadonlyArray<Detect
       const versionMatch = /<Version>\s*(.*?)\s*<\/Version>/i.exec(body);
       version = versionMatch?.[1];
     }
-    results.push(makeNugetPackage(name, version, source));
+    appendNugetPackage(results, name, version, source);
   }
 
   return results;
@@ -118,7 +133,7 @@ const parseDirectoryPackagesProps = (
     const name = extractAttribute(tag, "Include");
     if (name === undefined) continue;
     const version = extractAttribute(tag, "Version");
-    results.push(makeNugetPackage(name, version, source));
+    appendNugetPackage(results, name, version, source);
   }
 
   return results;
@@ -137,7 +152,7 @@ const parsePackagesConfig = (content: string, source: string): ReadonlyArray<Det
     const name = extractAttribute(tag, "id");
     if (name === undefined) continue;
     const version = extractAttribute(tag, "version");
-    results.push(makeNugetPackage(name, version, source));
+    appendNugetPackage(results, name, version, source);
   }
 
   return results;

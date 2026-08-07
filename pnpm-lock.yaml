@@ -119,9 +119,7 @@ catalogs:
       version: 2.9.0
 
 patchedDependencies:
-  '@effect/openapi-generator@4.0.0-beta.101':
-    hash: 1a6bbf7d94b305da02b3576f71c2eb04d082804e24f5deb2d4bc2e1742ea702d
-    path: patches/@effect__openapi-generator@4.0.0-beta.101.patch
+  '@effect/openapi-generator@4.0.0-beta.101': 1a6bbf7d94b305da02b3576f71c2eb04d082804e24f5deb2d4bc2e1742ea702d
 
 importers:
 

@@ -1,3 +1,26 @@
+## 0.25.0 (2026-08-07)
+
+### 🚀 Features
+
+- Add configurable Knowledge projections with transactional lifecycle and lock-backed sync. ([#23](https://github.com/agentxm/axm/pull/23))
+- Make extension enable and disable atomic across every extension type and remove generic activation force bypasses. ([#106](https://github.com/agentxm/axm/pull/106))
+- Replace extension ignore state and per-type prune commands with one preview-first, ownership-safe prune workflow. ([#105](https://github.com/agentxm/axm/pull/105))
+
+### 🩹 Fixes
+
+- Add recovery for relocated workspace-authored extensions ([#90](https://github.com/agentxm/axm/pull/90))
+- fix: correctness fixes across source hashing, logout, locator installs, autocomplete, and more ([#33](https://github.com/agentxm/axm/pull/33))
+
+### ⚠️ Breaking Changes
+
+- Remove command and context-files extension types across schemas, workflows, documentation, and the CLI. ([52d5ff21](https://github.com/agentxm/axm/commit/52d5ff21))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Craig Smitham
+- Test @osintorg
+
 ## 0.24.15 (2026-08-04)
 
 ### 🩹 Fixes

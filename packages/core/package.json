@@ -247,7 +247,7 @@
     "fflate": "catalog:",
     "gray-matter": "catalog:",
     "jsonc-parser": "catalog:",
-    "marked": "^18.0.6",
+    "marked": "^18.0.9",
     "packageurl-js": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",

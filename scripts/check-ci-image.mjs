@@ -24,9 +24,25 @@ const mise = read("mise.toml");
 const packageManagerPnpmMatch = /^pnpm@(\d+\.\d+\.\d+)$/u.exec(
   packageManifest.packageManager ?? "",
 );
+const ciImageVersionMatch = /^ghcr\.io\/agentxm\/axm-ci:(\d+\.\d+\.\d+)@sha256:[0-9a-f]{64}$/u.exec(
+  ciImagePin,
+);
+const imageNodeMatch = /^ARG NODE_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const imageBunMatch = /^ARG BUN_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
 const imagePnpmMatch = /^ARG PNPM_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const miseNodeMatch = /^node\s*=\s*"([^"]+)"$/mu.exec(mise);
+const miseBunMatch = /^bun\s*=\s*"([^"]+)"$/mu.exec(mise);
+const candidateSmokeMatch = /^smoke_ci_image\(\) \{([\s\S]*?)^\}$/mu.exec(containerLauncher);
+const activeSmokeMatch = /^smoke\(\) \{([\s\S]*?)^\}$/mu.exec(containerLauncher);
+const activeImageVersion = ciImageVersionMatch?.[1];
+const imageNodeVersion = imageNodeMatch?.[1];
+const imageBunVersion = imageBunMatch?.[1];
 const packageManagerPnpmVersion = packageManagerPnpmMatch?.[1];
 const imagePnpmVersion = imagePnpmMatch?.[1];
+const miseNodeVersion = miseNodeMatch?.[1];
+const miseBunVersion = miseBunMatch?.[1];
+const candidateSmoke = candidateSmokeMatch?.[1] ?? "";
+const activeSmoke = activeSmokeMatch?.[1] ?? "";
 
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
@@ -36,7 +52,7 @@ if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");
 }
 
-if (!/^ghcr\.io\/agentxm\/axm-ci:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(ciImagePin)) {
+if (activeImageVersion === undefined) {
   errors.push("containers/ci/CI_IMAGE must pin a semantic axm-ci tag by digest");
 }
 
@@ -48,12 +64,60 @@ if (!/^ARG UBUNTU_IMAGE=[^@\n]+@sha256:[0-9a-f]{64}$/mu.test(containerfile)) {
   errors.push("the AXM CI image base must use a full immutable digest");
 }
 
-for (const [manifestPin, imagePin] of [
-  [/node\s*=\s*"22"/u, "ARG NODE_VERSION=22.22.2"],
-  [/bun\s*=\s*"1\.3\.5"/u, "ARG BUN_VERSION=1.3.5"],
-]) {
-  if (!manifestPin.test(mise)) errors.push(`mise.toml is missing ${manifestPin}`);
-  requireText(containerfile, imagePin, `Containerfile is missing ${imagePin}`);
+if (imageNodeVersion === undefined) {
+  errors.push("Containerfile must pin an exact NODE_VERSION");
+} else {
+  requireText(
+    candidateSmoke,
+    `test "$(node --version)" = "v${imageNodeVersion}"`,
+    "local candidate-image smoke test Node version must match Containerfile",
+  );
+}
+
+if (imageBunVersion === undefined) {
+  errors.push("Containerfile must pin an exact BUN_VERSION");
+} else {
+  requireText(
+    candidateSmoke,
+    `test "$(bun --version)" = "${imageBunVersion}"`,
+    "local candidate-image smoke test Bun version must match Containerfile",
+  );
+}
+
+if (miseNodeVersion === undefined) {
+  errors.push("mise.toml must declare Node");
+}
+if (miseBunVersion === undefined) {
+  errors.push("mise.toml must declare Bun");
+}
+
+const nodePinMatches = (miseVersion, exactVersion) =>
+  miseVersion === exactVersion ||
+  (/^\d+$/u.test(miseVersion ?? "") && exactVersion?.startsWith(`${miseVersion}.`));
+
+const producerFirstUpgrade =
+  activeImageVersion !== undefined &&
+  /^\d+\.\d+\.\d+$/u.test(version) &&
+  activeImageVersion !== version;
+
+if (producerFirstUpgrade) {
+  const activeSmokeNodeMatch = /test "\$\(node --version\)" = "v(\d+\.\d+\.\d+)"/u.exec(
+    activeSmoke,
+  );
+  const activeSmokeBunMatch = /test "\$\(bun --version\)" = "(\d+\.\d+\.\d+)"/u.exec(activeSmoke);
+  if (!nodePinMatches(miseNodeVersion, activeSmokeNodeMatch?.[1])) {
+    errors.push("producer-first mise Node pin must match the active-image smoke check");
+  }
+  if (miseBunVersion !== activeSmokeBunMatch?.[1]) {
+    errors.push("producer-first mise Bun pin must match the active-image smoke check");
+  }
+} else {
+  if (!nodePinMatches(miseNodeVersion, imageNodeVersion)) {
+    errors.push("mise Node pin must match the active CI image");
+  }
+  if (miseBunVersion !== imageBunVersion) {
+    errors.push("mise Bun pin must match the active CI image");
+  }
 }
 
 if (

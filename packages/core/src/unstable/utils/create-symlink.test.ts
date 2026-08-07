@@ -176,4 +176,23 @@ describe("createSymlink", () => {
       }),
     ),
   );
+
+  it.effect("creates a valid link below a missing directory reached through an alias", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const realDir = path.join(tmpDir, "real-dir");
+        const target = path.join(realDir, "target");
+        fs.mkdirSync(target, { recursive: true });
+
+        const aliasDir = path.join(tmpDir, "alias-dir");
+        fs.symlinkSync(realDir, aliasDir);
+        const link = path.join(aliasDir, "missing", "nested", "link");
+
+        const result = yield* createSymlink({ target, link });
+
+        expect(result).toBe("created");
+        expect(fs.realpathSync(link)).toBe(target);
+      }),
+    ),
+  );
 });

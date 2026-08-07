@@ -44,7 +44,7 @@ import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
 import { expectAppliedPlanResult, expectRecord, planResultSteps } from "../../test-helpers.js";
-import { handleLint, resolveLintRoot } from "./handler.js";
+import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";
 
 describe("axm lint handler", () => {
   let tempDir: string;
@@ -163,6 +163,39 @@ describe("axm lint handler", () => {
       });
       expect(root).toBe("/tmp/axm-user-home-test");
     });
+  });
+
+  it("remaps staged snapshot paths back to the Git workspace", () => {
+    const sourceRoot = path.join(path.parse(tempDir).root, "private", "axm-lint-staged-123");
+    const displayRoot = path.join(path.parse(tempDir).root, "work", "repo");
+    const summary = remapLintSummaryPaths(
+      {
+        findings: [
+          {
+            group: "workspace",
+            displayRoot: sourceRoot,
+            path: `${sourceRoot}/.axm/settings.json:4:2`,
+            finding: {
+              kind: "advisory",
+              ruleId: "workspace/settings-schema-valid",
+              severity: "error",
+              message: "Invalid settings",
+              location: { file: `${sourceRoot}/.axm/settings.json`, line: 4, column: 2 },
+            },
+          },
+        ],
+        counts: { total: 1, errors: 1, warnings: 0, infos: 0 },
+        exitCategory: "errors",
+        driftBanner: [],
+      },
+      sourceRoot,
+      displayRoot,
+      path,
+    );
+
+    expect(summary.findings[0]?.displayRoot).toBe(displayRoot);
+    expect(summary.findings[0]?.path).toBe(`${displayRoot}/.axm/settings.json:4:2`);
+    expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/.axm/settings.json`);
   });
 
   it.effect("emits drift banner when a publish-gate rule is weakened", () => {

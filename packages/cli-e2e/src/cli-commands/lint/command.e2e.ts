@@ -17,6 +17,7 @@
  *        `Unknown subcommand` substring.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -26,6 +27,54 @@ import { createTempDir, runCli } from "../../e2e/utils.js";
 
 const writeJson = (file: string, value: unknown): void => {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
+};
+
+const GIT_REPOSITORY_ENVIRONMENT_VARIABLES = new Set([
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_CONFIG",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_DIR",
+  "GIT_GRAFT_FILE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_SHALLOW_FILE",
+  "GIT_WORK_TREE",
+]);
+
+const isolatedGitEnvironment = (): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && !GIT_REPOSITORY_ENVIRONMENT_VARIABLES.has(entry[0]),
+    ),
+  );
+
+const git = (root: string, args: ReadonlyArray<string>): string =>
+  execFileSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...isolatedGitEnvironment(), GIT_TERMINAL_PROMPT: "0" },
+  });
+
+const initializeGit = (root: string): void => {
+  git(root, ["init", "--quiet"]);
+  git(root, ["config", "user.email", "test@example.com"]);
+  git(root, ["config", "user.name", "Test"]);
+};
+
+const writeUnmanagedSkill = (root: string, name: string, description = "E2E skill"): void => {
+  const skillRoot = path.join(root, ".claude", "skills", name);
+  fs.mkdirSync(skillRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(skillRoot, "SKILL.md"),
+    `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`,
+  );
 };
 
 const seedSkillSource = (root: string, name: string): void => {
@@ -403,6 +452,167 @@ describe("axm lint (e2e, Phase 7)", () => {
         // Strict: warnings are treated as failures.
         const strict = await runCli(["lint", "--strict"], { cwd: temp.path });
         expect(strict.exitCode).toBe(1);
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
+  describe("staged Git-index workspace", () => {
+    it("lints the complete exact index and leaves partial staging untouched", async () => {
+      const temp = createTempDir("axm-staged-lint-e2e-");
+      try {
+        initializeGit(temp.path);
+        const env = {
+          DO_NOT_TRACK: "1",
+          AXM_REGISTRY_LOCATION: "http://127.0.0.1:9",
+          AXM_REGISTRY_URL: "http://127.0.0.1:9",
+        };
+        const setup = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: temp.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        settings.lint = { rules: { "workspace/skills-managed": "warn" } };
+        writeJson(settingsPath, settings);
+
+        writeUnmanagedSkill(temp.path, "original");
+        writeUnmanagedSkill(temp.path, "deleted");
+        git(temp.path, ["add", "."]);
+        git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
+
+        git(temp.path, ["mv", ".claude/skills/original", ".claude/skills/renamed"]);
+        writeUnmanagedSkill(temp.path, "renamed", "Staged content");
+        git(temp.path, ["add", ".claude/skills/renamed/SKILL.md"]);
+        fs.writeFileSync(
+          path.join(temp.path, ".claude", "skills", "renamed", "SKILL.md"),
+          "unstaged invalid content\n",
+        );
+        fs.rmSync(path.join(temp.path, ".claude", "skills", "deleted"), {
+          recursive: true,
+        });
+        git(temp.path, ["add", "--all", ".claude/skills/deleted"]);
+        writeUnmanagedSkill(temp.path, "untracked", "Untracked content");
+
+        const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
+        const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
+        const staged = await runCli(["lint", "--staged", "--json"], {
+          cwd: path.join(temp.path, ".claude"),
+          env,
+        });
+
+        expect(staged.exitCode, `${staged.stderr}\n${staged.stdout}`).toBe(0);
+        const stagedDocument = JSON.parse(staged.stdout);
+        expect(stagedDocument.ok).toBe(true);
+        const managedFindings: Array<{ message: string; path: string; severity: string }> =
+          stagedDocument.result.findings.filter(
+            (finding: { ruleId: string }) => finding.ruleId === "workspace/skills-managed",
+          );
+        expect(managedFindings).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ severity: "warning", path: "./.claude/skills/renamed" }),
+          ]),
+        );
+        expect(managedFindings.some((finding) => finding.message.includes("original"))).toBe(false);
+        expect(managedFindings.some((finding) => finding.message.includes("deleted"))).toBe(false);
+        expect(managedFindings.some((finding) => finding.message.includes("untracked"))).toBe(
+          false,
+        );
+
+        const strict = await runCli(["lint", "--staged", "--strict"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(strict.exitCode).toBe(1);
+
+        const details = await runCli(["lint", "--staged", "--details"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(details.exitCode, `${details.stderr}\n${details.stdout}`).toBe(0);
+        expect(details.stdout + details.stderr).toContain("workspace/skills-managed");
+        expect(details.stdout + details.stderr).toContain("./.claude/skills");
+
+        const live = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(live.exitCode).toBe(0);
+        const liveFindings: Array<{ message: string }> = JSON.parse(live.stdout).result.findings;
+        expect(liveFindings.some((finding) => finding.message.includes("renamed"))).toBe(true);
+        expect(liveFindings.some((finding) => finding.message.includes("untracked"))).toBe(true);
+
+        expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
+        expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+        expect(
+          fs.readFileSync(path.join(temp.path, ".claude", "skills", "renamed", "SKILL.md"), "utf8"),
+        ).toBe("unstaged invalid content\n");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("uses staged bytes instead of a valid unstaged settings file", async () => {
+      const temp = createTempDir("axm-staged-settings-e2e-");
+      try {
+        initializeGit(temp.path);
+        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+          env: { DO_NOT_TRACK: "1" },
+        });
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        git(temp.path, ["add", "."]);
+        git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const validSettings = fs.readFileSync(settingsPath, "utf8");
+        const stagedSettings = JSON.parse(validSettings);
+        stagedSettings.skills = {
+          ...stagedSettings.skills,
+          demo: "@acme/skills/demo",
+        };
+        writeJson(settingsPath, stagedSettings);
+        git(temp.path, ["add", ".axm/settings.json"]);
+        fs.writeFileSync(settingsPath, validSettings);
+
+        const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
+        const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
+        const result = await runCli(["lint", "--staged", "--json"], {
+          cwd: temp.path,
+          env: { DO_NOT_TRACK: "1" },
+        });
+
+        expect(result.exitCode).toBe(1);
+        const findings: Array<{ ruleId: string }> = JSON.parse(result.stdout).result.findings;
+        expect(findings.map((finding) => finding.ruleId)).toContain(
+          "workspace/configured-but-not-installed",
+        );
+        expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
+        expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(validSettings);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("rejects mutation, user scope, and non-Git workspaces", async () => {
+      const temp = createTempDir("axm-staged-errors-e2e-");
+      try {
+        const fix = await runCli(["lint", "--staged", "--fix"], { cwd: temp.path });
+        expect(fix.exitCode).toBe(9);
+        expect(fix.stdout + fix.stderr).toContain("--staged cannot be combined with --fix");
+
+        const user = await runCli(["lint", "--staged", "--scope", "user"], {
+          cwd: temp.path,
+        });
+        expect(user.exitCode).toBe(9);
+        expect(user.stdout + user.stderr).toContain(
+          "--staged cannot be combined with --scope user",
+        );
+
+        const outsideGit = await runCli(["lint", "--staged"], { cwd: temp.path });
+        expect(outsideGit.exitCode).toBe(9);
+        expect(outsideGit.stdout + outsideGit.stderr).toContain("requires a Git repository");
       } finally {
         temp.cleanup();
       }

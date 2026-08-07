@@ -188,7 +188,10 @@
         "parallel": false,
         "commands": [
           {
-            "command": "pnpm exec nx run-many -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
+            "command": "pnpm exec nx run-many -t lint typecheck build test --batch --nxBail --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run-many -t e2e --batch --nxBail --parallel=1 --outputStyle=static"
           },
           {
             "command": "pnpm exec nx run axm:scripts-lint --outputStyle=static"

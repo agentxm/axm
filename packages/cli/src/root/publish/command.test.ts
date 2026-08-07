@@ -8,6 +8,7 @@ import {
   getCommandSemanticProperties,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
+import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -27,6 +28,7 @@ import { exactVersion, extensionName, handle } from "../../test-stubs.js";
 import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
+  buildPublishJobs,
   handleRootPublish,
   publishAuthenticationPreconditions,
   validatePublishOwners,
@@ -985,6 +987,85 @@ describe("aggregatePublishFailure", () => {
 
     expect(error.code).toBe("internal");
   });
+});
+
+describe("root publish dependency planning", () => {
+  const success: JobStepResult = { result: "success", message: "Published" };
+  const stepFor = (candidate: { readonly fqn: string }) => ({
+    readiness: "ready" as const,
+    label: `Publish ${candidate.fqn}`,
+    run: Effect.succeed(success),
+  });
+
+  it("places selected pack dependencies behind a concurrent dependency barrier", () => {
+    const dependency = {
+      fqn: "@acme/skills/review",
+      type: "skill",
+    } as const;
+    const pack = {
+      fqn: "@acme/packs/toolkit",
+      type: "pack",
+      dependencies: { "@acme/skills/review": "^1.0.0" },
+    } as const;
+
+    const jobs = buildPublishJobs([dependency, pack], stepFor);
+
+    expect(jobs).toHaveLength(2);
+    expect(at(jobs, 0)).toMatchObject({
+      concurrency: 4,
+      executionPolicy: "best-effort",
+    });
+    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual(["Publish @acme/skills/review"]);
+    expect(at(jobs, 1).steps.map((step) => step.label)).toEqual(["Publish @acme/packs/toolkit"]);
+  });
+
+  it("does not broaden a pack-only selection", () => {
+    const pack = {
+      fqn: "@acme/packs/toolkit",
+      type: "pack",
+      dependencies: { "@acme/skills/review": "^1.0.0" },
+    } as const;
+
+    const jobs = buildPublishJobs([pack], stepFor);
+
+    expect(jobs).toHaveLength(1);
+    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual(["Publish @acme/packs/toolkit"]);
+  });
+
+  it.effect("blocks packs when a selected dependency fails", () =>
+    Effect.gen(function* () {
+      const dependency = {
+        fqn: "@acme/skills/review",
+        type: "skill",
+      } as const;
+      const pack = {
+        fqn: "@acme/packs/toolkit",
+        type: "pack",
+        dependencies: { "@acme/skills/review": "^1.0.0" },
+      } as const;
+      const jobs = buildPublishJobs([dependency, pack], (candidate) => ({
+        readiness: "ready",
+        label: `Publish ${candidate.fqn}`,
+        run:
+          candidate.type === "skill"
+            ? Effect.fail(makeAppError({ code: "conflict", detail: "Dependency failed" }))
+            : Effect.succeed(success),
+      }));
+
+      const executed = yield* applyPlan({
+        _tag: "Plan",
+        name: "Publish extensions",
+        description: Option.none(),
+        jobs,
+      });
+
+      expect(at(at(executed.jobs, 0).steps, 0).result.result).toBe("error");
+      expect(at(at(executed.jobs, 1).steps, 0).result).toMatchObject({
+        result: "error",
+        message: "blocked by earlier job failure",
+      });
+    }),
+  );
 });
 
 describe("publish type policy", () => {

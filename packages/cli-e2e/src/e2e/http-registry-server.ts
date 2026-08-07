@@ -17,6 +17,7 @@
 
 import * as crypto from "node:crypto";
 import * as http from "node:http";
+import { unzipSync } from "fflate";
 
 const PUBLISH_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
 const ARCHIVE_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
@@ -57,6 +58,13 @@ export interface HttpRegistry {
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
   readonly close: () => Promise<void>;
+}
+
+export interface HttpRegistryOptions {
+  /** Test-only delay used to make an unordered pack upload fail deterministically. */
+  readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
+  /** Reject a pack until every dependency named by its archive exists. */
+  readonly enforcePackDependencies?: boolean;
 }
 
 interface StoredVersion {
@@ -109,11 +117,25 @@ const sendProblem = (response: http.ServerResponse, status: number, detail: stri
     code: PROBLEM_CODE_BY_STATUS[status] ?? "error",
   });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const packDependencies = (archive: Buffer): ReadonlyArray<string> => {
+  const entries = unzipSync(archive);
+  const manifestBytes = entries["pack.json"];
+  if (manifestBytes === undefined) throw new Error("Pack archive has no pack.json");
+  const manifest: unknown = JSON.parse(new TextDecoder().decode(manifestBytes));
+  if (!isRecord(manifest) || !isRecord(manifest["dependencies"])) return [];
+  return Object.keys(manifest["dependencies"]);
+};
+
 /**
  * Starts a registry on an ephemeral loopback port. Extensions are keyed by
  * owner/plural/name and held in memory for the lifetime of the server.
  */
-export const startHttpRegistry = async (): Promise<HttpRegistry> => {
+export const startHttpRegistry = async (
+  options: HttpRegistryOptions = {},
+): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
   const publishes: Array<PublishRecord> = [];
   const requests: Array<RequestRecord> = [];
@@ -151,6 +173,24 @@ export const startHttpRegistry = async (): Promise<HttpRegistry> => {
 
         const archive = await readBody(request);
         const integrity = sha512Integrity(archive);
+        if (plural === "packs" && options.enforcePackDependencies === true) {
+          const missing = packDependencies(archive).filter((dependency) => {
+            const dependencyVersions = extensions.get(dependency);
+            return dependencyVersions === undefined || dependencyVersions.length === 0;
+          });
+          if (missing.length > 0) {
+            sendProblem(
+              response,
+              409,
+              `Pack dependencies are not published: ${missing.join(", ")}`,
+            );
+            return;
+          }
+        }
+        const delayMs = options.publishDelayMsByPlural?.[plural] ?? 0;
+        if (delayMs > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        }
         const versions = extensions.get(key(owner, plural, name)) ?? [];
         if (versions.some((entry) => entry.version === version)) {
           sendProblem(response, 409, `Version ${version} already exists.`);

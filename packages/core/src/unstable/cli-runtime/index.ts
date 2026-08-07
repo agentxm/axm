@@ -44,6 +44,14 @@ export {
   type JsonSubcommandGroupDoc,
   type JsonVersionDoc,
 } from "./json-help-doc.js";
+export {
+  MACHINE_OUTPUT_CONTRACT_ID,
+  MachineOutputDocumentKindSchema,
+  MachineOutputDocumentSchema,
+  detectMachineOutputDocumentKind,
+  type MachineOutputDocument,
+  type MachineOutputDocumentKind,
+} from "./machine-output-document.js";
 export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";

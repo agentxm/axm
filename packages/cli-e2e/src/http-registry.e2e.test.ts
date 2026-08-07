@@ -193,6 +193,54 @@ describe("HTTP registry transport", () => {
     }
   });
 
+  it("root publish uploads selected pack dependencies before the pack", async () => {
+    const registry = await startHttpRegistry({
+      enforcePackDependencies: true,
+      publishDelayMsByPlural: { skills: 50 },
+    });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const createdSkill = await runCli(
+        ["skills", "new", "pack-member", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(createdSkill.exitCode, createdSkill.stderr).toBe(0);
+      const createdPack = await runCli(
+        ["packs", "new", "ordered-pack", "--owner", OWNER, "--yes"],
+        {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        },
+      );
+      expect(createdPack.exitCode, createdPack.stderr).toBe(0);
+      const added = await runCli(
+        ["packs", "add", "ordered-pack", `${OWNER}/skills/pack-member`, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(added.exitCode, added.stderr).toBe(0);
+
+      const published = await runCli(["publish", "--owner", OWNER, "--yes", "--json"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+
+      expect(published.exitCode, `${published.stderr}\n${published.stdout}`).toBe(0);
+      expect(registry.publishes.map((entry) => `${entry.plural}/${entry.name}`)).toEqual([
+        "skills/pack-member",
+        "packs/ordered-pack",
+      ]);
+      expect(JSON.parse(published.stdout).result.results).toMatchObject([
+        { type: "skill", name: "pack-member", status: "success" },
+        { type: "pack", name: "ordered-pack", status: "success" },
+      ]);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
   it("materializes an HTTP install exactly like the same package installed from file://", async () => {
     const registry = await startHttpRegistry();
     const fileRegistry = createTempDir("axm-registry-");

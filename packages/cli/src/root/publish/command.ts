@@ -43,6 +43,7 @@ import {
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
+  Job,
   JobStepResult,
   OperationPrecondition,
   Plan,
@@ -200,6 +201,48 @@ interface PublishCandidate extends SelectedEntry {
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
 }
+
+interface PublishPlanCandidate {
+  readonly fqn: string;
+  readonly type: PublishableType;
+  readonly dependencies?: Readonly<Record<string, unknown>>;
+  readonly includedDependency?: true;
+}
+
+/**
+ * Creates an explicit dependency barrier without expanding the user's
+ * selection. Dependencies selected alongside a pack publish concurrently;
+ * every remaining candidate waits for that phase to succeed.
+ */
+export const buildPublishJobs = <Candidate extends PublishPlanCandidate>(
+  candidates: ReadonlyArray<Candidate>,
+  candidateStep: (candidate: Candidate) => PlannedJobStep,
+): ReadonlyArray<Job> => {
+  const selectedFqns = new Set(candidates.map((candidate) => candidate.fqn));
+  const selectedPackDependencyFqns = new Set(
+    candidates
+      .filter((candidate) => candidate.type === "pack")
+      .flatMap((candidate) => Object.keys(candidate.dependencies ?? {}))
+      .filter((fqn) => selectedFqns.has(fqn)),
+  );
+  const isDependencyPhase = (candidate: Candidate): boolean =>
+    candidate.includedDependency === true || selectedPackDependencyFqns.has(candidate.fqn);
+  const dependencySteps = candidates.filter(isDependencyPhase).map(candidateStep);
+  const remainingSteps = candidates
+    .filter((candidate) => !isDependencyPhase(candidate))
+    .map(candidateStep);
+
+  return dependencySteps.length === 0
+    ? [{ concurrency: 1, steps: remainingSteps }]
+    : [
+        {
+          concurrency: 4,
+          executionPolicy: "best-effort",
+          steps: dependencySteps,
+        },
+        { concurrency: 1, steps: remainingSteps },
+      ];
+};
 
 interface TargetRegistry {
   readonly name: string;
@@ -1065,30 +1108,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     };
   };
 
-  const dependencySteps = decoded.flatMap((result, index): ReadonlyArray<PlannedJobStep> => {
-    const entry = selected[index];
-    if (entry?.includedDependency !== true) return [];
-    if (Result.isFailure(result)) {
-      return [
-        {
-          readiness: "ready",
-          label: `Validate ${entry.fqn}`,
-          run: Effect.fail(result.failure),
-        },
-      ];
-    }
-    return result.success === undefined ? [] : [candidateStep(result.success)];
-  });
-  const remainingSteps = candidates
-    .filter((candidate) => candidate.includedDependency !== true)
-    .map(candidateStep);
-  const jobs =
-    dependencySteps.length === 0
-      ? [{ concurrency: 1, steps: remainingSteps }]
-      : [
-          { concurrency: 1, steps: dependencySteps },
-          { concurrency: 1, steps: remainingSteps },
-        ];
+  const jobs = buildPublishJobs(candidates, candidateStep);
 
   const plan: Plan = {
     _tag: "Plan",

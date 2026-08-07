@@ -6,7 +6,8 @@ line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
 ## Success documents
 
-Since AXM CLI 0.25.0, every ordinary command result uses the same envelope:
+The `axm.machine-output/result-envelope-v1` contract, first shipped in AXM CLI
+0.24.3, gives every ordinary command result the same envelope:
 
 ```json
 {
@@ -20,8 +21,9 @@ The command-specific payload always lives under `result`. Collections put
 fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
 
-This is a versioned breaking change from 0.24.x, where payloads could appear
-under `data`, `value`, `items`, or other command-specific top-level keys.
+CLI releases before 0.24.3 used flat command-specific payload keys. Do not use
+the 0.24 minor version alone to choose a parser because the 0.24 line contains
+both shapes.
 
 Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
 `cancelled`, or `previewed`. For every ordinary result, `ok` is `true` exactly
@@ -68,8 +70,15 @@ response bodies, causes, stacks, URLs, suggestions, and telemetry.
 
 - Parse the entire stdout buffer once; ordinary `--json` is not a result stream.
 - Parse each non-empty stderr line independently as JSON.
+- Structurally validate stdout: formatter documents have `type: "help"` or
+  `type: "version"`; ordinary result documents own `result`; expected errors
+  own `ok: false`, `code`, `title`, and `detail` without `result`.
+- In JavaScript and TypeScript clients, decode with
+  `MachineOutputDocumentSchema` and branch with
+  `detectMachineOutputDocumentKind` from
+  `@agentxm/client-core/unstable/cli-runtime`.
 - Branch on `ok` or the process exit code for ordinary results and errors; they
-  agree. Branch on `type` for built-in help and version documents.
+  agree.
 - Read every ordinary command payload from `result`.
 
 Future streaming results require a separate explicit mode and contract.

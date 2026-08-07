@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-31
-version: 0.5.0
+last-reviewed: 2026-08-07
+version: 0.6.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -276,10 +276,11 @@ Some commands are intentionally pipe-friendly in text mode, like `auth token`.
 
 Use a top-level object for every command result.
 
-Since CLI 0.25.0, machine mode wraps every ordinary payload under the single
-top-level `result` key. Built-in `--help --json` and `--version --json` are the
-deliberate formatter-owned exceptions and use their `type: "help"` /
-`type: "version"` schemas:
+The `axm.machine-output/result-envelope-v1` contract, first shipped in CLI
+0.24.3, wraps every ordinary payload under the single top-level `result` key.
+Built-in `--help --json` and `--version --json` are the deliberate
+formatter-owned exceptions and use their `type: "help"` / `type: "version"`
+schemas:
 
 ```json
 {
@@ -298,8 +299,12 @@ deliberate formatter-owned exceptions and use their `type: "help"` /
 }
 ```
 
-This is a versioned breaking change from 0.24.x, which flattened payload-schema
-keys into the envelope and therefore exposed command-specific top-level keys.
+CLI releases before 0.24.3 used flat command-specific payload keys. Do not infer
+the contract from the CLI's major or minor release number: 0.24.x contains both
+shapes. Decode stdout with `MachineOutputDocumentSchema` and use
+`detectMachineOutputDocumentKind`; an ordinary result has its own `result` key,
+an expected application error has `ok: false`, `code`, `title`, and `detail`,
+and formatter documents have `type: "help"` or `type: "version"`.
 
 Why one payload key:
 

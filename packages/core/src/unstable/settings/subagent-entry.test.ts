@@ -161,16 +161,12 @@ describe("SettingsSchema with subagents", () => {
   it("accepts settings with subagents alongside other extension types", () => {
     const input = {
       skills: { commit: "@acme/skills/commit" },
-      commands: { deploy: "@acme/commands/deploy" },
       subagents: { planner: "@acme/subagents/planner" },
     };
     const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
     expect(result.skills).toEqual({
       commit: { source: "@acme/skills/commit", enabled: true },
-    });
-    expect(result.commands).toEqual({
-      deploy: { source: "@acme/commands/deploy", enabled: true },
     });
     expect(result.subagents).toEqual({
       planner: { source: "@acme/subagents/planner", enabled: true },

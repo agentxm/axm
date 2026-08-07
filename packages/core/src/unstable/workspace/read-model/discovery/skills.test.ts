@@ -48,12 +48,12 @@ const createSkillMd = (
   dir: string,
   name: string,
   description: string,
-  metadata?: Record<string, unknown>,
+  metadata?: Record<string, string>,
 ) => {
   fs.mkdirSync(dir, { recursive: true });
   const metaStr = metadata
     ? `\nmetadata:\n${Object.entries(metadata)
-        .map(([k, v]) => `  ${k}: ${v}`)
+        .map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)
         .join("\n")}`
     : "";
   fs.writeFileSync(
@@ -90,15 +90,17 @@ describe("skillsInDir", () => {
     it.effect("returns single skill and exits early when fullDepth is false", () =>
       withFileSystem(
         Effect.gen(function* () {
-          createSkillMd(tempDir, "root-skill", "A root skill");
+          const rootName = "root-skill";
+          const searchRoot = path.join(tempDir, rootName);
+          createSkillMd(searchRoot, rootName, "A root skill");
 
-          const skills = yield* skillsInDir(tempDir, Option.none(), {
+          const skills = yield* skillsInDir(searchRoot, Option.none(), {
             ...defaultOptions,
             fullDepth: false,
           });
 
           expect(skills).toHaveLength(1);
-          expect(at(skills, 0).skill.name).toBe("root-skill");
+          expect(at(skills, 0).skill.name).toBe(rootName);
           expect(at(skills, 0).skill.description).toBe("A root skill");
         }),
       ),
@@ -107,17 +109,19 @@ describe("skillsInDir", () => {
     it.effect("continues to find more skills when fullDepth is true", () =>
       withFileSystem(
         Effect.gen(function* () {
-          createSkillMd(tempDir, "root-skill", "A root skill");
-          createSkillMd(path.join(tempDir, "skills", "child-skill"), "child-skill", "A child");
+          const rootName = "root-skill";
+          const searchRoot = path.join(tempDir, rootName);
+          createSkillMd(searchRoot, rootName, "A root skill");
+          createSkillMd(path.join(searchRoot, "skills", "child-skill"), "child-skill", "A child");
 
-          const skills = yield* skillsInDir(tempDir, Option.none(), {
+          const skills = yield* skillsInDir(searchRoot, Option.none(), {
             ...defaultOptions,
             fullDepth: true,
           });
 
           expect(skills.length).toBeGreaterThanOrEqual(2);
           const names = skills.map((s) => s.skill.name);
-          expect(names).toContain("root-skill");
+          expect(names).toContain(rootName);
           expect(names).toContain("child-skill");
         }),
       ),
@@ -661,7 +665,7 @@ describe("skillsInDir", () => {
             "internal-skill",
             "Secret",
             {
-              internal: true,
+              internal: "true",
             },
           );
           createSkillMd(path.join(tempDir, "skills", "public-skill"), "public-skill", "Public");
@@ -686,7 +690,7 @@ describe("skillsInDir", () => {
             "internal-skill",
             "Secret",
             {
-              internal: true,
+              internal: "true",
             },
           );
 
@@ -709,7 +713,7 @@ describe("skillsInDir", () => {
             "internal-skill",
             "Secret",
             {
-              internal: true,
+              internal: "true",
             },
           );
 
@@ -732,7 +736,7 @@ describe("skillsInDir", () => {
             "internal-skill",
             "Secret",
             {
-              internal: true,
+              internal: "true",
             },
           );
 

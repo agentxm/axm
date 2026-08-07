@@ -37,25 +37,6 @@ export const codestudioAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Code Studio reusable prompt files are stored under .codestudio/prompts.",
-        docs: [],
-        sources: [
-          "https://www.syncfusion.com/code-studio/features/",
-          "https://github.com/syncfusion/code-studio-library",
-        ],
-        scopes: ["user", "project"],
-        directory: ".codestudio/prompts",
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

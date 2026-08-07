@@ -8,14 +8,6 @@ import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import {
-  InstallCommandCommandWorkflowActions,
-  type InstallCommandHandlerArgs,
-} from "../commands/install/command-actions.js";
-import {
-  InstallFilesCommandWorkflowActions,
-  type InstallFilesHandlerArgs,
-} from "../files/install/command-actions.js";
-import {
   InstallHookCommandWorkflowActions,
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
@@ -122,24 +114,6 @@ describe("root update handler", () => {
       buildPlan: () => Effect.succeed(makePlan("skill")),
     };
 
-    const commandActions = {
-      parseArgs: (args: InstallCommandHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "command",
-            source: args.source,
-            yes: args.yes,
-            force: args.force,
-            preview: args.preview,
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("command")),
-    };
-
     const mcpServerActions = {
       parseArgs: (args: InstallMcpServerHandlerArgs) =>
         Effect.sync(() => {
@@ -156,24 +130,6 @@ describe("root update handler", () => {
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
       buildPlan: () => Effect.succeed(makePlan("mcp-server")),
-    };
-
-    const contextActions = {
-      parseArgs: (args: InstallFilesHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "files",
-            source: args.source,
-            yes: false,
-            force: false,
-            preview: true,
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("files")),
     };
 
     const subagentActions = {
@@ -276,12 +232,6 @@ describe("root update handler", () => {
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallCommandCommandWorkflowActions,
-        commandActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallCommandCommandWorkflowActions
-        >,
-      ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         InstallMcpServerCommandWorkflowActions,
@@ -290,12 +240,6 @@ describe("root update handler", () => {
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallFilesCommandWorkflowActions,
-        contextActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallFilesCommandWorkflowActions
-        >,
-      ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         InstallSubagentCommandWorkflowActions,
@@ -356,9 +300,7 @@ describe("root update handler", () => {
 
       const sources = [
         "@acme/skills/code-review",
-        "@acme/commands/release-notes",
         "@acme/mcps/dev-server",
-        "@ac/files/workspace-baseline",
         "@acme/subagents/researcher",
         "@acme/rules/workspace-guidance",
         "@acme/hooks/tool-audit",
@@ -372,9 +314,7 @@ describe("root update handler", () => {
 
       expect(calls).toEqual([
         { type: "skill", source: "@acme/skills/code-review", ...flags },
-        { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
-        { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "rule", source: "@acme/rules/workspace-guidance", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
@@ -470,37 +410,6 @@ describe("root update handler", () => {
           message: "handbook is workspace-sourced and unchanged",
         },
       ]);
-    }),
-  );
-
-  it.effect("rejects shorthand command declarations on workspace update", () =>
-    Effect.gen(function* () {
-      const calls: Array<UpdateCall> = [];
-      const { provide } = makeLayers(calls);
-
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        owner: "@axm",
-        commands: {
-          "example-command": "^1.0.0",
-        },
-      });
-
-      const error = yield* provide(
-        handleUpdate({
-          source: Option.none(),
-          yes: false,
-          force: false,
-          preview: true,
-        }).pipe(Effect.flip),
-      );
-      const appError = getAppError(error);
-
-      expect(appError.code).toBe("validation");
-      expect(appError.detail).toBe('The configured command entry "example-command" is invalid.');
-      expect(appError.suggestions?.[0]?.description).toBe(
-        'Use a name like "@owner/commands/name".',
-      );
     }),
   );
 });

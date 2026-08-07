@@ -51,11 +51,6 @@ export const WORKSPACE_RECONCILIATION_OBLIGATIONS = {
     projections: ["agent skill directories"],
     sources: allRemoteAndLocal,
   },
-  command: {
-    canonical: "package",
-    projections: ["native command files"],
-    sources: registryWorkspaceOnly,
-  },
   "mcp-server": {
     canonical: "package-or-inline-settings-and-native-config",
     projections: ["native MCP configuration", "inline settings/native configuration"],
@@ -67,11 +62,6 @@ export const WORKSPACE_RECONCILIATION_OBLIGATIONS = {
   subagent: {
     canonical: "package",
     projections: ["native agent files", "fallback skill projections"],
-    sources: allRemoteAndLocal,
-  },
-  files: {
-    canonical: "package",
-    projections: ["workspace files", "managed regions", "resolved inputs"],
     sources: allRemoteAndLocal,
   },
   rule: {

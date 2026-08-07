@@ -18,11 +18,12 @@ describe("summarizeCommandOutcome", () => {
   it("maps subjectType to cli.subject_type", () => {
     const types = [
       "skill",
-      "command",
-      "files",
       "subagent",
       "pack",
       "mcp-server",
+      "rule",
+      "hook",
+      "knowledge",
       "mixed",
       "unknown",
     ] as const;

@@ -6,14 +6,12 @@ import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildInstallOperation,
   fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
 } from "@agentxm/client-core/unstable/extensions";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -53,11 +51,6 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
           ref,
           versionRange: Option.none(),
         });
-      case "command":
-        return buildInstallOperation(yield* CommandManager, {
-          ref,
-          versionRange: Option.none(),
-        });
       case "mcp-server":
         return buildInstallOperation(yield* McpServerManager, {
           ref,
@@ -65,11 +58,6 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
         });
       case "subagent":
         return buildInstallOperation(yield* SubagentManager, {
-          ref,
-          versionRange: Option.none(),
-        });
-      case "files":
-        return buildInstallOperation(yield* FilesManager, {
           ref,
           versionRange: Option.none(),
         });

@@ -13,8 +13,6 @@ import {
 import {
   WorkspaceMutations,
   configuredRowsByName,
-  resolveConfiguredCommand,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -35,10 +33,6 @@ import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources"
 import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
 import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
 
-import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
-import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
-import { InstallFilesCommandWorkflowActions } from "../files/install/command-actions.js";
-import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
@@ -76,8 +70,6 @@ type WorkspaceUpdateCollectorContext =
   | WorkspaceMutations
   | SourceHostProviders
   | InstallSkillCommandWorkflowActions
-  | InstallCommandCommandWorkflowActions
-  | InstallFilesCommandWorkflowActions
   | InstallHookCommandWorkflowActions
   | InstallKnowledgeCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
@@ -256,27 +248,6 @@ const resolveSubagentIntent = (name: string, source: string) =>
     ),
   );
 
-const resolveCommandIntent = (name: string, source: string) =>
-  resolveConfiguredCommand(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-          force: false,
-        }) satisfies InstallCommandCommandIntent,
-    ),
-  );
-
-const resolveFileIntent = (name: string, source: string) =>
-  resolveConfiguredFiles(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-        }) satisfies InstallFilesCommandIntent,
-    ),
-  );
-
 const resolveRuleIntent = (name: string, source: string) =>
   resolveConfiguredRule(name, source).pipe(
     Effect.map(
@@ -344,48 +315,6 @@ const collectSkillPlans = (selection: WorkspaceUpdateNameSelection) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(workspaceSourceUnchangedPlan("skill", name, entry.source, ws.scope))
           : resolveSkillIntent(name, entry.source).pipe(
-              Effect.flatMap((intent) => actions.buildPlan(intent)),
-            ),
-      { concurrency: "unbounded" },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({ plans });
-  });
-
-const collectCommandPlans = (selection: WorkspaceUpdateNameSelection) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallCommandCommandWorkflowActions;
-    const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
-
-    const plans = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(workspaceSourceUnchangedPlan("command", name, entry.source, ws.scope))
-          : resolveCommandIntent(name, entry.source).pipe(
-              Effect.flatMap((intent) => actions.buildPlan(intent)),
-            ),
-      { concurrency: "unbounded" },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({ plans });
-  });
-
-const collectFilePlans = (selection: WorkspaceUpdateNameSelection) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallFilesCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredFilesEntries();
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
-
-    const plans = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(workspaceSourceUnchangedPlan("files", name, entry.source, ws.scope))
-          : resolveFileIntent(name, entry.source).pipe(
               Effect.flatMap((intent) => actions.buildPlan(intent)),
             ),
       { concurrency: "unbounded" },
@@ -527,8 +456,6 @@ const collectPackPlans = (selection: WorkspaceUpdateNameSelection) =>
 // type can never again be silently dropped from workspace update.
 const workspaceUpdateCollectorsByType = {
   skill: collectSkillPlans,
-  command: collectCommandPlans,
-  files: collectFilePlans,
   rule: collectRulePlans,
   hook: collectHookPlans,
   knowledge: collectKnowledgePlans,

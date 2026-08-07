@@ -13,7 +13,7 @@
 
 # Extension manager for coding agents and AI assistants
 
-- Manage agent skills, subagents, commands, MCP servers and more. Use the right tool(s) for the job.
+- Manage agent skills, subagents, MCP servers, rules, hooks, knowledge, and packs.
 - Bundle extensions with packs to share workflows across projects, teams, and others.
 - Switch effortlessly between coding agents, bringing your workflow with you. Avoid lock-in.
 
@@ -22,8 +22,8 @@
 > included in the test user group, reach out to
 > [hello@agentxm.ai](mailto:hello@agentxm.ai).
 
-- **Multi-tool** — a unified context-engineering toolkit for managing
-  skills, commands, subagents, and MCP servers
+- **Multi-tool** — a unified context-engineering toolkit for managing skills,
+  subagents, MCP servers, rules, hooks, knowledge, and packs
 - **Multi-agent** — share workflows across Claude Code, Codex, Cursor,
   Gemini CLI, GitHub Copilot, OpenCode, and
   [nearly 40 others](#supported-agents)
@@ -94,16 +94,14 @@ axm install @acme/skills/code-review
 
 <!-- axm:generated:extension-types-table -->
 
-| Type              | What it is                                                                       | Governing standard                                                                                          |
-| ----------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Skills**        | Package reusable agent skills with SKILL.md metadata and instructions.           | [Agent Skills](https://agentskills.io)                                                                      |
-| **Commands**      | Install slash commands or prompt commands in an agent's native command location. | —                                                                                                           |
-| **MCP Servers**   | Configure Model Context Protocol servers for agents.                             | [Model Context Protocol](https://modelcontextprotocol.io)                                                   |
-| **Subagents**     | Install specialized agent profiles into an agent's native subagent system.       | —                                                                                                           |
-| **Context Files** | Scaffold and manage standalone .md context files.                                | —                                                                                                           |
-| **Rules**         | Sync instruction files and distribute rule extensions that inject into them.     | [AGENTS.md](https://agents.md)                                                                              |
-| **Hooks**         | Install lifecycle hook extensions into an agent's native hook system.            | —                                                                                                           |
-| **Knowledge**     | Package portable Open Knowledge Format concept bundles.                          | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
+| Type            | What it is                                                                   | Governing standard                                                                                          |
+| --------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Skills**      | Package reusable agent skills with SKILL.md metadata and instructions.       | [Agent Skills](https://agentskills.io)                                                                      |
+| **MCP Servers** | Configure Model Context Protocol servers for agents.                         | [Model Context Protocol](https://modelcontextprotocol.io)                                                   |
+| **Subagents**   | Install specialized agent profiles into an agent's native subagent system.   | —                                                                                                           |
+| **Rules**       | Sync instruction files and distribute rule extensions that inject into them. | [AGENTS.md](https://agents.md)                                                                              |
+| **Hooks**       | Install lifecycle hook extensions into an agent's native hook system.        | —                                                                                                           |
+| **Knowledge**   | Package portable Open Knowledge Format concept bundles.                      | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
 
 <!-- /axm:generated -->
 
@@ -114,7 +112,7 @@ commands.
 
 <!-- axm:generated:extension-type-namespaces -->
 
-Every type has its own subcommand namespace (`axm skills`, `axm commands`, `axm mcps`, `axm subagents`, `axm files`, `axm rules`, `axm hooks`, `axm knowledge`, `axm packs`) sharing a common shape: `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus `enable`/`disable` where it applies.
+Every type has its own subcommand namespace (`axm skills`, `axm mcps`, `axm subagents`, `axm rules`, `axm hooks`, `axm knowledge`, `axm packs`) sharing a common shape: `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus `enable`/`disable` where it applies.
 
 <!-- /axm:generated -->
 

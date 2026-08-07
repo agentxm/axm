@@ -47,18 +47,6 @@ describe("buildInstalledFqnIndex", () => {
     const lockfile = Schema.decodeUnknownSync(LockfileSchema)({
       lockfileVersion: 3,
       skills: {},
-      files: {
-        "house-style": {
-          type: "workspace",
-          owner: "@acme",
-          extensionType: "files",
-          name: "house-style",
-          version: "1.0.0",
-          sourceHash: "hash",
-          installedAt: timestamp,
-          updatedAt: timestamp,
-        },
-      },
       rules: {
         conventions: {
           type: "workspace",
@@ -98,7 +86,6 @@ describe("buildInstalledFqnIndex", () => {
     });
 
     expect([...buildInstalledFqnIndex(lockfile)].sort()).toEqual([
-      "@acme/files/house-style",
       "@acme/hooks/pre-commit",
       "@acme/knowledge/domain",
       "@acme/rules/conventions",

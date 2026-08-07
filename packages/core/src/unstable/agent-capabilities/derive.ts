@@ -99,8 +99,8 @@ const isPerAgentType = (type: LeafExtensionType): type is PerAgentType => perAge
  * The capability record describing how one agent handles an extension type.
  * `rule` resolves to the agent's `instructions` slot: rules render into shared
  * workspace instruction files, but each agent still records how it consumes
- * them. `files` has no per-agent record at all — it renders to workspace paths
- * no agent owns — so it resolves to `undefined`.
+ * them. `knowledge` has no per-agent record because it is read on demand, so
+ * it resolves to `undefined`.
  */
 const capabilityForType = (
   agent: Agent,
@@ -304,11 +304,6 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
 
 /** @experimental This API is unstable and may change without notice. */
 export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
-  const command = agent.capabilities.command;
-  const commands =
-    isCapabilitySupported(command) && "directory" in command.native
-      ? { dir: command.native.directory, scopes: command.native.scopes }
-      : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
   const instructions = deriveInstructionsDescriptor(agent);
   const rootDir = deriveRootDir(agent);
@@ -323,7 +318,6 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
       additionalReadPaths: deriveAdditionalSkillReadPaths(agent),
     },
     detection,
-    ...(commands === undefined ? {} : { commands }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),
   };
@@ -367,11 +361,7 @@ export const getSupportedExtensionTypesForAgent = (
     return capability !== undefined && isCapabilitySupported(capability);
   });
 
-// A type the catalog models no capability for is treated as unsupported, so
-// `files` extensions keep reporting zero compatible agents exactly as they did
-// when every agent carried an unpopulated `files` slot. Whether that is the
-// right answer for a workspace-placed type is a product question, deliberately
-// left unchanged here.
+// A type the catalog models no capability for is treated as unsupported.
 const agentSatisfiesType = (agent: Agent, type: LeafExtensionType): boolean => {
   const capability = capabilityForType(agent, type);
   return capability !== undefined && isCapabilitySupported(capability);
@@ -637,7 +627,6 @@ export const toNativeAgent = (agent: Agent): NativeAgent => ({
   docs: agent.docs,
   capabilities: {
     skill: agent.capabilities.skill.native,
-    command: agent.capabilities.command.native,
     "mcp-server": agent.capabilities["mcp-server"].native,
     subagent: agent.capabilities.subagent.native,
     hook: agent.capabilities.hook.native,

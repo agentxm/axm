@@ -10,44 +10,34 @@ import { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "./types.js";
  * slot. Agents whose capability AXM does not support have no slot and are never
  * asked for a scope.
  */
-const scopesFor = (
-  id: ConfigurableAgentId,
-  type: UserScopedExtension,
-): ReadonlyArray<string> | undefined => {
+const scopesFor = (id: ConfigurableAgentId): ReadonlyArray<string> | undefined => {
   const descriptor = AGENTS[id];
-  return type === "commands" ? descriptor.commands?.scopes : descriptor.subagents?.scopes;
+  return descriptor.subagents?.scopes;
 };
 
-const declaringUserScope = (type: UserScopedExtension): ReadonlyArray<ConfigurableAgentId> =>
-  CONFIGURABLE_AGENT_IDS.filter((id) => scopesFor(id, type)?.includes("user") === true);
+const declaringUserScope = (): ReadonlyArray<ConfigurableAgentId> =>
+  CONFIGURABLE_AGENT_IDS.filter((id) => scopesFor(id)?.includes("user") === true);
 
-const withoutUserScope = (type: UserScopedExtension): ReadonlyArray<ConfigurableAgentId> =>
+const withoutUserScope = (): ReadonlyArray<ConfigurableAgentId> =>
   CONFIGURABLE_AGENT_IDS.filter((id) => {
-    const scopes = scopesFor(id, type);
+    const scopes = scopesFor(id);
     return scopes !== undefined && !scopes.includes("user");
   });
 
 describe("userScopeRefusal", () => {
   it("covers the AXM-supported catalog population it claims to", () => {
-    // Every AXM-supported subagents agent has a native user-scope surface, and
-    // all but one commands agent does — so the old blanket "does not support
-    // user-scope" was inaccurate nearly everywhere it fired.
     expect({
-      commandsWithUser: declaringUserScope("commands").length,
-      commandsWithoutUser: withoutUserScope("commands").length,
-      subagentsWithUser: declaringUserScope("subagents").length,
-      subagentsWithoutUser: withoutUserScope("subagents").length,
+      subagentsWithUser: declaringUserScope().length,
+      subagentsWithoutUser: withoutUserScope().length,
     }).toEqual({
-      commandsWithUser: 27,
-      commandsWithoutUser: 1,
       subagentsWithUser: 27,
       subagentsWithoutUser: 0,
     });
   });
 
-  for (const type of ["commands", "subagents"] as const) {
+  for (const type of ["subagents"] satisfies ReadonlyArray<UserScopedExtension>) {
     it(`names AXM as the limitation for agents with a native user-scope ${type} surface`, () => {
-      const messages = declaringUserScope(type).map((id) => {
+      const messages = declaringUserScope().map((id) => {
         const name = AGENTS[id].name;
         return [id, userScopeRefusal({ agentId: id, agentName: name, type })] as const;
       });
@@ -61,20 +51,7 @@ describe("userScopeRefusal", () => {
     });
   }
 
-  it("keeps the plain refusal for a catalog agent with no user-scope commands surface", () => {
-    const [id] = withoutUserScope("commands");
-    expect(id).toBeDefined();
-    if (id === undefined) return;
-    const name = AGENTS[id].name;
-    expect(userScopeRefusal({ agentId: id, agentName: name, type: "commands" })).toBe(
-      `${name} does not support user-scope commands`,
-    );
-  });
-
   it("keeps the plain refusal for an agent with no modeled directory", () => {
-    expect(
-      userScopeRefusal({ agentId: "universal", agentName: "Universal", type: "commands" }),
-    ).toBe("Universal does not support user-scope commands");
     expect(
       userScopeRefusal({ agentId: "universal", agentName: "Universal", type: "subagents" }),
     ).toBe("Universal does not support user-scope subagents");

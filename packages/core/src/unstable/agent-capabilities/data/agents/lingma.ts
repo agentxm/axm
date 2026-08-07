@@ -43,21 +43,6 @@ export const lingmaAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: {
-          state: "deprecated",
-          since: "2026-05-20",
-          note: "The Lingma product name was replaced by Qoder CN.",
-          supersededByType: null,
-        },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

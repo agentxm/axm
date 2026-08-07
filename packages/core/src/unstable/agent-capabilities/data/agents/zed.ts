@@ -29,17 +29,6 @@ export const zedAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Zed exposes built-in slash commands and Skill invocation, but the vendor docs do not define a filesystem custom-command surface.",
-        docs: [],
-        sources: ["https://zed.dev/docs/ai/skills"],
-      },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

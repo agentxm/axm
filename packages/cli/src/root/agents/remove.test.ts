@@ -78,7 +78,6 @@ describe("agents remove.handler", () => {
       agentId: "opencode",
       displayName: "OpenCode",
       skillsProjectDir: ".opencode/skills",
-      commandsProjectDir: ".opencode/command",
       subagentsProjectDir: ".opencode/agent",
     });
     const agentRepo: CodingAgentRepositoryService = {

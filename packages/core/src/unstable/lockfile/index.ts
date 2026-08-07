@@ -10,11 +10,6 @@
 
 // Schema types and schemas
 export type {
-  CommandLockEntry,
-  CommandsLockMap,
-  FilesLockEntry,
-  FilesResolvedInputsMap,
-  FilesLockMap,
   HookLockEntry,
   HooksLockMap,
   KnowledgeLockEntry,
@@ -38,11 +33,6 @@ export type {
   SubagentsLockMap,
 } from "./schema.js";
 export {
-  CommandLockEntrySchema,
-  CommandsLockMapSchema,
-  FilesLockEntrySchema,
-  FilesResolvedInputsMapSchema,
-  FilesLockMapSchema,
   HookLockEntrySchema,
   HooksLockMapSchema,
   KnowledgeLockEntrySchema,

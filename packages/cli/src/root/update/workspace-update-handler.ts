@@ -9,10 +9,6 @@ import {
 import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
-import {
-  mergePlanResolution,
-  runFilesWorkspaceGeneratorPhase,
-} from "../files/workspace-generator-phase.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 
@@ -67,16 +63,7 @@ export const handleWorkspaceUpdate = (args: {
       yes: args.flags.yes,
       preview: args.flags.preview,
     });
-    let outputResolution: PlanResolution = resolution;
-    if (
-      resolution._tag === "ExecutedPlan" &&
-      (Option.isNone(args.type) || args.type.value === "files")
-    ) {
-      const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
-        dryRun: false,
-      });
-      outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
-    }
+    const outputResolution: PlanResolution = resolution;
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
         planResolutionToSummary(outputResolution, {

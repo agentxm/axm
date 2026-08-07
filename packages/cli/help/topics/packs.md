@@ -46,8 +46,8 @@ that workspace version does not satisfy the constraint, AXM fails without
 falling back to the Registry. Registry resolution is used only when there is no
 matching configured workspace authority.
 
-Configured pack manifests expand desired state across skills, commands, MCP
-servers, subagents, context files, rules, hooks, and knowledge bundles. AXM
+Configured pack manifests expand desired state across skills, MCP servers,
+subagents, rules, hooks, and knowledge bundles. AXM
 keeps owner, type, locator, and constraints when combining direct and pack
 origins. A missing or invalid configured manifest makes that desired subtree
 unknown and blocks destructive cleanup. Removing a pack retains members still

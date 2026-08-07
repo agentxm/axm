@@ -65,31 +65,6 @@ export const codexAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: {
-          state: "deprecated",
-          since: null,
-          note: "Deprecated in favor of agent skills.",
-          supersededByType: "skill",
-        },
-        notes:
-          "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
-        docs: [],
-        sources: [
-          "https://learn.chatgpt.com/docs/custom-prompts",
-          "https://developers.openai.com/codex/cli/slash-commands",
-        ],
-        scopes: ["user"],
-        directory: ".codex/prompts",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

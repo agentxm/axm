@@ -131,7 +131,6 @@ const makePackLockEntry = (owner: string, name: string, sourceHash?: string) => 
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: {},
-  resolvedCommands: {},
   resolvedMcpServers: {},
   resolvedSubagents: {},
 });

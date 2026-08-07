@@ -51,7 +51,7 @@ describe("package materialization helpers", () => {
           ".axm",
           "extensions",
           "@acme",
-          "commands",
+          "hooks",
           "review",
         );
         nodeFs.mkdirSync(canonicalPath, { recursive: true });
@@ -62,7 +62,7 @@ describe("package materialization helpers", () => {
           canonicalPath,
           sourceLocation: pathToFileURL(nodePath.join(tempDir, "missing-registry")),
           owner: decodeHandleSync("@acme"),
-          type: "command",
+          type: "hook",
           name: decodeExtensionNameSync("review"),
           version: decodeVersionSync("1.0.0"),
           integrity: Option.none(),

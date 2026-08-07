@@ -124,7 +124,11 @@ describe("bundled skill release stamps", () => {
     const documentPath = join(directory, "SKILL.md");
 
     writeFileSync(manifestPath, '{\n  "name": "axm",\n  "version": "0.2.8"\n}\n', "utf8");
-    writeFileSync(documentPath, '---\nname: axm\ncli-version: "0.2.8"\n---\n\n# AXM\n', "utf8");
+    writeFileSync(
+      documentPath,
+      '---\nname: axm\nmetadata:\n  agentxm.ai/cli-version: "0.2.8"\n---\n\n# AXM\n',
+      "utf8",
+    );
 
     writeSkillVersion("0.24.9", manifestPath);
     stampSkillCliVersion("0.24.9", documentPath);

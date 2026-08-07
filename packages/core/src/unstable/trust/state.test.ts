@@ -7,11 +7,7 @@ import { exactVersion, extensionName } from "../test-helpers.js";
 import type { RegistrySkillRef } from "../skills/refs.js";
 import type { WorkspaceSkillRef } from "../skills/refs.js";
 import type { Lockfile } from "../lockfile/index.js";
-import {
-  makeRegistryCommandLockEntry,
-  makeRegistryPackLockEntry,
-  makeRegistrySkillLockEntry,
-} from "../workspace/test-stubs.js";
+import { makeRegistryPackLockEntry, makeRegistrySkillLockEntry } from "../workspace/test-stubs.js";
 import { computeSourceHash } from "../extensions/index.js";
 import type { WorkspaceTrustState } from "./schema.js";
 import {
@@ -103,7 +99,7 @@ describe("workspace trust state", () => {
   });
 
   it("is invariant to optional receipt timestamps and pack-retention history", () => {
-    const firstEntry = makeRegistryCommandLockEntry({
+    const firstEntry = makeRegistrySkillLockEntry({
       owner: normalizeHandle("@acme"),
       name: "release",
       installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
@@ -111,14 +107,13 @@ describe("workspace trust state", () => {
     });
     const first: Lockfile = {
       lockfileVersion: 3,
-      skills: {},
-      commands: {
+      skills: {
         release: firstEntry,
       },
     };
     const second: Lockfile = {
       ...first,
-      commands: {
+      skills: {
         release: {
           ...firstEntry,
           installedAt: DateTime.makeUnsafe("2026-02-01T00:00:00.000Z"),

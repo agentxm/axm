@@ -46,11 +46,6 @@ import {
   removeSkillAgentArtifact,
   type ProvideFs,
 } from "./materialization.js";
-import {
-  capabilityRenderTargetForAgentId,
-  materializeCapabilityTargetedBuild,
-} from "../capability-targeting/index.js";
-import { renderTargetAgentIdForLocation } from "./operations/install.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { usableTrustedCanonicalRef } from "../workspace/trusted-canonical-ref.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
@@ -167,50 +162,19 @@ export const SkillManagerLive = Layer.effect(
         }
       }
 
-      const builds = yield* Effect.forEach(
+      yield* Effect.forEach(
         [...locations.values()],
         (location) =>
-          Effect.gen(function* () {
-            const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
-            const build = yield* provide(
-              materializeCapabilityTargetedBuild({
-                baseDir,
-                canonicalSourcePath: skillSrcPath,
-                extensionName: sanitized,
-                target: capabilityRenderTargetForAgentId(targetAgentId),
-              }),
-            ).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to render ${ref.skill.name} for ${targetAgentId}`,
-                  cause: error,
-                }),
-              ),
-            );
-            yield* ensureSkillAgentArtifact({
-              canonicalSkillSrcPath: build.artifactSourcePath,
-              targetDir: location.dir,
-              sanitizedName: sanitized,
-              pathService: path,
-              baseDir,
-              provide,
-            });
-            for (const finding of build.findings) {
-              yield* Effect.logWarning(
-                `[${finding.code}] ${ref.skill.name} (${targetAgentId}): ${finding.message}`,
-              );
-            }
-            return { targetAgentId, build };
+          ensureSkillAgentArtifact({
+            canonicalSkillSrcPath: skillSrcPath,
+            targetDir: location.dir,
+            sanitizedName: sanitized,
+            pathService: path,
+            baseDir,
+            provide,
           }),
         { concurrency: "unbounded" },
       );
-      for (const { targetAgentId, build } of builds) {
-        if (!build.degraded) continue;
-        yield* Effect.logWarning(
-          `Capability targeting for ${ref.skill.name} on ${targetAgentId} used fallback output`,
-        );
-      }
       const sourceHash =
         ref.refType === "workspace"
           ? ref.sourceHash

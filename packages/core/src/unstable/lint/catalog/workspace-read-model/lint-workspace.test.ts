@@ -29,12 +29,6 @@ const manifestFixtures = {
     name: "bad-skill",
     unexpectedSkillKey: true,
   },
-  command: {
-    ...baseManifest,
-    type: "command",
-    name: "bad-command",
-    unexpectedCommandKey: true,
-  },
   subagent: {
     ...baseManifest,
     type: "subagent",
@@ -64,7 +58,6 @@ const manifestFixtures = {
 const settings = {
   owner: "@acme",
   skills: { "bad-skill": "@acme/skills/bad-skill@1.0.0" },
-  commands: { "bad-command": "@acme/commands/bad-command@1.0.0" },
   subagents: { "bad-subagent": "@acme/subagents/bad-subagent@1.0.0" },
   mcpServers: { "bad-mcp": "@acme/mcps/bad-mcp@1.0.0" },
   packs: { "bad-pack": "@acme/packs/bad-pack@1.0.0" },
@@ -115,10 +108,6 @@ const fixture = (packJson: object | string): FixtureSpec => ({
         _tag: "valid",
         contents: manifestFixtures.skill,
       },
-      "@acme/commands/bad-command/command.json": {
-        _tag: "valid",
-        contents: manifestFixtures.command,
-      },
       "@acme/subagents/bad-subagent/subagent.json": {
         _tag: "valid",
         contents: manifestFixtures.subagent,
@@ -159,7 +148,6 @@ const buildAndEvaluate = (spec: FixtureSpec) =>
         ...emptyCatalogRuleContexts,
         skill: buildSkillRuleContexts(lintWorkspace.view),
         pack: buildPackRuleContexts(lintWorkspace.view),
-        command: lintWorkspace.view.commandContexts,
         subagent: lintWorkspace.view.subagentContexts,
         "mcp-server": lintWorkspace.view.mcpServerContexts,
         hook: lintWorkspace.view.hookContexts,
@@ -183,8 +171,6 @@ describe("buildLintWorkspace manifest JSON population", () => {
 
       expect(ruleIds).toContain("skill/manifest-schema-valid");
       expect(ruleIds).toContain("skill/manifest-keys-recognized");
-      expect(ruleIds).toContain("command/manifest-schema-valid");
-      expect(ruleIds).toContain("command/manifest-keys-recognized");
       expect(ruleIds).toContain("subagent/manifest-schema-valid");
       expect(ruleIds).toContain("subagent/manifest-keys-recognized");
       expect(ruleIds).toContain("mcp-server/manifest-schema-valid");

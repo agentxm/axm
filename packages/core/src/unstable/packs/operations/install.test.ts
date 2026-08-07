@@ -53,11 +53,11 @@ const makeOp = (): InstallPackOperation => ({
 
     publisherBindingId: "hbnd_test",
     resolvedSkills: {},
-    resolvedCommands: {},
     resolvedMcpServers: {},
     resolvedSubagents: {},
     resolvedRules: {},
     resolvedHooks: {},
+    resolvedKnowledge: {},
     versionRange: Option.none(),
     ref: makePackRef(),
   },

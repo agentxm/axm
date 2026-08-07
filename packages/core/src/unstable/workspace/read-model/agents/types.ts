@@ -41,7 +41,7 @@ import { defaultActual, defaultDeclared, defaultDetected } from "./shared.js";
  * "which subjects does this agent render?" without re-scanning the agent
  * registry.
  */
-export type AgentSubjectType = "skill" | "command" | "subagent";
+export type AgentSubjectType = "skill" | "subagent";
 
 // ---------------------------------------------------------------------------
 // Declared agent
@@ -183,8 +183,7 @@ export interface AgentModule<
 
 /**
  * Inputs to `defineAgentModule`. The factory derives `subjects` from the
- * descriptor (see Decision 4) so per-agent files don't have to repeat the
- * scanner-relevant subject list.
+ * descriptor (see Decision 4) so per-agent files don't repeat the scanner-relevant subject list.
  */
 export interface DefineAgentModuleInput<TId extends AgentId> {
   readonly agentId: TId;
@@ -193,12 +192,11 @@ export interface DefineAgentModuleInput<TId extends AgentId> {
 
 /**
  * Derive the subjects the agent renders into per-agent directories from its
- * descriptor. `skills` is always present on an `AgentDescriptor`; `commands`
- * and `subagents` are optional.
+ * descriptor. `skills` is always present on an `AgentDescriptor`; `subagents`
+ * are optional.
  */
 const subjectsFromDescriptor = (descriptor: AgentDescriptor): ReadonlyArray<AgentSubjectType> => {
   const out: Array<AgentSubjectType> = ["skill"];
-  if (descriptor.commands !== undefined) out.push("command");
   if (descriptor.subagents !== undefined) out.push("subagent");
   return out;
 };

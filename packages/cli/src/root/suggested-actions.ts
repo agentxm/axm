@@ -20,16 +20,6 @@ export const INSTALL_SKILL_FROM_REGISTRY = {
   cmd: "axm skills install <source>",
 } as const satisfies SuggestedAction;
 
-export const INSTALL_COMMAND_FROM_REGISTRY = {
-  description: "Install a command from a registry like @owner/commands/name",
-  cmd: "axm commands install <source>",
-} as const satisfies SuggestedAction;
-
-export const INSTALL_FILES_FROM_REGISTRY = {
-  description: "Install a files package from a registry like @owner/files/name",
-  cmd: "axm files install <source>",
-} as const satisfies SuggestedAction;
-
 export const INSTALL_HOOK_FROM_REGISTRY = {
   description: "Install a hook from a registry like @owner/hooks/name",
   cmd: "axm hooks install <source>",

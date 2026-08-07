@@ -57,8 +57,6 @@ export interface InstallPackOperationArgs {
   readonly publisherBindingId: string;
   /** Resolved skill FQNs to exact versions */
   readonly resolvedSkills: ResolvedExtensionMap;
-  /** Resolved command FQNs to exact versions */
-  readonly resolvedCommands: ResolvedExtensionMap;
   /** Resolved MCP server FQNs to exact versions */
   readonly resolvedMcpServers: ResolvedExtensionMap;
   /** Resolved subagent FQNs to exact versions */
@@ -67,6 +65,8 @@ export interface InstallPackOperationArgs {
   readonly resolvedRules: ResolvedExtensionMap;
   /** Resolved hook FQNs to exact versions */
   readonly resolvedHooks: ResolvedExtensionMap;
+  /** Resolved knowledge FQNs to exact versions */
+  readonly resolvedKnowledge: ResolvedExtensionMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionRange: Option<string>;
   /** Pack extension ref for fetching the archive. */
@@ -88,11 +88,11 @@ const collectMissingResolvedDependencies = (
   for (const fqn of Object.keys(manifest.dependencies)) {
     if (
       !Object.hasOwn(op.args.resolvedSkills, fqn) &&
-      !Object.hasOwn(op.args.resolvedCommands, fqn) &&
       !Object.hasOwn(op.args.resolvedMcpServers, fqn) &&
       !Object.hasOwn(op.args.resolvedSubagents, fqn) &&
       !Object.hasOwn(op.args.resolvedRules, fqn) &&
-      !Object.hasOwn(op.args.resolvedHooks, fqn)
+      !Object.hasOwn(op.args.resolvedHooks, fqn) &&
+      !Object.hasOwn(op.args.resolvedKnowledge, fqn)
     ) {
       missing.push(fqn);
     }
@@ -126,10 +126,6 @@ export const installPack: OperationHandler<
       op.args.resolvedSkills,
     );
     yield* validateExactResolvedVersionMap(
-      `packs.${op.args.packName}.resolvedCommands`,
-      op.args.resolvedCommands,
-    );
-    yield* validateExactResolvedVersionMap(
       `packs.${op.args.packName}.resolvedMcpServers`,
       op.args.resolvedMcpServers,
     );
@@ -144,6 +140,10 @@ export const installPack: OperationHandler<
     yield* validateExactResolvedVersionMap(
       `packs.${op.args.packName}.resolvedHooks`,
       op.args.resolvedHooks,
+    );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedKnowledge`,
+      op.args.resolvedKnowledge,
     );
 
     // Extract to managed location
@@ -242,11 +242,11 @@ export const installPack: OperationHandler<
         installedAt: now,
         updatedAt: now,
         resolvedSkills: op.args.resolvedSkills,
-        resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,
         resolvedSubagents: op.args.resolvedSubagents,
         resolvedRules: op.args.resolvedRules,
         resolvedHooks: op.args.resolvedHooks,
+        resolvedKnowledge: op.args.resolvedKnowledge,
         versionRange: op.args.versionRange,
       })
       .pipe(

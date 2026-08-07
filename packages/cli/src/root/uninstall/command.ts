@@ -40,8 +40,8 @@ export const uninstallCommand = Command.make(
       description: "Remove an installed skill by fully qualified registry name",
     },
     {
-      command: "axm uninstall @acme/commands/release-notes@^1.2.0 --preview",
-      description: "Preview uninstalling a command; version is ignored for uninstall routing",
+      command: "axm uninstall @acme/hooks/session-audit@^1.2.0 --preview",
+      description: "Preview uninstalling a hook; version is ignored for uninstall routing",
     },
     {
       command: "axm uninstall @acme/packs/frontend-tools --yes",

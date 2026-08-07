@@ -23,7 +23,6 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildMaterializeOperation,
   enabledConfiguredEntries,
@@ -47,18 +46,12 @@ import {
 } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import {
-  FilesManager,
-  renderWorkspaceGeneratorRegions,
-  type FilesExtensionRef,
-} from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
   KnowledgeManager,
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
   applyPlan,
   previewOrApplyPlan,
@@ -82,9 +75,7 @@ import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
   observeCanonicalExtension,
-  resolveConfiguredCommand,
   WorkspaceMutations,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -221,20 +212,12 @@ const resolveDesiredExtensionRef = (
       return annotate(resolveConfiguredSkill(node.name, node.source)).pipe(
         Effect.map(({ ref }) => ref),
       );
-    case "command":
-      return annotate(resolveConfiguredCommand(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
     case "mcp-server":
       return annotate(resolveConfiguredMcpServer(node.name, node.source)).pipe(
         Effect.map(({ ref }) => ref),
       );
     case "subagent":
       return annotate(resolveConfiguredSubagent(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
-    case "files":
-      return annotate(resolveConfiguredFiles(node.name, node.source)).pipe(
         Effect.map(({ ref }) => ref),
       );
     case "rule":
@@ -259,9 +242,8 @@ const resolveDesiredExtensionRef = (
   }
 };
 
-const registryVersion = (
-  ref: SkillExtensionRef | CommandExtensionRef | SubagentExtensionRef,
-): string | undefined => (ref.refType === "registry" ? ref.version : undefined);
+const registryVersion = (ref: SkillExtensionRef | SubagentExtensionRef): string | undefined =>
+  ref.refType === "registry" ? ref.version : undefined;
 
 const skillSyncArtifact = (args: {
   readonly ref: SkillExtensionRef;
@@ -301,20 +283,6 @@ const skillSyncArtifact = (args: {
     return {
       ...artifact,
       ...(version === undefined ? {} : { version }),
-    };
-  });
-
-const commandSyncArtifact = (args: {
-  readonly ref: CommandExtensionRef;
-  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
-}): Effect.Effect<JobStepArtifact, AppError, never> =>
-  Effect.sync(() => {
-    const version = registryVersion(args.ref);
-    return {
-      path: args.ref.command.name,
-      scope: args.ws.scope,
-      ...(version === undefined ? {} : { version }),
-      change: "updated",
     };
   });
 
@@ -526,10 +494,7 @@ const isObservedMaterializationCurrent = (
   ws.records
     .getExtensionInventory(node.type, {
       ...(configuredAgents.length > 0 &&
-      (node.type === "skill" ||
-        node.type === "command" ||
-        node.type === "mcp-server" ||
-        node.type === "subagent")
+      (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
         ? { agents: configuredAgents }
         : {}),
     })
@@ -537,20 +502,13 @@ const isObservedMaterializationCurrent = (
       Effect.map((inventory) => {
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
         if (observed === undefined) return false;
-        if (
-          node.type !== "skill" &&
-          node.type !== "command" &&
-          node.type !== "mcp-server" &&
-          node.type !== "subagent"
-        ) {
+        if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
           return true;
         }
         const hasProjectionOrigin = (() => {
           switch (node.type) {
             case "skill":
               return observed.origins.includes("agent-skill-dir");
-            case "command":
-              return observed.origins.includes("agent-command-dir");
             case "subagent":
               return observed.origins.includes("agent-subagent-dir");
             case "mcp-server":
@@ -574,10 +532,8 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   readonly acceptAuthorityChange?: boolean;
 }) {
   const skillManager = yield* SkillManager;
-  const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
-  const fileManager = yield* FilesManager;
   const ruleManager = yield* RuleManager;
   const hookManager = yield* HookManager;
   const knowledgeManager = yield* KnowledgeManager;
@@ -704,10 +660,8 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     readonly transitionLabel: string;
   };
   const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
-  const commandRefs: Array<Reconciled<CommandExtensionRef>> = [];
   const mcpServerRefs: Array<Reconciled<McpServerExtensionRef>> = [];
   const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
-  const fileRefs: Array<Reconciled<FilesExtensionRef>> = [];
   const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
   const hookRefs: Array<Reconciled<HookExtensionRef>> = [];
   const knowledgeRefs: Array<Reconciled<KnowledgeExtensionRef>> = [];
@@ -715,15 +669,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     switch (item.ref.type) {
       case "skill":
         skillRefs.push({
-          ref: item.ref,
-          force: item.force,
-          materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
-          transitionLabel: item.transitionLabel,
-        });
-        break;
-      case "command":
-        commandRefs.push({
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
@@ -742,15 +687,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         break;
       case "subagent":
         subagentRefs.push({
-          ref: item.ref,
-          force: item.force,
-          materialize: item.materialize,
-          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
-          transitionLabel: item.transitionLabel,
-        });
-        break;
-      case "files":
-        fileRefs.push({
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
@@ -871,20 +807,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       message: `Synced skill ${ref.skill.name}`,
       buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
     });
-  const commandMaterializeStep = ({
-    ref,
-    force,
-    allowWorkspaceSourceTransition,
-    transitionLabel,
-  }: Reconciled<CommandExtensionRef>) =>
-    buildMaterializeOperation(commandManager, {
-      ref,
-      force,
-      allowWorkspaceSourceTransition,
-      label: transitionLabel,
-      message: `Synced command ${ref.command.name}`,
-      buildArtifact: () => commandSyncArtifact({ ref, ws }),
-    });
   const subagentMaterializeStep = ({
     ref,
     force,
@@ -917,7 +839,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
     steps: [
       ...skillRefs.filter(({ materialize }) => materialize).map(skillMaterializeStep),
-      ...commandRefs.filter(({ materialize }) => materialize).map(commandMaterializeStep),
       ...mcpServerRefs
         .filter(({ materialize }) => materialize)
         .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
@@ -947,16 +868,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ]
         : []),
       ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
-      ...fileRefs
-        .filter(({ materialize }) => materialize)
-        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
-          buildMaterializeOperation(fileManager, {
-            ref,
-            force,
-            allowWorkspaceSourceTransition,
-            label: transitionLabel,
-          }),
-        ),
       ...ruleRefs
         .filter(({ materialize }) => materialize)
         .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
@@ -985,14 +896,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 const makeSyncPlan = ({
   materializeSteps,
   knowledgeStep,
-  workspaceGeneratorStep,
   trustMigrationStep,
   name = PLAN_NAME,
   description = PLAN_DESCRIPTION,
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
   readonly knowledgeStep: Option.Option<PlannedJobStep>;
-  readonly workspaceGeneratorStep: Option.Option<PlannedJobStep>;
   readonly trustMigrationStep: Option.Option<PlannedJobStep>;
   readonly name?: string;
   readonly description?: string;
@@ -1006,9 +915,6 @@ const makeSyncPlan = ({
       : []),
     ...(Option.isSome(knowledgeStep)
       ? [{ concurrency: 1 as const, steps: [knowledgeStep.value] }]
-      : []),
-    ...(Option.isSome(workspaceGeneratorStep)
-      ? [{ concurrency: 1 as const, steps: [workspaceGeneratorStep.value] }]
       : []),
     ...(Option.isSome(trustMigrationStep)
       ? [{ concurrency: 1 as const, steps: [trustMigrationStep.value] }]
@@ -1094,58 +1000,6 @@ const collectTrustMigrationStep = Effect.fn("Sync.collectTrustMigrationStep")(fu
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),
-  });
-});
-
-const regionLabel = (count: number): string => (count === 1 ? "region" : "regions");
-
-const fileLabel = (count: number): string => (count === 1 ? "file" : "files");
-
-const collectWorkspaceGeneratorStep = Effect.fn("Sync.collectWorkspaceGeneratorStep")(function* () {
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const preview = yield* renderWorkspaceGeneratorRegions({
-    workspaceRoot: ws.baseDir,
-    dryRun: true,
-  });
-  if (preview.renderedRegions === 0) return Option.none<PlannedJobStep>();
-
-  const run = renderWorkspaceGeneratorRegions({
-    workspaceRoot: ws.baseDir,
-    dryRun: false,
-  }).pipe(
-    Effect.map((result): JobStepResult => {
-      const change = result.changedFiles === 0 ? "unchanged" : "updated";
-      return {
-        result: "success",
-        message:
-          change === "unchanged"
-            ? "Workspace generator regions already current"
-            : `Rendered ${result.renderedRegions} workspace generator ${regionLabel(result.renderedRegions)} across ${result.changedFiles} ${fileLabel(result.changedFiles)}`,
-        artifact: {
-          path: "workspace generator regions",
-          scope: ws.scope,
-          change,
-          fileCount: result.changedFiles,
-          targets: [
-            {
-              path: "workspace generator regions",
-              change,
-            },
-          ],
-        },
-      };
-    }),
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-  );
-
-  return Option.some<PlannedJobStep>({
-    key: "workspace-generator-regions",
-    label: "workspace generator regions",
-    readiness: "ready",
-    run,
   });
 });
 
@@ -1380,9 +1234,6 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
         const knowledgeStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectKnowledgeStep();
-        const workspaceGeneratorStep: Option.Option<PlannedJobStep> = scoped
-          ? Option.none<PlannedJobStep>()
-          : yield* collectWorkspaceGeneratorStep();
         const trustMigrationStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectTrustMigrationStep();
@@ -1395,26 +1246,18 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
           steps,
           expectedSubagentNames,
           knowledgeStep,
-          workspaceGeneratorStep,
           trustMigrationStep,
           lockfileNeedsRecovery,
         };
       }),
     { successMessage: `Resolved ${scopeLabel} sync` },
   );
-  const {
-    steps,
-    expectedSubagentNames,
-    knowledgeStep,
-    workspaceGeneratorStep,
-    trustMigrationStep,
-    lockfileNeedsRecovery,
-  } = preflight;
+  const { steps, expectedSubagentNames, knowledgeStep, trustMigrationStep, lockfileNeedsRecovery } =
+    preflight;
 
   if (
     steps.length === 0 &&
     Option.isNone(knowledgeStep) &&
-    Option.isNone(workspaceGeneratorStep) &&
     Option.isNone(trustMigrationStep) &&
     !lockfileNeedsRecovery
   ) {
@@ -1435,7 +1278,6 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   const plan = makeSyncPlan({
     materializeSteps: steps,
     knowledgeStep,
-    workspaceGeneratorStep,
     trustMigrationStep,
     name: planName,
     description: planDescription,

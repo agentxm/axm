@@ -4,12 +4,12 @@ AXM is the agent extension manager for coding agents and AI assistants.
 
 <!-- axm:generated:extension-type-list -->
 
-AXM manages skills, commands, MCP servers, subagents, context files, rules, hooks, knowledge bundles, and packs.
+AXM manages skills, MCP servers, subagents, rules, hooks, knowledge bundles, and packs.
 
 <!-- /axm:generated -->
 
 - One tool to manage every extension type above across every configured agent.
-- Bundle skills, subagents, commands and more with packs
+- Bundle compatible extension types with packs
 - Package and publish your extensions to the AgentXM.ai registry
 - Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
 
@@ -20,7 +20,7 @@ The best way to use AXM is just to ask your agent to do it:
 - "Create a new skill to do <x>"
 - "Update subagent to do <y>"
 - "Disable the doomscroll skill"
-- "Publish a new pack with my karate-shihan subagent, rei command, and nunchuck skill"
+- "Publish a new pack with my karate-shihan subagent and nunchuck skill"
 
 Use `axm help` to see a list of topics on how to use AXM for your specific use case.
 
@@ -28,7 +28,7 @@ You will need to have an AgentXM.ai account to publish extensions to the registr
 
 ## How AXM works
 
-_Extensions_ are agent extensions managed by AXM: skills, subagents, commands, rules, and extension packs. Coding agents may have other extensibility mechanisms (e.g. hooks, plugins, etc.) that aren't managed by AXM.
+_Extensions_ are agent extensions managed by AXM: skills, MCP servers, subagents, rules, hooks, knowledge bundles, and extension packs.
 
 After running `axm setup`, AXM configures a workspace settings file at [`.axm/settings.json`](https://axm.sh/schemas/settings.schema.json). Installed extensions are listed there, sometimes with extended metadata. Management operations apply to every coding agent configured in `$.agents`.
 
@@ -93,7 +93,6 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 - `axm agents list` — configured, detected, and supported coding-agent IDs
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents
-- `axm help commands` — working with slash commands
 - `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
 - `axm view <fqn> [version|versions]` — inspect published extension metadata

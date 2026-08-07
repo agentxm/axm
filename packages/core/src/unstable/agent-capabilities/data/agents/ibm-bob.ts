@@ -37,23 +37,6 @@ export const ibmBobAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Bob custom slash commands are Markdown files in .bob/commands (project) and ~/.bob/commands (user); filenames become command names and optional frontmatter supplies description and argument-hint metadata.",
-        docs: [],
-        sources: ["https://bob.ibm.com/docs/ide/features/slash-commands"],
-        scopes: ["user", "project"],
-        directory: ".bob/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

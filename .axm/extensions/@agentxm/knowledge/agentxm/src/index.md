@@ -12,7 +12,7 @@ model. Concepts are self-contained; start anywhere, or from the domain model.
 - [The AgentXM extension model](domain/extension-model.md) — What an AgentXM
   extension is, how the registry, workspace, and ownership fit together, and
   the four kinds of workspace state AXM reconciles.
-- [Extension types](domain/extension-types.md) — The nine AgentXM extension
+- [Extension types](domain/extension-types.md) — The seven AgentXM extension
   types and the governing standard behind each.
 - [Identifier grammar](domain/identifier-grammar.md) — The normative
   AgentXM identifier grammar: slugs, handles, type IDs, FQNs, library

@@ -43,7 +43,6 @@ import {
   type McpServerSyncOutcome,
 } from "@agentxm/client-core/unstable/agents";
 import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
@@ -53,11 +52,6 @@ import {
   SubagentManager,
 } from "@agentxm/client-core/unstable/subagents";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
-import {
-  CommandManager,
-  disableCommand,
-  enableCommand,
-} from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import {
   buildLintWorkspace,
@@ -89,8 +83,6 @@ import {
   WorkspaceMutations,
   configuredRowsByName,
   getUserScopeDir,
-  resolveConfiguredCommand,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -459,10 +451,8 @@ type AdapterContext =
   | SourceHostProviders
   | SkillManager
   | PackManager
-  | CommandManager
   | McpServerManager
   | SubagentManager
-  | FilesManager
   | RuleManager
   | HookManager
   | KnowledgeManager
@@ -537,30 +527,6 @@ const adaptIntent = (
         }
         const step = buildUninstallOperation(mgr, retention, {
           target: { type: "pack", name: op.args.name, owner: normalizeHandle(parts.owner) },
-        });
-        return { kind: "step", step };
-      }
-      case "install-command": {
-        if (!isIntentWithSource(op.args)) {
-          return unmapped(op.name, "missing name/source args");
-        }
-        const mgr = yield* CommandManager;
-        const resolved = yield* resolveConfiguredCommand(op.args.name, op.args.source);
-        const step = buildInstallOperation(mgr, {
-          ref: resolved.ref,
-          versionRange: resolved.versionRange,
-          force: op.args.force,
-        });
-        return { kind: "step", step };
-      }
-      case "uninstall-command": {
-        if (!isIntentWithName(op.args)) {
-          return unmapped(op.name, "missing name arg");
-        }
-        const mgr = yield* CommandManager;
-        const retention = yield* makeRetentionPolicy();
-        const step = buildUninstallOperation(mgr, retention, {
-          target: { type: "command", name: op.args.name },
         });
         return { kind: "step", step };
       }
@@ -699,30 +665,6 @@ const adaptIntent = (
         const retention = yield* makeRetentionPolicy();
         const step = buildUninstallOperation(mgr, retention, {
           target: { type: "subagent", name: op.args.name },
-        });
-        return { kind: "step", step };
-      }
-      case "install-files": {
-        if (!isIntentWithSource(op.args)) {
-          return unmapped(op.name, "missing name/source args");
-        }
-        const mgr = yield* FilesManager;
-        const resolved = yield* resolveConfiguredFiles(op.args.name, op.args.source);
-        const step = buildInstallOperation(mgr, {
-          ref: resolved.ref,
-          versionRange: resolved.versionRange,
-          force: op.args.force,
-        });
-        return { kind: "step", step };
-      }
-      case "uninstall-files": {
-        if (!isIntentWithName(op.args)) {
-          return unmapped(op.name, "missing name arg");
-        }
-        const mgr = yield* FilesManager;
-        const retention = yield* makeRetentionPolicy();
-        const step = buildUninstallOperation(mgr, retention, {
-          target: { type: "files", name: op.args.name },
         });
         return { kind: "step", step };
       }
@@ -914,33 +856,6 @@ const adaptIntent = (
         };
         return { kind: "step", step };
       }
-      case "enable-command":
-      case "disable-command": {
-        if (!isIntentWithName(op.args)) {
-          return unmapped(op.name, "missing name arg");
-        }
-        const ws = yield* WorkspaceMutations;
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const agents = yield* CodingAgentRepository;
-        const commandName = op.args.name;
-        const run =
-          op.name === "enable-command"
-            ? enableCommand({ name: "enable-command", args: { commandName } })
-            : disableCommand({ name: "disable-command", args: { commandName } });
-        const step: PlannedJobStep = {
-          key: `command:${commandName}`,
-          readiness: "ready",
-          label: commandName,
-          run: run.pipe(
-            Effect.provideService(WorkspaceMutations, ws),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            Effect.provideService(CodingAgentRepository, agents),
-          ),
-        };
-        return { kind: "step", step };
-      }
       case "enable-subagent":
       case "disable-subagent": {
         if (!isIntentWithName(op.args)) {
@@ -1006,10 +921,8 @@ const applyFixes = (args: {
   | CodingAgentRepository
   | SkillManager
   | PackManager
-  | CommandManager
   | McpServerManager
   | SubagentManager
-  | FilesManager
   | RuleManager
   | HookManager
   | KnowledgeManager
@@ -1568,10 +1481,8 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     contexts: {
       skill: skillContexts,
       pack: packContexts,
-      command: view.commandContexts,
       subagent: view.subagentContexts,
       "mcp-server": view.mcpServerContexts,
-      files: view.fileContexts,
       rule: view.ruleContexts,
       hook: view.hookContexts,
       knowledge: view.knowledgeContexts,

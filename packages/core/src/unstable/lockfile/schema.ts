@@ -26,7 +26,6 @@ import {
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
-import { FileInputValueSchema, FileMaterializationModeSchema } from "../files/manifest-schema.js";
 import { RelativePathSchema } from "../utils/path-types.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 import {
@@ -235,61 +234,6 @@ export const SkillsLockMapSchema = Schema.Record(Schema.String, SkillLockEntrySc
 export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
 
 // =============================================================================
-// Command Lock Entry (union of all source types)
-// =============================================================================
-
-/**
- * Common fields for command lock entries.
- */
-const CommandCommonFields = {
-  ...BaseCommonFields,
-  sourceHash: Schema.optional(Schema.String),
-};
-
-/**
- * Lock entry for a single installed command.
- * Discriminated union by the `type` field.
- *
- * Includes an advisory `sourceHash` change marker for the shared source content.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const CommandWorkspaceFields = {
-  ...BaseCommonFields,
-};
-
-export const CommandLockEntrySchema = makeSourceLockUnion(
-  CommandCommonFields,
-  "command",
-  CommandWorkspaceFields,
-);
-
-/**
- * Inferred type for CommandLockEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type CommandLockEntry = Schema.Schema.Type<typeof CommandLockEntrySchema>;
-
-// =============================================================================
-// Commands Lock Map
-// =============================================================================
-
-/**
- * Map of command names to their lock entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const CommandsLockMapSchema = Schema.Record(Schema.String, CommandLockEntrySchema);
-
-/**
- * Inferred type for CommandsLockMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type CommandsLockMap = Schema.Schema.Type<typeof CommandsLockMapSchema>;
-
-// =============================================================================
 // Subagent Lock Entry (union of all source types)
 // =============================================================================
 
@@ -395,87 +339,24 @@ export const McpServersLockMapSchema = Schema.Record(Schema.String, McpServerLoc
  */
 export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchema>;
 
-// =============================================================================
-// Files Lock Entry (union of all source types, no agents)
-// =============================================================================
-
 /**
- * Resolved scalar input values captured for a Context Files package install.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesResolvedInputsMapSchema = Schema.Record(
-  Schema.String,
-  FileInputValueSchema,
-).annotate({
-  identifier: "FilesResolvedInputsMap",
-  title: "Files Resolved Inputs Map",
-  description: "Scalar input values resolved for a Context Files package lock entry.",
-});
-
-/** @experimental */
-export type FilesResolvedInputsMap = Schema.Schema.Type<typeof FilesResolvedInputsMapSchema>;
-
-/**
- * Materialized file target recorded for sync and uninstall decisions.
+ * Materialized file target recorded for rule and hook lifecycle decisions.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const MaterializedFileTargetSchema = Schema.Struct({
   target: RelativePathSchema,
-  mode: FileMaterializationModeSchema,
+  mode: Schema.Literals(["sync-once", "sync-always", "managed-region"]),
   region: Schema.optional(Schema.NonEmptyString),
   renderHash: Schema.optional(SourceHashSchema),
 }).annotate({
   identifier: "MaterializedFileTarget",
   title: "Materialized File Target",
-  description:
-    "A workspace target written by a Context Files package, plus optional region and render hash.",
+  description: "A materialized rule or hook target, plus optional region and render hash.",
 });
 
 /** @experimental */
 export type MaterializedFileTarget = Schema.Schema.Type<typeof MaterializedFileTargetSchema>;
-
-const FilesWorkspaceFields = {
-  ...BaseCommonFields,
-  resolvedInputs: Schema.optional(FilesResolvedInputsMapSchema),
-};
-
-// The workspace variant declares a required `sourceHash` of its own, so the
-// optional marker only belongs on the remaining source variants.
-const FilesCommonFields = {
-  ...FilesWorkspaceFields,
-  sourceHash: Schema.optional(SourceHashSchema),
-};
-
-/**
- * Lock entry for a single installed Context Files package.
- * Discriminated union by the `type` field.
- *
- * Includes an advisory `sourceHash` change marker for the installed package
- * content — used for created/updated/unchanged reporting, never as a tamper
- * check.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesLockEntrySchema = makeSourceLockUnion(
-  FilesCommonFields,
-  "files",
-  FilesWorkspaceFields,
-);
-
-/** @experimental */
-export type FilesLockEntry = Schema.Schema.Type<typeof FilesLockEntrySchema>;
-
-/**
- * Map of Context Files package names to their lock entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesLockMapSchema = Schema.Record(Schema.String, FilesLockEntrySchema);
-
-/** @experimental */
-export type FilesLockMap = Schema.Schema.Type<typeof FilesLockMapSchema>;
 
 // =============================================================================
 // Rule Lock Entry (union of all source types, no agents)
@@ -577,7 +458,7 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
 
 /**
  * Resolved extension map: FQN keys to exact version strings.
- * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
+ * Used for resolved pack members.
  */
 const LegacyResolvedRegistryExtensionSchema = Schema.Struct({
   version: VersionSchema,
@@ -640,10 +521,8 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   installedAt: DateTimeUtcSchema,
   updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
-  resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
   resolvedSubagents: ResolvedExtensionMapSchema,
-  resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
   resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
@@ -671,10 +550,8 @@ export const WorkspacePackLockEntrySchema = Schema.Struct({
   installedAt: DateTimeUtcSchema,
   updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
-  resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
   resolvedSubagents: ResolvedExtensionMapSchema,
-  resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
   resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
@@ -763,10 +640,8 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  */
 export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
   skill: SkillLockEntrySchema,
-  command: CommandLockEntrySchema,
   "mcp-server": McpServerLockEntrySchema,
   subagent: SubagentLockEntrySchema,
-  files: FilesLockEntrySchema,
   rule: RuleLockEntrySchema,
   hook: HookLockEntrySchema,
   knowledge: KnowledgeLockEntrySchema,
@@ -800,10 +675,8 @@ const LockfileBaseSchema = Schema.Struct({
   skills: SkillsLockMapSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "skills map is required" }),
   ),
-  commands: Schema.optional(CommandsLockMapSchema),
   subagents: Schema.optional(SubagentsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
-  files: Schema.optional(FilesLockMapSchema),
   rules: Schema.optional(RulesLockMapSchema),
   hooks: Schema.optional(HooksLockMapSchema),
   knowledge: Schema.optional(KnowledgeLockMapSchema),

@@ -627,28 +627,6 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
 export type SkillsExtensionCapability = Schema.Schema.Type<typeof SkillsExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const CommandsExtensionCapabilitySchema = Schema.Struct({
-  native: Schema.Union([
-    Schema.Struct({
-      ...AvailableNativeCapabilityBaseFields,
-      directory: Schema.NonEmptyString,
-    }),
-    Schema.Struct(UnavailableNativeCapabilityFields),
-  ]),
-  axm: NoWriterAxmCapabilityStateSchema,
-})
-  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
-  .annotate({
-    identifier: "CommandsExtensionCapability",
-    title: "Commands Capability",
-    description: "Agent support for command extensions.",
-  });
-
-/** @experimental This API is unstable and may change without notice. */
-export type CommandsExtensionCapability = Schema.Schema.Type<
-  typeof CommandsExtensionCapabilitySchema
->;
-
 /** @experimental This API is unstable and may change without notice. */
 export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).annotate({
   identifier: "SubagentsLayout",
@@ -1504,7 +1482,6 @@ export type PermissionsExtensionCapability = Schema.Schema.Type<
 
 const PerAgentCapabilitySchemaByType = {
   skill: SkillsExtensionCapabilitySchema,
-  command: CommandsExtensionCapabilitySchema,
   "mcp-server": McpExtensionCapabilitySchema,
   subagent: SubagentsExtensionCapabilitySchema,
   hook: HooksExtensionCapabilitySchema,

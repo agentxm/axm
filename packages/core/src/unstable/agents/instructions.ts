@@ -472,7 +472,7 @@ const withManagedCopyBanner = (args: {
   if (format === undefined) return args.content;
   return insertManagedFileBanner(args.content, {
     editPath: args.sourceFileName,
-    helpTopic: "files",
+    helpTopic: "rules",
     format,
   });
 };

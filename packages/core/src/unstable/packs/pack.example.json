@@ -10,7 +10,7 @@
   "dependencies": {
     "@acme/skills/code-review": "^1.0.0",
     "@acme/skills/test-runner": "^1.0.0",
-    "@acme/commands/deploy": "^1.0.0",
+    "@acme/hooks/preflight": "^1.0.0",
     "@acme/mcps/database-mcp": "^1.0.0"
   }
 }

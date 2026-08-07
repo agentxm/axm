@@ -66,10 +66,6 @@ const MEMBER_FAMILIES = {
     installed: (lockfile: Lockfile) => lockfile.skills,
     resolved: (pack: PackLockEntry) => pack.resolvedSkills,
   },
-  command: {
-    installed: (lockfile: Lockfile) => lockfile.commands,
-    resolved: (pack: PackLockEntry) => pack.resolvedCommands,
-  },
   subagent: {
     installed: (lockfile: Lockfile) => lockfile.subagents,
     resolved: (pack: PackLockEntry) => pack.resolvedSubagents,
@@ -77,10 +73,6 @@ const MEMBER_FAMILIES = {
   "mcp-server": {
     installed: (lockfile: Lockfile) => lockfile.mcpServers,
     resolved: (pack: PackLockEntry) => pack.resolvedMcpServers,
-  },
-  files: {
-    installed: (lockfile: Lockfile) => lockfile.files,
-    resolved: (pack: PackLockEntry) => pack.resolvedFiles,
   },
   rule: {
     installed: (lockfile: Lockfile) => lockfile.rules,
@@ -105,10 +97,8 @@ const MEMBER_FAMILIES = {
 /** Walk order; findings render in this order. */
 const MEMBER_ORDER: ReadonlyArray<MemberType> = [
   "skill",
-  "command",
   "subagent",
   "mcp-server",
-  "files",
   "rule",
   "hook",
   "knowledge",

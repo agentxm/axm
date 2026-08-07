@@ -64,22 +64,6 @@ export const githubCopilotCliAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: "GitHub Copilot CLI has no documented custom slash-command file surface.",
-        docs: [],
-        sources: [
-          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/overview",
-        ],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

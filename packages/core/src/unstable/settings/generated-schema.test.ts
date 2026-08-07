@@ -26,13 +26,12 @@ const generatedSchemaNames = [
   "axm-lock.schema.json",
   "settings.schema.json",
   "skill.schema.json",
-  "command.schema.json",
   "mcp.schema.json",
   "subagent.schema.json",
   "pack.schema.json",
-  "files.schema.json",
   "rule.schema.json",
   "hook.schema.json",
+  "knowledge.schema.json",
   "axm-package-meta.schema.json",
 ] as const;
 
@@ -219,19 +218,16 @@ describe("generated schemas", () => {
   });
 
   it("publishes common manifest field annotations", () => {
-    const commandSchema = readGeneratedSchema("command.schema.json");
-    const manifest = getDefinition(commandSchema, "CommandManifest");
+    const skillSchema = readGeneratedSchema("skill.schema.json");
+    const manifest = getDefinition(skillSchema, "SkillManifest");
 
     for (const field of ["license", "bugs", "repository", "homepage", "keywords"]) {
-      const fieldSchema = getOptionalFieldExamplesRecord(
-        commandSchema,
-        getProperty(manifest, field),
-      );
+      const fieldSchema = getOptionalFieldExamplesRecord(skillSchema, getProperty(manifest, field));
       expect(fieldSchema["examples"]).toEqual(expect.any(Array));
     }
 
     const repositoryDefinition = resolveRefIfPresent(
-      commandSchema,
+      skillSchema,
       getFirstAnyOfRecord(getProperty(manifest, "repository")),
     );
     const repositoryStringBranch = getFirstAnyOfRecord(repositoryDefinition);
@@ -242,7 +238,7 @@ describe("generated schemas", () => {
   it("publishes typed record-key patterns for settings maps", () => {
     const settingsSchema = readGeneratedSettingsSchema();
 
-    for (const name of ["SkillsMap", "CommandsMap", "McpServersMap", "SubagentsMap", "PacksMap"]) {
+    for (const name of ["SkillsMap", "McpServersMap", "SubagentsMap", "PacksMap"]) {
       const mapSchema = getDefinition(settingsSchema, name);
       const propertyNames = getPropertyNamesSchema(mapSchema);
       expect(getStringPattern(propertyNames)).toBe("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$");
@@ -266,8 +262,6 @@ describe("generated schemas", () => {
       "sources",
       "rulesConfig",
       "skills",
-      "commands",
-      "files",
       "hooks",
       "knowledge",
       "knowledgeConfig",
@@ -294,13 +288,7 @@ describe("generated schemas", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const definitions = getRecord(settingsSchema, "definitions");
 
-    for (const name of [
-      "SkillEntry",
-      "CommandEntry",
-      "SubagentEntry",
-      "McpServerEntry",
-      "PackEntry",
-    ]) {
+    for (const name of ["SkillEntry", "SubagentEntry", "McpServerEntry", "PackEntry"]) {
       const entry = getDefinition(settingsSchema, name);
       expect(entry["title"]).toEqual(expect.any(String));
       expect(entry["description"]).toEqual(expect.any(String));
@@ -316,7 +304,6 @@ describe("generated schemas", () => {
     }
 
     expect(definitions).not.toHaveProperty("SkillEntryObject");
-    expect(definitions).not.toHaveProperty("CommandEntryObject");
     expect(definitions).not.toHaveProperty("SubagentEntryObject");
     expect(definitions).not.toHaveProperty("McpServerEntryObject");
     expect(definitions).not.toHaveProperty("PackEntryObject");

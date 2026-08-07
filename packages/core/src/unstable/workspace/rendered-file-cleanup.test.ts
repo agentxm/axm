@@ -16,86 +16,74 @@ import {
 } from "./index.js";
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
-  it.effect(
-    "removes only AXM-managed skill, command, and subagent artifacts for removed agents",
-    () =>
-      Effect.gen(function* () {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-"));
-        try {
-          const axmDir = path.join(tempDir, ".axm");
-          const canonicalSkill = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "skills",
-            "code-review",
-            "src",
-          );
-          const cursorSkills = path.join(tempDir, ".cursor", "skills");
-          const cursorCommands = path.join(tempDir, ".cursor", "commands");
-          const cursorSubagents = path.join(tempDir, ".cursor", "agents");
-          fs.mkdirSync(canonicalSkill, { recursive: true });
-          fs.mkdirSync(cursorSkills, { recursive: true });
-          fs.mkdirSync(cursorCommands, { recursive: true });
-          fs.mkdirSync(cursorSubagents, { recursive: true });
+  it.effect("removes only AXM-managed skill and subagent artifacts for removed agents", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-"));
+      try {
+        const axmDir = path.join(tempDir, ".axm");
+        const canonicalSkill = path.join(
+          tempDir,
+          ".axm",
+          "extensions",
+          "@acme",
+          "skills",
+          "code-review",
+          "src",
+        );
+        const cursorSkills = path.join(tempDir, ".cursor", "skills");
+        const cursorSubagents = path.join(tempDir, ".cursor", "agents");
+        fs.mkdirSync(canonicalSkill, { recursive: true });
+        fs.mkdirSync(cursorSkills, { recursive: true });
+        fs.mkdirSync(cursorSubagents, { recursive: true });
 
-          const managedSkillLink = path.join(cursorSkills, "code-review");
-          const unmanagedSkill = path.join(cursorSkills, "user-skill");
-          fs.symlinkSync(canonicalSkill, managedSkillLink);
-          fs.mkdirSync(unmanagedSkill, { recursive: true });
-          fs.writeFileSync(path.join(unmanagedSkill, "SKILL.md"), "# User skill\n");
+        const managedSkillLink = path.join(cursorSkills, "code-review");
+        const unmanagedSkill = path.join(cursorSkills, "user-skill");
+        fs.symlinkSync(canonicalSkill, managedSkillLink);
+        fs.mkdirSync(unmanagedSkill, { recursive: true });
+        fs.writeFileSync(path.join(unmanagedSkill, "SKILL.md"), "# User skill\n");
 
-          const managedCommand = path.join(cursorCommands, "code-review.md");
-          const unmanagedCommand = path.join(cursorCommands, "manual.md");
-          fs.writeFileSync(managedCommand, `# ${AXM_MANAGED_MARKER}\ncommand body\n`);
-          fs.writeFileSync(unmanagedCommand, "# Manual command\n");
+        const managedSubagent = path.join(cursorSubagents, "reviewer.md");
+        const unmanagedSubagent = path.join(cursorSubagents, "manual.md");
+        fs.writeFileSync(managedSubagent, `# ${AXM_MANAGED_MARKER}\nsubagent body\n`);
+        fs.writeFileSync(unmanagedSubagent, "# Manual subagent\n");
 
-          const managedSubagent = path.join(cursorSubagents, "reviewer.md");
-          const unmanagedSubagent = path.join(cursorSubagents, "manual.md");
-          fs.writeFileSync(managedSubagent, `# ${AXM_MANAGED_MARKER}\nsubagent body\n`);
-          fs.writeFileSync(unmanagedSubagent, "# Manual subagent\n");
+        const cursor = makeProjectOnlyCodingAgent({
+          agentId: "cursor",
+          displayName: "Cursor",
+          skillsProjectDir: ".cursor/skills",
+          subagentsProjectDir: ".cursor/agents",
+        });
+        const agentRepo: CodingAgentRepositoryService = {
+          get: () => Effect.succeed(cursor),
+          all: Effect.succeed([cursor]),
+          getConfiguredAgents: () => Effect.succeed([]),
+          getMaterializationAgents: () => Effect.succeed([]),
+          getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+        };
+        const layer = Layer.mergeAll(
+          NodeServices.layer,
+          Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(axmDir)),
+          Layer.succeed(CodingAgentRepository, agentRepo),
+        );
 
-          const cursor = makeProjectOnlyCodingAgent({
-            agentId: "cursor",
-            displayName: "Cursor",
-            skillsProjectDir: ".cursor/skills",
-            commandsProjectDir: ".cursor/commands",
-            subagentsProjectDir: ".cursor/agents",
-          });
-          const agentRepo: CodingAgentRepositoryService = {
-            get: () => Effect.succeed(cursor),
-            all: Effect.succeed([cursor]),
-            getConfiguredAgents: () => Effect.succeed([]),
-            getMaterializationAgents: () => Effect.succeed([]),
-            getUnknownConfiguredAgentIds: () => Effect.succeed([]),
-          };
-          const layer = Layer.mergeAll(
-            NodeServices.layer,
-            Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(axmDir)),
-            Layer.succeed(CodingAgentRepository, agentRepo),
-          );
+        const result = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["cursor"]),
+        }).pipe(Effect.provide(layer));
 
-          const result = yield* cleanupManagedArtifactsForRemovedAgents({
-            removedAgentIds: new Set(["cursor"]),
-          }).pipe(Effect.provide(layer));
-
-          expect(result.removedPaths).toEqual(
-            expect.arrayContaining([managedSkillLink, managedCommand, managedSubagent]),
-          );
-          expect(fs.existsSync(managedSkillLink)).toBe(false);
-          expect(fs.existsSync(managedCommand)).toBe(false);
-          expect(fs.existsSync(managedSubagent)).toBe(false);
-          expect(fs.existsSync(unmanagedSkill)).toBe(true);
-          expect(fs.existsSync(unmanagedCommand)).toBe(true);
-          expect(fs.existsSync(unmanagedSubagent)).toBe(true);
-        } finally {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        }
-      }),
+        expect(result.removedPaths).toEqual(
+          expect.arrayContaining([managedSkillLink, managedSubagent]),
+        );
+        expect(fs.existsSync(managedSkillLink)).toBe(false);
+        expect(fs.existsSync(managedSubagent)).toBe(false);
+        expect(fs.existsSync(unmanagedSkill)).toBe(true);
+        expect(fs.existsSync(unmanagedSubagent)).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
   );
 
-  it.effect("leaves workspace-placed rule and files artifacts in place", () =>
+  it.effect("leaves workspace-placed rule artifacts in place", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-workspace-"));
       try {
@@ -104,13 +92,11 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         fs.mkdirSync(rulesDir, { recursive: true });
         fs.mkdirSync(path.join(tempDir, ".cursor", "skills"), { recursive: true });
 
-        // Rules render into shared instruction files and files extensions render
-        // to workspace paths; both carry the managed banner, and neither is
-        // keyed to a single agent, so removing an agent must not delete them.
+        // Rules render into shared instruction files and are not keyed to a
+        // single agent, so removing an agent must not delete them.
         const instructionFile = path.join(tempDir, "AGENTS.md");
         const renderedRule = path.join(rulesDir, "style.md");
-        const contextFile = path.join(tempDir, "NOTES.md");
-        for (const file of [instructionFile, renderedRule, contextFile]) {
+        for (const file of [instructionFile, renderedRule]) {
           fs.writeFileSync(file, `# ${AXM_MANAGED_MARKER}\nbody\n`);
         }
 
@@ -139,7 +125,6 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         expect(result.removedPaths).toEqual([]);
         expect(fs.existsSync(instructionFile)).toBe(true);
         expect(fs.existsSync(renderedRule)).toBe(true);
-        expect(fs.existsSync(contextFile)).toBe(true);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -155,7 +140,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
       agentId: "claude-code",
       displayName: "Claude Code",
       skillsProjectDir: ".claude/skills",
-      commandsProjectDir: ".claude/commands",
       subagentsProjectDir: ".claude/agents",
     });
     const agentRepo: CodingAgentRepositoryService = {
@@ -325,7 +309,7 @@ describe("hasAxmManagedMarker", () => {
   });
 
   it("does not match a user file that merely mentions the phrase", () => {
-    // A user-authored command/subagent file that references "AXM managed" (e.g.
+    // A user-authored subagent file that references "AXM managed" (e.g.
     // documentation) must not be treated as a managed artifact and deleted.
     expect(hasAxmManagedMarker("# Notes on how AXM managed extensions work")).toBe(false);
     expect(hasAxmManagedMarker("This skill explains AXM managed regions.")).toBe(false);

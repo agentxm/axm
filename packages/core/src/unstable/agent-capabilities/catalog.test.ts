@@ -74,7 +74,6 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
       writer: null,
     },
   },
-  command: unsupportedCapability,
   "mcp-server": unsupportedCapability,
   subagent: unsupportedCapability,
   hook: unsupportedHookCapability,
@@ -317,7 +316,7 @@ describe("agent capability catalog", () => {
   });
   it("reports verification age per agent and capability", () => {
     const report = capabilityVerificationAgeReport(AGENTS, "2026-08-05");
-    expect(report).toHaveLength(AGENTS.length * 7);
+    expect(report).toHaveLength(AGENTS.length * 6);
     expect(report).toContainEqual({
       agentId: "cursor",
       capability: "skill",
@@ -424,32 +423,6 @@ describe("agent capability catalog", () => {
     expect(() => decodeAgent(makeAgentInput({ homepage: "not-a-url" }))).toThrow("Expected URL");
   });
   it("rejects spec axes on non-spec capabilities", () => {
-    expect(() =>
-      decodeAgent(
-        makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            command: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "full",
-                convention: "vendor",
-                directory: ".sample/commands",
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
-            },
-          }),
-        }),
-      ),
-    ).toThrow("standardsCompliance");
     expect(() =>
       decodeAgent(
         makeAgentInput({

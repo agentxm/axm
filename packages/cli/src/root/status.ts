@@ -205,10 +205,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
   const projectionProblems: ReadonlyArray<WorkspaceHealthProblem> = graph.nodes.flatMap((node) => {
     if (
       !node.enabled ||
-      (node.type !== "skill" &&
-        node.type !== "command" &&
-        node.type !== "mcp-server" &&
-        node.type !== "subagent")
+      (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent")
     ) {
       return [];
     }
@@ -216,11 +213,9 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     const projectionOrigin =
       node.type === "skill"
         ? "agent-skill-dir"
-        : node.type === "command"
-          ? "agent-command-dir"
-          : node.type === "subagent"
-            ? "agent-subagent-dir"
-            : undefined;
+        : node.type === "subagent"
+          ? "agent-subagent-dir"
+          : undefined;
     const current =
       row?.installed === true &&
       (projectionOrigin === undefined ||

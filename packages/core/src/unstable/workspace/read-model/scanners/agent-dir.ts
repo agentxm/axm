@@ -1,5 +1,5 @@
 /**
- * Agent-directory scanner: enumerates per-agent skill, command, and subagent
+ * Agent-directory scanner: enumerates per-agent skill and subagent
  * directories declared by the existing `AgentRegistry`. Each occurrence
  * carries an `agent-dir` discriminator parameterized by `agentId` and the
  * subject `type`.
@@ -7,7 +7,6 @@
  * Subject coverage in v1:
  *
  * - skill — every agent with a non-empty `agent.skills.dir`.
- * - command — every agent with `agent.commands?.dir`.
  * - subagent — every agent with `agent.subagents?.dir`. Single-file
  *   subagent surfaces (`isFile === true`, e.g., `roo`'s `.roomodes`) emit one
  *   occurrence per file path; the file itself is the materialization.
@@ -103,13 +102,6 @@ const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir
   for (const { path, status } of descriptor.skills.additionalReadPaths) {
     out.push({ type: "skill", relativeDir: path, isFile: false, readPathStatus: status });
   }
-  if (descriptor.commands !== undefined) {
-    out.push({
-      type: "command",
-      relativeDir: descriptor.commands.dir,
-      isFile: false,
-    });
-  }
   if (descriptor.subagents !== undefined) {
     out.push({
       type: "subagent",
@@ -126,14 +118,12 @@ const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir
  * canonical-extensions scanner.
  *
  * - `skill` → `SKILL.md` (fixed)
- * - `command` → `${name}.md`
  * - `subagent` → `${name}.md`
  */
 const subjectFileNameFor = (type: AgentDirSubjectType, name: string): string => {
   switch (type) {
     case "skill":
       return "SKILL.md";
-    case "command":
     case "subagent":
       return `${name}.md`;
   }
@@ -214,8 +204,7 @@ const scanSubjectDirectory = (
     );
     if (subject.type === "skill") return directoryOccurrences;
 
-    const supportedExtensions =
-      subject.type === "command" ? [".md", ".toml", ".txt"] : [".md", ".json"];
+    const supportedExtensions = [".md", ".json"];
     const directorySet = new Set(nameDirs);
     const fileOccurrences = yield* Effect.forEach(
       candidates,

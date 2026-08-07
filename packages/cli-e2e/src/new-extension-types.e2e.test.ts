@@ -19,55 +19,6 @@ const configureWorkspace = (
   writeJson(settingsPath, update(readJson(settingsPath)));
 };
 
-describe("axm files new", () => {
-  it("scaffolds, registers, writes lockfile, and materializes the target file", async () => {
-    const temp = createTempDir();
-
-    try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-      configureWorkspace(temp.path, (settings) => ({
-        ...settings,
-        owner: "@test",
-        agents: [],
-      }));
-
-      const result = await runCli(["files", "new", "workspace-baseline", "--yes"], {
-        cwd: temp.path,
-      });
-      expect(result.exitCode).toBe(0);
-
-      const packageDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "files",
-        "workspace-baseline",
-      );
-      expect(fs.existsSync(path.join(packageDir, "files.json"))).toBe(true);
-      expect(fs.existsSync(path.join(packageDir, "src", "README.md"))).toBe(true);
-      expect(fs.readFileSync(path.join(temp.path, "files", "workspace-baseline.md"), "utf-8")).toBe(
-        "# workspace-baseline\n",
-      );
-
-      const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
-      expect(settings["files"]).toEqual({
-        "workspace-baseline": "workspace:@test/files/workspace-baseline",
-      });
-
-      const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toContain("workspace-baseline:");
-      expect(lockfile).toContain("type: workspace");
-      expect(lockfile).toContain("version: 0.1.0");
-      expect(result.stdout + result.stderr).toContain(
-        "Edit `.axm/extensions/@test/files/workspace-baseline/src/README.md`",
-      );
-    } finally {
-      temp.cleanup();
-    }
-  });
-});
-
 describe("axm mcps new", () => {
   it("scaffolds, registers, and writes lockfile for an authored MCP server", async () => {
     const temp = createTempDir();

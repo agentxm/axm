@@ -52,10 +52,6 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
     ...(settings.skills ?? {}),
     "managed-skill": `workspace:${TEST_NAMESPACE}/skills/managed-skill`,
   };
-  settings.commands = {
-    ...(settings.commands ?? {}),
-    "managed-command": `workspace:${TEST_NAMESPACE}/commands/managed-command`,
-  };
   settings.mcpServers = {
     ...(settings.mcpServers ?? {}),
     "managed-mcp": `workspace:${TEST_NAMESPACE}/mcps/managed-mcp`,
@@ -108,49 +104,6 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       "SKILL.md",
     ),
     "---\nname: managed-skill\ndescription: Managed skill fixture\n---\n",
-  );
-
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "command.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "command",
-      name: "managed-command",
-      version: "1.0.0",
-    },
-  );
-  fs.mkdirSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "src",
-    ),
-    { recursive: true },
-  );
-  fs.writeFileSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "src",
-      "managed-command.md",
-    ),
-    "---\nname: managed-command\ndescription: Managed command fixture\n---\n",
   );
 
   writeJson(
@@ -238,7 +191,6 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
       expect(lock.skills?.["managed-skill"]).toBeDefined();
       expect(lock.skills?.["another-skill"]).toBeDefined();
-      expect(lock.commands?.["managed-command"]).toBeDefined();
       expect(lock.mcpServers?.["managed-mcp"]).toBeDefined();
       expect(lock.packs?.["managed-pack"]).toBeDefined();
     } finally {
@@ -279,7 +231,6 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
       expect(siblingBackups).toHaveLength(0);
 
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
-      expect(lock.commands?.["managed-command"]).toBeDefined();
       expect(lock.mcpServers?.["managed-mcp"]).toBeDefined();
       expect(lock.packs?.["managed-pack"]).toBeDefined();
       expect(lock.skills?.["another-skill"]).toBeDefined();

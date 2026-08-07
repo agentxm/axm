@@ -39,8 +39,6 @@ import {
   expandPackInstallRefs,
   type PackRef,
 } from "@agentxm/client-core/unstable/packs";
-import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
   KnowledgeManager,
@@ -62,8 +60,6 @@ import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-cor
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { parseMinimumReleaseAge } from "@agentxm/client-core/unstable/registry";
 import type {
-  CommandExtensionTarget,
-  FilesExtensionTarget,
   HookExtensionTarget,
   KnowledgeExtensionTarget,
   McpServerExtensionTarget,
@@ -153,10 +149,8 @@ interface RegistryLookupProbe {
 
 type PackDependencyNameSets = {
   readonly skill: Set<string>;
-  readonly command: Set<string>;
   readonly "mcp-server": Set<string>;
   readonly subagent: Set<string>;
-  readonly files: Set<string>;
   readonly rule: Set<string>;
   readonly hook: Set<string>;
   readonly knowledge: Set<string>;
@@ -164,20 +158,16 @@ type PackDependencyNameSets = {
 
 type DroppedPackDependencyTarget =
   | SkillExtensionTarget
-  | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | FilesExtensionTarget
   | RuleExtensionTarget
   | HookExtensionTarget
   | KnowledgeExtensionTarget;
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   skill: new Set<string>(),
-  command: new Set<string>(),
   "mcp-server": new Set<string>(),
   subagent: new Set<string>(),
-  files: new Set<string>(),
   rule: new Set<string>(),
   hook: new Set<string>(),
   knowledge: new Set<string>(),
@@ -195,17 +185,11 @@ const collectResolvedDependencyNames = (
       case "skill":
         names.skill.add(ref.skill.name);
         break;
-      case "command":
-        names.command.add(ref.command.name);
-        break;
       case "mcp-server":
         names["mcp-server"].add(ref.server.name);
         break;
       case "subagent":
         names.subagent.add(ref.subagent.name);
-        break;
-      case "files":
-        names.files.add(ref.file.name);
         break;
       case "rule":
         names.rule.add(ref.rule.name);
@@ -284,14 +268,10 @@ const registryPluralSegment = (ref: ExtensionRef): string => {
       return "skills";
     case "pack":
       return "packs";
-    case "command":
-      return "commands";
     case "mcp-server":
       return "mcps";
     case "subagent":
       return "subagents";
-    case "files":
-      return "files";
     case "rule":
       return "rules";
     case "hook":
@@ -377,8 +357,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const packMgr = yield* PackManager;
     const pathSvc = yield* Path.Path;
     const skillMgr = yield* SkillManager;
-    const commandMgr = yield* CommandManager;
-    const contextManager = yield* FilesManager;
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
@@ -729,10 +707,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           pack: intent.packToInstall,
           supportedDependencyTypes: [
             "skill",
-            "command",
             "mcp-server",
             "subagent",
-            "files",
             "rule",
             "hook",
             "knowledge",
@@ -785,21 +761,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          if (ref.type === "command") {
-            return buildInstallOperation<CommandExtensionRef>(commandMgr, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? commandMgr.isInstalled({
-                    target: { type: "command", name: ref.command.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
-            });
-          }
-
           if (ref.type === "mcp-server") {
             return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
               ref,
@@ -823,21 +784,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               installedBefore: graph.complete
                 ? subagentMgr.isInstalled({
                     target: { type: "subagent", name: ref.subagent.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
-            });
-          }
-
-          if (ref.type === "files") {
-            return buildInstallOperation<FilesExtensionRef>(contextManager, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? contextManager.isInstalled({
-                    target: { type: "files", name: ref.file.name },
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
@@ -913,12 +859,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
-          if (target.type === "command") {
-            return buildUninstallOperation<CommandExtensionRef>(commandMgr, retentionPolicy, {
-              target,
-            });
-          }
-
           if (target.type === "mcp-server") {
             return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
               target,
@@ -927,12 +867,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (target.type === "subagent") {
             return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
-              target,
-            });
-          }
-
-          if (target.type === "files") {
-            return buildUninstallOperation<FilesExtensionRef>(contextManager, retentionPolicy, {
               target,
             });
           }

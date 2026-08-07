@@ -205,21 +205,11 @@ export const Handle = Schema.String.check(
   }),
 );
 export type ExtensionType =
-  | "skill"
-  | "command"
-  | "mcp-server"
-  | "subagent"
-  | "files"
-  | "rule"
-  | "hook"
-  | "knowledge"
-  | "pack";
+  "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack";
 export const ExtensionType = Schema.Literals([
   "skill",
-  "command",
   "mcp-server",
   "subagent",
-  "files",
   "rule",
   "hook",
   "knowledge",
@@ -227,7 +217,7 @@ export const ExtensionType = Schema.Literals([
 ]).annotate({
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack.",
+    "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack.",
 });
 export type ExtensionName = string;
 export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
@@ -667,12 +657,12 @@ export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
     new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
     ),
     {
       title: "Extension FQN",
       description: "Canonical extension identifier in @owner/<type>s/<name> form.",
-      examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+      examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
     },
   ),
 );
@@ -1463,6 +1453,8 @@ export type TokensDelete401 = StepUpRequiredError | ProblemDetails;
 export const TokensDelete401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type TokensDelete403 = ForbiddenError;
 export const TokensDelete403 = ForbiddenError;
+export type TokensDelete503 = ProblemDetails;
+export const TokensDelete503 = ProblemDetails;
 export type OwnersGetOwner200 = OwnerResponse;
 export const OwnersGetOwner200 = OwnerResponse;
 export type OwnersGetOwner400 = DecodeErrorResponse;
@@ -1690,6 +1682,8 @@ export type ExtensionsDeleteExtension404 = ProblemDetails;
 export const ExtensionsDeleteExtension404 = ProblemDetails;
 export type ExtensionsDeleteExtension409 = ProblemDetails;
 export const ExtensionsDeleteExtension409 = ProblemDetails;
+export type ExtensionsDeleteExtension503 = ProblemDetails;
+export const ExtensionsDeleteExtension503 = ProblemDetails;
 export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export type ExtensionsUpdateVisibility200 = {
@@ -1779,6 +1773,7 @@ export type ExtensionsPublishVersion201 = {
   readonly sha256_hex: string;
   readonly published_at: IsoDateTimeString;
   readonly publish_status: "pending" | "available" | "failed";
+  readonly warnings: ReadonlyArray<PublishLintFinding>;
   readonly links: ExtensionLinks;
 };
 export const ExtensionsPublishVersion201 = Schema.Struct({
@@ -1790,6 +1785,7 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   sha256_hex: Schema.String.annotate({ readOnly: true }),
   published_at: IsoDateTimeString,
   publish_status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
+  warnings: Schema.Array(PublishLintFinding).annotate({ readOnly: true }),
   links: ExtensionLinks,
 });
 export type ExtensionsPublishVersion400 = ProblemDetails | DecodeErrorResponse;
@@ -1933,6 +1929,8 @@ export type ExtensionsYankVersion403 = ForbiddenError;
 export const ExtensionsYankVersion403 = ForbiddenError;
 export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
+export type ExtensionsYankVersion503 = ProblemDetails;
+export const ExtensionsYankVersion503 = ProblemDetails;
 export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1961,6 +1959,8 @@ export type ExtensionsUnyankVersion403 = ForbiddenError;
 export const ExtensionsUnyankVersion403 = ForbiddenError;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
+export type ExtensionsUnyankVersion503 = ProblemDetails;
+export const ExtensionsUnyankVersion503 = ProblemDetails;
 export type ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export const ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export type ExtensionsYankAvailableVersions200 = {
@@ -1984,6 +1984,8 @@ export type ExtensionsYankAvailableVersions403 = ForbiddenError;
 export const ExtensionsYankAvailableVersions403 = ForbiddenError;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
+export type ExtensionsYankAvailableVersions503 = ProblemDetails;
+export const ExtensionsYankAvailableVersions503 = ProblemDetails;
 export type ExtensionsGetDeletionPreview200 = {
   readonly requiredConfirmation: string;
   readonly warnings: {
@@ -2521,6 +2523,7 @@ export const make = (
             "400": decodeError("TokensDelete400", TokensDelete400),
             "401": decodeError("TokensDelete401", TokensDelete401),
             "403": decodeError("TokensDelete403", TokensDelete403),
+            "503": decodeError("TokensDelete503", TokensDelete503),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -2584,6 +2587,7 @@ export const make = (
             "403": decodeError("ExtensionsDeleteExtension403", ExtensionsDeleteExtension403),
             "404": decodeError("ExtensionsDeleteExtension404", ExtensionsDeleteExtension404),
             "409": decodeError("ExtensionsDeleteExtension409", ExtensionsDeleteExtension409),
+            "503": decodeError("ExtensionsDeleteExtension503", ExtensionsDeleteExtension503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2737,6 +2741,7 @@ export const make = (
             "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
             "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
             "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
+            "503": decodeError("ExtensionsYankVersion503", ExtensionsYankVersion503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2750,6 +2755,7 @@ export const make = (
             "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
             "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
             "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
+            "503": decodeError("ExtensionsUnyankVersion503", ExtensionsUnyankVersion503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2775,6 +2781,10 @@ export const make = (
             "404": decodeError(
               "ExtensionsYankAvailableVersions404",
               ExtensionsYankAvailableVersions404,
+            ),
+            "503": decodeError(
+              "ExtensionsYankAvailableVersions503",
+              ExtensionsYankAvailableVersions503,
             ),
             orElse: unexpectedStatus,
           }),
@@ -3056,6 +3066,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensDelete400", typeof TokensDelete400.Type>
     | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
     | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
+    | RegistryClientError<"TokensDelete503", typeof TokensDelete503.Type>
   >;
   /**
    * Returns the minimal public owner summary for the provided handle.
@@ -3135,6 +3146,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsDeleteExtension403", typeof ExtensionsDeleteExtension403.Type>
     | RegistryClientError<"ExtensionsDeleteExtension404", typeof ExtensionsDeleteExtension404.Type>
     | RegistryClientError<"ExtensionsDeleteExtension409", typeof ExtensionsDeleteExtension409.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension503", typeof ExtensionsDeleteExtension503.Type>
   >;
   /**
    * Check whether an extension exists
@@ -3358,6 +3370,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
     | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
     | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
+    | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
   >;
   /**
    * Un-yank an extension version
@@ -3376,6 +3389,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
   >;
   /**
    * Yank all currently available extension versions
@@ -3407,6 +3421,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions404",
         typeof ExtensionsYankAvailableVersions404.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions503",
+        typeof ExtensionsYankAvailableVersions503.Type
       >
   >;
   /**

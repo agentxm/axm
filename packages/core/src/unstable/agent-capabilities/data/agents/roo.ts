@@ -48,27 +48,6 @@ export const rooAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: {
-          state: "removed",
-          since: "2026-05-15",
-          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
-          supersededByType: null,
-        },
-        notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
-        docs: [],
-        sources: ["https://docs.roocode.com/features/slash-commands"],
-        scopes: ["user", "project"],
-        directory: ".roo/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

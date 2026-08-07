@@ -8,9 +8,6 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { enabledConfiguredEntries } from "../extensions/index.js";
 import {
-  CommandsMapSchema,
-  FilesEntrySchema,
-  FilesMapSchema,
   KnowledgeConfigSchema,
   McpServersMapSchema,
   McpServerEntryObjectSchema,
@@ -133,43 +130,6 @@ describe("Settings schema", () => {
       });
 
       expect(result.knowledgeConfig?.directory).toBe("docs/agent-knowledge");
-    });
-
-    it("accepts workspace vars and context entries with scalar inputs", () => {
-      const input = {
-        vars: {
-          projectName: "AgentXM",
-          strict: true,
-          maxDepth: 3,
-        },
-        files: {
-          "workspace-baseline": {
-            source: "@ac/files/workspace-baseline@^1.0.0",
-            inputs: {
-              projectName: "AgentXM",
-              strict: true,
-            },
-          },
-        },
-      };
-
-      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
-
-      expect(result.vars).toEqual({
-        projectName: "AgentXM",
-        strict: true,
-        maxDepth: 3,
-      });
-      expect(result.files).toEqual({
-        "workspace-baseline": {
-          source: "@ac/files/workspace-baseline@^1.0.0",
-          enabled: true,
-          inputs: {
-            projectName: "AgentXM",
-            strict: true,
-          },
-        },
-      });
     });
   });
 
@@ -570,8 +530,6 @@ describe("Settings schema", () => {
     it("accepts matching type and name identities for every supported extension family", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({
         skills: { review: "workspace:@acme/skills/review" },
-        commands: { review: "workspace:@acme/commands/review" },
-        files: { review: "workspace:@acme/files/review" },
         rules: { review: "workspace:@acme/rules/review" },
         hooks: { review: "workspace:@acme/hooks/review" },
         subagents: { review: "workspace:@acme/subagents/review" },
@@ -586,7 +544,7 @@ describe("Settings schema", () => {
     it("rejects a locator whose plural type does not match its settings section", () => {
       expect(() =>
         Schema.decodeUnknownSync(SettingsSchema)({
-          commands: { review: "workspace:@acme/skills/review" },
+          rules: { review: "workspace:@acme/skills/review" },
         }),
       ).toThrow();
     });
@@ -628,8 +586,6 @@ describe("Settings schema", () => {
     it("rejects authored across all settings entry families under strict validation", () => {
       const invalidSettings: ReadonlyArray<unknown> = [
         { skills: { x: { source: "@acme/skills/x", authored: true } } },
-        { commands: { x: { source: "@acme/commands/x", authored: true } } },
-        { files: { x: { source: "@acme/files/x", authored: true } } },
         { rules: { x: { source: "@acme/rules/x", authored: true } } },
         { hooks: { x: { source: "@acme/hooks/x", authored: true } } },
         { subagents: { x: { source: "@acme/subagents/x", authored: true } } },
@@ -810,72 +766,7 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("context at root level", () => {
-    it("accepts compact context entries", () => {
-      const input = {
-        files: {
-          baseline: "@ac/files/baseline@^1.0.0",
-        },
-      };
-
-      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
-
-      expect(result.files).toEqual({
-        baseline: {
-          source: "@ac/files/baseline@^1.0.0",
-          enabled: true,
-          inputs: {},
-        },
-      });
-    });
-
-    it("encodes default context entries as compact strings", () => {
-      const decoded = Schema.decodeUnknownSync(FilesEntrySchema)("@ac/files/baseline@^1.0.0");
-      const encoded = Schema.encodeSync(FilesEntrySchema)(decoded);
-
-      expect(encoded).toBe("@ac/files/baseline@^1.0.0");
-    });
-
-    it("encodes context entries with inputs as objects", () => {
-      const decoded = Schema.decodeUnknownSync(FilesEntrySchema)({
-        source: "@ac/files/baseline@^1.0.0",
-        inputs: { projectName: "batcave" },
-      });
-      const encoded = Schema.encodeSync(FilesEntrySchema)(decoded);
-
-      expect(encoded).toEqual({
-        source: "@ac/files/baseline@^1.0.0",
-        inputs: { projectName: "batcave" },
-      });
-    });
-
-    it("rejects unsupported structured input values", () => {
-      const input = {
-        baseline: {
-          source: "@ac/files/baseline@^1.0.0",
-          inputs: { nested: { value: "nope" } },
-        },
-      };
-
-      expect(() => Schema.decodeUnknownSync(FilesMapSchema)(input)).toThrow();
-    });
-  });
-
   describe("extension maps at root level", () => {
-    it("accepts valid commands at root", () => {
-      const input = {
-        commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },
-      };
-      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
-
-      expect(result.commands).toEqual({
-        "batcomputer-sync": {
-          source: "@wayne/commands/batcomputer-sync",
-          enabled: true,
-        },
-      });
-    });
-
     it("accepts valid packs at root with string entry", () => {
       const input = {
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
@@ -916,7 +807,7 @@ describe("Settings schema", () => {
     it("accepts all extension types together at root", () => {
       const input = {
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
-        commands: { "batcomputer-sync": "@wayne/commands/batcomputer-sync" },
+        hooks: { audit: "@wayne/hooks/audit" },
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
         mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
       };
@@ -928,11 +819,8 @@ describe("Settings schema", () => {
           enabled: true,
         },
       });
-      expect(result.commands).toEqual({
-        "batcomputer-sync": {
-          source: "@wayne/commands/batcomputer-sync",
-          enabled: true,
-        },
+      expect(result.hooks).toEqual({
+        audit: { source: "@wayne/hooks/audit", enabled: true },
       });
       expect(result.packs).toEqual({
         "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
@@ -948,138 +836,11 @@ describe("Settings schema", () => {
 
     it("accepts empty extension map", () => {
       const input = {
-        commands: {},
+        hooks: {},
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.commands).toEqual({});
-    });
-  });
-
-  describe("CommandsMap schema (command entry forms)", () => {
-    it("accepts string entry", () => {
-      const input = { deploy: "@acme/commands/deploy" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result).toEqual({
-        deploy: { source: "@acme/commands/deploy", enabled: true },
-      });
-    });
-
-    it("accepts object entry with source", () => {
-      const input = { deploy: { source: "@acme/commands/deploy" } };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result["deploy"]).toEqual({
-        source: "@acme/commands/deploy",
-        enabled: true,
-      });
-    });
-
-    it("accepts object entry with source and enabled false", () => {
-      const input = {
-        deploy: { source: "@acme/commands/deploy", enabled: false },
-      };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      expect(result["deploy"]).toEqual({
-        source: "@acme/commands/deploy",
-        enabled: false,
-      });
-    });
-
-    it("accepts object entry with enabled defaulting to true", () => {
-      const input = { deploy: { source: "@acme/commands/deploy" } };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-      const entry = result["deploy"];
-      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true });
-    });
-
-    it("rejects object entry without source", () => {
-      const input = { deploy: { enabled: true } };
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-  });
-
-  describe("CommandsMap schema (command name validation)", () => {
-    it("accepts valid command name", () => {
-      const input = { commit: "@wayne/commands/reference" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-
-      expect(result).toEqual({
-        commit: { source: "@wayne/commands/reference", enabled: true },
-      });
-    });
-
-    it("accepts command name with hyphens", () => {
-      const input = { "my-extension": "@wayne/commands/reference" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-
-      expect(result).toEqual({
-        "my-extension": { source: "@wayne/commands/reference", enabled: true },
-      });
-    });
-
-    it("accepts command name with numbers", () => {
-      const input = { skill123: "@wayne/commands/reference" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-
-      expect(result).toEqual({
-        skill123: { source: "@wayne/commands/reference", enabled: true },
-      });
-    });
-
-    it("accepts single character command name", () => {
-      const input = { a: "@wayne/commands/reference" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-
-      expect(result).toEqual({
-        a: { source: "@wayne/commands/reference", enabled: true },
-      });
-    });
-
-    it("accepts 64 character command name (max length)", () => {
-      const name = "a".repeat(64);
-      const input = { [name]: "@wayne/commands/reference" };
-      const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
-
-      expect(result).toEqual({
-        [name]: { source: "@wayne/commands/reference", enabled: true },
-      });
-    });
-
-    it("rejects command name over 64 characters", () => {
-      const name = "a".repeat(65);
-      const input = { [name]: "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-
-    it("rejects command name starting with hyphen", () => {
-      const input = { "-invalid": "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-
-    it("rejects command name ending with hyphen", () => {
-      const input = { "invalid-": "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-
-    it("rejects command name with uppercase letters", () => {
-      const input = { MySkill: "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-
-    it("rejects command name with underscores", () => {
-      const input = { my_skill: "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
-    });
-
-    it("rejects command name with special characters", () => {
-      const input = { "my@skill": "@wayne/commands/reference" };
-
-      expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
+      expect(result.hooks).toEqual({});
     });
   });
 
@@ -1391,9 +1152,6 @@ describe("Settings schema", () => {
           "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0",
           batarang: "github:wayne-industries/gadgets/skills/batarang#main",
           "dev-gadget": "local:./dev/gadgets/dev-gadget",
-        },
-        commands: {
-          "batcomputer-sync": "@wayne/commands/batcomputer-sync",
         },
         packs: {
           "utility-belt": "@wayne/packs/utility-belt@^1.0.0",

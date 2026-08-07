@@ -37,28 +37,6 @@ export const droidAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: {
-          state: "maintenance",
-          since: null,
-          note: "Custom slash commands remain functional, but Factory merged reusable command workflows into skills and recommends skills for new work.",
-          supersededByType: "skill",
-        },
-        notes:
-          "Factory documents legacy slash commands as still supported, while skills supersede them for new reusable workflows.\n",
-        docs: [],
-        sources: ["https://docs.factory.ai/cli/configuration/skills"],
-        scopes: ["project"],
-        directory: ".factory/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

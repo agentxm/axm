@@ -37,23 +37,6 @@ export const kodeAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Custom slash commands are Markdown files with YAML frontmatter under .kode/commands (project) and ~/.kode/commands (user); legacy .claude/commands is also read. Commands have no industry spec yet.",
-        docs: [],
-        sources: ["https://github.com/shareAI-lab/Kode-CLI"],
-        scopes: ["user", "project"],
-        directory: ".kode/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -105,10 +105,8 @@ import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-exi
  */
 export const PUBLISHABLE_TYPES = {
   skill: true,
-  command: true,
   "mcp-server": true,
   subagent: true,
-  files: true,
   rule: true,
   hook: true,
   knowledge: true,
@@ -125,10 +123,8 @@ export const isPublishableType = (type: ExtensionType): type is PublishableType 
 // Explicit order (rule last) is user-visible in the --type flag's help output.
 const selectableTypes = [
   "skill",
-  "command",
   "mcp-server",
   "subagent",
-  "files",
   "hook",
   "knowledge",
   "pack",
@@ -161,10 +157,8 @@ export const aggregatePublishFailure = (
 
 const manifestFilename: Readonly<Record<SelectableType, string>> = {
   skill: "skill.json",
-  command: "command.json",
   "mcp-server": "mcp.json",
   subagent: "subagent.json",
-  files: "files.json",
   rule: "rule.json",
   hook: "hook.json",
   knowledge: "knowledge.json",
@@ -301,21 +295,18 @@ const entrySource = (entry: unknown): string | undefined => {
 
 const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const ws = yield* WorkspaceMutations;
-  const [skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs] =
-    yield* Effect.all(
-      [
-        ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-        ws.records.rows("command").pipe(Effect.map(configuredRowsByName)),
-        ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-        ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
-        ws.getConfiguredFilesEntries(),
-        ws.getConfiguredRuleEntries(),
-        ws.getConfiguredHookEntries(),
-        ws.getConfiguredKnowledgeEntries(),
-        ws.records.rows("pack").pipe(Effect.map(configuredRowsByName)),
-      ],
-      { concurrency: "unbounded" },
-    );
+  const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all(
+    [
+      ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
+      ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
+      ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
+      ws.getConfiguredRuleEntries(),
+      ws.getConfiguredHookEntries(),
+      ws.getConfiguredKnowledgeEntries(),
+      ws.records.rows("pack").pipe(Effect.map(configuredRowsByName)),
+    ],
+    { concurrency: "unbounded" },
+  );
 
   const group = (type: SelectableType, entries: Readonly<Record<string, unknown>>) =>
     Object.entries(entries).flatMap(([name, entry]) => {
@@ -325,10 +316,8 @@ const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
 
   return [
     ...group("skill", skills),
-    ...group("command", commands),
     ...group("mcp-server", mcps),
     ...group("subagent", subagents),
-    ...group("files", files),
     ...group("rule", rules),
     ...group("hook", hooks),
     ...group("knowledge", knowledge),

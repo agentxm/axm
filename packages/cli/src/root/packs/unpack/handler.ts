@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildInstallOperation,
   buildUninstallOperation,
@@ -12,7 +11,6 @@ import {
   parseRegistrySourcePatternParts,
   type ExtensionRef,
 } from "@agentxm/client-core/unstable/extensions";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -69,10 +67,8 @@ const normalizeIdentity = (identity: string): string =>
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const skillManager = yield* SkillManager;
-  const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
-  const filesManager = yield* FilesManager;
   const ruleManager = yield* RuleManager;
   const hookManager = yield* HookManager;
   const knowledgeManager = yield* KnowledgeManager;
@@ -191,14 +187,10 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     switch (ref.type) {
       case "skill":
         return buildInstallOperation(skillManager, { ...common, ref });
-      case "command":
-        return buildInstallOperation(commandManager, { ...common, ref });
       case "mcp-server":
         return buildInstallOperation(mcpServerManager, { ...common, ref });
       case "subagent":
         return buildInstallOperation(subagentManager, { ...common, ref });
-      case "files":
-        return buildInstallOperation(filesManager, { ...common, ref });
       case "rule":
         return buildInstallOperation(ruleManager, { ...common, ref });
       case "hook":

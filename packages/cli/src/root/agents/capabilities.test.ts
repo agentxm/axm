@@ -37,20 +37,17 @@ describe("agents capabilities.handler", () => {
         const rows = rendererState.tables[0]?.items as ReadonlyArray<CapabilityRow>;
         expect(rows.map((row) => row.type)).toEqual([
           "skill",
-          "command",
           "mcp-server",
           "subagent",
           "rule",
           "hook",
         ]);
-        // The targeting vocabulary is a separate column from the type id.
         expect(rows.map((row) => row.capabilityKey)).toEqual([
-          "skills",
-          "commands",
-          "mcp-servers",
-          "subagents",
-          "rules",
-          "hooks",
+          "skill",
+          "mcp-server",
+          "subagent",
+          "rule",
+          "hook",
         ]);
         const skill = rows.find((row) => row.type === "skill");
         expect(skill).toMatchObject({
@@ -85,7 +82,7 @@ describe("agents capabilities.handler", () => {
           agent: "claude-code",
           name: "Claude Code",
           lifecycle: "active",
-          supported: ["skill", "command", "mcp-server", "subagent", "rule", "hook"],
+          supported: ["skill", "mcp-server", "subagent", "rule", "hook"],
         });
       }),
     );

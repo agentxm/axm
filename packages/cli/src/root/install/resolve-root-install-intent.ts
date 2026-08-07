@@ -29,7 +29,7 @@ export interface RootInstallIntent {
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
 const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
-const locatorDiscoveryTypes = "skills, commands, files, rules, hooks, knowledge, and subagents";
+const locatorDiscoveryTypes = "skills, MCP servers, subagents, rules, hooks, and knowledge";
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);

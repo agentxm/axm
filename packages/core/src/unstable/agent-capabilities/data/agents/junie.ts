@@ -37,22 +37,6 @@ export const junieAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
-        docs: [],
-        sources: ["https://junie.jetbrains.com/docs/custom-slash-commands.html"],
-        scopes: ["user", "project"],
-        directory: ".junie/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

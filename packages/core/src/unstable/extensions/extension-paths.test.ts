@@ -13,13 +13,13 @@ describe("extension path helpers", () => {
       nodePath.join,
       "/workspace",
       { refType: "registry", owner: handle("@acme") },
-      "commands",
+      "rules",
       "review-pr",
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/.axm/extensions/@acme/commands/review-pr",
-      extensionSrcPath: "/workspace/.axm/extensions/@acme/commands/review-pr/src",
+      canonicalPath: "/workspace/.axm/extensions/@acme/rules/review-pr",
+      extensionSrcPath: "/workspace/.axm/extensions/@acme/rules/review-pr/src",
     });
   });
 
@@ -40,8 +40,8 @@ describe("extension path helpers", () => {
 
   it("computes markdown content filenames and paths", () => {
     expect(extensionContentFilename("review-pr")).toBe("review-pr.md");
-    expect(extensionContentPath(nodePath.join, "/workspace/commands/review-pr", "review-pr")).toBe(
-      "/workspace/commands/review-pr/review-pr.md",
+    expect(extensionContentPath(nodePath.join, "/workspace/rules/review-pr", "review-pr")).toBe(
+      "/workspace/rules/review-pr/review-pr.md",
     );
   });
 });

@@ -27,8 +27,6 @@ import {
   type SettingsReadError,
 } from "./errors.js";
 import {
-  makeCommandExtensionsApi,
-  makeFilesExtensionsApi,
   makeHookExtensionsApi,
   makeKnowledgeExtensionsApi,
   makeMcpServerExtensionsApi,
@@ -36,11 +34,7 @@ import {
   makeRuleExtensionsApi,
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
-  type CommandExtensionsApi,
-  type FilesExtensionsApi,
   type HookExtensionsApi,
-  type InstalledPackForCommands,
-  type InstalledPackForFiles,
   type InstalledPackForHooks,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
@@ -107,10 +101,8 @@ export type ScopedOwnerApi = Effect.Effect<Option.Option<Handle>, SettingsReadEr
 export interface WorkspaceReadModel {
   readonly scope: Scope;
   readonly skills: SkillExtensionsApi;
-  readonly commands: CommandExtensionsApi;
   readonly mcpServers: McpServerExtensionsApi;
   readonly subagents: SubagentExtensionsApi;
-  readonly files: FilesExtensionsApi;
   readonly rules: RuleExtensionsApi;
   readonly hooks: HookExtensionsApi;
   readonly knowledge: KnowledgeExtensionsApi;
@@ -136,10 +128,8 @@ export interface WorkspaceReadModel {
  */
 export const READ_MODEL_EXTENSION_FAMILY_BY_TYPE = {
   skill: "skills",
-  command: "commands",
   "mcp-server": "mcpServers",
   subagent: "subagents",
-  files: "files",
   rule: "rules",
   hook: "hooks",
   knowledge: "knowledge",
@@ -208,10 +198,8 @@ const memberNamesFromResolvedMap = (
 interface PackMemberSets {
   readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: string };
   readonly skills: ReadonlyArray<ExtensionName>;
-  readonly commands: ReadonlyArray<ExtensionName>;
   readonly mcpServers: ReadonlyArray<ExtensionName>;
   readonly subagents: ReadonlyArray<ExtensionName>;
-  readonly files: ReadonlyArray<ExtensionName>;
   readonly rules: ReadonlyArray<ExtensionName>;
   readonly hooks: ReadonlyArray<ExtensionName>;
 }
@@ -322,14 +310,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
         });
         const skillNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSkills);
-        const commandNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedCommands);
         const mcpServerNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedMcpServers);
         const subagentNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSubagents);
-        const filesNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedFiles ?? {});
         const ruleNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedRules ?? {});
         const hookNames =
@@ -337,10 +321,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
         return {
           key: row.key,
           skills: skillNames,
-          commands: commandNames,
           mcpServers: mcpServerNames,
           subagents: subagentNames,
-          files: filesNames,
           rules: ruleNames,
           hooks: hookNames,
         };
@@ -354,19 +336,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
         packs.map((p) => ({
           ref: { key: p.key },
           skills: p.skills.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
-        })),
-      ),
-    );
-
-  const commandsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForCommands>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          commands: p.commands.map((name) => ({
             name,
             providingPack: { key: p.key },
           })),
@@ -400,18 +369,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
     );
 
-  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          files: p.files.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
-        })),
-      ),
-    );
   const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> =
     installedPackMembers.pipe(
       Effect.map((packs) =>
@@ -445,14 +402,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics,
   });
 
-  const commands = yield* makeCommandExtensionsApi({
-    scope,
-    loaders,
-    scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
-    installedPacks: commandsInstalledPacks,
-    diagnostics,
-  });
-
   const mcpServers = yield* makeMcpServerExtensionsApi({
     scope,
     loaders,
@@ -466,14 +415,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
     installedPacks: subagentsInstalledPacks,
-    diagnostics,
-  });
-
-  const files = yield* makeFilesExtensionsApi({
-    scope,
-    loaders,
-    scanners: { canonical: canonicalScanner },
-    installedPacks: filesInstalledPacks,
     diagnostics,
   });
 
@@ -570,10 +511,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   return {
     scope,
     skills,
-    commands,
     mcpServers,
     subagents,
-    files,
     rules,
     hooks,
     knowledge,

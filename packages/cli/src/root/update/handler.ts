@@ -9,17 +9,9 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import {
-  InstallCommandCommandWorkflowActions,
-  type InstallCommandHandlerArgs,
-} from "../commands/install/command-actions.js";
-import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "../mcps/install/command-actions.js";
-import {
-  InstallFilesCommandWorkflowActions,
-  type InstallFilesHandlerArgs,
-} from "../files/install/command-actions.js";
 import {
   InstallHookCommandWorkflowActions,
   type InstallHookHandlerArgs,
@@ -40,10 +32,6 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
-import {
-  mergePlanResolution,
-  runFilesWorkspaceGeneratorPhase,
-} from "../files/workspace-generator-phase.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -66,23 +54,10 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
           args,
         );
       }
-      case "command": {
-        const actions = yield* InstallCommandCommandWorkflowActions;
-        const commandArgs: InstallCommandHandlerArgs = { ...args, source: intent.source };
-        return yield* runInstallCommandWorkflow(commandArgs, actions, {
-          yes: commandArgs.yes,
-          preview: commandArgs.preview,
-        });
-      }
       case "mcp-server": {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(mcpArgs, actions, args);
-      }
-      case "files": {
-        const actions = yield* InstallFilesCommandWorkflowActions;
-        const fileArgs: InstallFilesHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(fileArgs, actions, args);
       }
       case "rule": {
         const actions = yield* InstallRuleCommandWorkflowActions;
@@ -129,13 +104,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       Effect.gen(function* () {
         const intent = yield* resolveRootUpdateIntent(source);
         const resolution = yield* runUpdateIntent(intent, args);
-        let outputResolution: PlanResolution = resolution;
-        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
-          const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
-            dryRun: false,
-          });
-          outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
-        }
+        const outputResolution: PlanResolution = resolution;
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             planResolutionToSummary(outputResolution, {

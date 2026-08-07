@@ -16,12 +16,6 @@ export const CANONICAL_NAMING = [
     sentenceLabel: "skill",
   },
   {
-    id: "command",
-    pluralSegment: "commands",
-    displayLabel: "Command",
-    sentenceLabel: "command",
-  },
-  {
     id: "mcp-server",
     pluralSegment: "mcps",
     displayLabel: "MCP Server",
@@ -32,13 +26,6 @@ export const CANONICAL_NAMING = [
     pluralSegment: "subagents",
     displayLabel: "Subagent",
     sentenceLabel: "subagent",
-  },
-  {
-    id: "files",
-    pluralSegment: "files",
-    displayLabel: "Context Files",
-    sentenceLabel: "context files",
-    manifestFilename: "files.json",
   },
   {
     id: "rule",
@@ -71,12 +58,10 @@ export const CANONICAL_NAMING = [
 
 export const NAMING_BY_ID: Record<ExtensionType, CanonicalNamingEntry> = {
   skill: CANONICAL_NAMING[0],
-  command: CANONICAL_NAMING[1],
-  "mcp-server": CANONICAL_NAMING[2],
-  subagent: CANONICAL_NAMING[3],
-  files: CANONICAL_NAMING[4],
-  rule: CANONICAL_NAMING[5],
-  hook: CANONICAL_NAMING[6],
-  knowledge: CANONICAL_NAMING[7],
-  pack: CANONICAL_NAMING[8],
+  "mcp-server": CANONICAL_NAMING[1],
+  subagent: CANONICAL_NAMING[2],
+  rule: CANONICAL_NAMING[3],
+  hook: CANONICAL_NAMING[4],
+  knowledge: CANONICAL_NAMING[5],
+  pack: CANONICAL_NAMING[6],
 };

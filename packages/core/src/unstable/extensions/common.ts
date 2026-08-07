@@ -216,18 +216,6 @@ export const EXTENSION_TYPE_TABLE = {
     installInputs: false,
     workspaceCapability: null,
   },
-  command: {
-    plural: "commands",
-    label: "Command",
-    pluralLabel: "Commands",
-    sentenceLabel: "command",
-    pluralSentenceLabel: "commands",
-    distribution: "registry",
-    placement: "per-agent",
-    governs: null,
-    installInputs: false,
-    workspaceCapability: null,
-  },
   "mcp-server": {
     plural: "mcps",
     label: "MCP Server",
@@ -250,18 +238,6 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
-    workspaceCapability: null,
-  },
-  files: {
-    plural: "files",
-    label: "Context Files",
-    pluralLabel: "Context Files",
-    sentenceLabel: "context files",
-    pluralSentenceLabel: "context files",
-    distribution: "registry",
-    placement: "workspace",
-    governs: null,
-    installInputs: true,
     workspaceCapability: null,
   },
   rule: {
@@ -564,7 +540,7 @@ export const ExtensionTypeSchema = Schema.Literals(extensionTypes).annotate({
   identifier: "ExtensionType",
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack.",
+    "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack.",
 });
 
 /**
@@ -576,7 +552,7 @@ export const ExtensionTypePluralSchema = Schema.Literals(extensionTypePluralSegm
   identifier: "ExtensionTypePlural",
   title: "Extension Type (Plural)",
   description:
-    "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs).",
+    "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs).",
 });
 
 /**
@@ -642,7 +618,7 @@ export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | unde
 };
 
 const INVALID_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|files|rules|hooks|packs)/name form";
+  "Expected fully qualified name in @handle/(skills|mcps|subagents|rules|hooks|knowledge|packs)/name form";
 
 /**
  * Fully qualified name string schema validated against the composed handle,
@@ -658,7 +634,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
     identifier: "ExtensionFqn",
     title: "Extension FQN",
     description: "Canonical extension identifier in @owner/<type>s/<name> form.",
-    examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+    examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
     message: INVALID_EXTENSION_FQN_MESSAGE,
   }),
 );
@@ -671,7 +647,7 @@ export const ExtensionFqnSchema = Schema.String.pipe(
 export type ExtensionFqn = Schema.Schema.Type<typeof ExtensionFqnSchema>;
 
 const INVALID_NON_PACK_EXTENSION_FQN_MESSAGE =
-  "Expected fully qualified name in @handle/(skills|commands|mcps|subagents|files|rules|hooks)/name form (packs are not allowed)";
+  "Expected fully qualified name in @handle/(skills|mcps|subagents|rules|hooks|knowledge)/name form (packs are not allowed)";
 
 /**
  * Fully qualified name string schema restricted to non-pack extension types.
@@ -688,8 +664,8 @@ export const NonPackExtensionFqnSchema = Schema.String.pipe(
     identifier: "NonPackExtensionFqn",
     title: "Non-Pack Extension FQN",
     description:
-      "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules, hooks).",
-    examples: ["@acme/skills/code-review", "@my-org/commands/format"],
+      "Extension identifier restricted to non-pack types (skills, mcps, subagents, rules, hooks, knowledge).",
+    examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
     message: INVALID_NON_PACK_EXTENSION_FQN_MESSAGE,
   }),
 );
@@ -950,9 +926,8 @@ export const CommonManifestBaseFields = {
 };
 
 /**
- * Fields shared across non-pack extension manifests (skills, commands,
- * MCP servers, subagents). These describe how an extension relates to
- * packs.
+ * Fields shared across non-pack extension manifests. These describe how an
+ * extension relates to packs.
  *
  * @experimental This API is unstable and may change without notice.
  */

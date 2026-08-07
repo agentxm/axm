@@ -216,8 +216,6 @@ export const trustedCanonicalRef = ({
           ...details,
           skill: { name, description: Option.none(), metadata: Option.none() },
         };
-      case "command":
-        return { type: "command", ...details, command: { name } };
       case "mcp-server":
         return { type: "mcp-server", ...details, server: { name } };
       case "subagent":
@@ -226,8 +224,6 @@ export const trustedCanonicalRef = ({
           ...details,
           subagent: { name, description: Option.none() },
         };
-      case "files":
-        return { type: "files", ...details, file: { name } };
       case "rule":
         return { type: "rule", ...details, rule: { name } };
       case "hook":

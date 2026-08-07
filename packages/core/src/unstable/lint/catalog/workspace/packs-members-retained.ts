@@ -22,8 +22,6 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import {
-  type CommandLockEntry,
-  type FilesLockEntry,
   type HookLockEntry,
   type KnowledgeLockEntry,
   type Lockfile,
@@ -46,10 +44,8 @@ type MemberType = Exclude<ExtensionType, "pack">;
 
 type AnyMemberEntry =
   | SkillLockEntry
-  | CommandLockEntry
   | SubagentLockEntry
   | McpServerLockEntry
-  | FilesLockEntry
   | RuleLockEntry
   | HookLockEntry
   | KnowledgeLockEntry;
@@ -60,10 +56,8 @@ type AnyMemberEntry =
  */
 const SETTINGS_KEY_BY_TYPE = {
   skill: "skills",
-  command: "commands",
   subagent: "subagents",
   "mcp-server": "mcpServers",
-  files: "files",
   rule: "rules",
   hook: "hooks",
   knowledge: "knowledge",
@@ -103,11 +97,6 @@ const MEMBER_FAMILIES = {
     declaredNames: (settings) => settings.skills ?? {},
     resolved: (pack) => pack.resolvedSkills,
   },
-  command: {
-    lockEntries: (lockfile) => lockfile.commands ?? {},
-    declaredNames: (settings) => settings.commands ?? {},
-    resolved: (pack) => pack.resolvedCommands,
-  },
   subagent: {
     lockEntries: (lockfile) => lockfile.subagents ?? {},
     declaredNames: (settings) => settings.subagents ?? {},
@@ -117,11 +106,6 @@ const MEMBER_FAMILIES = {
     lockEntries: (lockfile) => lockfile.mcpServers ?? {},
     declaredNames: (settings) => settings.mcpServers ?? {},
     resolved: (pack) => pack.resolvedMcpServers,
-  },
-  files: {
-    lockEntries: (lockfile) => lockfile.files ?? {},
-    declaredNames: (settings) => settings.files ?? {},
-    resolved: (pack) => pack.resolvedFiles,
   },
   rule: {
     lockEntries: (lockfile) => lockfile.rules ?? {},
@@ -143,10 +127,8 @@ const MEMBER_FAMILIES = {
 /** Walk order; findings render in this order. */
 const MEMBER_ORDER: ReadonlyArray<MemberType> = [
   "skill",
-  "command",
   "subagent",
   "mcp-server",
-  "files",
   "rule",
   "hook",
   "knowledge",

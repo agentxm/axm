@@ -20,8 +20,6 @@
  */
 
 import {
-  commandRules,
-  filesRules,
   hookRules,
   knowledgeRules,
   mcpServerRules,
@@ -33,8 +31,6 @@ import {
 } from "./catalog/index.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type {
-  CommandRuleContext,
-  FilesRuleContext,
   HookRuleContext,
   KnowledgeRuleContext,
   McpServerRuleContext,
@@ -57,10 +53,8 @@ import type { LintRule } from "./rule.js";
 export interface CatalogRuleContexts {
   readonly skill: ReadonlyArray<SkillRuleContext>;
   readonly pack: ReadonlyArray<PackRuleContext>;
-  readonly command: ReadonlyArray<CommandRuleContext>;
   readonly subagent: ReadonlyArray<SubagentRuleContext>;
   readonly "mcp-server": ReadonlyArray<McpServerRuleContext>;
-  readonly files: ReadonlyArray<FilesRuleContext>;
   readonly rule: ReadonlyArray<RuleRuleContext>;
   readonly hook: ReadonlyArray<HookRuleContext>;
   readonly knowledge: ReadonlyArray<KnowledgeRuleContext>;
@@ -97,10 +91,8 @@ export const LINT_CATALOGS: {
 } = {
   skill: skillRules,
   pack: packRules,
-  command: commandRules,
   subagent: subagentRules,
   "mcp-server": mcpServerRules,
-  files: filesRules,
   rule: ruleRules,
   hook: hookRules,
   knowledge: knowledgeRules,
@@ -120,10 +112,8 @@ export const LINT_CATALOGS: {
 export const CATALOG_GROUP_ORDER = [
   "skill",
   "pack",
-  "command",
   "subagent",
   "mcp-server",
-  "files",
   "hook",
   "rule",
   "knowledge",
@@ -151,10 +141,8 @@ export const DRIFT_DETECTED_GROUPS: ReadonlyArray<CatalogGroup> = CATALOG_GROUP_
 export const emptyCatalogRuleContexts: CatalogRuleContexts = {
   skill: [],
   pack: [],
-  command: [],
   subagent: [],
   "mcp-server": [],
-  files: [],
   rule: [],
   hook: [],
   knowledge: [],

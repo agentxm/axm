@@ -44,9 +44,9 @@ const mcpObservation = makeAgentMcpConfigOccurrence({
 });
 
 describe("agents/claude-code module", () => {
-  it("identifies as claude-code with skill/command/subagent subjects", () => {
+  it("identifies as claude-code with skill/subagent subjects", () => {
     expect(module.agentId).toBe("claude-code");
-    expect(module.subjects).toEqual(["skill", "command", "subagent"]);
+    expect(module.subjects).toEqual(["skill", "subagent"]);
   });
 
   it("declared returns Some when settings include claude-code in agents", () => {

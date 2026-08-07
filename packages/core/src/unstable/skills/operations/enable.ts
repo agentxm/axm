@@ -21,15 +21,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { ensureSkillAgentArtifact } from "../materialization.js";
-import {
-  renderTargetAgentIdForLocation,
-  skillArtifactFromTargets,
-  type InstallableSkillTarget,
-} from "./install.js";
-import {
-  capabilityRenderTargetForAgentId,
-  materializeCapabilityTargetedBuild,
-} from "../../capability-targeting/index.js";
+import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
 
 // Operation types
@@ -95,7 +87,7 @@ export const enableSkill: OperationHandler<
 
     const skillSrcPath = canonical.value.observation.path;
 
-    const { installableTargets, builds } = yield* ws.runTransaction({
+    const installableTargets = yield* ws.runTransaction({
       transition: Effect.gen(function* () {
         const resolvedTargets = yield* Effect.forEach(
           materializationAgents,
@@ -127,34 +119,16 @@ export const enableSkill: OperationHandler<
             current.agentIds.push(target.agentId);
           }
         }
-        const renderedBuilds = yield* Effect.forEach(
+        yield* Effect.forEach(
           [...locations.values()],
           (location) =>
-            Effect.gen(function* () {
-              const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
-              const build = yield* materializeCapabilityTargetedBuild({
-                baseDir: base,
-                canonicalSourcePath: skillSrcPath,
-                extensionName: sanitizedName,
-                target: capabilityRenderTargetForAgentId(targetAgentId),
-              }).pipe(
-                Effect.mapError((cause) =>
-                  makeAppError({
-                    code: "internal",
-                    detail: `Failed to render ${op.args.skillName} for ${targetAgentId}`,
-                    cause,
-                  }),
-                ),
-              );
-              yield* ensureSkillAgentArtifact({
-                canonicalSkillSrcPath: build.artifactSourcePath,
-                targetDir: location.targetDir,
-                sanitizedName,
-                pathService: path,
-                baseDir: base,
-                provide,
-              });
-              return { targetAgentId, build };
+            ensureSkillAgentArtifact({
+              canonicalSkillSrcPath: skillSrcPath,
+              targetDir: location.targetDir,
+              sanitizedName,
+              pathService: path,
+              baseDir: base,
+              provide,
             }),
           { concurrency: "unbounded" },
         );
@@ -162,21 +136,13 @@ export const enableSkill: OperationHandler<
           ...entry,
           enabled: true,
         }));
-        return { installableTargets: targets, builds: renderedBuilds };
+        return targets;
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
       ),
       validate: () => Effect.void,
     });
-    for (const { targetAgentId, build } of builds) {
-      for (const finding of build.findings) {
-        yield* Effect.logWarning(
-          `[${finding.code}] ${op.args.skillName} (${targetAgentId}): ${finding.message}`,
-        );
-      }
-    }
-
     const artifact = yield* skillArtifactFromTargets({
       targets: installableTargets,
       workspaceRoot: base,

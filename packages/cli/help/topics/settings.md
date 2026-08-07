@@ -23,8 +23,8 @@ this array; the commands also reconcile per-agent managed artifacts for
 installed extensions. `sources` names registries and source hosts that entries
 can reference.
 
-Extension entries live under `skills`, `commands`, `mcpServers`, `subagents`,
-`files`, `rules`, `hooks`, `knowledge`, and `packs`. Each entry can be a source
+Extension entries live under `skills`, `mcpServers`, `subagents`, `rules`,
+`hooks`, `knowledge`, and `packs`. Each entry can be a source
 string or an object with metadata such as `enabled`.
 
 Prefer the plain source string. Use the object form when you need metadata such
@@ -41,8 +41,8 @@ as `enabled: false`. A workspace-authored package uses the intrinsic source
 }
 ```
 
-Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`,
-`filesConfig`, `hooksConfig`, `knowledgeConfig`, `subagentsConfig`, `packsConfig`,
+Feature config lives under `rulesConfig`, `skillsConfig`, `hooksConfig`,
+`knowledgeConfig`, `subagentsConfig`, `packsConfig`,
 and `mcpServersConfig`.
 
 `knowledgeConfig.directory` selects the agent-facing Knowledge projection root
@@ -117,6 +117,5 @@ Use each feature's `ignore` list to leave matching pre-existing extensions unman
 - `axm help workspace-state` — reconciliation and workspace file authority
 - `axm agents list` — configured, detected, and supported coding-agent IDs
 - `axm help skills` — working with skills
-- `axm help commands` — working with slash commands
 - `axm help subagents` — working with subagents
 - `axm help packs` — working with packs

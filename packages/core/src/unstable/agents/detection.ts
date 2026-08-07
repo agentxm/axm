@@ -207,7 +207,7 @@ const detectScopeRaw = (
 /**
  * Check whether an agent can be detected from a single filesystem root.
  *
- * Uses the first segment of the agent's skills, commands, and subagents
+ * Uses the first segment of the agent's skills, MCP servers, and subagents
  * descriptors.
  */
 export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>

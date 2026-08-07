@@ -14,8 +14,6 @@ import type * as Effect from "effect/Effect";
 import type { AppError } from "../app-error/index.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
 import type {
-  CommandLockEntry,
-  FilesLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   KnowledgeLockMap,
@@ -33,10 +31,8 @@ import type { WorkspaceMutationsService } from "./service-interface.js";
  */
 export type AnyLockEntry =
   | SkillLockEntry
-  | CommandLockEntry
   | SubagentLockEntry
   | McpServerLockEntry
-  | FilesLockEntry
   | RuleLockEntry
   | HookLockEntry
   | KnowledgeLockEntry;
@@ -50,10 +46,8 @@ export type AnyLockMap = { readonly [name: string]: AnyLockEntry };
  */
 const lockedEntryReaders = {
   skill: (ws) => ws.getLockedSkills(),
-  command: (ws) => ws.getLockedCommands(),
   "mcp-server": (ws) => ws.getLockedMcpServers(),
   subagent: (ws) => ws.getLockedSubagents(),
-  files: (ws) => ws.getLockedFiles(),
   rule: (ws) => ws.getLockedRules(),
   hook: (ws) => ws.getLockedHooks(),
   knowledge: (ws) => ws.getLockedKnowledge(),

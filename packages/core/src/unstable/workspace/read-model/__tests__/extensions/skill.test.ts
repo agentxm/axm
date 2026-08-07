@@ -105,11 +105,11 @@ describe("makeSkillExtensionsApi", () => {
         canonicalOccurrences: [
           makeCanonicalOccurrence({
             scope: "project",
-            type: "command",
+            type: "hook",
             origin: "canonical-axm",
             name: "wrong",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/commands/wrong",
+            contentLocation: "/ws/.axm/extensions/@owner/hooks/wrong",
           }),
         ],
       });

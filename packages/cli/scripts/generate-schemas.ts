@@ -17,11 +17,9 @@ import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
 import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
-import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js";
 import { McpServerManifestSchema } from "../../core/src/unstable/mcps/index.js";
 import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
 import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
-import { FilesManifestSchema } from "../../core/src/unstable/files/index.js";
 import { RuleManifestSchema } from "../../core/src/unstable/rules/index.js";
 import { HookManifestSchema } from "../../core/src/unstable/hooks/index.js";
 import { KnowledgeManifestSchema } from "../../core/src/unstable/knowledge/index.js";
@@ -62,11 +60,6 @@ const schemas: SchemaConfig[] = [
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "command.schema.json",
-    schema: CommandManifestSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
     name: "mcp.schema.json",
     schema: McpServerManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
@@ -79,11 +72,6 @@ const schemas: SchemaConfig[] = [
   {
     name: "pack.schema.json",
     schema: PackManifestSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
-    name: "files.schema.json",
-    schema: FilesManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {

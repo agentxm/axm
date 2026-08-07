@@ -135,7 +135,6 @@ const makePackLockEntry = (
       { version, publisherBindingId: "hbnd_test" },
     ]),
   ),
-  resolvedCommands: {},
   resolvedMcpServers: {},
   resolvedSubagents: {},
 });

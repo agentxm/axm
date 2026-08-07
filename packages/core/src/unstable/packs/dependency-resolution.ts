@@ -33,10 +33,8 @@ export type WorkspacePackDependencyResolver = (args: {
 
 export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
-  readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
   readonly resolvedSubagents: ResolvedExtensionMap;
-  readonly resolvedFiles: ResolvedExtensionMap;
   readonly resolvedRules: ResolvedExtensionMap;
   readonly resolvedHooks: ResolvedExtensionMap;
   readonly resolvedKnowledge: ResolvedExtensionMap;
@@ -208,10 +206,8 @@ const resolveDependencyGroup = (
 const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
   const groups: Record<SupportedPackDependencyType, Array<readonly [string, VersionRange]>> = {
     skill: [],
-    command: [],
     "mcp-server": [],
     subagent: [],
-    files: [],
     rule: [],
     hook: [],
     knowledge: [],
@@ -258,29 +254,23 @@ export const resolvePackDependencies = (
       );
 
     const resolvedSkills = yield* resolveGroup("skill");
-    const resolvedCommands = yield* resolveGroup("command");
     const resolvedMcpServers = yield* resolveGroup("mcp-server");
     const resolvedSubagents = yield* resolveGroup("subagent");
-    const resolvedFiles = yield* resolveGroup("files");
     const resolvedRules = yield* resolveGroup("rule");
     const resolvedHooks = yield* resolveGroup("hook");
     const resolvedKnowledge = yield* resolveGroup("knowledge");
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
-      resolvedCommands: toResolvedMap(resolvedCommands),
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
       resolvedSubagents: toResolvedMap(resolvedSubagents),
-      resolvedFiles: toResolvedMap(resolvedFiles),
       resolvedRules: toResolvedMap(resolvedRules),
       resolvedHooks: toResolvedMap(resolvedHooks),
       resolvedKnowledge: toResolvedMap(resolvedKnowledge),
       dependencyRefs: [
         ...resolvedSkills,
-        ...resolvedCommands,
         ...resolvedMcpServers,
         ...resolvedSubagents,
-        ...resolvedFiles,
         ...resolvedRules,
         ...resolvedHooks,
         ...resolvedKnowledge,

@@ -6,8 +6,6 @@ import type { AppError } from "../app-error/index.js";
 import type { ExtensionName, ExtensionTypePlural } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type {
-  CommandLockEntry,
-  FilesLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   McpServerLockEntry,
@@ -21,7 +19,7 @@ import type { WorkspaceScope } from "./scope.js";
 
 export type ReconcileExtensionType = Extract<
   ExtensionTypePlural,
-  "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "knowledge" | "packs"
+  "skills" | "mcps" | "subagents" | "rules" | "hooks" | "knowledge" | "packs"
 >;
 
 export type UnresolvedReason =
@@ -70,11 +68,6 @@ export type ReconstructedLockEntry =
       readonly entry: SkillLockEntry;
     }
   | {
-      readonly type: "commands";
-      readonly name: ExtensionName;
-      readonly entry: CommandLockEntry;
-    }
-  | {
       readonly type: "mcps";
       readonly name: ExtensionName;
       readonly entry: McpServerLockEntry;
@@ -88,11 +81,6 @@ export type ReconstructedLockEntry =
       readonly type: "packs";
       readonly name: ExtensionName;
       readonly entry: PackLockEntry;
-    }
-  | {
-      readonly type: "files";
-      readonly name: ExtensionName;
-      readonly entry: FilesLockEntry;
     }
   | {
       readonly type: "knowledge";

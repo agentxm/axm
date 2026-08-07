@@ -30,16 +30,6 @@ export const minimaxCodeAgent = {
         reason: "No vendor-documented filesystem Skill location is available.",
       },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "none" },

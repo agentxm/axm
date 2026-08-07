@@ -16,15 +16,6 @@ const skill = {
   docs: [{ label: "Skill manifest schema", url: "https://axm.sh/schemas/skill.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
-const command = {
-  id: "command",
-  summary: "Install slash commands or prompt commands in an agent's native command location.",
-  description:
-    "User-invoked command prompts installed into an agent's native command system. Commands have no governing open standard.",
-  standard: null,
-  docs: [{ label: "Command manifest schema", url: "https://axm.sh/schemas/command.schema.json" }],
-} satisfies ExtensionTypeDefinition;
-
 const mcpServer = {
   id: "mcp-server",
   summary: "Configure Model Context Protocol servers for agents.",
@@ -41,15 +32,6 @@ const subagent = {
     "Delegated agent profiles installed into vendor-specific subagent layouts. Subagents have no governing open standard.",
   standard: null,
   docs: [{ label: "Subagent manifest schema", url: "https://axm.sh/schemas/subagent.schema.json" }],
-} satisfies ExtensionTypeDefinition;
-
-const files = {
-  id: "files",
-  summary: "Scaffold and manage standalone .md context files.",
-  description:
-    "Context material the agent may reference, such as scaffolded docs or notes. These files are not behavior-governing instructions; behavior-governing instructions are rule. Context files have no governing standard.",
-  standard: null,
-  docs: [{ label: "Files manifest schema", url: "https://axm.sh/schemas/files.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const rule = {
@@ -84,10 +66,8 @@ const knowledge = {
 /** @experimental This API is unstable and may change without notice. */
 export const EXTENSION_TYPES_BY_ID = {
   skill,
-  command,
   "mcp-server": mcpServer,
   subagent,
-  files,
   rule,
   hook,
   knowledge,

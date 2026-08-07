@@ -194,6 +194,41 @@ describe("copySkill", () => {
   });
 
   describe("SKILL.md content preservation", () => {
+    it.effect("preserves the complete source tree byte-for-byte", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const nestedDir = path.join(src, "references", "nested");
+        fs.mkdirSync(nestedDir, { recursive: true });
+        fs.writeFileSync(path.join(src, "README.md"), "Author notes\n");
+        fs.writeFileSync(path.join(src, "_private.txt"), "Private source context\n");
+        const binary = Buffer.from([0, 1, 2, 127, 128, 255]);
+        fs.writeFileSync(path.join(nestedDir, "fixture.bin"), binary);
+
+        const { axmDir, base } = setupBase();
+        const result = yield* copySkill(
+          makeOp({ targetName: "@community/skills/my-skill", location: `file://${src}` }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+        const targetSrc = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "src",
+        );
+        expect(fs.readFileSync(path.join(targetSrc, "README.md"), "utf-8")).toBe("Author notes\n");
+        expect(fs.readFileSync(path.join(targetSrc, "_private.txt"), "utf-8")).toBe(
+          "Private source context\n",
+        );
+        expect(
+          fs.readFileSync(path.join(targetSrc, "references", "nested", "fixture.bin")),
+        ).toEqual(binary);
+      }),
+    );
+
     it.effect("preserves SKILL.md content verbatim during copy", () =>
       Effect.gen(function* () {
         const src = setupSource();

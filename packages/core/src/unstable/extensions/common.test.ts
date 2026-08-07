@@ -98,12 +98,6 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it("accepts commands type segment", () => {
-      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/commands/bat-deploy");
-
-      expect(Result.isSuccess(result)).toBe(true);
-    });
-
     it("accepts mcps type segment", () => {
       const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/mcps/bat-signal");
 
@@ -112,12 +106,6 @@ describe("common schemas", () => {
 
     it("accepts subagents type segment", () => {
       const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@wayne/subagents/reviewer");
-
-      expect(Result.isSuccess(result)).toBe(true);
-    });
-
-    it("accepts context type segment", () => {
-      const result = Schema.decodeUnknownResult(ExtensionFqnSchema)("@way/files/project-rules");
 
       expect(Result.isSuccess(result)).toBe(true);
     });

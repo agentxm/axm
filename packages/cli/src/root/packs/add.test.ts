@@ -44,11 +44,11 @@ const initWorkspace = (
     profile?: string;
     packs?: Record<string, unknown>;
     skills?: Record<string, unknown>;
-    commands?: Record<string, unknown>;
+    hooks?: Record<string, unknown>;
     rules?: Record<string, unknown>;
     knowledge?: Record<string, unknown>;
     lockfileSkills?: Record<string, unknown>;
-    lockfileCommands?: Record<string, unknown>;
+    lockfileHooks?: Record<string, unknown>;
     lockfileRules?: Record<string, unknown>;
     lockfileKnowledge?: Record<string, unknown>;
   } = {},
@@ -65,11 +65,11 @@ const initWorkspace = (
             ]),
           ),
     skills: opts.skills,
-    commands: opts.commands,
+    hooks: opts.hooks,
     rules: opts.rules,
     knowledge: opts.knowledge,
     lockfileSkills: opts.lockfileSkills,
-    lockfileCommands: opts.lockfileCommands,
+    lockfileHooks: opts.lockfileHooks,
     lockfileRules: opts.lockfileRules,
     lockfileKnowledge: opts.lockfileKnowledge,
   });
@@ -142,10 +142,8 @@ const createPackManifest = (
       installedAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
       resolvedSkills: {},
-      resolvedCommands: {},
       resolvedMcpServers: {},
       resolvedSubagents: {},
-      resolvedFiles: {},
       resolvedRules: {},
       resolvedHooks: {},
       resolvedKnowledge: {},
@@ -262,8 +260,8 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
-        commands: { deploy: "@acme/commands/deploy" },
-        lockfileCommands: { deploy: registryLockEntry("deploy", "2.1.0") },
+        hooks: { deploy: "@acme/hooks/deploy" },
+        lockfileHooks: { deploy: registryLockEntry("deploy", "2.1.0") },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools");
 
@@ -271,7 +269,7 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "deploy"));
 
-          expect(readPackDependencies(tempDir, "frontend-tools")["@acme/commands/deploy"]).toBe(
+          expect(readPackDependencies(tempDir, "frontend-tools")["@acme/hooks/deploy"]).toBe(
             "^2.1.0",
           );
         }),
@@ -326,7 +324,7 @@ describe("packs-add.handler", () => {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         skills: { "shared-review": "@acme/skills/shared-review" },
-        commands: { "shared-deploy": "@acme/commands/shared-deploy" },
+        hooks: { "shared-deploy": "@acme/hooks/shared-deploy" },
         knowledge: { "shared-model": "@acme/knowledge/shared-model" },
         lockfileSkills: {
           "shared-review": makeRegistrySkillLockEntry({
@@ -337,7 +335,7 @@ describe("packs-add.handler", () => {
             publisherBindingId: "hbnd_test",
           }),
         },
-        lockfileCommands: { "shared-deploy": registryLockEntry("shared-deploy", "2.0.0") },
+        lockfileHooks: { "shared-deploy": registryLockEntry("shared-deploy", "2.0.0") },
         lockfileKnowledge: { "shared-model": registryLockEntry("shared-model", "3.0.0") },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools");
@@ -348,7 +346,7 @@ describe("packs-add.handler", () => {
 
           const dependencies = readPackDependencies(tempDir, "frontend-tools");
           expect(dependencies["@acme/skills/shared-review"]).toBe("^1.0.0");
-          expect(dependencies["@acme/commands/shared-deploy"]).toBe("^2.0.0");
+          expect(dependencies["@acme/hooks/shared-deploy"]).toBe("^2.0.0");
           expect(dependencies["@acme/knowledge/shared-model"]).toBe("^3.0.0");
         }),
       );
@@ -360,7 +358,7 @@ describe("packs-add.handler", () => {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         skills: { review: "@acme/skills/review" },
-        commands: { review: "@acme/commands/review" },
+        hooks: { review: "@acme/hooks/review" },
         lockfileSkills: {
           review: makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -370,7 +368,7 @@ describe("packs-add.handler", () => {
             publisherBindingId: "hbnd_test",
           }),
         },
-        lockfileCommands: { review: registryLockEntry("review", "2.0.0") },
+        lockfileHooks: { review: registryLockEntry("review", "2.0.0") },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools");
 
@@ -392,7 +390,7 @@ describe("packs-add.handler", () => {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
         skills: { review: "@acme/skills/review" },
-        commands: { review: "@acme/commands/review" },
+        hooks: { review: "@acme/hooks/review" },
         lockfileSkills: {
           review: makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -402,16 +400,16 @@ describe("packs-add.handler", () => {
             publisherBindingId: "hbnd_test",
           }),
         },
-        lockfileCommands: { review: registryLockEntry("review", "2.0.0") },
+        lockfileHooks: { review: registryLockEntry("review", "2.0.0") },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools");
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksAdd(defaultArgs("frontend-tools", "@acme/commands/review"));
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "@acme/hooks/review"));
 
           const dependencies = readPackDependencies(tempDir, "frontend-tools");
-          expect(dependencies["@acme/commands/review"]).toBe("^2.0.0");
+          expect(dependencies["@acme/hooks/review"]).toBe("^2.0.0");
           expect(dependencies["@acme/skills/review"]).toBeUndefined();
         }),
       );

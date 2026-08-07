@@ -9,9 +9,9 @@
  * | `skill/skill-md-present`               | error    | —       |
  * | `skill/manifest-present`               | error    | —       |
  * | `skill/frontmatter-parseable`          | error    | —       |
+ * | `skill/frontmatter-standard-valid`      | error    | —       |
  * | `skill/manifest-schema-valid`          | error    | —       |
  * | `skill/manifest-keys-recognized`       | error    | —       |
- * | `skill/capability-targeting-*`         | warning  | —       |
  * | `skill/standalone-declaration-valid`   | warning  | —       |
  * | `skill/recommended-packs-valid`        | warning  | —       |
  *
@@ -38,10 +38,9 @@ import type { SkillRuleContext } from "../context.js";
 import { skillMdPresentRule } from "./skill/skill-md-present.js";
 import { manifestPresentRule } from "./skill/manifest-present.js";
 import { frontmatterParseableRule } from "./skill/frontmatter-parseable.js";
+import { frontmatterStandardValidRule } from "./skill/frontmatter-standard-valid.js";
 import { manifestSchemaValidRule } from "./skill/manifest-schema-valid.js";
 import { manifestKeysRecognizedRule } from "./skill/manifest-keys-recognized.js";
-import { capabilityTargetingMetadataRule } from "./skill/capability-targeting-metadata.js";
-import { capabilityTargetingStructuralRule } from "./skill/capability-targeting-structural.js";
 import { recommendedPacksValidRule } from "./skill/recommended-packs-valid.js";
 import { standaloneDeclarationValidRule } from "./skill/standalone-declaration-valid.js";
 
@@ -56,10 +55,9 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillMdPresentRule,
   manifestPresentRule,
   frontmatterParseableRule,
+  frontmatterStandardValidRule,
   manifestSchemaValidRule,
   manifestKeysRecognizedRule,
-  capabilityTargetingStructuralRule,
-  capabilityTargetingMetadataRule,
   standaloneDeclarationValidRule,
   recommendedPacksValidRule,
 ];

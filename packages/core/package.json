@@ -55,10 +55,6 @@
       "types": "./dist/src/unstable/agent-capabilities/index.d.ts",
       "default": "./dist/src/unstable/agent-capabilities/index.js"
     },
-    "./unstable/capability-targeting": {
-      "types": "./dist/src/unstable/capability-targeting/index.d.ts",
-      "default": "./dist/src/unstable/capability-targeting/index.js"
-    },
     "./unstable/extension-types": {
       "types": "./dist/src/unstable/extension-types/index.d.ts",
       "default": "./dist/src/unstable/extension-types/index.js"
@@ -159,10 +155,6 @@
       "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
-    "./unstable/files": {
-      "types": "./dist/src/unstable/files/index.d.ts",
-      "default": "./dist/src/unstable/files/index.js"
-    },
     "./unstable/rules": {
       "types": "./dist/src/unstable/rules/index.d.ts",
       "default": "./dist/src/unstable/rules/index.js"
@@ -178,10 +170,6 @@
     "./unstable/managed-files": {
       "types": "./dist/src/unstable/managed-files/index.d.ts",
       "default": "./dist/src/unstable/managed-files/index.js"
-    },
-    "./unstable/commands": {
-      "types": "./dist/src/unstable/commands/index.d.ts",
-      "default": "./dist/src/unstable/commands/index.js"
     },
     "./unstable/mcps": {
       "types": "./dist/src/unstable/mcps/index.d.ts",

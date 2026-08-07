@@ -70,7 +70,7 @@ export const cliConfigLayer = CliConfig.layer({
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
-    "Open extension manager for AI coding agents.\n  Manage skills, commands, Context Files packages, MCP servers, and packs across your AI coding agents from a single CLI.",
+    "Open extension manager for AI coding agents.\n  Manage skills, MCP servers, subagents, rules, hooks, knowledge, and packs across your AI coding agents from a single CLI.",
   ),
   Command.withExamples([
     { command: "axm setup", description: "Start managing extensions in your project" },

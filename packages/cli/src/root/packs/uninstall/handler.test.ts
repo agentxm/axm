@@ -32,8 +32,6 @@ import {
 } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -73,7 +71,6 @@ const initWorkspace = (
     if (typeof owner !== "string" || typeof version !== "string") continue;
     const dependencyMaps = [
       Reflect.get(value, "resolvedSkills"),
-      Reflect.get(value, "resolvedCommands"),
       Reflect.get(value, "resolvedMcpServers"),
       Reflect.get(value, "resolvedSubagents"),
     ];
@@ -128,7 +125,6 @@ const makePackLockEntry = (
   name: string,
   overrides?: {
     resolvedSkills?: RawResolvedExtensionMap;
-    resolvedCommands?: RawResolvedExtensionMap;
     resolvedMcpServers?: RawResolvedExtensionMap;
     resolvedSubagents?: RawResolvedExtensionMap;
   },
@@ -143,7 +139,6 @@ const makePackLockEntry = (
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: overrides?.resolvedSkills ?? {},
-  resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
   resolvedSubagents: overrides?.resolvedSubagents ?? {},
 });
@@ -199,8 +194,6 @@ describe("packs uninstall handler", () => {
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
       SkillManagerLive,
-      CommandManagerLive,
-      FilesManagerLive,
       HookManagerLive,
       KnowledgeManagerLive,
       McpServerManagerLive,

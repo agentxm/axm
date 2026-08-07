@@ -61,26 +61,6 @@ export const cursorAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
-        docs: [],
-        sources: [
-          "https://docs.cursor.com/en/agent/chat/commands",
-          "https://cursor.com/changelog/1-6",
-        ],
-        scopes: ["user", "project"],
-        directory: ".cursor/commands",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -46,16 +46,16 @@ describe("PackManifestSchema", () => {
       dependencies: {
         "@wayne/skills/grappling-hook": "^1.0.0",
         "@wayne/skills/batarang": "~2.0.0",
-        "@wayne/commands/batcomputer-sync": "^1.0.0",
+        "@wayne/hooks/preflight": "^1.0.0",
         "@wayne/mcps/batcomputer": "^3.0.0",
         "@wayne/subagents/robin": "^1.0.0",
-        "@ac/files/workspace-baseline": "^1.0.0",
+        "@ac/knowledge/workspace-baseline": "^1.0.0",
       },
     };
     const result = decode(input);
-    expect(result.dependencies["@wayne/commands/batcomputer-sync"]).toBe("^1.0.0");
+    expect(result.dependencies["@wayne/hooks/preflight"]).toBe("^1.0.0");
     expect(result.dependencies["@wayne/subagents/robin"]).toBe("^1.0.0");
-    expect(result.dependencies["@ac/files/workspace-baseline"]).toBe("^1.0.0");
+    expect(result.dependencies["@ac/knowledge/workspace-baseline"]).toBe("^1.0.0");
   });
 
   it("accepts manifest with subagent dependencies", () => {

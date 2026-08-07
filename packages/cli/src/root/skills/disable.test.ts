@@ -280,7 +280,6 @@ describe("disable.handler", () => {
                   publisherBindingId: "hbnd_test",
                 },
               },
-              resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
             },

@@ -37,22 +37,6 @@ export const kiroCliAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
-        docs: [],
-        sources: ["https://kiro.dev/docs/cli/reference/slash-commands/"],
-        scopes: ["user", "project"],
-        directory: ".kiro/prompts",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

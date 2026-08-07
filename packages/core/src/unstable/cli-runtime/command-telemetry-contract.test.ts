@@ -99,11 +99,12 @@ describe("command_completed telemetry contract", () => {
     Effect.sync(() => {
       const types = [
         "skill",
-        "command",
-        "files",
         "subagent",
         "pack",
         "mcp-server",
+        "rule",
+        "hook",
+        "knowledge",
         "mixed",
         "unknown",
       ] as const;

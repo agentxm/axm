@@ -70,10 +70,8 @@ describe("no source resolution or network I/O", () => {
         yield* project.skills.installed;
         yield* project.skills.active;
         yield* project.skills.unmanaged;
-        yield* project.commands.installed;
         yield* project.mcpServers.installed;
         yield* project.subagents.installed;
-        yield* project.files.installed;
         yield* project.rules.installed;
         yield* project.packs.installed;
         yield* project.agents.list;

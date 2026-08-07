@@ -53,10 +53,10 @@ const workspaceSkill = (version: string): ExtensionRef => {
   };
 };
 
-const registryCommand = (): ExtensionRef => {
+const registrySkill = (): ExtensionRef => {
   const name = extensionName("release");
   return {
-    type: "command",
+    type: "skill",
     refType: "registry",
     source: registrySource,
     owner: handle("@acme"),
@@ -65,7 +65,7 @@ const registryCommand = (): ExtensionRef => {
     version: exactVersion("2.1.0"),
     integrity: Option.some("sha512-release"),
     packages: [],
-    command: { name },
+    skill: { name, description: Option.none(), metadata: Option.none() },
   };
 };
 
@@ -81,11 +81,11 @@ describe("resolvePackDependencies", () => {
     "resolves a mixed workspace and Registry pack without replacing workspace authority",
     () =>
       Effect.gen(function* () {
-        const find = vi.fn(() => Effect.succeed([registryCommand()]));
+        const find = vi.fn(() => Effect.succeed([registrySkill()]));
         const resolved = yield* resolvePackDependencies(
           packRef({
             "@acme/skills/review": "^1.0.0",
-            "@acme/commands/release": "^2.0.0",
+            "@acme/skills/release": "^2.0.0",
           }),
           providers(find),
           undefined,
@@ -103,7 +103,7 @@ describe("resolvePackDependencies", () => {
           version: "1.4.0",
           sourceIdentity: "workspace:@acme/skills/review",
         });
-        expect(resolved.resolvedCommands["@acme/commands/release"]).toEqual({
+        expect(resolved.resolvedSkills["@acme/skills/release"]).toEqual({
           source: "registry",
           version: "2.1.0",
           publisherBindingId: "hbnd_release",
@@ -117,7 +117,7 @@ describe("resolvePackDependencies", () => {
     "fails on an incompatible workspace-authoritative version without Registry fallback",
     () =>
       Effect.gen(function* () {
-        const find = vi.fn(() => Effect.succeed([registryCommand()]));
+        const find = vi.fn(() => Effect.succeed([registrySkill()]));
         const error = yield* resolvePackDependencies(
           packRef({ "@acme/skills/review": "^2.0.0" }),
           providers(find),

@@ -110,10 +110,8 @@ const workspace: WorkspaceRuleContext = {
 const noEvaluations: GroupEvaluations = {
   skill: [],
   pack: [],
-  command: [],
   subagent: [],
   "mcp-server": [],
-  files: [],
   rule: [],
   hook: [],
   knowledge: [],

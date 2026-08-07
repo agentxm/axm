@@ -100,28 +100,6 @@ const cleanupSkillArtifactsInDir = (args: {
     return removedPaths;
   });
 
-const cleanupCommandArtifactsInDir = (args: {
-  readonly fs: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly commandsDir: string;
-}) =>
-  Effect.gen(function* () {
-    const removedPaths: Array<string> = [];
-    const entries = yield* safeReadDirectory(args.fs, args.commandsDir, true);
-
-    for (const entry of entries) {
-      const filePath = args.path.join(args.commandsDir, entry);
-      const stat = yield* args.fs.stat(filePath).pipe(Effect.option);
-      if (stat._tag === "None" || stat.value.type !== "File") continue;
-      const content = yield* safeReadFileString(args.fs, filePath);
-      if (!hasAxmManagedMarker(content)) continue;
-      yield* removePath(args.fs, filePath);
-      removedPaths.push(filePath);
-    }
-
-    return removedPaths;
-  });
-
 const cleanupSubagentArtifactsInDir = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
@@ -189,20 +167,6 @@ const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
       path: context.path,
       baseDir: context.workspaceRoot,
       skillsDir: skillsDir.dir,
-    });
-  });
-
-const cleanupAgentCommands: RemovedAgentCleanup = (context) =>
-  Effect.gen(function* () {
-    const commandsDir = yield* context.agent.resolveEffectiveCommandsDir({
-      workspaceRoot: context.workspaceRoot,
-      scope: context.scope,
-    });
-    if (commandsDir._tag !== "supported") return NO_PATHS;
-    return yield* cleanupCommandArtifactsInDir({
-      fs: context.fs,
-      path: context.path,
-      commandsDir: commandsDir.dir,
     });
   });
 
@@ -284,14 +248,11 @@ const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
  * type fails to compile until that behavior is decided.
  *
  * Workspace-placed types are deliberately absent rather than mapped to a no-op.
- * `files` extensions render to workspace paths, and `rule` extensions live in
- * shared instruction files as managed regions that other configured agents
- * still read. Neither is keyed to a single agent, so removing one agent must
- * not delete them.
+ * Workspace-placed extensions live in shared workspace content and are not
+ * keyed to a single agent, so removing one agent must not delete them.
  */
 const cleanupByExtensionType = {
   skill: cleanupAgentSkills,
-  command: cleanupAgentCommands,
   subagent: cleanupAgentSubagents,
   "mcp-server": cleanupAgentMcpServers,
   hook: cleanupAgentHooks,
@@ -299,7 +260,7 @@ const cleanupByExtensionType = {
 
 /**
  * Remove AXM-managed artifacts for agents that are no longer configured for a
- * workspace: rendered skill, command, and subagent files, plus the agent's
+ * workspace: rendered skill and subagent files, plus the agent's
  * managed MCP server entries and hook groups. Only content carrying an
  * AXM-managed signal is removed; user-authored files and entries are left
  * untouched.

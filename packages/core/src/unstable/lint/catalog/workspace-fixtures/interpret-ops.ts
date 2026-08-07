@@ -15,9 +15,8 @@
  *   probes, remove per-agent artifacts.
  * - `enable-skill` / `disable-skill` — toggle per-agent artifact presence.
  * - `install-pack` / `uninstall-pack` — add/remove the pack lock entry.
- * - Other families (`-command`, `-mcp-server`, `-subagent`, MCP agent config)
- *   are stubs for the harness; today no seeded reducer state models those
- *   files.
+ * - Some MCP agent-config operations are stubs for the harness; today no
+ *   seeded reducer state models those files.
  *
  * The reducer writes **raw JSON-compatible shapes** into
  * `state.lockfile` — the accessor returns `LockfileDocument = unknown`, so
@@ -114,10 +113,6 @@ interface RawPackEntry {
     string,
     { readonly version: string; readonly publisherBindingId: string }
   >;
-  readonly resolvedCommands: Record<
-    string,
-    { readonly version: string; readonly publisherBindingId: string }
-  >;
   readonly resolvedMcpServers: Record<
     string,
     { readonly version: string; readonly publisherBindingId: string }
@@ -131,10 +126,8 @@ interface RawPackEntry {
 interface RawLockfile {
   readonly lockfileVersion: number;
   skills: Record<string, RawSkillEntry>;
-  commands?: Record<string, unknown>;
   subagents?: Record<string, unknown>;
   mcpServers?: Record<string, unknown>;
-  files?: Record<string, unknown>;
   rules?: Record<string, unknown>;
   hooks?: Record<string, unknown>;
   knowledge?: Record<string, unknown>;
@@ -150,10 +143,8 @@ const asLockfile = (doc: unknown): RawLockfile => {
   }
   const version = doc["lockfileVersion"];
   const skills = doc["skills"];
-  const commands = doc["commands"];
   const subagents = doc["subagents"];
   const mcpServers = doc["mcpServers"];
-  const files = doc["files"];
   const rules = doc["rules"];
   const hooks = doc["hooks"];
   const knowledge = doc["knowledge"];
@@ -161,10 +152,8 @@ const asLockfile = (doc: unknown): RawLockfile => {
   const result: RawLockfile = {
     lockfileVersion: typeof version === "number" ? version : 1,
     skills: isRecord(skills) ? { ...(skills as Record<string, RawSkillEntry>) } : {},
-    ...(isRecord(commands) ? { commands: { ...commands } } : {}),
     ...(isRecord(subagents) ? { subagents: { ...subagents } } : {}),
     ...(isRecord(mcpServers) ? { mcpServers: { ...mcpServers } } : {}),
-    ...(isRecord(files) ? { files: { ...files } } : {}),
     ...(isRecord(rules) ? { rules: { ...rules } } : {}),
     ...(isRecord(hooks) ? { hooks: { ...hooks } } : {}),
     ...(isRecord(knowledge) ? { knowledge: { ...knowledge } } : {}),
@@ -386,7 +375,6 @@ export const applyInstallPack = (state: WorkspaceState, intent: InstallPackInten
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
       resolvedSkills: {},
-      resolvedCommands: {},
       resolvedMcpServers: {},
       resolvedSubagents: {},
     },
@@ -457,12 +445,8 @@ const isUninstallPackIntent = (args: unknown): args is UninstallPackIntent =>
 const PACKAGE_FAMILIES = {
   "install-subagent": { key: "subagents", plural: "subagents", manifest: "subagent.json" },
   "uninstall-subagent": { key: "subagents", plural: "subagents", manifest: "subagent.json" },
-  "install-command": { key: "commands", plural: "commands", manifest: "command.json" },
-  "uninstall-command": { key: "commands", plural: "commands", manifest: "command.json" },
   "install-mcp-server": { key: "mcpServers", plural: "mcps", manifest: "mcp.json" },
   "uninstall-mcp-server": { key: "mcpServers", plural: "mcps", manifest: "mcp.json" },
-  "install-files": { key: "files", plural: "files", manifest: "files.json" },
-  "uninstall-files": { key: "files", plural: "files", manifest: "files.json" },
   "install-rule": { key: "rules", plural: "rules", manifest: "rule.json" },
   "uninstall-rule": { key: "rules", plural: "rules", manifest: "rule.json" },
   "install-hook": { key: "hooks", plural: "hooks", manifest: "hook.json" },
@@ -535,14 +519,12 @@ const applyUninstallPackage = (
 
 /**
  * Activation for a family whose only observable state is the settings entry's
- * `enabled` flag. Skills and commands additionally materialize agent-dir
- * artifacts; these families do not.
+ * `enabled` flag. Skills additionally materialize agent-dir artifacts; these
+ * families do not.
  */
 const ACTIVATION_FAMILIES = {
   "enable-subagent": { key: "subagents", enabled: true },
   "disable-subagent": { key: "subagents", enabled: false },
-  "enable-files": { key: "files", enabled: true },
-  "disable-files": { key: "files", enabled: false },
   "enable-rule": { key: "rules", enabled: true },
   "disable-rule": { key: "rules", enabled: false },
   "enable-hook": { key: "hooks", enabled: true },
@@ -621,8 +603,6 @@ export const applyOperationIntent = (
         applyUninstallPack(state, op.args);
       }
       return;
-    case "enable-command":
-    case "disable-command":
     case "sync-mcp-server-agent":
     case "remove-mcp-server-agent":
     case "sync-instruction-target":

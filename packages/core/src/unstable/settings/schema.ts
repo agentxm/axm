@@ -14,7 +14,6 @@ import {
   FQN_PATTERN,
 } from "../extensions/common.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
-import { FileInputValueSchema } from "../files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
@@ -344,44 +343,6 @@ export const MinimumReleaseAgeSchema = Schema.String.check(
 /** @experimental */
 export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchema>;
 
-/**
- * Context Files input and workspace variable values.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FileInputValuesMapSchema = Schema.Record(Schema.String, FileInputValueSchema).annotate(
-  {
-    identifier: "FilesInputValuesMap",
-    title: "Files Input Values Map",
-    description: "Scalar values supplied to a Context Files package entry.",
-  },
-);
-
-/** @experimental */
-export type FileInputValuesMap = Schema.Schema.Type<typeof FileInputValuesMapSchema>;
-
-/**
- * Workspace variables available to file templates as `${vars.*}`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const WorkspaceVarsMapSchema = Schema.Record(Schema.String, FileInputValueSchema).annotate({
-  identifier: "WorkspaceVarsMap",
-  title: "Workspace Vars Map",
-  description: "Scalar workspace variables available to Context Files templates.",
-});
-
-/** @experimental */
-export type WorkspaceVarsMap = Schema.Schema.Type<typeof WorkspaceVarsMapSchema>;
-
-type FilesEntryObject = EnabledEntryObject & {
-  readonly inputs?: FileInputValuesMap | undefined;
-};
-
-type FilesEntryCanonical = EnabledEntry & {
-  readonly inputs: FileInputValuesMap;
-};
-
 const compactOrVerboseEntry = <
   ObjectEntry,
   CanonicalEntry,
@@ -518,164 +479,6 @@ export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
  * @experimental This API is unstable and may change without notice.
  */
 export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
-
-/**
- * Managed command with source and optional config flags.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const CommandEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("command", "commands"),
-  enabled: enabledFieldSchema,
-}).annotate({
-  title: "Command Entry Object",
-  description: "A command entry with source and an optional enabled flag.",
-});
-
-/**
- * Union of command entry forms: plain source string or object with source + enabled.
- *
- * Decodes to canonical `{ source, enabled }` form; encodes back to the most
- * compact JSON representation.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const CommandEntrySchema = compactEnabledEntry(CommandEntryObjectSchema, {
-  identifier: "CommandEntry",
-  title: "Command Entry",
-  description: "A command entry: a source string, or an object with source plus optional flags.",
-  examples: [
-    "@acme/commands/code-review@^1.0.0",
-    { source: "github:acme/agent-extensions", enabled: false },
-  ],
-});
-
-/**
- * Inferred type for CommandEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
-
-/**
- * Commands map - maps command names to command entries.
- *
- * Keys must be valid command names per extension naming conventions:
- * - Max 64 characters
- * - Lowercase letters, numbers, and hyphens only
- * - Must not start or end with a hyphen
- *
- * Values are command entries: plain source strings or objects with source + enabled.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema)
-  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
-  .check(workspaceEntriesMatch("commands"))
-  .annotate({
-    identifier: "CommandsMap",
-    title: "Commands Map",
-    description: "A map of command names to command entries.",
-  });
-
-/**
- * Inferred type for CommandsMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
-
-// -----------------------------------------------------------------------------
-// Files Entry Schemas
-// -----------------------------------------------------------------------------
-
-/**
- * Managed Context Files package with source, optional config flags, and input values.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("Context Files package", "files"),
-  enabled: enabledFieldSchema,
-  inputs: Schema.optionalKey(FileInputValuesMapSchema),
-}).annotate({
-  title: "Files Entry Object",
-  description:
-    "A Context Files package entry with source, optional flags, and scalar input values.",
-});
-
-/**
- * Union of Context Files package entry forms: plain source string or object with source, flags, and inputs.
- *
- * Decodes to canonical `{ source, enabled, inputs }` form; encodes
- * back to a plain source string when all metadata is default and no inputs are
- * set.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesEntrySchema = compactOrVerboseEntry(
-  FilesEntryObjectSchema,
-  Schema.Struct({
-    source: Schema.String,
-    enabled: Schema.Boolean,
-    inputs: FileInputValuesMapSchema,
-  }),
-  {
-    decode: (entry: string | FilesEntryObject): FilesEntryCanonical =>
-      typeof entry === "string"
-        ? { source: entry, enabled: true, inputs: {} }
-        : {
-            source: entry.source,
-            enabled: entry.enabled ?? true,
-            inputs: entry.inputs ?? {},
-          },
-    encode: (entry: FilesEntryCanonical): string | FilesEntryObject => {
-      const hasInputs = Object.keys(entry.inputs).length > 0;
-      if (entry.enabled && !hasInputs) return entry.source;
-      const obj: {
-        source: string;
-        enabled?: boolean;
-        inputs?: FileInputValuesMap;
-      } = { source: entry.source };
-      if (!entry.enabled) obj.enabled = false;
-      if (hasInputs) obj.inputs = entry.inputs;
-      return obj;
-    },
-  },
-  {
-    identifier: "FilesEntry",
-    title: "Files Entry",
-    description:
-      "A Context Files package entry: a source string, or an object with source plus optional flags and inputs.",
-    examples: [
-      "@ac/files/workspace-baseline@^1.0.0",
-      {
-        source: "@ac/files/workspace-baseline@^1.0.0",
-        inputs: { projectName: "agentxm" },
-      },
-    ],
-  },
-);
-
-/** @experimental */
-export type FilesEntry = Schema.Schema.Type<typeof FilesEntrySchema>;
-
-/**
- * Files map - maps Context Files package names to files entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const FilesMapSchema = Schema.Record(Schema.String, FilesEntrySchema)
-  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
-  .check(workspaceEntriesMatch("files"))
-  .annotate({
-    identifier: "FilesMap",
-    title: "Files Map",
-    description: "A map of Context Files package names to Context Files package entries.",
-  });
-
-/** @experimental */
-export type FilesMap = Schema.Schema.Type<typeof FilesMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Rule Entry Schemas
@@ -1252,10 +1055,8 @@ export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
  */
 export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
   skill: null,
-  command: null,
   "mcp-server": null,
   subagent: null,
-  files: null,
   rule: RulesConfigSchema,
   hook: null,
   knowledge: KnowledgeConfigSchema,
@@ -1275,12 +1076,9 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "owner",
   "minimumReleaseAge",
   "sources",
-  "vars",
   "agents",
   "rulesConfig",
   "skills",
-  "commands",
-  "files",
   "rules",
   "hooks",
   "knowledge",
@@ -1298,12 +1096,9 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
  * - minimumReleaseAge: Minimum published age for registry versions during unattended resolution
  * - sources: Source provider configurations
- * - vars: Scalar workspace variables available to Context Files templates
  * - agents: List of agent IDs to sync extensions to
  * - rulesConfig: Feature-level configuration for rules capabilities
  * - skills: Desired skills by name to source string
- * - commands: Desired commands by name to version specifier
- * - files: Desired Context Files packages by name to source string or input config
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
  * - knowledge: Desired Open Knowledge Format bundles by name to source string
@@ -1356,27 +1151,10 @@ const SettingsBaseSchema = Schema.Struct({
       description: "Named source hosts used to resolve source-scheme entry references.",
     }),
   ),
-  vars: Schema.optionalKey(
-    Schema.Union([WorkspaceVarsMapSchema]).annotate({
-      description: "Scalar workspace variables available to Context Files templates.",
-    }),
-  ),
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
         "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
-    }),
-  ),
-  commands: Schema.optionalKey(
-    Schema.Union([CommandsMapSchema]).annotate({
-      description:
-        "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
-    }),
-  ),
-  files: Schema.optionalKey(
-    Schema.Union([FilesMapSchema]).annotate({
-      description:
-        "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
     }),
   ),
   rules: Schema.optionalKey(
@@ -1456,15 +1234,6 @@ export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
       skills: {
         "code-review": "@acme/skills/code-review@^1.0.0",
         "legacy-rules": { source: "@acme/skills/legacy-rules@^1.0.0", enabled: false },
-      },
-      vars: {
-        projectName: "agentxm",
-      },
-      files: {
-        "workspace-baseline": {
-          source: "@ac/files/workspace-baseline@^1.0.0",
-          inputs: { projectName: "AgentXM" },
-        },
       },
       lint: {
         rules: {

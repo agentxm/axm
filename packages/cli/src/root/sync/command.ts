@@ -12,10 +12,8 @@ const syncConfig = {
   ),
   type: Flag.choice("type", [
     "skill",
-    "command",
     "mcp-server",
     "subagent",
-    "files",
     "rule",
     "hook",
     "knowledge",

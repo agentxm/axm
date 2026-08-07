@@ -188,28 +188,6 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
     }),
   );
 
-  it.effect("emits command occurrences for agents with a commands dir", () =>
-    Effect.gen(function* () {
-      const { occurrences } = yield* runScanner({
-        workspaceRoot: WORKSPACE_ROOT,
-        userHome: USER_HOME,
-        project: {
-          agentDirs: {
-            "claude-code": {
-              "commands/some-command.md": "# cmd\n",
-            },
-          },
-        },
-      });
-      const commands = occurrences.filter(
-        (o) => o.type === "command" && o.agentId === "claude-code",
-      );
-      expect(commands).toHaveLength(1);
-      expect(commands[0]?.name).toBe("some-command");
-      expect(commands[0]?.contentLocation).toBe("/ws/.claude/commands/some-command.md");
-    }),
-  );
-
   it.effect("emits subagent occurrences for agents with a subagents dir", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({

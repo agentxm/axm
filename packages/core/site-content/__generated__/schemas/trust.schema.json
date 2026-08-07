@@ -4,19 +4,9 @@
   "definitions": {
     "ExtensionType": {
       "type": "string",
-      "enum": [
-        "skill",
-        "command",
-        "mcp-server",
-        "subagent",
-        "files",
-        "rule",
-        "hook",
-        "knowledge",
-        "pack"
-      ],
+      "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
       "title": "Extension Type",
-      "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack."
+      "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
     },
     "ExtensionTrustRecord": {
       "type": "object",

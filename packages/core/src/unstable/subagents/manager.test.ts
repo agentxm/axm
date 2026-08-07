@@ -52,9 +52,6 @@ const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): Codi
   resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   removeMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  resolveEffectiveCommandsDir: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  addCommand: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  removeCommand: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   resolveEffectiveSubagentsDir: () =>
     Effect.succeed({
       _tag: "supported",

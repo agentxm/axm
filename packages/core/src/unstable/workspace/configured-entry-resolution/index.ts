@@ -1,6 +1,4 @@
 export {
-  resolveConfiguredCommand,
-  resolveConfiguredFiles,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -17,9 +15,7 @@ export {
 export {
   toConfiguredEntryFailureReason,
   type ConfiguredEntryFailureReason,
-  type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
-  type ResolvedConfiguredFiles,
   type ResolvedConfiguredHook,
   type ResolvedConfiguredKnowledge,
   type ResolvedConfiguredMcpServer,

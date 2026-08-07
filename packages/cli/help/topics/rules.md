@@ -123,8 +123,8 @@ files, missing or drifted agent targets, unsupported agent conventions, and
 stale managed `.gitignore` blocks.
 
 Use `axm lint --fix` to repair autofixable instruction drift. `axm sync` also
-propagates configured instruction files after materializing extension and
-context files.
+propagates configured instruction files after materializing extension
+artifacts.
 
 ## Alias gitignore propagation
 

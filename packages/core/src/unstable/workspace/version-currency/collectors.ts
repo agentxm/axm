@@ -215,14 +215,10 @@ const refExtensionName = (ref: GitHostedExtensionRef): string => {
   switch (ref.type) {
     case "skill":
       return ref.skill.name;
-    case "command":
-      return ref.command.name;
     case "mcp-server":
       return ref.server.name;
     case "subagent":
       return ref.subagent.name;
-    case "files":
-      return ref.file.name;
     case "rule":
       return ref.rule.name;
     case "hook":
@@ -336,17 +332,11 @@ const makeSourceFreshnessCollector =
 export const collectSkillSourceFreshness: SourceFreshnessCollector =
   makeSourceFreshnessCollector("skill");
 
-export const collectCommandSourceFreshness: SourceFreshnessCollector =
-  makeSourceFreshnessCollector("command");
-
 export const collectMcpServerSourceFreshness: SourceFreshnessCollector =
   makeSourceFreshnessCollector("mcp-server");
 
 export const collectSubagentSourceFreshness: SourceFreshnessCollector =
   makeSourceFreshnessCollector("subagent");
-
-export const collectFilesSourceFreshness: SourceFreshnessCollector =
-  makeSourceFreshnessCollector("files");
 
 export const collectRuleSourceFreshness: SourceFreshnessCollector =
   makeSourceFreshnessCollector("rule");
@@ -360,10 +350,8 @@ export const collectKnowledgeSourceFreshness: SourceFreshnessCollector =
 /** Every per-type git-source freshness collector, in catalog order. */
 export const sourceFreshnessCollectors: ReadonlyArray<SourceFreshnessCollector> = [
   collectSkillSourceFreshness,
-  collectCommandSourceFreshness,
   collectMcpServerSourceFreshness,
   collectSubagentSourceFreshness,
-  collectFilesSourceFreshness,
   collectRuleSourceFreshness,
   collectHookSourceFreshness,
   collectKnowledgeSourceFreshness,
@@ -381,16 +369,6 @@ export const collectSkillCurrency = (
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     return yield* collectCurrency("skill", client);
-  });
-
-/**
- * Collect currency entries for all enabled, registry-sourced commands.
- */
-export const collectCommandCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("command", client);
   });
 
 /**
@@ -421,16 +399,6 @@ export const collectPackCurrency = (
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     return yield* collectCurrency("pack", client);
-  });
-
-/**
- * Collect currency entries for all enabled, registry-sourced Context Files packages.
- */
-export const collectFilesCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("files", client);
   });
 
 /**
@@ -474,33 +442,20 @@ export const collectAllCurrencyEntries = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const [skills, commands, mcpServers, subagents, packs, files, rules, hooks, knowledge] =
-      yield* Effect.all(
-        [
-          collectSkillCurrency(client),
-          collectCommandCurrency(client),
-          collectMcpServerCurrency(client),
-          collectSubagentCurrency(client),
-          collectPackCurrency(client),
-          collectFilesCurrency(client),
-          collectRuleCurrency(client),
-          collectHookCurrency(client),
-          collectKnowledgeCurrency(client),
-        ],
-        { concurrency: "unbounded" },
-      );
+    const [skills, mcpServers, subagents, packs, rules, hooks, knowledge] = yield* Effect.all(
+      [
+        collectSkillCurrency(client),
+        collectMcpServerCurrency(client),
+        collectSubagentCurrency(client),
+        collectPackCurrency(client),
+        collectRuleCurrency(client),
+        collectHookCurrency(client),
+        collectKnowledgeCurrency(client),
+      ],
+      { concurrency: "unbounded" },
+    );
 
-    return [
-      ...skills,
-      ...commands,
-      ...mcpServers,
-      ...subagents,
-      ...packs,
-      ...files,
-      ...rules,
-      ...hooks,
-      ...knowledge,
-    ];
+    return [...skills, ...mcpServers, ...subagents, ...packs, ...rules, ...hooks, ...knowledge];
   });
 
 export const collectAllUpdateEntries = (

@@ -31,7 +31,6 @@ describe("describeSchemaDocument", () => {
 
   it("uses the sentence-cased type label", () => {
     expect(describeSchemaDocument("mcp.json")).toBe("MCP server manifest");
-    expect(describeSchemaDocument("files.json")).toBe("Context files manifest");
     expect(describeSchemaDocument("knowledge.json")).toBe("Knowledge bundle manifest");
     expect(describeSchemaDocument("rule.json")).toBe("Rule manifest");
   });

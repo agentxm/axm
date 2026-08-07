@@ -33,19 +33,6 @@ export const iflowCliAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Custom workflow commands are Markdown files in .iflow/commands for a project or ~/.iflow/commands for a user.",
-        docs: [],
-        sources: ["https://platform.iflow.cn/en/cli/examples/subcommand"],
-        scopes: ["user", "project"],
-        directory: ".iflow/commands",
-      },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

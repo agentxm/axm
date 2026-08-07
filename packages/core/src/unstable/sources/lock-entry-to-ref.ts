@@ -12,7 +12,6 @@ import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../extensions/index.js";
 import type {
-  CommandLockEntry,
   KnowledgeLockEntry,
   PackLockEntry,
   McpServerLockEntry,
@@ -20,7 +19,6 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { CommandExtensionRef } from "../commands/refs.js";
 import type { PackRef } from "../packs/refs.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
@@ -30,8 +28,7 @@ import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
-type SourceLockEntry =
-  SkillLockEntry | CommandLockEntry | KnowledgeLockEntry | McpServerLockEntry | SubagentLockEntry;
+type SourceLockEntry = SkillLockEntry | KnowledgeLockEntry | McpServerLockEntry | SubagentLockEntry;
 
 interface LockEntryToRefDeps {
   readonly baseDir: string;
@@ -260,79 +257,6 @@ export const skillLockEntryToRef = (
               location: lockEntryLocation(deps.baseDir, "skills", extensionName),
               gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
-            }),
-          );
-      }
-    },
-  );
-
-export const commandLockEntryToRef = (
-  name: string,
-  entry: CommandLockEntry,
-  deps: LockEntryToRefDeps,
-): Effect.Effect<CommandExtensionRef, AppError> =>
-  Effect.flatMap(
-    decodeLockEntryName(name),
-    (extensionName): Effect.Effect<CommandExtensionRef, AppError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "command" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              command: { name: extensionName },
-            }),
-          );
-        case "workspace":
-          return Effect.succeed({
-            type: "command" as const,
-            refType: "workspace" as const,
-            source: {
-              type: "workspace" as const,
-              owner: entry.owner,
-              extensionType: "command" as const,
-              name: entry.name,
-            },
-            owner: entry.owner,
-            name: entry.name,
-            version: entry.version,
-            sourceHash: entry.sourceHash,
-            scope: deps.scope,
-            location: workspacePackageLocation(deps, entry.owner, "commands", entry.name),
-            command: { name: extensionName },
-          });
-        case "local": {
-          const commandSourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "command" as const,
-            refType: "local" as const,
-            source: { type: "local" as const, path: commandSourcePath },
-            location: fileHref(commandSourcePath),
-            command: { name: extensionName },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
-            (source) => ({
-              type: "command" as const,
-              refType: "git-hosted" as const,
-              source,
-              location: lockEntryLocation(deps.baseDir, "commands", extensionName),
-              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
-              command: { name: extensionName },
             }),
           );
       }

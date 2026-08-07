@@ -30,8 +30,6 @@ import {
 } from "@agentxm/client-core/unstable/cli-flags";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -48,10 +46,6 @@ import {
   PendingDeviceLoginStoreLive,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
-import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
-import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
-import { InstallFilesCommandWorkflowActionsLive } from "./root/files/install/command-actions.js";
-import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall/command-actions.js";
 import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
 import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
 import { InstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/install/command-actions.js";
@@ -236,21 +230,7 @@ const makeWorkspaceProgramLayer = (
   );
 
   // Extensions: wire workflow actions with core managers.
-  // Commands, McpServers, Skills are independent. Packs depends on the other managers.
-  const commandsLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallCommandCommandWorkflowActionsLive,
-      UninstallCommandCommandWorkflowActionsLive,
-    ),
-    CommandManagerLive,
-  );
-  const filesLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallFilesCommandWorkflowActionsLive,
-      UninstallFilesCommandWorkflowActionsLive,
-    ),
-    FilesManagerLive,
-  );
+  // Leaf managers are independent. Packs depend on the other managers.
   const rulesLayer = Layer.provideMerge(
     Layer.mergeAll(InstallRuleCommandWorkflowActionsLive, UninstallRuleCommandWorkflowActionsLive),
     RuleManagerLive,
@@ -292,8 +272,6 @@ const makeWorkspaceProgramLayer = (
     PackManagerLive,
   );
   const coreExtensions = Layer.mergeAll(
-    commandsLayer,
-    filesLayer,
     rulesLayer,
     hooksLayer,
     mcpServersLayer,

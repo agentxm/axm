@@ -237,7 +237,6 @@ describe("enable.handler", () => {
                   publisherBindingId: "hbnd_test",
                 },
               },
-              resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
             },

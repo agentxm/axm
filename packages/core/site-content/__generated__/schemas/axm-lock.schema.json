@@ -74,36 +74,14 @@
       "title": "Inline MCP Server Lock Entry",
       "description": "Lockfile entry for an inline MCP server configured directly in settings.json."
     },
-    "FilesInputValue": {
-      "anyOf": [
-        { "type": "string" },
-        {
-          "anyOf": [
-            { "type": "number" },
-            { "type": "string", "enum": ["NaN"] },
-            { "type": "string", "enum": ["Infinity"] },
-            { "type": "string", "enum": ["-Infinity"] }
-          ]
-        },
-        { "type": "boolean" }
-      ],
-      "title": "Files Input Value",
-      "description": "Scalar value used to render files templates."
-    },
-    "FilesResolvedInputsMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/FilesInputValue" },
-      "title": "Files Resolved Inputs Map",
-      "description": "Scalar input values resolved for a Context Files package lock entry."
-    },
     "ExtensionFqn": {
       "type": "string",
       "allOf": [
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Extension FQN",
           "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-          "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
+          "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
         }
       ]
     },
@@ -173,11 +151,6 @@
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
-        "resolvedCommands": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
         "resolvedMcpServers": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
@@ -187,16 +160,6 @@
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedFiles": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
         },
         "resolvedRules": {
           "anyOf": [
@@ -240,7 +203,6 @@
         "installedAt",
         "updatedAt",
         "resolvedSkills",
-        "resolvedCommands",
         "resolvedMcpServers",
         "resolvedSubagents"
       ],
@@ -267,11 +229,6 @@
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
-        "resolvedCommands": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
         "resolvedMcpServers": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
@@ -281,16 +238,6 @@
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
           "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedFiles": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
         },
         "resolvedRules": {
           "anyOf": [
@@ -333,7 +280,6 @@
         "installedAt",
         "updatedAt",
         "resolvedSkills",
-        "resolvedCommands",
         "resolvedMcpServers",
         "resolvedSubagents"
       ],
@@ -615,220 +561,6 @@
               }
             ]
           }
-        },
-        "commands": {
-          "anyOf": [
-            {
-              "type": "object",
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["azurerepos"] },
-                      "organization": { "$ref": "#/definitions/SourceSegment" },
-                      "project": { "$ref": "#/definitions/SourceSegment" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": [
-                      "type",
-                      "organization",
-                      "project",
-                      "repo",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["git"] },
-                      "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "url", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["local"] },
-                      "path": { "type": "string" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "path", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["registry"] },
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": {
-                        "type": "string",
-                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
-                      },
-                      "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                    },
-                    "required": [
-                      "type",
-                      "owner",
-                      "name",
-                      "resolvedVersion",
-                      "integrity",
-                      "sourceName",
-                      "publisherBindingId",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["workspace"] },
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "extensionType": { "type": "string", "enum": ["command"] },
-                      "name": { "$ref": "#/definitions/ExtensionName" },
-                      "version": { "$ref": "#/definitions/Version" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "owner",
-                      "extensionType",
-                      "name",
-                      "version",
-                      "installedAt",
-                      "updatedAt",
-                      "sourceHash"
-                    ],
-                    "additionalProperties": false
-                  }
-                ]
-              }
-            },
-            { "type": "null" }
-          ]
         },
         "subagents": {
           "anyOf": [
@@ -1329,324 +1061,6 @@
                     ]
                   },
                   { "$ref": "#/definitions/InlineMcpServerLockEntry" }
-                ]
-              }
-            },
-            { "type": "null" }
-          ]
-        },
-        "files": {
-          "anyOf": [
-            {
-              "type": "object",
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["azurerepos"] },
-                      "organization": { "$ref": "#/definitions/SourceSegment" },
-                      "project": { "$ref": "#/definitions/SourceSegment" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "organization",
-                      "project",
-                      "repo",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["git"] },
-                      "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": ["type", "url", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["local"] },
-                      "path": { "type": "string" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": ["type", "path", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["registry"] },
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": {
-                        "type": "string",
-                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
-                      },
-                      "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "owner",
-                      "name",
-                      "resolvedVersion",
-                      "integrity",
-                      "sourceName",
-                      "publisherBindingId",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["workspace"] },
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "extensionType": { "type": "string", "enum": ["files"] },
-                      "name": { "$ref": "#/definitions/ExtensionName" },
-                      "version": { "$ref": "#/definitions/Version" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "resolvedInputs": {
-                        "anyOf": [
-                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
-                          { "type": "null" }
-                        ]
-                      },
-                      "sourceHash": {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "owner",
-                      "extensionType",
-                      "name",
-                      "version",
-                      "installedAt",
-                      "updatedAt",
-                      "sourceHash"
-                    ],
-                    "additionalProperties": false
-                  }
                 ]
               }
             },

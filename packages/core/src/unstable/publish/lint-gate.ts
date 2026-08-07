@@ -3,14 +3,11 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { count } from "../cli-renderer/index.js";
-import { makePlatformFilesAccessor } from "../lint/catalog/files-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../lint/catalog/pack-accessor/platform.js";
 import { makePlatformSkillFileAccessor } from "../lint/catalog/skill-accessor/platform.js";
 import { platformCanonicalLintConfig } from "../lint/config.js";
 import { composePath } from "../lint/compose-path.js";
 import type {
-  CommandRuleContext,
-  FilesRuleContext,
   HookRuleContext,
   KnowledgeRuleContext,
   McpServerRuleContext,
@@ -21,8 +18,6 @@ import type {
 } from "../lint/context.js";
 import { evaluateContexts } from "../lint/evaluate.js";
 import {
-  commandRules,
-  filesRules,
   hookRules,
   knowledgeRules,
   mcpServerRules,
@@ -52,12 +47,6 @@ export type PublishLintArgs =
       readonly platform: PublishLintPlatform;
     }
   | {
-      readonly type: "command";
-      readonly extensionDir: string;
-      readonly manifestJson: unknown;
-      readonly platform: PublishLintPlatform;
-    }
-  | {
       readonly type: "subagent";
       readonly extensionDir: string;
       readonly manifestJson: unknown;
@@ -82,12 +71,6 @@ export type PublishLintArgs =
       readonly platform: PublishLintPlatform;
     }
   | {
-      readonly type: "files";
-      readonly extensionDir: string;
-      readonly manifestJson: unknown;
-      readonly platform: PublishLintPlatform;
-    }
-  | {
       readonly type: "knowledge";
       readonly extensionDir: string;
       readonly manifestJson: unknown;
@@ -99,22 +82,26 @@ interface PublishLintFinding {
   readonly finding: LintFinding;
 }
 
+const manifestName = (manifestJson: unknown): string | undefined => {
+  if (manifestJson === null || typeof manifestJson !== "object" || Array.isArray(manifestJson)) {
+    return undefined;
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(manifestJson, "name");
+  return typeof descriptor?.value === "string" ? descriptor.value : undefined;
+};
+
 export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, AppError> => {
   switch (args.type) {
     case "skill":
       return evaluateSkill(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "pack":
       return evaluatePack(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
-    case "command":
-      return evaluateCommand(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "subagent":
       return evaluateSubagent(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "mcp-server":
       return evaluateMcpServer(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "hook":
       return evaluateHook(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
-    case "files":
-      return evaluateFiles(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "knowledge":
       return evaluateKnowledge(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "rule":
@@ -128,8 +115,13 @@ const evaluateSkill = (args: Extract<PublishLintArgs, { readonly type: "skill" }
     args.platform,
     args.platform.path.join(args.extensionDir, "src"),
   );
+  const expectedName = manifestName(args.manifestJson);
   const context: SkillRuleContext = {
-    subject: { isNative: true, skillJson: args.manifestJson },
+    subject: {
+      isNative: true,
+      skillJson: args.manifestJson,
+      ...(expectedName === undefined ? {} : { expectedName }),
+    },
     files,
     packageFiles,
     displayRoot: "",
@@ -147,18 +139,6 @@ const evaluatePack = (args: Extract<PublishLintArgs, { readonly type: "pack" }>)
     displayRoot: "",
   };
   return evaluateContexts(packRules, [context], platformCanonicalLintConfig).pipe(
-    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
-  );
-};
-
-const evaluateCommand = (args: Extract<PublishLintArgs, { readonly type: "command" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: CommandRuleContext = {
-    subject: { commandJson: args.manifestJson },
-    files,
-    displayRoot: "",
-  };
-  return evaluateContexts(commandRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };
@@ -195,18 +175,6 @@ const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>)
     displayRoot: "",
   };
   return evaluateContexts(hookRules, [context], platformCanonicalLintConfig).pipe(
-    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
-  );
-};
-
-const evaluateFiles = (args: Extract<PublishLintArgs, { readonly type: "files" }>) => {
-  const files = makePlatformFilesAccessor(args.platform, args.extensionDir);
-  const context: FilesRuleContext = {
-    subject: { filesJson: args.manifestJson },
-    files,
-    displayRoot: "",
-  };
-  return evaluateContexts(filesRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

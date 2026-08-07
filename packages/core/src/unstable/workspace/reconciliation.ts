@@ -6,8 +6,6 @@ import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { count } from "../cli-renderer/index.js";
 import type {
-  CommandLockEntry,
-  FilesLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   Lockfile,
@@ -40,14 +38,12 @@ export class ReconciliationAdapters extends ServiceMap.Service<
 
 const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   skills: 0,
-  commands: 1,
-  subagents: 2,
-  packs: 3,
-  mcps: 4,
-  files: 5,
-  rules: 6,
-  hooks: 7,
-  knowledge: 8,
+  subagents: 1,
+  packs: 2,
+  mcps: 3,
+  rules: 4,
+  hooks: 5,
+  knowledge: 6,
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
@@ -58,11 +54,9 @@ const dedupeConflictKey = (declaration: ReconciliationDeclaration): string =>
 
 const countReconstructedLockfileEntries = (lockfile: Lockfile): number =>
   Object.keys(lockfile.skills).length +
-  Object.keys(lockfile.commands ?? {}).length +
   Object.keys(lockfile.subagents ?? {}).length +
   Object.keys(lockfile.mcpServers ?? {}).length +
   Object.keys(lockfile.packs ?? {}).length +
-  Object.keys(lockfile.files ?? {}).length +
   Object.keys(lockfile.rules ?? {}).length +
   Object.keys(lockfile.hooks ?? {}).length +
   Object.keys(lockfile.knowledge ?? {}).length;
@@ -78,11 +72,9 @@ export interface ReconciliationSnapshot {
 
 const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lockfile => {
   const skills: Record<string, SkillLockEntry> = {};
-  const commands: Record<string, CommandLockEntry> = {};
   const subagents: Record<string, SubagentLockEntry> = {};
   const mcpServers: Record<string, McpServerLockEntry> = {};
   const packs: Record<string, PackLockEntry> = {};
-  const files: Record<string, FilesLockEntry> = {};
   const rules: Record<string, RuleLockEntry> = {};
   const hooks: Record<string, HookLockEntry> = {};
   const knowledge: Record<string, KnowledgeLockEntry> = {};
@@ -98,9 +90,6 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
       case "skills":
         skills[reconstructed.name] = reconstructed.entry;
         break;
-      case "commands":
-        commands[reconstructed.name] = reconstructed.entry;
-        break;
       case "subagents":
         subagents[reconstructed.name] = reconstructed.entry;
         break;
@@ -109,9 +98,6 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
         break;
       case "packs":
         packs[reconstructed.name] = reconstructed.entry;
-        break;
-      case "files":
-        files[reconstructed.name] = reconstructed.entry;
         break;
       case "rules":
         rules[reconstructed.name] = reconstructed.entry;
@@ -128,11 +114,9 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
   return {
     lockfileVersion: LOCKFILE_VERSION,
     skills,
-    commands,
     subagents,
     mcpServers,
     packs,
-    files,
     rules,
     hooks,
     knowledge,
@@ -148,10 +132,8 @@ const entrySource = (entry: unknown): string | undefined => {
 const scanWorkspaceDeclarations = (context: ReconciliationContext) => {
   const groups = [
     ["skills", context.settings.skills],
-    ["commands", context.settings.commands],
     ["mcps", context.settings.mcpServers],
     ["subagents", context.settings.subagents],
-    ["files", context.settings.files],
     ["rules", context.settings.rules],
     ["hooks", context.settings.hooks],
     ["knowledge", context.settings.knowledge],
@@ -192,19 +174,15 @@ const reconstructWorkspaceDeclaration = (
         ? "mcp-server"
         : declaration.type === "skills"
           ? "skill"
-          : declaration.type === "commands"
-            ? "command"
-            : declaration.type === "subagents"
-              ? "subagent"
-              : declaration.type === "packs"
-                ? "pack"
-                : declaration.type === "rules"
-                  ? "rule"
-                  : declaration.type === "hooks"
-                    ? "hook"
-                    : declaration.type === "knowledge"
-                      ? "knowledge"
-                      : "files",
+          : declaration.type === "subagents"
+            ? "subagent"
+            : declaration.type === "packs"
+              ? "pack"
+              : declaration.type === "rules"
+                ? "rule"
+                : declaration.type === "hooks"
+                  ? "hook"
+                  : "knowledge",
     baseDir: context.baseDir,
     scope: context.scope ?? "project",
   }).pipe(
@@ -231,15 +209,6 @@ const reconstructWorkspaceDeclaration = (
               entry: { ...base, extensionType: "skill", agents: context.agents },
             },
           });
-        case "command":
-          return Effect.succeed({
-            _tag: "Compatible",
-            reconstructed: {
-              type: "commands",
-              name: ref.name,
-              entry: { ...base, extensionType: "command", agents: context.agents },
-            },
-          });
         case "subagent":
           return Effect.succeed({
             _tag: "Compatible",
@@ -256,15 +225,6 @@ const reconstructWorkspaceDeclaration = (
               type: "mcps",
               name: ref.name,
               entry: { ...base, extensionType: "mcp-server" },
-            },
-          });
-        case "files":
-          return Effect.succeed({
-            _tag: "Compatible",
-            reconstructed: {
-              type: "files",
-              name: ref.name,
-              entry: { ...base, extensionType: "files" },
             },
           });
         case "rule":
@@ -305,10 +265,8 @@ const reconstructWorkspaceDeclaration = (
                     ...base,
                     extensionType: "pack",
                     resolvedSkills: {},
-                    resolvedCommands: {},
                     resolvedMcpServers: {},
                     resolvedSubagents: {},
-                    resolvedFiles: {},
                     resolvedRules: {},
                     resolvedHooks: {},
                     resolvedKnowledge: {},

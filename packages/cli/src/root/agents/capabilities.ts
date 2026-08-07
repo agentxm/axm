@@ -9,7 +9,6 @@ import {
   listCapabilities,
   type Agent,
 } from "@agentxm/client-core/unstable/agent-capabilities";
-import { capabilityKeyForType } from "@agentxm/client-core/unstable/capability-targeting";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   CliRenderer,
@@ -26,7 +25,7 @@ const NONE = "-";
 
 interface AgentCapabilityItem {
   readonly type: string;
-  /** Targeting vocabulary name, which is not the extension type id. */
+  /** Canonical extension capability identifier. */
   readonly capabilityKey: string;
   /** Vendor surface: native, plugin, either `-deprecated`, or none. */
   readonly native: string;
@@ -80,7 +79,7 @@ const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
     const native = capability.native;
     return {
       type,
-      capabilityKey: capabilityKeyForType(type) ?? type,
+      capabilityKey: type,
       native: agentCapabilityStatus(capability),
       axm: axmIntegrationStatus(capability),
       directory: "directory" in native ? native.directory : NONE,

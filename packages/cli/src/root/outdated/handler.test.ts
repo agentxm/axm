@@ -50,9 +50,9 @@ const outdatedSkill: ExtensionCurrencyEntry = makeEntry({
   },
 });
 
-const majorUpdateCommand: ExtensionCurrencyEntry = makeEntry({
-  ref: "@acme/commands/deploy",
-  type: "command",
+const majorUpdateSubagent: ExtensionCurrencyEntry = makeEntry({
+  ref: "@acme/subagents/deploy",
+  type: "subagent",
   installedVersion: v("1.0.0"),
   currency: {
     status: "major-update-available",
@@ -72,13 +72,6 @@ const updateAvailableCurrency = (latest: string) => ({
   installedVersion: v("1.0.0"),
   latestMatching: Option.some(v(latest)),
   latestAvailable: v(latest),
-});
-
-const outdatedFiles: ExtensionCurrencyEntry = makeEntry({
-  ref: "@acme/files/baseline",
-  type: "files",
-  installedVersion: v("1.0.0"),
-  currency: updateAvailableCurrency("1.2.0"),
 });
 
 const outdatedRule: ExtensionCurrencyEntry = makeEntry({
@@ -122,7 +115,7 @@ describe("outdated handler", () => {
     const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () =>
-      Effect.succeed([outdatedSkill, majorUpdateCommand, currentPack]),
+      Effect.succeed([outdatedSkill, majorUpdateSubagent, currentPack]),
     ).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
@@ -139,7 +132,7 @@ describe("outdated handler", () => {
                 latest: "1.2.0",
               }),
               expect.objectContaining({
-                extension: "@acme/commands/deploy",
+                extension: "@acme/subagents/deploy",
                 installed: "1.0.0",
                 latest: "2.0.0 (major)",
               }),
@@ -219,7 +212,7 @@ describe("outdated handler", () => {
     const { baseLayer, rendererState } = makeCliTestContext({ machine: true });
 
     return handleOutdatedWith({ type: Option.none() }, () =>
-      Effect.succeed([outdatedSkill, majorUpdateCommand, currentPack]),
+      Effect.succeed([outdatedSkill, majorUpdateSubagent, currentPack]),
     ).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
@@ -244,8 +237,8 @@ describe("outdated handler", () => {
                 }),
                 expect.objectContaining({
                   kind: "registry-version",
-                  ref: "@acme/commands/deploy",
-                  type: "command",
+                  ref: "@acme/subagents/deploy",
+                  type: "subagent",
                   installedVersion: "1.0.0",
                   latestAvailable: "2.0.0",
                   status: "major-update-available",
@@ -295,19 +288,18 @@ describe("outdated handler", () => {
     );
   });
 
-  it.effect("renders rows for files, rule, hook, and knowledge extensions", () => {
+  it.effect("renders rows for rule, hook, and knowledge extensions", () => {
     const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () =>
-      Effect.succeed([outdatedFiles, outdatedRule, outdatedHook, outdatedKnowledge]),
+      Effect.succeed([outdatedRule, outdatedHook, outdatedKnowledge]),
     ).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
           expect(rendererState.results[1]?.data).toMatchObject({
-            count: 4,
+            count: 3,
             items: expect.arrayContaining([
-              expect.objectContaining({ extension: "@acme/files/baseline", latest: "1.2.0" }),
               expect.objectContaining({
                 extension: "@acme/rules/api-conventions",
                 latest: "1.3.0",
@@ -321,28 +313,27 @@ describe("outdated handler", () => {
                 latest: "1.5.0",
               }),
             ]),
-            summary: "4 extensions have updates available.",
+            summary: "3 extensions have updates available.",
           });
         }),
       ),
     );
   });
 
-  it.effect("emits files, rule, hook, and knowledge rows in machine mode", () => {
+  it.effect("emits rule, hook, and knowledge rows in machine mode", () => {
     const { baseLayer, rendererState } = makeCliTestContext({ machine: true });
 
     return handleOutdatedWith({ type: Option.none() }, () =>
-      Effect.succeed([outdatedFiles, outdatedRule, outdatedHook, outdatedKnowledge]),
+      Effect.succeed([outdatedRule, outdatedHook, outdatedKnowledge]),
     ).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
           const doc = rendererState.results[0]?.data;
-          expect(doc).toMatchObject({ count: 4 });
+          expect(doc).toMatchObject({ count: 3 });
           expect(doc).toEqual(
             expect.objectContaining({
               items: expect.arrayContaining([
-                expect.objectContaining({ ref: "@acme/files/baseline", type: "files" }),
                 expect.objectContaining({ ref: "@acme/rules/api-conventions", type: "rule" }),
                 expect.objectContaining({ ref: "@acme/hooks/block-secrets", type: "hook" }),
                 expect.objectContaining({ ref: "@acme/knowledge/payments", type: "knowledge" }),

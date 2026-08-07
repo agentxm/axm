@@ -22,7 +22,6 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "./coding-agent.js";
-import { addCommandViaResolve, removeCommandViaResolve } from "./command-sync.js";
 import { augmentCodingAgent } from "./augment/service.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
@@ -59,7 +58,6 @@ const descriptorSupportsSkills = (descriptor: AgentDescriptor): boolean =>
   isCatalogAgentId(descriptor.id) ? agentSupportsType(agentById(descriptor.id), "skill") : true;
 
 const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => {
-  const commandSyncConfig = { agentId: descriptor.id };
   const agent: CodingAgent = {
     id: descriptor.id,
     resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
@@ -81,35 +79,6 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
       }),
     addMcpServer: (args) => addMcpServerFromManifest(descriptor.id, args),
     removeMcpServer: (args) => removeMcpServerFromManifest(descriptor.id, args),
-    resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
-      Effect.gen(function* () {
-        if (descriptor.commands === undefined) {
-          return {
-            _tag: "unsupported",
-            reason: `Commands are not supported for ${descriptor.id}`,
-          } as const;
-        }
-        if (scope === "user") {
-          return {
-            _tag: "unsupported",
-            reason: userScopeRefusal({
-              agentId: descriptor.id,
-              agentName: descriptor.name,
-              type: "commands",
-            }),
-          } as const;
-        }
-        const path = yield* Path.Path;
-        return {
-          _tag: "supported",
-          dir: path.resolve(workspaceRoot, descriptor.commands.dir),
-          warnings: [],
-        } as const;
-      }),
-    addCommand: (args) =>
-      addCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
-    removeCommand: (args) =>
-      removeCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
     resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
         if (descriptor.subagents === undefined) {

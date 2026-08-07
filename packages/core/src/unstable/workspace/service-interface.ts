@@ -18,14 +18,9 @@ import type { AppError } from "../app-error/index.js";
 import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
-import type { FileInputValue } from "../files/manifest-schema.js";
 import type {
   RegistryPackLockEntry,
   WorkspacePackLockEntry,
-  CommandLockEntry,
-  CommandsLockMap,
-  FilesLockEntry,
-  FilesLockMap,
   HookLockEntry,
   HooksLockMap,
   KnowledgeLockEntry,
@@ -42,10 +37,6 @@ import type {
   SubagentsLockMap,
 } from "../lockfile/index.js";
 import type {
-  CommandEntry,
-  CommandsMap,
-  FilesEntry,
-  FilesMap,
   HookEntry,
   HooksMap,
   KnowledgeEntry,
@@ -113,11 +104,6 @@ export interface PackExtensionTarget {
   readonly owner: Handle;
 }
 
-export interface CommandExtensionTarget {
-  readonly type: "command";
-  readonly name: string;
-}
-
 export interface McpServerExtensionTarget {
   readonly type: "mcp-server";
   readonly name: string;
@@ -125,11 +111,6 @@ export interface McpServerExtensionTarget {
 
 export interface SubagentExtensionTarget {
   readonly type: "subagent";
-  readonly name: string;
-}
-
-export interface FilesExtensionTarget {
-  readonly type: "files";
   readonly name: string;
 }
 
@@ -154,10 +135,8 @@ export interface KnowledgeExtensionTarget {
 export type ExtensionTarget =
   | SkillExtensionTarget
   | PackExtensionTarget
-  | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | FilesExtensionTarget
   | RuleExtensionTarget
   | HookExtensionTarget
   | KnowledgeExtensionTarget;
@@ -315,15 +294,6 @@ export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) &
   };
 
 /**
- * Arguments for `setCommand` -- bundles the command name with the lock entry.
- */
-export interface SetCommandArgs extends WorkspaceCommitArgs {
-  readonly name: string;
-  readonly lockEntry: CommandLockEntry;
-  readonly versionRange: Option.Option<string>;
-}
-
-/**
  * Arguments for `setSubagent` -- bundles the subagent name with the lock entry.
  */
 export interface SetSubagentArgs extends WorkspaceCommitArgs {
@@ -341,15 +311,6 @@ export interface SetMcpServerArgs extends WorkspaceCommitArgs {
   readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
   readonly enabled?: boolean;
-}
-
-/**
- * Arguments for `setFiles` -- bundles the Context Files package name with the lock entry.
- */
-export interface SetFilesArgs extends WorkspaceCommitArgs {
-  readonly name: string;
-  readonly lockEntry: FilesLockEntry;
-  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -445,36 +406,6 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Read settings and return configured MCP server entries, defaulting to `{}`. */
   readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
-  /** Read settings and return configured context, defaulting to `{}`. */
-  readonly getConfiguredFilesEntries: () => Effect.Effect<FilesMap, AppError>;
-  /** Read settings and return workspace vars available to Context Files templates, defaulting to `{}`. */
-  readonly getWorkspaceVars: () => Effect.Effect<
-    Readonly<Record<string, FileInputValue>>,
-    AppError
-  >;
-  /** Read lockfile and return the context lock map. */
-  readonly getLockedFiles: () => Effect.Effect<FilesLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific Context Files package, or Option.none(). */
-  readonly getLockedFilesEntry: (
-    name: string,
-  ) => Effect.Effect<Option.Option<FilesLockEntry>, AppError>;
-  /** Add or update a Context Files package in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setFiles: (args: SetFilesArgs) => Effect.Effect<void, AppError>;
-  /** Add or update a Context Files package in lockfile only. Used for pack dependencies. Serialized by semaphore. */
-  readonly setFilesLock: (args: SetFilesArgs) => Effect.Effect<void, AppError>;
-  /** Remove a Context Files package from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeFiles: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Context Files package from settings only. Serialized by semaphore. */
-  readonly removeFilesSettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Context Files package from lockfile only. Serialized by semaphore. */
-  readonly removeFilesLock: (name: string) => Effect.Effect<void, AppError>;
-  /** Update a context entry by applying an updater function. Serialized by semaphore. */
-  readonly updateFilesEntry: (
-    name: string,
-    updater: (entry: FilesEntry) => FilesEntry,
-  ) => Effect.Effect<void, AppError>;
-  /** Create or overwrite a context entry in settings only. Serialized by semaphore. */
-  readonly setFilesEntry: (name: string, entry: FilesEntry) => Effect.Effect<void, AppError>;
   /** Read settings and return configured rules, defaulting to `{}`. */
   readonly getConfiguredRuleEntries: () => Effect.Effect<RulesMap, AppError>;
   /** Read lockfile and return the rules lock map. */
@@ -600,25 +531,6 @@ export interface WorkspaceMutationsService {
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
   readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
-  /** Read lockfile and return the commands lock map. */
-  readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific command, or Option.none(). */
-  readonly getLockedCommand: (
-    name: string,
-  ) => Effect.Effect<Option.Option<CommandLockEntry>, AppError>;
-  /** Add or update a command in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setCommand: (args: SetCommandArgs) => Effect.Effect<void, AppError>;
-  /** Add or update a command in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setCommandLock: (args: SetCommandArgs) => Effect.Effect<void, AppError>;
-  /** Remove a command from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeCommand: (name: string) => Effect.Effect<void, AppError>;
-  /** Update a command entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
-  readonly updateCommandEntry: (
-    name: string,
-    updater: (entry: CommandEntry) => CommandEntry,
-  ) => Effect.Effect<void, AppError>;
-  /** Create or overwrite a command entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setCommandEntry: (name: string, entry: CommandEntry) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the subagents lock map. */
   readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific subagent, or Option.none(). */
@@ -627,8 +539,6 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
   /** Read settings and return configured subagents, defaulting to `{}`. */
   readonly getConfiguredSubagentEntries: () => Effect.Effect<SubagentsMap, AppError>;
-  /** Read configured command entries directly from settings. */
-  readonly getConfiguredCommandEntries: () => Effect.Effect<CommandsMap, AppError>;
   /** Add or update a subagent in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
   /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
@@ -672,10 +582,6 @@ export interface WorkspaceMutationsService {
   // --- Granular removal methods (settings-only or lockfile-only) ---
   /** Remove a skill from lockfile only (keep settings entry). Serialized by semaphore. */
   readonly removeSkillLock: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a command from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeCommandSettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a command from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeCommandLock: (name: string) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from settings only (keep lockfile entry). Serialized by semaphore. */
   readonly removeMcpServerSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove an MCP server from lockfile only (keep settings entry). Serialized by semaphore. */

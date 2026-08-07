@@ -18,10 +18,8 @@ const configured = { source: "@acme/skills/thing", enabled: true };
  */
 const settingsFor = {
   skill: { skills: { thing: configured } },
-  command: { commands: { thing: configured } },
   "mcp-server": { mcps: { thing: configured } },
   subagent: { subagents: { thing: configured } },
-  files: { files: { thing: configured } },
   rule: { rules: { thing: configured } },
   hook: { hooks: { thing: configured } },
   knowledge: { knowledge: { thing: configured } },

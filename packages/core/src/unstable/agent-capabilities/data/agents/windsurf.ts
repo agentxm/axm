@@ -42,23 +42,6 @@ export const windsurfAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Devin Desktop Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user).\n",
-        docs: [],
-        sources: ["https://docs.devin.ai/desktop/cascade/workflows"],
-        scopes: ["user", "project"],
-        directory: ".windsurf/workflows",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

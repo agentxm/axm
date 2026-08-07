@@ -73,7 +73,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         project: {
           axmExtensions: {
             "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "@owner/commands/some-command/src/some-command.md": "# command\n",
+            "@owner/hooks/some-hook/src/hook.sh": "#!/bin/sh\n",
           },
         },
       });
@@ -85,11 +85,11 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       expect(sorted[0]).toMatchObject({
         _tag: "canonical-extension",
         scope: "project",
-        type: "command",
+        type: "hook",
         origin: "canonical-axm",
-        name: "some-command",
+        name: "some-hook",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/commands/some-command/src",
+        contentLocation: "/ws/.axm/extensions/@owner/hooks/some-hook/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",

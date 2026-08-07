@@ -7,9 +7,9 @@ import {
 
 describe("managedFileFormatForPath", () => {
   it("detects markdown and TOML commentable files", () => {
-    expect(managedFileFormatForPath(".claude/commands/review.md")).toBe("markdown");
+    expect(managedFileFormatForPath(".claude/rules/review.md")).toBe("markdown");
     expect(managedFileFormatForPath(".github/prompts/review.prompt.md")).toBe("markdown");
-    expect(managedFileFormatForPath(".gemini/commands/review.toml")).toBe("toml");
+    expect(managedFileFormatForPath(".gemini/rules/review.toml")).toBe("toml");
   });
 
   it("skips non-commentable rendered files", () => {
@@ -47,30 +47,30 @@ Review code.`);
 
   it("inserts markdown banner at the top without frontmatter", () => {
     const result = insertManagedFileBanner("Review code.", {
-      editPath: ".axm/extensions/@acme/commands/review/src/review.md",
-      helpTopic: "commands",
+      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      helpTopic: "rules",
       format: "markdown",
     });
 
     expect(result).toBe(`<!-- AXM managed file — do not edit directly, instead:
-     1. Edit: .axm/extensions/@acme/commands/review/src/review.md
+     1. Edit: .axm/extensions/@acme/rules/review/src/review.md
      2. Sync: \`axm sync\`
-     Learn more: \`axm help commands\` -->
+     Learn more: \`axm help rules\` -->
 
 Review code.`);
   });
 
   it("prepends TOML banner", () => {
     const result = insertManagedFileBanner('prompt = "Review code."\n', {
-      editPath: ".axm/extensions/@acme/commands/review/src/review.md",
-      helpTopic: "commands",
+      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      helpTopic: "rules",
       format: "toml",
     });
 
     expect(result).toBe(`# AXM managed file — do not edit directly, instead:
-# 1. Edit: .axm/extensions/@acme/commands/review/src/review.md
+# 1. Edit: .axm/extensions/@acme/rules/review/src/review.md
 # 2. Sync: \`axm sync\`
-# Learn more: \`axm help commands\`
+# Learn more: \`axm help rules\`
 
 prompt = "Review code."
 `);
@@ -78,14 +78,14 @@ prompt = "Review code."
 
   it("does not duplicate an existing banner", () => {
     const first = insertManagedFileBanner("Review code.", {
-      editPath: ".axm/extensions/@acme/commands/review/src/review.md",
-      helpTopic: "commands",
+      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      helpTopic: "rules",
       format: "markdown",
     });
 
     const second = insertManagedFileBanner(first, {
-      editPath: ".axm/extensions/@acme/commands/review/src/review.md",
-      helpTopic: "commands",
+      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      helpTopic: "rules",
       format: "markdown",
     });
 
@@ -95,7 +95,7 @@ prompt = "Review code."
   it("strips an existing markdown banner", () => {
     const content = insertManagedFileBanner("# Workspace\n", {
       editPath: "AGENTS.md",
-      helpTopic: "files",
+      helpTopic: "rules",
       format: "markdown",
     });
 

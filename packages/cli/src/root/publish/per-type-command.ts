@@ -143,10 +143,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
 };
 
 export const skillsPublishCommand = makePerTypePublishCommand("skill");
-export const commandsPublishCommand = makePerTypePublishCommand("command");
 export const mcpsPublishCommand = makePerTypePublishCommand("mcp-server");
 export const subagentsPublishCommand = makePerTypePublishCommand("subagent");
-export const filesPublishCommand = makePerTypePublishCommand("files");
 export const hooksPublishCommand = makePerTypePublishCommand("hook");
 export const knowledgePublishCommand = makePerTypePublishCommand("knowledge");
 export const packsPublishCommand = makePerTypePublishCommand("pack");

@@ -42,22 +42,6 @@ export const cortexAgent = {
         writer: null,
       },
     },
-    command: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Cortex Code custom slash commands are Markdown files under .cortex/commands.",
-        docs: [],
-        sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-plugins"],
-        scopes: ["user", "project"],
-        directory: ".cortex/commands",
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     "mcp-server": {
       native: {
         availability: { via: "native" },

@@ -8,7 +8,6 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../test-stubs.js";
 import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
-import { handleListFiles } from "./files/list.js";
 import { handleListHook } from "./hooks/list.js";
 import { handleListMcpServers } from "./mcps/list.js";
 
@@ -45,58 +44,11 @@ describe("list command empty output", () => {
     );
   };
 
-  it.effect("emits a single empty files list payload", () => runEmptyList(handleListFiles()));
-
   it.effect("emits a single empty hooks list payload", () => runEmptyList(handleListHook()));
 
   it.effect("emits a single empty MCP server list payload", () =>
     runEmptyList(handleListMcpServers()),
   );
-
-  it.effect("emits files rows in machine mode without a plan envelope", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      files: {
-        "workspace-baseline": {
-          source: "@acme/files/workspace-baseline",
-          enabled: false,
-        },
-      },
-      lockfileFiles: {
-        "workspace-baseline": {
-          type: "registry",
-          owner: "@acme",
-          name: "workspace-baseline",
-          resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
-          sourceName: "default",
-          publisherBindingId: "hbnd_test",
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleListFiles();
-
-        expect(rendererState.results[0]?.data).toMatchObject({
-          count: 1,
-          items: [
-            {
-              name: "workspace-baseline",
-              enabled: false,
-              source: "@acme/files/workspace-baseline",
-              locked: true,
-              classification: { kind: "lifecycle", lifecycle: "configured" },
-            },
-          ],
-        });
-        expectNoPlanEnvelope(rendererState.results[0]?.data);
-      }),
-    );
-  });
 
   it.effect("emits hooks rows in machine mode without a plan envelope", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });

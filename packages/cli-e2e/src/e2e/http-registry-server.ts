@@ -26,10 +26,8 @@ const TEST_OWNER = "@test";
 
 const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   skills: "skill",
-  commands: "command",
   mcps: "mcp-server",
   subagents: "subagent",
-  files: "files",
   rules: "rule",
   hooks: "hook",
   knowledge: "knowledge",
@@ -181,6 +179,7 @@ export const startHttpRegistry = async (): Promise<HttpRegistry> => {
           sha256_hex: crypto.createHash("sha256").update(archive).digest("hex"),
           published_at: published,
           publish_status: "available",
+          warnings: [],
           links: { html: `https://example.test/${owner}/${plural}/${name}` },
         });
         return;

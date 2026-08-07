@@ -12,7 +12,6 @@ import {
   makeBaseWorkspaceMock,
   rowsFor,
   makeRegistrySkillLockEntry,
-  makeRegistryCommandLockEntry,
   makeRegistryMcpServerLockEntry,
   makeRegistryPackLockEntry,
 } from "../test-stubs.js";
@@ -24,15 +23,12 @@ import {
 import {
   collectSkillCurrency,
   collectSkillSourceFreshness,
-  collectCommandSourceFreshness,
   collectHookSourceFreshness,
   collectKnowledgeSourceFreshness,
   collectMcpServerSourceFreshness,
-  collectCommandCurrency,
   collectMcpServerCurrency,
   collectSubagentCurrency,
   collectPackCurrency,
-  collectFilesCurrency,
   collectRuleCurrency,
   collectHookCurrency,
   collectKnowledgeCurrency,
@@ -44,7 +40,7 @@ const v = decodeVersionSync;
 const owner = normalizeHandle("@acme");
 
 /**
- * Registry lock fields shared verbatim by the files/rule/hook/knowledge lock unions,
+ * Registry lock fields shared verbatim by the rule/hook/knowledge lock unions,
  * none of which has a dedicated factory in workspace/test-stubs.ts.
  */
 const makeRegistryLockFields = (opts: {
@@ -283,49 +279,6 @@ describe("git-source freshness beyond skills", () => {
       { name: "github", type: "github" as const, url: new URL("https://github.com") },
     ]);
 
-  it.effect("reports a changed command whose upstream tree hash moved", () =>
-    Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSources: configuredSources,
-        rows: rowsFor({
-          command: [
-            configuredRow({
-              type: "command",
-              name: "deploy",
-              source: "github:acme/deploy",
-              packagingKind: "non-native",
-            }),
-          ],
-        }),
-        getLockedCommands: () => Effect.succeed({ deploy: gitLockEntry("deploy", "old-tree") }),
-      });
-      const layer = Layer.merge(
-        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
-        Layer.succeed(
-          SourceHostProviders,
-          providersReturning([
-            {
-              type: "command",
-              refType: "git-hosted",
-              command: namePayload("deploy"),
-              source: gitSource("deploy"),
-              location: "file:///tmp/deploy",
-              sourcePath: "deploy",
-              gitTreeSha: Option.some("new-tree"),
-            },
-          ]),
-        ),
-      );
-
-      const entries = yield* collectCommandSourceFreshness().pipe(Effect.provide(layer));
-
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.type).toBe("command");
-      expect(entries[0]?.ref).toBe("commands/deploy");
-      expect(entries[0]?.status).toBe("changed");
-    }),
-  );
-
   it.effect("reports a current hook whose upstream tree hash matches", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
@@ -417,44 +370,6 @@ describe("git-source freshness beyond skills", () => {
       const entries = yield* collectMcpServerSourceFreshness().pipe(Effect.provide(layer));
 
       expect(entries).toHaveLength(0);
-    }),
-  );
-});
-
-describe("collectCommandCurrency", () => {
-  it.effect("returns currency entries for registry-sourced enabled commands", () =>
-    Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        rows: rowsFor({
-          command: [
-            configuredRow({
-              type: "command",
-              name: "formatter",
-              source: "@acme/commands/formatter",
-              packagingKind: "non-native",
-            }),
-          ],
-        }),
-        getLockedCommands: () =>
-          Effect.succeed({
-            formatter: makeRegistryCommandLockEntry({
-              owner,
-              name: "formatter",
-              resolvedVersion: v("1.0.0"),
-            }),
-          }),
-      });
-
-      const index = makeExtensionIndex("formatter", "command", ["2.0.0", "1.0.0"]);
-      const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
-
-      const entries = yield* collectCommandCurrency(client).pipe(Effect.provide(layer));
-
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.ref).toBe("@acme/commands/formatter");
-      expect(entries[0]?.type).toBe("command");
-      expect(entries[0]?.currency.status).toBe("major-update-available");
     }),
   );
 });
@@ -577,40 +492,6 @@ describe("collectPackCurrency", () => {
       expect(entries[0]?.ref).toBe("@acme/packs/starter");
       expect(entries[0]?.type).toBe("pack");
       expect(entries[0]?.currency.status).toBe("update-available");
-    }),
-  );
-});
-
-describe("collectFilesCurrency", () => {
-  it.effect("returns currency entries for registry-sourced Context Files packages", () =>
-    Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredFilesEntries: () =>
-          Effect.succeed({
-            baseline: {
-              source: "@acme/files/baseline@^1.0.0",
-              enabled: true,
-              inputs: {},
-            },
-          }),
-        getLockedFiles: () =>
-          Effect.succeed({
-            baseline: makeRegistryLockFields({ name: "baseline", resolvedVersion: v("1.0.0") }),
-          }),
-      });
-
-      const index = makeExtensionIndex("baseline", "files", ["1.2.0", "1.0.0"]);
-      const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
-
-      const entries = yield* collectFilesCurrency(client).pipe(Effect.provide(layer));
-
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.ref).toBe("@acme/files/baseline");
-      expect(entries[0]?.type).toBe("files");
-      expect(entries[0]?.installedVersion).toBe("1.0.0");
-      expect(entries[0]?.currency.status).toBe("update-available");
-      expect(Option.getOrThrow(entries[0]?.constraint ?? Option.none())).toBe("^1.0.0");
     }),
   );
 });
@@ -771,14 +652,6 @@ describe("collectAllCurrencyEntries", () => {
               packagingKind: "non-native",
             }),
           ],
-          command: [
-            configuredRow({
-              type: "command",
-              name: "formatter",
-              source: "@acme/commands/formatter",
-              packagingKind: "non-native",
-            }),
-          ],
         }),
         getLockedSkills: () =>
           Effect.succeed({
@@ -786,14 +659,6 @@ describe("collectAllCurrencyEntries", () => {
               owner,
               name: "code-review",
               resolvedVersion: v("1.0.0"),
-            }),
-          }),
-        getLockedCommands: () =>
-          Effect.succeed({
-            formatter: makeRegistryCommandLockEntry({
-              owner,
-              name: "formatter",
-              resolvedVersion: v("2.0.0"),
             }),
           }),
         getConfiguredRuleEntries: () =>
@@ -810,19 +675,16 @@ describe("collectAllCurrencyEntries", () => {
       });
 
       const skillIndex = makeExtensionIndex("code-review", "skill", ["1.1.0", "1.0.0"]);
-      const cmdIndex = makeExtensionIndex("formatter", "command", ["2.0.0"]);
       const ruleIndex = makeExtensionIndex("api-conventions", "rule", ["1.4.0", "1.0.0"]);
-      const client = makeStubRegistryClient([skillIndex, cmdIndex, ruleIndex]);
+      const client = makeStubRegistryClient([skillIndex, ruleIndex]);
       const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectAllCurrencyEntries(client).pipe(Effect.provide(layer));
 
-      expect(entries).toHaveLength(3);
+      expect(entries).toHaveLength(2);
       const skill = entries.find((e) => e.type === "skill");
-      const command = entries.find((e) => e.type === "command");
       const rule = entries.find((e) => e.type === "rule");
       expect(skill?.currency.status).toBe("update-available");
-      expect(command?.currency.status).toBe("current");
       expect(rule?.currency.status).toBe("update-available");
     }),
   );

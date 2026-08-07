@@ -33,19 +33,6 @@ export const zenflowAgent = {
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
-    command: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Zenflow custom workflows are task orchestration definitions rather than prompt commands, so AXM does not classify them as command extensions.",
-        docs: [],
-        sources: [
-          "https://docs.zencoder.ai/user-guides/guides/how-to-create-custom-workflows-in-zenflow",
-        ],
-      },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
-    },
     "mcp-server": {
       native: {
         availability: { via: "none" },

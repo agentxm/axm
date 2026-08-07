@@ -30,6 +30,7 @@ import { computePackageContentHashSync } from "../test-stubs.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
+  AXM_SKILL_SOURCE_FILES,
   AXM_SKILL_VERSION,
 } from "../__generated__/bundled-axm-skill.js";
 import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./setup.js";
@@ -437,6 +438,11 @@ describe("setup.handler", () => {
             JSON.parse(AXM_SKILL_JSON),
           );
           expect(fs.readFileSync(skillMdPath, "utf-8")).toBe(AXM_SKILL_MD);
+          for (const sourceFile of AXM_SKILL_SOURCE_FILES) {
+            expect(fs.readFileSync(path.join(path.dirname(skillMdPath), sourceFile.path))).toEqual(
+              Buffer.from(sourceFile.base64, "base64"),
+            );
+          }
           expect(fs.existsSync(agentSkillPath)).toBe(true);
 
           const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));

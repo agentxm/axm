@@ -47,6 +47,7 @@ import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
 export interface InstalledSkillInfo {
   readonly isNative: boolean;
   readonly skillJson: unknown;
+  readonly expectedName?: string;
   readonly displayRoot: string;
   readonly files: SkillFileAccessor;
   readonly packageFiles: SkillFileAccessor;
@@ -72,6 +73,7 @@ export const buildSkillRuleContexts = (input: {
     subject: {
       isNative: info.isNative,
       skillJson: info.skillJson,
+      ...(info.expectedName === undefined ? {} : { expectedName: info.expectedName }),
     },
     files: info.files,
     packageFiles: info.packageFiles,

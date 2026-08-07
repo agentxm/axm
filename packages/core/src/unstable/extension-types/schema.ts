@@ -29,10 +29,8 @@ const isUrl = (value: string): boolean => {
 /** @experimental This API is unstable and may change without notice. */
 export const LEAF_EXTENSION_TYPES = [
   "skill",
-  "command",
   "mcp-server",
   "subagent",
-  "files",
   "rule",
   "hook",
 ] as const satisfies ReadonlyArray<Exclude<ExtensionType, "pack" | "knowledge">>;
@@ -163,10 +161,8 @@ export type ExtensionTypeCatalog = {
 /** @experimental This API is unstable and may change without notice. */
 export const ExtensionTypeCatalogSchema = Schema.Struct({
   skill: ExtensionTypeDefinitionSchema,
-  command: ExtensionTypeDefinitionSchema,
   "mcp-server": ExtensionTypeDefinitionSchema,
   subagent: ExtensionTypeDefinitionSchema,
-  files: ExtensionTypeDefinitionSchema,
   rule: ExtensionTypeDefinitionSchema,
   hook: ExtensionTypeDefinitionSchema,
   knowledge: ExtensionTypeDefinitionSchema,

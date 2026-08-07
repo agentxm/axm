@@ -4,14 +4,12 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
-import { CommandManifestSchema } from "../commands/index.js";
 import {
   computePackageContentHash,
   parseExtensionFqnParts,
   toExtensionTypePlural,
   type ExtensionType,
 } from "../extensions/index.js";
-import { FilesManifestSchema } from "../files/index.js";
 import { HookManifestSchema } from "../hooks/index.js";
 import { KnowledgeManifestSchema } from "../knowledge/index.js";
 import { McpServerManifestSchema } from "../mcps/index.js";
@@ -48,10 +46,8 @@ interface ObserveCanonicalArgs {
 
 const MANIFEST_CONTRACTS = {
   skill: { filename: "skill.json", schema: SkillManifestSchema },
-  command: { filename: "command.json", schema: CommandManifestSchema },
   "mcp-server": { filename: "mcp.json", schema: McpServerManifestSchema },
   subagent: { filename: "subagent.json", schema: SubagentManifestSchema },
-  files: { filename: "files.json", schema: FilesManifestSchema },
   rule: { filename: "rule.json", schema: RuleManifestSchema },
   hook: { filename: "hook.json", schema: HookManifestSchema },
   knowledge: { filename: "knowledge.json", schema: KnowledgeManifestSchema },
@@ -110,10 +106,8 @@ const hasRequiredPayload = (
         ),
         (exists) => exists.some(Boolean),
       );
-    case "command":
     case "subagent":
       return fs.exists(path.join(root, "src", `${name}.md`));
-    case "files":
     case "rule":
     case "hook":
     case "knowledge":
@@ -149,10 +143,8 @@ const computeObservedContentIdentity = (
         const hashRoot = (yield* fs.exists(src)) ? src : root;
         return yield* computeSkillSourceHash(hashRoot);
       }
-      case "command":
       case "subagent":
       case "mcp-server":
-      case "files":
       case "rule":
       case "hook":
       case "knowledge":

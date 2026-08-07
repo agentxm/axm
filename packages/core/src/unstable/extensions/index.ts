@@ -144,7 +144,6 @@ export {
 export type {
   ExtensionRefBase,
   SkillExtensionRefBase,
-  CommandExtensionRefBase,
   McpServerExtensionRefBase,
   PackRefBase,
   GitHostedRefDetails,
@@ -193,7 +192,6 @@ export {
 } from "./operations.js";
 
 export {
-  configuredCommandsToDiskRefs,
   configuredMcpServersToDiskRefs,
   configuredPacksToDiskRefs,
   configuredSkillsToDiskRefs,

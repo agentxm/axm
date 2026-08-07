@@ -10,27 +10,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
 import { userScopeRefusal } from "../scope-refusal.js";
-import {
-  addCommandViaResolve,
-  removeCommandViaResolve,
-  type CommandSyncConfig,
-} from "../command-sync.js";
 import { addRooSubagent, removeRooSubagent } from "../subagent-sync.js";
-import {
-  agentCommandsProjectDir,
-  agentSkillsProjectDir,
-  agentSubagentsProjectDir,
-} from "../descriptor-paths.js";
-
-/** @experimental */
-export const ROO_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("roo");
+import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
 export const ROO_ROOMODES_FILE = agentSubagentsProjectDir("roo");
-
-const rooCommandConfig: CommandSyncConfig = {
-  agentId: "roo",
-};
 
 export const rooCodingAgent: CodingAgent = {
   id: "roo",
@@ -52,29 +36,6 @@ export const rooCodingAgent: CodingAgent = {
       _tag: "unsupported",
       reason: "MCP remove is not supported for roo",
     } as const),
-  resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      if (scope === "user") {
-        return {
-          _tag: "unsupported",
-          reason: userScopeRefusal({ agentId: "roo", agentName: "Roo Code", type: "commands" }),
-        } as const;
-      }
-      return {
-        _tag: "supported",
-        dir: path.resolve(workspaceRoot, ROO_COMMANDS_PROJECT_DIR),
-        warnings: [],
-      } as const;
-    }),
-  addCommand: (args) =>
-    addCommandViaResolve(rooCodingAgent.resolveEffectiveCommandsDir(args), args, rooCommandConfig),
-  removeCommand: (args) =>
-    removeCommandViaResolve(
-      rooCodingAgent.resolveEffectiveCommandsDir(args),
-      args,
-      rooCommandConfig,
-    ),
   resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

@@ -13,12 +13,10 @@ import {
   parseFqn,
   type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
-import { COMMAND_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/commands";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
-import { FILES_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/files";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/knowledge";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/rules";
@@ -33,10 +31,8 @@ import { VersionSchema, type Version } from "@agentxm/client-core/unstable/versi
  */
 export const VERSIONABLE_TYPES = {
   skill: true,
-  command: true,
   "mcp-server": true,
   subagent: true,
-  files: true,
   rule: true,
   hook: true,
   knowledge: true,
@@ -49,11 +45,9 @@ export type VersionableExtensionType = TruthyKeys<typeof VERSIONABLE_TYPES>;
 
 // Explicit order is user-visible in `axm version` help and error suggestions.
 export const versionableTypes = [
-  "command",
   "skill",
   "subagent",
   "mcp-server",
-  "files",
   "rule",
   "hook",
   "knowledge",
@@ -78,11 +72,9 @@ export const isVersionableType = (type: ExtensionType): type is VersionableExten
   VERSIONABLE_TYPES[type];
 
 const manifestFilenameByType: Record<VersionableExtensionType, string> = {
-  command: COMMAND_MANIFEST_FILENAME,
   skill: SKILL_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
-  files: FILES_MANIFEST_FILENAME,
   rule: RULE_MANIFEST_FILENAME,
   hook: HOOK_MANIFEST_FILENAME,
   knowledge: KNOWLEDGE_MANIFEST_FILENAME,

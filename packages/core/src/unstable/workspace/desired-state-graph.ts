@@ -248,10 +248,8 @@ export const buildDesiredStateGraph = ({
     };
 
     addSettingsEntries("skill", settings.skills);
-    addSettingsEntries("command", settings.commands);
     addSettingsEntries("mcp-server", settings.mcpServers);
     addSettingsEntries("subagent", settings.subagents);
-    addSettingsEntries("files", settings.files);
     addSettingsEntries("rule", settings.rules);
     addSettingsEntries("hook", settings.hooks);
     addSettingsEntries("knowledge", settings.knowledge);

@@ -41,8 +41,6 @@ import {
   WorkspaceReadModelConfig,
 } from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
-import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
-import { filesReconciliationAdapter } from "../files/reconciliation-adapter.js";
 import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
 import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
@@ -58,10 +56,8 @@ import { Verbosity } from "../cli-flags/index.js";
 // type can never again be silently dropped from lockfile reconciliation.
 const reconciliationAdaptersByType = {
   skills: skillReconciliationAdapter,
-  commands: commandReconciliationAdapter,
   mcps: mcpServerReconciliationAdapter,
   subagents: subagentReconciliationAdapter,
-  files: filesReconciliationAdapter,
   rules: ruleReconciliationAdapter,
   hooks: hookReconciliationAdapter,
   knowledge: knowledgeReconciliationAdapter,

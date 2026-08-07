@@ -116,6 +116,7 @@ const publishSuccessResponse = {
   sha256_hex: "abc123",
   published_at: "2025-01-01T00:00:00Z",
   publish_status: "available",
+  warnings: [],
   links: { html: "https://agentxm.ai/acme/skills/test-skill" },
 };
 

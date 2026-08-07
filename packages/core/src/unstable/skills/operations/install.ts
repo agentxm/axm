@@ -68,10 +68,6 @@ import {
 } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
-import {
-  capabilityRenderTargetForAgentId,
-  materializeCapabilityTargetedBuild,
-} from "../../capability-targeting/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -122,16 +118,6 @@ export type InstallableSkillTargetLocation = {
 };
 
 const UNIVERSAL_AGENT_ID = "universal";
-
-/**
- * A universal target sharing a directory with exactly one configured agent
- * adopts that agent's profile. Ambiguous multi-agent shared directories keep
- * the universal baseline because one path cannot truthfully hold two renders.
- */
-export const renderTargetAgentIdForLocation = (agentIds: ReadonlyArray<AgentId>): AgentId => {
-  const configured = agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
-  return configured.length === 1 ? (configured[0] ?? UNIVERSAL_AGENT_ID) : UNIVERSAL_AGENT_ID;
-};
 
 export const artifactAgentIdsFromTargets = (
   targets: ReadonlyArray<InstallableSkillTarget>,
@@ -614,9 +600,7 @@ const installForDirectory = (opts: {
           }) satisfies InstallResult,
       ),
       Effect.catch(() =>
-        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath, {
-          forAgentArtifact: true,
-        }).pipe(
+        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
           Effect.map(
             () =>
               ({
@@ -793,29 +777,11 @@ export const installSkill: OperationHandler<
     const perDirectoryResults = yield* Effect.forEach(
       targetLocations,
       (location) =>
-        Effect.gen(function* () {
-          const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
-          const build = yield* materializeCapabilityTargetedBuild({
-            baseDir: ws.baseDir,
-            canonicalSourcePath: materialized.skillSrcPath,
-            extensionName: sanitizedName,
-            target: capabilityRenderTargetForAgentId(targetAgentId),
-          }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to render ${ref.skill.name} for ${targetAgentId}`,
-                cause: error,
-              }),
-            ),
-          );
-          const result = yield* installForDirectory({
-            targetDir: location.targetDir,
-            canonicalSkillSrcPath: build.artifactSourcePath,
-            sanitizedName,
-          });
-          return { location, result, build, targetAgentId };
-        }),
+        installForDirectory({
+          targetDir: location.targetDir,
+          canonicalSkillSrcPath: materialized.skillSrcPath,
+          sanitizedName,
+        }).pipe(Effect.map((result) => ({ location, result }))),
       { concurrency: "unbounded" },
     );
 
@@ -836,20 +802,6 @@ export const installSkill: OperationHandler<
       }
       return matched.result;
     });
-    // ── Shared: compute rendered files tracking for copy-mode ──────
-    const renderWarnings: Array<string> = [];
-    for (const { build, targetAgentId } of perDirectoryResults) {
-      if (build.degraded) {
-        const codes = Array.dedupe(build.findings.map((item) => item.code));
-        renderWarnings.push(
-          `Capability targeting for ${targetAgentId} used verbatim fallback: ${codes.join(", ")}`,
-        );
-      }
-      const drift = build.findings.filter((item) => item.code === "rendered-artifact-drift");
-      if (drift.length > 0) {
-        renderWarnings.push(...drift.map((item) => item.message));
-      }
-    }
     const sourceHash =
       ref.refType === "workspace"
         ? ref.sourceHash
@@ -945,12 +897,9 @@ export const installSkill: OperationHandler<
       Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
     );
 
-    const warnings = [
-      unknownAgentWarning,
-      skippedOutcomeWarning,
-      ...renderWarnings,
-      writeWarning,
-    ].filter((warning): warning is string => warning !== undefined);
+    const warnings = [unknownAgentWarning, skippedOutcomeWarning, writeWarning].filter(
+      (warning): warning is string => warning !== undefined,
+    );
     const sourceDetails = gitHostedSkillArtifactSource(ref);
 
     return {

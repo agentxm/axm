@@ -13,10 +13,8 @@ import * as YAML from "yaml";
 import { LockfileSchema } from "../lockfile/index.js";
 import { SettingsSchema } from "../settings/index.js";
 import { SkillManifestSchema } from "../skills/manifest-schema.js";
-import { CommandManifestSchema } from "../commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import { PackManifestSchema } from "../packs/manifest-schema.js";
-import { FilesManifestSchema } from "../files/manifest-schema.js";
 import { HookManifestSchema } from "../hooks/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
@@ -58,16 +56,6 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("command.example.json conforms to CommandManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "commands/command.example.json"));
-    const result = Schema.decodeUnknownSync(CommandManifestSchema)(example);
-    expect(result).toBeDefined();
-    expect(result.owner).toBe("@acme");
-    expect(result.type).toBe("command");
-    expect(result.name).toBe("deploy");
-    expect(result.version).toBe("1.0.0");
-  });
-
   it("mcp.example.json conforms to McpServerManifestSchema", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "mcps/mcp.example.json"));
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
@@ -86,16 +74,6 @@ describe("example files", () => {
     expect(result.type).toBe("pack");
     expect(result.name).toBe("fullstack-pack");
     expect(result.dependencies["@acme/skills/code-review"]).toBe("^1.0.0");
-  });
-
-  it("files.example.json conforms to FilesManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "files/files.example.json"));
-    const result = Schema.decodeUnknownSync(FilesManifestSchema)(example);
-    expect(result).toBeDefined();
-    expect(result.owner).toBe("@acme");
-    expect(result.type).toBe("files");
-    expect(result.name).toBe("workspace-baseline");
-    expect(result.contents).toHaveLength(2);
   });
 
   it("hook.example.json conforms to HookManifestSchema", () => {

@@ -27,7 +27,6 @@ const capabilitySlots = (
   agent: Agent,
 ): ReadonlyArray<readonly [AgentCapabilitySlot, VerifiableCapability]> => [
   ["skill", agent.capabilities.skill],
-  ["command", agent.capabilities.command],
   ["mcp-server", agent.capabilities["mcp-server"]],
   ["subagent", agent.capabilities.subagent],
   ["hook", agent.capabilities.hook],

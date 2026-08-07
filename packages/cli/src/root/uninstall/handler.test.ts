@@ -8,17 +8,9 @@ import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import {
-  UninstallCommandCommandWorkflowActions,
-  type UninstallCommandHandlerArgs,
-} from "../commands/uninstall/command-actions.js";
-import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
 } from "../mcps/uninstall/command-actions.js";
-import {
-  UninstallFilesCommandWorkflowActions,
-  type UninstallFilesHandlerArgs,
-} from "../files/uninstall/command-actions.js";
 import {
   UninstallHookCommandWorkflowActions,
   type UninstallHookHandlerArgs,
@@ -113,16 +105,6 @@ describe("root uninstall handler", () => {
       buildUninstallPlan: () => Effect.succeed(makePlan("skill")),
     };
 
-    const commandActions = {
-      parseArgs: (args: UninstallCommandHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({ type: "command", name: args.commandName });
-          return {};
-        }),
-      finalizeIntent: () => Effect.succeed({}),
-      buildUninstallPlan: () => Effect.succeed(makePlan("command")),
-    };
-
     const mcpServerActions = {
       parseArgs: (args: UninstallMcpServerHandlerArgs) =>
         Effect.sync(() => {
@@ -141,16 +123,6 @@ describe("root uninstall handler", () => {
         }),
       finalizeIntent: () => Effect.succeed({}),
       buildUninstallPlan: () => Effect.succeed(makePlan("subagent")),
-    };
-
-    const filesActions = {
-      parseArgs: (args: UninstallFilesHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({ type: "files", name: args.name });
-          return {};
-        }),
-      finalizeIntent: () => Effect.succeed({}),
-      buildUninstallPlan: () => Effect.succeed(makePlan("files")),
     };
 
     const ruleActions = {
@@ -203,12 +175,6 @@ describe("root uninstall handler", () => {
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallCommandCommandWorkflowActions,
-        commandActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallCommandCommandWorkflowActions
-        >,
-      ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         UninstallMcpServerCommandWorkflowActions,
@@ -224,12 +190,6 @@ describe("root uninstall handler", () => {
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallFilesCommandWorkflowActions,
-        filesActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallFilesCommandWorkflowActions
-        >,
-      ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         UninstallRuleCommandWorkflowActions,
@@ -285,9 +245,7 @@ describe("root uninstall handler", () => {
 
         const sources = [
           "@acme/skills/code-review",
-          "@acme/commands/release-notes@^1.2.0",
           "@acme/mcps/dev-server",
-          "@ac/files/workspace-baseline",
           "@acme/rules/review-policy",
           "@acme/hooks/tool-audit",
           "@acme/subagents/researcher",
@@ -298,9 +256,7 @@ describe("root uninstall handler", () => {
 
         expect(calls).toEqual([
           { type: "skill", name: "code-review" },
-          { type: "command", name: "release-notes" },
           { type: "mcp-server", name: "dev-server" },
-          { type: "files", name: "workspace-baseline" },
           { type: "rule", name: "review-policy" },
           { type: "hook", name: "tool-audit" },
           { type: "subagent", name: "researcher" },

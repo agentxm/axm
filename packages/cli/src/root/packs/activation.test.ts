@@ -9,8 +9,6 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -72,10 +70,8 @@ const initializePack = (root: string) => {
           installedAt: "2026-08-04T00:00:00.000Z",
           updatedAt: "2026-08-04T00:00:00.000Z",
           resolvedSkills: {},
-          resolvedCommands: {},
           resolvedMcpServers: {},
           resolvedSubagents: {},
-          resolvedFiles: {},
           resolvedRules: {},
           resolvedHooks: {},
           resolvedKnowledge: {},
@@ -147,10 +143,8 @@ const initializePackWithSkill = (root: string) => {
               publisherBindingId: "hbnd_test",
             },
           },
-          resolvedCommands: {},
           resolvedMcpServers: {},
           resolvedSubagents: {},
-          resolvedFiles: {},
           resolvedRules: {},
           resolvedHooks: {},
           resolvedKnowledge: {},
@@ -202,8 +196,6 @@ describe("packs activation", () => {
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
-        CommandManagerLive,
-        FilesManagerLive,
         HookManagerLive,
         KnowledgeManagerLive,
         McpServerManagerLive,

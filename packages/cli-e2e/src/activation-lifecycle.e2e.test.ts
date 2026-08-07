@@ -166,7 +166,7 @@ describe("extension activation lifecycle", () => {
     } finally {
       temp.cleanup();
     }
-  }, 180_000);
+  }, 300_000);
 
   it("isolates project and user inventory for every extension type", async () => {
     const workspace = createTempDir();

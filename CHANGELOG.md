@@ -1,3 +1,14 @@
+## 0.25.5 (2026-08-07)
+
+### 🩹 Fixes
+
+- Recognize workspace-authored packs when validating recommended pack retention. ([1eb9afa9](https://github.com/agentxm/axm/commit/1eb9afa9))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @osintorg
+
 ## 0.25.4 (2026-08-07)
 
 ### 🚀 Features

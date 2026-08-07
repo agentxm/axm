@@ -459,6 +459,39 @@ describe("axm lint (e2e, Phase 7)", () => {
   });
 
   describe("staged Git-index workspace", () => {
+    it("does not fail strict lint on generated gitignored instruction aliases", async () => {
+      const temp = createTempDir("axm-staged-instructions-e2e-");
+      try {
+        initializeGit(temp.path);
+        const env = {
+          DO_NOT_TRACK: "1",
+          AXM_REGISTRY_LOCATION: "http://127.0.0.1:9",
+          AXM_REGISTRY_URL: "http://127.0.0.1:9",
+        };
+        const setup = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: temp.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        expect(fs.lstatSync(path.join(temp.path, "CLAUDE.md")).isSymbolicLink()).toBe(true);
+        expect(git(temp.path, ["check-ignore", "CLAUDE.md"]).trim()).toBe("CLAUDE.md");
+        git(temp.path, ["add", "."]);
+
+        const result = await runCli(["lint", "--staged", "--strict", "--json"], {
+          cwd: temp.path,
+          env,
+        });
+
+        expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
+        const findings: Array<{ ruleId: string }> = JSON.parse(result.stdout).result.findings;
+        expect(findings.map((finding) => finding.ruleId)).not.toContain(
+          "workspace/instructions-target-current",
+        );
+      } finally {
+        temp.cleanup();
+      }
+    });
+
     it("lints the complete exact index and leaves partial staging untouched", async () => {
       const temp = createTempDir("axm-staged-lint-e2e-");
       try {

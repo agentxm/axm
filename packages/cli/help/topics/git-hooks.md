@@ -9,7 +9,9 @@ Registry access.
 
 `--strict`, `--json`, and `--details` work with `--staged`. `--fix` and `--scope
 user` do not. Run formatters first so their intended output is staged before
-AXM reads the index.
+AXM reads the index. Generated instruction aliases such as `CLAUDE.md` and
+`GEMINI.md` are intentionally gitignored, so staged lint leaves their currency
+check to the full-workspace pre-push or CI command.
 
 ## Choose the gate
 

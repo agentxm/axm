@@ -1,3 +1,14 @@
+## 0.25.3 (2026-08-07)
+
+### 🩹 Fixes
+
+- Ensure failed publish machine output emits exactly one result document.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.25.2 (2026-08-07)
 
 ### 🩹 Fixes

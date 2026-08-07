@@ -1,3 +1,14 @@
+## 0.25.2 (2026-08-07)
+
+### 🩹 Fixes
+
+- Order selected pack dependencies before packs and formalize machine-output detection.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.25.1 (2026-08-07)
 
 ### 🚀 Features

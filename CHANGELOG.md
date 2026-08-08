@@ -1,3 +1,13 @@
+## 0.25.8 (2026-08-08)
+
+### 🩹 Fixes
+
+- Improve workspace reconciliation reliability, atomic agent changes, and installed skill state recovery.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.25.7 (2026-08-08)
 
 ### 🩹 Fixes

@@ -36,6 +36,37 @@ export const WorkspaceStatusSchema = Schema.Struct({
 
 type WorkspaceHealthProblem = Schema.Schema.Type<typeof WorkspaceHealthProblemSchema>;
 
+interface ProjectionInventoryRow {
+  readonly installed: boolean;
+  readonly origins: ReadonlyArray<string>;
+  readonly agents: ReadonlyArray<string>;
+}
+
+export const projectionIsCurrent = (
+  node: Pick<DesiredExtensionNode, "type">,
+  row: ProjectionInventoryRow | undefined,
+  configuredAgents: ReadonlyArray<string>,
+): boolean => {
+  if (configuredAgents.length === 0 && (node.type === "subagent" || node.type === "mcp-server")) {
+    return true;
+  }
+  const projectionOrigin =
+    node.type === "skill"
+      ? "agent-skill-dir"
+      : node.type === "subagent"
+        ? "agent-subagent-dir"
+        : undefined;
+  return (
+    row?.installed === true &&
+    (projectionOrigin === undefined ||
+      row.origins.includes(projectionOrigin) ||
+      (node.type === "mcp-server" &&
+        (row.origins.includes("workspace-mcp-config") ||
+          row.origins.includes("agent-mcp-config")))) &&
+    configuredAgents.every((agent) => row.agents.includes(agent))
+  );
+};
+
 export const canonicalHealthProblem = (
   node: DesiredExtensionNode,
   observation: CanonicalObservation,
@@ -226,20 +257,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
       return [];
     }
     const row = inventoryByType.get(node.type)?.find((item) => item.name === node.name);
-    const projectionOrigin =
-      node.type === "skill"
-        ? "agent-skill-dir"
-        : node.type === "subagent"
-          ? "agent-subagent-dir"
-          : undefined;
-    const current =
-      row?.installed === true &&
-      (projectionOrigin === undefined ||
-        row.origins.includes(projectionOrigin) ||
-        (node.type === "mcp-server" &&
-          (row.origins.includes("workspace-mcp-config") ||
-            row.origins.includes("agent-mcp-config")))) &&
-      configuredAgents.every((agent) => row.agents.includes(agent));
+    const current = projectionIsCurrent(node, row, configuredAgents);
     if (current) return [];
     const identity = node.identity.replace(/^workspace:/, "");
     return [

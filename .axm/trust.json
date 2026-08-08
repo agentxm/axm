@@ -6,8 +6,8 @@
       "name": "axm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/axm",
-      "resolvedVersion": "0.25.5",
-      "contentIdentity": "0a4c3d1ed441d145ff98b6133f422dfe53db73c55ce0eeba27c3865809ade5ce"
+      "resolvedVersion": "0.25.6",
+      "contentIdentity": "cc3fd0bcc32f9038aad544a08537071e7d01a3cd46eccb02a8a035665cedd81f"
     },
     "knowledge:agentxm": {
       "extensionType": "knowledge",

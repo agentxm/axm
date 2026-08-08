@@ -210,6 +210,40 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
     }),
   );
 
+  it.effect("emits Codex TOML subagent occurrences", () =>
+    Effect.gen(function* () {
+      const codexDescriptor = AGENTS.codex;
+      const { occurrences } = yield* runScanner(
+        {
+          workspaceRoot: WORKSPACE_ROOT,
+          userHome: USER_HOME,
+          project: {
+            agentDirs: {
+              codex: {
+                "agents/code-reviewer.toml": 'name = "code-reviewer"\n',
+              },
+            },
+          },
+        },
+        {
+          agentRegistry: {
+            ...AGENTS,
+            codex: {
+              ...codexDescriptor,
+              subagents: { dir: ".agents/agents", scopes: ["user", "project"] },
+            },
+          },
+        },
+      );
+      const subagents = occurrences.filter(
+        (occurrence) => occurrence.type === "subagent" && occurrence.agentId === "codex",
+      );
+      expect(subagents).toHaveLength(1);
+      expect(subagents[0]?.name).toBe("code-reviewer");
+      expect(subagents[0]?.contentLocation).toBe("/ws/.agents/agents/code-reviewer.toml");
+    }),
+  );
+
   it.effect("emits a single-file subagent occurrence when subagents dir is a file", () =>
     Effect.gen(function* () {
       // roo's subagents.dir is `.roomodes` with isFile: true. The fixture

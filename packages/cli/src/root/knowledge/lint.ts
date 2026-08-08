@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -8,18 +7,12 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  KNOWLEDGE_MANIFEST_FILENAME,
-  KNOWLEDGE_SOURCE_DIR,
-  KnowledgeManifestSchema,
-  inspectKnowledgeBundle,
-  type KnowledgeDiagnostic,
-} from "@agentxm/client-core/unstable/knowledge";
+import { type KnowledgeDiagnostic } from "@agentxm/client-core/unstable/knowledge";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
-import { inspectInstalledKnowledge } from "./inspect.js";
+import { inspectInstalledKnowledge, inspectKnowledgePackage } from "./inspect.js";
 
 const DiagnosticSchema = Schema.Struct({
   bundle: Schema.String,
@@ -49,40 +42,9 @@ const inspectAuthoredKnowledge = Effect.fn("Knowledge.inspectAuthored")(function
   packagePath: string,
 ) {
   const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const packageRoot = path.resolve(ws.baseDir, packagePath);
-  const manifestRaw = yield* fs
-    .readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME))
-    .pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to read ${KNOWLEDGE_MANIFEST_FILENAME} from ${packagePath}`,
-          cause,
-        }),
-      ),
-    );
-  const manifest = yield* Effect.try({
-    try: (): unknown => JSON.parse(manifestRaw),
-    catch: (cause) =>
-      makeAppError({
-        code: "validation",
-        detail: `Failed to parse ${KNOWLEDGE_MANIFEST_FILENAME} from ${packagePath}`,
-        cause,
-      }),
-  }).pipe(
-    Effect.flatMap(Schema.decodeUnknownEffect(KnowledgeManifestSchema)),
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "validation",
-        detail: `Invalid ${KNOWLEDGE_MANIFEST_FILENAME} in ${packagePath}`,
-        cause,
-      }),
-    ),
-  );
-  const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
-  const inspection = yield* inspectKnowledgeBundle(sourceRoot).pipe(
+  const inspected = yield* inspectKnowledgePackage(packageRoot).pipe(
     Effect.mapError((cause) =>
       makeAppError({
         code: "validation",
@@ -91,7 +53,7 @@ const inspectAuthoredKnowledge = Effect.fn("Knowledge.inspectAuthored")(function
       }),
     ),
   );
-  return [{ name: manifest.name, sourceRoot, inspection }];
+  return [inspected];
 });
 
 export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (

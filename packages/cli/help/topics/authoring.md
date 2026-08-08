@@ -5,18 +5,21 @@ the manifest `description`, `keywords`, and the package `README.md`. Good
 metadata is what makes an extension findable and trustworthy in search and
 listings.
 
-## Two descriptions, two readers
+## Description layers
 
-AXM has two fields called `description`, and they are written for different
-readers. Do not copy one into the other.
+The manifest `description` is common Registry metadata. Some extension types
+also define content-level descriptions for a different discovery job. Do not
+copy one into another without considering its reader.
 
-| Field                                 | Reader                          | Purpose                                       |
-| ------------------------------------- | ------------------------------- | --------------------------------------------- |
-| Manifest `description` (`skill.json`) | A human browsing the registry   | One-line summary in search and listings       |
-| `SKILL.md` frontmatter `description`  | The model deciding what to load | Trigger text matched against the current task |
+| Field                                | Reader                              | Purpose                                       |
+| ------------------------------------ | ----------------------------------- | --------------------------------------------- |
+| Manifest `description`               | A human browsing the Registry       | One-line summary in search and listings       |
+| `SKILL.md` frontmatter `description` | The model deciding what to load     | Trigger text matched against the current task |
+| Knowledge concept `description`      | A human or model searching a bundle | Distinguish one concept in search results     |
 
-This topic covers the manifest `description`. For the frontmatter trigger, see
-`axm help skills`.
+This topic covers the manifest field. For skill invocation triggers, see `axm
+help skills`. For Knowledge bundle and concept discovery, see `axm help
+knowledge`.
 
 ## Manifest `description`
 
@@ -38,6 +41,10 @@ Write it for a person scanning a list:
 ```
 
 Weaker: `"A helpful code review skill."` — no domain, no differentiation.
+
+For Knowledge bundles, the manifest description also appears in the managed
+workspace instruction table so an agent can decide whether to open the bundle's
+root index. `axm help knowledge` owns that progressive-discovery guidance.
 
 ## Keywords, homepage, repository
 
@@ -73,5 +80,6 @@ content file instructs the model.
 ## Where to go next
 
 - `axm help skills` — writing the `SKILL.md` frontmatter `description` for model invocation
+- `axm help knowledge` — writing bundle indexes and descriptions for progressive discovery
 - `axm help package-extensions` — companion packages and Official status
 - `axm view <handle>` — inspect the published metadata of any extension

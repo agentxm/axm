@@ -48,6 +48,8 @@ export interface KnowledgeDiagnostic {
     | "missing-okf-version"
     | "missing-title"
     | "missing-description"
+    | "missing-manifest-description"
+    | "empty-bundle"
     | "missing-tags"
     | "symbolic-link"
     | "too-many-files"
@@ -1032,6 +1034,14 @@ export const inspectKnowledgeEntries = <E>(
           message: `Concept type spellings differ only by casing: ${[...spellings].sort().join(", ")}.`,
         });
       }
+    }
+    if (!concepts.some((concept) => !isReserved(concept.relativePath))) {
+      diagnostics.push({
+        code: "empty-bundle",
+        severity: "warning",
+        relativePath: "index.md",
+        message: "Knowledge bundle contains no concept documents to discover.",
+      });
     }
     return { concepts, diagnostics, okfVersion: OKF_VERSION };
   });

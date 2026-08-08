@@ -166,3 +166,54 @@ describe("axm hooks new", () => {
     }
   });
 });
+
+describe("axm knowledge new", () => {
+  it("scaffolds a progressive-discovery root and accepts a bundle description", async () => {
+    const temp = createTempDir();
+
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@test",
+        agents: [],
+      }));
+      const description = "Platform authentication architecture and operational runbooks";
+      const preview = await runCli(
+        ["knowledge", "new", "platform", "--description", description, "--preview", "--json"],
+        { cwd: temp.path },
+      );
+      expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+      expect(preview.stdout).toContain(description);
+
+      const created = await runCli(
+        ["knowledge", "new", "platform", "--description", description, "--yes"],
+        { cwd: temp.path },
+      );
+      expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+      const packageDir = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "knowledge",
+        "platform",
+      );
+      expect(readJson(path.join(packageDir, "knowledge.json"))["description"]).toBe(description);
+      expect(fs.readFileSync(path.join(packageDir, "src", "index.md"), "utf8")).toContain(
+        "Discovery map",
+      );
+
+      const undescribed = await runCli(["knowledge", "new", "runbooks", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(undescribed.exitCode, undescribed.stdout + undescribed.stderr).toBe(0);
+      expect(undescribed.stdout + undescribed.stderr).toContain("Add a concise bundle description");
+      expect(undescribed.stdout + undescribed.stderr).toContain(
+        "Replace the root index placeholder with grouped, annotated concept links",
+      );
+    } finally {
+      temp.cleanup();
+    }
+  });
+});

@@ -28,6 +28,7 @@ The manifest declares the OKF dialect and the bundle root:
   "type": "knowledge",
   "name": "platform",
   "version": "1.0.0",
+  "description": "Platform authentication architecture, session lifecycle, and operational runbooks",
   "format": { "name": "okf", "version": "0.2" },
   "bundleRoot": "src"
 }
@@ -49,7 +50,7 @@ The manifest declares the OKF dialect and the bundle root:
         └── session-management.md
 ```
 
-`src/index.md` is the discovery root and is required. It carries the bundle's
+`src/index.md` is the required discovery root. It carries the bundle's
 `okf_version` in YAML frontmatter and at least one level-one heading:
 
 ```markdown
@@ -59,12 +60,52 @@ okf_version: "0.2"
 
 # Platform knowledge
 
-- [Session management](auth/session-management.md)
+Platform authentication architecture and operating policy. Use this bundle
+when changing login, session, or token behavior.
+
+## Authentication
+
+- [Session management](auth/session-management.md) — How sessions are issued,
+  refreshed, and revoked.
+- [Token policy](auth/token-policy.md) — Token kinds, lifetimes, and storage
+  boundaries.
 ```
 
 `index.md` and `log.md` are reserved names. Nested `index.md` files are section
 indexes and must not carry frontmatter; `log.md` records change history under
 `## YYYY-MM-DD` headings, newest first.
+
+## Progressive discovery
+
+Knowledge is discovered in four layers. Each layer should contain only enough
+information to route the reader to the next one:
+
+| Layer                  | Authoring input                  | Reader decision                         |
+| ---------------------- | -------------------------------- | --------------------------------------- |
+| Workspace instructions | Manifest `description`           | Is this bundle relevant?                |
+| Bundle landing page    | Root `src/index.md`              | Which section or concept should I open? |
+| Search results         | Concept `description` and `tags` | Is this the right concept?              |
+| Concept document       | Markdown body                    | What detailed knowledge applies?        |
+
+The manifest `description` appears in Registry discovery and the managed
+Knowledge Base table. Write one scannable sentence naming the bundle's domain
+and distinctive scope. Avoid “A Knowledge extension that…”, repeating the
+owner or name, keyword lists, and exhaustive inventories.
+
+Treat every `index.md` as a routing map, not a container for detailed knowledge:
+
+- Open with a short statement of scope, intended use, and important exclusions
+  or relationships.
+- Group links under meaningful headings and annotate each link with what makes
+  that concept or section distinct.
+- Keep substantive knowledge in concept documents.
+- Introduce nested section indexes when the root becomes difficult to scan.
+- Keep every concept reachable from the root index.
+
+Within a bundle, use ordinary Markdown links relative to the document containing
+the link. A same-directory link can use `session-management.md`; a concept in
+`auth/` can link to `../domain/authentication.md`. AXM accepts valid relative
+links and warns about missing targets or links that escape the bundle.
 
 ## Concepts
 
@@ -89,7 +130,10 @@ below.
   validation.
 - A level-one heading supplies the display title.
 - `description` and `tags` drive search and are strongly recommended; lint
-  warns when they are missing.
+  warns when they are missing. Make the description distinguish this concept
+  from its neighbors rather than repeat its title. Use tags for stable domain
+  terms, aliases, and query vocabulary without mechanically repeating every
+  title or description word.
 
 OKF provenance fields are validated when present: `sources`, `generated`,
 `verified`, `status`, `stale_after`, and `resource`. Actors follow the OKF

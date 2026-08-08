@@ -55,6 +55,27 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
     }).pipe(Effect.scoped),
   );
 
+  it.effect("warns when a bundle has no concept documents", () =>
+    Effect.gen(function* () {
+      const contents = new Map([["index.md", '---\nokf_version: "0.2"\n---\n# Empty knowledge\n']]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+
+      expect(inspected.diagnostics).toContainEqual({
+        code: "empty-bundle",
+        severity: "warning",
+        relativePath: "index.md",
+        message: "Knowledge bundle contains no concept documents to discover.",
+      });
+    }),
+  );
+
   it.effect("does not classify descriptive prose as prompt injection", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

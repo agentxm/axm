@@ -177,8 +177,10 @@ describe("KnowledgeManager", () => {
             "concept.md",
           );
           expect(readFileSync(canonicalConcept, "utf8")).toContain("type: concept");
-          expect(readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8")).toContain(
-            "@acme/handbook",
+          const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
+          expect(instructions).toContain("### @acme");
+          expect(instructions).toContain(
+            "[handbook](.axm/extensions/external/knowledge/handbook/src/index.md)",
           );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

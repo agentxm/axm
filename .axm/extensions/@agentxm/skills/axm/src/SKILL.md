@@ -89,6 +89,7 @@ listed in the managed `Knowledge Base` table in the canonical instruction file.
 Use `knowledgeConfig.instructions: false` only to suppress that table. It does
 not disable install, trust, search, or open behavior; use `axm knowledge disable`
 to retain a bundle without active discovery.
+Read `axm help knowledge` before authoring or revising a Knowledge bundle.
 
 ### Workspace setup & discovery
 

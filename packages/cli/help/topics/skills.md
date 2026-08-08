@@ -19,6 +19,21 @@ skill directory name. AXM validates the pinned Agent Skills fields: `name`,
 `allowed-tools`. The Markdown body and every other file under `src/` remain
 opaque and are materialized faithfully.
 
+## File references
+
+Within one skill, reference supporting files relative to the skill root (the
+package's `src/` directory). Use forward-slash paths that an agent can open
+directly:
+
+```markdown
+Read `references/policy.md`, then run `scripts/validate.sh`.
+```
+
+Do not use absolute machine paths or agent-specific projections such as
+`.agents/skills` or `.claude/skills`. For a required file owned by another
+extension in the same pack, use the canonical cross-extension convention in
+`axm help packs`.
+
 ## Writing the `description` for model invocation
 
 The `SKILL.md` frontmatter `description` is the single biggest lever on whether

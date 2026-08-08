@@ -178,6 +178,7 @@ jobs:
         run: |
           release-assets/axm-linux-x64 skills publish @agentxm/skills/axm \
             --registry-url https://registry.agentxm.ai \
+            --on-existing verify \
             --yes \
             --non-interactive \
             --json

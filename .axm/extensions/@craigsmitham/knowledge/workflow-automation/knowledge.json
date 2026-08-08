@@ -1,0 +1,30 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "workflow-automation",
+  "version": "0.1.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices",
+  "keywords": [
+    "workflow",
+    "automation",
+    "pipeline",
+    "continuous-integration",
+    "continuous-delivery",
+    "continuous-deployment",
+    "ci-cd",
+    "developer-experience"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/knowledge/workflow-automation"
+  }
+}

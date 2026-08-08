@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axm.sh/schemas/rule.schema.json",
+  "owner": "@craigsmitham",
+  "name": "field-notes",
+  "version": "0.1.0",
+  "type": "rule",
+  "title": "Field notes",
+  "priority": 200,
+  "description": "Record specific observations about how work actually goes, within declared subjects, without derailing the work in progress",
+  "keywords": [
+    "field-notes",
+    "observation",
+    "continuous-improvement",
+    "friction",
+    "developer-experience",
+    "instructions"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/field-notes"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/rules/field-notes"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "CC-BY-SA-4.0"
+}

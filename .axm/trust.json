@@ -155,6 +155,61 @@
         },
         "metadataIdentity": "{\"$schema\":\"https://axm.sh/schemas/pack.schema.json\"}"
       }
+    },
+    "pack:field-notes": {
+      "extensionType": "pack",
+      "name": "field-notes",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/packs/field-notes",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-ZmjqaQPwhKi8MXon/yqthQqnAbS+jR50LGut1U+abVFQfmcrYt+eJSYmb0RyVDoUS2lnxbdyyy0c+Vc0A3tP5g==",
+      "contentIdentity": "86a93c5efe1de48b1c472c47f829d72a69b98811e15393949c83614048d32d2b"
+    },
+    "skill:field-notes": {
+      "extensionType": "skill",
+      "name": "field-notes",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/field-notes",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.1",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==",
+      "contentIdentity": "eb50354a2e85c435817d41df03036166a957ef9350d6b622b62f931e4771367d"
+    },
+    "rule:field-notes": {
+      "extensionType": "rule",
+      "name": "field-notes",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/rules/field-notes",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-Ytu3QlBHMJlND8VAiMdNtKs5jdtWr9Y5W9IierRrHwoX1fSE2zu7hypn32CtRwIWTQMAqhb5GumrKp+GeCpX3w==",
+      "contentIdentity": "f5f954014efa2f65ecf21abab703c5bfd855793225e34edb59ee81b9f2c67f5c"
+    },
+    "knowledge:field-notes": {
+      "extensionType": "knowledge",
+      "name": "field-notes",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/knowledge/field-notes",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.1",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==",
+      "contentIdentity": "a2ce7a9156f72eac0e074c00e4831277f6bd62960cdf03c5040578d3dd59fe60"
+    },
+    "knowledge:workflow-automation": {
+      "extensionType": "knowledge",
+      "name": "workflow-automation",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/knowledge/workflow-automation",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==",
+      "contentIdentity": "8355be6f86b4fa052c68f3964f261e4f87392ad3ef03c88775d5b8ecd8d7285f"
     }
   }
 }

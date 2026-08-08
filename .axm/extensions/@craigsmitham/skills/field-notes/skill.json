@@ -1,0 +1,28 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "field-notes",
+  "version": "0.1.1",
+  "description": "Declare what work to observe, then triage recorded observations into verified improvements",
+  "keywords": [
+    "field-notes",
+    "observation",
+    "continuous-improvement",
+    "friction",
+    "developer-experience",
+    "triage",
+    "retrospective"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/field-notes"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/field-notes"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "CC-BY-SA-4.0"
+}

@@ -135,6 +135,29 @@ skills:
     installedAt: 2026-08-07T16:51:13.849Z
     updatedAt: 2026-08-07T16:51:13.850Z
     sourceHash: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
+  field-notes:
+    type: registry
+    owner: "@craigsmitham"
+    name: field-notes
+    resolvedVersion: 0.1.1
+    integrity: sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-08T17:50:28.343Z
+    updatedAt: 2026-08-08T17:50:28.351Z
+    sourceHash: eb50354a2e85c435817d41df03036166a957ef9350d6b622b62f931e4771367d
+rules:
+  field-notes:
+    type: registry
+    owner: "@craigsmitham"
+    name: field-notes
+    resolvedVersion: 0.1.0
+    integrity: sha512-Ytu3QlBHMJlND8VAiMdNtKs5jdtWr9Y5W9IierRrHwoX1fSE2zu7hypn32CtRwIWTQMAqhb5GumrKp+GeCpX3w==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-08T17:50:28.379Z
+    updatedAt: 2026-08-08T17:50:28.386Z
+    sourceHash: f5f954014efa2f65ecf21abab703c5bfd855793225e34edb59ee81b9f2c67f5c
 knowledge:
   agentxm:
     type: workspace
@@ -145,6 +168,28 @@ knowledge:
     installedAt: 2026-08-06T14:50:18.696Z
     updatedAt: 2026-08-07T20:58:25.003Z
     sourceHash: be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7
+  field-notes:
+    type: registry
+    owner: "@craigsmitham"
+    name: field-notes
+    resolvedVersion: 0.1.1
+    integrity: sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-08T17:50:28.408Z
+    updatedAt: 2026-08-08T17:50:28.413Z
+    sourceHash: a2ce7a9156f72eac0e074c00e4831277f6bd62960cdf03c5040578d3dd59fe60
+  workflow-automation:
+    type: registry
+    owner: "@craigsmitham"
+    name: workflow-automation
+    resolvedVersion: 0.1.0
+    integrity: sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-08T17:50:30.432Z
+    updatedAt: 2026-08-08T17:50:30.597Z
+    sourceHash: 8355be6f86b4fa052c68f3964f261e4f87392ad3ef03c88775d5b8ecd8d7285f
 packs:
   effect:
     type: workspace
@@ -216,5 +261,37 @@ packs:
     resolvedRules: {}
     resolvedHooks: {}
     resolvedKnowledge: {}
+  field-notes:
+    type: registry
+    owner: "@craigsmitham"
+    name: field-notes
+    resolvedVersion: 0.1.0
+    integrity: sha512-ZmjqaQPwhKi8MXon/yqthQqnAbS+jR50LGut1U+abVFQfmcrYt+eJSYmb0RyVDoUS2lnxbdyyy0c+Vc0A3tP5g==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    sourceHash: 86a93c5efe1de48b1c472c47f829d72a69b98811e15393949c83614048d32d2b
+    installedAt: 2026-08-08T17:50:28.285Z
+    updatedAt: 2026-08-08T17:50:28.296Z
+    resolvedSkills:
+      "@craigsmitham/skills/field-notes":
+        source: registry
+        version: 0.1.1
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==
+    resolvedMcpServers: {}
+    resolvedSubagents: {}
+    resolvedRules:
+      "@craigsmitham/rules/field-notes":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-Ytu3QlBHMJlND8VAiMdNtKs5jdtWr9Y5W9IierRrHwoX1fSE2zu7hypn32CtRwIWTQMAqhb5GumrKp+GeCpX3w==
+    resolvedHooks: {}
+    resolvedKnowledge:
+      "@craigsmitham/knowledge/field-notes":
+        source: registry
+        version: 0.1.1
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==
 commands: {}
 files: {}

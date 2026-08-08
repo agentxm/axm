@@ -7,6 +7,7 @@ import {
   TestMachineRenderer,
   TestRenderer,
 } from "@agentxm/client-core/unstable/cli-renderer";
+import { extensionTypePluralSegments } from "@agentxm/client-core/unstable/extensions";
 import { HELP_TOPICS, HELP_TOPIC_KINDS } from "../../__generated__/help-topics.js";
 import { handleHelpTopic, ORDERED_TOPIC_NAMES } from "./command.js";
 
@@ -23,6 +24,8 @@ const helpIndexSuggestions = [
     cmd: "axm <command> --help",
   },
 ];
+
+const nonPackExtensionHelpTopics = extensionTypePluralSegments.filter((topic) => topic !== "packs");
 
 describe("help topic command", () => {
   it.effect("renders the interactive help index as a structured table", () =>
@@ -70,6 +73,31 @@ describe("help topic command", () => {
 
       expect(state.results).toHaveLength(1);
       expect(state.markdown).toEqual([HELP_TOPICS["basic-usage"]]);
+    }),
+  );
+
+  it.effect("exposes self-containment guidance from every non-pack extension topic", () =>
+    Effect.gen(function* () {
+      for (const topic of nonPackExtensionHelpTopics) {
+        const { layer, state } = TestRenderer.make();
+
+        yield* handleHelpTopic(Option.some(topic)).pipe(Effect.provide(layer));
+
+        expect(state.markdown[0]).toContain("self-contained");
+        expect(state.markdown[0]).toContain("axm help packs");
+      }
+    }),
+  );
+
+  it.effect("documents the only supported cross-extension dependency model", () =>
+    Effect.gen(function* () {
+      const { layer, state } = TestRenderer.make();
+
+      yield* handleHelpTopic(Option.some("packs")).pipe(Effect.provide(layer));
+
+      expect(state.markdown[0]).toContain("## Cross-extension dependencies and references");
+      expect(state.markdown[0]).toMatch(/direct dependencies of the\s+same pack/);
+      expect(state.markdown[0]).toContain("does not install the pack or its members");
     }),
   );
 

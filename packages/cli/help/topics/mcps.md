@@ -164,7 +164,9 @@ using the bare pack reference — no version range:
 
 When a pack lists this server as a dependency and the server lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the MCP server self-contained. `recommendedPacks` does not install the pack
+or its members. If the server requires another extension, follow
+`axm help packs` for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

@@ -982,7 +982,7 @@ export const NonPackManifestFields = {
     Schema.Array(PackSpecSchema).pipe(
       Schema.annotate({
         description:
-          "Packs this extension is designed to work alongside. Each entry is a pack spec, optionally pinned to a version range.",
+          "Pack recommendations and same-pack composition metadata. Entries do not install or guarantee the pack or its members.",
       }),
     ),
   ),
@@ -990,7 +990,7 @@ export const NonPackManifestFields = {
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          "Set to false to indicate this extension only makes sense when installed alongside one of its recommendedPacks.",
+          "False means the extension requires sibling extensions that are direct members of a pack named in recommendedPacks; it does not create dependencies.",
         default: true,
       }),
     ),

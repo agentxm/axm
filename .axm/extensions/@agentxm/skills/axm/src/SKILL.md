@@ -65,6 +65,14 @@ git-hooks`, inspect the existing hook manager and CI gate, and propose the
    process environments. Public extension installs may proceed while signed
    out; the probe only establishes that private registry access is unavailable.
 
+7. **Keep extensions self-contained**: When authoring a non-pack extension, do
+   not require or invoke another extension, reference its files or capabilities,
+   or assume it is installed. Remove the dependency or keep required material
+   inside the extension. Only couple direct sibling members of one pack; set the
+   referencing extension to `standalone: false`, name the shared pack in
+   `recommendedPacks`, and follow `axm help packs`. A recommendation alone does
+   not install the pack or its members.
+
 ### CLI Introspection
 
 Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, mcp-schema, rules, hooks, knowledge, packs, settings, exit-codes, etc.).

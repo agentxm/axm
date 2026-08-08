@@ -239,6 +239,12 @@ and publish checks without releasing.
 Bump the manifest `version` first; the registry rejects a version that already
 exists.
 
+## Self-containment and packs
+
+Keep Knowledge bundles self-contained. If a bundle requires another extension,
+follow `axm help packs` for the only supported direct-sibling pack composition.
+`recommendedPacks` alone does not install the pack or its members.
+
 ## Where to go next
 
 - `axm knowledge --help` — full knowledge subcommand surface
@@ -246,3 +252,4 @@ exists.
 - `axm help settings` — workspace state and the `knowledge` map
 - `axm help workspace-state` — bundle and discovery reconciliation
 - `axm help authoring` — descriptions, keywords, and READMEs for the registry
+- `axm help packs` — optional recommendations and required sibling composition

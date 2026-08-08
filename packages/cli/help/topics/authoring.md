@@ -5,6 +5,11 @@ the manifest `description`, `keywords`, and the package `README.md`. Good
 metadata is what makes an extension findable and trustworthy in search and
 listings.
 
+Keep every non-pack extension self-contained. If it requires another extension,
+follow `axm help packs` for the only supported direct-sibling pack composition.
+`recommendedPacks` is metadata only; it does not install the pack or its
+members.
+
 ## Description layers
 
 The manifest `description` is common Registry metadata. Some extension types

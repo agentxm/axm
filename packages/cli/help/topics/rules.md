@@ -159,10 +159,17 @@ Edit `AGENTS.md` directly. Once enabled, `axm sync` (and any install/remove
 that touches agent state) keeps each agent's instruction file aligned with the
 source on every run.
 
+## Self-containment and packs
+
+Keep rule extensions self-contained. If a rule requires another extension,
+follow `axm help packs` for the only supported direct-sibling pack composition.
+`recommendedPacks` alone does not install the pack or its members.
+
 ## Where to go next
 
 - `axm rules --help` — full command surface
 - `axm help settings` — workspace state and `rulesConfig`
 - `axm help settings-schema` — exact `rulesConfig.instructions` shape
 - `axm help workspace-state` — package and instruction-region reconciliation
+- `axm help packs` — optional recommendations and required sibling composition
 - `axm agents list` — configured, detected, and supported coding-agent IDs

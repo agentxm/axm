@@ -62,10 +62,26 @@ private. A deprecated dependency remains resolvable but produces a warning.
 Publication failures name each unavailable dependency and the corrective action
 needed before the pack can be released.
 
-## Cross-extension file references
+## Cross-extension dependencies and references
+
+Author every non-pack extension as self-contained by default. Its instructions,
+configuration, scripts, and runtime behavior must not require or invoke another
+extension, reference another extension's files or capabilities, or assume
+another extension is installed. Remove the dependency or place the required
+material inside the extension.
+
+The only supported exception is deliberate pack composition. The referencing
+extension and every required target extension must be direct dependencies of the
+same pack. Set the referencing extension to `standalone: false` and name that
+shared pack in `recommendedPacks`. A `recommendedPacks` entry is metadata; by
+itself, it does not install the pack or its members or guarantee their presence.
+
+Standalone extensions may still belong to packs and may recommend packs when
+the relationship is optional. Pack membership alone does not make a member
+non-standalone.
 
 Packs install their members together but do not create a shared pack directory
-or relative-path namespace. When one member requires a file from another member,
+or relative-path namespace. When required coupling uses a sibling file,
 reference the target's canonical path from the active AXM scope root:
 
 ```text
@@ -79,8 +95,7 @@ Read `.axm/extensions/@acme/knowledge/shared/src/policies/review.md`.
 The scope root is the project root for project scope and the user's home
 directory for user scope. Cross-extension paths must use forward slashes,
 include the target owner, plural type, and name, point inside `src/`, and target
-another member of the same pack when the file is required. The referencing
-extension must set `standalone: false` and name the pack in `recommendedPacks`.
+another direct member of the shared pack.
 
 Do not use absolute machine paths, agent projections such as `.agents/skills`
 or `.claude/skills`, paths relative to the pack directory, or `..` traversal
@@ -125,7 +140,9 @@ Packs may not depend on other extension packs. A pack's dependency graph is exac
 
 ## Recommended packs
 
-Extensions that are designed to work with a specific pack should declare it in `recommendedPacks`. Use the bare pack reference — do not include a version range:
+`recommendedPacks` records metadata and does not install the pack or any of its
+members. Extensions designed to work with a specific pack should use the bare
+pack reference — do not include a version range:
 
 ```
 {
@@ -143,7 +160,11 @@ See the individual help topics for each extension type for more details.
 
 ## Standalone extensions
 
-`standalone` defaults to `true`. Set it to `false` only when the extension is meaningless outside its recommended packs — and then list at least one pack in `recommendedPacks`. Otherwise leave the field undefined.
+`standalone` defaults to `true`, and pack membership does not change it. Set it
+to `false` only for deliberate required sibling coupling under
+[Cross-extension dependencies and references](#cross-extension-dependencies-and-references),
+then list the shared pack in `recommendedPacks`. A standalone extension may
+still belong to or optionally recommend a pack.
 
 ## Where to go next
 

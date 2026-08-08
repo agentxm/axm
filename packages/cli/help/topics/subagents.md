@@ -90,7 +90,9 @@ When a pack lists this subagent as a dependency and the subagent lists that pack
 
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this subagent — it costs nothing and earns the Official badge in the registry.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the subagent self-contained. `recommendedPacks` does not install the pack
+or its members. If the subagent requires another extension, follow
+`axm help packs` for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

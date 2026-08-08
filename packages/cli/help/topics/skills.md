@@ -106,7 +106,9 @@ When a pack lists this skill as a dependency and the skill lists that pack as re
 
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the skill self-contained. `recommendedPacks` does not install the pack or
+its members. If the skill requires another extension, follow `axm help packs`
+for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

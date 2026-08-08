@@ -173,7 +173,9 @@ When a pack lists this hook as a dependency and the hook lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
 Either side may declare alone; the badge appears only when both agree.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the hook self-contained. `recommendedPacks` does not install the pack or
+its members. If the hook requires another extension, follow `axm help packs`
+for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

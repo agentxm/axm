@@ -2,6 +2,7 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 
 interface AtomicMembershipStepsArgs {
   readonly ws: WorkspaceMutationsService;
@@ -9,12 +10,47 @@ interface AtomicMembershipStepsArgs {
   readonly validate: (results: ReadonlyArray<JobStepResult>) => Effect.Effect<void, AppError>;
 }
 
-const executeStep = (step: Exclude<PlannedJobStep, { readonly readiness: "error" }>) =>
-  step.run.pipe(
-    Effect.flatMap((result) =>
-      result.result === "error" ? Effect.fail(result.error) : Effect.succeed(result),
-    ),
+interface AtomicAttempt {
+  readonly results: ReadonlyArray<JobStepResult>;
+  readonly failedIndex?: number;
+}
+
+const failedResult = (error: AppError, message: string = error.detail): JobStepResult => ({
+  result: "error",
+  message,
+  error,
+});
+
+const blockedResult = (message: string): JobStepResult =>
+  failedResult(
+    makeAppError({
+      code: "conflict",
+      detail: message,
+    }),
+    message,
   );
+
+const rollbackResults = (
+  executable: ReadonlyArray<Exclude<PlannedJobStep, { readonly readiness: "error" }>>,
+  attempt: AtomicAttempt,
+  transactionError: AppError,
+): ReadonlyArray<JobStepResult> => {
+  const actualFailureIndex = attempt.failedIndex ?? Math.max(0, attempt.results.length - 1);
+  const failedLabel = executable[actualFailureIndex]?.label ?? "atomic agent membership validation";
+
+  return executable.map((_, index) => {
+    if (index < actualFailureIndex) {
+      return blockedResult(`blocked: rolled back after ${failedLabel} failed`);
+    }
+    if (index > actualFailureIndex) {
+      return blockedResult(`blocked by ${failedLabel} failure`);
+    }
+    const attempted = attempt.results[index];
+    return attempted?.result === "error"
+      ? attempted
+      : failedResult(transactionError, transactionError.detail);
+  });
+};
 
 /**
  * Keep plan-level preview and per-step results while applying every membership
@@ -29,10 +65,35 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
     (step): step is Exclude<PlannedJobStep, { readonly readiness: "error" }> =>
       step.readiness !== "error",
   );
-  const transition = args.ws.runTransaction({
-    transition: Effect.forEach(executable, executeStep, { concurrency: 1 }),
-    validate: args.validate,
-  });
+  const attemptRef = yield* Ref.make<AtomicAttempt>({ results: [] });
+  const transition = args.ws
+    .runTransaction({
+      transition: Effect.gen(function* () {
+        const results: Array<JobStepResult> = [];
+        for (const [index, step] of executable.entries()) {
+          const result = yield* step.run.pipe(
+            Effect.catch((error) => Effect.succeed(failedResult(error))),
+          );
+          results.push(result);
+          yield* Ref.set(attemptRef, {
+            results: [...results],
+            ...(result.result === "error" ? { failedIndex: index } : {}),
+          });
+          if (result.result === "error") {
+            return yield* result.error;
+          }
+        }
+        return results;
+      }),
+      validate: args.validate,
+    })
+    .pipe(
+      Effect.catch((transactionError) =>
+        Ref.get(attemptRef).pipe(
+          Effect.map((attempt) => rollbackResults(executable, attempt, transactionError)),
+        ),
+      ),
+    );
   const sharedTransition = yield* Effect.cached(transition);
   let resultIndex = 0;
 

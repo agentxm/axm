@@ -276,9 +276,10 @@ const cases: ReadonlyArray<HarnessCase> = [
     seed: seedSkillMissingFromLockfile,
   },
   {
-    label: "workspace/skills-lockfile-aligned — orphan arm uninstalls the lock entry",
+    label: "workspace/skills-lockfile-aligned — orphan arm requires an explicit choice",
     rule: skillsLockfileAlignedRule as AutofixingRule<WorkspaceRuleContext>,
     seed: seedSkillOrphanInLockfile,
+    expectsAdvisoryOnly: true,
   },
   {
     label: "workspace/skills-integrity-valid — reinstalls on missing src",

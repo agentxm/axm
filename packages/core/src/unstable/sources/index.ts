@@ -78,7 +78,11 @@ export { parseInputPattern } from "./parser.js";
 export type { InputPattern, InputParseResult, ShorthandInput } from "./parser.js";
 
 // Printer
-export { lockEntryToSourceParams, printSourceParams } from "./printer.js";
+export {
+  lockEntryToSourceParams,
+  printSkillLockSourceLocator,
+  printSourceParams,
+} from "./printer.js";
 export {
   knowledgeLockEntryToRef,
   packLockEntryToRef,

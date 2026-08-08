@@ -1,10 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Schema from "effect/Schema";
 
+import { PacksLockMapSchema, SkillsLockMapSchema } from "@agentxm/client-core/unstable/lockfile";
 import type {
   CanonicalObservation,
+  DesiredStateGraph,
   DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
-import { canonicalHealthProblem, projectionIsCurrent } from "./status.js";
+import { canonicalHealthProblem, projectionIsCurrent, receiptOnlySkillProblems } from "./status.js";
 
 const observation = {
   type: "skill",
@@ -172,5 +175,112 @@ describe("projectionIsCurrent", () => {
 
   it("still requires the universal skill projection when no agents are configured", () => {
     expect(projectionIsCurrent({ type: "skill" }, undefined, [])).toBe(false);
+  });
+});
+
+describe("receiptOnlySkillProblems", () => {
+  const completeGraph = {
+    nodes: [],
+    problems: [],
+    complete: true,
+  } satisfies DesiredStateGraph;
+
+  it("surfaces a receipt-only GitHub skill with declare and uninstall recovery", () => {
+    const lockedSkills = Schema.decodeUnknownSync(SkillsLockMapSchema)({
+      review: {
+        type: "github",
+        owner: "acme",
+        repo: "agent-extensions",
+        path: ".agents/skills/review",
+        ref: "v1",
+        installedAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+      },
+    });
+
+    expect(receiptOnlySkillProblems(completeGraph, lockedSkills)).toEqual([
+      {
+        code: "receipt-only-skill",
+        extensionType: "skill",
+        identity: "review",
+        detail:
+          "The skill has receipt history but no desired-state declaration; declare it to retain the installed content or uninstall it explicitly with `axm skills uninstall review`",
+        blocking: true,
+        recoveryAction: "axm skills install github:acme/agent-extensions//.agents/skills/review@v1",
+      },
+    ]);
+  });
+
+  it("does not classify lock rows while the desired pack graph is incomplete", () => {
+    const lockedSkills = Schema.decodeUnknownSync(SkillsLockMapSchema)({
+      review: {
+        type: "registry",
+        owner: "@acme",
+        name: "review",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-AAAA==",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        installedAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+      },
+    });
+
+    expect(receiptOnlySkillProblems({ ...completeGraph, complete: false }, lockedSkills)).toEqual(
+      [],
+    );
+  });
+
+  it("does not classify a skill retained implicitly by a desired pack", () => {
+    const graph = {
+      ...completeGraph,
+      nodes: [
+        {
+          type: "pack",
+          name: "starter",
+          identity: "@test/packs/starter",
+          source: "@test/packs/starter@0.0.1",
+          enabled: true,
+          constraints: [],
+          origins: [],
+        },
+      ],
+    } satisfies DesiredStateGraph;
+    const lockedSkills = Schema.decodeUnknownSync(SkillsLockMapSchema)({
+      "pack-skill": {
+        type: "registry",
+        owner: "@test",
+        name: "pack-skill",
+        resolvedVersion: "0.0.1",
+        integrity: "sha512-AAAA==",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        installedAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+      },
+    });
+    const lockedPacks = Schema.decodeUnknownSync(PacksLockMapSchema)({
+      starter: {
+        type: "registry",
+        owner: "@test",
+        name: "starter",
+        resolvedVersion: "0.0.1",
+        integrity: "sha512-AAAA==",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        installedAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+        resolvedSkills: {
+          "@test/skills/pack-skill": {
+            version: "0.0.1",
+            publisherBindingId: "hbnd_test",
+          },
+        },
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+      },
+    });
+
+    expect(receiptOnlySkillProblems(graph, lockedSkills, lockedPacks)).toEqual([]);
   });
 });

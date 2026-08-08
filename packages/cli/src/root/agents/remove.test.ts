@@ -11,6 +11,7 @@ import {
   makeProjectOnlyCodingAgent,
 } from "@agentxm/client-core/unstable/agents";
 import type { CodingAgentRepositoryService } from "@agentxm/client-core/unstable/agents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
@@ -65,6 +66,7 @@ describe("agents remove.handler", () => {
   const makeLayers = (opts?: {
     readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
     readonly machine?: boolean;
+    readonly failCleanupAtApply?: boolean;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();
@@ -87,9 +89,25 @@ describe("agents remove.handler", () => {
       skillsProjectDir: ".opencode/skills",
       subagentsProjectDir: ".opencode/agent",
     });
+    let skillsResolutionCount = 0;
+    const cleanupAgent =
+      opts?.failCleanupAtApply === true
+        ? {
+            ...opencode,
+            resolveEffectiveSkillsDir: (args: { readonly workspaceRoot: string }) => {
+              skillsResolutionCount += 1;
+              return skillsResolutionCount === 1
+                ? opencode.resolveEffectiveSkillsDir(args)
+                : makeAppError({
+                    code: "internal",
+                    detail: "Injected managed artifact cleanup failure",
+                  });
+            },
+          }
+        : opencode;
     const agentRepo: CodingAgentRepositoryService = {
       get: () => Effect.succeed(opencode),
-      all: Effect.succeed([opencode]),
+      all: Effect.succeed([cleanupAgent]),
       getConfiguredAgents: () => Effect.succeed([]),
       getMaterializationAgents: () => Effect.succeed([]),
       getUnknownConfiguredAgentIds: () => Effect.succeed([]),
@@ -210,6 +228,38 @@ describe("agents remove.handler", () => {
             },
           ],
         });
+      }),
+    );
+  });
+
+  it.effect("reports cleanup failure instead of a removed-agent success", () => {
+    const { provide, rendererState } = makeLayers({ failCleanupAtApply: true });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["opencode"],
+      lockfile: "lockfileVersion: 3\nskills: {}\n",
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          yes: true,
+          force: false,
+          preview: false,
+        });
+
+        expect(rendererState.logs).toContainEqual({
+          _tag: "error",
+          message: "Failed to remove 1 agent",
+        });
+        expect(rendererState.logs).not.toContainEqual({
+          _tag: "success",
+          message: "Removed 1 agent",
+        });
+        const settings: { readonly agents?: unknown } = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.agents).toEqual(["opencode"]);
       }),
     );
   });

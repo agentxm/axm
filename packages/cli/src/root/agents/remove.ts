@@ -8,18 +8,10 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  acceptWarningsFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
-  type CompletedJobStep,
-  type ExecutedPlan,
-  type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
@@ -32,9 +24,9 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
@@ -130,42 +122,6 @@ const cleanupStep = (
   ),
 });
 
-const formatArtifactTargets = (artifact: JobStepArtifact): string => {
-  if (artifact.targets === undefined || artifact.targets.length === 0) {
-    return artifact.path;
-  }
-  return artifact.targets
-    .map((target) => {
-      const agents =
-        target.agentIds === undefined || target.agentIds.length === 0
-          ? undefined
-          : ` [${target.agentIds.join(", ")}]`;
-      return `${target.path} (${target.change})${agents ?? ""}`;
-    })
-    .join(", ");
-};
-
-const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
-  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
-  const artifact = step.result.artifact;
-  const details = [
-    artifact.change,
-    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    formatArtifactTargets(artifact),
-  ].filter((part): part is string => part !== undefined && part.length > 0);
-  return `${step.label}   ${details.join("   ")}`;
-};
-
-const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
-  const rows = plan.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) => {
-      const summary = formatCompletedArtifactStep(step);
-      return summary === undefined ? [] : [summary];
-    });
-  return rows.length === 0 ? undefined : rows.join("\n");
-};
-
 const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJobStep => ({
   label: `Remove ${agentId}`,
   readiness: "ready",
@@ -197,7 +153,7 @@ const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJ
   _tag: "Plan",
   name: "Remove coding agents",
   description: Option.some(`Remove ${agentIds.join(", ")} and clean up managed artifacts`),
-  jobs: [{ concurrency: 1, steps }],
+  jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
 
 export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: AgentsRemoveArgs) {
@@ -262,35 +218,13 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
     displayApplied: false,
   });
 
-  const fallbackSummary = [
-    `-> ${AGENT_SETTINGS_PATH}   ${count(agentIds.length, "agent")}`,
-    "-> managed agent artifacts   cleanup",
-  ].join("\n");
-  const summary =
-    resolution._tag === "ExecutedPlan"
-      ? (summarizeExecutedArtifacts(resolution) ?? fallbackSummary)
-      : fallbackSummary;
   const suggestions = [{ description: "Inspect configured agents", cmd: "axm agents list" }];
-  const emitted = yield* emitPlanResolutionResult(
-    "agents.remove",
+  yield* emitAppliedPlanOutcome({
+    command: "agents.remove",
+    headline: `Removed ${count(agentIds.length, "agent")}`,
     resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      `Removed ${count(agentIds.length, "agent")}`,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            summary,
-            suggestions,
-            withoutSuggestions: emitted,
-          },
-    );
-  }
+    suggestions,
+  });
 });
 
 const removeConfig = {

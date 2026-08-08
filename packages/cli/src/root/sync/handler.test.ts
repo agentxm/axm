@@ -667,6 +667,70 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("reuses a trusted registry canonical when only agent projections are stale", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
+      writeSkillExtension(tempDir, "review");
+      const sourceHash = computePackageContentHashSync(skillDir);
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        skills: {
+          review: "@acme/skills/review@1.0.0",
+        },
+        sources: [
+          {
+            name: "default",
+            type: "registry",
+            location: "file:///tmp/registry-version-does-not-exist",
+          },
+        ],
+        lockfileSkills: {
+          review: {
+            type: "registry",
+            owner: "@acme",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: "2026-08-01T00:00:00.000Z",
+            updatedAt: "2026-08-01T00:00:00.000Z",
+            sourceHash,
+          },
+        },
+        writeTrustFromLockfile: true,
+      });
+
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
+
+      yield* provide(handleSync({ preview: false }));
+
+      expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "review"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(true);
+      expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
+    }),
+  );
+
+  it.effect("names the extension when materialization preflight cannot resolve its source", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: {
+          review: "./missing-review-skill",
+        },
+      });
+
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+
+      expect(error.detail).toContain("skill review");
+      expect(error.detail).toContain("canonical status");
+      expect(rendererState.results).toEqual([]);
+    }),
+  );
+
   it.effect("renders skills to the universal target with no configured agents", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();

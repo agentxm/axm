@@ -1,7 +1,18 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type { ExecutedPlan } from "@agentxm/client-core/unstable/plan";
-import { installationCoverage, summarizeExecutedOutcome } from "./applied-plan-output.js";
+import {
+  failureHeadline,
+  installationCoverage,
+  summarizeExecutedOutcome,
+} from "./applied-plan-output.js";
+
+describe("failureHeadline", () => {
+  it("rewrites agent membership success headlines as failures", () => {
+    expect(failureHeadline("Configured 2 agents")).toBe("Failed to configure 2 agents");
+    expect(failureHeadline("Removed 1 agent")).toBe("Failed to remove 1 agent");
+  });
+});
 
 describe("summarizeExecutedOutcome", () => {
   const plan: ExecutedPlan = {

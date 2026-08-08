@@ -46,5 +46,11 @@
       "file": ".axm/axm-lock.yaml"
     }
   ],
-  "expectedAfterFix": []
+  "expectedAfterFix": [
+    {
+      "ruleId": "workspace/skills-lockfile-aligned",
+      "severity": "error",
+      "file": ".axm/axm-lock.yaml"
+    }
+  ]
 }

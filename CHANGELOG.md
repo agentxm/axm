@@ -1,3 +1,14 @@
+## 0.25.6 (2026-08-08)
+
+### 🚀 Features
+
+- Improve Knowledge discovery and cross-extension reference guidance ([#130](https://github.com/agentxm/axm/pull/130))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @osintorg
+
 ## 0.25.5 (2026-08-07)
 
 ### 🩹 Fixes

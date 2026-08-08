@@ -1,5 +1,10 @@
 # Bundle update log
 
+## 2026-08-08
+
+- **Update**: Replaced the retired `axm outdated` lifecycle reference with
+  `axm list --outdated` in [the extension lifecycle](workflows/extension-lifecycle.md).
+
 ## 2026-08-06
 
 - **Creation**: Established the bundle with its initial concept set — seven

@@ -34,6 +34,7 @@ import {
   PublishOptionsSchema,
   REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
+  computePackageContentHash,
   decodeExtensionNameSync,
   fqnInvalidErrorToAppError,
   formatFqn,
@@ -91,6 +92,7 @@ import {
   onExistingFlag,
   resolveExistingVersionPolicy,
   type OnExistingPolicy,
+  type PublishSelectionMode,
 } from "../shared/publish-flags.js";
 import {
   alreadyPublishedVersionConflict,
@@ -129,7 +131,7 @@ const selectableTypes = [
   "rule",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 type SelectableType = (typeof selectableTypes)[number];
-type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
+type SelectionMode = PublishSelectionMode;
 type ExistingVersionPolicy = OnExistingPolicy;
 
 export const aggregatePublishFailure = (
@@ -880,12 +882,6 @@ const publishCandidate = (
   visibility: Option.Option<ExtensionVisibility>,
 ) =>
   Effect.gen(function* () {
-    if (candidate.action === "skip") {
-      return {
-        result: "success",
-        message: `Skipped ${candidate.fqn}@${candidate.version}: version already published`,
-      } satisfies JobStepResult;
-    }
     const client = yield* createRegistryClient(registry.url);
     const defaultRegistryUrl = yield* RegistryUrl;
     const storedToken = yield* resolveRequestToken(registry.url, defaultRegistryUrl);
@@ -959,6 +955,29 @@ const publishCandidate = (
     } satisfies JobStepResult;
   });
 
+const refreshAuthoredPublishBaseline = Effect.fn("Publish.refreshAuthoredBaseline")(function* (
+  candidate: PublishCandidate,
+) {
+  if (!candidate.authored) return;
+  const ws = yield* WorkspaceMutations;
+  const contentIdentity = yield* computePackageContentHash(candidate.extensionDir);
+  if (candidate.type === "pack") {
+    yield* ws.refreshPackContentIdentity(
+      candidate.name,
+      contentIdentity,
+      undefined,
+      "authoritative",
+    );
+    return;
+  }
+  yield* ws.refreshAuthoredContentIdentity(
+    candidate.type,
+    candidate.name,
+    candidate.version,
+    contentIdentity,
+  );
+});
+
 const selectedResult = (
   entry: SelectedEntry,
   candidate: PublishCandidate | undefined,
@@ -980,6 +999,19 @@ const selectedResult = (
           : "Dependency is not a managed publish candidate",
     };
   }
+  if (candidate.action === "skip") {
+    return {
+      owner: candidate.owner,
+      type: candidate.type,
+      name: candidate.name,
+      version: candidate.version,
+      sourceType: candidate.sourceType,
+      authored: candidate.authored,
+      action: "skip",
+      reason: "version_already_published",
+      status: "success",
+    };
+  }
   return {
     owner: candidate.owner,
     type: candidate.type,
@@ -987,21 +1019,28 @@ const selectedResult = (
     version: candidate.version,
     sourceType: candidate.sourceType,
     authored: candidate.authored,
-    action: candidate.action,
-    ...(candidate.action === "skip" ? { reason: "version_already_published" } : {}),
+    action: "publish",
   };
 };
 
-const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishResultItem => ({
-  owner: entry.owner,
-  type: entry.type,
-  name: decodeExtensionNameSync(entry.name),
-  sourceType: entry.sourceType,
-  authored: entry.authored,
-  action: "error",
-  status: "failed",
-  message: error.detail,
-});
+const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishResultItem => {
+  const reason = error.detail.includes("integrity drift")
+    ? "integrity_drift"
+    : error.detail.includes("already published")
+      ? "version_exists"
+      : undefined;
+  return {
+    owner: entry.owner,
+    type: entry.type,
+    name: decodeExtensionNameSync(entry.name),
+    sourceType: entry.sourceType,
+    authored: entry.authored,
+    action: "error",
+    status: "failed",
+    ...(reason === undefined ? {} : { reason }),
+    message: error.detail,
+  };
+};
 
 const runPublish = Effect.fn("Publish.run")(function* (
   args: RootPublishHandlerArgs,
@@ -1009,12 +1048,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const workspaceMutations = yield* WorkspaceMutations;
   const authClient = yield* AuthClient;
   const credentialStore = yield* CredentialStore;
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
-  const effectivePolicy = resolveExistingVersionPolicy(args.onExisting);
   const prepared = yield* renderer.withSpinner(
     "Preparing publish candidates",
     () =>
@@ -1034,7 +1073,16 @@ const runPublish = Effect.fn("Publish.run")(function* (
           selection.entries,
           (entry) =>
             Effect.result(
-              decodeCandidate(entry, effectivePolicy, registry, args.visibility, args.backfill),
+              decodeCandidate(
+                entry,
+                resolveExistingVersionPolicy(args.onExisting, {
+                  mode: selection.mode,
+                  includedDependency: entry.includedDependency === true,
+                }),
+                registry,
+                args.visibility,
+                args.backfill,
+              ),
             ),
           { concurrency: 4 },
         );
@@ -1067,12 +1115,25 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return;
   }
 
-  const preflightResults = selected.map((entry, index) => {
+  const initialPreflightResults = selected.map((entry, index) => {
     const decodedResult = decoded[index];
     if (decodedResult === undefined) return selectedResult(entry, undefined);
     if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
     return selectedResult(entry, decodedResult.success);
   });
+  const preflightResults =
+    preflightErrors.length === 0
+      ? initialPreflightResults
+      : initialPreflightResults.map((result): PublishResultItem =>
+          result.action === "publish"
+            ? {
+                ...result,
+                status: "blocked",
+                reason: "blocked_by_preflight",
+                message: "Not attempted because another selected extension failed preflight",
+              }
+            : result,
+        );
   if (preflightErrors.length > 0) {
     const emitted = yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
@@ -1095,8 +1156,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
 
   const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
     const run = publishCandidate(candidate, registry, args.visibility).pipe(
+      Effect.tap(() => refreshAuthoredPublishBaseline(candidate)),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
+      Effect.provideService(WorkspaceMutations, workspaceMutations),
       Effect.provideService(AuthClient, authClient),
       Effect.provideService(CredentialStore, credentialStore),
       Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
@@ -1105,18 +1168,35 @@ const runPublish = Effect.fn("Publish.run")(function* (
     );
     return {
       readiness: "ready",
-      label: `${candidate.action === "skip" ? "Verify" : candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
+      label: `${candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
       run,
     };
   };
 
-  const jobs = buildPublishJobs(candidates, candidateStep);
+  const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
+  if (uploadCandidates.length === 0) {
+    if (!args.preview) {
+      yield* Effect.forEach(
+        candidates.filter((candidate) => candidate.action === "skip"),
+        refreshAuthoredPublishBaseline,
+        { concurrency: 4 },
+      );
+    }
+    yield* emitPublishResult("publish", {
+      mode: args.preview ? "preview" : "apply",
+      selection: selectionOutput,
+      results: preflightResults,
+    });
+    return;
+  }
+
+  const jobs = buildPublishJobs(uploadCandidates, candidateStep);
 
   const plan: Plan = {
     _tag: "Plan",
     name: "Publish extensions",
     description: Option.some(
-      `Publish ${candidates.length} extensions to registry "${registry.name}"`,
+      `Publish ${uploadCandidates.length} extension${uploadCandidates.length === 1 ? "" : "s"} to registry "${registry.name}"; ${candidates.length - uploadCandidates.length} already published and integrity-verified`,
     ),
     ...(authenticationPreconditions.length === 0
       ? {}
@@ -1134,6 +1214,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
       : [];
+  if (!args.preview && resolution._tag === "ExecutedPlan") {
+    yield* Effect.forEach(
+      candidates.filter((candidate) => candidate.action === "skip"),
+      refreshAuthoredPublishBaseline,
+      { concurrency: 4 },
+    );
+  }
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
   if (resolution._tag === "ExecutedPlan") {
@@ -1169,7 +1256,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     });
   } else {
     results = baseResults.map((result) =>
-      result.action === "error" ? result : { ...result, status: "pending" },
+      result.action === "publish" ? { ...result, status: "pending" } : result,
     );
   }
   const emitted = yield* emitPublishResult("publish", {

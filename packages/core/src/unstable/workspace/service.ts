@@ -506,6 +506,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       getDesiredStateGraph: readDesiredStateGraph,
     });
     const records = {
+      getInventory: readModelRecordReaders.getInventory,
       getExtensionInventory: readModelRecordReaders.getExtensionInventory,
       rows: readModelRecordReaders.getReadModelRecordRows,
     };
@@ -1595,6 +1596,43 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPackLock")),
+
+      refreshAuthoredContentIdentity: (
+        type: Exclude<InstallableExtensionType, "pack">,
+        name: string,
+        resolvedVersion: string,
+        contentIdentity: SourceHash,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const trust = yield* readAuthoritativeTrustState();
+            const key = trustRecordKey(type, name);
+            const record = trust.records[key];
+            if (record === undefined) return;
+            if (record.authority !== "workspace") {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: `${type} "${name}" is not an authored workspace extension`,
+                recover:
+                  "Only a verified publish of a workspace-authored extension can advance its trust baseline.",
+              });
+            }
+            yield* writeWorkspaceTrustState(workspaceDir, {
+              ...trust,
+              records: {
+                ...trust.records,
+                [key]: {
+                  ...record,
+                  resolvedVersion,
+                  contentIdentity,
+                },
+              },
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.refreshAuthoredContentIdentity")),
 
       refreshPackContentIdentity: (
         name: string,

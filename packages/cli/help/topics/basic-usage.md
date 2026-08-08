@@ -52,10 +52,16 @@ agent artifacts.
 
 Use `axm publish` to publish all extensions authored in the selected workspace,
 or pass explicit selectors. AXM preflights the full selection before uploading
-anything. Existing versions are immutable and fail by default; use
-`--on-existing verify` for an idempotent no-op that requires identical archive
-integrity. Use `--backfill` only for an unpublished version below the highest
-published SemVer. `axm version` only changes workspace-sourced manifests.
+anything. Bare and filter-only bulk selections verify byte-identical published
+versions and skip them as successful no-ops; an integrity mismatch blocks every
+upload. Explicit names, FQNs, globs, and multiple selectors remain strict unless
+`--on-existing verify` is supplied. Use `--on-existing error` to make a bulk
+selection strict, and `--backfill` only for an unpublished version below the
+highest published SemVer. `axm version` only changes workspace-sourced manifests.
+
+Use `axm list` for the fast, local inventory across all extension types.
+`axm list --outdated` and `axm list --deprecated` perform remote checks against
+each installed extension's recorded source and report incomplete coverage.
 
 ### Project and user scope
 

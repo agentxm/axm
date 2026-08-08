@@ -4,8 +4,8 @@ description: The extension lifecycle from an author's and consumer's point of vi
 tags: [publishing, authoring, install, lifecycle, workflow, lint]
 status: stable
 generated:
-  by: claude/fable-5
-  at: 2026-08-06T13:04:04Z
+  by: codex/gpt-5
+  at: 2026-08-08T18:58:57Z
 sources:
   - id: axm-readme
     resource: https://github.com/agentxm/axm/blob/main/README.md
@@ -44,7 +44,7 @@ does not.
    identity in the trust file, and the resolution receipt in the lockfile.
 3. **Reconcile** — `axm sync` continuously re-derives one plan from desired
    plus observed state; a clean workspace syncs as a no-op.
-4. **Update** — `axm update` (or `axm outdated` to preview) moves configured
+4. **Update** — `axm update` (or `axm list --outdated` to inspect) moves configured
    entries forward within their version constraints.
 5. **Retire** — `axm uninstall` removes an entry; pack-driven removal is
    orphan-aware per [Pack semantics](../domain/pack-semantics.md).

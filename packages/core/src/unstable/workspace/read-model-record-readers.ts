@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
-import type { InstallableExtensionType } from "../extensions/index.js";
+import { installableExtensionTypes, type InstallableExtensionType } from "../extensions/index.js";
 import { isAxmManagedMcpEntry } from "../mcps/index.js";
 import { createDefaultSettings } from "../settings/index.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
@@ -31,6 +31,9 @@ type ReadScopedContext = <A>(
 ) => Effect.Effect<A, AppError>;
 
 export interface ReadModelRecordReaders {
+  readonly getInventory: (options: {
+    readonly type?: InstallableExtensionType;
+  }) => Effect.Effect<ExtensionInventory, AppError>;
   readonly getReadModelRecordRows: (
     type: WorkspaceManagedExtensionType,
   ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
@@ -595,5 +598,37 @@ export const makeReadModelRecordReaders = (args: {
       );
     });
 
-  return { getReadModelRecordRows, getExtensionInventory };
+  const getInventory = (options: { readonly type?: InstallableExtensionType }) =>
+    Effect.gen(function* () {
+      const types = options.type === undefined ? installableExtensionTypes : [options.type];
+      const inventories = yield* Effect.forEach(types, (type) => getExtensionInventory(type, {}), {
+        concurrency: "unbounded",
+      });
+      const items = inventories
+        .flatMap((inventory) => inventory.items)
+        .sort((left, right) =>
+          left.type === right.type
+            ? left.name.localeCompare(right.name)
+            : left.type.localeCompare(right.type),
+        );
+      return {
+        items,
+        count: items.length,
+        configuredCount: inventories.reduce(
+          (total, inventory) => total + inventory.configuredCount,
+          0,
+        ),
+        implicitCount: inventories.reduce((total, inventory) => total + inventory.implicitCount, 0),
+        installedCount: inventories.reduce(
+          (total, inventory) => total + inventory.installedCount,
+          0,
+        ),
+        unmanagedCount: inventories.reduce(
+          (total, inventory) => total + inventory.unmanagedCount,
+          0,
+        ),
+      };
+    });
+
+  return { getInventory, getReadModelRecordRows, getExtensionInventory };
 };

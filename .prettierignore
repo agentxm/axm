@@ -8,4 +8,8 @@ pnpm-lock.yaml
 # validity (destroying the fixture). Keep contents stable byte-for-byte.
 packages/core/src/unstable/lint/__fixtures__/
 
+# Registry-managed third-party extensions are integrity-checked snapshots.
+# Keep their published bytes stable instead of reformatting local installs.
+.axm/extensions/@craigsmitham/
+
 .nx/self-healing

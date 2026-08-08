@@ -262,29 +262,32 @@ Wait for the user to review changes and decide when to commit.
 
 ## Field note subjects
 
-| Subject | Mode | Scope | Target condition | Retire when |
-| --- | --- | --- | --- | --- |
-| axm-cli-interactions | survey | Sessions that directly run `axm` while developing, dogfooding, or manually validating the CLI; automated test invocations excluded | — | Recurring notes support a specific target condition, or two triage reviews find no pattern |
-| ci-cd-workflows | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images | — | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
+| Subject              | Mode   | Scope                                                                                                                              | Target condition | Retire when                                                                                                |
+| -------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| axm-cli-interactions | survey | Sessions that directly run `axm` while developing, dogfooding, or manually validating the CLI; automated test invocations excluded | —                | Recurring notes support a specific target condition, or two triage reviews find no pattern                 |
+| ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                          | —                | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
 
 <!-- axm:start region=knowledge-base -->
+
 ## Knowledge Base
 
 ### @agentxm
 
-| Bundle | Description |
-| --- | --- |
+| Bundle                                                             | Description                                                                                                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows |
 
 ### @craigsmitham
 
-| Bundle | Description |
-| --- | --- |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                          | Description                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                 | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
+| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
+
 <!-- axm:end region=knowledge-base -->
 <!-- axm:start region=rules -->
 <!-- axm:rule @craigsmitham/rules/field-notes@0.1.0 -->
+
 ## Field notes
 
 Record how work actually goes, so recurring obstacles become durable

@@ -2403,6 +2403,37 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("getInventory", () => {
+    it.effect("aggregates every type deterministically and supports a type filter", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            zeta: "@acme/skills/zeta",
+            alpha: "@acme/skills/alpha",
+          },
+          hooks: { audit: "@acme/hooks/audit" },
+          knowledge: { handbook: "@acme/knowledge/handbook" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const inventory = yield* ws.records.getInventory({});
+        const skills = yield* ws.records.getInventory({ type: "skill" });
+
+        expect(inventory.items.map((item) => `${item.type}:${item.name}`)).toEqual([
+          "hook:audit",
+          "knowledge:handbook",
+          "skill:alpha",
+          "skill:zeta",
+        ]);
+        expect(inventory.count).toBe(4);
+        expect(inventory.configuredCount).toBe(4);
+        expect(skills.items.map((item) => item.name)).toEqual(["alpha", "zeta"]);
+        expect(skills.count).toBe(2);
+      }),
+    );
+  });
+
   describe("getExtensionInventory", () => {
     it.effect("derives implicit lifecycle for every pack leaf from the pack manifest", () =>
       Effect.gen(function* () {

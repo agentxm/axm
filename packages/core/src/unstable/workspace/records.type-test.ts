@@ -4,7 +4,7 @@
  * Pure type-level. Excluded from vitest's runtime suite and included in
  * `tsconfig.spec.json`, so these assertions are checked when typecheck runs.
  *
- * The point is to keep the facade collapsed to two readers. Before the
+ * The point is to keep the facade collapsed to three total readers. Before the
  * read-model families covered every extension type, this interface carried
  * fourteen per-type accessors (`getConfiguredSkills`, `getInstalledPacks`, …)
  * that had to grow by three whenever a type was added. `rows(type)` is total
@@ -15,12 +15,16 @@
 import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import type { WorkspaceReadModelRecords } from "./service-interface.js";
 
-// The facade SHALL expose exactly `getExtensionInventory` and `rows`.
+// The facade SHALL expose exactly aggregate inventory, per-type inventory, and rows.
 type _RecordsKeys = keyof WorkspaceReadModelRecords;
-type _NoExtraKeys = [Exclude<_RecordsKeys, "getExtensionInventory" | "rows">] extends [never]
+type _NoExtraKeys = [
+  Exclude<_RecordsKeys, "getInventory" | "getExtensionInventory" | "rows">,
+] extends [never]
   ? true
   : false;
-type _NoMissingKeys = [Exclude<"getExtensionInventory" | "rows", _RecordsKeys>] extends [never]
+type _NoMissingKeys = [
+  Exclude<"getInventory" | "getExtensionInventory" | "rows", _RecordsKeys>,
+] extends [never]
   ? true
   : false;
 const _noExtraKeys = true as const satisfies _NoExtraKeys;

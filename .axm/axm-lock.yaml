@@ -146,6 +146,17 @@ skills:
     installedAt: 2026-08-08T17:50:28.343Z
     updatedAt: 2026-08-08T17:50:28.351Z
     sourceHash: eb50354a2e85c435817d41df03036166a957ef9350d6b622b62f931e4771367d
+  improve-whatever:
+    type: registry
+    owner: "@craigsmitham"
+    name: improve-whatever
+    resolvedVersion: 0.0.5
+    integrity: sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-08T19:49:53.070Z
+    updatedAt: 2026-08-08T19:49:53.075Z
+    sourceHash: 2a7002b455b9ff4ae35d719a12d215fc55da9db5eda3c09b502fab6a3da8989a
 rules:
   field-notes:
     type: registry

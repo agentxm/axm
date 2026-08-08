@@ -210,6 +210,17 @@
       "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
       "integrity": "sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==",
       "contentIdentity": "8355be6f86b4fa052c68f3964f261e4f87392ad3ef03c88775d5b8ecd8d7285f"
+    },
+    "skill:improve-whatever": {
+      "extensionType": "skill",
+      "name": "improve-whatever",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/improve-whatever",
+      "sourceName": "default",
+      "resolvedVersion": "0.0.5",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==",
+      "contentIdentity": "2a7002b455b9ff4ae35d719a12d215fc55da9db5eda3c09b502fab6a3da8989a"
     }
   }
 }

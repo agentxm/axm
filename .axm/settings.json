@@ -21,7 +21,8 @@
     "code-review": "workspace:@axm/skills/code-review",
     "e2e-publish-check": "workspace:@local-dev/skills/e2e-publish-check",
     "axm": "workspace:@agentxm/skills/axm",
-    "okf-author": "workspace:@craigsmitham/skills/okf-author"
+    "okf-author": "workspace:@craigsmitham/skills/okf-author",
+    "improve-whatever": "@craigsmitham/skills/improve-whatever"
   },
   "knowledge": {
     "agentxm": "workspace:@agentxm/knowledge/agentxm",

@@ -259,6 +259,14 @@ See [Testing Guide](contributing/guides/testing.md) and
 - ONLY commit when the user explicitly asks (e.g., "commit", "/commit", "make a commit")
 
 Wait for the user to review changes and decide when to commit.
+
+## Field note subjects
+
+| Subject | Mode | Scope | Target condition | Retire when |
+| --- | --- | --- | --- | --- |
+| axm-cli-interactions | survey | Sessions that directly run `axm` while developing, dogfooding, or manually validating the CLI; automated test invocations excluded | — | Recurring notes support a specific target condition, or two triage reviews find no pattern |
+| ci-cd-workflows | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images | — | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
+
 <!-- axm:start region=knowledge-base -->
 ## Knowledge Base
 

@@ -129,7 +129,14 @@ jobs:
       - name: Update Homebrew formula
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.release_meta.outputs.version }}
         run: |
+          published_formula="$(curl -fsSL https://raw.githubusercontent.com/agentxm/homebrew-tap/main/Formula/axm.rb)"
+          if grep -Fq "version \"${VERSION}\"" <<<"$published_formula"; then
+            echo "Homebrew formula is already current at ${VERSION}; skipping update."
+            exit 0
+          fi
+
           if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
             echo "HOMEBREW_TAP_TOKEN is not configured; skipping Homebrew tap update."
             exit 0

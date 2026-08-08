@@ -4,7 +4,7 @@ import type {
   CanonicalObservation,
   DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
-import { canonicalHealthProblem } from "./status.js";
+import { canonicalHealthProblem, projectionIsCurrent } from "./status.js";
 
 const observation = {
   type: "skill",
@@ -158,5 +158,19 @@ describe("canonicalHealthProblem", () => {
       blocking: true,
       recoveryAction: null,
     });
+  });
+});
+
+describe("projectionIsCurrent", () => {
+  it("does not require a subagent projection when no agents are configured", () => {
+    expect(projectionIsCurrent({ type: "subagent" }, undefined, [])).toBe(true);
+  });
+
+  it("does not require an MCP projection when no agents are configured", () => {
+    expect(projectionIsCurrent({ type: "mcp-server" }, undefined, [])).toBe(true);
+  });
+
+  it("still requires the universal skill projection when no agents are configured", () => {
+    expect(projectionIsCurrent({ type: "skill" }, undefined, [])).toBe(false);
   });
 });

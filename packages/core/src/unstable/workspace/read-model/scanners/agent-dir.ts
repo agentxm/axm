@@ -204,7 +204,7 @@ const scanSubjectDirectory = (
     );
     if (subject.type === "skill") return directoryOccurrences;
 
-    const supportedExtensions = [".md", ".json"];
+    const supportedExtensions = [".md", ".json", ".toml"];
     const directorySet = new Set(nameDirs);
     const fileOccurrences = yield* Effect.forEach(
       candidates,

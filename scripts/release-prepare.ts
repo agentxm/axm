@@ -112,6 +112,8 @@ const prepareReleaseArtifacts = async () => {
       AXM_SKILL_HANDLE,
       "--registry-url",
       PROD_REGISTRY_URL,
+      "--on-existing",
+      "verify",
       "--preview",
       "--yes",
       "--json",

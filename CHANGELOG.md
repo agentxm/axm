@@ -1,3 +1,13 @@
+## 0.26.0 (2026-08-08)
+
+### ⚠️ Breaking Changes
+
+- Add selection-aware bulk publishing and replace axm outdated with filtered cross-type axm list.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.25.8 (2026-08-08)
 
 ### 🩹 Fixes

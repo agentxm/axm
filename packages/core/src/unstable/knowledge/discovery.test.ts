@@ -46,25 +46,27 @@ describe("reconcileKnowledgeDiscovery", () => {
     Effect.gen(function* () {
       const root = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-table-"));
       try {
-        const zeta = makeBundle(root, "@zeta", "runbook", undefined);
-        const acme = makeBundle(root, "@acme", "platform", "Line one\nline | two \\ ok");
+        const zeta = makeBundle(root, "@zeta", "platform", undefined);
+        const acmePlatform = makeBundle(root, "@acme", "platform", "Line one\nline | two \\ ok");
+        const acmeRunbook = makeBundle(root, "@acme", "runbook", "Operations");
 
-        const first = yield* run(root, [zeta, acme]);
-        const second = yield* run(root, [acme, zeta]);
+        const first = yield* run(root, [zeta, acmeRunbook, acmePlatform]);
+        const second = yield* run(root, [acmePlatform, zeta, acmeRunbook]);
         const instructions = readFileSync(nodePath.join(root, "AGENTS.md"), "utf8");
 
         expect(first.changed).toBe(true);
         expect(second.changed).toBe(false);
         expect(instructions).toContain("region=knowledge-base");
         expect(instructions).toContain(
-          "| [@acme/platform](.axm/extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |",
+          "### @acme\n\n| Bundle | Description |\n| --- | --- |\n" +
+            "| [platform](.axm/extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +
+            "| [runbook](.axm/extensions/@acme/knowledge/runbook/src/index.md) | Operations |",
         );
         expect(instructions).toContain(
-          "| [@zeta/runbook](.axm/extensions/@zeta/knowledge/runbook/src/index.md) | — |",
+          "### @zeta\n\n| Bundle | Description |\n| --- | --- |\n" +
+            "| [platform](.axm/extensions/@zeta/knowledge/platform/src/index.md) | — |",
         );
-        expect(instructions.indexOf("@acme/platform")).toBeLessThan(
-          instructions.indexOf("@zeta/runbook"),
-        );
+        expect(instructions.indexOf("### @acme")).toBeLessThan(instructions.indexOf("### @zeta"));
         expect(existsSync(nodePath.join(root, ".agents", "knowledge"))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });

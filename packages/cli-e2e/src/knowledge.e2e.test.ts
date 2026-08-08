@@ -74,8 +74,9 @@ describe("axm knowledge lifecycle", () => {
       );
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
       expect(installedInstructions).toContain("## Knowledge Base");
+      expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
-        "[@acme/platform](.axm/extensions/external/knowledge/platform/src/index.md)",
+        "[platform](.axm/extensions/external/knowledge/platform/src/index.md)",
       );
       expect(installedInstructions).toContain("Platform architecture and operational guidance.");
 
@@ -151,14 +152,12 @@ describe("axm knowledge lifecycle", () => {
       expect(disable.exitCode, disable.stdout + disable.stderr).toBe(0);
       expect(fs.existsSync(canonical)).toBe(true);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
-        "@acme/platform",
+        "[platform]",
       );
 
       const enable = await runCli(["knowledge", "enable", "platform"], { cwd: temp.path });
       expect(enable.exitCode, enable.stdout + enable.stderr).toBe(0);
-      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
-        "@acme/platform",
-      );
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain("[platform]");
 
       const uninstall = await runCli(
         ["knowledge", "uninstall", "platform", "--yes", "--non-interactive"],
@@ -167,7 +166,7 @@ describe("axm knowledge lifecycle", () => {
       expect(uninstall.exitCode).toBe(0);
       expect(fs.existsSync(canonical)).toBe(false);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
-        "@acme/platform",
+        "[platform]",
       );
     } finally {
       temp.cleanup();

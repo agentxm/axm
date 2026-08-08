@@ -60,19 +60,33 @@ export const renderKnowledgeBaseTable = (args: {
   readonly instructionsPath: string;
   readonly path: Path.Path;
 }): string => {
-  const rows = [...args.bundles]
-    .sort(
-      (left, right) => left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name),
-    )
-    .map((bundle) => {
+  const bundles = [...args.bundles].sort(
+    (left, right) => left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name),
+  );
+  const owners = new Map<string, Array<KnowledgeDiscoveryBundle>>();
+  for (const bundle of bundles) {
+    const owned = owners.get(bundle.owner) ?? [];
+    owned.push(bundle);
+    owners.set(bundle.owner, owned);
+  }
+  const sections = [...owners].map(([owner, owned]) => {
+    const rows = owned.map((bundle) => {
       const target = args.path.join(bundle.sourceDir, "index.md");
       const relative = portable(
         args.path.relative(args.path.dirname(args.instructionsPath), target),
       );
-      const name = escapeLinkLabel(`${bundle.owner}/${bundle.name}`);
+      const name = escapeLinkLabel(bundle.name);
       return `| [${name}](${relative}) | ${normalizeCell(bundle.description)} |`;
     });
-  return ["## Knowledge Base", "", "| Name | Description |", "| --- | --- |", ...rows].join("\n");
+    return [
+      `### ${escapeLinkLabel(owner)}`,
+      "",
+      "| Bundle | Description |",
+      "| --- | --- |",
+      ...rows,
+    ].join("\n");
+  });
+  return ["## Knowledge Base", ...sections].join("\n\n");
 };
 
 const readOptional = (fs: FileSystem.FileSystem, file: string) =>

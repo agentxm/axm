@@ -54,6 +54,7 @@ const writeAuthoredBundle = (packageRoot: string, opts: { readonly valid: boolea
       type: "knowledge",
       name: "platform",
       version: "1.0.0",
+      description: "Platform knowledge for authentication and operations.",
       format: { name: "okf", version: "0.2" },
       bundleRoot: "src",
     }),
@@ -120,6 +121,36 @@ describe("knowledge JSON output", () => {
         expect(Exit.isSuccess(exit)).toBe(true);
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({ valid: true, diagnostics: [] });
+        expect(rendererState.results[0]?.ok).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("lint returns warning diagnostics without failing a valid bundle", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeAuthoredBundle(path.join(tempDir, "pkg"), { valid: true });
+    const manifestPath = path.join(tempDir, "pkg", "knowledge.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    delete manifest.description;
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+
+    return provide(
+      Effect.gen(function* () {
+        const exit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+
+        expect(Exit.isSuccess(exit)).toBe(true);
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          valid: true,
+          diagnostics: [
+            expect.objectContaining({
+              code: "missing-manifest-description",
+              severity: "warning",
+              relativePath: "knowledge.json",
+            }),
+          ],
+        });
         expect(rendererState.results[0]?.ok).toBe(true);
       }),
     );

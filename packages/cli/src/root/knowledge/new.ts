@@ -41,6 +41,7 @@ import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
+  readonly description: Option.Option<string>;
   readonly yes: boolean;
   readonly preview: boolean;
 }) {
@@ -77,6 +78,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     type: "knowledge",
     format: { name: "okf", version: "0.2" },
     bundleRoot: KNOWLEDGE_SOURCE_DIR,
+    ...(Option.isSome(args.description) ? { description: args.description.value } : {}),
   };
   const manifestPath = path.join(targetDir, KNOWLEDGE_MANIFEST_FILENAME);
   const indexPath = path.join(targetDir, KNOWLEDGE_SOURCE_DIR, "index.md");
@@ -105,7 +107,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     yield* fs.writeFileString(
       indexPath,
-      `---\nokf_version: "0.2"\n---\n# ${name}\n\nDescribe this knowledge bundle and link its concepts here.\n`,
+      `---\nokf_version: "0.2"\n---\n# ${name}\n\n<!-- Discovery map: describe this bundle's scope, then group and annotate links to its concepts. -->\n`,
     );
   }).pipe(
     Effect.mapError((cause) =>
@@ -117,7 +119,11 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   const plan: Plan = {
     _tag: "Plan",
     name: "New knowledge",
-    description: Option.some(`Create ${fqn}`),
+    description: Option.some(
+      Option.isSome(args.description)
+        ? `Create ${fqn}: ${args.description.value}`
+        : `Create ${fqn}`,
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -171,8 +177,18 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   });
   const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;
   const suggestions = [
+    ...(Option.isNone(args.description)
+      ? [
+          {
+            description: `Add a concise bundle description to \`${joinDisplayPath(path, path.relative(ws.baseDir, manifestPath))}\``,
+          },
+        ]
+      : []),
     {
       description: `Add typed Markdown concepts below \`${joinDisplayPath(path, path.relative(ws.baseDir, targetDir), KNOWLEDGE_SOURCE_DIR)}\``,
+    },
+    {
+      description: `Replace the root index placeholder with grouped, annotated concept links`,
     },
   ];
   const emitted = yield* emitPlanResolutionResult(
@@ -198,17 +214,24 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
+  description: Flag.string("description").pipe(
+    Flag.withDescription("Concise bundle-level discovery summary"),
+    Flag.optional,
+  ),
   yes: yesFlag.pipe(Flag.withDescription("Create the bundle without confirmation")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be created without writing files"),
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
-  handleKnowledgeNew({ name, owner, yes, preview }).pipe(
-    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withAuthRuntime("knowledge new"),
-  ),
+export const newCommand = Command.make(
+  "new",
+  newConfig,
+  ({ name, owner, description, yes, preview }) =>
+    handleKnowledgeNew({ name, owner, description, yes, preview }).pipe(
+      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+      withAuthRuntime("knowledge new"),
+    ),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription(

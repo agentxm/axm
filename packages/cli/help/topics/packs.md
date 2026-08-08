@@ -62,6 +62,32 @@ private. A deprecated dependency remains resolvable but produces a warning.
 Publication failures name each unavailable dependency and the corrective action
 needed before the pack can be released.
 
+## Cross-extension file references
+
+Packs install their members together but do not create a shared pack directory
+or relative-path namespace. When one member requires a file from another member,
+reference the target's canonical path from the active AXM scope root:
+
+```text
+.axm/extensions/<@owner>/<plural-type>/<name>/src/<path>
+```
+
+```markdown
+Read `.axm/extensions/@acme/knowledge/shared/src/policies/review.md`.
+```
+
+The scope root is the project root for project scope and the user's home
+directory for user scope. Cross-extension paths must use forward slashes,
+include the target owner, plural type, and name, point inside `src/`, and target
+another member of the same pack when the file is required. The referencing
+extension must set `standalone: false` and name the pack in `recommendedPacks`.
+
+Do not use absolute machine paths, agent projections such as `.agents/skills`
+or `.claude/skills`, paths relative to the pack directory, or `..` traversal
+between extensions. AXM does not parse, infer, resolve, or rewrite references.
+The canonical path remains stable across update, sync, disable/re-enable, and
+pack unpack; removing the target extension may break the reference.
+
 ## Lifecycle
 
 Packs support the same lifecycle verbs as other extension types:

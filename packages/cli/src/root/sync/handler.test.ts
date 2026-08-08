@@ -806,7 +806,11 @@ describe("root sync handler", () => {
 
       const index = path.join(tempDir, "AGENTS.md");
       expect(fs.existsSync(index)).toBe(true);
-      expect(fs.readFileSync(index, "utf-8")).toContain("[@acme/handbook]");
+      const instructions = fs.readFileSync(index, "utf-8");
+      expect(instructions).toContain("### @acme");
+      expect(instructions).toContain(
+        "[handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md)",
+      );
       expect(
         fs.existsSync(
           path.join(axmDir, "extensions", "@acme", "knowledge", "handbook", "src", "index.md"),

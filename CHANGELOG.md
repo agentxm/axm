@@ -1,3 +1,14 @@
+## 0.25.7 (2026-08-08)
+
+### 🩹 Fixes
+
+- Recognize Codex TOML subagent projections during workspace observation and avoid false stale reports when no native subagent or MCP target is configured. ([e932b38d](https://github.com/agentxm/axm/commit/e932b38d))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @osintorg
+
 ## 0.25.6 (2026-08-08)
 
 ### 🚀 Features

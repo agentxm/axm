@@ -120,7 +120,7 @@ export const summarizeExecutedOutcome = (
 const hasFailedSteps = (plan: ExecutedPlan): boolean =>
   plan.jobs.some((job) => job.steps.some((step) => step.result.result === "error"));
 
-const failureHeadline = (headline: string): string => {
+export const failureHeadline = (headline: string): string => {
   if (headline.startsWith("Installed ")) {
     return `Failed to install ${headline.slice("Installed ".length)}`;
   }
@@ -135,6 +135,12 @@ const failureHeadline = (headline: string): string => {
   }
   if (headline.startsWith("Pruned ")) {
     return `Failed to prune ${headline.slice("Pruned ".length)}`;
+  }
+  if (headline.startsWith("Configured ")) {
+    return `Failed to configure ${headline.slice("Configured ".length)}`;
+  }
+  if (headline.startsWith("Removed ")) {
+    return `Failed to remove ${headline.slice("Removed ".length)}`;
   }
   return `Failed: ${headline}`;
 };

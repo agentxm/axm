@@ -201,7 +201,7 @@ const resolveDesiredExtensionRef = (
       Effect.mapError((cause) =>
         makeAppError({
           code: cause.code,
-          detail: `${cause.detail} (canonical status: ${canonicalStatus})`,
+          detail: `${node.type} ${node.name}: ${cause.detail} (canonical status: ${canonicalStatus})`,
           cause,
         }),
       ),
@@ -657,7 +657,8 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           path,
         );
         const materialize = observation.status !== "usable" || !materializationCurrent;
-        const force = args?.retainedOnly === true ? false : materialize;
+        const forceCanonical =
+          args?.retainedOnly === true ? false : observation.status !== "usable";
         const ref = yield* Effect.gen(function* () {
           if (observation.status === "usable" && trust !== undefined) {
             return yield* trustedCanonicalRef({
@@ -684,7 +685,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         yield* validateMaterializeTrust(ref);
         return {
           ref,
-          force,
+          force: forceCanonical,
           materialize,
           transitionLabel: [
             node.name,

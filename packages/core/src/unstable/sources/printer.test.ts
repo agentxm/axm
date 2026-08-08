@@ -5,7 +5,11 @@ import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
-import { lockEntryToSourceParams, printSourceParams } from "./printer.js";
+import {
+  lockEntryToSourceParams,
+  printSkillLockSourceLocator,
+  printSourceParams,
+} from "./printer.js";
 import type { SourceParams } from "./types.js";
 
 const makeSourceParams = (source: SourceParams): SourceParams => source;
@@ -316,5 +320,37 @@ describe("lockEntryToSourceParams", () => {
       type: "registry",
       owner: Option.none(),
     });
+  });
+});
+
+describe("printSkillLockSourceLocator", () => {
+  it("prints the exact registry identity and resolved version", () => {
+    const entry = makeLockEntry({
+      type: "registry",
+      owner: handle("@acme"),
+      name: extensionName("review"),
+      resolvedVersion: exactVersion("1.2.3"),
+      integrity: "sha512-stub",
+      sourceName: "default",
+      publisherBindingId: "hbnd_test",
+      ...baseLockFields,
+    });
+
+    expect(printSkillLockSourceLocator("review", entry)).toBe("@acme/skills/review@1.2.3");
+  });
+
+  it("round-trips a GitHub lock source", () => {
+    const entry = makeLockEntry({
+      type: "github",
+      owner: "acme",
+      repo: "agent-extensions",
+      path: ".agents/skills/review",
+      ref: "v1",
+      ...baseLockFields,
+    });
+
+    expect(printSkillLockSourceLocator("review", entry)).toBe(
+      "github:acme/agent-extensions//.agents/skills/review@v1",
+    );
   });
 });

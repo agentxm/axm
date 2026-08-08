@@ -137,3 +137,15 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
       };
   }
 };
+
+/**
+ * Print the exact source locator represented by an installed skill receipt.
+ * Registry receipts include their immutable identity and resolved version;
+ * other receipts round-trip through their source-specific shorthand.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const printSkillLockSourceLocator = (_lockName: string, entry: SkillLockEntry): string =>
+  entry.type === "registry"
+    ? `${formatFqn({ owner: entry.owner, type: "skill", name: entry.name })}@${entry.resolvedVersion}`
+    : printSourceParams(lockEntryToSourceParams(entry));

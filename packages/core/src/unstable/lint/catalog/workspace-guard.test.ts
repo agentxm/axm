@@ -154,14 +154,6 @@ const makeRegistrySkillLockEntry = (name: string, resolvedVersion: string) => ({
   updatedAt: ISO_DATE,
 });
 
-const makeLocalSkillLockEntry = (path: string) => ({
-  type: "local",
-  path,
-  agents: [],
-  installedAt: ISO_DATE,
-  updatedAt: ISO_DATE,
-});
-
 const makeLockfile = (skills: Record<string, unknown>): unknown => ({
   lockfileVersion: 3,
   skills,
@@ -198,19 +190,6 @@ const SEMANTIC_PROBES: Record<string, ReadonlyArray<SemanticProbe>> = {
           },
         };
         state.lockfile = makeLockfile({});
-        return state;
-      },
-    },
-    {
-      label: "orphan skill lock entry",
-      buildState: () => {
-        const state = emptyWorkspaceState();
-        state.settings = {
-          skills: {},
-        };
-        state.lockfile = makeLockfile({
-          alpha: makeLocalSkillLockEntry("./skills/alpha"),
-        });
         return state;
       },
     },

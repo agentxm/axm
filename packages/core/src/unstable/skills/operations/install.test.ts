@@ -654,7 +654,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("surfaces WorkspaceMutations.setSkill failure in result without warning logs", () =>
+    it.effect("fails when WorkspaceMutations.setSkill cannot persist desired state", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -673,8 +673,12 @@ describe("installSkill", () => {
           Effect.provide(services.layer),
         );
 
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("Skill update failed");
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.message).toContain("failed to record desired state");
+          expect(result.error.detail).toContain("write failed");
+          expect(result.error.suggestions?.[0]?.cmd).toContain("axm skills install");
+        }
         expect(logsByTag(services.rendererState).warn).toEqual([]);
         expect(setSkillFn).toHaveBeenCalledOnce();
       }),
@@ -813,38 +817,6 @@ describe("installSkill", () => {
         // Lockfile should contain the skill entry
         const lockContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
         expect(lockContent).toContain("my-skill");
-      }),
-    );
-
-    it.effect("keeps lockfile write failures in the result without warning logs", () =>
-      Effect.gen(function* () {
-        const src = setupSource();
-        const { axmDir, base } = setupBase();
-
-        // Use a mock setSkill that fails to simulate lockfile write failure
-        const setSkillFn = vi.fn(() =>
-          Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: "write failed",
-              cause: new Error("write failed"),
-            }),
-          ),
-        );
-        const services = makeServices(axmDir, { setSkillFn });
-
-        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(services.layer),
-        );
-
-        // Installation should still succeed even if lockfile failed
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("Skill update failed");
-        expect(logsByTag(services.rendererState).warn).toEqual([]);
-
-        // Canonical files should exist
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
       }),
     );
   });

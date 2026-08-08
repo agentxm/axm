@@ -41,6 +41,8 @@ canonical package.
 
 - Edit desired intent through AXM commands or `.axm/settings.json`.
 - Do not hand-edit `.axm/trust.json` or `.axm/axm-lock.yaml`.
+- Do not reconstruct desired state by copying content hashes or source identities
+  between those files. Hashes are verification records, not declarations.
 - Check `.axm/` into source control.
 - Use `axm sync --preview --json` to inspect the same plan apply would run.
 - Use `axm status` to inspect deterministic local blockers.
@@ -50,6 +52,12 @@ canonical package.
   cross-authority transition.
 - Use `axm packs repair <name-or-fqn> --preview` for authored-pack trust drift.
 - Use `axm lint` for read-only diagnostics and `axm lint --fix` to reconcile.
+
+If `axm status` or `axm lint` reports a receipt-only skill, choose explicitly:
+run the exact `axm skills install <source>` command in the finding to declare
+and retain it, or run `axm skills uninstall <name>` to remove it. `axm lint
+--fix` does not choose between those outcomes and never silently uninstalls a
+receipt-only skill.
 
 If a v3 workspace has no `trust.json`, AXM migrates available security fields
 from a valid receipt. Invalid trust state fails closed. Receipt-only maintenance

@@ -139,7 +139,43 @@ describe("workspace/skills-lockfile-aligned", () => {
       const findings = yield* runCheck(state);
 
       expect(findings).toHaveLength(1);
+      expect(findings[0]).toMatchObject({ kind: "advisory" });
       expect(findings[0]?.message).toContain("listed in the lockfile but not in settings.skills");
+      expect(findings[0]?.message).toContain("axm skills install @acme/skills/stale@1.0.0");
+      expect(findings[0]?.message).toContain("axm skills uninstall stale");
+    }),
+  );
+
+  it.effect("offers an exact declaration command for a receipt-only GitHub skill", () =>
+    Effect.gen(function* () {
+      const state = emptyWorkspaceState();
+      state.settings = {
+        agents: ["claude-code"],
+        skills: {},
+      };
+      state.lockfile = {
+        lockfileVersion: 3,
+        skills: {
+          review: {
+            type: "github",
+            owner: "acme",
+            repo: "agent-extensions",
+            path: ".agents/skills/review",
+            ref: "v1",
+            installedAt: "2026-04-21T00:00:00.000Z",
+            updatedAt: "2026-04-21T00:00:00.000Z",
+            sourceHash: "sha",
+          },
+        },
+      };
+
+      const findings = yield* runCheck(state);
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]).toMatchObject({ kind: "advisory" });
+      expect(findings[0]?.message).toContain(
+        "axm skills install github:acme/agent-extensions//.agents/skills/review@v1",
+      );
     }),
   );
 

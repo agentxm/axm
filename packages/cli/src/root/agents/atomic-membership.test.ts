@@ -44,7 +44,7 @@ const plan = (steps: ReadonlyArray<PlannedJobStep>): Plan => ({
   _tag: "Plan",
   name: "Change coding agents",
   description: Option.none(),
-  jobs: [{ concurrency: 1, steps }],
+  jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
 
 describe("makeAtomicMembershipSteps", () => {
@@ -105,9 +105,81 @@ describe("makeAtomicMembershipSteps", () => {
 
       const result = yield* applyPlan(plan(atomic));
 
-      expect(result.jobs[0]?.steps[0]?.result.result).toBe("error");
+      expect(result.jobs[0]?.steps[0]).toMatchObject({
+        label: "Add cursor",
+        result: {
+          result: "error",
+          message: expect.stringContaining("rolled back"),
+        },
+      });
+      expect(result.jobs[0]?.steps[1]).toMatchObject({
+        label: "Materialize review skill",
+        result: {
+          result: "error",
+          message: expect.stringContaining("Injected materialization failure"),
+        },
+      });
       expect(readAgents(root)).toEqual([]);
       expect(fs.existsSync(target)).toBe(false);
+    }).pipe(
+      Effect.provide(Layer.mergeAll(platform, workspace)),
+      Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))),
+    );
+  });
+
+  it.effect("attributes a membership-step failure only to that membership step", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-membership-failure-"));
+    writeWorkspace(root, []);
+    const renderer = TestRenderer.make();
+    const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const workspace = Layer.provide(
+      coreWorkspaceLayer({ scope: "project", projectRoot: root }),
+      platform,
+    );
+
+    return Effect.gen(function* () {
+      const ws = yield* WorkspaceMutations;
+      const steps: ReadonlyArray<PlannedJobStep> = [
+        {
+          label: "Add cursor",
+          readiness: "ready",
+          run: makeAppError({
+            code: "internal",
+            detail: "Injected membership failure",
+          }),
+        },
+        {
+          label: "Materialize review skill",
+          readiness: "ready",
+          run: Effect.succeed({
+            result: "success",
+            message: "Materialized review",
+          } satisfies JobStepResult),
+        },
+      ];
+      const atomic = yield* makeAtomicMembershipSteps({
+        ws,
+        steps,
+        validate: () => Effect.void,
+      });
+
+      const result = yield* applyPlan(plan(atomic));
+
+      expect(result.jobs[0]?.steps[0]).toMatchObject({
+        label: "Add cursor",
+        result: {
+          result: "error",
+          message: expect.stringContaining("Injected membership failure"),
+        },
+      });
+      expect(result.jobs[0]?.steps[1]).toMatchObject({
+        label: "Materialize review skill",
+        result: {
+          result: "error",
+          message: expect.stringContaining("blocked by Add cursor failure"),
+        },
+      });
+      expect(readAgents(root)).toEqual([]);
     }).pipe(
       Effect.provide(Layer.mergeAll(platform, workspace)),
       Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))),

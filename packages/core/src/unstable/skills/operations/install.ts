@@ -14,7 +14,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
-import { sourceToLockEntry } from "../../sources/index.js";
+import { printSkillLockSourceLocator, sourceToLockEntry } from "../../sources/index.js";
 import {
   UNIVERSAL_SKILLS_DIR,
   computePackageContentHash,
@@ -892,12 +892,23 @@ export const installSkill: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)
       : ws.setSkill(skillArgs);
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(undefined),
-      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
-    );
+    const writeFailure = yield* writeEffect.pipe(Effect.result);
+    if (writeFailure._tag === "Failure") {
+      const detail = `Installed ${ref.skill.name}, but failed to record desired state: ${writeFailure.failure.detail}`;
+      return {
+        result: "error",
+        message: detail,
+        error: makeAppError({
+          code: writeFailure.failure.code,
+          detail,
+          recover: "Retry the install after repairing workspace write access.",
+          cmd: `axm skills install ${printSkillLockSourceLocator(ref.skill.name, lockEntry)}`,
+          cause: writeFailure.failure,
+        }),
+      } satisfies JobStepResult;
+    }
 
-    const warnings = [unknownAgentWarning, skippedOutcomeWarning, writeWarning].filter(
+    const warnings = [unknownAgentWarning, skippedOutcomeWarning].filter(
       (warning): warning is string => warning !== undefined,
     );
     const sourceDetails = gitHostedSkillArtifactSource(ref);

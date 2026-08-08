@@ -3,17 +3,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { detectAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  acceptWarningsFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
-  type CompletedJobStep,
-  type ExecutedPlan,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
@@ -24,9 +17,9 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
@@ -162,44 +155,8 @@ const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJ
   _tag: "Plan",
   name: "Add coding agents",
   description: Option.some(`Configure ${agentIds.join(", ")} and materialize installed extensions`),
-  jobs: [{ concurrency: 1, steps }],
+  jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
-
-const formatArtifactTargets = (artifact: JobStepArtifact): string => {
-  if (artifact.targets === undefined || artifact.targets.length === 0) {
-    return artifact.path;
-  }
-  return artifact.targets
-    .map((target) => {
-      const agents =
-        target.agentIds === undefined || target.agentIds.length === 0
-          ? undefined
-          : ` [${target.agentIds.join(", ")}]`;
-      return `${target.path} (${target.change})${agents ?? ""}`;
-    })
-    .join(", ");
-};
-
-const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
-  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
-  const artifact = step.result.artifact;
-  const details = [
-    artifact.change,
-    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    formatArtifactTargets(artifact),
-  ].filter((part): part is string => part !== undefined && part.length > 0);
-  return `${step.label}   ${details.join("   ")}`;
-};
-
-const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
-  const rows = plan.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) => {
-      const summary = formatCompletedArtifactStep(step);
-      return summary === undefined ? [] : [summary];
-    });
-  return rows.length === 0 ? undefined : rows.join("\n");
-};
 
 export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const renderer = yield* CliRenderer;
@@ -310,33 +267,12 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   });
   const suggestions =
     resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
-  const fallbackSummary = [
-    `-> ${AGENT_SETTINGS_PATH}   ${count(agentIds.length, "agent")}`,
-    ...(materializeSteps.length === 0
-      ? []
-      : [`-> managed agent artifacts   ${count(agentIds.length, "agent")}`]),
-  ].join("\n");
-  const summary =
-    resolution._tag === "ExecutedPlan"
-      ? (summarizeExecutedArtifacts(resolution) ?? fallbackSummary)
-      : fallbackSummary;
-  const emitted = yield* emitPlanResolutionResult("agents.add", resolution, {
-    summary,
+  yield* emitAppliedPlanOutcome({
+    command: "agents.add",
+    headline: `Configured ${count(agentIds.length, "agent")}`,
+    resolution,
     suggestions,
   });
-  if (resolution._tag === "ExecutedPlan") {
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      `Configured ${count(agentIds.length, "agent")}`,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            summary,
-            suggestions,
-            withoutSuggestions: emitted,
-          },
-    );
-  }
 });
 
 const addConfig = {

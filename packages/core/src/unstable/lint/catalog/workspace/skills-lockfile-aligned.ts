@@ -7,10 +7,11 @@
  *
  * 1. **Missing** — every declared skill has a matching lock entry.
  *    Autofix: `install-skill` with `force: false` per missing declaration.
- * 2. **Orphan** — every skill lock entry has a matching declaration **or** a
- *    matching installed declared pack declares it. Autofix: `uninstall-skill`
- *    per orphan lock entry. Pack membership is derived from the authoritative
- *    installed-pack graph rather than the legacy `retainedByPack` receipt hint.
+ * 2. **Receipt-only** — every skill lock entry has a matching declaration **or**
+ *    a matching installed declared pack declares it. Advisory: the user must
+ *    choose to declare the exact installed source or uninstall it explicitly.
+ *    Pack membership is derived from the authoritative installed-pack graph
+ *    rather than the legacy `retainedByPack` receipt hint.
  * 3. **Version skew** — each lock entry's `resolvedVersion` satisfies the
  *    declared version constraint (for registry sources). Autofix:
  *    `install-skill` with `force: true`.
@@ -26,11 +27,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
+import type {
+  AdvisoryFinding,
+  AutofixableFinding,
+  AutofixingRule,
+  LintFinding,
+} from "../../rule.js";
 import type { Operation } from "../../../plan/plan.js";
 import { type Lockfile } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
-import { installSkillOp, uninstallSkillOp } from "./helpers/install-ops.js";
+import { installSkillOp } from "./helpers/install-ops.js";
 import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 import { isSameFinding } from "./helpers/finding.js";
@@ -40,6 +46,7 @@ import {
   isImplicitRetainedSkill,
 } from "./helpers/retained-skills.js";
 import { versionSatisfiesRange } from "../../../version-constraints/version-constraints.js";
+import { printSkillLockSourceLocator } from "../../../sources/index.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
@@ -54,13 +61,14 @@ const missingFinding = (name: string, source: string): AutofixableFinding => ({
   location: { file: LOCKFILE_REL },
 });
 
-const orphanFinding = (name: string): AutofixableFinding => ({
-  kind: "autofixable",
+const receiptOnlyFinding = (name: string, source: string): AdvisoryFinding => ({
+  kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message:
     `Skill '${name}' is listed in the lockfile but not in settings.skills. ` +
-    "Run `axm lint --fix` to remove that lockfile entry.",
+    `Run \`axm skills install ${source}\` to declare and retain it, or ` +
+    `run \`axm skills uninstall ${name}\` to remove it explicitly.`,
   location: { file: LOCKFILE_REL },
 });
 
@@ -74,10 +82,14 @@ const versionFinding = (name: string, details: string): AutofixableFinding => ({
   location: { file: LOCKFILE_REL },
 });
 
-interface AlignmentViolation {
-  readonly finding: AutofixableFinding;
-  readonly operation: Operation<string, unknown>;
-}
+type AlignmentViolation =
+  | {
+      readonly finding: AutofixableFinding;
+      readonly operation: Operation<string, unknown>;
+    }
+  | {
+      readonly finding: AdvisoryFinding;
+    };
 
 // -----------------------------------------------------------------------------
 // Retention helpers
@@ -112,8 +124,7 @@ const collectAlignmentViolations = (
       continue;
     }
     violations.push({
-      finding: orphanFinding(name),
-      operation: uninstallSkillOp({ name }),
+      finding: receiptOnlyFinding(name, printSkillLockSourceLocator(name, entry)),
     });
     affected.add(`lock:${name}`);
   }
@@ -189,6 +200,8 @@ export const skillsLockfileAlignedRule: AutofixingRule<WorkspaceRuleContext> = {
         settingsResult.success.value,
         lockOption.value,
       ).find((candidate) => isSameFinding(candidate.finding, finding));
-      return violation === undefined ? EMPTY_OPERATIONS : [violation.operation];
+      return violation === undefined || !("operation" in violation)
+        ? EMPTY_OPERATIONS
+        : [violation.operation];
     }),
 };

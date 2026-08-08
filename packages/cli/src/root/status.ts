@@ -5,12 +5,17 @@ import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+import type { PacksLockMap, SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
+import {
+  isWorkspaceSourceLocator,
+  printSkillLockSourceLocator,
+} from "@agentxm/client-core/unstable/sources";
 import {
   WorkspaceMutations,
   observeCanonicalExtension,
   type CanonicalObservation,
   type DesiredExtensionNode,
+  type DesiredStateGraph,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../cli-flags.js";
@@ -35,6 +40,46 @@ export const WorkspaceStatusSchema = Schema.Struct({
 });
 
 type WorkspaceHealthProblem = Schema.Schema.Type<typeof WorkspaceHealthProblemSchema>;
+
+export const receiptOnlySkillProblems = (
+  graph: DesiredStateGraph,
+  lockedSkills: SkillsLockMap,
+  lockedPacks: PacksLockMap = {},
+  scope: WorkspaceScope = "project",
+): ReadonlyArray<WorkspaceHealthProblem> => {
+  if (!graph.complete) return [];
+  const desiredSkillNames = new Set(
+    graph.nodes.filter((node) => node.type === "skill").map((node) => node.name),
+  );
+  const desiredPackNames = new Set(
+    graph.nodes.filter((node) => node.type === "pack").map((node) => node.name),
+  );
+  const retainedSkillIdentities = new Set(
+    Object.entries(lockedPacks).flatMap(([name, entry]) =>
+      desiredPackNames.has(name) ? Object.keys(entry.resolvedSkills) : [],
+    ),
+  );
+  return Object.entries(lockedSkills).flatMap(([name, entry]) => {
+    if (desiredSkillNames.has(name)) return [];
+    const identity =
+      entry.type === "registry" ? `${entry.owner}/skills/${entry.name}` : `skills/${name}`;
+    if (retainedSkillIdentities.has(identity)) return [];
+    const uninstallCommand = commandForScope(`axm skills uninstall ${name}`, scope);
+    return [
+      {
+        code: "receipt-only-skill",
+        extensionType: "skill",
+        identity: name,
+        detail: `The skill has receipt history but no desired-state declaration; declare it to retain the installed content or uninstall it explicitly with \`${uninstallCommand}\``,
+        blocking: true,
+        recoveryAction: commandForScope(
+          `axm skills install ${printSkillLockSourceLocator(name, entry)}`,
+          scope,
+        ),
+      },
+    ];
+  });
+};
 
 interface ProjectionInventoryRow {
   readonly installed: boolean;
@@ -271,7 +316,17 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
       },
     ];
   });
-  const problems = [...graphProblems, ...canonicalProblems, ...projectionProblems];
+  const [lockedSkills, lockedPacks] = yield* Effect.all([
+    ws.getLockedSkills(),
+    ws.getLockedPacks(),
+  ]);
+  const receiptProblems = receiptOnlySkillProblems(graph, lockedSkills, lockedPacks, ws.scope);
+  const problems = [
+    ...graphProblems,
+    ...canonicalProblems,
+    ...projectionProblems,
+    ...receiptProblems,
+  ];
   const blockingCount = problems.filter((problem) => problem.blocking).length;
   const advisoryCount = problems.length - blockingCount;
   const hasBlockingProblems = blockingCount > 0;

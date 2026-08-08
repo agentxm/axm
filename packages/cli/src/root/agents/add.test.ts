@@ -11,6 +11,7 @@ import {
   AgentExecutableResolver,
   CodingAgentRepositoryLive,
 } from "@agentxm/client-core/unstable/agents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
@@ -22,8 +23,10 @@ import { withDegradedLockfileReads } from "@agentxm/client-core/unstable/workspa
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  property,
 } from "../../test-helpers.js";
 import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
@@ -128,15 +131,18 @@ const emptyPackManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof PackManager>;
 
-const emptyManagersLayer = Layer.mergeAll(
-  Layer.succeed(SkillManager, emptySkillManager),
-  Layer.succeed(McpServerManager, emptyMcpServerManager),
-  Layer.succeed(HookManager, emptyHookManager),
-  Layer.succeed(RuleManager, emptyRuleManager),
-  Layer.succeed(SubagentManager, emptySubagentManager),
-  Layer.succeed(KnowledgeManager, emptyKnowledgeManager),
-  Layer.succeed(PackManager, emptyPackManager),
-);
+const managersLayer = (
+  skillManager: ServiceMap.Service.Shape<typeof SkillManager> = emptySkillManager,
+) =>
+  Layer.mergeAll(
+    Layer.succeed(SkillManager, skillManager),
+    Layer.succeed(McpServerManager, emptyMcpServerManager),
+    Layer.succeed(HookManager, emptyHookManager),
+    Layer.succeed(RuleManager, emptyRuleManager),
+    Layer.succeed(SubagentManager, emptySubagentManager),
+    Layer.succeed(KnowledgeManager, emptyKnowledgeManager),
+    Layer.succeed(PackManager, emptyPackManager),
+  );
 
 describe("agents add.handler", () => {
   let tempDir: string;
@@ -164,14 +170,18 @@ describe("agents add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: { readonly machine?: boolean; readonly quiet?: boolean }) => {
+  const makeLayers = (opts?: {
+    readonly machine?: boolean;
+    readonly quiet?: boolean;
+    readonly skillManager?: ServiceMap.Service.Shape<typeof SkillManager>;
+  }) => {
     const context = makeWorkspaceHandlerTestContext({
       machine: opts?.machine,
       ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
     });
     const fullLayer = Layer.mergeAll(
       context.fullLayer,
-      emptyManagersLayer,
+      managersLayer(opts?.skillManager),
       CodingAgentRepositoryLive,
       Layer.succeed(AgentExecutableResolver, {
         exists: () => Effect.succeed(false),
@@ -355,6 +365,121 @@ describe("agents add.handler", () => {
 
         expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
         expect(rendererState.suggestions).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("reports materialization failure instead of a configured-agent success", () => {
+    const failingSkillManager = {
+      ...emptySkillManager,
+      materializeInstall: () =>
+        makeAppError({
+          code: "not_found",
+          detail: "Injected review skill materialization failure",
+        }),
+    } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
+    const { provide, rendererState } = makeLayers({ skillManager: failingSkillManager });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      agents: [],
+      skills: { review: "workspace:@acme/skills/review" },
+    });
+    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "skill.json"),
+      JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    fs.writeFileSync(
+      path.join(skillDir, "src", "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n",
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: true,
+          force: false,
+          preview: false,
+        });
+
+        expect(rendererState.logs).toContainEqual({
+          _tag: "error",
+          message: "Failed to configure 1 agent",
+        });
+        expect(rendererState.logs).not.toContainEqual({
+          _tag: "success",
+          message: "Configured 1 agent",
+        });
+        expect(rendererState.logs).toContainEqual(
+          expect.objectContaining({
+            _tag: "info",
+            message: expect.stringContaining("Injected review skill materialization failure"),
+          }),
+        );
+        expect(readConfiguredAgents()).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("keeps machine failure outcome aligned with the materialization step", () => {
+    const failingSkillManager = {
+      ...emptySkillManager,
+      materializeInstall: () =>
+        makeAppError({
+          code: "not_found",
+          detail: "Injected review skill materialization failure",
+        }),
+    } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
+    const { provide, rendererState } = makeLayers({
+      machine: true,
+      skillManager: failingSkillManager,
+    });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      agents: [],
+      skills: { review: "workspace:@acme/skills/review" },
+    });
+    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "skill.json"),
+      JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    fs.writeFileSync(
+      path.join(skillDir, "src", "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n",
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: true,
+          force: false,
+          preview: false,
+        });
+
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        expect(result).toMatchObject({
+          outcome: "failed",
+          planName: "Add coding agents",
+          totalSteps: 2,
+          appliedCount: 0,
+          failedCount: 1,
+          blockedCount: 1,
+          steps: [
+            { label: "Add cursor", status: "blocked" },
+            {
+              label: expect.stringContaining("review"),
+              status: "failed",
+              message: expect.stringContaining("Injected review skill materialization failure"),
+            },
+          ],
+        });
+        expect(readConfiguredAgents()).toEqual([]);
       }),
     );
   });

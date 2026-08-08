@@ -181,6 +181,13 @@ Use disable when an installed extension should remain managed but inactive.
 Uninstall removes canonical source and managed artifacts once no declaration or
 pack still reaches them.
 
+Treat `.axm/settings.json` as desired state, `.axm/trust.json` as source trust,
+and `.axm/axm-lock.yaml` as receipt history. Never hand-rewrite trust or receipt
+hashes to reconstruct a missing declaration. When `axm status` or `axm lint`
+reports a receipt-only skill, use the exact reported `axm skills install
+<source>` command to declare and retain it, or explicitly run `axm skills
+uninstall <name>`. Do not use `axm lint --fix` to choose between those outcomes.
+
 ### Auth
 
 | Task                             | Command                            |

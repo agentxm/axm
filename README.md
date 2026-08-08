@@ -152,7 +152,9 @@ your input:
 axm install                          # Sync extensions from .axm/settings.json
 axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
-axm outdated                         # Show extensions with available updates
+axm list                             # Inventory extensions across all types
+axm list --outdated                  # Show extensions with available updates
+axm list --deprecated                # Show deprecated installed extensions
 axm uninstall @acme/skills/code-review
 axm adopt @acme/skills/retained-package       # Make a canonical package authoritative
 axm demote @acme/skills/review ./upstream     # Explicitly return to external source management
@@ -168,7 +170,7 @@ Extensions publish to the registry in four steps.
 axm skills new my-skill              # 1. Scaffold
 # 2. Author content in the scaffolded directory
 axm lint                             # 3. Check the publish gate locally
-axm publish --on-existing verify     # 4. Publish every authored extension idempotently
+axm publish                          # 4. Publish new authored versions; verify existing ones
 ```
 
 Authorship is derived from the intrinsic

@@ -3,7 +3,7 @@ name: axm
 description: |
   AXM - Agent Extension Manager: Use for any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover) on agent skills, subagents, MCP servers, rules, hooks, knowledge bundles, or packs — e.g. "create a skill", "add a subagent", "build an MCP server", or "publish an extension". Use this before hand-authoring or editing any SKILL.md, subagent, MCP, rule, hook, knowledge, or extension manifest file: route extension authoring through AXM instead of writing these files directly.
 metadata:
-  agentxm.ai/cli-version: "0.25.8"
+  agentxm.ai/cli-version: "0.26.0"
 ---
 
 # /axm - Agent Extension Manager
@@ -134,28 +134,32 @@ the reviewable `axm lint --fix` plan.
 | Inspect desired and resolved pack state   | `axm packs show <pack>`                   |
 | Preview authored-pack trust recovery      | `axm packs repair <pack> --preview`       |
 | Unpack a pack into individual entries     | `axm packs unpack <pack>`                 |
-| Publish all authored workspace extensions | `axm publish [--on-existing verify]`      |
+| Publish all authored workspace extensions | `axm publish`                             |
 | Publish selected extensions               | `axm publish <fqn...>`                    |
 | Publish authored extensions of one type   | `axm <type> publish`                      |
 | Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>` |
 | Set an exact version                      | `axm version <fqn> set <x.y.z>`           |
 
-Publish preflights the complete selection before any upload and stops at the
-first runtime failure. Existing versions fail by default; use
-`--on-existing verify` only for an integrity-equivalent no-op. Use `--backfill`
-only for an unpublished lower SemVer. Unsafe archives cannot be bypassed, and
-`--include-dependencies` / `--include-dependency` are pack-only flags.
+Publish preflights the complete selection before any upload. Bare and
+filter-only bulk selections verify and skip byte-identical published versions;
+integrity drift blocks every upload. Explicit selectors remain strict unless
+`--on-existing verify` is supplied, while `--on-existing error` makes a bulk
+selection strict. Use `--backfill` only for an unpublished lower SemVer. Unsafe
+archives cannot be bypassed, and `--include-dependencies` /
+`--include-dependency` are pack-only flags.
 
 ### Managing installed extensions
 
 | Task                                        | Command                               |
 | ------------------------------------------- | ------------------------------------- |
 | List installed extensions of a type         | `axm <type> list`                     |
+| List all local extension state              | `axm list`                            |
 | Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>` |
 | Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                 |
 | Uninstall                                   | `axm uninstall <fqn>`                 |
 | Update (omit FQN to update all)             | `axm update [<fqn>]`                  |
-| Show extensions with available updates      | `axm outdated`                        |
+| Show extensions with available updates      | `axm list --outdated`                 |
+| Show deprecated installed extensions        | `axm list --deprecated`               |
 | View published extension metadata           | `axm view <fqn> [version\|versions]`  |
 
 ### Workspace state

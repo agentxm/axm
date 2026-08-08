@@ -6,16 +6,16 @@
       "name": "axm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/axm",
-      "resolvedVersion": "0.25.7",
-      "contentIdentity": "68471f2185845f556787ba0e998a50def4a0cc8f708ec19486b8d31890d86ff0"
+      "resolvedVersion": "0.26.0",
+      "contentIdentity": "806661c5c682e92ef86b7f96981badcbebdb298ccb09ee3feb16d2ab1d94c546"
     },
     "knowledge:agentxm": {
       "extensionType": "knowledge",
       "name": "agentxm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/knowledge/agentxm",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7"
+      "resolvedVersion": "0.2.1",
+      "contentIdentity": "66c02f2b04ef030cf4727cc5068df0488fe102b64c5a8c20f4cf201f2f325bd2"
     },
     "skill:effect-basics": {
       "extensionType": "skill",

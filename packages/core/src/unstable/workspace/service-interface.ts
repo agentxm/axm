@@ -242,6 +242,10 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
 }
 
 export interface WorkspaceReadModelRecords {
+  /** Deterministic inventory across every installable extension type or one selected type. */
+  readonly getInventory: (options: {
+    readonly type?: InstallableExtensionType;
+  }) => Effect.Effect<ExtensionInventory, AppError>;
   /** Read-only physical inventory for one extension type. */
   readonly getExtensionInventory: (
     type: InstallableExtensionType,
@@ -518,6 +522,13 @@ export interface WorkspaceMutationsService {
   readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
   /** Update pack trust or receipt state without changing desired settings. */
   readonly setPackLock: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  /** Refresh the trusted content identity after a verified publish of a workspace-authored extension. */
+  readonly refreshAuthoredContentIdentity: (
+    type: Exclude<InstallableExtensionType, "pack">,
+    name: string,
+    resolvedVersion: string,
+    contentIdentity: SourceHash,
+  ) => Effect.Effect<void, AppError>;
   /** Refresh the trusted content identity after an authorized edit to a workspace-authored pack. */
   readonly refreshPackContentIdentity: (
     name: string,

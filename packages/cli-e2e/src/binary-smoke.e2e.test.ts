@@ -94,6 +94,47 @@ describe("compiled binary smoke", () => {
     expect(getOutput(result)).toContain("CORE");
   });
 
+  it("lists cross-type workspace inventory through the compiled binary", async () => {
+    const temp = createTempDir();
+
+    try {
+      const axmDir = path.join(temp.path, ".axm");
+      fs.mkdirSync(axmDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(axmDir, "settings.json"),
+        JSON.stringify({
+          agents: [],
+          skills: { review: "@acme/skills/review" },
+          hooks: { audit: "@acme/hooks/audit" },
+        }),
+      );
+
+      const result = await runBinary(["list", "--json"], { cwd: temp.path });
+
+      expect(result.exitCode, getOutput(result)).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        result: {
+          filter: "all",
+          count: 2,
+          totalCount: 2,
+          items: [
+            { type: "hook", name: "audit" },
+            { type: "skill", name: "review" },
+          ],
+        },
+      });
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("does not retain the retired root outdated command", async () => {
+    const result = await runBinary(["outdated"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toContain("outdated");
+  });
+
   it("exits non-zero for auth token without credentials", async () => {
     const temp = createTempDir();
 

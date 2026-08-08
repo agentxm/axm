@@ -41,7 +41,7 @@ import { KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
 import { KnowledgeOpenQueryResultSchema } from "./root/knowledge/open.js";
 import { KnowledgeSearchQueryResultSchema } from "./root/knowledge/search.js";
 import { LintFixDocumentSchema, LintResultDocumentSchema } from "./root/lint/handler.js";
-import { OutdatedDocumentSchema } from "./root/outdated/handler.js";
+import { ExtensionListDocumentSchema } from "./root/list/command.js";
 import { PackRepairResultSchema } from "./root/packs/repair.js";
 import { PackShowResultSchema } from "./root/packs/show.js";
 import { InstructionsStatusOutputSchema } from "./root/rules/instructions.js";
@@ -78,7 +78,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   LoginDocumentSchema,
   LoginNoOpDocumentSchema,
   LogoutDocumentSchema,
-  OutdatedDocumentSchema,
+  ExtensionListDocumentSchema,
   PackRepairResultSchema,
   PackShowResultSchema,
   PlanResolutionDocumentSchema,

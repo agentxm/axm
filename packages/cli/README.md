@@ -144,7 +144,9 @@ your input:
 axm install                          # Sync extensions from .axm/settings.json
 axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
-axm outdated                         # Show extensions with available updates
+axm list                             # Inventory extensions across all types
+axm list --outdated                  # Show extensions with available updates
+axm list --deprecated                # Show deprecated installed extensions
 axm uninstall @acme/skills/code-review
 axm prune                            # Remove extensions axm isn't managing
 axm upgrade                          # Update axm itself

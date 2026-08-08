@@ -39,6 +39,15 @@ export {
 export type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 export {
+  assessExtensionListItems,
+  collectExtensionListItems,
+  type ExtensionAssessment,
+  type ExtensionAssessmentState,
+  type ExtensionListFilter,
+  type ExtensionListItem,
+} from "./extension-list.js";
+
+export {
   getKnowledgeLockEntries,
   getLockedEntries,
   lockEntryVersion,

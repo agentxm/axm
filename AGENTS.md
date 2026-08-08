@@ -260,23 +260,26 @@ See [Testing Guide](contributing/guides/testing.md) and
 
 Wait for the user to review changes and decide when to commit.
 <!-- axm:start region=knowledge-base -->
+
 ## Knowledge Base
 
 ### @agentxm
 
-| Bundle | Description |
-| --- | --- |
+| Bundle                                                             | Description                                                                                                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows |
 
 ### @craigsmitham
 
-| Bundle | Description |
-| --- | --- |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                          | Description                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                 | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
+| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
+
 <!-- axm:end region=knowledge-base -->
 <!-- axm:start region=rules -->
 <!-- axm:rule @craigsmitham/rules/field-notes@0.1.0 -->
+
 ## Field notes
 
 Record how work actually goes, so recurring obstacles become durable

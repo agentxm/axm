@@ -25,7 +25,7 @@ export const INSTALLED_STATE_SCOPE_COMMANDS = [
   "axm sync",
   "axm lint",
   "axm prune",
-  "axm outdated",
+  "axm list",
   "axm agents",
   "axm agents list",
   "axm agents add",

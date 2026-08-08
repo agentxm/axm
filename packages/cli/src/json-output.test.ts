@@ -9,7 +9,59 @@ import type {
   PreviewedPlan,
 } from "@agentxm/client-core/unstable/plan";
 
-import { toPlanResolutionResult, planResolutionToSummary } from "./json-output.js";
+import {
+  classifyPublishResults,
+  planResolutionToSummary,
+  toPlanResolutionResult,
+  type PublishResultItem,
+} from "./json-output.js";
+import { extensionName, handle } from "./test-stubs.js";
+
+describe("classifyPublishResults", () => {
+  it("derives every aggregate count from the item classifications", () => {
+    const base: Pick<PublishResultItem, "owner" | "type" | "name"> = {
+      owner: handle("@acme"),
+      type: "skill",
+      name: extensionName("review"),
+    };
+    const results: ReadonlyArray<PublishResultItem> = [
+      { ...base, action: "publish", status: "success" },
+      {
+        ...base,
+        name: extensionName("existing"),
+        action: "skip",
+        status: "success",
+        reason: "version_already_published",
+      },
+      {
+        ...base,
+        name: extensionName("ignored"),
+        action: "skip",
+        status: "success",
+        reason: "not_authored",
+      },
+      {
+        ...base,
+        name: extensionName("blocked"),
+        action: "error",
+        status: "blocked",
+        reason: "blocked_by_preflight",
+      },
+      { ...base, name: extensionName("failed"), action: "error", status: "failed" },
+      { ...base, name: extensionName("pending"), action: "publish", status: "pending" },
+    ];
+
+    expect(classifyPublishResults(results)).toEqual({
+      selected: 6,
+      published: 1,
+      alreadyPublished: 1,
+      skipped: 1,
+      blocked: 1,
+      failed: 1,
+      pending: 1,
+    });
+  });
+});
 
 describe("toPlanResolutionResult", () => {
   const successfulRun = Effect.succeed({

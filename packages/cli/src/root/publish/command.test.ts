@@ -8,7 +8,10 @@ import {
   getCommandSemanticProperties,
   isEffectCliExit,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
+import {
+  computePackageContentHash,
+  extensionTypes,
+} from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
@@ -117,6 +120,33 @@ describe("root publish", () => {
       path.join(skillDir, "src", "SKILL.md"),
       "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
     );
+  };
+
+  const writeReviewTrust = () => {
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "trust.json"),
+      JSON.stringify({
+        trustStateVersion: 1,
+        records: {
+          "skill:review": {
+            extensionType: "skill",
+            name: "review",
+            authority: "workspace",
+            sourceIdentity: "workspace:@acme/skills/review",
+            resolvedVersion: "0.9.0",
+            contentIdentity: "0".repeat(64),
+          },
+        },
+      }),
+    );
+  };
+
+  const reviewTrustRecord = () => {
+    const trust = expectRecord(
+      JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "trust.json"), "utf8")),
+    );
+    const records = expectRecord(property(trust, "records"));
+    return expectRecord(property(records, "skill:review"));
   };
 
   it("reports authentication as a human-blocked preview precondition only when needed", () => {
@@ -473,6 +503,44 @@ describe("root publish", () => {
       }),
     );
   });
+
+  it.effect("advances the authored baseline after publish and verified skip", () => {
+    writeReviewSkill();
+    writeReviewTrust();
+    const { provide, rendererState } = makeContext(false);
+    const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+    return provide(
+      Effect.gen(function* () {
+        const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+        const expectedIdentity = yield* computePackageContentHash(skillDir);
+
+        yield* handleRootPublish(args(registryUrl, { preview: false }));
+        expect(reviewTrustRecord()).toMatchObject({
+          resolvedVersion: "1.0.0",
+          contentIdentity: expectedIdentity,
+        });
+
+        writeReviewTrust();
+        yield* handleRootPublish(args(registryUrl, { preview: false }));
+        const result = expectPublishResult(at(rendererState.results, 1).data, {
+          mode: "apply",
+          count: 1,
+        });
+        const results = property(result, "results");
+        if (!Array.isArray(results)) throw new Error("Expected publish results");
+        expect(expectRecord(at(results, 0))).toMatchObject({
+          action: "skip",
+          reason: "version_already_published",
+          status: "success",
+        });
+        expect(reviewTrustRecord()).toMatchObject({
+          resolvedVersion: "1.0.0",
+          contentIdentity: expectedIdentity,
+        });
+      }),
+    );
+  });
   describe("existing version policy", () => {
     const writeSkill = (name: string, version: string) => {
       const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);
@@ -487,21 +555,19 @@ describe("root publish", () => {
       );
     };
 
-    const writeTwoSkillSettings = () => {
+    const writeSkillSettings = (names: ReadonlyArray<string>) => {
       fs.writeFileSync(
         path.join(tempDir, ".axm", "settings.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
-          skills: {
-            review: "workspace:@acme/skills/review",
-            deploy: "workspace:@acme/skills/deploy",
-          },
+          skills: Object.fromEntries(names.map((name) => [name, `workspace:@acme/skills/${name}`])),
         }),
       );
-      writeSkill("review", "1.0.0");
-      writeSkill("deploy", "1.0.0");
+      for (const name of names) writeSkill(name, "1.0.0");
     };
+
+    const writeTwoSkillSettings = () => writeSkillSettings(["review", "deploy"]);
 
     const resultItems = (data: unknown, mode: "preview" | "apply", count: number) => {
       const result = expectPublishResult(data, { mode, count });
@@ -516,7 +582,7 @@ describe("root publish", () => {
       return item;
     };
 
-    it.effect("bulk publish fails preflight before uploading any candidate by default", () => {
+    it.effect("bulk publish verifies existing versions and uploads only new candidates", () => {
       writeTwoSkillSettings();
       const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
@@ -525,31 +591,49 @@ describe("root publish", () => {
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
           writeSkill("deploy", "1.1.0");
-          const error = getAppError(
-            yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(Effect.flip),
-          );
-          expect(error.code).toBe("conflict");
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
 
           const items = resultItems(at(rendererState.results, 1).data, "apply", 2);
           const review = itemNamed(items, "review");
-          expect(property(review, "action")).toBe("error");
-          expect(property(review, "status")).toBe("failed");
+          expect(property(review, "action")).toBe("skip");
+          expect(property(review, "status")).toBe("success");
+          expect(property(review, "reason")).toBe("version_already_published");
           const deploy = itemNamed(items, "deploy");
           expect(property(deploy, "action")).toBe("publish");
-          expect("status" in deploy).toBe(false);
-
-          yield* handleRootPublish(
-            args(registryUrl, {
-              selectors: ["@acme/skills/deploy"],
-              preview: false,
-            }),
+          expect(property(deploy, "status")).toBe("success");
+          const counts = expectRecord(
+            property(expectRecord(at(rendererState.results, 1).data), "counts"),
           );
-          expect(
-            property(
-              itemNamed(resultItems(at(rendererState.results, 2).data, "apply", 1), "deploy"),
-              "status",
-            ),
-          ).toBe("success");
+          expect(property(counts, "published")).toBe(1);
+          expect(property(counts, "alreadyPublished")).toBe(1);
+        }),
+      );
+    });
+
+    it.effect("publishes one new version while verifying nineteen existing versions", () => {
+      const existing = Array.from({ length: 19 }, (_, index) => `existing-${index + 1}`);
+      writeSkillSettings(["new-release", ...existing]);
+      const { provide, rendererState } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          writeSkill("new-release", "1.1.0");
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          const result = expectPublishResult(at(rendererState.results, 1).data, {
+            mode: "apply",
+            count: 20,
+          });
+          const counts = expectRecord(property(result, "counts"));
+          expect(counts).toMatchObject({
+            selected: 20,
+            published: 1,
+            alreadyPublished: 19,
+            blocked: 0,
+            failed: 0,
+          });
         }),
       );
     });
@@ -607,7 +691,8 @@ describe("root publish", () => {
           expect(property(review, "status")).toBe("failed");
           expect(at(rendererState.results, 1).ok).toBe(false);
           const deploy = itemNamed(items, "deploy");
-          expect("status" in deploy).toBe(false);
+          expect(property(deploy, "status")).toBe("blocked");
+          expect(property(deploy, "reason")).toBe("blocked_by_preflight");
 
           yield* handleRootPublish(
             args(registryUrl, {

@@ -94,7 +94,7 @@ const readOnlyRendererResultFiles = new Set([
   "packages/cli/src/root/auth/whoami.ts",
   "packages/cli/src/root/discover/handler.ts",
   "packages/cli/src/root/help/command.ts",
-  "packages/cli/src/root/outdated/handler.ts",
+  "packages/cli/src/root/list/command.ts",
   "packages/cli/src/root/view/handler.ts",
 ]);
 
@@ -105,7 +105,7 @@ const planResultCallPattern =
   /\b(?:PlanResolutionDocumentSchema|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentSchema|UpgradeDocumentSchema|LoginDocumentSchema|LoginNoOpDocumentSchema|DeviceLoginPendingDocumentSchema|LogoutDocumentSchema|CreatedTokenDocumentSchema|RevokeTokenDocumentSchema|LintFixDocumentSchema)\b/;
 
 const readQueryResultCallPattern =
-  /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpIndexResultSchema|HelpTopicResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintResultDocumentSchema|ExtensionShowResultSchema|OutdatedDocumentSchema|PackRepairResultSchema|PackShowResultSchema|TokenDocumentSchema|TokenListDocumentSchema|ViewDocumentSchema|ViewFieldValueSchema|WhoamiDocumentSchema|WorkspaceStatusSchema)\b/;
+  /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpIndexResultSchema|HelpTopicResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintResultDocumentSchema|ExtensionShowResultSchema|ExtensionListDocumentSchema|PackRepairResultSchema|PackShowResultSchema|TokenDocumentSchema|TokenListDocumentSchema|ViewDocumentSchema|ViewFieldValueSchema|WhoamiDocumentSchema|WorkspaceStatusSchema)\b/;
 
 const visibleLiteralText = (literal: string): string =>
   literal.startsWith("`") ? literal.replace(templateExpressionPattern, "") : literal;

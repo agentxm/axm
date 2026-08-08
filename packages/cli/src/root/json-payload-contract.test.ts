@@ -18,7 +18,7 @@ import { DiscoverOutputSchema } from "./discover/handler.js";
 import { HookPortabilityResultSchema } from "./hooks/info.js";
 import { KnowledgeListQueryResultSchema } from "./knowledge/list.js";
 import { KnowledgeSearchQueryResultSchema } from "./knowledge/search.js";
-import { OutdatedDocumentSchema } from "./outdated/handler.js";
+import { ExtensionListDocumentSchema } from "./list/command.js";
 import { InstructionsStatusOutputSchema } from "./rules/instructions.js";
 
 const COLLECTION_PAYLOADS = [
@@ -35,7 +35,11 @@ const COLLECTION_PAYLOADS = [
   ["axm hooks info", HookPortabilityResultSchema.fields, ["items", "count"]],
   ["axm knowledge list", KnowledgeListQueryResultSchema.fields, ["items", "count"]],
   ["axm knowledge search", KnowledgeSearchQueryResultSchema.fields, ["query", "items", "count"]],
-  ["axm outdated", OutdatedDocumentSchema.fields, ["items", "count"]],
+  [
+    "axm list",
+    ExtensionListDocumentSchema.fields,
+    ["filter", "items", "count", "totalCount", "coverage"],
+  ],
   [
     "axm rules instructions",
     InstructionsStatusOutputSchema.fields,

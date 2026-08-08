@@ -5,10 +5,10 @@ skills:
     owner: "@agentxm"
     extensionType: skill
     name: axm
-    version: 0.25.7
+    version: 0.26.0
     installedAt: 2026-07-29T00:51:41.963Z
-    updatedAt: 2026-08-08T03:42:15.945Z
-    sourceHash: 68471f2185845f556787ba0e998a50def4a0cc8f708ec19486b8d31890d86ff0
+    updatedAt: 2026-08-08T19:38:34.696Z
+    sourceHash: 806661c5c682e92ef86b7f96981badcbebdb298ccb09ee3feb16d2ab1d94c546
   effect-basics:
     type: workspace
     owner: "@axm"
@@ -164,10 +164,10 @@ knowledge:
     owner: "@agentxm"
     extensionType: knowledge
     name: agentxm
-    version: 0.1.0
+    version: 0.2.0
     installedAt: 2026-08-06T14:50:18.696Z
-    updatedAt: 2026-08-07T20:58:25.003Z
-    sourceHash: be7f166bd50cd4ca53d1c508bf94561356a14a14bd4fb1e1165b3ddcfec350c7
+    updatedAt: 2026-08-08T19:51:11.390Z
+    sourceHash: de7cc9393cedac5b8c83b9066fc2873560806db8d09e32d217b08c2bc42b1d9a
   field-notes:
     type: registry
     owner: "@craigsmitham"

@@ -23,9 +23,10 @@ receipt.
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
 When publishing an authored pack, AXM publishes any included workspace-authored
-dependencies first, then publishes the pack. Add `--on-existing verify` when a
-retry should accept already-published dependency versions with identical
-archive integrity. A mismatch blocks the full selection before any upload.
+dependencies first, then publishes the pack. Inferred dependencies that are
+already published are integrity-verified and skipped; a mismatch blocks the full
+selection before any upload. An explicitly selected already-published pack stays
+strict unless `--on-existing verify` is supplied.
 
 ## Pack dependencies
 

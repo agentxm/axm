@@ -167,6 +167,15 @@ export const rowsFor =
  * ```
  */
 export const readModelRecordStubs = {
+  getInventory: () =>
+    Effect.succeed({
+      items: [],
+      count: 0,
+      configuredCount: 0,
+      implicitCount: 0,
+      installedCount: 0,
+      unmanagedCount: 0,
+    }),
   getExtensionInventory: emptyInventory,
   rows: emptyRows,
 } as const;
@@ -272,6 +281,7 @@ export const makeBaseWorkspaceMock = (
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
     setPackLock: () => Effect.void,
+    refreshAuthoredContentIdentity: () => Effect.void,
     refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,

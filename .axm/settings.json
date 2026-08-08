@@ -1,7 +1,5 @@
 {
-  "agents": [
-    "claude-code"
-  ],
+  "agents": ["claude-code"],
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",

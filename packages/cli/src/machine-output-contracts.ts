@@ -413,13 +413,13 @@ const lintFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/root/lint/handler.test.ts"],
 });
 
-const outdatedFamily = defineResultFamily({
-  id: "outdated",
-  schemaNames: ["OutdatedDocumentSchema"],
-  requiredTopLevelKeys: ["items", "count"],
-  scenarios: ["updates available", "up to date", "mixed sources"],
-  rationale: "Outdated is a read query across installed extensions.",
-  commandCoverage: ["packages/cli/src/root/outdated/handler.test.ts"],
+const extensionListFamily = defineResultFamily({
+  id: "extension-list",
+  schemaNames: ["ExtensionListDocumentSchema"],
+  requiredTopLevelKeys: ["filter", "items", "count", "totalCount"],
+  scenarios: ["local inventory", "updates available", "deprecated", "incomplete coverage"],
+  rationale: "Root list is a local inventory query with optional remote filters.",
+  commandCoverage: ["packages/cli/src/root/list/command.test.ts"],
 });
 
 const instructionsFamily = defineResultFamily({
@@ -610,7 +610,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(knowledgeOpenFamily, ["axm knowledge open"]),
   ...rowsFor(knowledgeSearchFamily, ["axm knowledge search"]),
   ...rowsFor(lintFamily, ["axm lint"]),
-  ...rowsFor(outdatedFamily, ["axm outdated"]),
+  ...rowsFor(extensionListFamily, ["axm list"]),
   ...rowsFor(instructionsFamily, ["axm rules instructions", "axm rules instructions status"]),
   ...rowsFor(setupFamily, ["axm setup"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),

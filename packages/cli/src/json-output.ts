@@ -234,7 +234,12 @@ const PublishModeSchema = Schema.Literals(["preview", "apply"] as const).annotat
   description: "Whether the publish command previewed or applied the reconciliation decisions.",
 });
 
-const PublishStatusSchema = Schema.Literals(["success", "failed", "pending"] as const).annotate({
+const PublishStatusSchema = Schema.Literals([
+  "success",
+  "failed",
+  "pending",
+  "blocked",
+] as const).annotate({
   identifier: "PublishStatus",
   title: "Publish Status",
   description: "Execution status for an applied publish decision.",
@@ -249,6 +254,7 @@ const PublishReasonSchema = Schema.Literals([
   "version_exists",
   "integrity_drift",
   "verify_failed",
+  "blocked_by_preflight",
 ] as const).annotate({
   identifier: "PublishReason",
   title: "Publish Reason",
@@ -292,6 +298,15 @@ export const PublishResultSchema = Schema.Struct({
     }),
   ),
   results: Schema.Array(PublishResultItemSchema),
+  counts: Schema.Struct({
+    selected: Schema.Number,
+    published: Schema.Number,
+    alreadyPublished: Schema.Number,
+    skipped: Schema.Number,
+    blocked: Schema.Number,
+    failed: Schema.Number,
+    pending: Schema.Number,
+  }),
 }).annotate({
   identifier: "PublishResult",
   title: "Publish Result",
@@ -299,6 +314,40 @@ export const PublishResultSchema = Schema.Struct({
 });
 export type PublishResult = typeof PublishResultSchema.Type;
 export type PublishResultItem = typeof PublishResultItemSchema.Type;
+
+type PublishResultInput = Omit<PublishResult, "counts">;
+
+export const classifyPublishResults = (
+  results: ReadonlyArray<PublishResultItem>,
+): PublishResult["counts"] => {
+  const published = results.filter(
+    (item) => item.action === "publish" && item.status === "success",
+  ).length;
+  const alreadyPublished = results.filter(
+    (item) =>
+      item.action === "skip" &&
+      item.status === "success" &&
+      item.reason === "version_already_published",
+  ).length;
+  const blocked = results.filter((item) => item.status === "blocked").length;
+  const failed = results.filter((item) => item.status === "failed").length;
+  const pending = results.filter((item) => item.status === "pending").length;
+  const skipped = results.length - published - alreadyPublished - blocked - failed - pending;
+  return {
+    selected: results.length,
+    published,
+    alreadyPublished,
+    skipped,
+    blocked,
+    failed,
+    pending,
+  };
+};
+
+const normalizePublishResult = (result: PublishResultInput): PublishResult => ({
+  ...result,
+  counts: classifyPublishResults(result.results),
+});
 
 const publishIdentity = (item: PublishResultItem): string => {
   const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });
@@ -337,7 +386,13 @@ const renderHumanPublishResult = (
       (item) => item.action === "publish" && item.status === "success",
     );
     const publishable = result.results.filter((item) => item.action === "publish");
-    const skipped = result.results.filter((item) => item.action === "skip");
+    const verifiedExisting = result.results.filter(
+      (item) => item.action === "skip" && item.reason === "version_already_published",
+    );
+    const skipped = result.results.filter(
+      (item) => item.action === "skip" && item.reason !== "version_already_published",
+    );
+    const blocked = result.results.filter((item) => item.status === "blocked");
     const failed = result.results.filter(
       (item) => item.action === "error" || item.status === "failed",
     );
@@ -357,23 +412,43 @@ const renderHumanPublishResult = (
     }
 
     if (result.mode === "preview") {
-      const previewItems = publishable.filter((item) => item.status !== "failed");
-      const [previewItem] = previewItems;
-      const headline =
-        previewItem !== undefined && previewItems.length === 1
-          ? `Would publish ${publishIdentity(previewItem)}`
-          : `Would publish ${count(previewItems.length, "extension")}`;
-      const summary =
-        previewItems.length <= 1
-          ? undefined
-          : previewItems.map((item) => publishItemLine(item)).join("\n");
-      const previewOptions = {
-        ...(summary === undefined ? {} : { summary }),
-        ...(suggestions ?? {}),
-      };
-      yield* renderer.success(headline, previewOptions);
+      const previewItems = publishable.filter(
+        (item) => item.status !== "failed" && item.status !== "blocked",
+      );
+      if (previewItems.length > 0) {
+        const [previewItem] = previewItems;
+        const headline =
+          previewItem !== undefined && previewItems.length === 1
+            ? `Would publish ${publishIdentity(previewItem)}`
+            : `Would publish ${count(previewItems.length, "extension")}`;
+        const summary =
+          previewItems.length <= 1
+            ? undefined
+            : previewItems.map((item) => publishItemLine(item)).join("\n");
+        const previewOptions = {
+          ...(summary === undefined ? {} : { summary }),
+          ...(suggestions ?? {}),
+        };
+        yield* renderer.success(headline, previewOptions);
+      } else if (verifiedExisting.length > 0 && failed.length === 0 && blocked.length === 0) {
+        yield* renderer.success(
+          `All ${verifiedExisting.length} selected versions are already published and integrity-verified`,
+          suggestions,
+        );
+      }
+      if (
+        verifiedExisting.length > 0 &&
+        (previewItems.length > 0 || failed.length > 0 || blocked.length > 0)
+      ) {
+        yield* renderer.info(
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+        );
+      }
       if (failed.length > 0) {
-        yield* renderer.error(`${count(failed.length, "extension")} blocked from publishing`);
+        yield* renderer.error(`${count(failed.length, "extension")} failed preflight`);
+      }
+      if (blocked.length > 0) {
+        yield* renderer.warn(`${count(blocked.length, "extension")} not attempted`);
       }
       return;
     }
@@ -392,18 +467,25 @@ const renderHumanPublishResult = (
         ...(summary === undefined ? {} : { summary }),
         ...(suggestions ?? {}),
       });
+      if (verifiedExisting.length > 0) {
+        yield* renderer.info(
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+        );
+      }
       return;
     }
 
     if (published.length > 0) {
-      const headline = `Published ${count(published.length, "extension")}; ${count(
-        failed.length,
-        "extension",
-      )} failed`;
+      const headline = `Published ${count(published.length, "extension")}; ${count(failed.length, "extension")} failed; ${count(blocked.length, "extension")} not attempted`;
       yield* renderer.error(headline, suggestions);
       yield* renderer.info(
         [...published, ...failed].map((item) => publishItemLine(item)).join("\n"),
       );
+      if (verifiedExisting.length > 0) {
+        yield* renderer.info(
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+        );
+      }
       return;
     }
 
@@ -411,17 +493,27 @@ const renderHumanPublishResult = (
       const [failedItem] = failed;
       const headline =
         failedItem !== undefined && failed.length === 1
-          ? `Failed to publish ${publishIdentity(failedItem)}`
-          : `Failed to publish ${count(failed.length, "extension")}`;
+          ? `Publish preflight failed for ${publishIdentity(failedItem)}`
+          : `Publish preflight failed for ${count(failed.length, "extension")}`;
       yield* renderer.error(headline, suggestions);
+      if (verifiedExisting.length > 0) {
+        yield* renderer.info(
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+        );
+      }
+      if (blocked.length > 0) {
+        yield* renderer.warn(`${count(blocked.length, "extension")} ready but not attempted`);
+      }
       return;
     }
 
-    const [skippedItem] = skipped;
+    const [verifiedItem] = verifiedExisting;
     const headline =
-      skippedItem !== undefined && skipped.length === 1
-        ? `Already published — ${publishIdentity(skippedItem)}`
-        : `No extensions published — ${count(skipped.length, "extension")} already published`;
+      verifiedItem !== undefined && verifiedExisting.length === 1 && skipped.length === 0
+        ? `Already published and integrity-verified — ${publishIdentity(verifiedItem)}`
+        : verifiedExisting.length > 0
+          ? `All ${verifiedExisting.length} selected versions are already published and integrity-verified`
+          : `No extensions published — ${count(skipped.length, "extension")} skipped`;
     yield* renderer.success(headline, suggestions);
   });
 
@@ -628,7 +720,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
 
 export const emitPublishResult = <TCommand extends string>(
   command: TCommand,
-  result: PublishResult,
+  input: PublishResultInput,
   options?: {
     readonly summary?: string;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
@@ -636,6 +728,7 @@ export const emitPublishResult = <TCommand extends string>(
   },
 ) =>
   Effect.gen(function* () {
+    const result = normalizePublishResult(input);
     const renderer = yield* CliRenderer;
     const browserSuggestions = publishBrowserSuggestions(result);
     const suggestions = [...(options?.suggestions ?? []), ...browserSuggestions];
@@ -673,10 +766,9 @@ export const emitPublishResult = <TCommand extends string>(
  * every item failed, so partial failures stay in one bucket.
  */
 export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
-  const appliedCount = result.results.filter(
-    (item) => item.action === "publish" && item.status === "success",
-  ).length;
-  const failedCount = result.results.filter((item) => item.status === "failed").length;
+  const appliedCount = result.counts.published;
+  const failedCount = result.counts.failed;
+  const blockedCount = result.counts.blocked;
   const types = new Set(result.results.map((item) => item.type));
   const [onlyType] = [...types];
   const subjectType: SubjectType =
@@ -692,6 +784,7 @@ export const publishResultToSummary = (result: PublishResult): CommandOutcomeSum
     sourceKind: "workspace",
     appliedCount,
     failedCount,
+    blockedCount,
   };
 };
 

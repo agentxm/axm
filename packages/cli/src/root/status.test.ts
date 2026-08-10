@@ -272,8 +272,10 @@ describe("receiptOnlySkillProblems", () => {
         updatedAt: "2026-08-01T00:00:00.000Z",
         resolvedSkills: {
           "@test/skills/pack-skill": {
+            source: "registry",
             version: "0.0.1",
             publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
           },
         },
         resolvedMcpServers: {},

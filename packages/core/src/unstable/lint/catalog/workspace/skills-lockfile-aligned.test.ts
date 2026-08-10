@@ -9,7 +9,12 @@ import { skillsLockfileAlignedRule } from "./skills-lockfile-aligned.js";
 
 type RawResolvedExtensionMap = Record<
   string,
-  { readonly version: string; readonly publisherBindingId: string }
+  {
+    readonly source: "registry";
+    readonly version: string;
+    readonly publisherBindingId: string;
+    readonly integrity: string;
+  }
 >;
 
 const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
@@ -44,7 +49,6 @@ const skillLockEntry = (args: {
   readonly owner: string;
   readonly name: string;
   readonly resolvedVersion: string;
-  readonly retainedByPack?: boolean;
 }) => ({
   type: "registry",
   owner: args.owner,
@@ -57,7 +61,6 @@ const skillLockEntry = (args: {
   installedAt: "2026-04-21T00:00:00.000Z",
   updatedAt: "2026-04-21T00:00:00.000Z",
   sourceHash: "sha",
-  ...(args.retainedByPack === undefined ? {} : { retainedByPack: args.retainedByPack }),
 });
 
 const packLockEntry = (args: {
@@ -104,8 +107,10 @@ describe("workspace/skills-lockfile-aligned", () => {
             name: "foo",
             resolvedSkills: {
               "@examples/skills/foo-add-flag": {
+                source: "registry",
                 version: "0.1.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
           }),

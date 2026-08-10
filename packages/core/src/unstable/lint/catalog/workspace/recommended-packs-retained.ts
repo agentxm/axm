@@ -8,11 +8,8 @@
  * a reason to exist at install time; publish-time coherence of the same two
  * fields is `<type>/standalone-declaration-valid`'s job.
  *
- * **Naming.** The authoring guide type-shards install rules, but
- * `workspace/packs-members-retained` sets the precedent for a single workspace
- * rule walking every member type in one body — the invariant is identical
- * across types and the finding text differs only by a label. This rule follows
- * that precedent: one rule, no fan-out.
+ * **Naming.** The invariant is identical across extension types and the
+ * finding text differs only by a label, so one rule walks every member type.
  *
  * **Advisory, not autofixing.** Two of the five autofix criteria fail. Several
  * `recommendedPacks` entries mean several viable installs, so there is no

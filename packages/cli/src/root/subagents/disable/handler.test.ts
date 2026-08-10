@@ -254,8 +254,10 @@ describe("subagents disable.handler", () => {
           resolvedMcpServers: {},
           resolvedSubagents: {
             "@acme/subagents/pack-subagent": {
+              source: "registry",
               version: "1.0.0",
               publisherBindingId: "hbnd_test",
+              integrity: "sha512-member",
             },
           },
         },

@@ -32,7 +32,12 @@ import {
 
 type RawResolvedExtensionMap = Record<
   string,
-  { readonly version: string; readonly publisherBindingId: string }
+  {
+    readonly source: "registry";
+    readonly version: string;
+    readonly publisherBindingId: string;
+    readonly integrity: string;
+  }
 >;
 
 // ---------------------------------------------------------------------------
@@ -187,7 +192,12 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
             contents: lockfileWithPack({
               packName: "team-pack",
               resolvedSkills: {
-                "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+                "@team/skills/review-tool": {
+                  source: "registry",
+                  version: "1.0.0",
+                  publisherBindingId: "hbnd_test",
+                  integrity: "sha512-member",
+                },
               },
             }),
           },
@@ -221,7 +231,12 @@ describe("projection: direct skill declaration wins over pack membership", () =>
           contents: lockfileWithPack({
             packName: "team-pack",
             resolvedSkills: {
-              "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              "@team/skills/review-tool": {
+                source: "registry",
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
+              },
             },
           }),
         },
@@ -282,8 +297,10 @@ describe("projection: pack-provided subagent is implicit installed inventory", (
             packName: "team-pack",
             resolvedSubagents: {
               "@team/subagents/code-reviewer": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
           }),
@@ -334,8 +351,10 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
               // pathways through the live projection.
               resolvedSubagents: {
                 "@team/subagents/other-reviewer": {
+                  source: "registry",
                   version: "1.0.0",
                   publisherBindingId: "hbnd_test",
+                  integrity: "sha512-member",
                 },
               },
             }),

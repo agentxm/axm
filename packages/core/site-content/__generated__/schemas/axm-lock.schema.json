@@ -66,8 +66,7 @@
         },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-        "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
       },
       "required": ["type", "installedAt", "updatedAt"],
       "additionalProperties": false,
@@ -111,19 +110,10 @@
           },
           "required": ["source", "version", "sourceIdentity", "contentIdentity"],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "version": { "$ref": "#/definitions/Version" },
-            "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
-          },
-          "required": ["version", "publisherBindingId"],
-          "additionalProperties": false
         }
       ],
       "title": "Resolved Extension",
-      "description": "Last successful pack-member resolution from a workspace or Registry authority. Legacy Registry receipts remain readable."
+      "description": "Last successful pack-member resolution from a workspace or Registry authority."
     },
     "RegistryPackLockEntry": {
       "type": "object",
@@ -326,7 +316,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -358,7 +347,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -390,7 +378,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -423,7 +410,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -454,7 +440,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -476,7 +461,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -506,7 +490,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "anyOf": [
                       {
@@ -541,7 +524,6 @@
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                   "sourceHash": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -586,7 +568,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
@@ -610,7 +591,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
@@ -634,7 +614,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
@@ -659,7 +638,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": [
@@ -689,7 +667,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
@@ -703,7 +680,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
@@ -725,7 +701,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                     },
                     "required": [
@@ -752,7 +727,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -802,9 +776,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -836,9 +807,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -870,9 +838,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -905,9 +870,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -945,9 +907,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -969,9 +928,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -1001,9 +957,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "anyOf": [
                               {
@@ -1038,9 +991,6 @@
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "retainedByPack": {
-                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
-                          },
                           "sourceHash": {
                             "type": "string",
                             "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1091,7 +1041,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1123,7 +1072,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1155,7 +1103,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1188,7 +1135,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1226,7 +1172,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1248,7 +1193,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1278,7 +1222,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1313,7 +1256,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1361,7 +1303,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1393,7 +1334,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1425,7 +1365,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1458,7 +1397,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1496,7 +1434,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1518,7 +1455,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1548,7 +1484,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1583,7 +1518,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1631,7 +1565,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1663,7 +1596,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1695,7 +1627,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1728,7 +1659,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1766,7 +1696,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1788,7 +1717,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1818,7 +1746,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "anyOf": [
                           {
@@ -1853,7 +1780,6 @@
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."

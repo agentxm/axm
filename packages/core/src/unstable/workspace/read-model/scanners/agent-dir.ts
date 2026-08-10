@@ -131,8 +131,8 @@ const subjectFileNameFor = (type: AgentDirSubjectType, name: string): string => 
 
 /**
  * For directory-style subject roots, skills use one subdirectory per subject.
- * Commands and subagents may use either a legacy subject directory or the flat
- * files AXM's agent renderers actually produce.
+ * Subagents may use either a legacy subject directory or the flat files AXM's
+ * agent renderers actually produce.
  *
  * For each occurrence, probe the canonical subject file (e.g., `SKILL.md`)
  * via `fs.exists` so subject modules can consume `subjectFileExists` rather

@@ -172,7 +172,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     noSourceMatchSuggestions: [LIST_INSTALLED_SKILLS],
     noNameMatchSuggestions: [
       LIST_INSTALLED_SKILLS,
-      { description: "Relax the `--skill` filter and try again" },
+      { description: "Relax the `--name` filter and try again" },
     ],
   });
   if (targetResolution.type === "no-op") {

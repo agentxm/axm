@@ -31,13 +31,9 @@ export interface ResolvedRelease {
 export interface VersionResolutionResult {
   /** Selected target version without the `cli-v` prefix. */
   readonly targetVersion: string;
-  /** @deprecated Use `targetVersion`. Retained for one compatibility window. */
-  readonly remoteVersion: string;
   /** Valid observed local version, or null when it cannot be determined. */
   readonly localVersion: string | null;
   readonly versionRelation: VersionRelation;
-  /** @deprecated Use `versionRelation`. */
-  readonly isStale: boolean;
   readonly release: ResolvedRelease;
 }
 
@@ -281,12 +277,8 @@ export const resolveLatestVersion = (
 
     return {
       targetVersion: selected.version,
-      remoteVersion: selected.version,
       localVersion: relation.localVersion,
       versionRelation: relation.versionRelation,
-      isStale:
-        relation.versionRelation === "upgrade-available" ||
-        relation.versionRelation === "unknown-local",
       release: {
         tagName: selected.release.tag_name,
         binaryAssetUrl,

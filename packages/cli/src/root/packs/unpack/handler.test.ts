@@ -278,12 +278,16 @@ describe("packs unpack.handler", () => {
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
               "@test/skills/code-review": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
               "@test/skills/test-writer": {
+                source: "registry",
                 version: "2.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
             resolvedMcpServers: {},
@@ -391,12 +395,16 @@ describe("packs unpack.handler", () => {
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
               "@test/skills/code-review": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
               "@test/skills/new-skill": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
             resolvedMcpServers: {},
@@ -489,8 +497,10 @@ describe("packs unpack.handler", () => {
             resolvedMcpServers: {},
             resolvedSubagents: {
               "@test/subagents/reviewer": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
           },

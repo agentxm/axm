@@ -85,7 +85,6 @@ interface RawRegistrySkillEntry {
   readonly installedAt: string;
   readonly updatedAt: string;
   readonly sourceHash?: string;
-  readonly retainedByPack?: boolean;
 }
 
 interface RawLocalSkillEntry {
@@ -109,18 +108,16 @@ interface RawPackEntry {
   readonly publisherBindingId: string;
   readonly installedAt: string;
   readonly updatedAt: string;
-  readonly resolvedSkills: Record<
-    string,
-    { readonly version: string; readonly publisherBindingId: string }
-  >;
-  readonly resolvedMcpServers: Record<
-    string,
-    { readonly version: string; readonly publisherBindingId: string }
-  >;
-  readonly resolvedSubagents: Record<
-    string,
-    { readonly version: string; readonly publisherBindingId: string }
-  >;
+  readonly resolvedSkills: Record<string, RawResolvedRegistryExtension>;
+  readonly resolvedMcpServers: Record<string, RawResolvedRegistryExtension>;
+  readonly resolvedSubagents: Record<string, RawResolvedRegistryExtension>;
+}
+
+interface RawResolvedRegistryExtension {
+  readonly source: "registry";
+  readonly version: string;
+  readonly publisherBindingId: string;
+  readonly integrity: string;
 }
 
 interface RawLockfile {

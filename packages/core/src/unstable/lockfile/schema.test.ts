@@ -547,6 +547,20 @@ describe("lockfile schema", () => {
       ).toThrow();
     });
 
+    it("rejects the removed retainedByPack receipt field", () => {
+      const input = {
+        type: "local",
+        path: "./my-skill",
+        retainedByPack: true,
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() =>
+        Schema.decodeUnknownSync(SkillLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
+    });
+
     it("rejects lock entry missing source", () => {
       const input = {
         path: "./my-skill",
@@ -912,6 +926,30 @@ describe("lockfile schema", () => {
   });
 
   describe("PackLockEntry", () => {
+    it("rejects source-less resolved Registry members", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-pack",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {
+          "@acme/skills/code-review": {
+            version: "1.2.0",
+            publisherBindingId: "hbnd_test",
+          },
+        },
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
     it("accepts valid pack lock entry with all resolved maps", () => {
       const input = {
         type: "registry",
@@ -925,7 +963,12 @@ describe("lockfile schema", () => {
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
         resolvedSkills: {
-          "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+          "@acme/skills/code-review": {
+            source: "registry",
+            version: "1.2.0",
+            publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
+          },
         },
         resolvedMcpServers: {},
         resolvedSubagents: {},
@@ -944,7 +987,12 @@ describe("lockfile schema", () => {
       expect(DateTime.isDateTime(result.installedAt)).toBe(true);
       expect(DateTime.isDateTime(result.updatedAt)).toBe(true);
       expect(result.resolvedSkills).toEqual({
-        "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+        "@acme/skills/code-review": {
+          source: "registry",
+          version: "1.2.0",
+          publisherBindingId: "hbnd_test",
+          integrity: "sha512-member",
+        },
       });
       expect(result.resolvedMcpServers).toEqual({});
       expect(result.resolvedSubagents).toEqual({});
@@ -1014,14 +1062,24 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedMcpServers: {},
         resolvedSubagents: {
-          "@acme/subagents/reviewer": { version: "2.0.0", publisherBindingId: "hbnd_test" },
+          "@acme/subagents/reviewer": {
+            source: "registry",
+            version: "2.0.0",
+            publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
+          },
         },
       };
 
       const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
       expect(result.resolvedSubagents).toEqual({
-        "@acme/subagents/reviewer": { version: "2.0.0", publisherBindingId: "hbnd_test" },
+        "@acme/subagents/reviewer": {
+          source: "registry",
+          version: "2.0.0",
+          publisherBindingId: "hbnd_test",
+          integrity: "sha512-member",
+        },
       });
     });
 
@@ -1183,7 +1241,12 @@ describe("lockfile schema", () => {
           installedAt: "2025-01-15T10:30:00Z",
           updatedAt: "2025-01-15T10:30:00Z",
           resolvedSkills: {
-            "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+            "@acme/skills/code-review": {
+              source: "registry",
+              version: "1.2.0",
+              publisherBindingId: "hbnd_test",
+              integrity: "sha512-member",
+            },
           },
           resolvedMcpServers: {},
           resolvedSubagents: {},
@@ -1194,7 +1257,12 @@ describe("lockfile schema", () => {
 
       expect(result["@acme/packs/frontend-pack"]).toBeDefined();
       expect(result["@acme/packs/frontend-pack"]?.resolvedSkills).toEqual({
-        "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+        "@acme/skills/code-review": {
+          source: "registry",
+          version: "1.2.0",
+          publisherBindingId: "hbnd_test",
+          integrity: "sha512-member",
+        },
       });
     });
   });
@@ -1217,7 +1285,12 @@ describe("lockfile schema", () => {
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
             resolvedSkills: {
-              "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+              "@acme/skills/code-review": {
+                source: "registry",
+                version: "1.2.0",
+                publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
+              },
             },
             resolvedMcpServers: {},
             resolvedSubagents: {},
@@ -1310,7 +1383,12 @@ describe("lockfile schema", () => {
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
             resolvedSkills: {
-              "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+              "@acme/skills/code-review": {
+                source: "registry",
+                version: "1.2.0",
+                publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
+              },
             },
             resolvedMcpServers: {},
             resolvedSubagents: {},

@@ -68,7 +68,12 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         installedAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
         resolvedSkills: {
-          "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+          "@team/skills/review-tool": {
+            source: "registry",
+            version: "1.0.0",
+            publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
+          },
         },
         resolvedMcpServers: {},
         resolvedSubagents: {},

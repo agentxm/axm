@@ -1,5 +1,5 @@
 {
-  "description": "Lock entry with retainedByPack:true AND a matching installed declared pack that resolves it. The retention carve-out exempts the skill from the orphan arm — zero findings from workspace/skills-lockfile-aligned.",
+  "description": "A lockfile-only skill resolved by an installed declared pack is implicit. The retention carve-out exempts it from the orphan arm, so workspace/skills-lockfile-aligned emits no findings.",
   "state": {
     "settings": {
       "agents": [
@@ -28,8 +28,7 @@
           ],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
-          "sourceHash": "sha",
-          "retainedByPack": true
+          "sourceHash": "sha"
         }
       },
       "packs": {
@@ -45,7 +44,12 @@
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "resolvedSkills": {
-            "@acme/skills/retained-skill": { "version": "1.0.0", "publisherBindingId": "hbnd_test" }
+            "@acme/skills/retained-skill": {
+              "source": "registry",
+              "version": "1.0.0",
+              "publisherBindingId": "hbnd_test",
+              "integrity": "sha512-stub"
+            }
           },
           "resolvedMcpServers": {},
           "resolvedSubagents": {}

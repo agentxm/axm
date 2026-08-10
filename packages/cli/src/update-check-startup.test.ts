@@ -57,14 +57,14 @@ const makeMockHttpClient = (handler: (url: string) => Response) =>
     ),
   );
 
-const makeSuccessHttpClient = (remoteVersion = REMOTE_VERSION) =>
+const makeSuccessHttpClient = (releasedVersion = REMOTE_VERSION) =>
   makeMockHttpClient((url: string) => {
     if (url.includes("/releases/latest")) {
-      return new Response(JSON.stringify({ tag_name: `cli-v${remoteVersion}` }), {
+      return new Response(JSON.stringify({ tag_name: `cli-v${releasedVersion}` }), {
         status: 200,
       });
     }
-    return new Response(JSON.stringify([{ tag_name: `cli-v${remoteVersion}` }]), {
+    return new Response(JSON.stringify([{ tag_name: `cli-v${releasedVersion}` }]), {
       status: 200,
     });
   });
@@ -85,7 +85,7 @@ const makeTestPrinter = (): {
 interface TestLayerOptions {
   readonly tempDir: string;
   readonly cacheData?: { latestVersion: string } | undefined;
-  readonly remoteVersion?: string;
+  readonly releasedVersion?: string;
 }
 
 /** Build test layers; when `cacheData` is given, a fresh cache file is written first. */
@@ -101,7 +101,7 @@ const makeTestLayers = (opts: TestLayerOptions) =>
     }
 
     const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
-    const httpClientLayer = makeSuccessHttpClient(opts.remoteVersion ?? REMOTE_VERSION);
+    const httpClientLayer = makeSuccessHttpClient(opts.releasedVersion ?? REMOTE_VERSION);
     const { layer: rendererLayer } = TestRenderer.make();
 
     return Layer.mergeAll(updateCheckLayer, httpClientLayer, rendererLayer, NodeServices.layer);

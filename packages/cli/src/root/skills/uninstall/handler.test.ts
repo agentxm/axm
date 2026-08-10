@@ -132,7 +132,12 @@ const makePackLockEntry = (
   resolvedSkills: Object.fromEntries(
     Object.entries(resolvedSkills).map(([skill, version]) => [
       skill,
-      { version, publisherBindingId: "hbnd_test" },
+      {
+        source: "registry",
+        version,
+        publisherBindingId: "hbnd_test",
+        integrity: "sha512-member",
+      },
     ]),
   ),
   resolvedMcpServers: {},

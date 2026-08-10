@@ -26,9 +26,6 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific skills by name or glob pattern"),
   ),
-  // Kept alongside --name so existing invocations keep working; both lists are
-  // merged into one filter set.
-  skill: Flag.string("skill").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
   force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
@@ -37,11 +34,11 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, skill, yes, force, preview }) =>
+  ({ source, scope, agent, name, yes, force, preview }) =>
     handleUpdate({
       source,
       agents: agent,
-      skills: [...name, ...skill],
+      skills: name,
       yes,
       force,
       preview,
@@ -52,7 +49,7 @@ export const updateCommand = Command.make(
   Command.withExamples([
     { command: "axm skills update", description: "Update all skills to their latest versions" },
     {
-      command: "axm skills update --skill code-review",
+      command: "axm skills update --name code-review",
       description: "Update a specific skill",
     },
     {

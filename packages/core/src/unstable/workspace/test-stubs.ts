@@ -601,7 +601,6 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly publisherBindingId?: string;
   readonly installedAt?: DateTime.Utc;
   readonly updatedAt?: DateTime.Utc;
-  readonly retainedByPack?: boolean;
 }): McpServerLockEntry => ({
   type: "registry",
   owner: opts.owner,
@@ -610,7 +609,6 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-  ...(opts.retainedByPack !== undefined ? { retainedByPack: opts.retainedByPack } : {}),
   installedAt: opts.installedAt ?? TEST_DATE,
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });

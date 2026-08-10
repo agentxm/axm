@@ -210,7 +210,6 @@ const makeCommonLockFields = (overrides?: Partial<SkillLockEntry>) => ({
   installedAt: overrides?.installedAt ?? DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   updatedAt: overrides?.updatedAt ?? DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   ...(overrides?.gitTreeHash !== undefined && { gitTreeHash: overrides.gitTreeHash }),
-  ...(overrides?.retainedByPack !== undefined && { retainedByPack: overrides.retainedByPack }),
 });
 
 const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {

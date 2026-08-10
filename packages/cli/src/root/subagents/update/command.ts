@@ -28,9 +28,6 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
-  // Kept alongside --name so existing invocations keep working; both lists are
-  // merged into one filter set.
-  subagent: Flag.string("subagent").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
   force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
@@ -39,11 +36,11 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, subagent, yes, force, preview }) =>
+  ({ source, scope, agent, name, yes, force, preview }) =>
     handleUpdate({
       source,
       agents: agent,
-      subagents: [...name, ...subagent],
+      subagents: name,
       yes,
       force,
       preview,
@@ -57,7 +54,7 @@ export const updateCommand = Command.make(
       description: "Update all subagents to their latest versions",
     },
     {
-      command: "axm subagents update --subagent researcher",
+      command: "axm subagents update --name researcher",
       description: "Update a specific subagent",
     },
     {

@@ -1371,12 +1371,16 @@ describe("packs install handler", () => {
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
               "@acme/skills/kept-skill": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
               "@acme/skills/dropped-skill": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
             resolvedMcpServers: {},
@@ -1443,8 +1447,10 @@ describe("packs install handler", () => {
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
               "@acme/skills/dropped-skill": {
+                source: "registry",
                 version: "1.0.0",
                 publisherBindingId: "hbnd_test",
+                integrity: "sha512-member",
               },
             },
             resolvedMcpServers: {},

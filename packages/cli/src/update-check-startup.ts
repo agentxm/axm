@@ -89,7 +89,7 @@ export const refreshCache = (localVersion: string) =>
     const repo = process.env["AXM_INSTALL_GITHUB_REPO"] ?? DEFAULT_GITHUB_REPO;
 
     const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
-    yield* updateCheck.writeCache(resolution.remoteVersion);
+    yield* updateCheck.writeCache(resolution.targetVersion);
   }).pipe(
     Effect.timeout(REFRESH_TIMEOUT),
     Effect.catch(() => Effect.void),

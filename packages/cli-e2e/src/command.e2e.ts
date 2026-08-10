@@ -139,6 +139,18 @@ describe("main CLI help", () => {
     expect(output).not.toContain("--agent");
   });
 
+  it.each([
+    { args: ["skills", "update", "--skill", "example"], removedFlag: "--skill" },
+    { args: ["subagents", "update", "--subagent", "example"], removedFlag: "--subagent" },
+  ])("rejects the removed $removedFlag update selector", async ({ args, removedFlag }) => {
+    const result = await runCli(args);
+    const output = getOutput(result);
+
+    expect(result.exitCode).toBe(2);
+    expect(output).toContain(removedFlag);
+    expect(output).toContain("--name");
+  });
+
   it("does not expose bypass flags on packs unpack", async () => {
     const result = await runCli(["packs", "unpack", "--help"]);
     const output = getOutput(result);

@@ -1,3 +1,23 @@
+## Unreleased
+
+### ⚠️ Breaking Changes
+
+- Remove expired compatibility surfaces from the CLI and shared kernel.
+  `axm upgrade --json` no longer emits `delegatedCommand`; use
+  `recommendedCommand` for suggested commands and `executedCommands` for work
+  AXM performed. Skill and subagent updates now accept only `--name` for target
+  selection; replace `--skill` and `--subagent` update flags with `--name`.
+  `VersionResolutionResult` no longer exposes `remoteVersion` or `isStale`; use
+  `targetVersion` and `versionRelation`. The unused
+  `DateTimeUtcFromDateSchema` export is removed.
+- Require canonical lockfile receipts. Lock entries no longer accept
+  `retainedByPack`, and resolved Registry pack members must include
+  `source: registry` and `integrity`. Run `axm lint --fix` to regenerate stale
+  receipts from workspace declarations. Pack retention remains derived from
+  installed pack member maps; remove any `workspace/packs-members-retained`
+  lint override from settings. Custom `ExtensionManager` implementations must
+  now provide `removeTrustEntry` so full uninstall always retires trust state.
+
 ## 0.26.0 (2026-08-08)
 
 ### ⚠️ Breaking Changes
@@ -350,53 +370,6 @@
 - Craig Smitham
 - Test @songkang666
 
-## Unreleased
-
-### ⚠️ Breaking Changes
-
-- `axm upgrade --json` now reports truthful transactional state through
-  `resultStatus`, nullable `localVersion` / `targetVersion` /
-  `reportedVersion`, `verification`, `mutationState`, `executedCommands`, and
-  `recommendedCommand`. The old overloaded `delegatedCommand` field remains for
-  one deprecation window but no longer indicates whether AXM executed a
-  command. Script upgrades and public installers now require release
-  `SHA256SUMS`, verify the temporary and installed binaries, and roll back
-  failed replacements. Package-manager installs delegate only through their
-  detected owner (Homebrew, npm, pnpm, or Yarn Classic).
-- `axm rules enable` / `axm rules disable` now activate and deactivate an
-  installed rule extension and require a rule name. Instruction-file management
-  moved to `axm rules instructions enable` / `axm rules instructions disable`,
-  and the instruction-file status report moved from bare `axm rules` to
-  `axm rules instructions`. A bare `axm rules enable` or `axm rules disable`
-  exits 2 with a pointer to the new spelling. The status document's JSON shape
-  is unchanged, so `--json` consumers of the report are not affected.
-- `axm mcps get` is now `axm mcps show`. The JSON document's top-level key
-  changed from `mcpServer` to `item`, with a uniform field set shared by every
-  `<type> show` command; the per-agent inspection rows moved to a sibling
-  `agents` array.
-
-### 🚀 Features
-
-- The `rules` group gained the full extension lifecycle: `axm rules new`,
-  `install`, `uninstall`, `list`, `show`, `update`, `enable`, and `disable`.
-  Bare `axm rules` now prints group help and exits 0.
-- Every catalog extension type exposes `<type> show <name>` for installed-state
-  detail, with an identical top-level field set across types.
-- Every `<type> update` accepts the same target selectors: an optional
-  positional source (matched as a name or a source origin) and a repeated
-  `--name` filter with glob support. `--skill` and `--subagent` remain accepted
-  as aliases for `--name`.
-- Installed-identifier resolution (bare names and fully-qualified names) now
-  covers every catalog extension type instead of only skills, commands, and
-  subagents.
-
-### 🩹 Fixes
-
-- Plan summaries name extension types from the canonical type table, so
-  "context files" and "hooks" replace the previous "files package" and "hooks
-  package" wording, and knowledge plans are no longer summarized as generic
-  steps.
-
 ## 0.22.14 (2026-07-28)
 
 ### 🚀 Features
@@ -677,17 +650,15 @@
 
 - Add extension grant and maintainer commands, and enforce minimum release age for unattended registry resolution. ([5c63584a](https://github.com/agentxm/axm/commit/5c63584a))
 
-### ❤️ Thank You
-
-- Craig Smitham
-
-## Unreleased
-
 ### ⚠️ Breaking Changes
 
 - Rename `rulesConfig.instructions.gitignore` to
   `rulesConfig.instructions.gitignoreAliases`; the old `gitignore` key is no
   longer recognized.
+
+### ❤️ Thank You
+
+- Craig Smitham
 
 ## 0.16.2 (2026-06-06)
 
@@ -862,6 +833,8 @@
 ### 🚀 Features
 
 - Add universal agent skill targeting, publish lint gates, CLI help topic refinements, upgrade behavior improvements, and telemetry error classification. ([05aa56bc](https://github.com/agentxm/axm/commit/05aa56bc))
+- Model the universal skills directory as an always-on `universal` materialization
+  target. Existing workspaces populate `.agents/skills/` on the next sync.
 
 ### ❤️ Thank You
 
@@ -943,6 +916,12 @@
 
 - Release package-manager upgrade support, Windows install updates, and CI-stable lint fix verification. ([230cfd40](https://github.com/agentxm/axm/commit/230cfd40))
 
+### ⚠️ Breaking Changes
+
+- Windows script installs now use `%USERPROFILE%\.axm\bin\axm.exe`. Users with
+  a prior `%LOCALAPPDATA%\axm\` install should re-run the install script, then
+  remove the old directory and PATH entry manually.
+
 ### ❤️ Thank You
 
 - Craig Smitham
@@ -1003,6 +982,12 @@
 
 - Publish shared kernel updates for AgentXM consumers ([6257ec7f](https://github.com/agentxm/axm/commit/6257ec7f))
 
+### ⚠️ Breaking Changes
+
+- Pack manifests are now named `pack.json` and use
+  `https://axm.sh/schemas/pack.schema.json`; previous pack manifest
+  filenames/schema URLs are no longer supported.
+
 ### ❤️ Thank You
 
 - Craig Smitham
@@ -1013,22 +998,8 @@
 
 - Update Effect dependencies to beta.64 ([172f0fcc](https://github.com/agentxm/axm/commit/172f0fcc))
 
-### ❤️ Thank You
+### ⚠️ Breaking Changes
 
-- Craig Smitham
-
-## Unreleased
-
-### 🚀 Features
-
-- Model the universal skills directory as an always-on `universal` materialization
-  target. Existing workspaces populate `.agents/skills/` on the next sync.
-
-### Breaking Changes
-
-- Pack manifests are now named `pack.json` and use
-  `https://axm.sh/schemas/pack.schema.json`; previous pack manifest
-  filenames/schema URLs are no longer supported.
 - Command frontmatter now renders verbatim. AXM no longer translates portable
   field names such as `argumentHint` to `argument-hint` or `allowedTools` to
   `allowed-tools`; write the target agent's native key, or use
@@ -1036,9 +1007,10 @@
 - Command `agentOverrides` now use RFC 7396 merge-patch semantics, matching
   subagents: objects merge recursively, `null` deletes keys, arrays replace
   wholesale, and primitive values replace.
-- Windows script installs now use `%USERPROFILE%\.axm\bin\axm.exe`. Users with
-  a prior `%LOCALAPPDATA%\axm\` install should re-run the install script, then
-  remove the old directory and PATH entry manually.
+
+### ❤️ Thank You
+
+- Craig Smitham
 
 ## 0.5.0 (2026-05-06)
 
@@ -1139,22 +1111,6 @@
 
 - Honor AXM_USER_HOME in user-scope workspaces ([48bef952](https://github.com/agentxm/axm/commit/48bef952))
 
-### ❤️ Thank You
-
-- Craig Smitham
-
-## 0.3.0 (2026-04-21)
-
-### 🚀 Features
-
-- Lint engine + axm lint command ([2d7f6954](https://github.com/agentxm/axm/commit/2d7f6954))
-
-### ❤️ Thank You
-
-- Craig Smitham
-
-## Unreleased (2026-04-21)
-
 ### 🚀 Features
 
 - # Lint engine + `axm lint` command (shared kernel + CLI)
@@ -1213,6 +1169,20 @@
   - Thirteen v1 workspace rules across three families (foundation 5, skills
     install 5, packs install 3) with a determinism harness asserting every
     autofixing rule converges to zero findings after `applyPlan`.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.3.0 (2026-04-21)
+
+### 🚀 Features
+
+- Lint engine + axm lint command ([2d7f6954](https://github.com/agentxm/axm/commit/2d7f6954))
+
+### ❤️ Thank You
+
+- Craig Smitham
 
 ## 0.2.0 (2026-04-18)
 

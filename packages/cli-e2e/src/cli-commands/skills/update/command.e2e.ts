@@ -210,8 +210,8 @@ describe("axm skills update", () => {
     });
   });
 
-  describe("--skill filters correctly", () => {
-    it("updates only the named skill when --skill is provided", async () => {
+  describe("--name filters correctly", () => {
+    it("updates only the named skill when --name is provided", async () => {
       const temp = createTempDir();
       try {
         // Initialize and install both skills
@@ -232,7 +232,7 @@ describe("axm skills update", () => {
         changeSkillSource(source, "another-skill");
 
         // Update only my-skill
-        const result = await runCli(["skills", "update", "--skill", "my-skill", "--yes"], {
+        const result = await runCli(["skills", "update", "--name", "my-skill", "--yes"], {
           cwd: temp.path,
         });
 

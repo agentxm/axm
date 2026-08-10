@@ -2,16 +2,10 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  AuthClient,
-  AuthLoginInteraction,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
+import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
 import {
   errAuthRequired,
   makeAppError,
@@ -31,6 +25,7 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
+import { runWithStepUp } from "../step-up.js";
 
 export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
@@ -55,6 +50,7 @@ export const CreatedTokenResultSchema = Schema.Struct({
   tokenId: Schema.String,
   name: Schema.String,
   expiresAt: DateTimeUtcSchema,
+  stepUpCompleted: Schema.Boolean,
 });
 const CreatedTokenDocumentFields = {
   result: CreatedTokenResultSchema,
@@ -194,30 +190,6 @@ const compactPermissions = (args: CreateTokenHandlerArgs) => ({
   ...(args.bypassMfa ? { bypass_mfa: true } : {}),
 });
 
-interface StepUpRequired {
-  readonly authUrl: string;
-  readonly doneUrl: string;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const readString = (record: Record<string, unknown>, key: string) => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
-
-const readStepUpRequired = (error: AppError): StepUpRequired | null => {
-  const body = error.metadata?.response?.body;
-  if (!isRecord(body) || readString(body, "code") !== "eotp") {
-    return null;
-  }
-
-  const authUrl = readString(body, "authUrl");
-  const doneUrl = readString(body, "doneUrl");
-  return authUrl !== null && doneUrl !== null ? { authUrl, doneUrl } : null;
-};
-
 export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
@@ -249,16 +221,27 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     Effect.flatMap(validateExpiresInSeconds),
   );
 
-  const created = yield* renderer.withSpinner(
-    `Creating registry token "${args.name}"`,
-    () =>
-      authClient.createToken(token.token, {
-        name: args.name,
-        expiresIn,
-        permissions: compactPermissions(args),
-      }),
-    { successMessage: `Created registry token "${args.name}"` },
+  const createResult = yield* runWithStepUp(
+    (stepUpRequestId) =>
+      authClient.createToken(
+        token.token,
+        {
+          name: args.name,
+          expiresIn,
+          permissions: compactPermissions(args),
+        },
+        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+      ),
+    {
+      initial: `Creating registry token "${args.name}"`,
+      success: `Created registry token "${args.name}"`,
+      failure: `Failed to create registry token "${args.name}"`,
+      cancelled: `Cancelled registry token "${args.name}" creation`,
+      waiting: `Waiting for verification to create registry token "${args.name}"`,
+      authorized: `Authorized registry token "${args.name}" creation`,
+    },
   );
+  const created = createResult.value;
   const suggestions = createTokenSuggestions(created.id);
 
   if (
@@ -282,6 +265,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
           tokenId: created.id,
           name: created.name,
           expiresAt: created.expiresAt,
+          stepUpCompleted: createResult.stepUpCompleted,
         },
         data: {
           id: created.id,
@@ -373,52 +357,27 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
 export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (tokenId: string) {
   const registryUrl = yield* RegistryUrl;
   const authClient = yield* AuthClient;
-  const interaction = yield* AuthLoginInteraction;
   const renderer = yield* CliRenderer;
-  const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
   const token = yield* resolveRequiredToken(registryUrl, {
     missingTokenError: errAuthRequired("Not authenticated"),
   });
 
-  let stepUpCompleted = false;
-  const revokeSpinner = yield* renderer.spinner(`Revoking registry token ${tokenId}`);
-  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId)).pipe(
-    Effect.onInterrupt(() =>
-      revokeSpinner.cancel(`Cancelled registry token ${tokenId} revocation`),
-    ),
+  const revokeResult = yield* runWithStepUp(
+    (stepUpRequestId) =>
+      authClient.deleteToken(
+        token.token,
+        tokenId,
+        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+      ),
+    {
+      initial: `Revoking registry token ${tokenId}`,
+      success: `Revoked registry token ${tokenId}`,
+      failure: `Failed to revoke registry token ${tokenId}`,
+      cancelled: `Cancelled registry token ${tokenId} revocation`,
+      waiting: `Waiting for verification to revoke token ${tokenId}`,
+      authorized: `Authorized token ${tokenId} revocation`,
+    },
   );
-  if (Result.isFailure(revokeResult)) {
-    const stepUp = readStepUpRequired(revokeResult.failure);
-    if (stepUp === null) {
-      yield* revokeSpinner.error(`Failed to revoke registry token ${tokenId}`);
-      return yield* revokeResult.failure;
-    }
-    yield* revokeSpinner.stop(`Additional authorization required for token ${tokenId}`);
-
-    const opened = yield* interaction.openBrowser(stepUp.authUrl);
-    if (!jsonMode) {
-      yield* renderer.step(
-        opened
-          ? "Opening browser to complete step-up authentication..."
-          : "Complete step-up authentication in your browser.",
-      );
-      yield* renderer.step(`Visit: ${stepUp.authUrl}`);
-    }
-
-    const stepUpToken = yield* renderer.withSpinner(
-      `Waiting for authorization to revoke token ${tokenId}`,
-      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
-      { successMessage: `Authorized token ${tokenId} revocation` },
-    );
-    yield* renderer.withSpinner(
-      `Revoking registry token ${tokenId}`,
-      () => authClient.deleteToken(token.token, tokenId, { stepUpToken }),
-      { successMessage: `Revoked registry token ${tokenId}` },
-    );
-    stepUpCompleted = true;
-  } else {
-    yield* revokeSpinner.stop(`Revoked registry token ${tokenId}`);
-  }
 
   if (
     yield* renderer.result(
@@ -439,7 +398,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
           }),
           status: "revoked",
           tokenId,
-          stepUpCompleted,
+          stepUpCompleted: revokeResult.stepUpCompleted,
         },
       },
       RevokeTokenDocumentSchema,

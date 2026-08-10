@@ -35,6 +35,7 @@ const makeLayers = (opts?: {
   hasCredentials?: boolean;
   machine?: boolean;
   json?: boolean;
+  nonInteractive?: boolean;
   allowsPersistedCredentials?: boolean;
   authOverrides?: Parameters<typeof AuthClientTest>[0];
 }) => {
@@ -70,7 +71,10 @@ const makeLayers = (opts?: {
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
-    TestFlagsLayer({ ...(opts?.json !== undefined && { json: opts.json }) }),
+    TestFlagsLayer({
+      ...(opts?.json !== undefined && { json: opts.json }),
+      ...(opts?.nonInteractive !== undefined && { nonInteractive: opts.nonInteractive }),
+    }),
     credStoreLayer,
     AuthClientTest(opts?.authOverrides),
     interaction.layer,
@@ -248,6 +252,84 @@ describe("auth token handler", () => {
           { description: "List tokens", cmd: "axm token list" },
           { description: "Revoke this token", cmd: "axm token revoke token_123" },
         ]);
+      }),
+    );
+  });
+
+  it.effect("completes step-up before creating a privileged token", () => {
+    const createCalls: Array<unknown> = [];
+    const { provide, rendererState, interactionState } = makeLayers({
+      hasCredentials: true,
+      nonInteractive: false,
+      authOverrides: {
+        createToken: (_accessToken, params, options) => {
+          createCalls.push({ params, options });
+          if (options?.stepUpRequestId === undefined) {
+            return Effect.fail(
+              makeAppError({
+                code: "auth_required",
+                detail: "Step-up authentication is required",
+                metadata: {
+                  response: {
+                    status: 401,
+                    body: {
+                      code: "eotp",
+                      max_age: 300,
+                      step_up: {
+                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
+                        verification_url:
+                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                        status_url:
+                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                        expires_at: "2026-08-10T16:05:00.000Z",
+                        interval: 2,
+                        action: "Create access token",
+                        target: "ci-admin",
+                      },
+                    },
+                  },
+                },
+              }),
+            );
+          }
+          return Effect.succeed({
+            id: "token_123",
+            token: "axmt_created",
+            name: params.name,
+            scopes: ["extensions:admin"],
+            permissions: { kind: "gat" },
+            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
+          });
+        },
+        waitForStepUpRequest: () => Effect.void,
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleCreateToken({
+          name: "ci-admin",
+          expires: "30d",
+          owners: [],
+          extensions: [],
+          permission: Option.some("admin"),
+          orgPermission: Option.none(),
+          cidr: [],
+          bypassMfa: false,
+        });
+
+        expect(interactionState.openBrowserCalls).toEqual([
+          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+        ]);
+        expect(createCalls).toMatchObject([
+          { options: undefined },
+          { options: { stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc" } },
+        ]);
+        expect(rendererState.details[0]?.item).toMatchObject({
+          id: "token_123",
+          token: "axmt_created",
+        });
       }),
     );
   });
@@ -512,10 +594,11 @@ describe("auth token handler", () => {
     const deleteCalls: Array<unknown> = [];
     const { provide, rendererState, interactionState } = makeLayers({
       hasCredentials: true,
+      nonInteractive: false,
       authOverrides: {
         deleteToken: (_accessToken, tokenId, options) => {
           deleteCalls.push({ tokenId, options });
-          if (options?.stepUpToken === undefined) {
+          if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
               makeAppError({
                 code: "auth",
@@ -525,8 +608,18 @@ describe("auth token handler", () => {
                     status: 401,
                     body: {
                       code: "eotp",
-                      authUrl: "https://agentxm.ai/step-up?challenge=123",
-                      doneUrl: "https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+                      max_age: 300,
+                      step_up: {
+                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
+                        verification_url:
+                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                        status_url:
+                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                        expires_at: "2026-08-10T16:05:00.000Z",
+                        interval: 2,
+                        action: "Revoke access token",
+                        target: "token_123",
+                      },
                     },
                   },
                 },
@@ -535,7 +628,7 @@ describe("auth token handler", () => {
           }
           return Effect.void;
         },
-        pollStepUpChallenge: (_accessToken, doneUrl) => Effect.succeed(`proof:${doneUrl}`),
+        waitForStepUpRequest: () => Effect.void,
       },
     });
 
@@ -544,14 +637,14 @@ describe("auth token handler", () => {
         yield* handleRevokeToken("token_123");
 
         expect(interactionState.openBrowserCalls).toEqual([
-          "https://agentxm.ai/step-up?challenge=123",
+          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
         ]);
         expect(deleteCalls).toMatchObject([
           { tokenId: "token_123", options: undefined },
           {
             tokenId: "token_123",
             options: {
-              stepUpToken: "proof:https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+              stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
             },
           },
         ]);
@@ -585,16 +678,17 @@ describe("auth token handler", () => {
     );
   });
 
-  it.effect("keeps step-up revoke JSON mode free of progress logs", () => {
+  it.effect("emits actionable step-up instructions without opening a browser in JSON mode", () => {
     const deleteCalls: Array<unknown> = [];
     const { provide, rendererState, interactionState } = makeLayers({
       hasCredentials: true,
       machine: true,
       json: true,
+      nonInteractive: true,
       authOverrides: {
         deleteToken: (_accessToken, tokenId, options) => {
           deleteCalls.push({ tokenId, options });
-          if (options?.stepUpToken === undefined) {
+          if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
               makeAppError({
                 code: "auth",
@@ -604,8 +698,18 @@ describe("auth token handler", () => {
                     status: 401,
                     body: {
                       code: "eotp",
-                      authUrl: "https://agentxm.ai/step-up?challenge=123",
-                      doneUrl: "https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+                      max_age: 300,
+                      step_up: {
+                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
+                        verification_url:
+                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                        status_url:
+                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                        expires_at: "2026-08-10T16:05:00.000Z",
+                        interval: 2,
+                        action: "Revoke access token",
+                        target: "token_123",
+                      },
                     },
                   },
                 },
@@ -614,7 +718,7 @@ describe("auth token handler", () => {
           }
           return Effect.void;
         },
-        pollStepUpChallenge: (_accessToken, doneUrl) => Effect.succeed(`proof:${doneUrl}`),
+        waitForStepUpRequest: () => Effect.void,
       },
     });
 
@@ -622,15 +726,13 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         yield* handleRevokeToken("token_123");
 
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://agentxm.ai/step-up?challenge=123",
-        ]);
+        expect(interactionState.openBrowserCalls).toEqual([]);
         expect(deleteCalls).toMatchObject([
           { tokenId: "token_123", options: undefined },
           {
             tokenId: "token_123",
             options: {
-              stepUpToken: "proof:https://registry.agentxm.ai/v1/auth/step-up/challenges/123",
+              stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
             },
           },
         ]);
@@ -641,7 +743,20 @@ describe("auth token handler", () => {
             stepUpCompleted: true,
           },
         });
-        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.logs).toEqual(
+          expect.arrayContaining([
+            { _tag: "info", message: "Action: Revoke access token" },
+            { _tag: "info", message: "Target: token_123" },
+            {
+              _tag: "info",
+              message: "Verify at: https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+            },
+            {
+              _tag: "info",
+              message: "If verification expires or is cancelled, rerun the command to restart.",
+            },
+          ]),
+        );
         expect(rendererState.suggestions).toEqual([
           { description: "List remaining tokens", cmd: "axm token list" },
         ]);

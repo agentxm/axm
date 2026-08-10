@@ -69,6 +69,7 @@ export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js
 // Auth client
 export type {
   AuthClientService,
+  CreateTokenOptions,
   CreatePublishAuthorizationRequestParams,
   DeviceFlowResponse,
   ExchangePublishAuthorizationCodeParams,
@@ -76,8 +77,15 @@ export type {
   PollResult,
   PublishAuthorizationRequestResponse,
   PublishCapabilityResponse,
+  StepUpRequest,
 } from "./auth-client.js";
-export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-client.js";
+export {
+  AuthClient,
+  AuthClientLive,
+  AuthClientTest,
+  pollOnce,
+  readStepUpRequest,
+} from "./auth-client.js";
 
 // OAuth contract
 export type { NormalizedTokenResponse } from "./oauth-contract.js";

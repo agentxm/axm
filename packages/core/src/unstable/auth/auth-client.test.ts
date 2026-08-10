@@ -20,7 +20,7 @@ import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
-import { AuthClient, AuthClientLive, pollOnce } from "./auth-client.js";
+import { AuthClient, AuthClientLive, pollOnce, readStepUpRequest } from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
 
 // -----------------------------------------------------------------------------
@@ -528,6 +528,157 @@ describe("AuthClient.pollDeviceToken", () => {
       const result = yield* Fiber.join(fiber);
       expect(result.access_token).toBe("axm_ses_after_slowdown");
       expect(callCount).toBe(2);
+    }).pipe(Effect.provide(layer));
+  });
+});
+
+describe("AuthClient step-up requests", () => {
+  it.effect("waits through pending status and completes when the request is verified", () => {
+    let callCount = 0;
+    const layer = makeTestLayer((request) => {
+      expect(request.url).toBe(
+        `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+      );
+      callCount += 1;
+      return new Response(
+        JSON.stringify({
+          status: callCount === 1 ? "pending" : "verified",
+          expires_at: "2026-08-10T16:05:00.000Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.waitForStepUpRequest(
+        "axm_ses_token",
+        `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+        0,
+      );
+      expect(callCount).toBe(2);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("honors Retry-After when status polling is rate limited", () => {
+    let callCount = 0;
+    const layer = makeTestLayer(() => {
+      callCount += 1;
+      return callCount === 1
+        ? new Response("rate limited", { status: 429, headers: { "retry-after": "2" } })
+        : new Response(
+            JSON.stringify({
+              status: "verified",
+              expires_at: "2026-08-10T16:05:00.000Z",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const fiber = yield* Effect.forkChild(
+        client.waitForStepUpRequest(
+          "axm_ses_token",
+          `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+          0,
+        ),
+      );
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("2 seconds");
+      yield* Fiber.join(fiber);
+      expect(callCount).toBe(2);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("maps cancelled, expired, and consumed requests to distinct errors", () => {
+    const terminalStatuses = [
+      ["cancelled", "auth_denied", "cancelled"],
+      ["expired", "auth_expired", "expired"],
+      ["consumed", "conflict", "already been used"],
+    ] as const;
+
+    return Effect.forEach(terminalStatuses, ([status, code, detail]) => {
+      const layer = makeTestLayer(
+        () =>
+          new Response(JSON.stringify({ status, expires_at: "2026-08-10T16:05:00.000Z" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      );
+      return Effect.gen(function* () {
+        const client = yield* AuthClient;
+        const error = yield* client
+          .waitForStepUpRequest(
+            "axm_ses_token",
+            `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+            0,
+          )
+          .pipe(Effect.flip);
+        expect(error.code).toBe(code);
+        expect(error.detail).toContain(detail);
+      }).pipe(Effect.provide(layer));
+    }).pipe(Effect.asVoid);
+  });
+
+  it.effect("retains the contextual request handoff from a step-up response", () => {
+    const layer = makeTestLayer(
+      () =>
+        new Response(
+          JSON.stringify({
+            kind: "StepUpRequiredError",
+            type: "https://agentxm.ai/problems/eotp",
+            title: "Additional Authentication Required",
+            status: 401,
+            detail: "More recent authentication is required for this operation.",
+            code: "eotp",
+            max_age: 300,
+            step_up: {
+              request_id: "step_01h455vb4pexka56gq5w2r7cpc",
+              verification_url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+              status_url: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+              expires_at: "2026-08-10T16:05:00.000Z",
+              interval: 2,
+              action: "Revoke access token",
+              target: "token_123",
+            },
+          }),
+          { status: 401, headers: { "content-type": "application/problem+json" } },
+        ),
+    );
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client.deleteToken("axm_ses_token", "token_123").pipe(Effect.flip);
+      expect(readStepUpRequest(error)).toEqual({
+        requestId: "step_01h455vb4pexka56gq5w2r7cpc",
+        verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+        statusUrl: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+        expiresAt: "2026-08-10T16:05:00.000Z",
+        intervalSeconds: 2,
+        maxAgeSeconds: 300,
+        action: "Revoke access token",
+        target: "token_123",
+      });
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("retries a token deletion with only the opaque request header", () => {
+    let stepUpRequestHeader: string | undefined;
+    let legacyProofHeader: string | undefined;
+    const layer = makeTestLayer((request) => {
+      stepUpRequestHeader = request.headers["x-axm-step-up-request"];
+      legacyProofHeader = request.headers["x-axm-step-up"];
+      return new Response(null, { status: 204 });
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.deleteToken("axm_ses_token", "token_123", {
+        stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
+      });
+      expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
+      expect(legacyProofHeader).toBeUndefined();
     }).pipe(Effect.provide(layer));
   });
 });

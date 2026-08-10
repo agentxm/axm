@@ -196,6 +196,14 @@ export const ResourceRestrictions = Schema.Struct({
   title: "Resource Restrictions",
   description: "What this token is allowed to access.",
 });
+export type StepUpRequestId = string;
+export const StepUpRequestId = Schema.String.check(
+  Schema.isPattern(new RegExp("^step_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Step-Up Request ID",
+    description: "Identifies one short-lived cross-channel authentication request.",
+    examples: ["step_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
 export type Handle = string;
 export const Handle = Schema.String.check(
   Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
@@ -337,28 +345,6 @@ export const CreateTokenPermissionsRequest = Schema.Struct({
 }).annotate({
   title: "Create Token Permissions Request",
   description: "Structured permission request for the token.",
-});
-export type StepUpRequiredError = {
-  readonly kind: "StepUpRequiredError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: "eotp";
-  readonly authUrl: string;
-  readonly doneUrl: string;
-};
-export const StepUpRequiredError = Schema.Struct({
-  kind: Schema.Literal("StepUpRequiredError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("eotp"),
-  authUrl: Schema.String,
-  doneUrl: Schema.String,
 });
 export type OwnerResponse = { readonly displayName: string };
 export const OwnerResponse = Schema.Struct({
@@ -733,23 +719,14 @@ export const SessionTokenResponse = Schema.Struct({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
 });
-export type StepUpChallengeResponse =
-  | { readonly status: "pending" }
-  | {
-      readonly status: "completed";
-      readonly step_up: string;
-      readonly expires_at: IsoDateTimeString;
-    };
-export const StepUpChallengeResponse = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("pending") }),
-  Schema.Struct({
-    status: Schema.Literal("completed"),
-    step_up: Schema.String.annotate({
-      description: "Opaque step-up proof for the original request.",
-    }),
-    expires_at: IsoDateTimeString,
-  }),
-]).annotate({ title: "Step-up Challenge Response" });
+export type StepUpRequestStatusResponse = {
+  readonly status: "pending" | "verified" | "consumed" | "cancelled" | "expired";
+  readonly expires_at: IsoDateTimeString;
+};
+export const StepUpRequestStatusResponse = Schema.Struct({
+  status: Schema.Literals(["pending", "verified", "consumed", "cancelled", "expired"]),
+  expires_at: IsoDateTimeString,
+}).annotate({ title: "Step-up Request Status Response" });
 export type AuthMeUser = {
   readonly id: UserId;
   readonly handle: string;
@@ -799,6 +776,44 @@ export const AuthMeToken = Schema.Struct({
 }).annotate({
   title: "Token Info",
   description: "Details about the token you used to authenticate.",
+});
+export type StepUpRequiredError = {
+  readonly kind: "StepUpRequiredError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "eotp";
+  readonly max_age: number;
+  readonly step_up: {
+    readonly request_id: StepUpRequestId;
+    readonly verification_url: string;
+    readonly status_url: string;
+    readonly expires_at: IsoDateTimeString;
+    readonly interval: number;
+    readonly action: string;
+    readonly target: string;
+  };
+};
+export const StepUpRequiredError = Schema.Struct({
+  kind: Schema.Literal("StepUpRequiredError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("eotp"),
+  max_age: Schema.Number.check(Schema.isInt()),
+  step_up: Schema.Struct({
+    request_id: StepUpRequestId,
+    verification_url: Schema.String,
+    status_url: Schema.String,
+    expires_at: IsoDateTimeString,
+    interval: Schema.Number.check(Schema.isInt()),
+    action: Schema.String,
+    target: Schema.String,
+  }),
 });
 export type PublishIdentity = {
   readonly owner: Handle;
@@ -1361,14 +1376,16 @@ export type AuthGetMe400 = DecodeErrorResponse;
 export const AuthGetMe400 = DecodeErrorResponse;
 export type AuthGetMe401 = ProblemDetails;
 export const AuthGetMe401 = ProblemDetails;
-export type AuthGetStepUpChallenge200 = StepUpChallengeResponse;
-export const AuthGetStepUpChallenge200 = StepUpChallengeResponse;
-export type AuthGetStepUpChallenge400 = DecodeErrorResponse;
-export const AuthGetStepUpChallenge400 = DecodeErrorResponse;
-export type AuthGetStepUpChallenge401 = ProblemDetails;
-export const AuthGetStepUpChallenge401 = ProblemDetails;
-export type AuthGetStepUpChallenge404 = ProblemDetails;
-export const AuthGetStepUpChallenge404 = ProblemDetails;
+export type AuthGetStepUpRequest200 = StepUpRequestStatusResponse;
+export const AuthGetStepUpRequest200 = StepUpRequestStatusResponse;
+export type AuthGetStepUpRequest400 = DecodeErrorResponse;
+export const AuthGetStepUpRequest400 = DecodeErrorResponse;
+export type AuthGetStepUpRequest401 = ProblemDetails;
+export const AuthGetStepUpRequest401 = ProblemDetails;
+export type AuthGetStepUpRequest404 = ProblemDetails;
+export const AuthGetStepUpRequest404 = ProblemDetails;
+export type AuthGetStepUpRequest429 = ProblemDetails;
+export const AuthGetStepUpRequest429 = ProblemDetails;
 export type AuthCreatePublishAuthorizationRequestRequestJson = {
   readonly client_id: string;
   readonly redirect_uri: string;
@@ -1435,14 +1452,18 @@ export type TokensList401 = ProblemDetails;
 export const TokensList401 = ProblemDetails;
 export type TokensList403 = ForbiddenError;
 export const TokensList403 = ForbiddenError;
+export type TokensCreateParams = { readonly "x-axm-step-up-request"?: StepUpRequestId | null };
+export const TokensCreateParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type TokensCreateRequestJson = CreateTokenRequest;
 export const TokensCreateRequestJson = CreateTokenRequest;
 export type TokensCreate201 = CreateTokenResponse;
 export const TokensCreate201 = CreateTokenResponse;
 export type TokensCreate400 = DecodeErrorResponse;
 export const TokensCreate400 = DecodeErrorResponse;
-export type TokensCreate401 = ProblemDetails;
-export const TokensCreate401 = ProblemDetails;
+export type TokensCreate401 = StepUpRequiredError | ProblemDetails;
+export const TokensCreate401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type TokensCreate403 = ForbiddenError | ForbiddenError;
 export const TokensCreate403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type TokensCreate422 = ProblemDetails;
@@ -1618,6 +1639,12 @@ export type ExtensionsGet400 = DecodeErrorResponse;
 export const ExtensionsGet400 = DecodeErrorResponse;
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
+export type ExtensionsDeleteExtensionParams = {
+  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
+};
+export const ExtensionsDeleteExtensionParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type ExtensionsDeleteExtensionRequestJson = DeleteExtensionBody;
 export const ExtensionsDeleteExtensionRequestJson = DeleteExtensionBody;
 export type ExtensionsDeleteExtension202 = {
@@ -1684,6 +1711,12 @@ export type ExtensionsDeleteExtension409 = ProblemDetails;
 export const ExtensionsDeleteExtension409 = ProblemDetails;
 export type ExtensionsDeleteExtension503 = ProblemDetails;
 export const ExtensionsDeleteExtension503 = ProblemDetails;
+export type ExtensionsUpdateVisibilityParams = {
+  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
+};
+export const ExtensionsUpdateVisibilityParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export type ExtensionsUpdateVisibility200 = {
@@ -1706,8 +1739,8 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
 });
 export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsUpdateVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsUpdateVisibility401 = ProblemDetails;
-export const ExtensionsUpdateVisibility401 = ProblemDetails;
+export type ExtensionsUpdateVisibility401 = StepUpRequiredError | ProblemDetails;
+export const ExtensionsUpdateVisibility401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
 export type ExtensionsUpdateVisibility403 = ForbiddenError | ForbiddenError;
 export const ExtensionsUpdateVisibility403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type ExtensionsUpdateVisibility404 = ProblemDetails;
@@ -1899,6 +1932,12 @@ export type ExtensionsUndeprecate403 = ForbiddenError;
 export const ExtensionsUndeprecate403 = ForbiddenError;
 export type ExtensionsUndeprecate404 = ProblemDetails;
 export const ExtensionsUndeprecate404 = ProblemDetails;
+export type ExtensionsYankVersionParams = {
+  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
+};
+export const ExtensionsYankVersionParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type ExtensionsYankVersionRequestJson = YankVersionBody;
 export const ExtensionsYankVersionRequestJson = YankVersionBody;
 export type ExtensionsYankVersion200 = {
@@ -1931,6 +1970,12 @@ export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
 export type ExtensionsYankVersion503 = ProblemDetails;
 export const ExtensionsYankVersion503 = ProblemDetails;
+export type ExtensionsUnyankVersionParams = {
+  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
+};
+export const ExtensionsUnyankVersionParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1961,6 +2006,12 @@ export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
 export type ExtensionsUnyankVersion503 = ProblemDetails;
 export const ExtensionsUnyankVersion503 = ProblemDetails;
+export type ExtensionsYankAvailableVersionsParams = {
+  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
+};
+export const ExtensionsYankAvailableVersionsParams = Schema.Struct({
+  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
+});
 export type ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export const ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export type ExtensionsYankAvailableVersions200 = {
@@ -2460,14 +2511,15 @@ export const make = (
           }),
         ),
       ),
-    AuthGetStepUpChallenge: (challengeId, options) =>
-      HttpClientRequest.get(`/v1/auth/step-up/challenges/${challengeId}`).pipe(
+    AuthGetStepUpRequest: (requestId, options) =>
+      HttpClientRequest.get(`/v1/auth/step-up/requests/${requestId}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthGetStepUpChallenge200),
-            "400": decodeError("AuthGetStepUpChallenge400", AuthGetStepUpChallenge400),
-            "401": decodeError("AuthGetStepUpChallenge401", AuthGetStepUpChallenge401),
-            "404": decodeError("AuthGetStepUpChallenge404", AuthGetStepUpChallenge404),
+            "2xx": decodeSuccess(AuthGetStepUpRequest200),
+            "400": decodeError("AuthGetStepUpRequest400", AuthGetStepUpRequest400),
+            "401": decodeError("AuthGetStepUpRequest401", AuthGetStepUpRequest401),
+            "404": decodeError("AuthGetStepUpRequest404", AuthGetStepUpRequest404),
+            "429": decodeError("AuthGetStepUpRequest429", AuthGetStepUpRequest429),
             orElse: unexpectedStatus,
           }),
         ),
@@ -2504,6 +2556,9 @@ export const make = (
       ),
     TokensCreate: (options) =>
       HttpClientRequest.post(`/v1/tokens`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -2578,6 +2633,9 @@ export const make = (
       ),
     ExtensionsDeleteExtension: (owner, type, name, options) =>
       HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -2606,6 +2664,9 @@ export const make = (
       ),
     ExtensionsUpdateVisibility: (owner, type, name, options) =>
       HttpClientRequest.patch(`/v1/extensions/${owner}/${type}/${name}`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -2733,6 +2794,9 @@ export const make = (
       ),
     ExtensionsYankVersion: (owner, type, name, version, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -2748,6 +2812,9 @@ export const make = (
       ),
     ExtensionsUnyankVersion: (owner, type, name, version, options) =>
       HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options?.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsUnyankVersion200),
@@ -2762,6 +2829,9 @@ export const make = (
       ),
     ExtensionsYankAvailableVersions: (owner, type, name, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/versions/yank`).pipe(
+        HttpClientRequest.setHeaders({
+          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+        }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -2992,18 +3062,19 @@ export interface RegistryClient {
     | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
   >;
   /**
-   * Poll step-up challenge status
+   * Poll step-up request status
    */
-  readonly AuthGetStepUpChallenge: <Config extends OperationConfig>(
-    challengeId: string,
+  readonly AuthGetStepUpRequest: <Config extends OperationConfig>(
+    requestId: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
-    WithOptionalResponse<typeof AuthGetStepUpChallenge200.Type, Config>,
+    WithOptionalResponse<typeof AuthGetStepUpRequest200.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
-    | RegistryClientError<"AuthGetStepUpChallenge400", typeof AuthGetStepUpChallenge400.Type>
-    | RegistryClientError<"AuthGetStepUpChallenge401", typeof AuthGetStepUpChallenge401.Type>
-    | RegistryClientError<"AuthGetStepUpChallenge404", typeof AuthGetStepUpChallenge404.Type>
+    | RegistryClientError<"AuthGetStepUpRequest400", typeof AuthGetStepUpRequest400.Type>
+    | RegistryClientError<"AuthGetStepUpRequest401", typeof AuthGetStepUpRequest401.Type>
+    | RegistryClientError<"AuthGetStepUpRequest404", typeof AuthGetStepUpRequest404.Type>
+    | RegistryClientError<"AuthGetStepUpRequest429", typeof AuthGetStepUpRequest429.Type>
   >;
   /**
    * Create an exact browser-reviewed publish authorization request
@@ -3042,6 +3113,7 @@ export interface RegistryClient {
    * Create scoped access token
    */
   readonly TokensCreate: <Config extends OperationConfig>(options: {
+    readonly params?: typeof TokensCreateParams.Encoded | undefined;
     readonly payload: typeof TokensCreateRequestJson.Encoded;
     readonly config?: Config | undefined;
   }) => Effect.Effect<
@@ -3134,6 +3206,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     options: {
+      readonly params?: typeof ExtensionsDeleteExtensionParams.Encoded | undefined;
       readonly payload: typeof ExtensionsDeleteExtensionRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -3172,6 +3245,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     options: {
+      readonly params?: typeof ExtensionsUpdateVisibilityParams.Encoded | undefined;
       readonly payload: typeof ExtensionsUpdateVisibilityRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -3359,6 +3433,7 @@ export interface RegistryClient {
     name: string,
     version: string,
     options: {
+      readonly params?: typeof ExtensionsYankVersionParams.Encoded | undefined;
       readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -3380,7 +3455,12 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-    options: { readonly config?: Config | undefined } | undefined,
+    options:
+      | {
+          readonly params?: typeof ExtensionsUnyankVersionParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config>,
     | HttpClientError.HttpClientError
@@ -3399,6 +3479,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     options: {
+      readonly params?: typeof ExtensionsYankAvailableVersionsParams.Encoded | undefined;
       readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
       readonly config?: Config | undefined;
     },

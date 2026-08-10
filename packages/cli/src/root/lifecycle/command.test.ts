@@ -67,16 +67,16 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
   const requests: Array<{
     readonly url: string;
     readonly method: string;
-    readonly stepUp?: string;
+    readonly stepUpRequest?: string;
   }> = [];
   let challengeSent = false;
   const httpClient = HttpClient.make((request) =>
     Effect.sync(() => {
-      const stepUp = request.headers["x-axm-step-up"];
+      const stepUpRequest = request.headers["x-axm-step-up-request"];
       requests.push({
         url: request.url,
         method: request.method,
-        ...(stepUp === undefined ? {} : { stepUp }),
+        ...(stepUpRequest === undefined ? {} : { stepUpRequest }),
       });
       if (options?.unauthorized === true) {
         return HttpClientResponse.fromWeb(
@@ -105,8 +105,16 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
               status: 401,
               detail: "Complete step-up authentication",
               code: "eotp",
-              authUrl: "https://agentxm.ai/step-up?challenge=123",
-              doneUrl: `${REGISTRY_URL}/v1/auth/step-up/challenges/123`,
+              max_age: 300,
+              step_up: {
+                request_id: "step_01h455vb4pexka56gq5w2r7cpc",
+                verification_url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                status_url: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
+                expires_at: "2026-08-10T16:05:00.000Z",
+                interval: 2,
+                action: "Yank extension version",
+                target: VERSIONED_EXTENSION,
+              },
             },
             401,
           ),
@@ -141,9 +149,7 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(RegistryUrl, REGISTRY_URL),
     credentials,
-    AuthClientTest({
-      pollStepUpChallenge: (_accessToken, doneUrl) => Effect.succeed(`proof:${doneUrl}`),
-    }),
+    AuthClientTest({ waitForStepUpRequest: () => Effect.void }),
     interaction.layer,
   );
 
@@ -249,14 +255,21 @@ describe("extension lifecycle machine output", () => {
           notice: Option.none(),
         });
 
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://agentxm.ai/step-up?challenge=123",
-        ]);
+        expect(interactionState.openBrowserCalls).toEqual([]);
         expect(requests).toHaveLength(2);
-        expect(requests[0]?.stepUp).toBeUndefined();
-        expect(requests[1]?.stepUp).toBe(`proof:${REGISTRY_URL}/v1/auth/step-up/challenges/123`);
+        expect(requests[0]?.stepUpRequest).toBeUndefined();
+        expect(requests[1]?.stepUpRequest).toBe("step_01h455vb4pexka56gq5w2r7cpc");
         expect(rendererState.results).toHaveLength(1);
-        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.logs).toEqual(
+          expect.arrayContaining([
+            { _tag: "info", message: `Action: Yank extension version` },
+            { _tag: "info", message: `Target: ${VERSIONED_EXTENSION}` },
+            {
+              _tag: "info",
+              message: "Verify at: https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+            },
+          ]),
+        );
       }),
     );
   });

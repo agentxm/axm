@@ -23,6 +23,7 @@ const PUBLISH_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
 const ARCHIVE_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
 const INDEX_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)$/;
 const OWNER_PATH = /^\/v1\/owners\/(@[^/]+)$/;
+const STEP_UP_REQUEST_ID = "step_01h455vb4pexka56gq5w2r7cpc";
 const TEST_OWNER = "@test";
 
 const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
@@ -65,6 +66,8 @@ export interface HttpRegistryOptions {
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
+  /** Require and complete the durable step-up flow for POST /v1/tokens. */
+  readonly stepUpTokenCreate?: boolean;
 }
 
 interface StoredVersion {
@@ -154,6 +157,41 @@ export const startHttpRegistry = async (
     });
 
     void (async () => {
+      if (options.stepUpTokenCreate === true && request.method === "POST") {
+        if (pathname !== "/v1/tokens") {
+          sendProblem(response, 404, `No POST route for ${pathname}`);
+          return;
+        }
+        await readBody(request);
+        const requestOrigin = `http://${request.headers.host ?? "127.0.0.1"}`;
+        if (request.headers["x-axm-step-up-request"] !== STEP_UP_REQUEST_ID) {
+          sendJson(response, 401, {
+            code: "eotp",
+            max_age: 300,
+            step_up: {
+              request_id: STEP_UP_REQUEST_ID,
+              verification_url: `${requestOrigin}/step-up/${STEP_UP_REQUEST_ID}`,
+              status_url: `${requestOrigin}/v1/auth/step-up/requests/${STEP_UP_REQUEST_ID}`,
+              expires_at: "2026-08-10T16:05:00.000Z",
+              interval: 0,
+              action: "Create access token",
+              target: "e2e-step-up",
+            },
+          });
+          return;
+        }
+        sendJson(response, 201, {
+          id: "token_step_up_e2e",
+          token: "axmt_step_up_e2e",
+          name: "e2e-step-up",
+          scopes: ["extensions:read"],
+          permissions: { permission: "read" },
+          created_at: "2026-08-10T15:00:00.000Z",
+          expires_at: "2026-09-09T15:00:00.000Z",
+        });
+        return;
+      }
+
       if (request.method === "PUT") {
         const match = PUBLISH_PATH.exec(pathname);
         if (match === null) {
@@ -227,6 +265,17 @@ export const startHttpRegistry = async (
 
       if (request.method !== "GET" && request.method !== "HEAD") {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
+        return;
+      }
+
+      if (
+        options.stepUpTokenCreate === true &&
+        pathname === `/v1/auth/step-up/requests/${STEP_UP_REQUEST_ID}`
+      ) {
+        sendJson(response, 200, {
+          status: "verified",
+          expires_at: "2026-08-10T16:05:00.000Z",
+        });
         return;
       }
 

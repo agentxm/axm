@@ -346,20 +346,25 @@
         "summary": "Return authenticated user info"
       }
     },
-    "/v1/auth/step-up/challenges/{challengeId}": {
+    "/v1/auth/step-up/requests/{requestId}": {
       "get": {
         "tags": ["Auth"],
-        "operationId": "Auth.getStepUpChallenge",
+        "operationId": "Auth.getStepUpRequest",
         "parameters": [
-          { "name": "challengeId", "in": "path", "schema": { "type": "string" }, "required": true }
+          {
+            "name": "requestId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/StepUpRequestId" },
+            "required": true
+          }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "StepUpChallengeResponse",
+            "description": "StepUpRequestStatusResponse",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StepUpChallengeResponse" }
+                "schema": { "$ref": "#/components/schemas/StepUpRequestStatusResponse" }
               }
             }
           },
@@ -386,9 +391,17 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
-        "summary": "Poll step-up challenge status"
+        "summary": "Poll step-up request status"
       }
     },
     "/v1/auth/publish-requests": {
@@ -539,7 +552,16 @@
       "post": {
         "tags": ["Tokens"],
         "operationId": "Tokens.create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
+          }
+        ],
         "security": [{ "bearer": [] }],
         "responses": {
           "201": {
@@ -559,10 +581,19 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "StepUpRequiredError | UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
               }
             }
           },
@@ -1098,6 +1129,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
+          },
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -1137,10 +1176,19 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "StepUpRequiredError | UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
               }
             }
           },
@@ -1195,6 +1243,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
+          },
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -2096,6 +2152,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/Version" },
             "required": true
+          },
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -2221,6 +2285,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/Version" },
             "required": true
+          },
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -2331,6 +2403,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
+          },
+          {
+            "name": "x-axm-step-up-request",
+            "in": "header",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -3541,29 +3621,29 @@
         "title": "Auth Me Response",
         "description": "Your user profile, organizations, and token details."
       },
-      "StepUpChallengeResponse": {
-        "anyOf": [
+      "StepUpRequestId": {
+        "type": "string",
+        "allOf": [
           {
-            "type": "object",
-            "properties": { "status": { "type": "string", "enum": ["pending"] } },
-            "required": ["status"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "status": { "type": "string", "enum": ["completed"] },
-              "step_up": {
-                "type": "string",
-                "description": "Opaque step-up proof for the original request."
-              },
-              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
-            },
-            "required": ["status", "step_up", "expires_at"],
-            "additionalProperties": false
+            "pattern": "^step_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Step-Up Request ID",
+            "description": "Identifies one short-lived cross-channel authentication request.",
+            "examples": ["step_01h455vb4pexka56gq5w2r7cpc"]
           }
-        ],
-        "title": "Step-up Challenge Response"
+        ]
+      },
+      "StepUpRequestStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "verified", "consumed", "cancelled", "expired"]
+          },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
+        },
+        "required": ["status", "expires_at"],
+        "additionalProperties": false,
+        "title": "Step-up Request Status Response"
       },
       "Handle": {
         "type": "string",
@@ -3885,10 +3965,31 @@
           "detail": { "type": "string" },
           "instance": { "type": "string" },
           "code": { "type": "string", "enum": ["eotp"] },
-          "authUrl": { "type": "string" },
-          "doneUrl": { "type": "string" }
+          "max_age": { "type": "integer" },
+          "step_up": {
+            "type": "object",
+            "properties": {
+              "request_id": { "$ref": "#/components/schemas/StepUpRequestId" },
+              "verification_url": { "type": "string" },
+              "status_url": { "type": "string" },
+              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "interval": { "type": "integer" },
+              "action": { "type": "string" },
+              "target": { "type": "string" }
+            },
+            "required": [
+              "request_id",
+              "verification_url",
+              "status_url",
+              "expires_at",
+              "interval",
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code", "authUrl", "doneUrl"],
+        "required": ["kind", "type", "title", "status", "detail", "code", "max_age", "step_up"],
         "additionalProperties": false
       },
       "OwnerResponse": {

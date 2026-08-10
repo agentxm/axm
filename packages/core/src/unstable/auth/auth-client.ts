@@ -16,6 +16,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Data from "effect/Data";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -131,13 +132,23 @@ export interface TokenListResponse {
   readonly cursor: string | null;
 }
 
-export interface StepUpRequiredResponse {
-  readonly authUrl: string;
-  readonly doneUrl: string;
+export interface StepUpRequest {
+  readonly requestId: string;
+  readonly verificationUrl: string;
+  readonly statusUrl: string;
+  readonly expiresAt: string;
+  readonly intervalSeconds: number;
+  readonly maxAgeSeconds?: number;
+  readonly action: string;
+  readonly target: string;
 }
 
 export interface DeleteTokenOptions {
-  readonly stepUpToken?: string;
+  readonly stepUpRequestId?: string;
+}
+
+export interface CreateTokenOptions {
+  readonly stepUpRequestId?: string;
 }
 
 export interface BuildAuthorizeUrlParams {
@@ -230,15 +241,17 @@ export interface AuthClientService {
   readonly createToken: (
     accessToken: string,
     params: CreateTokenParams,
+    options?: CreateTokenOptions,
   ) => Effect.Effect<CreatedTokenResponse, AppError>;
   readonly listTokens: (
     accessToken: string,
     params?: { readonly limit?: number; readonly cursor?: string },
   ) => Effect.Effect<TokenListResponse, AppError>;
-  readonly pollStepUpChallenge: (
+  readonly waitForStepUpRequest: (
     accessToken: string,
-    doneUrl: string,
-  ) => Effect.Effect<string, AppError>;
+    statusUrl: string,
+    intervalSeconds: number,
+  ) => Effect.Effect<void, AppError>;
   readonly deleteToken: (
     accessToken: string,
     tokenId: string,
@@ -257,6 +270,12 @@ export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService
 class RetryableDevicePollError extends Data.TaggedError("RetryableDevicePollError")<{
   readonly cause: unknown;
 }> {}
+
+const retryAfterSeconds = (value: string | undefined, fallback: number): number => {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.ceil(parsed) : fallback;
+};
 
 /** Normalize a generated token response to our domain NormalizedTokenResponse. */
 const normalizeTokenResponse = (token: {
@@ -326,20 +345,29 @@ const TokenListResponseSchema = Schema.Struct({
 
 const StepUpRequiredResponseSchema = Schema.Struct({
   code: Schema.Literal("eotp"),
-  authUrl: Schema.String,
-  doneUrl: Schema.String,
+  max_age: Schema.optionalKey(Schema.Int),
+  step_up: Schema.Struct({
+    request_id: Schema.String,
+    verification_url: Schema.String,
+    status_url: Schema.String,
+    expires_at: DateTimeUtcSchema,
+    interval: Schema.Int,
+    action: Schema.String,
+    target: Schema.String,
+  }),
 });
 
-const StepUpChallengeResponseSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("pending"),
-  }),
-  Schema.Struct({
-    status: Schema.Literal("completed"),
-    step_up: Schema.String,
-    expires_at: DateTimeUtcSchema,
-  }),
-]);
+const StepUpRequestStatusResponseSchema = Schema.Struct({
+  status: Schema.Literals(["pending", "verified", "consumed", "cancelled", "expired"]),
+  expires_at: DateTimeUtcSchema,
+});
+
+type StepUpPollResult =
+  | {
+      readonly kind: "status";
+      readonly response: typeof StepUpRequestStatusResponseSchema.Type;
+    }
+  | { readonly kind: "rate_limited"; readonly retryAfterSeconds: number };
 
 const unexpectedTokenStatus = (response: HttpClientResponse.HttpClientResponse) =>
   Effect.flatMap(
@@ -447,18 +475,82 @@ const executeAuthedRequest = (
     )
     .execute(request);
 
-const stepUpRequiredAppError = (response: StepUpRequiredResponse) =>
+const stepUpRequiredAppError = (response: typeof StepUpRequiredResponseSchema.Type) =>
   makeAppError({
-    code: "auth",
+    code: "auth_required",
     detail: "Step-up authentication is required",
+    blockedOn: "human",
+    action: {
+      kind: "open-url",
+      url: response.step_up.verification_url,
+      expiresAt: DateTime.formatIso(response.step_up.expires_at),
+    },
     metadata: {
       response: {
         status: 401,
-        body: { code: "eotp", ...response },
+        body: { ...response },
       },
     },
+    recover: "Complete verification while the command is waiting, or rerun the command to restart.",
     cause: response,
   });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readString = (record: Record<string, unknown>, key: string): string | null => {
+  const value = record[key];
+  return typeof value === "string" ? value : null;
+};
+
+const readInteger = (record: Record<string, unknown>, key: string): number | null => {
+  const value = record[key];
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+};
+
+const readExpiry = (record: Record<string, unknown>): string | null => {
+  const value = record["expires_at"];
+  if (typeof value === "string") return value;
+  return DateTime.isDateTime(value) ? DateTime.formatIso(value) : null;
+};
+
+export const readStepUpRequest = (error: AppError): StepUpRequest | null => {
+  const body = error.metadata?.response?.body;
+  if (!isRecord(body) || readString(body, "code") !== "eotp") return null;
+  const wire = body["step_up"];
+  if (!isRecord(wire)) return null;
+
+  const requestId = readString(wire, "request_id");
+  const verificationUrl = readString(wire, "verification_url");
+  const statusUrl = readString(wire, "status_url");
+  const expiresAt = readExpiry(wire);
+  const intervalSeconds = readInteger(wire, "interval");
+  const action = readString(wire, "action");
+  const target = readString(wire, "target");
+  if (
+    requestId === null ||
+    verificationUrl === null ||
+    statusUrl === null ||
+    expiresAt === null ||
+    intervalSeconds === null ||
+    action === null ||
+    target === null
+  ) {
+    return null;
+  }
+
+  const maxAgeSeconds = readInteger(body, "max_age");
+  return {
+    requestId,
+    verificationUrl,
+    statusUrl,
+    expiresAt,
+    intervalSeconds,
+    ...(maxAgeSeconds === null ? {} : { maxAgeSeconds }),
+    action,
+    target,
+  };
+};
 
 /**
  * Retry transient device-poll failures with exponential backoff, capped at
@@ -926,8 +1018,15 @@ export const AuthClientLive = Layer.effect(
     );
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (accessToken, params) {
-        const decoded = yield* HttpClientRequest.post("/v1/tokens").pipe(
+      function* (accessToken, params, options) {
+        const baseRequest = HttpClientRequest.post("/v1/tokens");
+        const request =
+          options?.stepUpRequestId === undefined
+            ? baseRequest
+            : HttpClientRequest.setHeaders({
+                "x-axm-step-up-request": options.stepUpRequestId,
+              })(baseRequest);
+        const decoded = yield* request.pipe(
           HttpClientRequest.bodyJsonUnsafe({
             name: params.name,
             permissions: params.permissions,
@@ -937,6 +1036,10 @@ export const AuthClientLive = Layer.effect(
           Effect.flatMap(
             HttpClientResponse.matchStatus({
               "2xx": HttpClientResponse.schemaBodyJson(CreatedTokenResponseSchema),
+              "401": (response) =>
+                HttpClientResponse.schemaBodyJson(StepUpRequiredResponseSchema)(response).pipe(
+                  Effect.flatMap((body) => Effect.fail(stepUpRequiredAppError(body))),
+                ),
               orElse: unexpectedTokenStatus,
             }),
           ),
@@ -999,39 +1102,77 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
-    const pollStepUpChallenge: AuthClientService["pollStepUpChallenge"] = Effect.fn(
-      "AuthClient.pollStepUpChallenge",
-    )(function* (accessToken, doneUrl) {
-      const parsedDoneUrl = new URL(doneUrl);
-      const donePath = `${parsedDoneUrl.pathname}${parsedDoneUrl.search}`;
+    const waitForStepUpRequest: AuthClientService["waitForStepUpRequest"] = Effect.fn(
+      "AuthClient.waitForStepUpRequest",
+    )(function* (accessToken, statusUrl, intervalSeconds) {
+      const parsedStatusUrl = new URL(statusUrl);
+      const statusPath = `${parsedStatusUrl.pathname}${parsedStatusUrl.search}`;
 
       for (let attempt = 0; attempt < 300; attempt += 1) {
-        const decoded = yield* executeAuthedRequest(
+        const result: StepUpPollResult = yield* executeAuthedRequest(
           httpClient,
           registryUrl,
           accessToken,
-          HttpClientRequest.get(donePath),
+          HttpClientRequest.get(statusPath),
         ).pipe(
           Effect.flatMap(
             HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(StepUpChallengeResponseSchema),
+              "2xx": (response) =>
+                HttpClientResponse.schemaBodyJson(StepUpRequestStatusResponseSchema)(response).pipe(
+                  Effect.map(
+                    (decoded) => ({ kind: "status", response: decoded }) satisfies StepUpPollResult,
+                  ),
+                ),
+              "429": (response) =>
+                Effect.succeed({
+                  kind: "rate_limited",
+                  retryAfterSeconds: retryAfterSeconds(
+                    response.headers["retry-after"],
+                    Math.max(1, intervalSeconds),
+                  ),
+                } satisfies StepUpPollResult),
               orElse: unexpectedTokenStatus,
             }),
           ),
           Effect.mapError((error) => mapRegistryAuthError("Could not complete step-up", error)),
         );
 
-        if (decoded.status === "completed") {
-          return decoded.step_up;
+        if (result.kind === "rate_limited") {
+          yield* Effect.sleep(Duration.seconds(result.retryAfterSeconds));
+          continue;
         }
 
-        yield* Effect.sleep("1 second");
+        switch (result.response.status) {
+          case "verified":
+            return;
+          case "cancelled":
+            return yield* makeAppError({
+              code: "auth_denied",
+              detail: "The step-up request was cancelled.",
+              recover: "Rerun the command to start a new verification request.",
+            });
+          case "expired":
+            return yield* makeAppError({
+              code: "auth_expired",
+              detail: "The step-up request expired before verification completed.",
+              recover: "Rerun the command to start a new verification request.",
+            });
+          case "consumed":
+            return yield* makeAppError({
+              code: "conflict",
+              detail: "The step-up request has already been used.",
+              recover: "Rerun the command to start a new verification request.",
+            });
+          case "pending":
+            yield* Effect.sleep(Duration.seconds(Math.max(0, intervalSeconds)));
+        }
       }
 
       return yield* makeAppError({
-        code: "auth",
-        detail: "Step-up challenge expired before completion",
-        cause: { doneUrl },
+        code: "auth_expired",
+        detail: "The step-up request expired before verification completed.",
+        recover: "Rerun the command to start a new verification request.",
+        cause: { statusUrl },
       });
     });
 
@@ -1039,10 +1180,10 @@ export const AuthClientLive = Layer.effect(
       function* (accessToken, tokenId, options) {
         const baseRequest = HttpClientRequest.delete(`/v1/tokens/${encodeURIComponent(tokenId)}`);
         const request =
-          options?.stepUpToken === undefined
+          options?.stepUpRequestId === undefined
             ? baseRequest
             : HttpClientRequest.setHeaders({
-                "x-axm-step-up": options.stepUpToken,
+                "x-axm-step-up-request": options.stepUpRequestId,
               })(baseRequest);
 
         yield* executeAuthedRequest(httpClient, registryUrl, accessToken, request).pipe(
@@ -1051,15 +1192,7 @@ export const AuthClientLive = Layer.effect(
               "2xx": () => Effect.void,
               "401": (response) =>
                 HttpClientResponse.schemaBodyJson(StepUpRequiredResponseSchema)(response).pipe(
-                  Effect.flatMap((body) =>
-                    Effect.fail(
-                      stepUpRequiredAppError({
-                        authUrl: body.authUrl,
-                        doneUrl: body.doneUrl,
-                      }),
-                    ),
-                  ),
-                  Effect.catch(() => unexpectedTokenStatus(response)),
+                  Effect.flatMap((body) => Effect.fail(stepUpRequiredAppError(body))),
                 ),
               orElse: unexpectedTokenStatus,
             }),
@@ -1083,7 +1216,7 @@ export const AuthClientLive = Layer.effect(
       getWhoami,
       createToken,
       listTokens,
-      pollStepUpChallenge,
+      waitForStepUpRequest,
       deleteToken,
     } satisfies AuthClientService;
   }),
@@ -1169,7 +1302,7 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
           detail: "Not implemented in test",
         }),
       ),
-    pollStepUpChallenge: () =>
+    waitForStepUpRequest: () =>
       Effect.fail(
         makeAppError({
           code: "auth",

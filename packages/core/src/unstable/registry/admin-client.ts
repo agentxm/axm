@@ -27,7 +27,7 @@ export interface RegistryExtensionVersionReference extends RegistryExtensionRefe
 export type YankCategory = "broken" | "security" | "accidental" | "other";
 
 export interface RegistryLifecycleCallOptions {
-  readonly stepUpToken?: string;
+  readonly stepUpRequestId?: string;
 }
 
 const mapAdminClientError =
@@ -59,10 +59,10 @@ const makeLifecycleClient = (options?: RegistryLifecycleCallOptions) =>
     const remoteHttpClient = httpClient.pipe(
       HttpClient.mapRequest((request) => {
         const withUrl = HttpClientRequest.prependUrl(request, registryUrl);
-        return options?.stepUpToken === undefined
+        return options?.stepUpRequestId === undefined
           ? withUrl
           : HttpClientRequest.setHeaders(withUrl, {
-              "x-axm-step-up": options.stepUpToken,
+              "x-axm-step-up-request": options.stepUpRequestId,
             });
       }),
     );

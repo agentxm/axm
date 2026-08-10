@@ -4,18 +4,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  AuthClient,
-  AuthLoginInteraction,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
-import {
-  errAuthRequired,
-  makeAppError,
-  type AppError,
-} from "@agentxm/client-core/unstable/app-error";
-import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -37,6 +26,7 @@ import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints
 
 import { withAuthRuntime } from "../../runtime.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
+import { runWithStepUp } from "../step-up.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
@@ -79,78 +69,6 @@ const parseExactVersionReference = (
       });
     }
     return { ...ref, version: decodedVersion.success };
-  });
-
-interface StepUpRequired {
-  readonly authUrl: string;
-  readonly doneUrl: string;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const readString = (record: Record<string, unknown>, key: string) => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
-
-const readStepUpRequired = (error: AppError): StepUpRequired | null => {
-  const body = error.metadata?.response?.body;
-  if (!isRecord(body) || readString(body, "code") !== "eotp") return null;
-  const authUrl = readString(body, "authUrl");
-  const doneUrl = readString(body, "doneUrl");
-  return authUrl === null || doneUrl === null ? null : { authUrl, doneUrl };
-};
-
-const runWithStepUp = <A, R>(
-  subject: string,
-  operation: (stepUpToken?: string) => Effect.Effect<A, AppError, R>,
-) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const activity = yield* renderer.spinner(`Updating ${subject}`);
-    const initial = yield* Effect.result(operation()).pipe(
-      Effect.onInterrupt(() => activity.cancel(`Cancelled update for ${subject}`)),
-    );
-    if (Result.isSuccess(initial)) {
-      yield* activity.stop(`Updated ${subject}`);
-      return { value: initial.success, stepUpCompleted: false };
-    }
-
-    const stepUp = readStepUpRequired(initial.failure);
-    if (stepUp === null) {
-      yield* activity.error(`Failed to update ${subject}`);
-      return yield* initial.failure;
-    }
-    yield* activity.stop(`Additional authorization required for ${subject}`);
-
-    const registryUrl = yield* RegistryUrl;
-    const authClient = yield* AuthClient;
-    const interaction = yield* AuthLoginInteraction;
-    const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: errAuthRequired("Not authenticated"),
-    });
-
-    const opened = yield* interaction.openBrowser(stepUp.authUrl);
-    if (!jsonMode) {
-      yield* renderer.step(
-        opened
-          ? "Opening browser to complete step-up authentication..."
-          : "Complete step-up authentication in your browser.",
-      );
-      yield* renderer.step(`Visit: ${stepUp.authUrl}`);
-    }
-
-    const proof = yield* renderer.withSpinner(
-      `Waiting for authorization to update ${subject}`,
-      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
-      { successMessage: `Authorized update for ${subject}` },
-    );
-    const value = yield* renderer.withSpinner(`Updating ${subject}`, () => operation(proof), {
-      successMessage: `Updated ${subject}`,
-    });
-    return { value, stepUpCompleted: true };
   });
 
 const emitLifecycleOutput = (input: {
@@ -207,15 +125,24 @@ export const handleYank = (input: {
 
     if (input.allVersions) {
       const ref = yield* parseExtensionReference(input.ref);
-      const result = yield* runWithStepUp(input.ref, (stepUpToken) =>
-        yankAvailableExtensionVersions(
-          ref,
-          {
-            ...(category === undefined ? {} : { category }),
-            ...(notice === undefined ? {} : { notice }),
-          },
-          stepUpToken === undefined ? undefined : { stepUpToken },
-        ),
+      const result = yield* runWithStepUp(
+        (stepUpRequestId) =>
+          yankAvailableExtensionVersions(
+            ref,
+            {
+              ...(category === undefined ? {} : { category }),
+              ...(notice === undefined ? {} : { notice }),
+            },
+            stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+          ),
+        {
+          initial: `Updating ${input.ref}`,
+          success: `Updated ${input.ref}`,
+          failure: `Failed to update ${input.ref}`,
+          cancelled: `Cancelled update for ${input.ref}`,
+          waiting: `Waiting for verification to update ${input.ref}`,
+          authorized: `Authorized update for ${input.ref}`,
+        },
       );
       const extension = `${ref.owner}/${ref.type}/${ref.name}`;
       yield* emitLifecycleOutput({
@@ -228,15 +155,24 @@ export const handleYank = (input: {
     }
 
     const ref = yield* parseExactVersionReference(input.ref);
-    yield* runWithStepUp(input.ref, (stepUpToken) =>
-      yankExtensionVersion(
-        ref,
-        {
-          ...(category === undefined ? {} : { category }),
-          ...(notice === undefined ? {} : { notice }),
-        },
-        stepUpToken === undefined ? undefined : { stepUpToken },
-      ),
+    yield* runWithStepUp(
+      (stepUpRequestId) =>
+        yankExtensionVersion(
+          ref,
+          {
+            ...(category === undefined ? {} : { category }),
+            ...(notice === undefined ? {} : { notice }),
+          },
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ),
+      {
+        initial: `Updating ${input.ref}`,
+        success: `Updated ${input.ref}`,
+        failure: `Failed to update ${input.ref}`,
+        cancelled: `Cancelled update for ${input.ref}`,
+        waiting: `Waiting for verification to update ${input.ref}`,
+        authorized: `Authorized update for ${input.ref}`,
+      },
     );
     yield* emitLifecycleOutput({
       command: "yank",
@@ -250,8 +186,20 @@ export const handleYank = (input: {
 export const handleUnyank = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExactVersionReference(input);
-    yield* runWithStepUp(input, (stepUpToken) =>
-      unyankExtensionVersion(ref, stepUpToken === undefined ? undefined : { stepUpToken }),
+    yield* runWithStepUp(
+      (stepUpRequestId) =>
+        unyankExtensionVersion(
+          ref,
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ),
+      {
+        initial: `Updating ${input}`,
+        success: `Updated ${input}`,
+        failure: `Failed to update ${input}`,
+        cancelled: `Cancelled update for ${input}`,
+        waiting: `Waiting for verification to update ${input}`,
+        authorized: `Authorized update for ${input}`,
+      },
     );
     yield* emitLifecycleOutput({
       command: "unyank",

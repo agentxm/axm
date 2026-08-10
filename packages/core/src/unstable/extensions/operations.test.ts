@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
+  buildAuthoredExtensionStep,
   buildInstallOperation,
   buildMaterializeOperation,
   buildNewExtensionStep,
@@ -30,6 +31,27 @@ const runTransaction: WorkspaceTransactionRunner = (args) =>
     if (args.receipt !== undefined) yield* args.receipt(value);
     return value;
   });
+
+const authoredSkillRef = (): WorkspaceSkillRef => {
+  const name = extensionName("review");
+  return {
+    type: "skill",
+    refType: "workspace",
+    source: {
+      type: "workspace",
+      owner: handle("@acme"),
+      extensionType: "skill",
+      name,
+    },
+    owner: handle("@acme"),
+    name,
+    version: exactVersion("1.0.0"),
+    scope: "project",
+    location: "file:///workspace/.axm/extensions/@acme/skills/review",
+    sourceHash: computeSourceHash("review"),
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
+};
 
 describe("formatPackageUrlParts", () => {
   it("formats type and name", () => {
@@ -354,6 +376,116 @@ describe("buildNewExtensionStep", () => {
       });
     },
   );
+});
+
+describe("buildAuthoredExtensionStep", () => {
+  it("permits an explicit configured-source transition without the global preflight", async () => {
+    const ref = authoredSkillRef();
+    let listCalls = 0;
+    const manager = {
+      type: "skill",
+      runTransaction,
+      isInstalled: () => Effect.succeed(true),
+      listMaterializable: () => {
+        listCalls += 1;
+        return listCalls === 1
+          ? Effect.succeed([ref])
+          : Effect.fail(makeAppError({ code: "conflict", detail: "unexpected preflight" }));
+      },
+      materializeInstall: () => Effect.void,
+      materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const step = buildAuthoredExtensionStep(manager, {
+      target: { type: "skill", name: extensionName("review") },
+      location: ref.location,
+      versionRange: Option.none(),
+      scaffold: Effect.void,
+      markAuthored: Effect.void,
+      allowConfiguredSourceTransition: true,
+      message: "Imported review",
+    });
+    if (step.readiness === "error") throw new Error(step.errorMessage);
+
+    await Effect.runPromise(step.run);
+
+    expect(listCalls).toBe(1);
+  });
+
+  it("commits authored desired state but deactivates a disabled target", async () => {
+    const calls: string[] = [];
+    const ref = authoredSkillRef();
+    const manager = {
+      type: "skill",
+      runTransaction,
+      isInstalled: () => Effect.succeed(false),
+      listMaterializable: () => Effect.succeed([ref]),
+      materializeInstall: () => Effect.sync(() => calls.push("materialize")),
+      materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.sync(() => calls.push("deactivate")),
+      upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      removeLockfileEntry: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const step = buildAuthoredExtensionStep(manager, {
+      target: { type: "skill", name: extensionName("review") },
+      location: ref.location,
+      versionRange: Option.none(),
+      scaffold: Effect.void,
+      markAuthored: Effect.void,
+      enabled: false,
+      materializeWhenDisabled: true,
+      message: "Forked review",
+    });
+    if (step.readiness === "error") throw new Error(step.errorMessage);
+
+    await Effect.runPromise(step.run);
+
+    expect(calls).toEqual(["materialize", "settings", "deactivate", "receipt"]);
+  });
+
+  it("does not touch projections for a disabled authored target by default", async () => {
+    const calls: string[] = [];
+    const ref = authoredSkillRef();
+    const manager = {
+      type: "skill",
+      runTransaction,
+      isInstalled: () => Effect.succeed(false),
+      listMaterializable: () => Effect.succeed([ref]),
+      materializeInstall: () => Effect.sync(() => calls.push("materialize")),
+      materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.sync(() => calls.push("deactivate")),
+      upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      removeLockfileEntry: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const step = buildAuthoredExtensionStep(manager, {
+      target: { type: "skill", name: extensionName("review") },
+      location: ref.location,
+      versionRange: Option.none(),
+      scaffold: Effect.void,
+      markAuthored: Effect.void,
+      enabled: false,
+      message: "Imported review",
+    });
+    if (step.readiness === "error") throw new Error(step.errorMessage);
+
+    await Effect.runPromise(step.run);
+
+    expect(calls).toEqual(["settings", "receipt"]);
+  });
 });
 
 describe("buildMaterializeOperation", () => {

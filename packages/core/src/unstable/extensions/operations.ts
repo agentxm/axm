@@ -145,6 +145,30 @@ export interface NewExtensionOperationArgs<TRef extends ExtensionRef> extends Om
   readonly label?: string;
 }
 
+export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> extends Omit<
+  NewExtensionOperationArgs<TRef>,
+  "ref"
+> {
+  /** Canonical workspace package path protected by the transaction snapshot. */
+  readonly location: string;
+  /** Whether the new authored extension should remain materialized after creation. */
+  readonly enabled?: boolean;
+  /** Commit the caller's final desired-state shape after canonical resolution. */
+  readonly finalizeAuthored?: Effect.Effect<void, AppError, never>;
+  /** Type-specific projection path for authored packages with specialized installers. */
+  readonly materializeInstall?: (ref: TRef) => Effect.Effect<void, AppError, never>;
+  /**
+   * Project and then deactivate a disabled target when adopting a native
+   * configuration requires the projection writer to perform the transition.
+   */
+  readonly materializeWhenDisabled?: boolean;
+  /**
+   * Skip the global materializability preflight when replacing an explicitly
+   * selected native/configured source with a new workspace-authored package.
+   */
+  readonly allowConfiguredSourceTransition?: boolean;
+}
+
 /**
  * Execute the canonical install sequence.
  *
@@ -266,22 +290,24 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
  * path, scaffolds it, seeds desired state, resolves the canonical package, and
  * materializes projections before validating and writing receipt history.
  */
-export const buildNewExtensionStep = <TRef extends ExtensionRef>(
+export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
-  args: NewExtensionOperationArgs<TRef>,
+  args: AuthoredExtensionOperationArgs<TRef>,
 ): PlannedJobStep => {
   const target = args.target;
-  const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
 
   return {
     key: toStepKey(target),
-    label: args.label ?? toLabelWithCompanions(target, companionPkgs),
+    label: args.label ?? toLabel(target),
     readiness: "ready",
     ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
-    run: manager.listMaterializable().pipe(
+    run: (args.allowConfiguredSourceTransition === true
+      ? Effect.void
+      : manager.listMaterializable()
+    ).pipe(
       Effect.andThen(
         manager.runTransaction({
-          ...(args.ref.refType === "workspace" ? { targets: [args.ref.location] } : {}),
+          targets: [args.location],
           transition: Effect.gen(function* () {
             if (args.preflight !== undefined) yield* args.preflight;
             yield* args.scaffold;
@@ -305,14 +331,26 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
             }
             const installedBefore =
               args.installedBefore === undefined ? false : yield* args.installedBefore;
-            yield* manager.materializeInstall({ ref });
+            if (args.enabled !== false || args.materializeWhenDisabled === true) {
+              if (args.materializeInstall === undefined) {
+                yield* manager.materializeInstall({ ref });
+              } else {
+                yield* args.materializeInstall(ref);
+              }
+            }
             yield* manager.upsertSettingsEntry({ ref, versionRange: args.versionRange });
+            if (args.finalizeAuthored !== undefined) {
+              yield* args.finalizeAuthored;
+            }
+            if (args.enabled === false && args.materializeWhenDisabled === true) {
+              yield* manager.materializeDeactivate({ target });
+            }
             return { ref, installedBefore };
           }),
           validate: () =>
             Effect.gen(function* () {
               const installed = yield* manager.isInstalled({ target });
-              if (!installed) {
+              if (args.enabled !== false && !installed) {
                 return yield* makeAppError({
                   code: "internal",
                   detail: `New ${target.type} "${target.name}" did not satisfy its observable contract`,
@@ -346,6 +384,31 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
       ),
     ),
   } satisfies PlannedJobStep;
+};
+
+/**
+ * Build a PlannedJobStep for existing `new` commands.
+ *
+ * New commands remain enabled by default while sharing the authored-package
+ * transaction used by fork and native import.
+ */
+export const buildNewExtensionStep = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+  args: NewExtensionOperationArgs<TRef>,
+): PlannedJobStep => {
+  if (args.ref.refType !== "workspace") {
+    return {
+      key: toStepKey(args.target),
+      label: args.label ?? toLabel(args.target),
+      readiness: "error",
+      errorMessage: "New authored extensions require a workspace source",
+    };
+  }
+  return buildAuthoredExtensionStep(manager, {
+    ...args,
+    location: args.ref.location,
+    enabled: true,
+  });
 };
 
 // -----------------------------------------------------------------------------

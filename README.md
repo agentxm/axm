@@ -126,7 +126,8 @@ axm skills install @acme/skills/code-review
 axm skills list
 axm skills disable my-skill                   # Turn off without uninstalling
 axm skills enable my-skill
-axm skills copy ./external-skill @acme/skills/my-skill
+axm import ./external-skill @acme/skills/my-skill
+axm fork @acme/skills/code-review @me/skills/code-review-custom
 axm skills publish                            # Publish authored skills
 ```
 

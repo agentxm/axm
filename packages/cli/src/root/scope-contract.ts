@@ -53,6 +53,8 @@ export const PROJECT_ONLY_AUTHORING_COMMANDS = [
   "axm demote",
   "axm version",
   "axm publish",
+  "axm fork",
+  "axm import",
   "axm skills copy",
   "axm packs add",
   "axm packs remove",

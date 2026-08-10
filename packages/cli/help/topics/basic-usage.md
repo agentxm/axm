@@ -70,8 +70,8 @@ The selected scope is isolated for setup, install, update, activation, listing,
 status, sync, lint, pruning, agent membership, and pack lifecycle operations.
 Runnable recovery suggestions retain a non-default user scope.
 
-Authoring commands are project-workspace only: `new`, skill copy, adopt, demote,
-version, pack authoring, and publish do not accept `--scope`. Create authored
+Authoring commands are project-workspace only: `new`, `fork`, `import`, adopt,
+demote, version, pack authoring, and publish do not accept `--scope`. Create authored
 packages in the project workspace, then install published versions into user
 scope when user-level availability is needed.
 

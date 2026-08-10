@@ -67,6 +67,8 @@ export type InstallMcpServerOperationArgs = {
   readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
+  /** Materialize only; the enclosing authored-package transaction owns state writes. */
+  readonly skipStateWrites?: boolean;
   /** When true, enforce strict policy for MCP sync outcomes. */
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
@@ -743,19 +745,22 @@ export const installMcpServer: (
     });
 
     yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setMcpServerLock({
-          name: ref.server.name,
-          lockEntry,
-          versionRange: Option.none(),
-        })
-      : ws.setMcpServer({
-          name: ref.server.name,
-          lockEntry,
-          versionRange: op.args.versionRange,
-          env: persistedEnv,
-          enabled,
-        });
+    const writeEffect =
+      op.args.skipStateWrites === true
+        ? Effect.void
+        : Option.getOrElse(op.args.skipSettings, () => false)
+          ? ws.setMcpServerLock({
+              name: ref.server.name,
+              lockEntry,
+              versionRange: Option.none(),
+            })
+          : ws.setMcpServer({
+              name: ref.server.name,
+              lockEntry,
+              versionRange: op.args.versionRange,
+              env: persistedEnv,
+              enabled,
+            });
     const writeWarning = yield* writeEffect.pipe(
       Effect.as(Option.none<string>()),
       Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),

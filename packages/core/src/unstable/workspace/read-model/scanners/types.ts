@@ -39,7 +39,7 @@ export type CanonicalExtensionOriginKind = "canonical-axm" | "external-axm";
  * Fields:
  *
  * - `scope` — the scoping tier this occurrence belongs to (project | user).
- * - `type` — the subject extension type (skill, command, …).
+ * - `type` — the subject extension type.
  * - `origin` — scanner-tier origin (canonical-axm | external-axm).
  * - `name` — the subject's directory name (last segment under owner/type).
  * - `owner` — the registry-owner prefix for canonical AXM, `null` for external.

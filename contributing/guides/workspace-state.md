@@ -73,8 +73,8 @@ destructive cleanup for that graph.
 - Project and user scope use the same model with different workspace roots.
 - Read-only commands do not repair or rewrite state.
 
-The reconciliation parity obligation covers skills, commands, MCP servers,
-subagents, files, rules, hooks, knowledge, and packs, plus Registry; GitHub,
+The reconciliation parity obligation covers skills, MCP servers, subagents,
+rules, hooks, knowledge, and packs, plus Registry; GitHub,
 GitLab, Bitbucket, Azure Repos, and generic Git; local; `workspace:`; and inline
 MCP applicability.
 

@@ -48,7 +48,10 @@ Any package author may declare `extensions` in their package's native metadata t
 }
 ```
 
-A recommendation can target any extension type — skill, subagent, command, MCP server, or pack. When recommending more than one extension, prefer a pack: one stable reference for the package author, with evolvable contents over time.
+A recommendation can target any extension type — skill, MCP server, subagent,
+rule, hook, knowledge bundle, or pack. When recommending more than one
+extension, prefer a pack: one stable reference for the package author, with
+evolvable contents over time.
 
 For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
 

@@ -7,12 +7,8 @@
  * fixes, so the plan pipeline tree-shakes out of the Worker bundle. See
  * the shared-kernel contract for plan pipeline primitives.
  *
- * Per-extension operation handlers (`install-skill`, `uninstall-skill`,
- * `enable-skill`, `disable-skill`, `install-pack`, `uninstall-pack`,
- * `install-command`, `uninstall-command`, `enable-command`, `disable-command`,
- * `install-mcp-server`, `uninstall-mcp-server`, `enable-subagent`,
- * `disable-subagent`) live in their domain modules and resolve their
- * `OperationHandler` type from this path.
+ * Per-extension operation handlers live in their domain modules and resolve
+ * their `OperationHandler` type from this path.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

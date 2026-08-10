@@ -98,8 +98,8 @@ export interface MakeCanonicalOccurrenceInput {
 /**
  * Build a `CanonicalExtensionOccurrence` with the new structural fields
  * populated. `pathSegments` is computed from `contentLocation` (POSIX split).
- * `subjectFile` is `Some(<dir>/<name>.md)` for skill/command/subagent; `None`
- * for mcp-server/file/rule/pack. `subjectFileExists` defaults to `true` when
+ * `subjectFile` is `Some(<dir>/<name>.md)` for skill/subagent; `None` for
+ * mcp-server/rule/hook/knowledge/pack. `subjectFileExists` defaults to `true` when
  * the subject has a canonical primary file; pass `false` to model absence.
  */
 export const makeCanonicalOccurrence = (

@@ -255,7 +255,7 @@ describe("packs-add.handler", () => {
   });
 
   describe("add non-skill extension types", () => {
-    it.effect("adds a registry-sourced command to the pack manifest", () => {
+    it.effect("adds a registry-sourced hook to the pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",

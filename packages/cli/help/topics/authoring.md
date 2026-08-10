@@ -96,8 +96,8 @@ list.
 A `README.md` at the extension root is published as part of the package and is
 the long-form, human-facing companion to the one-line `description`. AXM ships
 it in the package but **excludes it from agent artifacts** — it is never copied
-into an agent's skill or command directory, so it never becomes model context.
-Write it for a person deciding whether to install.
+into an agent-facing artifact, so it never becomes model context. Write it for
+a person deciding whether to install.
 
 Cover, in order:
 

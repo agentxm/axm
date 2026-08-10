@@ -1,5 +1,5 @@
 /**
- * Agent-directory scanner: covers per-agent skill, command, and subagent
+ * Agent-directory scanner: covers per-agent skill and subagent
  * directories declared by the existing `AgentRegistry`. Each occurrence
  * carries an `agent-dir` discriminator parameterized by `agentId` and the
  * subject `type`.

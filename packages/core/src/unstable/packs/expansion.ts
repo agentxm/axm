@@ -23,9 +23,9 @@ import { resolvePackDependencies } from "./dependency-resolution.js";
 /**
  * Expand a pack ref into its cross-type dependency refs.
  *
- * Returns the pack ref first, followed by dependency refs (skill, command,
- * mcp-server) in declaration order. Only dependency types listed in
- * `supportedDependencyTypes` are included.
+ * Returns the pack ref first, followed by dependency refs in declaration
+ * order. Only dependency types listed in `supportedDependencyTypes` are
+ * included.
  *
  * Dependency refs use the pack's registry source and empty integrity
  * (integrity is resolved during materialization, not at expansion time).

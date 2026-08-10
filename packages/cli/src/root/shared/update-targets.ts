@@ -26,9 +26,8 @@ export type UpdateTargetEntry = readonly [name: string, source: string];
 export type UpdateTargetResource = Exclude<ExtensionType, ContainerType> & IdentifierResourceType;
 
 /**
- * The repeated name-filter flag every `<type> update` accepts. Groups that
- * shipped a type-specific spelling (`--skill`, `--subagent`) keep it as an
- * additional alias; `--name` is the one spelling that works everywhere.
+ * The repeated name-filter flag every `<type> update` accepts. `--name` is the
+ * uniform selector spelling across extension types.
  */
 export const updateNameFilterFlag = Flag.string("name").pipe(
   Flag.withDescription("Update only specific extensions by name or glob pattern"),

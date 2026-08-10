@@ -107,10 +107,6 @@ their lifecycle:
 The removed `authored` property is invalid. Omit `enabled` unless disabling an
 entry with `enabled: false`; enabled state does not affect authored publishing.
 
-## Ignoring Extensions
-
-Use each feature's `ignore` list to leave matching pre-existing extensions unmanaged. Ignored extensions are not pruned or reconciled by AXM.
-
 ## Where to go next
 
 - `axm help basic-usage` — workspace file overview

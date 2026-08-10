@@ -7,13 +7,8 @@
  * jobs fail fast unless they explicitly opt into best-effort execution.
  *
  * This module is the stable kernel home for `applyPlan` and the
- * `OperationHandler` type. Per-extension handlers (`install-skill`,
- * `uninstall-skill`, `enable-skill`, `disable-skill`, `install-pack`,
- * `uninstall-pack`, `install-command`, `uninstall-command`, `enable-command`,
- * `disable-command`, `install-mcp-server`, `uninstall-mcp-server`,
- * `enable-subagent`, `disable-subagent`) live in their domain packages under
- * `../{skills,packs,commands,mcps,subagents}/operations/*` and resolve
- * from this location.
+ * `OperationHandler` type. Per-extension handlers live in their owning domain
+ * packages and resolve this shared contract from here.
  *
  * @experimental This API is unstable and may change without notice.
  */

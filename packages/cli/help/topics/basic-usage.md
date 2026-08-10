@@ -97,10 +97,6 @@ axm sync
 AXM stores env and header secrets as `${VAR}` references in `.axm/settings.json`
 and syncs the configured MCP servers into each configured agent.
 
-### Ignoring extensions
-
-It's possible to ignore pre-existing skills and other extensions in your workspace so that AXM won't modify or prune them. This is helpful when these extensions are installed/managed by some other tool or mechanism.
-
 ## Where to go next
 
 **Use `axm help` to see a list of topics and select the one relevant to your task.**

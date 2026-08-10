@@ -139,8 +139,10 @@ const initializePackWithSkill = (root: string) => {
           updatedAt: timestamp,
           resolvedSkills: {
             "@acme/skills/review": {
+              source: "registry",
               version: "1.0.0",
               publisherBindingId: "hbnd_test",
+              integrity: "sha512-member",
             },
           },
           resolvedMcpServers: {},

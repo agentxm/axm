@@ -74,7 +74,6 @@ describe("resolveLatestVersion", () => {
       ]);
 
       expect(result.targetVersion).toBe("2.0.0");
-      expect(result.remoteVersion).toBe("2.0.0");
       expect(result.release.tagName).toBe("cli-v2.0.0");
       expect(result.release.binaryAssetUrl).toContain("axm-linux-x64");
       expect(result.release.checksumAssetUrl).toContain("SHA256SUMS");

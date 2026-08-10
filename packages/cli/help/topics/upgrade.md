@@ -51,7 +51,6 @@ $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 | `mutationState`      | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                        |
 | `executedCommands`   | Structured detection, preparation, delegation, verification, and rollback commands AXM actually ran                                                                         |
 | `recommendedCommand` | A safe next command AXM did not execute, or `null`                                                                                                                          |
-| `delegatedCommand`   | Deprecated compatibility field; do not use it to infer execution                                                                                                            |
 
 Operational attention outcomes carry a failed or blocked plan step, report
 `ok: false`, and exit 1. Release lookup, network, validation, and unexpected

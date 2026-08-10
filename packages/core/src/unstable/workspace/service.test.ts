@@ -2540,7 +2540,12 @@ describe("WorkspaceMutationsService", () => {
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {
-                "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+                "@acme/skills/code-review": {
+                  source: "registry",
+                  version: "1.2.0",
+                  publisherBindingId: "hbnd_test",
+                  integrity: "sha512-member",
+                },
               },
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -2554,7 +2559,12 @@ describe("WorkspaceMutationsService", () => {
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
         expect(packs["starter-pack"]?.resolvedSkills).toEqual({
-          "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+          "@acme/skills/code-review": {
+            source: "registry",
+            version: "1.2.0",
+            publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
+          },
         });
       }),
     );
@@ -3755,35 +3765,6 @@ describe("WorkspaceMutationsService", () => {
             name: "scratch-notes",
           }),
         ).toBe(false);
-      }),
-    );
-
-    it.effect("does not accept a stale receipt as pack-retention authority", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(projectDir, {
-          review: {
-            type: "github",
-            owner: "acme",
-            repo: "review",
-            retainedByPack: true,
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const error = yield* ws
-          .isExtensionRequiredByInstalledPack({ type: "skill", name: "review" })
-          .pipe(Effect.flip);
-
-        expect(getAppError(error)).toMatchObject({
-          code: "conflict",
-          detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
-        });
       }),
     );
 

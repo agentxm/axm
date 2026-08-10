@@ -28,16 +28,3 @@ export const DateTimeUtcSchema = Schema.String.annotate({
     description: "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
     message: "Expected an ISO 8601 date-time string (e.g., 2024-01-15T12:00:00.000Z)",
   });
-
-/**
- * Timestamp schema for edges that hold a legacy JavaScript `Date` (database
- * driver hydration, third-party APIs): `Date` on the outside, `DateTime.Utc`
- * in memory.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DateTimeUtcFromDateSchema = Schema.DateTimeUtcFromDate.annotate({
-  identifier: "DateTimeUtcFromDate",
-  title: "DateTime.Utc from Date",
-  description: "Converts a JavaScript Date into a DateTime.Utc.",
-});

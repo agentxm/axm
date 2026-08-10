@@ -797,7 +797,12 @@ describe("uninstallSkill", () => {
         resolvedSkills: Object.fromEntries(
           Object.entries(resolvedSkills).map(([name, version]) => [
             name,
-            { version: exactVersion(version), publisherBindingId: "hbnd_test" },
+            {
+              source: "registry",
+              version: exactVersion(version),
+              publisherBindingId: "hbnd_test",
+              integrity: "sha512-member",
+            },
           ]),
         ),
       });

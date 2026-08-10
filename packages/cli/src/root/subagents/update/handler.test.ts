@@ -198,8 +198,8 @@ describe("subagents-update.handler", () => {
     });
   });
 
-  describe("selective update with --subagent filter", () => {
-    it.effect("filters by --subagent flag", () => {
+  describe("selective update with --name filter", () => {
+    it.effect("filters by name", () => {
       const { provide, logs } = makeLayers();
 
       const now = new Date().toISOString();

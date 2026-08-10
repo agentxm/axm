@@ -178,8 +178,10 @@ describe("installPack", () => {
         ...makeOp().args,
         resolvedSkills: {
           "@acme/skills/code-review": {
+            source: "registry",
             version: exactVersion("1.0.0"),
             publisherBindingId: "hbnd_test",
+            integrity: "sha512-member",
           },
         },
       },

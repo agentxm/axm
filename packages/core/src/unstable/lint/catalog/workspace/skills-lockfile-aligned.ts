@@ -10,8 +10,7 @@
  * 2. **Receipt-only** — every skill lock entry has a matching declaration **or**
  *    a matching installed declared pack declares it. Advisory: the user must
  *    choose to declare the exact installed source or uninstall it explicitly.
- *    Pack membership is derived from the authoritative installed-pack graph
- *    rather than the legacy `retainedByPack` receipt hint.
+ *    Pack membership is derived from the authoritative installed-pack graph.
  * 3. **Version skew** — each lock entry's `resolvedVersion` satisfies the
  *    declared version constraint (for registry sources). Autofix:
  *    `install-skill` with `force: true`.

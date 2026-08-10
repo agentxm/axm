@@ -521,7 +521,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       if (!isInstalled) {
         if (Option.isSome(configuredSource)) {
           yield* manager.removeSettingsEntry({ target: args.target });
-          yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
+          yield* manager.removeTrustEntry({ target: args.target });
           return {
             job: {
               result: "success" as const,
@@ -531,7 +531,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
             expectedInstalled: false,
           };
         }
-        yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
+        yield* manager.removeTrustEntry({ target: args.target });
         return {
           job: { result: "success" as const, message: "not installed" } satisfies JobStepResult,
           receipt: "none" as const,
@@ -556,7 +556,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
 
       yield* manager.materializeUninstall({ target: args.target });
       yield* manager.removeSettingsEntry({ target: args.target });
-      yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
+      yield* manager.removeTrustEntry({ target: args.target });
       return {
         job: {
           result: "success" as const,

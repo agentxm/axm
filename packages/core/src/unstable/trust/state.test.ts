@@ -98,7 +98,7 @@ describe("workspace trust state", () => {
     });
   });
 
-  it("is invariant to optional receipt timestamps and pack-retention history", () => {
+  it("is invariant to optional receipt timestamps", () => {
     const firstEntry = makeRegistrySkillLockEntry({
       owner: normalizeHandle("@acme"),
       name: "release",
@@ -118,7 +118,6 @@ describe("workspace trust state", () => {
           ...firstEntry,
           installedAt: DateTime.makeUnsafe("2026-02-01T00:00:00.000Z"),
           updatedAt: DateTime.makeUnsafe("2026-02-02T00:00:00.000Z"),
-          retainedByPack: true,
         },
       },
     };

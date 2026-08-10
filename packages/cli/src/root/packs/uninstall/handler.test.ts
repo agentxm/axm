@@ -117,8 +117,20 @@ const defaultArgs = (
 
 type RawResolvedExtensionMap = Record<
   string,
-  { readonly version: string; readonly publisherBindingId: string }
+  {
+    readonly source: "registry";
+    readonly version: string;
+    readonly publisherBindingId: string;
+    readonly integrity: string;
+  }
 >;
+
+const resolvedRegistryMember = (version: string) => ({
+  source: "registry" as const,
+  version,
+  publisherBindingId: "hbnd_test",
+  integrity: "sha512-member",
+});
 
 const makePackLockEntry = (
   owner: string,
@@ -303,10 +315,7 @@ describe("packs uninstall handler", () => {
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
             resolvedSkills: {
-              "@acme/skills/skill-a": {
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-              },
+              "@acme/skills/skill-a": resolvedRegistryMember("1.0.0"),
             },
           }),
         },
@@ -338,18 +347,12 @@ describe("packs uninstall handler", () => {
         lockfilePacks: {
           "pack-a": makePackLockEntry("@acme", "pack-a", {
             resolvedSkills: {
-              "@acme/skills/shared-skill": {
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-              },
+              "@acme/skills/shared-skill": resolvedRegistryMember("1.0.0"),
             },
           }),
           "pack-b": makePackLockEntry("@acme", "pack-b", {
             resolvedSkills: {
-              "@acme/skills/shared-skill": {
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-              },
+              "@acme/skills/shared-skill": resolvedRegistryMember("1.0.0"),
             },
           }),
         },
@@ -380,10 +383,7 @@ describe("packs uninstall handler", () => {
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
             resolvedSkills: {
-              "@acme/skills/promoted-skill": {
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-              },
+              "@acme/skills/promoted-skill": resolvedRegistryMember("1.0.0"),
             },
           }),
         },
@@ -420,10 +420,7 @@ describe("packs uninstall handler", () => {
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
             resolvedSkills: {
-              "@acme/skills/promoted-skill": {
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-              },
+              "@acme/skills/promoted-skill": resolvedRegistryMember("1.0.0"),
             },
           }),
         },

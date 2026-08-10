@@ -64,6 +64,7 @@ export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
   materializeDeactivate: () => Effect.void,
   upsertTrustEntry: () => Effect.void,
+  removeTrustEntry: () => Effect.void,
 };
 
 const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
@@ -340,7 +341,12 @@ export const resolvedExtensionMap = (
     Object.fromEntries(
       Object.entries(entries).map(([name, version]) => [
         name,
-        { version, publisherBindingId: "hbnd_test" },
+        {
+          source: "registry",
+          version,
+          publisherBindingId: "hbnd_test",
+          integrity: "sha512-member",
+        },
       ]),
     ),
   );

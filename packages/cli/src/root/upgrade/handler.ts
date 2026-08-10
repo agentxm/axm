@@ -135,7 +135,6 @@ const UpgradeCoreResultSchema = Schema.Struct({
   verificationExecutables: Schema.Array(VerificationExecutableSchema),
   executedCommands: Schema.Array(CommandRecordSchema),
   recommendedCommand: Schema.NullOr(RecommendedCommandSchema),
-  delegatedCommand: Schema.NullOr(Schema.String),
   reinstall: Schema.Boolean,
   details: Schema.Array(Schema.String),
   backupPath: Schema.NullOr(Schema.String),
@@ -187,7 +186,6 @@ export const UpgradeResultSchema = Schema.Struct({
   verificationExecutables: UpgradeCoreResultSchema.fields.verificationExecutables,
   executedCommands: UpgradeCoreResultSchema.fields.executedCommands,
   recommendedCommand: UpgradeCoreResultSchema.fields.recommendedCommand,
-  delegatedCommand: UpgradeCoreResultSchema.fields.delegatedCommand,
   reinstall: UpgradeCoreResultSchema.fields.reinstall,
   details: UpgradeCoreResultSchema.fields.details,
   backupPath: UpgradeCoreResultSchema.fields.backupPath,
@@ -366,8 +364,6 @@ const noMutationResult = (
   verificationExecutables: [],
   executedCommands: [...input.detectionCommands],
   recommendedCommand: recommendation,
-  delegatedCommand:
-    resultStatus === "manual-action-required" ? (recommendation?.display ?? null) : null,
   details,
   backupPath: null,
 });
@@ -658,7 +654,6 @@ const handleDelegated = (input: BaseResultInput) =>
           verificationExecutables: [],
           executedCommands: records,
           recommendedCommand: command,
-          delegatedCommand: command.display,
           details: ["Homebrew ownership preparation did not complete."],
           backupPath: null,
         } satisfies UpgradeCoreResult;
@@ -678,7 +673,6 @@ const handleDelegated = (input: BaseResultInput) =>
             verificationExecutables: [],
             executedCommands: records,
             recommendedCommand: command,
-            delegatedCommand: command.display,
             details: ["Homebrew tap preparation did not complete."],
             backupPath: null,
           } satisfies UpgradeCoreResult;
@@ -703,7 +697,6 @@ const handleDelegated = (input: BaseResultInput) =>
         verificationExecutables: [],
         executedCommands: records,
         recommendedCommand: command,
-        delegatedCommand: command.display,
         details: [
           `${methodLabel(methodName(input.method))} exited without completing the upgrade.`,
         ],
@@ -728,7 +721,6 @@ const handleDelegated = (input: BaseResultInput) =>
         verificationExecutables: verification.executables,
         executedCommands: records,
         recommendedCommand: command,
-        delegatedCommand: command.display,
         details: [],
         backupPath: null,
       } satisfies UpgradeCoreResult;
@@ -747,7 +739,6 @@ const handleDelegated = (input: BaseResultInput) =>
       verificationExecutables: verification.executables,
       executedCommands: records,
       recommendedCommand: metadata ? null : command,
-      delegatedCommand: command.display,
       details: metadata ? [] : ["AXM was updated, but install metadata could not be persisted."],
       backupPath: null,
     } satisfies UpgradeCoreResult;
@@ -998,7 +989,6 @@ const handleScript = (
                 verificationExecutables: [],
                 executedCommands: records,
                 recommendedCommand: recoveryInstaller(input.targetVersion),
-                delegatedCommand: null,
                 details: ["The downloaded binary could not be prepared in the install directory."],
                 backupPath: null,
               } satisfies UpgradeCoreResult;
@@ -1041,7 +1031,6 @@ const handleScript = (
                 verificationExecutables: [],
                 executedCommands: records,
                 recommendedCommand: recoveryInstaller(input.targetVersion),
-                delegatedCommand: null,
                 details: [
                   "AXM could not create a restorable backup; no replacement was attempted.",
                 ],
@@ -1074,7 +1063,6 @@ const handleScript = (
                 verificationExecutables: [],
                 executedCommands: records,
                 recommendedCommand: recoveryInstaller(input.targetVersion),
-                delegatedCommand: null,
                 details: ["Replacement failed and the original executable was restored."],
                 backupPath: null,
               } satisfies UpgradeCoreResult;
@@ -1120,7 +1108,6 @@ const handleScript = (
                 ],
                 executedCommands: records,
                 recommendedCommand: recoveryInstaller(input.targetVersion),
-                delegatedCommand: null,
                 details: ["The installed binary failed verification; the original was restored."],
                 backupPath: null,
               } satisfies UpgradeCoreResult;
@@ -1147,7 +1134,6 @@ const handleScript = (
                 ],
                 executedCommands: records,
                 recommendedCommand: recoveryInstaller(input.targetVersion),
-                delegatedCommand: null,
                 details: ["AXM was updated, but install metadata could not be persisted."],
                 backupPath,
               } satisfies UpgradeCoreResult;
@@ -1172,7 +1158,6 @@ const handleScript = (
               ],
               executedCommands: records,
               recommendedCommand: null,
-              delegatedCommand: null,
               details: [],
               backupPath: null,
             } satisfies UpgradeCoreResult;

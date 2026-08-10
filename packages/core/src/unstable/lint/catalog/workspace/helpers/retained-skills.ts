@@ -23,9 +23,8 @@ export const lockEntryFqn = (entry: SkillLockEntry, name: string): string => {
 /**
  * Build the set of skill FQNs retained by installed declared packs.
  *
- * This stays skill-specific because `packs-members-retained` walks all four
- * member maps and all pack lock entries, while the skill rules only need
- * declared-pack `resolvedSkills`.
+ * This stays skill-specific because skill rules only need declared-pack
+ * `resolvedSkills`.
  */
 export const buildRetainedSkillFqns = (
   settings: Settings,

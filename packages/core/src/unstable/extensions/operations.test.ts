@@ -138,6 +138,7 @@ describe("buildInstallOperation", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -186,6 +187,7 @@ describe("buildInstallOperation", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -269,6 +271,7 @@ describe("buildNewExtensionStep", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildNewExtensionStep(manager, {
       target: { type: "skill", name: "review" },
@@ -399,6 +402,7 @@ describe("buildAuthoredExtensionStep", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -439,6 +443,7 @@ describe("buildAuthoredExtensionStep", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -473,6 +478,7 @@ describe("buildAuthoredExtensionStep", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -508,6 +514,7 @@ describe("buildAuthoredExtensionStep", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -543,6 +550,7 @@ describe("buildMaterializeOperation", () => {
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
       removeLockfileEntry: () => Effect.void,
+      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {

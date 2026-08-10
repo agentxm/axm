@@ -25,7 +25,6 @@
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
  * | `workspace/skills-managed`              | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
- * | `workspace/packs-members-retained`      | warning  | —           |
  * | `workspace/recommended-packs-retained`  | warning  | —           |
  *
  * Autofix rides per-extension Operations only (§6). No `editFile`,
@@ -61,7 +60,6 @@ import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct
 import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
-import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
 import { recommendedPacksRetainedRule } from "./workspace/recommended-packs-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
@@ -120,8 +118,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsManagedRule,
   // Pack dependencies resolved (configured packs).
   packsDependenciesResolvedRule,
-  // Implicit retained by pack.
-  packsMembersRetainedRule,
+  // Pack recommendation retention.
   recommendedPacksRetainedRule,
 ];
 

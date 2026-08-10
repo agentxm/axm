@@ -48,7 +48,6 @@ const BaseCommonFields = {
   installedAt: DateTimeUtcSchema,
   updatedAt: DateTimeUtcSchema,
   gitTreeHash: Schema.optional(Schema.String),
-  retainedByPack: Schema.optional(Schema.Boolean),
 };
 
 const looksAbsolutePath = (value: string): boolean =>
@@ -460,11 +459,6 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolved pack members.
  */
-const LegacyResolvedRegistryExtensionSchema = Schema.Struct({
-  version: VersionSchema,
-  publisherBindingId: Schema.NonEmptyString,
-});
-
 const ResolvedRegistryExtensionSchema = Schema.Struct({
   source: Schema.Literal("registry"),
   version: VersionSchema,
@@ -482,12 +476,10 @@ const ResolvedWorkspaceExtensionSchema = Schema.Struct({
 export const ResolvedExtensionSchema = Schema.Union([
   ResolvedRegistryExtensionSchema,
   ResolvedWorkspaceExtensionSchema,
-  LegacyResolvedRegistryExtensionSchema,
 ]).annotate({
   identifier: "ResolvedExtension",
   title: "Resolved Extension",
-  description:
-    "Last successful pack-member resolution from a workspace or Registry authority. Legacy Registry receipts remain readable.",
+  description: "Last successful pack-member resolution from a workspace or Registry authority.",
 });
 
 export type ResolvedExtension = Schema.Schema.Type<typeof ResolvedExtensionSchema>;

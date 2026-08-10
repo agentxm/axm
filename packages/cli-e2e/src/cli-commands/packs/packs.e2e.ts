@@ -838,9 +838,8 @@ describe("axm packs install", () => {
   // top-level `skills` map as direct entries, which differs from
   // `sync`'s prune semantics. A follow-up issue should
   // define how prune-on-pack-update flows through the rule-driven
-  // pipeline (candidate: expand `workspace/packs-members-retained`
-  // into an autofixing rule or wire a dedicated `axm packs update`
-  // verb). Tracked in the Phase 7 summary.
+  // pipeline (candidate: wire a dedicated `axm packs update` verb).
+  // Tracked in the Phase 7 summary.
   it.skip("prune logic removes dropped dependencies when sync re-evaluates an installed pack", async () => {
     const author = createTempDir();
     const consumer = createTempDir();

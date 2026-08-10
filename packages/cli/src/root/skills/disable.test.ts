@@ -276,8 +276,10 @@ describe("disable.handler", () => {
               updatedAt: new Date().toISOString(),
               resolvedSkills: {
                 "@acme/skills/code-review": {
+                  source: "registry",
                   version: "1.2.0",
                   publisherBindingId: "hbnd_test",
+                  integrity: "sha512-member",
                 },
               },
               resolvedMcpServers: {},

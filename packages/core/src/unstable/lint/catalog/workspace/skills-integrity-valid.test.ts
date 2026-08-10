@@ -60,8 +60,10 @@ const packLockEntry = (args: { readonly owner: string; readonly name: string }) 
   updatedAt: "2026-04-21T00:00:00.000Z",
   resolvedSkills: {
     [`${args.owner}/skills/my-skill`]: {
+      source: "registry",
       version: "1.0.0",
       publisherBindingId: "hbnd_test",
+      integrity: "sha512-member",
     },
   },
   resolvedCommands: {},

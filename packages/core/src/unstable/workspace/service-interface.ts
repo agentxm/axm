@@ -232,11 +232,8 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly removeLockfileEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
-  /**
-   * Retire the trusted identity after an explicit full uninstall. Optional for
-   * compatibility with lightweight manager implementations outside core.
-   */
-  readonly removeTrustEntry?: (args: {
+  /** Retire the trusted identity after an explicit full uninstall. */
+  readonly removeTrustEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
 }

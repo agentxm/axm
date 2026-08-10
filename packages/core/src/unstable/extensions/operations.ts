@@ -151,6 +151,8 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
 > {
   /** Canonical workspace package path protected by the transaction snapshot. */
   readonly location: string;
+  /** Additional files that the authored transition may update transactionally. */
+  readonly transactionTargets?: ReadonlyArray<string>;
   /** Whether the new authored extension should remain materialized after creation. */
   readonly enabled?: boolean;
   /** Commit the caller's final desired-state shape after canonical resolution. */
@@ -307,7 +309,7 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
     ).pipe(
       Effect.andThen(
         manager.runTransaction({
-          targets: [args.location],
+          targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),
           transition: Effect.gen(function* () {
             if (args.preflight !== undefined) yield* args.preflight;
             yield* args.scaffold;

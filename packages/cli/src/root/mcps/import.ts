@@ -249,6 +249,53 @@ const writeAdoptedMcpConfig = (
       );
   });
 
+const removeConvertedMcpConfig = (
+  fs: FileSystem.FileSystem,
+  adoption: McpImportAdoption,
+): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const config = yield* readJsonObject(fs, adoption.filePath);
+    if (Option.isNone(config)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP config disappeared before package conversion: ${adoption.filePath}`,
+      });
+    }
+    const servers = config.value[adoption.serversKey];
+    if (!isRecord(servers)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP server collection changed before package conversion: ${adoption.filePath}`,
+      });
+    }
+    const entry = servers[adoption.name];
+    if (entry === undefined) return;
+    if (!isRecord(entry)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP server ${adoption.name} changed before package conversion`,
+      });
+    }
+    const remainingServers = Object.fromEntries(
+      Object.entries(servers).filter(([name]) => name !== adoption.name),
+    );
+    const updatedConfig = {
+      ...config.value,
+      [adoption.serversKey]: remainingServers,
+    };
+    yield* fs
+      .writeFileString(adoption.filePath, `${JSON.stringify(updatedConfig, null, 2)}\n`)
+      .pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to replace native MCP config: ${adoption.filePath}`,
+            cause: error,
+          }),
+        ),
+      );
+  });
+
 const recordsEqual = (
   left: Readonly<Record<string, string>> | undefined,
   right: Readonly<Record<string, string>> | undefined,
@@ -533,6 +580,9 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
   const source = `workspace:${fqn}`;
+  const adoptionPaths = Array.from(
+    new Set(candidate.adoptions.map((adoption) => adoption.filePath)),
+  ).sort();
   const artifact: JobStepArtifact = {
     path: args.path.relative(args.ws.baseDir, targetDir),
     scope: args.ws.scope,
@@ -541,11 +591,16 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     targets: [
       { path: args.path.relative(args.ws.baseDir, targetDir), change: "created" },
       { path: ".axm (config/lockfile)", change: "created" },
+      ...adoptionPaths.map((filePath) => ({
+        path: args.path.relative(args.ws.baseDir, filePath),
+        change: "updated" as const,
+      })),
     ],
   };
   const step = buildAuthoredExtensionStep(manager, {
     target: { type: "mcp-server", name: target.name },
     location: targetDir,
+    transactionTargets: adoptionPaths,
     versionRange: Option.none(),
     enabled: args.enable,
     materializeWhenDisabled: true,
@@ -590,11 +645,20 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       enabled: true,
       env: candidate.env,
     }),
-    finalizeAuthored: args.ws.setMcpServerEntry(target.name, {
-      source,
-      enabled: args.enable,
-      env: candidate.env,
-    }),
+    finalizeAuthored: args.ws
+      .setMcpServerEntry(target.name, {
+        source,
+        enabled: args.enable,
+        env: candidate.env,
+      })
+      .pipe(
+        Effect.andThen(
+          Effect.forEach(candidate.adoptions, (adoption) =>
+            removeConvertedMcpConfig(args.fs, adoption),
+          ),
+        ),
+        Effect.asVoid,
+      ),
     materializeInstall: (ref) =>
       installMcpServer({
         name: "install-mcp-server",

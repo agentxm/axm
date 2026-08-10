@@ -379,6 +379,45 @@ describe("buildNewExtensionStep", () => {
 });
 
 describe("buildAuthoredExtensionStep", () => {
+  it("protects additional authored transition files in the workspace transaction", async () => {
+    let transactionTargets: ReadonlyArray<string> = [];
+    const transactionalRun: WorkspaceTransactionRunner = (args) => {
+      transactionTargets = args.targets ?? [];
+      return runTransaction(args);
+    };
+    const ref = authoredSkillRef();
+    const manager = {
+      type: "skill",
+      runTransaction: transactionalRun,
+      isInstalled: () => Effect.succeed(false),
+      listMaterializable: () => Effect.succeed([ref]),
+      materializeInstall: () => Effect.void,
+      materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      upsertTrustEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const step = buildAuthoredExtensionStep(manager, {
+      target: { type: "skill", name: extensionName("review") },
+      location: ref.location,
+      transactionTargets: ["/workspace/native.json", ref.location],
+      versionRange: Option.none(),
+      scaffold: Effect.void,
+      markAuthored: Effect.void,
+      enabled: false,
+      message: "Imported review",
+    });
+    if (step.readiness === "error") throw new Error(step.errorMessage);
+
+    await Effect.runPromise(step.run);
+
+    expect(transactionTargets).toEqual([ref.location, "/workspace/native.json"].sort());
+  });
+
   it("permits an explicit configured-source transition without the global preflight", async () => {
     const ref = authoredSkillRef();
     let listCalls = 0;

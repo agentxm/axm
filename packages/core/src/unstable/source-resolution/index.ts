@@ -52,3 +52,15 @@ export {
   type ResolvedIdentifier,
 } from "./resolve-identifier.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";
+export {
+  discoverExtensionPackages,
+  inspectExtensionPackage,
+  type DiscoveredExtensionPackage,
+  type ExtensionPackageFilter,
+} from "./package-discovery.js";
+export {
+  acquireExternalSource,
+  findExtensionPackagesFromSource,
+  type AcquiredExternalSource,
+  type ResolvedExtensionPackage,
+} from "./package-sources.js";

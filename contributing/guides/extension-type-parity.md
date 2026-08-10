@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-08-06
+last-reviewed: 2026-08-10
 version: 0.2.0
 description: How the extension type table drives every per-type surface, what the
   parity obligations and exemption ledger enforce, and the checklist for adding a
@@ -11,12 +11,12 @@ depends-on: []
 
 # Extension Type Parity
 
-AXM has nine extension types. Every one of them needs the same surfaces: a
+AXM has seven extension types. Every one of them needs the same surfaces: a
 plural command namespace, a manifest schema, a lock entry, a help topic, a
 renderer entity, and an install path driven by an end-to-end test. Historically those
 surfaces were added type by type, so a type added late silently skipped
 whichever ones nobody remembered. This guide covers the machinery that makes
-that impossible, and what you have to do when you add the tenth type.
+that impossible, and what you have to do when you add the eighth type.
 
 ## Key Resources
 
@@ -60,7 +60,7 @@ exact-membership pins in
 fail compile in both directions when a union gains or loses a member.
 
 Derive from the axes, not from name literals. Root help groups its commands by
-`workspaceCapability` rather than excluding `rules` by name, so the tenth type
+`workspaceCapability` rather than excluding `rules` by name, so the eighth type
 lands in the right group without anyone editing the group.
 
 The lifecycle contract follows the same rule. It derives required mutations,

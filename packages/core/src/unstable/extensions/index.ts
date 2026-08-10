@@ -71,6 +71,12 @@ export {
 
 export { parseLicenseExpression } from "./license.js";
 
+export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-package.js";
+export {
+  importNativeExtensionPackage,
+  type ImportNativeExtensionPackageArgs,
+} from "./import-native-package.js";
+
 export {
   RegistrySourcePatternPartsSchema,
   RegistrySourcePatternSchema,
@@ -176,11 +182,13 @@ export { preflightCreateOnly, type CreateOnlyPreflightArgs } from "./create-pref
 // Extension operations
 export {
   type InstallOperationArgs,
+  type AuthoredExtensionOperationArgs,
   type MaterializeOperationArgs,
   type NewExtensionOperationArgs,
   type UninstallOperationArgs,
   type UninstallRetentionPolicy,
   buildInstallOperation,
+  buildAuthoredExtensionStep,
   buildMaterializeOperation,
   buildNewExtensionStep,
   buildUninstallOperation,

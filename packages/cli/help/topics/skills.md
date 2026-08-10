@@ -74,11 +74,12 @@ If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
 When `axm lint` reports `workspace/skills-managed`, choose one resolution per skill or related group:
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
-- **Copy** when there is no clean source, or you want to own, customize, or publish it: `axm skills copy`, then `axm skills publish`.
+- **Import** unmanaged/native content when you want to own, customize, or publish it: `axm import <source> <target-fqn>`, then `axm skills publish`.
+- **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <target-fqn>`.
 - **Leave it unowned** when another tool owns its lifecycle. AXM reports it but does not delete it.
 - **Prune** when it is orphaned and AXM ownership is proven: review `axm prune <name>`, then apply with `--yes`.
 
-Copy only when you deliberately take ownership away from another tool. `axm prune` shows the exact marker, symlink target, lock entry, or trust record that proves AXM ownership; unknown artifacts are retained.
+Import only when you deliberately create an AXM-owned copy. The native source remains unchanged. `axm prune` shows the exact marker, symlink target, lock entry, or trust record that proves AXM ownership; unknown artifacts are retained.
 
 ## Lockfile and integrity
 

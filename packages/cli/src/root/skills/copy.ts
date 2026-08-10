@@ -7,6 +7,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
@@ -239,14 +240,18 @@ const config = {
 } as const;
 
 export const copyCommand = Command.make("copy", config, (parsed) =>
-  handleCopySkill(parsed).pipe(withWorkspace("project"), withRuntime("skills copy")),
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    yield* renderer.warn("axm skills copy is deprecated; use axm import <source> <target-fqn>");
+    yield* handleCopySkill(parsed);
+  }).pipe(withWorkspace("project"), withRuntime("skills copy")),
 ).pipe(
   withArgvTracking(config),
-  Command.withDescription("Copy a skill into project-workspace authorship"),
+  Command.withDescription("Deprecated project-workspace skill authoring; use axm import instead"),
   Command.withExamples([
     {
       command: "axm skills copy ./external-skill @acme/skills/my-skill",
-      description: "Copy a local skill for authoring",
+      description: "Legacy alias for native skill import",
     },
   ]),
 );

@@ -10,6 +10,34 @@ follow `axm help packs` for the only supported direct-sibling pack composition.
 `recommendedPacks` is metadata only; it does not install the pack or its
 members.
 
+## Creating from existing content
+
+Use `fork` and `import` for different source states:
+
+- `axm fork <source> <target-fqn>` starts a new workspace-authored package from
+  an existing managed AXM package. Registry, `workspace:`, local, and Git
+  sources are supported. The source and target types must match; packs are
+  copied shallowly, so their dependency map remains unchanged.
+- `axm import <source> <target-fqn>` converts losslessly supported native
+  content into a managed package. Skills, subagents, Markdown rules, and OKF
+  0.2 knowledge bundles are supported from local or Git sources. MCP config
+  remains under `axm mcps import`: omit `--as` for inline management, or use
+  `--as <target-fqn>` when one remote server has a lossless package form.
+  Hooks and packs have no native import form.
+
+Both commands create target version `0.1.0` and start a fresh target disabled
+unless `--enable` is supplied. Disabled `fork` and native-content `import`
+operations leave their source projections untouched. MCP package import is the
+explicit adoption case: after the managed package validates, it replaces the
+selected native config entry and leaves the managed target disabled. If the
+target name already has a settings entry, its enabled state is preserved. Use
+`--preview` to inspect canonical and configuration changes without mutating the
+workspace.
+
+`axm skills copy` is retained as a deprecated compatibility command. New
+workflows should use `axm import` so managed packages are rejected with a
+prompt to use `fork`.
+
 ## Description layers
 
 The manifest `description` is common Registry metadata. Some extension types

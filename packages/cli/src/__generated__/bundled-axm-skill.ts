@@ -5,10 +5,10 @@
  * DO NOT EDIT - changes are overwritten on regeneration.
  */
 
-export const AXM_SKILL_VERSION = "0.26.2";
+export const AXM_SKILL_VERSION = "0.26.1";
 
 export const AXM_SKILL_JSON =
-  '{\n  "$schema": "https://axm.sh/schemas/skill.schema.json",\n  "owner": "@agentxm",\n  "type": "skill",\n  "name": "axm",\n  "version": "0.26.2"\n}\n';
+  '{\n  "$schema": "https://axm.sh/schemas/skill.schema.json",\n  "owner": "@agentxm",\n  "type": "skill",\n  "name": "axm",\n  "version": "0.26.1"\n}\n';
 
 export const AXM_SKILL_SOURCE_FILES = [
   {

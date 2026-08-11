@@ -157,7 +157,13 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(isRecord(stdoutDocument)).toBe(true);
         if (!isRecord(stdoutDocument)) return;
         expect(stdoutDocument["ok"]).toBe(false);
-        expect(stdoutDocument).not.toHaveProperty("result");
+        expect(stdoutDocument["result"]).toEqual(
+          expect.objectContaining({
+            outcome: "failed",
+            reason: "hard-blocked",
+            errorCode: "conflict",
+          }),
+        );
         expect(fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8")).toBe(mcpBefore);
       } finally {
         temp.cleanup();

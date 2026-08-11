@@ -27,7 +27,7 @@ import {
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
@@ -213,10 +213,11 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
   });
   const plan = makePlan(agentIds, atomicSteps);
 
-  const execution = yield* makePublicPositionalPlanExecutionMode(
+  const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["agents", "remove"],
     agentIds,
+    args.force ? ["accept-warnings"] : [],
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
 

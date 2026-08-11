@@ -143,6 +143,7 @@ describe("hooks-new.handler", () => {
           yield* handleHooksNew(defaultArgs("machine-hook"));
 
           expect(logs.success).toEqual([
+            "  + @acme/hooks/machine-hook",
             "Created hooks package @acme/hooks/machine-hook with 2 targets",
           ]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");

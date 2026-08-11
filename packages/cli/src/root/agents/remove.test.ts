@@ -250,7 +250,7 @@ describe("agents remove.handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "error",
-          message: "Failed to remove 1 agent",
+          message: "Plan execution failed",
         });
         expect(rendererState.logs).not.toContainEqual({
           _tag: "success",

@@ -270,18 +270,16 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
                 target: { type: "hook", name: args.name },
               });
         if (Option.isNone(currentLockEntry)) {
+          const targets = materialization.targets.map((target) => ({
+            ...target,
+            change: "created" as const,
+          }));
           return {
-            path: targetDir,
+            path: path.relative(ws.baseDir, targetDir),
             scope: ws.scope,
             version: ref.version,
             change: "created",
-            targets: [
-              { path: targetDir, change: "created" },
-              ...materialization.targets.map((target) => ({
-                ...target,
-                change: "created" as const,
-              })),
-            ],
+            ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
           } satisfies JobStepArtifact;
         }
 
@@ -318,6 +316,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
   });
 

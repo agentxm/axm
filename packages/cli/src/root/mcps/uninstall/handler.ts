@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import { makeUninstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
@@ -14,13 +14,14 @@ export const handleUninstallMcpServer = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
-    const execution = yield* makeUninstallPlanExecutionMode(
+    const execution = yield* makeUninstallPlanExecution(
       flags,
       ["mcps", "uninstall"],
       [args.serverName],
     );
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
+      breakDependencies: flags.force,
       displayApplied: false,
     });
     yield* emitAppliedPlanOutcome({

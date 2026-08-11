@@ -1,4 +1,5 @@
 import type { SuggestedAction } from "./suggested-action.js";
+import type { PlanPolicyId } from "../plan/plan.js";
 
 export type ConfirmationRecoveryValue =
   | { readonly _tag: "Public"; readonly value: string }
@@ -15,18 +16,53 @@ export interface ConfirmationRecovery {
   readonly arguments: ReadonlyArray<ConfirmationRecoveryArgument>;
 }
 
-export type PlanExecutionMode =
-  | { readonly _tag: "Preview" }
-  | { readonly _tag: "PreconfirmedApply" }
-  | { readonly _tag: "ConfirmableApply"; readonly recovery: ConfirmationRecovery };
+export type PlanExecutionRequest =
+  | { readonly mode: "preview" }
+  | {
+      readonly mode: "apply";
+      readonly confirmableRiskApproval: "prompt-if-interactive" | "preapproved";
+      readonly acceptedPolicies: ReadonlySet<PlanPolicyId>;
+    };
 
-export const previewExecution: PlanExecutionMode = { _tag: "Preview" };
-export const preconfirmedApplyExecution: PlanExecutionMode = { _tag: "PreconfirmedApply" };
+/** Invocation-scoped policy input plus safe replay metadata for approval recovery. */
+export type PlanExecution =
+  | { readonly request: { readonly mode: "preview" } }
+  | {
+      readonly request: Extract<PlanExecutionRequest, { readonly mode: "apply" }>;
+      readonly approvalRecovery: ConfirmationRecovery;
+    };
 
-export const confirmableApplyExecution = (recovery: ConfirmationRecovery): PlanExecutionMode => ({
-  _tag: "ConfirmableApply",
-  recovery,
+export const previewPlanExecution: PlanExecution = { request: { mode: "preview" } };
+
+export const applyPlanExecution = (options: {
+  readonly approval: "prompt-if-interactive" | "preapproved";
+  readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
+  readonly recovery: ConfirmationRecovery;
+}): PlanExecution => ({
+  request: {
+    mode: "apply",
+    confirmableRiskApproval: options.approval,
+    acceptedPolicies: options.acceptedPolicies ?? new Set(),
+  },
+  approvalRecovery: options.recovery,
 });
+
+const emptyRecovery: ConfirmationRecovery = { command: [], arguments: [] };
+
+export const preapprovedPlanExecution: PlanExecution = applyPlanExecution({
+  approval: "preapproved",
+  recovery: emptyRecovery,
+});
+
+export const promptablePlanExecution = (
+  recovery: ConfirmationRecovery,
+  acceptedPolicies?: ReadonlySet<PlanPolicyId>,
+): PlanExecution =>
+  applyPlanExecution({
+    approval: "prompt-if-interactive",
+    ...(acceptedPolicies === undefined ? {} : { acceptedPolicies }),
+    recovery,
+  });
 
 export const publicRecoveryValue = (value: string): ConfirmationRecoveryValue => ({
   _tag: "Public",
@@ -82,6 +118,10 @@ const renderValue = (value: ConfirmationRecoveryValue): string | undefined =>
 
 export const renderConfirmationRecoveryCommand = (
   recovery: ConfirmationRecovery,
+  options: {
+    readonly includeYes?: boolean;
+    readonly additionalSwitches?: ReadonlyArray<string>;
+  } = {},
 ): string | undefined => {
   if (recovery.command.length === 0 || !recovery.arguments.every(isReplayable)) return undefined;
 
@@ -115,11 +155,29 @@ export const renderConfirmationRecoveryCommand = (
     "axm",
     ...recovery.command,
     ...optionTokens,
-    "--yes",
+    ...(options.includeYes === false ? [] : ["--yes"]),
+    ...(options.additionalSwitches ?? []),
     ...(needsOptionTerminator ? ["--"] : []),
     ...positionalValues,
   ];
   return tokens.join(" ");
+};
+
+export const namedPolicyRecoverySuggestions = (
+  recovery: ConfirmationRecovery,
+  requiredFlags: ReadonlyArray<string>,
+): ReadonlyArray<SuggestedAction> => {
+  const command = renderConfirmationRecoveryCommand(recovery, {
+    includeYes: false,
+    additionalSwitches: requiredFlags,
+  });
+  return command === undefined
+    ? [
+        {
+          description: `Rerun the original invocation with ${requiredFlags.join(" ")}; a retry command is unavailable because it contains protected or unclassified values.`,
+        },
+      ]
+    : [{ description: "Retry with the required policy override", cmd: command }];
 };
 
 export const confirmationRecoverySuggestions = (

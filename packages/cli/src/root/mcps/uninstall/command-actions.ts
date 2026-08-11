@@ -89,8 +89,9 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallMcpServerCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
     ): Effect.Effect<Plan, AppError> => {
-      const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+      const retentionPolicy = makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true);
 
       const steps = intent.targets.map((target): PlannedJobStep => {
         const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {

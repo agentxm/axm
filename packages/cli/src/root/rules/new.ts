@@ -175,6 +175,7 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
   });
   const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;

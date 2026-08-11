@@ -172,7 +172,10 @@ describe("subagents-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSubagentsNew(defaultArgs("machine-subagent"));
 
-          expect(logs.success).toEqual(["Created subagent @acme/subagents/machine-subagent"]);
+          expect(logs.success).toEqual([
+            "  + @acme/subagents/machine-subagent",
+            "Created subagent @acme/subagents/machine-subagent",
+          ]);
           expect(rendererState.summaries).toEqual([
             "-> .axm/extensions/@acme/subagents/machine-subagent   0.0.1 | 2 files",
           ]);

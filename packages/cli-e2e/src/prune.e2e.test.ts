@@ -29,7 +29,7 @@ describe("axm prune", () => {
       const managed = writeSkill(temp.path, "stale-managed", true);
       const unknown = writeSkill(temp.path, "unknown", false);
 
-      const preview = await runCli(["prune", "--json"], { cwd: temp.path, env });
+      const preview = await runCli(["prune", "--preview", "--json"], { cwd: temp.path, env });
       expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
       expect(JSON.parse(preview.stdout)).toEqual(
         expect.objectContaining({
@@ -52,7 +52,7 @@ describe("axm prune", () => {
       expect(fs.existsSync(managed)).toBe(true);
       expect(fs.existsSync(unknown)).toBe(true);
 
-      const applied = await runCli(["prune", "--yes", "--json"], { cwd: temp.path, env });
+      const applied = await runCli(["prune", "--json"], { cwd: temp.path, env });
       expect(applied.exitCode, `${applied.stderr}\n${applied.stdout}`).toBe(0);
       expect(fs.existsSync(managed)).toBe(false);
       expect(fs.existsSync(unknown)).toBe(true);

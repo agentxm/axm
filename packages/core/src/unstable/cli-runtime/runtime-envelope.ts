@@ -8,7 +8,7 @@ import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.
 import type { OutputFormat } from "./output-mode.js";
 import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
+import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
@@ -87,11 +87,22 @@ const positiveNumericProperty = (properties: TelemetryProperties, key: string): 
 
 export const exitCodeForSemanticProperties = (
   properties: TelemetryProperties,
-): number | undefined =>
-  positiveNumericProperty(properties, "cli.failed_count") ||
-  positiveNumericProperty(properties, "cli.blocked_count")
+): number | undefined => {
+  const reason = properties["cli.reason"];
+  if (reason === "approval-required" || reason === "override-required") return ExitCode.Usage;
+  if (reason === "stale-candidate") return ExitCode.Conflict;
+  if (reason === "interrupted") return 130;
+  if (reason === "execution-failed") return ExitCode.Issues;
+  if (reason === "hard-blocked") {
+    const code = properties["cli.error_code"];
+    const matched = AppErrorCodes.find((candidate) => candidate === code);
+    return matched === undefined ? ExitCode.Issues : exitCodeFor(matched);
+  }
+  return positiveNumericProperty(properties, "cli.failed_count") ||
+    positiveNumericProperty(properties, "cli.blocked_count")
     ? ExitCode.Issues
     : undefined;
+};
 
 /**
  * Emit an expected (handled) CLI error.

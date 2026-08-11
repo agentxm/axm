@@ -18,7 +18,50 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { AppError } from "../app-error/index.js";
+import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
+
+export const PlanPolicyIds = [
+  "break-dependencies",
+  "ignore-version-constraints",
+  "replace-existing",
+  "accept-warnings",
+  "allow-empty",
+] as const;
+
+export const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
+export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;
+
+export const PlanExecutionReasonSchema = Schema.Literals([
+  "approval-required",
+  "override-required",
+  "stale-candidate",
+  "hard-blocked",
+  "interrupted",
+  "execution-failed",
+] as const);
+export type PlanExecutionReason = typeof PlanExecutionReasonSchema.Type;
+
+export const PlanRiskConditionSchema = Schema.Union([
+  Schema.Struct({
+    level: Schema.Literal("confirmable"),
+    id: Schema.String,
+    detail: Schema.String,
+  }),
+  Schema.Struct({
+    level: Schema.Literal("override-required"),
+    id: Schema.String,
+    policy: PlanPolicyIdSchema,
+    requiredFlag: Schema.String,
+    detail: Schema.String,
+  }),
+  Schema.Struct({
+    level: Schema.Literal("blocked"),
+    id: Schema.String,
+    detail: Schema.String,
+    errorCode: AppErrorCodeSchema,
+  }),
+]);
+export type PlanRiskCondition = typeof PlanRiskConditionSchema.Type;
 
 // -----------------------------------------------------------------------------
 // Operation type
@@ -180,6 +223,14 @@ export interface Plan {
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   /** Optional extra sections rendered after the plan steps. */
   readonly sections?: ReadonlyArray<PlanSection>;
+  /** Semantic conditions evaluated by the shared execution-policy boundary. */
+  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  /** Persisted inputs outside workspace state that materially determine this plan. */
+  readonly materialPaths?: ReadonlyArray<string>;
+  /** Local plans roll back candidate-wide; remote effects report truthful partial outcomes. */
+  readonly executionCapabilities?: {
+    readonly rollback: "local-atomic" | "non-rollbackable";
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -198,6 +249,8 @@ export interface ExecutedPlan {
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<ExecutedJob>;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
+  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  readonly candidateId?: string;
 }
 
 export interface PreviewedPlan {
@@ -206,6 +259,8 @@ export interface PreviewedPlan {
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
+  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  readonly candidateId?: string;
 }
 
 export interface CancelledPlan {
@@ -214,6 +269,30 @@ export interface CancelledPlan {
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
+  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  readonly candidateId?: string;
 }
 
-export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan;
+export interface FailedPlan {
+  readonly _tag: "FailedPlan";
+  readonly name: string;
+  readonly description: Option.Option<string>;
+  readonly jobs: ReadonlyArray<Job>;
+  readonly reason: PlanExecutionReason;
+  readonly errorCode: AppErrorCode;
+  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
+  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  readonly candidateId?: string;
+  readonly executionSteps?: ReadonlyArray<{
+    readonly label: string;
+    readonly status: "rolled-back" | "unapplied" | "failed";
+    readonly message: string;
+  }>;
+  readonly suggestions?: ReadonlyArray<{
+    readonly description: string;
+    readonly cmd?: string | undefined;
+    readonly url?: string | undefined;
+  }>;
+}
+
+export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan | FailedPlan;

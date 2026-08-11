@@ -13,7 +13,7 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
-import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 
@@ -91,7 +91,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
     }
 
     const actions = yield* InstallSkillCommandWorkflowActions;
-    const execution = yield* makeInstallPlanExecutionMode(
+    const execution = yield* makeInstallPlanExecution(
       flags,
       ["skills", "install"],
       [args.source.value],

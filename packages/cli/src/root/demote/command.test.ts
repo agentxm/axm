@@ -58,6 +58,7 @@ describe("demote command", () => {
 
   it.effect("requires confirmation before replacing workspace authority", () => {
     const context = makeWorkspaceHandlerTestContext({
+      flags: { nonInteractive: false },
       prompt: { confirmResponses: [false] },
       wsOptions: { projectRoot: tempDir },
     });

@@ -155,9 +155,10 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallSkillCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
     ): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
-        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true);
         const configuredAgents = yield* agentRepo
           .getMaterializationAgents()
           .pipe(Effect.provideService(WorkspaceMutations, ws));

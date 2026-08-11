@@ -142,14 +142,18 @@ fields into `AppError`.
 ### PromptCancelled
 
 `PromptCancelled` signals the user cancelled a prompt (e.g., pressed Ctrl+C).
-The runtime handles it by exiting with code 0 and no error output.
+General input-prompt cancellation remains runtime control flow. The shared plan
+boundary catches cancellation at a confirmable-risk prompt and returns a
+visible `CancelledPlan`, exit 0, with no writes. An operating-system SIGINT is
+not prompt cancellation: graceful shutdown interrupts the active fiber, waits
+for rollback finalizers, emits `interrupted`, and exits 130.
 
 ### Runtime boundary
 
 `withRuntime` accepts only `Effect<A, AppError | PromptCancelled, R>`. This
 constrains the error channel so all expected failures are either `AppError`
-(rendered to the user) or `PromptCancelled` (silent exit). Defects crash with a
-stack trace.
+(rendered to the user) or `PromptCancelled` (runtime control flow). Defects
+crash with a stack trace.
 
 ### Project Error Architecture Checklist
 
@@ -564,12 +568,12 @@ the layer above.
 
 ### Boundaries and their error expectations
 
-| Boundary                | `E` expectation                     | Responsibility                                                  |
-| ----------------------- | ----------------------------------- | --------------------------------------------------------------- |
-| Domain / service        | Full `E` (typed errors or AppError) | Declares all errors the operation can produce                   |
-| Orchestration / feature | Narrower `E`                        | Handles domain errors, translates or recovers                   |
-| Command handler         | `AppError \| PromptCancelled`       | Maps all remaining errors to `AppError`                         |
-| Runtime (`withRuntime`) | `AppError \| PromptCancelled`       | Renders `AppError` to stderr; silent exit for `PromptCancelled` |
+| Boundary                | `E` expectation                     | Responsibility                                            |
+| ----------------------- | ----------------------------------- | --------------------------------------------------------- |
+| Domain / service        | Full `E` (typed errors or AppError) | Declares all errors the operation can produce             |
+| Orchestration / feature | Narrower `E`                        | Handles domain errors, translates or recovers             |
+| Command handler         | `AppError \| PromptCancelled`       | Maps all remaining errors to `AppError`                   |
+| Runtime (`withRuntime`) | `AppError \| PromptCancelled`       | Renders `AppError`; resolves non-plan prompt cancellation |
 
 ### Error Channel Narrowing Checklist
 

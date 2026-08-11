@@ -6,7 +6,7 @@ import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workf
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import { makeUninstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { makeUninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
@@ -22,7 +22,7 @@ export const uninstallCommand = Command.make(
   ({ name, scope, yes, preview }) =>
     Effect.gen(function* () {
       const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
-      const execution = yield* makeUninstallPlanExecutionMode(
+      const execution = yield* makeUninstallPlanExecution(
         { yes, preview },
         ["knowledge", "uninstall"],
         [name],

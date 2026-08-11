@@ -25,6 +25,8 @@ import {
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
+  PlanExecutionReasonSchema,
+  PlanRiskConditionSchema,
 } from "@agentxm/client-core/unstable/plan";
 import {
   redactSensitiveText,
@@ -56,11 +58,12 @@ const StepStatusSchema = Schema.Literals([
   "unchanged",
   "failed",
   "blocked",
+  "rolled-back",
+  "unapplied",
 ] as const).annotate({
   identifier: "StepStatus",
   title: "Step Status",
-  description:
-    "Execution status of a plan step: ready, warning, error, applied, unchanged, failed, or blocked.",
+  description: "Execution status of a plan step, including local rollback and unapplied work.",
 });
 
 const StepArtifactTargetSchema = Schema.Struct({
@@ -193,6 +196,9 @@ export const PlanResolutionResultSchema = Schema.Struct({
     description:
       "Final outcome of a plan resolution: previewed, cancelled, applied, partial, failed, or no-op.",
   }),
+  reason: Schema.optional(PlanExecutionReasonSchema),
+  errorCode: Schema.optional(Schema.String),
+  candidateId: Schema.optional(Schema.String),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -203,10 +209,13 @@ export const PlanResolutionResultSchema = Schema.Struct({
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  rolledBackCount: Schema.optional(Schema.Number),
+  unappliedCount: Schema.optional(Schema.Number),
   importedCount: Schema.optional(Schema.Number),
   skippedCount: Schema.optional(Schema.Number),
   conflictingCount: Schema.optional(Schema.Number),
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
+  riskConditions: Schema.optional(Schema.Array(PlanRiskConditionSchema)),
   steps: Schema.Array(StepSchema),
 }).annotate({
   identifier: "PlanResolutionResult",
@@ -647,6 +656,7 @@ export const toPlanResolutionResult = (
       return {
         outcome: resolution._tag === "PreviewedPlan" ? "previewed" : "cancelled",
         planName: resolution.name,
+        ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
         ...(description !== undefined ? { planDescription: description } : {}),
         totalSteps: steps.length,
         readyCount,
@@ -658,6 +668,52 @@ export const toPlanResolutionResult = (
         ...(resolution.preconditions === undefined
           ? {}
           : { preconditions: resolution.preconditions }),
+        ...(resolution.riskConditions === undefined
+          ? {}
+          : { riskConditions: resolution.riskConditions }),
+        steps,
+      };
+    }
+    case "FailedPlan": {
+      const steps =
+        resolution.executionSteps === undefined
+          ? resolution.jobs
+              .flatMap((job) => [...job.steps])
+              .map((step) => plannedStepToStep(step, options))
+          : resolution.executionSteps.map((step) => ({
+              label: step.label,
+              status: step.status,
+              message: redactSensitiveText(step.message),
+            }));
+      const warningCount = steps.filter((step) => step.status === "warning").length;
+      const errorCount = steps.filter((step) => step.status === "error").length;
+      const description = planDescription(resolution);
+      return {
+        outcome: "failed",
+        reason: resolution.reason,
+        errorCode: resolution.errorCode,
+        ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
+        planName: resolution.name,
+        ...(description === undefined ? {} : { planDescription: description }),
+        totalSteps: steps.length,
+        readyCount: steps.filter((step) => step.status === "ready").length,
+        warningCount,
+        errorCount,
+        appliedCount: 0,
+        failedCount: resolution.reason === "execution-failed" ? 1 : 0,
+        blockedCount: resolution.reason === "hard-blocked" ? Math.max(1, errorCount) : 0,
+        ...(resolution.executionSteps === undefined
+          ? {}
+          : {
+              rolledBackCount: steps.filter((step) => step.status === "rolled-back").length,
+              unappliedCount: steps.filter((step) => step.status === "unapplied").length,
+            }),
+        ...(resolution.preconditions === undefined
+          ? {}
+          : { preconditions: resolution.preconditions }),
+        ...(resolution.riskConditions === undefined
+          ? {}
+          : { riskConditions: resolution.riskConditions }),
         steps,
       };
     }
@@ -693,6 +749,9 @@ export const toPlanResolutionResult = (
         ...(resolution.preconditions === undefined
           ? {}
           : { preconditions: resolution.preconditions }),
+        ...(resolution.riskConditions === undefined
+          ? {}
+          : { riskConditions: resolution.riskConditions }),
         steps,
       };
     }
@@ -717,25 +776,31 @@ export const emitPlanResolutionResult = <TCommand extends string>(
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const verbosity = yield* Verbosity;
+    const resolutionSuggestions =
+      resolution._tag === "FailedPlan" ? resolution.suggestions : undefined;
+    const requestedSuggestions = options?.suggestions ?? [];
+    const combinedSuggestions = [...requestedSuggestions, ...(resolutionSuggestions ?? [])];
     const suggestions =
-      options?.suggestions === undefined
+      combinedSuggestions.length === 0
         ? undefined
-        : yield* suggestionsForCurrentWorkspace(options.suggestions);
+        : yield* suggestionsForCurrentWorkspace(combinedSuggestions);
+    const planResult = toPlanResolutionResult(resolution, {
+      verbose: verbosity.isAtLeast("verbose"),
+      debug: verbosity.level === "debug",
+    });
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
-    });
-    const planResult = toPlanResolutionResult(resolution, {
-      verbose: verbosity.isAtLeast("verbose"),
-      debug: verbosity.level === "debug",
+      ...(planResult.reason === undefined ? {} : { "cli.reason": planResult.reason }),
+      ...(planResult.errorCode === undefined ? {} : { "cli.error_code": planResult.errorCode }),
     });
     const result = {
       ...planResult,
       ...(options?.message === undefined ? {} : { message: options.message }),
       ...(options?.operationCounts ?? {}),
     };
-    return yield* renderer.result(
+    const emitted = yield* renderer.result(
       {
         result,
       },
@@ -746,6 +811,35 @@ export const emitPlanResolutionResult = <TCommand extends string>(
         ok: result.outcome !== "failed" && result.outcome !== "partial",
       },
     );
+    if (!emitted && result.outcome === "cancelled") {
+      yield* renderer.info("Cancelled — no changes applied");
+    }
+    if (!emitted && result.outcome === "failed") {
+      const detail =
+        result.reason === "approval-required"
+          ? "Approval required — no changes applied"
+          : result.reason === "override-required"
+            ? "Safety override required — no changes applied"
+            : result.reason === "stale-candidate"
+              ? "Workspace changed after planning — no changes applied"
+              : result.reason === "hard-blocked"
+                ? "Plan is blocked — no changes applied"
+                : result.reason === "interrupted"
+                  ? "Interrupted — changes rolled back"
+                  : (result.rolledBackCount ?? 0) > 0
+                    ? "Plan execution failed — local changes rolled back"
+                    : "Plan execution failed";
+      yield* renderer.error(detail, {
+        ...(suggestions === undefined ? {} : { suggestions }),
+        withoutSuggestions: emitted,
+      });
+      for (const step of result.steps) {
+        if ((step.status === "failed" || step.status === "blocked") && step.message !== undefined) {
+          yield* renderer.info(`${step.label}: ${step.message}`);
+        }
+      }
+    }
+    return emitted;
   });
 
 export const emitPublishResult = <TCommand extends string>(

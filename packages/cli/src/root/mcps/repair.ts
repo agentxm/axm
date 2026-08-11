@@ -20,19 +20,13 @@ import type {
   PlanResolution,
 } from "@agentxm/client-core/unstable/plan";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import {
-  ResolvePlanInteraction,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 
 const isInlineMcpServerEntry = (entry: McpServerEntry): boolean =>
   entry.source === "inline" && (entry.command !== undefined || entry.url !== undefined);
@@ -166,27 +160,15 @@ export const handleRepairMcpServer = Effect.fn("Mcps.repair")(function* (args: {
       },
     ],
   };
-  const execution = yield* makePlanExecutionMode(
-    args,
-    makeConfirmationRecovery(
+  const resolution: PlanResolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    yes: args.yes,
+    recovery: makeConfirmationRecovery(
       ["mcps", "repair"],
       [recoveryPositional(publicRecoveryValue(args.name))],
     ),
-  );
-  const confirmed =
-    execution._tag !== "ConfirmableApply"
-      ? true
-      : yield* ResolvePlanInteraction.pipe(
-          Effect.flatMap((interaction) => interaction.confirmApplyChanges(execution.recovery)),
-        );
-  const resolution: PlanResolution = confirmed
-    ? yield* previewOrApplyLocalPlan(plan, { preview: args.preview, displayApplied: false })
-    : {
-        _tag: "CancelledPlan",
-        name: plan.name,
-        description: plan.description,
-        jobs: plan.jobs,
-      };
+    displayApplied: false,
+  });
   yield* emitPlanResolutionResult("mcps.repair", resolution);
 });
 

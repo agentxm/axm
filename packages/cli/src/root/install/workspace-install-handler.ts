@@ -13,10 +13,7 @@ import { planResolutionToSummary, toPlanResolutionResult } from "../../json-outp
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {
@@ -88,7 +85,7 @@ export const handleWorkspaceInstall = (args: {
       return;
     }
 
-    const execution = yield* makePlanExecutionMode(
+    const execution = yield* makePlanExecution(
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
@@ -133,7 +130,7 @@ export const runWorkspaceInstall = (args: {
       return Option.none<PlanResolution>();
     }
 
-    const execution = yield* makePlanExecutionMode(
+    const execution = yield* makePlanExecution(
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),

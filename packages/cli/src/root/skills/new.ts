@@ -305,6 +305,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
   });
 

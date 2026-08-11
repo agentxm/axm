@@ -40,10 +40,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 export const handleImport = Effect.fn("Import.handle")(function* (args: {
   readonly source: string;
@@ -225,7 +222,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["import"],

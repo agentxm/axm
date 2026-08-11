@@ -24,7 +24,7 @@ const snapshotWorkspace = (workspace: string): Readonly<Record<string, string>> 
 };
 
 describe("confirmation recovery", () => {
-  it("returns a runnable typed retry and leaves state unchanged before retry", async () => {
+  it("applies an eligible explicit mutation non-interactively without --yes", async () => {
     const workspace = createTempDir();
     try {
       const setup = await runCli(
@@ -39,54 +39,73 @@ describe("confirmation recovery", () => {
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
 
       const before = snapshotWorkspace(workspace.path);
-      const blocked = await runCli(["skills", "disable", "recovery-skill", "--non-interactive"], {
+      const applied = await runCli(["skills", "disable", "recovery-skill", "--non-interactive"], {
         cwd: workspace.path,
       });
-      const blockedOutput = `${blocked.stdout}\n${blocked.stderr}`;
-      expect(blocked.exitCode).not.toBe(0);
-      expect(blockedOutput).toContain("axm skills disable --non-interactive --yes recovery-skill");
-      expect(snapshotWorkspace(workspace.path)).toEqual(before);
-
-      const retried = await runCli(
-        ["skills", "disable", "--non-interactive", "--yes", "recovery-skill"],
-        { cwd: workspace.path },
-      );
-      expect(retried.exitCode, retried.stdout + retried.stderr).toBe(0);
+      expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
       expect(snapshotWorkspace(workspace.path)).not.toEqual(before);
     } finally {
       workspace.cleanup();
     }
   });
 
-  it("does not disclose a protected free-form value in recovery guidance", async () => {
+  it("returns a runnable named-policy retry without letting --yes substitute", async () => {
     const workspace = createTempDir();
-    const protectedDescription = "sensitive recovery description";
     try {
       const setup = await runCli(["setup", "--yes", "--non-interactive"], {
         cwd: workspace.path,
       });
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const skill = await runCli(
+        ["skills", "new", "pack-member", "--owner", "@test", "--non-interactive"],
+        { cwd: workspace.path },
+      );
+      expect(skill.exitCode, skill.stdout + skill.stderr).toBe(0);
+      const pack = await runCli(
+        ["packs", "new", "recovery-pack", "--owner", "@test", "--non-interactive"],
+        { cwd: workspace.path },
+      );
+      expect(pack.exitCode, pack.stdout + pack.stderr).toBe(0);
+      const added = await runCli(
+        ["packs", "add", "recovery-pack", "@test/skills/pack-member", "--non-interactive"],
+        { cwd: workspace.path },
+      );
+      expect(added.exitCode, added.stdout + added.stderr).toBe(0);
       const before = snapshotWorkspace(workspace.path);
 
       const blocked = await runCli(
         [
-          "mcps",
-          "new",
-          "protected-recovery",
-          "--owner",
-          "@test",
-          "--description",
-          protectedDescription,
+          "packs",
+          "remove",
+          "recovery-pack",
+          "@test/skills/pack-member",
+          "--yes",
           "--non-interactive",
+          "--json",
         ],
         { cwd: workspace.path },
       );
       const blockedOutput = `${blocked.stdout}\n${blocked.stderr}`;
-      expect(blocked.exitCode).not.toBe(0);
-      expect(blockedOutput).toContain("Rerun the original invocation with --yes");
-      expect(blockedOutput).not.toContain(protectedDescription);
-      expect(blockedOutput).not.toContain("axm mcps new");
+      expect(blocked.exitCode).toBe(2);
+      expect(blockedOutput).toContain('"reason": "override-required"');
+      expect(blockedOutput).toContain(
+        "axm packs remove --json --non-interactive --allow-empty recovery-pack @test/skills/pack-member",
+      );
       expect(snapshotWorkspace(workspace.path)).toEqual(before);
+
+      const retried = await runCli(
+        [
+          "packs",
+          "remove",
+          "recovery-pack",
+          "@test/skills/pack-member",
+          "--allow-empty",
+          "--non-interactive",
+        ],
+        { cwd: workspace.path },
+      );
+      expect(retried.exitCode, retried.stdout + retried.stderr).toBe(0);
+      expect(snapshotWorkspace(workspace.path)).not.toEqual(before);
     } finally {
       workspace.cleanup();
     }

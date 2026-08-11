@@ -1,8 +1,9 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
 import { makeAppError } from "../../app-error/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { isNonInteractiveOptional, jsonFlag } from "../../cli-flags/index.js";
 import type { SuggestedAction } from "../../cli-runtime/suggested-action.js";
 import { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 
@@ -34,7 +35,8 @@ export const requireInteractive = <A>(
 ) =>
   Effect.gen(function* () {
     const nonInteractive = yield* isNonInteractiveOptional;
-    if (nonInteractive) {
+    const json = Option.exists(Option.flatten(yield* Effect.serviceOption(jsonFlag)), Boolean);
+    if (nonInteractive || json) {
       return yield* promptRequired(options);
     }
 

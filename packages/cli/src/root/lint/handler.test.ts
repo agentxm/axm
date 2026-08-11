@@ -463,8 +463,8 @@ describe("axm lint handler", () => {
           { result: expectRecord(expectRecord(rendererState.results[0]?.data)["result"])["plan"] },
           {
             planName: "Lint autofix",
-            totalSteps: 2,
-            appliedCount: 2,
+            totalSteps: 4,
+            appliedCount: 4,
           },
         );
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -484,8 +484,13 @@ describe("axm lint handler", () => {
         expect(planResultSteps(result)).toEqual([
           expect.objectContaining({ status: "applied" }),
           expect.objectContaining({ status: "applied" }),
+          expect.objectContaining({ status: "applied" }),
+          expect.objectContaining({ status: "applied" }),
         ]);
-        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.logs).toContainEqual({
+          _tag: "info",
+          message: expect.stringContaining("Would apply 4 steps"),
+        });
       }),
     );
   });

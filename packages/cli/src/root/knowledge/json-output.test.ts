@@ -413,7 +413,7 @@ describe("knowledge JSON output", () => {
           Effect.provide(knowledgeManagerLayer),
         );
 
-        expect(logs.success).toEqual(["Enabled knowledge bundle platform"]);
+        expect(logs.success).toEqual(["  + platform", "Enabled knowledge bundle platform"]);
       }),
     );
   });

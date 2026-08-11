@@ -23,8 +23,8 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  preconfirmedApplyExecution,
-  previewExecution,
+  preapprovedPlanExecution,
+  previewPlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -1315,21 +1315,8 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     description: planDescription,
   });
 
-  const readinessErrors = plan.jobs.flatMap((job) =>
-    job.steps.flatMap((step) =>
-      step.readiness === "error" ? [`${step.label}: ${step.errorMessage}`] : [],
-    ),
-  );
-  if (readinessErrors.length > 0) {
-    yield* displayPlan(plan);
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Sync plan has errors that prevent execution: ${readinessErrors.join("; ")}`,
-    });
-  }
-
   const resolution = yield* previewOrApplyPlan(plan, {
-    execution: args.preview ? previewExecution : preconfirmedApplyExecution,
+    execution: args.preview ? previewPlanExecution : preapprovedPlanExecution,
     displayApplied: false,
   });
   if (resolution._tag === "ExecutedPlan") yield* displayPlan(resolution);

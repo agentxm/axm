@@ -15,7 +15,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 
@@ -83,7 +83,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const execution = yield* makePublicPositionalPlanExecutionMode(
+  const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["skills", "enable"],
     [skillName],

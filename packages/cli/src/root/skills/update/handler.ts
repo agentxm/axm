@@ -56,10 +56,7 @@ import {
 } from "./constraint-resolution.js";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
   UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
@@ -592,7 +589,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           };
 
   // Step 11: Resolve plan
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["skills", "update"],
@@ -606,8 +603,38 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         }),
       ],
     ),
+    args.force ? ["ignore-version-constraints"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const publisherOwnershipChanged = [...warningsBySkill.values()].some((warnings) =>
+    warnings.some((warning) => warning.startsWith("Publisher identity changed")),
+  );
+  const executionPlan: Plan = {
+    ...plan,
+    riskConditions: [
+      ...(plan.riskConditions ?? []),
+      ...(publisherOwnershipChanged
+        ? [
+            {
+              level: "confirmable" as const,
+              id: "publisher-ownership-change",
+              detail: "One or more skills changed publisher identity.",
+            },
+          ]
+        : []),
+      ...(args.force
+        ? ([
+            {
+              level: "override-required",
+              id: "ignore-pack-version-constraints",
+              policy: "ignore-version-constraints",
+              requiredFlag: "--ignore-version-constraints",
+              detail: "Allow updates outside version constraints declared by installed packs.",
+            },
+          ] as const)
+        : []),
+    ],
+  };
+  const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
   yield* emitPlanResolutionResult("skills.update", resolution);
 });
 

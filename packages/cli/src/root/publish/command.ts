@@ -61,10 +61,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
 import {
   KNOWLEDGE_SOURCE_DIR,
@@ -1371,10 +1368,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
     ...(authenticationPreconditions.length === 0
       ? {}
       : { preconditions: authenticationPreconditions }),
+    materialPaths: uploadCandidates.map((candidate) => candidate.extensionDir),
+    executionCapabilities: { rollback: "non-rollbackable" },
     jobs,
   };
   const typedRecovery = args.recoveryCommand !== undefined;
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(args.recoveryCommand ?? ["publish"], [
       recoverySwitch("--authored", args.authored),

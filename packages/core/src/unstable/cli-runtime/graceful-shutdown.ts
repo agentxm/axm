@@ -1,5 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off — signal exits must bypass buffered process streams synchronously
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import { writeSync } from "node:fs";
 
 /**
  * Wrap a program in signal-aware graceful shutdown.
@@ -15,13 +17,36 @@ export const withGracefulShutdown = <A, E, R>(
     const services = yield* Effect.context<R>();
     const fiber = yield* Effect.forkChild(program);
     const runFork = Effect.runForkWith(services);
+    let shuttingDown = false;
 
-    const interruptAndExit = (exitCode: number) => {
+    const interruptAndExit = (exitCode: number, signal: "SIGINT" | "SIGTERM") => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       runFork(
         Fiber.interrupt(fiber).pipe(
           Effect.timeout("5 seconds"),
           Effect.ensuring(
             Effect.sync(() => {
+              const json = process.argv.includes("--json");
+              writeSync(
+                2,
+                json
+                  ? `${JSON.stringify({ type: "error", code: "interrupted", reason: "interrupted", signal })}\n`
+                  : `Cancelled by ${signal}.\n`,
+              );
+              if (json) {
+                writeSync(
+                  1,
+                  `${JSON.stringify(
+                    {
+                      ok: false,
+                      result: { outcome: "failed", reason: "interrupted", signal },
+                    },
+                    undefined,
+                    2,
+                  )}\n`,
+                );
+              }
               void process.exit(exitCode);
             }),
           ),
@@ -29,8 +54,8 @@ export const withGracefulShutdown = <A, E, R>(
       );
     };
 
-    const onSigterm = () => interruptAndExit(143);
-    const onSigint = () => interruptAndExit(130);
+    const onSigterm = () => interruptAndExit(143, "SIGTERM");
+    const onSigint = () => interruptAndExit(130, "SIGINT");
     process.on("SIGTERM", onSigterm);
     process.on("SIGINT", onSigint);
 

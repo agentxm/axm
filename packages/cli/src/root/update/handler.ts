@@ -6,7 +6,7 @@ import {
   recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-  type PlanExecutionMode,
+  type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
@@ -36,10 +36,7 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -52,7 +49,7 @@ export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly recoveryCommand?: ReadonlyArray<string>;
 }
 
-const runUpdateIntent = (intent: RootUpdateIntent, execution: PlanExecutionMode) =>
+const runUpdateIntent = (intent: RootUpdateIntent, execution: PlanExecution) =>
   Effect.gen(function* () {
     switch (intent.type) {
       case "skill": {
@@ -111,7 +108,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       }),
     onSome: (source) =>
       Effect.gen(function* () {
-        const execution = yield* makePlanExecutionMode(
+        const execution = yield* makePlanExecution(
           args,
           makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
             recoverySwitch("--refresh", args.force),

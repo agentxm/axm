@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { Plan, PlanResolution } from "../../plan/plan.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
-import type { PlanExecutionMode } from "../../cli-runtime/confirmation-recovery.js";
+import type { PlanExecution } from "../../cli-runtime/confirmation-recovery.js";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface
@@ -37,8 +37,9 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 }
 
 export interface UninstallWorkflowFlags {
-  readonly execution: PlanExecutionMode;
+  readonly execution: PlanExecution;
   readonly displayApplied?: boolean;
+  readonly breakDependencies?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -60,7 +61,23 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent, flags);
-    return yield* previewOrApplyPlan(plan, {
+    const candidatePlan: Plan =
+      flags.breakDependencies === true
+        ? {
+            ...plan,
+            riskConditions: [
+              ...(plan.riskConditions ?? []),
+              {
+                level: "override-required",
+                id: "break-installed-pack-dependencies",
+                policy: "break-dependencies",
+                requiredFlag: "--break-dependencies",
+                detail: "Allow removal even when an installed pack still requires the extension.",
+              },
+            ],
+          }
+        : plan;
+    return yield* previewOrApplyPlan(candidatePlan, {
       execution: flags.execution,
       ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
     });

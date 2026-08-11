@@ -45,10 +45,7 @@ import {
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -235,8 +232,15 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
       "Remove workspace source protection; future updates may replace the package",
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
+    riskConditions: [
+      {
+        level: "confirmable",
+        id: "replace-workspace-authority",
+        detail: "The workspace-authored package will be replaced by an externally sourced package.",
+      },
+    ],
   };
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["demote"],

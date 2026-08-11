@@ -442,7 +442,7 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("pack dependency retention", () => {
-    it.effect("retains pack-referenced skill on disk but removes settings", () => {
+    it.effect("retains pack dependencies unless --break-dependencies is explicit", () => {
       const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
@@ -499,6 +499,17 @@ describe("uninstall.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.[skillName]).toBeUndefined();
+
+          yield* handleUninstall(defaultArgs(skillName), {
+            yes: true,
+            force: true,
+            preview: false,
+          });
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", skillName),
+            ),
+          ).toBe(false);
         }),
       );
     });

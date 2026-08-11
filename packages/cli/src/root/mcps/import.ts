@@ -39,11 +39,9 @@ import type {
   JobStepArtifact,
   JobStepResult,
   Plan,
-  PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
-  ResolvePlanInteraction,
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
@@ -51,10 +49,7 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import {
   type McpImportAdoption,
@@ -460,13 +455,6 @@ const makePlan = (
   };
 };
 
-const cancelPlan = (plan: Plan): PlanResolution => ({
-  _tag: "CancelledPlan",
-  name: plan.name,
-  description: plan.description,
-  jobs: plan.jobs,
-});
-
 const importedCount = (resolution: ExecutedPlan, candidateCount: number): number => {
   const importStep = resolution.jobs
     .flatMap((job) => job.steps)
@@ -735,30 +723,20 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
     });
     const packageResolution = yield* previewOrApplyLocalPlan(packagePlan, {
       preview: args.preview,
+      yes: args.yes,
+      recovery: makeConfirmationRecovery(["mcps", "import"], []),
       displayApplied: false,
     });
     yield* emitPlanResolutionResult("mcps.import", packageResolution);
     return;
   }
   const plan = makePlan(preflight, ws, fs, path, hooks);
-  const execution = yield* makePlanExecutionMode(
-    args,
-    makeConfirmationRecovery(["mcps", "import"], []),
-  );
-  const confirmed =
-    execution._tag !== "ConfirmableApply" ||
-    preflight.candidates.length === 0 ||
-    preflight.conflicts.length > 0
-      ? true
-      : yield* ResolvePlanInteraction.pipe(
-          Effect.flatMap((interaction) => interaction.confirmApplyChanges(execution.recovery)),
-        );
-  const resolution = confirmed
-    ? yield* previewOrApplyLocalPlan(plan, {
-        preview: args.preview,
-        displayApplied: false,
-      })
-    : cancelPlan(plan);
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    yes: args.yes,
+    recovery: makeConfirmationRecovery(["mcps", "import"], []),
+    displayApplied: false,
+  });
   const appliedCount =
     resolution._tag === "ExecutedPlan" ? importedCount(resolution, preflight.candidates.length) : 0;
   const suggestions = [

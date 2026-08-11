@@ -50,10 +50,7 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 const mcpNewArtifactOutput = (
   resolution: PlanResolution,
@@ -288,7 +285,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     description: Option.some(`Create ${fqn}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["mcps", "new"],

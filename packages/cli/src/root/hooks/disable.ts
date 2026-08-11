@@ -20,7 +20,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const hookPackagePath = (entry: HookLockEntry, name: string): string =>
@@ -123,7 +123,7 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
       },
     ],
   };
-  const execution = yield* makePublicPositionalPlanExecutionMode(
+  const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["hooks", "disable"],
     [args.name],

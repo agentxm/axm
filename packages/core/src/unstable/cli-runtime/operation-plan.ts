@@ -1,5 +1,10 @@
 import * as Schema from "effect/Schema";
-import { ArtifactChangeSchema, OperationPreconditionSchema } from "../plan/plan.js";
+import {
+  ArtifactChangeSchema,
+  OperationPreconditionSchema,
+  PlanExecutionReasonSchema,
+  PlanRiskConditionSchema,
+} from "../plan/plan.js";
 
 const OperationPlanStepStatusSchema = Schema.Literals([
   "ready",
@@ -9,6 +14,8 @@ const OperationPlanStepStatusSchema = Schema.Literals([
   "unchanged",
   "failed",
   "blocked",
+  "rolled-back",
+  "unapplied",
 ] as const);
 
 const OperationPlanStepArtifactSchema = Schema.Struct({
@@ -37,6 +44,9 @@ export const OperationPlanFields = {
     "failed",
     "no-op",
   ] as const),
+  reason: Schema.optional(PlanExecutionReasonSchema),
+  errorCode: Schema.optional(Schema.String),
+  candidateId: Schema.optional(Schema.String),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -47,7 +57,10 @@ export const OperationPlanFields = {
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  rolledBackCount: Schema.optional(Schema.Number),
+  unappliedCount: Schema.optional(Schema.Number),
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
+  riskConditions: Schema.optional(Schema.Array(PlanRiskConditionSchema)),
   steps: Schema.Array(OperationPlanStepSchema),
 } satisfies Schema.Struct.Fields;
 

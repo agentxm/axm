@@ -180,10 +180,14 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallSubagentCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed(
         (() => {
-          const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+          const retentionPolicy = makeWorkspaceRetentionPolicy(
+            ws,
+            flags.breakDependencies === true,
+          );
 
           const steps: PlannedJobStep[] = intent.subagentsToUninstall.map((entry) => {
             const target: SubagentExtensionTarget = {

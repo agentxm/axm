@@ -32,10 +32,7 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
   UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
@@ -316,7 +313,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
           };
 
   // Step 9: Resolve plan
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["subagents", "update"],
@@ -332,7 +329,34 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
         }),
       ],
     ),
+    args.force ? ["ignore-version-constraints"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const executionPlan: Plan = {
+    ...plan,
+    riskConditions: [
+      ...(plan.riskConditions ?? []),
+      ...(warningsBySubagent.size > 0
+        ? [
+            {
+              level: "confirmable" as const,
+              id: "publisher-ownership-change",
+              detail: "One or more subagents changed publisher identity.",
+            },
+          ]
+        : []),
+      ...(args.force
+        ? ([
+            {
+              level: "override-required",
+              id: "ignore-pack-version-constraints",
+              policy: "ignore-version-constraints",
+              requiredFlag: "--ignore-version-constraints",
+              detail: "Allow updates outside version constraints declared by installed packs.",
+            },
+          ] as const)
+        : []),
+    ],
+  };
+  const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
   yield* emitPlanResolutionResult("subagents.update", resolution);
 });

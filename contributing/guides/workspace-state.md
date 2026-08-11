@@ -32,7 +32,16 @@ unchanged.
 5. preserves ignored and unmanaged artifacts; and
 6. persists receipt results only after corresponding work succeeds.
 
-Dry-run, JSON, and apply use the same plan. An aligned second run is a no-op.
+Preview, JSON, and apply resolve the same candidate. The candidate fingerprints
+workspace settings, trust, receipts, plan material inputs, and mutation targets
+after reconciliation. Apply revalidates that identity inside the outer
+workspace transaction immediately before its first effect; drift returns
+`stale-candidate` with no writes. An aligned second run is a no-op.
+
+Locally reversible plans execute under one candidate-wide transaction, so a
+later failure or interruption rolls back earlier local steps. Non-rollbackable
+remote plans, including publish uploads, instead report the exact committed,
+failed, and untouched effects without claiming rollback.
 
 ## Trust and source changes
 

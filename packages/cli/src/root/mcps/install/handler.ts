@@ -6,7 +6,7 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
-import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   InstallMcpServerCommandWorkflowActions,
@@ -44,7 +44,7 @@ export const handleInstallMcpServer = (
       source: args.source.value,
       env: args.env,
     };
-    const execution = yield* makeInstallPlanExecutionMode(
+    const execution = yield* makeInstallPlanExecution(
       flags,
       ["mcps", "install"],
       [args.source.value],

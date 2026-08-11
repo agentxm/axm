@@ -44,6 +44,11 @@ accepts compatible releases while preserving the version intent observed when
 the member was added. A manually authored `"*"` remains valid, but is not the
 generated default.
 
+Replacing an existing dependency constraint requires `--replace-existing`.
+Removing the final dependency requires `--allow-empty`. These are named policy
+overrides: `--yes` cannot substitute for either one. `--preview` shows the
+resulting manifest candidate without writing it.
+
 Resolution prefers a matching configured and trusted workspace package. If
 that workspace version does not satisfy the constraint, AXM fails without
 falling back to the Registry. Registry resolution is used only when there is no

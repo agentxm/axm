@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import { makeUninstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import {
   UninstallHookCommandWorkflowActions,
   type UninstallHookHandlerArgs,
@@ -17,13 +17,10 @@ export const handleUninstallHook = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallHookCommandWorkflowActions;
-    const execution = yield* makeUninstallPlanExecutionMode(
-      flags,
-      ["hooks", "uninstall"],
-      [args.name],
-    );
+    const execution = yield* makeUninstallPlanExecution(flags, ["hooks", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
+      breakDependencies: flags.force,
       displayApplied: false,
     });
     yield* emitAppliedPlanOutcome({

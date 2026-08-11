@@ -88,7 +88,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         expect(fs.existsSync(managed)).toBe(false);
         expect(fs.existsSync(unknown)).toBe(true);
       }),
@@ -104,7 +104,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         expect(packages.filter((packageRoot) => fs.existsSync(packageRoot))).toEqual([]);
       }),
     );
@@ -121,7 +121,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: ["stale-*"] }, { yes: true });
+        yield* handleRootPrune({ patterns: ["stale-*"] }, { yes: true, preview: false });
         expect(fs.existsSync(stale)).toBe(false);
         expect(fs.existsSync(sibling)).toBe(true);
       }),
@@ -135,7 +135,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: false });
+        yield* handleRootPrune({ patterns: [] }, { yes: false, preview: true });
         expect(fs.existsSync(managed)).toBe(true);
         const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
           planName: "Prune AXM-owned state",
@@ -156,7 +156,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         expect(fs.existsSync(unknown)).toBe(true);
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -201,7 +201,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         const lock = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
         const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
         for (const key of [
@@ -241,7 +241,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         const config: unknown = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
         expect(config).toEqual({
           mcpServers: {
@@ -276,7 +276,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true });
+        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true, preview: false });
         const config: unknown = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
         expect(config).toEqual({
           mcpServers: {
@@ -299,7 +299,7 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true });
+        yield* handleRootPrune({ patterns: ["old-*"] }, { yes: true, preview: false });
         expect(fs.existsSync(selected)).toBe(false);
         expect(fs.existsSync(retained)).toBe(true);
       }),
@@ -313,9 +313,9 @@ describe("root.prune.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         rendererState.results.length = 0;
-        yield* handleRootPrune({ patterns: [] }, { yes: true });
+        yield* handleRootPrune({ patterns: [] }, { yes: true, preview: false });
         expectNoOpPlanResult(rendererState.results[0]?.data, {
           planName: "Prune AXM-owned state",
           message: "No stale or unmanaged state found.",

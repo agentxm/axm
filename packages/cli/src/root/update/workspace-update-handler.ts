@@ -14,10 +14,7 @@ import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/un
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -92,7 +89,7 @@ export const handleWorkspaceUpdate = (args: {
       return;
     }
 
-    const execution = yield* makePlanExecutionMode(
+    const execution = yield* makePlanExecution(
       args.flags,
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
         recoverySwitch("--refresh", args.flags.force === true),

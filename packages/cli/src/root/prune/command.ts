@@ -1,6 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { handleRootPrune } from "./handler.js";
@@ -15,33 +15,40 @@ const pruneConfig = {
     Flag.withDescription("Prune in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove artifacts without confirmation")),
+  preview: previewFlag,
 } as const;
 
-export const pruneCommand = Command.make("prune", pruneConfig, ({ patterns, scope, yes }) =>
-  handleRootPrune({ patterns }, { yes }).pipe(withWorkspace(scope), withRuntime("prune")),
+export const pruneCommand = Command.make(
+  "prune",
+  pruneConfig,
+  ({ patterns, scope, yes, preview }) =>
+    handleRootPrune({ patterns }, { yes, preview }).pipe(
+      withWorkspace(scope),
+      withRuntime("prune"),
+    ),
 ).pipe(
   withArgvTracking(pruneConfig),
   Command.withDescription("Clean up stale state whose AXM ownership can be proven"),
   Command.withExamples([
     {
       command: "axm prune",
-      description: "Preview stale AXM-owned artifacts and state that can be removed",
+      description: "Remove stale state whose AXM ownership can be proven",
     },
     {
-      command: "axm prune --yes",
-      description: "Remove all stale state whose AXM ownership can be proven",
+      command: "axm prune --preview",
+      description: "Preview stale AXM-owned artifacts without removing them",
     },
     {
       command: "axm prune effect-*",
-      description: "Preview stale AXM-owned state matching a glob pattern",
+      description: "Remove matching stale AXM-owned state",
     },
     {
       command: "axm prune --json",
-      description: "List prunable artifacts as JSON without removing",
+      description: "Remove prunable artifacts and report JSON",
     },
     {
-      command: "axm prune --yes --json",
-      description: "Remove artifacts and output what was removed as JSON",
+      command: "axm prune --preview --json",
+      description: "Preview prunable artifacts as JSON without removing",
     },
   ]),
 );

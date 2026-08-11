@@ -20,7 +20,7 @@ import {
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
@@ -222,10 +222,11 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
 
   // Warn rather than block: the workspace may still need a retired agent
   // configured, but the user should know the vendor has stopped maintaining it.
-  for (const agentId of agentIds) {
+  const lifecycleWarnings = agentIds.flatMap((agentId) => {
     const warning = lifecycleWarning(agentId);
-    if (warning !== undefined) yield* renderer.warn(warning);
-  }
+    return warning === undefined ? [] : [`${agentId}: ${warning}`];
+  });
+  for (const warning of lifecycleWarnings) yield* renderer.warn(warning);
 
   const materialize = yield* renderer.withSpinner(
     "Resolving installed extension materialization",
@@ -257,11 +258,31 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
         }),
       ),
   });
-  const plan = makePlan(agentIds, atomicSteps);
+  const basePlan = makePlan(agentIds, atomicSteps);
+  const plan: Plan =
+    lifecycleWarnings.length === 0
+      ? basePlan
+      : {
+          ...basePlan,
+          riskConditions: [
+            {
+              level: "override-required",
+              id: "retired-agent-lifecycle-warnings",
+              policy: "accept-warnings",
+              requiredFlag: "--accept-warnings",
+              detail: lifecycleWarnings.join("; "),
+            },
+          ],
+        };
 
   // Goes through the reconciling resolver rather than the local one: adding an
   // agent materializes installed extensions, which needs a readable lockfile.
-  const execution = yield* makePublicPositionalPlanExecutionMode(args, ["agents", "add"], agentIds);
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["agents", "add"],
+    agentIds,
+    args.force ? ["accept-warnings"] : [],
+  );
   const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions =
     resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];

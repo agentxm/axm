@@ -193,7 +193,10 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSkillsNew(defaultArgs("audit-skill"));
 
-          expect(logs.success).toEqual(["Created skill @acme/skills/audit-skill"]);
+          expect(logs.success).toEqual([
+            "  + @acme/skills/audit-skill",
+            "Created skill @acme/skills/audit-skill",
+          ]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New skill",

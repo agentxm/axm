@@ -11,7 +11,7 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
-import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 
@@ -70,7 +70,7 @@ export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSu
     }
 
     const actions = yield* InstallSubagentCommandWorkflowActions;
-    const execution = yield* makeInstallPlanExecutionMode(
+    const execution = yield* makeInstallPlanExecution(
       flags,
       ["subagents", "install"],
       [args.source.value],

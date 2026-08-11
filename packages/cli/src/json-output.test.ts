@@ -696,6 +696,34 @@ describe("toPlanResolutionResult", () => {
       ],
     });
   });
+
+  it("preserves candidate identity and policy failure reasons", () => {
+    expect(
+      toPlanResolutionResult({
+        _tag: "FailedPlan",
+        name: "Uninstall skill",
+        description: Option.none(),
+        candidateId: "candidate-123",
+        reason: "override-required",
+        errorCode: "usage",
+        riskConditions: [
+          {
+            level: "override-required",
+            id: "installed-dependent",
+            policy: "break-dependencies",
+            requiredFlag: "--break-dependencies",
+            detail: "An installed pack still requires the skill.",
+          },
+        ],
+        jobs: [{ concurrency: 1, steps: [] }],
+      }),
+    ).toMatchObject({
+      outcome: "failed",
+      reason: "override-required",
+      errorCode: "usage",
+      candidateId: "candidate-123",
+    });
+  });
 });
 
 describe("planResolutionToSummary", () => {

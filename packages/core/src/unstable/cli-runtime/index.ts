@@ -104,11 +104,13 @@ export {
   type OperationPlanStepArtifact,
 } from "./operation-plan.js";
 export {
+  applyPlanExecution,
   confirmationRecoverySuggestions,
-  confirmableApplyExecution,
+  namedPolicyRecoverySuggestions,
   credentialFreeLocatorRecoveryValue,
-  preconfirmedApplyExecution,
-  previewExecution,
+  preapprovedPlanExecution,
+  promptablePlanExecution,
+  previewPlanExecution,
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -119,5 +121,6 @@ export {
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
   type ConfirmationRecoveryValue,
-  type PlanExecutionMode,
+  type PlanExecution,
+  type PlanExecutionRequest,
 } from "./confirmation-recovery.js";

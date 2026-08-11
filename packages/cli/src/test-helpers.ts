@@ -169,7 +169,9 @@ export const expectAppliedPlanResult = (
   for (const [key, expectedValue] of Object.entries(expected)) {
     const actual = property(result, key);
     if (actual !== expectedValue) {
-      throw new Error(`Expected plan result ${key} to be ${String(expectedValue)}`);
+      throw new Error(
+        `Expected plan result ${key} to be ${String(expectedValue)}, received ${String(actual)}`,
+      );
     }
   }
 

@@ -19,6 +19,10 @@ export {
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
+  PlanExecutionReasonSchema,
+  PlanPolicyIdSchema,
+  PlanPolicyIds,
+  PlanRiskConditionSchema,
 } from "./plan.js";
 export type {
   ArtifactChange,
@@ -28,6 +32,7 @@ export type {
   ErrorJobStep,
   ExecutedJob,
   ExecutedPlan,
+  FailedPlan,
   Job,
   JobStepArtifact,
   JobStepArtifactTarget,
@@ -35,7 +40,10 @@ export type {
   Operation,
   OperationPrecondition,
   Plan,
+  PlanExecutionReason,
+  PlanPolicyId,
   PlanResolution,
+  PlanRiskCondition,
   PlanSection,
   PlannedJobStep,
   PreviewedPlan,
@@ -51,3 +59,8 @@ export { applyPlan, type OperationHandler } from "./apply-plan.js";
 // lint-fix resolver (`resolvePlan`, used by `axm lint --fix` to wrap
 // `PlannedJobStep[]` into a single-job `Plan` without reconciliation).
 export { previewOrApplyPlan, resolvePlan, type ResolvePlanArgs } from "./resolve-plan.js";
+export {
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
+  type ExecutionCandidate,
+} from "./execution-candidate.js";

@@ -97,6 +97,19 @@ axm sync
 AXM stores env and header secrets as `${VAR}` references in `.axm/settings.json`
 and syncs the configured MCP servers into each configured agent.
 
+### Mutation consent
+
+An explicit, eligible mutation applies without a redundant confirmation prompt.
+Use `--preview` to inspect the exact candidate without writing, including in
+combination with `--yes`. AXM prompts only for a confirmable semantic risk;
+`--yes` preapproves that risk for the current invocation.
+
+Named policy overrides remain independent. `--yes` never substitutes for
+`--break-dependencies`, `--ignore-version-constraints`, `--replace-existing`,
+`--accept-warnings`, or `--allow-empty`. In non-interactive and JSON contexts,
+AXM never opens a prompt: it either applies an eligible candidate or returns a
+structured reason and a safe recovery action.
+
 ## Where to go next
 
 **Use `axm help` to see a list of topics and select the one relevant to your task.**

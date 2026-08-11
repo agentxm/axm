@@ -38,7 +38,7 @@ import {
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 
 const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(function* (
   ref: WorkspaceMcpServerRef,
@@ -165,7 +165,7 @@ export const handleAdopt = Effect.fn("Adopt.handle")(function* (args: {
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const execution = yield* makePublicPositionalPlanExecutionMode(args, ["adopt"], [args.fqn]);
+  const execution = yield* makePublicPositionalPlanExecution(args, ["adopt"], [args.fqn]);
   const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitPlanResolutionResult("adopt", resolution);
 });

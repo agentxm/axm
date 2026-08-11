@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-10
-version: 0.2.0
+last-reviewed: 2026-08-11
+version: 0.3.0
 description: How the extension type table drives every per-type surface, what the
   parity obligations and exemption ledger enforce, and the checklist for adding a
   new extension type. Read before adding an extension type, adding a per-type
@@ -64,8 +64,10 @@ Derive from the axes, not from name literals. Root help groups its commands by
 lands in the right group without anyone editing the group.
 
 The lifecycle contract follows the same rule. It derives required mutations,
-scope behavior, update selection, confirmation behavior, preview support, and
-transactional postconditions from the table's axes. The generated E2E matrix
+scope behavior, update selection, mutation-consent behavior, preview support,
+and transactional postconditions from the table's axes. Eligible explicit
+mutations apply without redundant confirmation; confirmable risk, named
+overrides, and blockers remain distinct for every type. The generated E2E matrix
 copies that contract into the distribution-test project without adding a core
 dependency or a second hand-maintained type list.
 
@@ -79,11 +81,11 @@ change to every reference.
 
 Each obligation names the tier that can observe it:
 
-| Tier        | Suite                                                                                                                                                                                | Sees                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `core-test` | [`parity.test.ts`](../../packages/core/src/unstable/extension-types/parity/parity.test.ts), [`transaction.test.ts`](../../packages/core/src/unstable/workspace/transaction.test.ts)  | Schemas, lock/settings contracts, transaction rollback                                  |
-| `cli-test`  | [`parity-cli.test.ts`](../../packages/cli/src/parity-cli.test.ts)                                                                                                                    | Executable command tree, lifecycle flags, help topics, renderer entities                |
-| `e2e`       | [`root-install.e2e.test.ts`](../../packages/cli-e2e/src/root-install.e2e.test.ts), [`activation-lifecycle.e2e.test.ts`](../../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) | Publish/install, update/activation/uninstall, preview purity, idempotency, scope, packs |
+| Tier        | Suite                                                                                                                                                                                | Sees                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `core-test` | [`parity.test.ts`](../../packages/core/src/unstable/extension-types/parity/parity.test.ts), [`transaction.test.ts`](../../packages/core/src/unstable/workspace/transaction.test.ts)  | Schemas, lock/settings contracts, transaction rollback                                                  |
+| `cli-test`  | [`parity-cli.test.ts`](../../packages/cli/src/parity-cli.test.ts)                                                                                                                    | Executable command tree, lifecycle flags, help topics, renderer entities                                |
+| `e2e`       | [`root-install.e2e.test.ts`](../../packages/cli-e2e/src/root-install.e2e.test.ts), [`activation-lifecycle.e2e.test.ts`](../../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) | Publish/install, update/activation/uninstall, consent policy, preview purity, idempotency, scope, packs |
 
 Every suite iterates the types from the catalog and compares what it observed
 against the ledger, filtered to its own tier, with exact equality. That

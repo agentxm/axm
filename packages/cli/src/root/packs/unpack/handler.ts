@@ -23,7 +23,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../../json-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 export interface UnpackHandlerArgs {
@@ -260,7 +260,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     ],
   } satisfies Plan;
 
-  const execution = yield* makePublicPositionalPlanExecutionMode(
+  const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["packs", "unpack"],
     [args.name],

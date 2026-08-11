@@ -173,6 +173,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   };
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
   });
   const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;

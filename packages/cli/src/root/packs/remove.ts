@@ -28,12 +28,17 @@ import {
   Verbosity,
   yesFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 
 export interface PacksRemoveHandlerArgs {
   readonly pack: string;
@@ -210,11 +215,33 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     name: "Remove from pack",
     description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
+    ...(allNames.length === matchedNames.length
+      ? {
+          riskConditions: [
+            {
+              level: "override-required" as const,
+              id: "empty-pack-dependencies",
+              policy: "allow-empty" as const,
+              requiredFlag: "--allow-empty",
+              detail: `Removing ${matchedNames.join(", ")} leaves the pack empty.`,
+            },
+          ],
+        }
+      : {}),
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
+    acceptedPolicies: args.force ? ["allow-empty"] : [],
+    recovery: makeConfirmationRecovery(
+      ["packs", "remove"],
+      [
+        recoveryPositional(publicRecoveryValue(args.pack)),
+        recoveryPositional(publicRecoveryValue(args.extension)),
+      ],
+    ),
   });
   const suggestions = [
     { description: "Inspect installed packs", cmd: "axm packs list" },

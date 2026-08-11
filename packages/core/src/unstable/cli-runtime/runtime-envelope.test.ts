@@ -122,6 +122,28 @@ describe("exitCodeForSemanticProperties", () => {
     expect(exitCodeForSemanticProperties({ "cli.blocked_count": 1 })).toBe(ExitCode.Issues);
   });
 
+  it("maps plan execution reasons to stable process exits", () => {
+    expect(exitCodeForSemanticProperties({ "cli.reason": "approval-required" })).toBe(
+      ExitCode.Usage,
+    );
+    expect(exitCodeForSemanticProperties({ "cli.reason": "override-required" })).toBe(
+      ExitCode.Usage,
+    );
+    expect(exitCodeForSemanticProperties({ "cli.reason": "stale-candidate" })).toBe(
+      ExitCode.Conflict,
+    );
+    expect(exitCodeForSemanticProperties({ "cli.reason": "interrupted" })).toBe(130);
+    expect(exitCodeForSemanticProperties({ "cli.reason": "execution-failed" })).toBe(
+      ExitCode.Issues,
+    );
+    expect(
+      exitCodeForSemanticProperties({
+        "cli.reason": "hard-blocked",
+        "cli.error_code": "auth_required",
+      }),
+    ).toBe(ExitCode.AuthRequired);
+  });
+
   it("returns undefined for successful or missing plan counts", () => {
     expect(
       exitCodeForSemanticProperties({

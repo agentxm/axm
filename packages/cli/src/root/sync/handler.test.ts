@@ -499,17 +499,26 @@ describe("root sync handler", () => {
         },
       });
 
-      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      yield* provide(handleSync({ preview: false }));
 
-      expect(error.detail).toContain("axm mcps repair demo --preview");
-      expect(rendererState.results).toEqual([]);
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "failed",
+          reason: "hard-blocked",
+          steps: [
+            expect.objectContaining({
+              message: expect.stringContaining("axm mcps repair demo --preview"),
+            }),
+          ],
+        },
+      });
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"python"');
     }),
   );
 
   it.effect("blocks every phase when instruction preflight finds an unowned target", () =>
     Effect.gen(function* () {
-      const { provide } = makeLayers({ machine: true });
+      const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         skills: { release: "workspace:@acme/skills/release" },
@@ -525,9 +534,16 @@ describe("root sync handler", () => {
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
       fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human-owned\n");
 
-      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      yield* provide(handleSync({ preview: false }));
 
-      expect(error.detail).toContain("Instruction reconciliation would overwrite");
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(result).toMatchObject({ outcome: "failed", reason: "hard-blocked" });
+      expect(planResultSteps(result)).toContainEqual(
+        expect.objectContaining({
+          message: expect.stringContaining("Instruction reconciliation would overwrite"),
+        }),
+      );
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
       expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("# Human-owned\n");
     }),
@@ -567,7 +583,8 @@ describe("root sync handler", () => {
       const result = expectRecord(property(payload, "result"));
       expect(property(result, "outcome")).toBe("failed");
       expect(property(result, "failedCount")).toBe(1);
-      expect(property(result, "blockedCount")).toBe(2);
+      expect(property(result, "blockedCount")).toBe(0);
+      expect(property(result, "unappliedCount")).toBe(2);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(true);
       expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);

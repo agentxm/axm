@@ -57,6 +57,7 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallRuleCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
@@ -68,7 +69,7 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
             steps: intent.targets.map((target) =>
               buildUninstallOperation<RuleExtensionRef>(
                 ruleManager,
-                makeWorkspaceRetentionPolicy(ws),
+                makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true),
                 { target },
               ),
             ),

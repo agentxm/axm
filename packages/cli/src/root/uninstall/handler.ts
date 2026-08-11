@@ -41,7 +41,7 @@ import {
 } from "../subagents/uninstall/command-actions.js";
 import { summarizeExecutedOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { makeUninstallPlanExecutionMode } from "../shared/confirmation-recovery.js";
+import { makeUninstallPlanExecution } from "../shared/confirmation-recovery.js";
 import {
   resolveRootUninstallIntent,
   type RootUninstallableType,
@@ -103,7 +103,7 @@ const uninstallNoOpMessage = (
 
 const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
   Effect.gen(function* () {
-    const execution = yield* makeUninstallPlanExecutionMode(args, ["uninstall"], [args.source]);
+    const execution = yield* makeUninstallPlanExecution(args, ["uninstall"], [args.source]);
     const intent = yield* resolveRootUninstallIntent(args.source);
 
     const resolution = yield* Effect.gen(function* () {
@@ -111,37 +111,58 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
         case "skill": {
           const actions = yield* UninstallSkillCommandWorkflowActions;
           const uninstallArgs: UninstallHandlerArgs = { skill: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "mcp-server": {
           const actions = yield* UninstallMcpServerCommandWorkflowActions;
           const uninstallArgs: UninstallMcpServerHandlerArgs = { serverName: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "rule": {
           const actions = yield* UninstallRuleCommandWorkflowActions;
           const uninstallArgs: UninstallRuleHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "hook": {
           const actions = yield* UninstallHookCommandWorkflowActions;
           const uninstallArgs: UninstallHookHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "knowledge": {
           const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
           const uninstallArgs: UninstallKnowledgeHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "subagent": {
           const actions = yield* UninstallSubagentCommandWorkflowActions;
           const uninstallArgs: UninstallSubagentHandlerArgs = { subagent: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
         case "pack": {
           const actions = yield* UninstallPackCommandWorkflowActions;
           const uninstallArgs: UninstallPackHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, { execution });
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
+            execution,
+            breakDependencies: args.force,
+          });
         }
       }
     });

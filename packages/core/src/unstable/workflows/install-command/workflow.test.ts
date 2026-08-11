@@ -13,8 +13,8 @@ import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
-  confirmableApplyExecution,
-  preconfirmedApplyExecution,
+  promptablePlanExecution,
+  preapprovedPlanExecution,
   type ConfirmationRecovery,
 } from "../../cli-runtime/confirmation-recovery.js";
 import { makeAppError } from "../../app-error/index.js";
@@ -96,7 +96,7 @@ describe("runInstallCommandWorkflow", () => {
 
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "review" }, actions, {
-        execution: preconfirmedApplyExecution,
+        execution: preapprovedPlanExecution,
       });
 
       expect(context.rendererState.spinnerMessages).toContain("Resolving extension sources");
@@ -151,7 +151,7 @@ describe("runInstallCommandWorkflow", () => {
         };
 
         yield* runInstallCommandWorkflow({ name: "test-skill" }, actions, {
-          execution: confirmableApplyExecution(testRecovery),
+          execution: promptablePlanExecution(testRecovery),
         });
 
         expect(callOrder).toEqual([
@@ -188,7 +188,7 @@ describe("runInstallCommandWorkflow", () => {
 
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        execution: confirmableApplyExecution(testRecovery),
+        execution: promptablePlanExecution(testRecovery),
       });
       // previewOrApplyPlan is now a free function; buildPlan output flows through automatically
       expect(testPlan.name).toBe("captured-plan");
@@ -241,7 +241,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        execution: preconfirmedApplyExecution,
+        execution: preapprovedPlanExecution,
       });
 
       expect(stepRan).toBe(true);
@@ -296,7 +296,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "my-skill" }, actions, {
-        execution: confirmableApplyExecution(testRecovery),
+        execution: promptablePlanExecution(testRecovery),
       });
 
       expect(capturedParsed).toEqual({ parsedName: "my-skill" });
@@ -330,7 +330,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        execution: confirmableApplyExecution(testRecovery),
+        execution: promptablePlanExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -353,7 +353,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        execution: confirmableApplyExecution(testRecovery),
+        execution: promptablePlanExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -395,7 +395,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        execution: confirmableApplyExecution(testRecovery),
+        execution: promptablePlanExecution(testRecovery),
       }).pipe(Effect.exit);
 
       expect(callOrder).toEqual(["resolveSourceRequests"]);

@@ -218,6 +218,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
+    yes: args.yes,
     displayApplied: false,
   });
 

@@ -232,7 +232,10 @@ describe("mcps import output", () => {
       Effect.gen(function* () {
         yield* handleMcpsImport({ yes: true, preview: false });
 
-        expect(logs.success).toEqual(["Imported 1 MCP server (0 skipped, 0 conflicts)"]);
+        expect(logs.success).toEqual([
+          "  + Import 1 MCP server (Candidates: demo)",
+          "Imported 1 MCP server (0 skipped, 0 conflicts)",
+        ]);
         expect(rendererState.summaries).toEqual([
           "demo   created   3 files   .axm (config/lockfile) (updated), .mcp.json (updated)",
         ]);
@@ -334,10 +337,9 @@ describe("mcps import output", () => {
     );
   });
 
-  it.effect("cancels without mutation when confirmation is declined", () => {
+  it.effect("applies an eligible explicit import without redundant confirmation", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     writeMcpConfig();
-    const originalConfig = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
     const { provide, promptState, rendererState } = makeLayers({
       machine: true,
       prompt: { confirmResponses: [false] },
@@ -347,11 +349,17 @@ describe("mcps import output", () => {
       Effect.gen(function* () {
         yield* handleMcpsImport({ yes: false, preview: false });
 
-        expect(promptState.confirmCalls).toEqual([{ kind: "resolve-plan" }]);
+        expect(promptState.confirmCalls).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
-          result: { outcome: "cancelled", importedCount: 0 },
+          result: { outcome: "applied", importedCount: 1 },
         });
-        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
+        const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+        expect(config.mcpServers.demo).toEqual({
+          command: "node",
+          args: ["server.js"],
+          env: { DEMO_TOKEN: "secret-value" },
+          "x-axm": { managed: true, source: "inline" },
+        });
       }),
     );
   });

@@ -74,9 +74,8 @@ import {
 } from "@agentxm/client-core/unstable/lint";
 import type { LintConfig } from "@agentxm/client-core/unstable/lint";
 import {
-  applyPlan,
+  previewOrApplyPlan,
   resolvePlan,
-  type ExecutedPlan,
   type Operation,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
@@ -106,6 +105,7 @@ import type { Settings } from "@agentxm/client-core/unstable/settings";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
 import { PlanResolutionResultSchema, toPlanResolutionResult } from "../../json-output.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { makeWorkspaceRetentionPolicyEffect as makeRetentionPolicy } from "../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -974,25 +974,7 @@ const adaptIntent = (
 const applyFixes = (args: {
   readonly operations: ReadonlyArray<Operation<string, unknown>>;
   readonly workspaceRoot: string;
-}): Effect.Effect<
-  { readonly summary: FixSummary; readonly executed: ExecutedPlan },
-  AppError,
-  | WorkspaceMutations
-  | SourceHostProviders
-  | CodingAgentRepository
-  | SkillManager
-  | PackManager
-  | McpServerManager
-  | SubagentManager
-  | RuleManager
-  | HookManager
-  | KnowledgeManager
-  | CodingAgentRepository
-  | FileSystem.FileSystem
-  | Path.Path
-  | Scope.Scope
-  | CliRenderer
-> =>
+}) =>
   Effect.gen(function* () {
     const adapterResults = yield* Effect.forEach(
       args.operations,
@@ -1012,32 +994,23 @@ const applyFixes = (args: {
       }
     }
 
-    if (steps.length === 0) {
-      return {
-        summary: {
-          attempted: args.operations.length,
-          applied: 0,
-          failed: 0,
-          warnings: unmappedWarnings,
-        },
-        executed: {
-          _tag: "ExecutedPlan" as const,
-          name: "Lint autofix",
-          description: Option.none(),
-          jobs: [],
-        },
-      };
-    }
-
     const plan = resolvePlan({
       name: "Lint autofix",
       description: "Apply autofixable findings from `axm lint --fix`",
       steps,
     });
-    const executed = yield* applyPlan(plan);
-    const allSteps = executed.jobs.flatMap((job) => job.steps);
+    const execution = yield* makePlanExecution(
+      { yes: false, preview: false },
+      makeConfirmationRecovery(["lint"], [{ _tag: "Switch", flag: "--fix", enabled: true }]),
+    );
+    const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+    const allSteps =
+      resolution._tag === "ExecutedPlan" ? resolution.jobs.flatMap((job) => job.steps) : [];
     const applied = allSteps.filter((s) => s.result.result === "success").length;
-    const failed = allSteps.filter((s) => s.result.result === "error").length;
+    const executionFailureCount =
+      resolution._tag === "FailedPlan" ? (resolution.executionSteps?.length ?? 1) : 0;
+    const failed =
+      allSteps.filter((s) => s.result.result === "error").length + executionFailureCount;
     const warnings: Array<string> = [...unmappedWarnings];
     for (const step of allSteps) {
       if (step.result.result === "error") {
@@ -1051,7 +1024,7 @@ const applyFixes = (args: {
         failed,
         warnings,
       },
-      executed,
+      resolution,
     };
   });
 
@@ -1624,9 +1597,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
         operations.push(op);
       }
     }
-    const { summary: fixResult, executed } = yield* applyFixes({ operations, workspaceRoot });
+    const { summary: fixResult, resolution } = yield* applyFixes({ operations, workspaceRoot });
     fixSummary = Option.some(fixResult);
-    fixResolution = Option.some(toPlanResolutionResult(executed));
+    fixResolution = Option.some(toPlanResolutionResult(resolution));
   }
 
   // -- Resolve the semantic outcome before emitting the machine document so

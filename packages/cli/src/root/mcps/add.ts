@@ -364,7 +364,11 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
     syncStep(ws, fs, path, args.name),
   ]);
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    yes: args.yes,
+    acceptedPolicies: args.force ? ["accept-warnings"] : [],
+  });
   yield* emitPlanResolutionResult("mcps.add", resolution);
 });
 

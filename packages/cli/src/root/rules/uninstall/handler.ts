@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import { makeUninstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   UninstallRuleCommandWorkflowActions,
@@ -19,13 +19,10 @@ export const handleUninstallRule = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallRuleCommandWorkflowActions;
-    const execution = yield* makeUninstallPlanExecutionMode(
-      flags,
-      ["rules", "uninstall"],
-      [args.name],
-    );
+    const execution = yield* makeUninstallPlanExecution(flags, ["rules", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
+      breakDependencies: flags.force,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

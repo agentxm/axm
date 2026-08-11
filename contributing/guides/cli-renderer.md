@@ -99,6 +99,14 @@ These are release gates for publishing a structured stdout contract, not for
 parsing `--json` itself. Commands that do not yet publish a result may still run
 in machine mode and emit diagnostics on stderr only.
 
+Plan results keep lifecycle outcome and cause separate. Failed plan documents
+use `reason` values `approval-required`, `override-required`,
+`stale-candidate`, `hard-blocked`, `interrupted`, or `execution-failed`, and may
+include the displayed `candidateId`. Local rollback output distinguishes
+`rolled-back`, `failed`, and `unapplied` steps. JSON is prompt-ineligible even
+on a TTY and must retain the one-document stdout contract; signal diagnostics
+remain newline-delimited JSON on stderr.
+
 ---
 
 ## Schema Source Of Truth

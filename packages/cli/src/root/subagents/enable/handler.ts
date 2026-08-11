@@ -11,7 +11,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { EnableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
 import { enableSubagent } from "@agentxm/client-core/unstable/subagents";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
-import { makePublicPositionalPlanExecutionMode } from "../../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 
 export interface EnableSubagentHandlerArgs {
@@ -87,7 +87,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const execution = yield* makePublicPositionalPlanExecutionMode(
+  const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["subagents", "enable"],
     [subagentName],

@@ -50,10 +50,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { resolveSkillInstallSource } from "./install/resolve-skill-install-source.js";
 
 export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
@@ -229,7 +226,7 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
     description: Option.some(`Copy ${args.source} into ${fqn}`),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["skills", "copy"],

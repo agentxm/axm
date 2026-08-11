@@ -9,17 +9,17 @@ import {
   verboseFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
 import {
-  confirmableApplyExecution,
+  applyPlanExecution,
   credentialFreeLocatorRecoveryValue,
-  preconfirmedApplyExecution,
-  previewExecution,
+  previewPlanExecution,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
-  type PlanExecutionMode,
+  type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
+import type { PlanPolicyId } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 export const makeConfirmationRecovery = (
@@ -56,40 +56,46 @@ const explicitGlobalArguments = Effect.gen(function* () {
   ];
 });
 
-export const makePlanExecutionMode = (
+export const makePlanExecution = (
   flags: { readonly yes: boolean; readonly preview: boolean },
   recovery: ConfirmationRecovery,
-): Effect.Effect<PlanExecutionMode> => {
-  if (flags.preview) return Effect.succeed(previewExecution);
-  if (flags.yes) return Effect.succeed(preconfirmedApplyExecution);
+  acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
+): Effect.Effect<PlanExecution> => {
+  if (flags.preview) return Effect.succeed(previewPlanExecution);
   return Effect.map(explicitGlobalArguments, (globalArguments) =>
-    confirmableApplyExecution({
-      ...recovery,
-      arguments: [...recovery.arguments, ...globalArguments],
+    applyPlanExecution({
+      approval: flags.yes ? "preapproved" : "prompt-if-interactive",
+      acceptedPolicies: new Set(acceptedPolicies),
+      recovery: {
+        ...recovery,
+        arguments: [...recovery.arguments, ...globalArguments],
+      },
     }),
   );
 };
 
-export const makePublicPositionalPlanExecutionMode = (
+export const makePublicPositionalPlanExecution = (
   flags: { readonly yes: boolean; readonly preview: boolean },
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
-): Effect.Effect<PlanExecutionMode> =>
-  makePlanExecutionMode(
+  acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
+): Effect.Effect<PlanExecution> =>
+  makePlanExecution(
     flags,
     makeConfirmationRecovery(
       command,
       positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ),
+    acceptedPolicies,
   );
 
-export const makeInstallPlanExecutionMode = (
+export const makeInstallPlanExecution = (
   flags: { readonly yes: boolean; readonly preview: boolean; readonly force?: boolean },
   command: ReadonlyArray<string>,
   locators: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
-): Effect.Effect<PlanExecutionMode> =>
-  makePlanExecutionMode(
+): Effect.Effect<PlanExecution> =>
+  makePlanExecution(
     flags,
     makeConfirmationRecovery(command, [
       recoverySwitch("--reinstall", flags.force === true),
@@ -98,15 +104,16 @@ export const makeInstallPlanExecutionMode = (
     ]),
   );
 
-export const makeUninstallPlanExecutionMode = (
+export const makeUninstallPlanExecution = (
   flags: { readonly yes: boolean; readonly preview: boolean; readonly force?: boolean },
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
-): Effect.Effect<PlanExecutionMode> =>
-  makePlanExecutionMode(
+): Effect.Effect<PlanExecution> =>
+  makePlanExecution(
     flags,
     makeConfirmationRecovery(command, [
       recoverySwitch("--break-dependencies", flags.force === true),
       ...positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ]),
+    flags.force === true ? ["break-dependencies"] : [],
   );

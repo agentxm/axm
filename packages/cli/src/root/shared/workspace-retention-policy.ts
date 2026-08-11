@@ -8,8 +8,10 @@ import {
 
 export const makeWorkspaceRetentionPolicy = (
   ws: WorkspaceMutationsService,
+  breakDependencies = false,
 ): UninstallRetentionPolicy => ({
-  isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
+  isRequiredByInstalledPack: (args) =>
+    breakDependencies ? Effect.succeed(false) : ws.isExtensionRequiredByInstalledPack(args.target),
 });
 
 export const makeWorkspaceRetentionPolicyEffect = (): Effect.Effect<

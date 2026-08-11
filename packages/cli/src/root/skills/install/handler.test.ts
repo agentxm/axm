@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { preconfirmedApplyExecution } from "@agentxm/client-core/unstable/cli-runtime";
+import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -531,13 +531,14 @@ describe("skills install handler — error propagation", () => {
             },
           ],
         };
-        const error = yield* previewOrApplyPlan(plan, {
-          execution: preconfirmedApplyExecution,
-        }).pipe(Effect.flip);
+        const resolution = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        });
         expect(logs.warn).toEqual([]);
-        expect(error).toMatchObject({
-          code: "conflict",
-          detail: "Plan has errors that prevent execution",
+        expect(resolution).toMatchObject({
+          _tag: "FailedPlan",
+          reason: "hard-blocked",
+          errorCode: "conflict",
         });
       }),
     );

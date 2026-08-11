@@ -256,7 +256,10 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         return { packsToUninstall: [...targets.values()] };
       });
 
-    const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
+    const buildUninstallPlan = (
+      intent: UninstallPackCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
+    ) =>
       Effect.gen(function* () {
         if (intent.packsToUninstall.length === 0) {
           return {
@@ -267,7 +270,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           } satisfies Plan;
         }
 
-        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true);
         const exclusiveMemberPolicy = {
           isRequiredByInstalledPack: () => Effect.succeed(false),
         };

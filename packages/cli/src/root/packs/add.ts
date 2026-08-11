@@ -50,10 +50,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources"
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 export interface PacksAddHandlerArgs {
   readonly pack: string;
@@ -315,12 +312,12 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   // Step 4: Compute manifest delta (additions)
   const currentDependencies = manifest.dependencies;
   const additions: Record<string, string> = {};
+  const replacements: Array<string> = [];
 
   for (const candidate of matched) {
-    // Already in the pack — adding again would be a no-op rewrite.
-    if (candidate.fqn in currentDependencies) {
-      continue;
-    }
+    const existing = currentDependencies[candidate.fqn];
+    if (existing === candidate.versionRange) continue;
+    if (existing !== undefined) replacements.push(candidate.fqn);
     additions[candidate.fqn] = candidate.versionRange;
   }
 
@@ -367,9 +364,22 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       `Add ${count(Object.keys(additions).length, "extension")} to ${args.pack}`,
     ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
+    ...(replacements.length === 0
+      ? {}
+      : {
+          riskConditions: [
+            {
+              level: "override-required" as const,
+              id: "replace-existing-pack-dependencies",
+              policy: "replace-existing" as const,
+              requiredFlag: "--replace-existing",
+              detail: `Replace existing constraints for ${replacements.join(", ")}.`,
+            },
+          ],
+        }),
   };
 
-  const execution = yield* makePlanExecutionMode(
+  const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
       ["packs", "add"],
@@ -379,6 +389,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         recoveryPositional(publicRecoveryValue(args.extension)),
       ],
     ),
+    args.force ? ["replace-existing"] : [],
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions = [

@@ -499,7 +499,7 @@ Their meanings are fixed across all commands:
 
 | Flag                           | Behavior                                                       |
 | ------------------------------ | -------------------------------------------------------------- |
-| `--yes` / `-y`                 | Skips confirmation prompts only                                |
+| `--yes` / `-y`                 | Preapproves confirmable semantic risk only                     |
 | `--preview`                    | Displays the plan without applying it                          |
 | `--reinstall`                  | Re-materializes content that is already installed              |
 | `--refresh`                    | Runs an update even when the installed version is current      |
@@ -509,8 +509,20 @@ Their meanings are fixed across all commands:
 | `--replace-existing`           | Replaces an existing extension declaration in a pack           |
 | `--allow-empty`                | Removes the last extension declaration from a pack             |
 
-`--yes` answers "are you sure?" and does not weaken validation or dependency
-checks. Safety overrides remain independent of confirmation.
+An explicit plan-bearing mutation already expresses ordinary consent. Resolve
+and display its exact candidate, then apply without a redundant prompt when it
+has no blockers, missing named overrides, or confirmable surprises.
+
+`--preview`, including `--preview --yes`, displays the candidate and never
+writes. `--yes` preapproves only aggregated `confirmable` risk; it does not
+accept named policies, bypass blockers, or weaken validation. Missing named
+policies return flag-specific recovery. JSON and non-interactive execution
+never prompt.
+
+Every plan-bearing command must use `previewOrApplyPlan`; direct `applyPlan`
+calls in command handlers are prohibited. The maintained conformance and
+exception audit lives in
+`packages/cli/src/root/shared/mutation-execution-inventory.ts`.
 
 Machine-output rules for `--json` live in
 [CLI Renderer Guide](./cli-renderer.md).
@@ -525,6 +537,8 @@ Machine-output rules for `--json` live in
       the behavior
 - [ ] **Blocker/warning split** — Blockers produce errors; non-blockers produce
       warnings
+- [ ] **Shared mutation policy** — Plan-bearing writes cross the shared
+      candidate, risk, freshness, and result boundary
 
 ---
 
@@ -599,8 +613,8 @@ Use prompts to resolve missing choices, not to hide essential command behavior.
 - [ ] **Non-interactive safe** — No prompt blocks in non-interactive mode
 - [ ] **Flag fallback** — Every required prompt has a flag or non-interactive
       path
-- [ ] **--yes scope** — `--yes` only answers confirmation prompts, not input
-      prompts
+- [ ] **--yes scope** — `--yes` preapproves confirmable plan risk only, not
+      input prompts, named overrides, or blockers
 - [ ] **Clear failure** — Missing required input in non-interactive mode
       produces a clear error message
 

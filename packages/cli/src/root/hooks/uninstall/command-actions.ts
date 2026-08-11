@@ -131,6 +131,7 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallHookCommandIntent,
+      flags: { readonly breakDependencies?: boolean },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
@@ -143,7 +144,7 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
               withHookUninstallArtifact({
                 step: buildUninstallOperation<HookExtensionRef>(
                   hookManager,
-                  makeWorkspaceRetentionPolicy(ws),
+                  makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true),
                   { target },
                 ),
                 scope: ws.scope,

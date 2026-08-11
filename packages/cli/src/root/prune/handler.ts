@@ -10,8 +10,8 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  preconfirmedApplyExecution,
-  previewExecution,
+  preapprovedPlanExecution,
+  previewPlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   hasAxmManagedMarker,
@@ -31,6 +31,7 @@ export interface RootPruneHandlerArgs {
 
 export interface RootPruneHandlerFlags {
   readonly yes: boolean;
+  readonly preview: boolean;
 }
 
 type Ownership =
@@ -348,7 +349,7 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
   }
 
   const resolution = yield* previewOrApplyPlan(makeRootPrunePlan(candidates, ws.scope), {
-    execution: flags.yes ? preconfirmedApplyExecution : previewExecution,
+    execution: flags.preview ? previewPlanExecution : preapprovedPlanExecution,
     displayApplied: false,
   });
   yield* emitAppliedPlanOutcome({

@@ -8,7 +8,7 @@ import * as Queue from "effect/Queue";
 import { Prompt } from "effect/unstable/cli";
 import * as Terminal from "effect/Terminal";
 import * as Option from "effect/Option";
-import { nonInteractiveFlag } from "../../cli-flags/index.js";
+import { jsonFlag, nonInteractiveFlag } from "../../cli-flags/index.js";
 import { requireInteractive } from "./helpers.js";
 
 const makeHarness = Effect.gen(function* () {
@@ -95,6 +95,26 @@ describe("requireInteractive", () => {
           cmd: "axm install @acme/skills/review --yes",
         },
       ]);
+    }),
+  );
+
+  it.effect("never runs a prompt in JSON mode, even on an interactive terminal", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      const error = yield* requireInteractive(Prompt.succeed("from-prompt"), {
+        message: "Apply changes?",
+      }).pipe(
+        Effect.flip,
+        Effect.provide(
+          Layer.mergeAll(
+            harness.layer,
+            Layer.succeed(nonInteractiveFlag, Option.some(false)),
+            Layer.succeed(jsonFlag, Option.some(true)),
+          ),
+        ),
+      );
+
+      expect(error).toMatchObject({ _tag: "AppError", code: "usage" });
     }),
   );
 

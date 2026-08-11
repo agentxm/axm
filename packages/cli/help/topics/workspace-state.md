@@ -32,6 +32,18 @@ inline MCP entries are never overwritten by sync; review their exact targets
 with `axm mcps repair <name> --preview` and apply that targeted recovery
 explicitly.
 
+Every plan-bearing mutation constructs one execution candidate before any
+write. Preview, human display, JSON output, approval, and apply refer to that
+same candidate ID. AXM fingerprints relevant desired, trust, receipt, manifest,
+and source material and fails with `stale-candidate` before the first effect if
+those inputs change.
+
+Local plans execute inside one candidate-wide workspace transaction. A failed
+step, failed postcondition, or SIGINT restores every protected local target;
+publish is non-rollbackable and instead reports the exact completed, failed,
+and unattempted remote work. `--preview`, including `--preview --yes`, never
+writes. JSON and non-interactive invocations never open a prompt.
+
 A Registry publisher-epoch change is never crossed unattended. Local and
 `workspace:` content is not treated as remotely recoverable. Inline MCP servers
 are observed through settings and managed native configuration without a fake

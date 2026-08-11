@@ -6,7 +6,7 @@ import {
   recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-  type PlanExecutionMode,
+  type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
@@ -41,10 +41,7 @@ import {
 } from "./resolve-root-install-intent.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
-import {
-  makeConfirmationRecovery,
-  makePlanExecutionMode,
-} from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -62,7 +59,7 @@ type RegistryExtensionRootInstallIntent = RootInstallIntent & {
 
 const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,
-  execution: PlanExecutionMode,
+  execution: PlanExecution,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
@@ -130,7 +127,7 @@ const runLocatorWorkflow = <A, E, R>(type: RootInstallableType, effect: Effect.E
     ),
   );
 
-const runLocatorInstallIntent = (source: string, execution: PlanExecutionMode) =>
+const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
   Effect.gen(function* () {
     const skillActions = yield* InstallSkillCommandWorkflowActions;
     const ruleActions = yield* InstallRuleCommandWorkflowActions;
@@ -205,7 +202,7 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
       }),
     onSome: (source) =>
       Effect.gen(function* () {
-        const execution = yield* makePlanExecutionMode(
+        const execution = yield* makePlanExecution(
           args,
           makeConfirmationRecovery(
             ["install"],

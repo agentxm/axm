@@ -199,6 +199,7 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
       name: plan.name,
       description: plan.description,
       ...(plan.preconditions === undefined ? {} : { preconditions: plan.preconditions }),
+      ...(plan.riskConditions === undefined ? {} : { riskConditions: plan.riskConditions }),
       jobs: Array.map(jobResults, (steps, i) => ({
         concurrency: plan.jobs[i]?.concurrency ?? 1,
         ...(plan.jobs[i]?.executionPolicy === undefined

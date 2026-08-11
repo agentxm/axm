@@ -406,7 +406,7 @@ describe("agents add.handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "error",
-          message: "Failed to configure 1 agent",
+          message: "Plan execution failed",
         });
         expect(rendererState.logs).not.toContainEqual({
           _tag: "success",
@@ -469,9 +469,9 @@ describe("agents add.handler", () => {
           totalSteps: 2,
           appliedCount: 0,
           failedCount: 1,
-          blockedCount: 1,
+          blockedCount: 0,
           steps: [
-            { label: "Add cursor", status: "blocked" },
+            { label: "Add cursor", status: "failed" },
             {
               label: expect.stringContaining("review"),
               status: "failed",
@@ -514,8 +514,8 @@ describe("agents add.handler", () => {
     );
   });
 
-  it.effect("allows an explicit retired agent to be configured", () => {
-    const { provide } = makeLayers();
+  it.effect("requires the named warning policy even when --yes is present", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
 
     return provide(
@@ -525,6 +525,19 @@ describe("agents add.handler", () => {
           detected: false,
           yes: true,
           force: false,
+          preview: false,
+        });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { outcome: "failed", reason: "override-required" },
+        });
+        expect(readConfiguredAgents()).toEqual([]);
+
+        yield* handleAgentsAdd({
+          ids: ["gemini-cli"],
+          detected: false,
+          yes: false,
+          force: true,
           preview: false,
         });
 

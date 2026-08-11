@@ -71,6 +71,12 @@ export {
 
 export { parseLicenseExpression } from "./license.js";
 
+export {
+  decodeDesiredExtensionIdentity,
+  type DecodedDesiredExtensionIdentity,
+  type DesiredPackageAuthority,
+} from "./desired-identity.js";
+
 export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-package.js";
 export {
   importNativeExtensionPackage,

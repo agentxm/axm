@@ -38,7 +38,7 @@ import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { expectNoOpPlanResult } from "../../../test-helpers.js";
+import { expectNoOpPlanResult, expectPreviewedPlanResult } from "../../../test-helpers.js";
 import {
   computePackageContentHashSync,
   writeTrustFromWorkspaceLockfile,
@@ -67,7 +67,14 @@ const initWorkspace = (
   for (const [name, value] of Object.entries(lockfilePacks)) {
     if (typeof value !== "object" || value === null) continue;
     const owner = Reflect.get(value, "owner");
-    const version = Reflect.get(value, "resolvedVersion");
+    const resolvedVersion = Reflect.get(value, "resolvedVersion");
+    const workspaceVersion = Reflect.get(value, "version");
+    const version =
+      typeof resolvedVersion === "string"
+        ? resolvedVersion
+        : typeof workspaceVersion === "string"
+          ? workspaceVersion
+          : undefined;
     if (typeof owner !== "string" || typeof version !== "string") continue;
     const dependencyMaps = [
       Reflect.get(value, "resolvedSkills"),
@@ -153,6 +160,22 @@ const makePackLockEntry = (
   resolvedSkills: overrides?.resolvedSkills ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
   resolvedSubagents: overrides?.resolvedSubagents ?? {},
+});
+
+const makeWorkspacePackLockEntry = (owner: string, name: string) => ({
+  type: "workspace",
+  owner,
+  extensionType: "pack",
+  name,
+  version: "0.0.1",
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  resolvedSkills: {},
+  resolvedMcpServers: {},
+  resolvedSubagents: {},
+  resolvedRules: {},
+  resolvedHooks: {},
+  resolvedKnowledge: {},
 });
 
 // -----------------------------------------------------------------------------
@@ -298,6 +321,129 @@ describe("packs uninstall handler", () => {
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs).toBeUndefined();
+        }),
+      );
+    });
+  });
+
+  describe("workspace-authored packs", () => {
+    const initializeWorkspacePack = () => {
+      const axmDir = path.join(tempDir, ".axm");
+      initWorkspace(axmDir, {
+        settingsPacks: { toolkit: "workspace:@acme/packs/toolkit" },
+        lockfilePacks: {
+          toolkit: makeWorkspacePackLockEntry("@acme", "toolkit"),
+        },
+      });
+      return axmDir;
+    };
+
+    it.effect("previews a bare workspace pack without changing workspace state", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = initializeWorkspacePack();
+      const before = {
+        settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+        trust: fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"),
+        manifest: fs.readFileSync(
+          path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
+          "utf8",
+        ),
+      };
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: false,
+            force: false,
+            preview: true,
+          });
+
+          expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall pack",
+            totalSteps: 1,
+          });
+          expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
+          expect(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8")).toBe(before.trust);
+          expect(
+            fs.readFileSync(
+              path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
+              "utf8",
+            ),
+          ).toBe(before.manifest);
+        }),
+      );
+    });
+
+    it.effect.each(["toolkit", "@acme/packs/toolkit"])(
+      "uninstalls a workspace pack selected as %s",
+      (selector) => {
+        const { provide } = makeLayers();
+        const axmDir = initializeWorkspacePack();
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUninstallPack(defaultArgs(selector), {
+              yes: true,
+              force: false,
+              preview: false,
+            });
+
+            const settings = JSON.parse(
+              fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+            );
+            const lockfile = YAML.parse(
+              fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+            );
+            const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
+            expect(settings.packs?.toolkit).toBeUndefined();
+            expect(lockfile.packs?.toolkit).toBeUndefined();
+            expect(trust.records?.["pack:toolkit"]).toBeUndefined();
+            expect(
+              fs.existsSync(path.join(axmDir, "extensions", "@acme", "packs", "toolkit")),
+            ).toBe(false);
+          }),
+        );
+      },
+    );
+
+    it.effect("does not uninstall a same-name pack owned by someone else", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = initializeWorkspacePack();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("@other/packs/toolkit"), {
+            yes: true,
+            force: false,
+            preview: false,
+          });
+
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall packs",
+            message: "No packs uninstalled.",
+          });
+          const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"));
+          expect(settings.packs?.toolkit).toBe("workspace:@acme/packs/toolkit");
+        }),
+      );
+    });
+
+    it.effect("rejects a fully qualified non-pack selector", () => {
+      const { provide } = makeLayers();
+      initializeWorkspacePack();
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* Effect.flip(
+            handleUninstallPack(defaultArgs("@acme/skills/toolkit"), {
+              yes: true,
+              force: false,
+              preview: false,
+            }),
+          );
+          expect(error).toMatchObject({ code: "validation" });
         }),
       );
     });
@@ -516,6 +662,44 @@ describe("packs uninstall handler", () => {
           expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Uninstall packs",
             message: "No packs uninstalled.",
+          });
+        }),
+      );
+    });
+
+    it.effect("reports an explicit empty preview in human mode", () => {
+      const { provide, logs } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: true,
+          });
+
+          expect(logs.success).toContain("No packs would be uninstalled.");
+        }),
+      );
+    });
+
+    it.effect("preserves the structured empty preview result in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: true,
+          });
+
+          expect(logs.success).toEqual([]);
+          expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall packs",
+            totalSteps: 0,
           });
         }),
       );

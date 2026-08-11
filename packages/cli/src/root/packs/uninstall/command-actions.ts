@@ -27,11 +27,20 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import {
   buildUninstallOperation,
+  decodeDesiredExtensionIdentity,
   parseExtensionFqnParts,
   toLabel,
+  type DesiredPackageAuthority,
+  type ExtensionFqnParts,
+  type ExtensionName,
+  type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type {
+  DesiredStateGraph,
+  ExtensionTarget,
+  PackExtensionTarget,
+} from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
@@ -50,10 +59,25 @@ export interface UninstallPackHandlerArgs {
 }
 
 /** Parsed and validated pack uninstall args. */
+export type PackUninstallSelector =
+  | {
+      readonly _tag: "ExactFqn";
+      readonly identity: ExtensionFqnParts & { readonly type: "pack" };
+    }
+  | {
+      readonly _tag: "SimpleName";
+      readonly name: string;
+    };
+
 export interface ParsedPackUninstallArgs {
-  readonly packNames: ReadonlyArray<string>;
-  readonly isGlob: boolean;
-  readonly earlyExit: boolean;
+  readonly selectors: ReadonlyArray<PackUninstallSelector>;
+}
+
+export interface ResolvedPackUninstallTarget extends PackExtensionTarget {
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly authority: DesiredPackageAuthority;
+  readonly desiredIdentity: string;
 }
 
 /**
@@ -61,8 +85,60 @@ export interface ParsedPackUninstallArgs {
  * Supports multiple packs for glob expansion.
  */
 export interface UninstallPackCommandIntent {
-  readonly packsToUninstall: ReadonlyArray<PackExtensionTarget>;
+  readonly packsToUninstall: ReadonlyArray<ResolvedPackUninstallTarget>;
 }
+
+const identityValidationError = (identity: string) =>
+  makeAppError({
+    code: "validation",
+    detail: `Configured pack identity ${identity} is invalid`,
+  });
+
+export const validateResolvedPackUninstallTargets = (
+  graph: DesiredStateGraph,
+  targets: ReadonlyArray<ResolvedPackUninstallTarget>,
+): Effect.Effect<void, ReturnType<typeof makeAppError>> =>
+  Effect.gen(function* () {
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Cannot uninstall packs while the desired pack graph is incomplete",
+      });
+    }
+
+    for (const expected of targets) {
+      const current = graph.nodes.find(
+        (candidate) => candidate.type === "pack" && candidate.name === expected.name,
+      );
+      if (current === undefined) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `Pack ${expected.desiredIdentity} changed or was removed before uninstall`,
+          recover: "Inspect the current pack state, then retry the uninstall.",
+          cmd: `axm packs show ${expected.name}`,
+        });
+      }
+
+      const decoded = decodeDesiredExtensionIdentity(current.identity);
+      if (decoded === undefined || decoded.type !== "pack") {
+        return yield* identityValidationError(current.identity);
+      }
+
+      if (
+        current.identity !== expected.desiredIdentity ||
+        decoded.authority !== expected.authority ||
+        decoded.owner !== expected.owner ||
+        decoded.name !== expected.name
+      ) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `Pack ${expected.desiredIdentity} changed or was removed before uninstall`,
+          recover: "Inspect the current pack state, then retry the uninstall.",
+          cmd: `axm packs show ${expected.name}`,
+        });
+      }
+    }
+  });
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -113,30 +189,38 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             detail: `Expected a pack identity, received ${args.name}`,
           });
         }
-        const requestedName = requested?.name ?? args.name;
-        const isGlob = requestedName.includes("*");
-        const packNames = expandGlob(
-          requestedName,
-          graph.nodes.filter((node) => node.type === "pack").map((node) => node.name),
-        );
-
-        // Handle glob matching zero packs
-        if (isGlob && packNames.length === 0) {
-          return { packNames: [], isGlob, earlyExit: true };
+        if (requested !== undefined) {
+          return {
+            selectors: [
+              {
+                _tag: "ExactFqn",
+                identity: {
+                  owner: requested.owner,
+                  type: "pack",
+                  name: requested.name,
+                },
+              },
+            ],
+          } satisfies ParsedPackUninstallArgs;
         }
 
-        // For literal names not in lockfile, still build a target
-        const names = packNames.length > 0 ? packNames : [requestedName];
+        if (!args.name.includes("*")) {
+          return {
+            selectors: [{ _tag: "SimpleName", name: args.name }],
+          } satisfies ParsedPackUninstallArgs;
+        }
 
-        return { packNames: names, isGlob, earlyExit: false };
+        const names = expandGlob(
+          args.name,
+          graph.nodes.filter((node) => node.type === "pack").map((node) => node.name),
+        );
+        return {
+          selectors: names.map((name) => ({ _tag: "SimpleName", name })),
+        } satisfies ParsedPackUninstallArgs;
       });
 
     const finalizeIntent = (parsed: ParsedPackUninstallArgs) =>
       Effect.gen(function* () {
-        if (parsed.earlyExit) {
-          return { packsToUninstall: [] };
-        }
-
         const graph = yield* ws.getDesiredStateGraph();
         if (!graph.complete) {
           return yield* makeAppError({
@@ -145,24 +229,31 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           });
         }
 
-        const targets = parsed.packNames.flatMap((name) => {
-          const node = graph.nodes.find(
+        const targets = new Map<string, ResolvedPackUninstallTarget>();
+        for (const selector of parsed.selectors) {
+          const name = selector._tag === "ExactFqn" ? selector.identity.name : selector.name;
+          const candidates = graph.nodes.filter(
             (candidate) => candidate.type === "pack" && candidate.name === name,
           );
-          const identity = node === undefined ? undefined : parseExtensionFqnParts(node.identity);
-          if (node !== undefined && identity?.type === "pack") {
-            return [
-              {
-                type: "pack",
-                name: node.name,
-                owner: identity.owner,
-              } satisfies PackExtensionTarget,
-            ];
+          for (const node of candidates) {
+            const identity = decodeDesiredExtensionIdentity(node.identity);
+            if (identity === undefined || identity.type !== "pack") {
+              return yield* identityValidationError(node.identity);
+            }
+            if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) {
+              continue;
+            }
+            targets.set(node.identity, {
+              type: "pack",
+              name: identity.name,
+              owner: identity.owner,
+              authority: identity.authority,
+              desiredIdentity: node.identity,
+            });
           }
-          return [];
-        });
+        }
 
-        return { packsToUninstall: targets };
+        return { packsToUninstall: [...targets.values()] };
       });
 
     const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
@@ -193,13 +284,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           allTargets.set(`pack:${pack.name}`, pack);
         }
         const removingPackIdentities = new Set(
-          graph.nodes
-            .filter(
-              (node) =>
-                node.type === "pack" &&
-                intent.packsToUninstall.some((pack) => pack.name === node.name),
-            )
-            .map((node) => node.identity),
+          intent.packsToUninstall.map((pack) => pack.desiredIdentity),
         );
         for (const node of graph.nodes) {
           if (node.type === "pack") continue;
@@ -307,6 +392,10 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             })),
           },
           steps,
+          preTransition: Effect.gen(function* () {
+            const currentGraph = yield* ws.getDesiredStateGraph();
+            yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
+          }),
           validate: validatePackGraphPostcondition({ absent: orderedTargets }),
         }).pipe(Effect.provideService(WorkspaceMutations, ws));
 

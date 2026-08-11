@@ -32,6 +32,7 @@ export const buildAtomicPackGraphStep = (args: {
   readonly message: string;
   readonly artifact: JobStepArtifact;
   readonly steps: ReadonlyArray<PlannedJobStep>;
+  readonly preTransition?: Effect.Effect<void, AppError, WorkspaceMutations>;
   readonly validate: Effect.Effect<void, AppError, WorkspaceMutations>;
 }): Effect.Effect<PlannedJobStep, never, WorkspaceMutations> =>
   Effect.gen(function* () {
@@ -56,11 +57,16 @@ export const buildAtomicPackGraphStep = (args: {
     );
     const run = ws
       .runTransaction({
-        transition: Effect.forEach(
-          runnableSteps,
-          (step) => step.run.pipe(Effect.flatMap((result) => failedStep(step.label, result))),
-          { concurrency: 1 },
-        ),
+        transition: Effect.gen(function* () {
+          if (args.preTransition !== undefined) {
+            yield* args.preTransition.pipe(Effect.provideService(WorkspaceMutations, ws));
+          }
+          return yield* Effect.forEach(
+            runnableSteps,
+            (step) => step.run.pipe(Effect.flatMap((result) => failedStep(step.label, result))),
+            { concurrency: 1 },
+          );
+        }),
         validate: () => args.validate.pipe(Effect.provideService(WorkspaceMutations, ws)),
       })
       .pipe(

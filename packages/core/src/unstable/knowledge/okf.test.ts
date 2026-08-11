@@ -232,6 +232,77 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
     }).pipe(Effect.scoped),
   );
 
+  it.effect("retains parsed mapping frontmatter without changing normalized concept fields", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        [
+          "index.md",
+          '---\nokf_version: "0.2"\n---\n# Frontmatter\n\n- [Complete](complete.md)\n- [Invalid](invalid.md)\n- [Empty mapping](empty-mapping.md)\n- [Empty](empty.md)\n- [Scalar](scalar.md)\n- [List](list.md)\n',
+        ],
+        [
+          "complete.md",
+          [
+            "---",
+            "type: reference",
+            "description: Complete metadata",
+            "tags: [governance]",
+            "status: stable",
+            "sources:",
+            "  - resource: ./source.txt",
+            "producer:",
+            "  nested: [one, true, null]",
+            "---",
+            "# Complete",
+            "",
+            "Body from the same parse.",
+            "",
+          ].join("\n"),
+        ],
+        [
+          "invalid.md",
+          "---\ntype: reference\nstatus: published\nproducer_flag: retained\n---\n# Invalid\n",
+        ],
+        ["empty-mapping.md", "---\n{}\n---\n# Empty mapping\n"],
+        ["empty.md", "---\n\n---\n# Empty\n"],
+        ["scalar.md", "---\nscalar\n---\n# Scalar\n"],
+        ["list.md", "---\n- one\n- two\n---\n# List\n"],
+        ["source.txt", "source"],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+
+      const complete = openKnowledgeConcept(inspected.concepts, "complete");
+      expect(complete?.frontmatter).toEqual({
+        type: "reference",
+        description: "Complete metadata",
+        tags: ["governance"],
+        status: "stable",
+        sources: [{ resource: "./source.txt" }],
+        producer: { nested: ["one", true, null] },
+      });
+      expect(complete).toMatchObject({
+        type: "reference",
+        status: "stable",
+        body: "# Complete\n\nBody from the same parse.\n",
+      });
+      expect(openKnowledgeConcept(inspected.concepts, "invalid")?.frontmatter).toEqual({
+        type: "reference",
+        status: "published",
+        producer_flag: "retained",
+      });
+      expect(openKnowledgeConcept(inspected.concepts, "empty-mapping")?.frontmatter).toEqual({});
+      expect(openKnowledgeConcept(inspected.concepts, "empty")?.frontmatter).toBeUndefined();
+      expect(openKnowledgeConcept(inspected.concepts, "scalar")?.frontmatter).toBeUndefined();
+      expect(openKnowledgeConcept(inspected.concepts, "list")?.frontmatter).toBeUndefined();
+    }),
+  );
+
   it.effect("accepts OKF provenance resource forms and diagnoses unsafe paths", () =>
     Effect.gen(function* () {
       const contents = new Map([

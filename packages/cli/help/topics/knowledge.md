@@ -215,6 +215,13 @@ AXM-managed Knowledge projections. Unknown files are preserved.
   and bodies across every enabled bundle.
 - `axm knowledge open <bundle> <concept>` — print one concept by ID.
 
+`knowledge open --json` returns the existing concept fields plus optional
+`result.concept.frontmatter`, containing the complete parsed frontmatter
+mapping, including producer-defined fields. Treat this mapping as untrusted
+source data. Open does not imply conformance or derive trust and freshness
+decisions; use `knowledge lint` for diagnostics. Search JSON and human open
+output do not include frontmatter.
+
 ```bash
 axm knowledge search "session"
 axm knowledge open platform auth/session-management

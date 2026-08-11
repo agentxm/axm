@@ -26,6 +26,7 @@ import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 import type { AppError } from "../app-error/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { CanonicalObservation } from "../workspace/canonical-observation.js";
+import type { KnowledgeInspection } from "../knowledge/okf.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -284,10 +285,13 @@ export interface KnowledgeRuleContext<S = KnowledgeContent> {
   readonly subject: S;
   readonly files: KnowledgeFileAccessor;
   readonly displayRoot: string;
+  /** Absolute package root used once while constructing the cached inspection. */
+  readonly packageRoot?: string;
 }
 
 export interface KnowledgeContent {
   readonly knowledgeJson: unknown;
+  readonly inspection?: KnowledgeInspection;
 }
 
 /**

@@ -134,6 +134,40 @@ describe("axm knowledge lifecycle", () => {
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
 
+      const installedRoot = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "knowledge",
+        "platform",
+      );
+      const installedConceptPath = path.join(installedRoot, "src", "architecture.md");
+      const installedConcept = fs.readFileSync(installedConceptPath, "utf8");
+      fs.writeFileSync(
+        installedConceptPath,
+        "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ./missing.txt\n---\n# Architecture\n",
+      );
+      const focusedLint = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
+        cwd: temp.path,
+      });
+      expect(focusedLint.exitCode, focusedLint.stdout + focusedLint.stderr).toBe(0);
+      const focusedDiagnostic = JSON.parse(focusedLint.stdout).result.diagnostics.find(
+        (diagnostic: { code: string }) => diagnostic.code === "unresolved-resource",
+      );
+      expect(focusedDiagnostic).toMatchObject({ severity: "warning" });
+
+      const ordinaryLint = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(ordinaryLint.exitCode, ordinaryLint.stdout + ordinaryLint.stderr).toBe(1);
+      const ordinaryFinding = JSON.parse(ordinaryLint.stdout).result.findings.find(
+        (finding: { ruleId: string }) => finding.ruleId === "knowledge/unresolved-resource",
+      );
+      expect(ordinaryFinding).toMatchObject({
+        severity: "warning",
+        message: focusedDiagnostic.message,
+      });
+      fs.writeFileSync(installedConceptPath, installedConcept);
+
       const open = await runCli(["knowledge", "open", "platform", "architecture", "--json"], {
         cwd: temp.path,
       });

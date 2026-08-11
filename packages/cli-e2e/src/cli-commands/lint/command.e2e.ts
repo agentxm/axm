@@ -458,7 +458,7 @@ describe("axm lint (e2e, Phase 7)", () => {
     });
   });
 
-  describe("staged Git-index workspace", () => {
+  describe("Git-index workspace view", () => {
     it("does not fail strict lint on generated gitignored instruction aliases", async () => {
       const temp = createTempDir("axm-staged-instructions-e2e-");
       try {
@@ -477,7 +477,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(git(temp.path, ["check-ignore", "CLAUDE.md"]).trim()).toBe("CLAUDE.md");
         git(temp.path, ["add", "."]);
 
-        const result = await runCli(["lint", "--staged", "--strict", "--json"], {
+        const result = await runCli(["lint", "--view", "git-index", "--strict", "--json"], {
           cwd: temp.path,
           env,
         });
@@ -532,7 +532,7 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
         const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
-        const staged = await runCli(["lint", "--staged", "--json"], {
+        const staged = await runCli(["lint", "--view", "git-index", "--json"], {
           cwd: path.join(temp.path, ".claude"),
           env,
         });
@@ -540,6 +540,9 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(staged.exitCode, `${staged.stderr}\n${staged.stdout}`).toBe(0);
         const stagedDocument = JSON.parse(staged.stdout);
         expect(stagedDocument.ok).toBe(true);
+        expect(stagedDocument.result.input).toMatchObject({ view: "git-index" });
+        expect(stagedDocument.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(stagedDocument.result.input.fingerprint).not.toContain(temp.path);
         const managedFindings: Array<{ message: string; path: string; severity: string }> =
           stagedDocument.result.findings.filter(
             (finding: { ruleId: string }) => finding.ruleId === "workspace/skills-managed",
@@ -555,13 +558,13 @@ describe("axm lint (e2e, Phase 7)", () => {
           false,
         );
 
-        const strict = await runCli(["lint", "--staged", "--strict"], {
+        const strict = await runCli(["lint", "--view", "git-index", "--strict"], {
           cwd: temp.path,
           env,
         });
         expect(strict.exitCode).toBe(1);
 
-        const details = await runCli(["lint", "--staged", "--details"], {
+        const details = await runCli(["lint", "--view", "git-index", "--details"], {
           cwd: temp.path,
           env,
         });
@@ -569,11 +572,29 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(details.stdout + details.stderr).toContain("workspace/skills-managed");
         expect(details.stdout + details.stderr).toContain("./.claude/skills");
 
+        const nested = await runCli(
+          ["lint", path.join(temp.path, ".claude"), "--view", "git-index", "--json"],
+          { cwd: temp.path, env },
+        );
+        expect(nested.exitCode).toBe(10);
+        expect(nested.stdout + nested.stderr).toContain(
+          path.join(".claude", ".axm", "settings.json"),
+        );
+
         const live = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(live.exitCode).toBe(0);
-        const liveFindings: Array<{ message: string }> = JSON.parse(live.stdout).result.findings;
+        const liveDocument = JSON.parse(live.stdout);
+        expect(liveDocument.result.input).toEqual({ view: "workspace" });
+        const liveFindings: Array<{ message: string }> = liveDocument.result.findings;
         expect(liveFindings.some((finding) => finding.message.includes("renamed"))).toBe(true);
         expect(liveFindings.some((finding) => finding.message.includes("untracked"))).toBe(true);
+
+        const explicitLive = await runCli(["lint", "--view", "workspace", "--json"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(explicitLive.exitCode).toBe(live.exitCode);
+        expect(JSON.parse(explicitLive.stdout)).toEqual(liveDocument);
 
         expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
         expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
@@ -610,7 +631,7 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
         const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
-        const result = await runCli(["lint", "--staged", "--json"], {
+        const result = await runCli(["lint", "--view", "git-index", "--json"], {
           cwd: temp.path,
           env: { DO_NOT_TRACK: "1" },
         });
@@ -631,21 +652,34 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("rejects mutation, user scope, and non-Git workspaces", async () => {
       const temp = createTempDir("axm-staged-errors-e2e-");
       try {
-        const fix = await runCli(["lint", "--staged", "--fix"], { cwd: temp.path });
+        const fix = await runCli(["lint", "--view", "git-index", "--fix"], {
+          cwd: temp.path,
+        });
         expect(fix.exitCode).toBe(9);
-        expect(fix.stdout + fix.stderr).toContain("--staged cannot be combined with --fix");
+        expect(fix.stdout + fix.stderr).toContain("--view git-index cannot be combined with --fix");
 
-        const user = await runCli(["lint", "--staged", "--scope", "user"], {
+        const user = await runCli(["lint", "--view", "git-index", "--scope", "user"], {
           cwd: temp.path,
         });
         expect(user.exitCode).toBe(9);
         expect(user.stdout + user.stderr).toContain(
-          "--staged cannot be combined with --scope user",
+          "--view git-index cannot be combined with --scope user",
         );
 
-        const outsideGit = await runCli(["lint", "--staged"], { cwd: temp.path });
+        const outsideGit = await runCli(["lint", "--view", "git-index"], { cwd: temp.path });
         expect(outsideGit.exitCode).toBe(9);
         expect(outsideGit.stdout + outsideGit.stderr).toContain("requires a Git repository");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("rejects the removed --staged flag", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(["lint", "--staged"], { cwd: temp.path });
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stdout + result.stderr).toContain("Unrecognized flag: --staged");
       } finally {
         temp.cleanup();
       }

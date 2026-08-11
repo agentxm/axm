@@ -127,6 +127,36 @@ const fixture = (packJson: object | string): FixtureSpec => ({
   },
 });
 
+const fixtureWithKnowledge = (): FixtureSpec => {
+  const spec = fixture(manifestFixtures.pack);
+  return {
+    ...spec,
+    project: {
+      ...spec.project,
+      settings: {
+        _tag: "valid",
+        contents: { ...settings, knowledge: { handbook: "@acme/knowledge/handbook@1.0.0" } },
+      },
+      axmExtensions: {
+        ...spec.project?.axmExtensions,
+        "@acme/knowledge/handbook/knowledge.json": {
+          _tag: "valid",
+          contents: {
+            owner: "@acme",
+            type: "knowledge",
+            name: "handbook",
+            version: "1.0.0",
+            description: "Fixture knowledge",
+            format: { name: "okf", version: "0.2" },
+            bundleRoot: "src",
+          },
+        },
+        "@acme/knowledge/handbook/src/index.md": '---\nokf_version: "0.2"\n---\n# Handbook\n',
+      },
+    },
+  };
+};
+
 const expectRecord = (value: unknown): Readonly<Record<string, unknown>> => {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Expected a JSON object");
@@ -144,6 +174,7 @@ const buildAndEvaluate = (spec: FixtureSpec) =>
       scope: "project",
     });
     const evaluations = yield* evaluateAllCatalogs({
+      view: "workspace",
       contexts: {
         ...emptyCatalogRuleContexts,
         skill: buildSkillRuleContexts(lintWorkspace.view),
@@ -191,6 +222,33 @@ describe("buildLintWorkspace manifest JSON population", () => {
       );
 
       expect(malformedPackFinding?.finding.message).toContain("invalid JSON");
+    }),
+  );
+
+  it.effect("inspects each selected Knowledge bundle exactly once per lint workspace", () =>
+    Effect.gen(function* () {
+      let calls = 0;
+      const deps = yield* buildFixture(fixtureWithKnowledge());
+      const lintWorkspace = yield* buildLintWorkspace({
+        platform: { fs: deps.fs, path: deps.path },
+        workspaceRoot: deps.workspaceRoot,
+        userHome: deps.userHome,
+        scope: "project",
+        inspectKnowledge: () => {
+          calls += 1;
+          return Effect.succeed({
+            inspection: { concepts: [], diagnostics: [], okfVersion: "0.2" },
+          });
+        },
+      });
+
+      expect(lintWorkspace.view.knowledgeContexts).toHaveLength(1);
+      expect(lintWorkspace.view.knowledgeContexts[0]?.subject.inspection).toEqual({
+        concepts: [],
+        diagnostics: [],
+        okfVersion: "0.2",
+      });
+      expect(calls).toBe(1);
     }),
   );
 });

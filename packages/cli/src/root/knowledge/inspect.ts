@@ -1,7 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -10,50 +8,13 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   KNOWLEDGE_EXTENSION_DIR,
-  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
-  KnowledgeManifestSchema,
-  inspectKnowledgeBundle,
-  type KnowledgeDiagnostic,
-  type KnowledgeInspection,
+  inspectKnowledgePackage,
 } from "@agentxm/client-core/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-const missingManifestDescription = (): KnowledgeDiagnostic => ({
-  code: "missing-manifest-description",
-  severity: "warning",
-  relativePath: KNOWLEDGE_MANIFEST_FILENAME,
-  message: `${KNOWLEDGE_MANIFEST_FILENAME} should include a concise bundle description for discovery.`,
-});
-
-export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(function* (
-  packageRoot: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const manifestRaw = yield* fs.readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME));
-  const manifestUnknown = yield* Effect.try({
-    try: (): unknown => JSON.parse(manifestRaw),
-    catch: (cause) =>
-      makeAppError({
-        code: "validation",
-        detail: `Failed to parse ${path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME)}`,
-        cause,
-      }),
-  });
-  const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestUnknown);
-  const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
-  const inspected = yield* inspectKnowledgeBundle(sourceRoot);
-  const inspection: KnowledgeInspection = {
-    ...inspected,
-    diagnostics:
-      manifest.description?.trim().length === 0 || manifest.description === undefined
-        ? [missingManifestDescription(), ...inspected.diagnostics]
-        : inspected.diagnostics,
-  };
-  return { name: manifest.name, sourceRoot, manifest, inspection };
-});
+export { inspectKnowledgePackage } from "@agentxm/client-core/unstable/knowledge";
 
 export const bundleRoot = (
   baseDir: string,

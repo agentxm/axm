@@ -77,6 +77,19 @@ const LintJsonFixSchema = Schema.Struct({
   description: "Autofix counts for a `--fix` run.",
 });
 
+export const LintInputSchema = Schema.Union([
+  Schema.Struct({ view: Schema.Literal("workspace") }),
+  Schema.Struct({
+    view: Schema.Literal("git-index"),
+    fingerprint: Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/)),
+  }),
+]).annotate({
+  identifier: "LintInput",
+  title: "Lint Input",
+  description: "Filesystem identity evaluated by the lint run.",
+});
+export type LintInput = typeof LintInputSchema.Type;
+
 /**
  * JSON envelope shape returned under `axm lint --json`.
  *
@@ -87,6 +100,7 @@ const LintJsonFixSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const LintJsonDocumentSchema = Schema.Struct({
+  input: LintInputSchema,
   findings: Schema.Array(LintJsonFindingSchema),
   summary: LintJsonSummarySchema,
   driftBanner: Schema.Array(Schema.String),

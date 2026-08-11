@@ -38,16 +38,25 @@ import { platformCanonicalLintConfig } from "./config.js";
 import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
 import type { WorkspaceRuleContext } from "./context.js";
-import type { LintJsonDocument, LintJsonFinding } from "./json-schema.js";
+import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
 import type { AutofixingRule, LintFinding, Severity } from "./rule.js";
 import {
   CATALOG_GROUP_ORDER,
-  DRIFT_DETECTED_GROUPS,
-  LINT_CATALOGS,
+  lintCatalogsForView,
   type CatalogContext,
   type CatalogGroup,
   type CatalogRuleContexts,
+  type LintView,
 } from "./catalog-contexts.js";
+import {
+  hookRules as publishHookRules,
+  knowledgeRules as publishKnowledgeRules,
+  mcpServerRules as publishMcpServerRules,
+  packRules as publishPackRules,
+  ruleRules as publishRuleRules,
+  skillRules as publishSkillRules,
+  subagentRules as publishSubagentRules,
+} from "./publish.js";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -126,18 +135,20 @@ export type LintExitCategory = "clean" | "warnings" | "errors";
 export const evaluateAllCatalogs = (args: {
   readonly contexts: CatalogRuleContexts;
   readonly config: LintConfig;
+  readonly view: LintView;
 }): Effect.Effect<GroupEvaluations> =>
   Effect.gen(function* () {
+    const catalogs = lintCatalogsForView(args.view);
     const [skill, pack, subagent, mcpServer, hook, rule, knowledge, workspace] = yield* Effect.all(
       [
-        evaluateContexts(LINT_CATALOGS.skill, args.contexts.skill, args.config),
-        evaluateContexts(LINT_CATALOGS.pack, args.contexts.pack, args.config),
-        evaluateContexts(LINT_CATALOGS.subagent, args.contexts.subagent, args.config),
-        evaluateContexts(LINT_CATALOGS["mcp-server"], args.contexts["mcp-server"], args.config),
-        evaluateContexts(LINT_CATALOGS.hook, args.contexts.hook, args.config),
-        evaluateContexts(LINT_CATALOGS.rule, args.contexts.rule, args.config),
-        evaluateContexts(LINT_CATALOGS.knowledge, args.contexts.knowledge, args.config),
-        evaluateContexts(LINT_CATALOGS.workspace, args.contexts.workspace, args.config),
+        evaluateContexts(catalogs.skill, args.contexts.skill, args.config),
+        evaluateContexts(catalogs.pack, args.contexts.pack, args.config),
+        evaluateContexts(catalogs.subagent, args.contexts.subagent, args.config),
+        evaluateContexts(catalogs["mcp-server"], args.contexts["mcp-server"], args.config),
+        evaluateContexts(catalogs.hook, args.contexts.hook, args.config),
+        evaluateContexts(catalogs.rule, args.contexts.rule, args.config),
+        evaluateContexts(catalogs.knowledge, args.contexts.knowledge, args.config),
+        evaluateContexts(catalogs.workspace, args.contexts.workspace, args.config),
       ],
       { concurrency: "unbounded" },
     );
@@ -343,15 +354,22 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   // is called against each catalog's concrete rule type so no assertion
   // is needed to widen the generic parameter.
   const weakened: Array<string> = [];
-  for (const group of DRIFT_DETECTED_GROUPS) {
-    for (const rule of LINT_CATALOGS[group]) {
-      if (rule.severity !== "error") {
-        continue;
-      }
-      const override = overrides[rule.id];
-      if (override === "off" || override === "info" || override === "warn") {
-        weakened.push(rule.id);
-      }
+  const publishSharedRules = [
+    ...publishSkillRules,
+    ...publishPackRules,
+    ...publishSubagentRules,
+    ...publishMcpServerRules,
+    ...publishHookRules,
+    ...publishRuleRules,
+    ...publishKnowledgeRules,
+  ];
+  for (const rule of publishSharedRules) {
+    if (rule.severity !== "error") {
+      continue;
+    }
+    const override = overrides[rule.id];
+    if (override === "off" || override === "info" || override === "warn") {
+      weakened.push(rule.id);
     }
   }
 
@@ -1486,10 +1504,12 @@ const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
  */
 export const toLintJsonDocument = (args: {
   readonly summary: LintSummary;
+  readonly input: LintInput;
   readonly fixSummary?: FixSummary;
 }): LintJsonDocument => {
   const { summary, fixSummary } = args;
   const base: LintJsonDocument = {
+    input: args.input,
     findings: summary.findings.map(toJsonFinding),
     summary: {
       total: summary.counts.total,

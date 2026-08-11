@@ -137,6 +137,7 @@ describe("axm lint handler", () => {
       fix: args.fix ?? false,
       strict: args.strict ?? false,
       details: args.details ?? false,
+      input: { view: "workspace" },
     });
 
   it.effect("resolveLintRoot returns cwd by default", () => {

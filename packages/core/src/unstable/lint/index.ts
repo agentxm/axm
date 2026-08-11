@@ -66,18 +66,23 @@ export type {
 // the runner drives off.
 export {
   CATALOG_GROUP_ORDER,
-  DRIFT_DETECTED_GROUPS,
+  LIVE_ONLY_LINT_CATALOGS,
   LINT_CATALOGS,
+  REPOSITORY_LINT_CATALOGS,
   emptyCatalogRuleContexts,
+  lintCatalogsForView,
   type CatalogContext,
   type CatalogGroup,
   type CatalogRuleContexts,
+  type LintView,
 } from "./catalog-contexts.js";
 
 // `--json` document schema + derived types
 export {
+  LintInputSchema,
   LintJsonDocumentSchema,
   LintJsonFindingSchema,
+  type LintInput,
   type LintJsonDocument,
   type LintJsonFinding,
 } from "./json-schema.js";
@@ -149,6 +154,8 @@ export {
   registryNativeSkillDisplayRoot,
   registryPackDisplayRoot,
   skillRules,
+  liveOnlyWorkspaceRules,
+  repositoryWorkspaceRules,
   workspaceRules,
   type BuildInstalledPackInfoArgs,
   type BuildInstalledSkillInfoExternalArgs,

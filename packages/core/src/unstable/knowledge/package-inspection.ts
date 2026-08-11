@@ -1,0 +1,53 @@
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+
+import { makeAppError } from "../app-error/index.js";
+import {
+  KNOWLEDGE_MANIFEST_FILENAME,
+  KNOWLEDGE_SOURCE_DIR,
+  KnowledgeManifestSchema,
+} from "./manifest-schema.js";
+import {
+  inspectKnowledgeBundle,
+  type KnowledgeDiagnostic,
+  type KnowledgeInspection,
+} from "./okf.js";
+
+const missingManifestDescription = (): KnowledgeDiagnostic => ({
+  code: "missing-manifest-description",
+  severity: "warning",
+  relativePath: KNOWLEDGE_MANIFEST_FILENAME,
+  message: `${KNOWLEDGE_MANIFEST_FILENAME} should include a concise bundle description for discovery.`,
+});
+
+/** Inspect one complete Knowledge package, including manifest-level profile diagnostics. */
+export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(function* (
+  packageRoot: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const manifestPath = path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME);
+  const manifestRaw = yield* fs.readFileString(manifestPath);
+  const manifestUnknown = yield* Effect.try({
+    try: (): unknown => JSON.parse(manifestRaw),
+    catch: (cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Failed to parse ${manifestPath}`,
+        cause,
+      }),
+  });
+  const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestUnknown);
+  const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
+  const inspected = yield* inspectKnowledgeBundle(sourceRoot);
+  const inspection: KnowledgeInspection = {
+    ...inspected,
+    diagnostics:
+      manifest.description?.trim().length === 0 || manifest.description === undefined
+        ? [missingManifestDescription(), ...inspected.diagnostics]
+        : inspected.diagnostics,
+  };
+  return { name: manifest.name, sourceRoot, manifest, inspection };
+});

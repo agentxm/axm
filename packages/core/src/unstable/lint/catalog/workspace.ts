@@ -83,8 +83,51 @@ import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
+export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   // Foundation (classification-independent workspace well-formedness).
+  initializedRule,
+  settingsSchemaValidRule,
+  settingsKeysRecognizedRule,
+  knowledgeConfigCurrentRule,
+  lockfileValidRule,
+  desiredStateReconcilableRule,
+  authoredContentUnpublishedRule,
+  agentsRecognizedRule,
+  instructionsSourcePresentRule,
+  instructionsAgentSupportedRule,
+  instructionsGitignoreCurrentRule,
+  // Declaration valid (configured).
+  skillsDeclarationsValidRule,
+  packsDeclarationsValidRule,
+  configuredButNotInstalledRule,
+  knowledgeStateValidRule,
+  mcpServerTransportExclusivityRule,
+  mcpServerNoSecretLiteralRule,
+  mcpServerSharedTargetCompatibleRule,
+  // Lockfile aligned (configured).
+  skillsLockfileAlignedRule,
+  // Integrity intact (configured + implicit).
+  skillsIntegrityValidRule,
+  // Artifacts correct (configured + implicit).
+  // Managed — unmanaged class must be empty.
+  skillsManagedRule,
+  // Pack dependencies resolved (configured packs).
+  packsDependenciesResolvedRule,
+  // Pack recommendation retention.
+  recommendedPacksRetainedRule,
+];
+
+/** Rules whose evidence exists only in the live managed workspace. */
+export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
+  agentsDetectedDeclaredRule,
+  instructionsTargetCurrentRule,
+  skillsArtifactsCorrectRule,
+  mcpServerAgentDriftRule,
+  mcpServerAgentOrphanedRule,
+];
+
+/** Complete workspace-view catalog, retained as the public catalog surface. */
+export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
@@ -98,7 +141,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   instructionsTargetCurrentRule,
   instructionsAgentSupportedRule,
   instructionsGitignoreCurrentRule,
-  // Declaration valid (configured).
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,
@@ -108,17 +150,11 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   mcpServerSharedTargetCompatibleRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
-  // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
-  // Integrity intact (configured + implicit).
   skillsIntegrityValidRule,
-  // Artifacts correct (configured + implicit).
   skillsArtifactsCorrectRule,
-  // Managed — unmanaged class must be empty.
   skillsManagedRule,
-  // Pack dependencies resolved (configured packs).
   packsDependenciesResolvedRule,
-  // Pack recommendation retention.
   recommendedPacksRetainedRule,
 ];
 

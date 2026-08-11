@@ -68,6 +68,8 @@ import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 import { HOOK_MANIFEST_FILENAME } from "../../../hooks/manifest-schema.js";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "../../../knowledge/manifest-schema.js";
+import { inspectKnowledgePackage } from "../../../knowledge/package-inspection.js";
+import type { KnowledgeInspection } from "../../../knowledge/okf.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
 import { RULE_MANIFEST_FILENAME } from "../../../rules/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
@@ -123,6 +125,14 @@ export interface BuildLintWorkspaceArgs {
    * to `""` (accessor-relative paths render under the workspace root).
    */
   readonly displayRoot?: string;
+  /** Test seam for proving one package inspection per selected bundle. */
+  readonly inspectKnowledge?: (
+    packageRoot: string,
+  ) => Effect.Effect<
+    { readonly inspection: KnowledgeInspection },
+    unknown,
+    FileSystem.FileSystem | Path.Path
+  >;
 }
 
 /**
@@ -172,6 +182,7 @@ export const buildLintWorkspace = (
       workspaceRoot: args.workspaceRoot,
       readModel,
       scope: args.scope,
+      inspectKnowledge: args.inspectKnowledge ?? inspectKnowledgePackage,
     });
     const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
@@ -264,6 +275,13 @@ interface BuildLintWorkspaceViewArgs {
   readonly workspaceRoot: string;
   readonly readModel: WorkspaceReadModel;
   readonly scope: "project" | "user";
+  readonly inspectKnowledge: (
+    packageRoot: string,
+  ) => Effect.Effect<
+    { readonly inspection: KnowledgeInspection },
+    unknown,
+    FileSystem.FileSystem | Path.Path
+  >;
 }
 
 /**
@@ -295,7 +313,7 @@ const joinManifestPath = (root: string, filename: string): string =>
 
 const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
-): Effect.Effect<LintWorkspaceProjection> =>
+): Effect.Effect<LintWorkspaceProjection, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const [skills, packs, subagents, mcpServers, hooks, rules, knowledge] = yield* Effect.all(
       [
@@ -370,7 +388,7 @@ const buildLintWorkspaceView = (
         populateMcpServerManifestJson(namedMcpServers),
         populateHookManifestJson(namedHooks),
         populateRuleManifestJson(namedRules),
-        populateKnowledgeManifestJson(namedKnowledge),
+        populateKnowledgeManifestJson(namedKnowledge, args.inspectKnowledge),
       ],
       { concurrency: "unbounded" },
     );
@@ -499,7 +517,18 @@ const populateRuleManifestJson = (
 
 const populateKnowledgeManifestJson = (
   entries: ReadonlyArray<NamedContext<KnowledgeRuleContext>>,
-): Effect.Effect<ReadonlyArray<NamedContext<KnowledgeRuleContext>>> =>
+  inspectKnowledge: (
+    packageRoot: string,
+  ) => Effect.Effect<
+    { readonly inspection: KnowledgeInspection },
+    unknown,
+    FileSystem.FileSystem | Path.Path
+  >,
+): Effect.Effect<
+  ReadonlyArray<NamedContext<KnowledgeRuleContext>>,
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.forEach(
     entries,
     (entry) =>
@@ -508,7 +537,21 @@ const populateKnowledgeManifestJson = (
           entry.context.files,
           KNOWLEDGE_MANIFEST_FILENAME,
         );
-        return { ...entry, context: { ...entry.context, subject: { knowledgeJson } } };
+        const inspection =
+          entry.context.packageRoot === undefined
+            ? undefined
+            : yield* inspectKnowledge(entry.context.packageRoot).pipe(
+                Effect.map((result) => result.inspection),
+                Effect.catch(() => Effect.succeed(undefined)),
+              );
+        const subject = {
+          knowledgeJson,
+          ...(inspection === undefined ? {} : { inspection }),
+        };
+        return {
+          ...entry,
+          context: { ...entry.context, subject },
+        };
       }),
     { concurrency: "unbounded" },
   );
@@ -725,6 +768,7 @@ const installedKnowledgeToContext = (
     subject: { knowledgeJson: undefined },
     files: makePlatformPackFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
+    packageRoot: root,
   };
 };
 

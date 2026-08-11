@@ -44,6 +44,8 @@ export interface PublishRecord {
   readonly integrity: string;
   readonly authorization: string | undefined;
   readonly contentType: string | undefined;
+  readonly ifMatch: string | undefined;
+  readonly requestedVisibility: string | undefined;
   readonly byteLength: number;
 }
 
@@ -68,6 +70,8 @@ export interface HttpRegistryOptions {
   readonly enforcePackDependencies?: boolean;
   /** Require and complete the durable step-up flow for POST /v1/tokens. */
   readonly stepUpTokenCreate?: boolean;
+  /** Return a deliberately unusable publish-preview contract. */
+  readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing";
 }
 
 interface StoredVersion {
@@ -140,14 +144,18 @@ export const startHttpRegistry = async (
   options: HttpRegistryOptions = {},
 ): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
+  const extensionVisibilities = new Map<string, "public" | "private">();
+  const previewConditions = new Map<string, string>();
   const publishes: Array<PublishRecord> = [];
   const requests: Array<RequestRecord> = [];
 
   const key = (owner: string, plural: string, name: string) => `${owner}/${plural}/${name}`;
+  const targetKey = (owner: string, plural: string, name: string, version: string) =>
+    `${key(owner, plural, name)}@${version}`;
 
   const server = http.createServer((request, response) => {
-    const url = request.url ?? "/";
-    const pathname = url.split("?")[0] ?? "/";
+    const url = new URL(request.url ?? "/", "http://registry.test");
+    const pathname = url.pathname;
     response.on("finish", () => {
       requests.push({
         method: request.method ?? "UNKNOWN",
@@ -192,6 +200,86 @@ export const startHttpRegistry = async (
         return;
       }
 
+      if (request.method === "POST" && pathname === "/v1/publish-previews") {
+        if (options.publishPreviewMode === "missing") {
+          sendProblem(response, 404, "Publish previews are not supported.");
+          return;
+        }
+        if (request.headers.authorization === undefined) {
+          sendProblem(response, 401, "Publishing requires a bearer token.");
+          return;
+        }
+        const body: unknown = JSON.parse((await readBody(request)).toString("utf8"));
+        if (!isRecord(body) || !Array.isArray(body["candidates"])) {
+          sendProblem(response, 400, "Publish preview candidates are required.");
+          return;
+        }
+        const requestedVisibility =
+          body["visibility"] === "public" || body["visibility"] === "private"
+            ? body["visibility"]
+            : undefined;
+        const previews = body["candidates"].map((candidate: unknown) => {
+          if (
+            !isRecord(candidate) ||
+            typeof candidate["owner"] !== "string" ||
+            typeof candidate["type"] !== "string" ||
+            typeof candidate["name"] !== "string" ||
+            typeof candidate["version"] !== "string"
+          ) {
+            throw new Error("Invalid publish preview candidate");
+          }
+          const owner = candidate["owner"];
+          const type = candidate["type"];
+          const name = candidate["name"];
+          const version = candidate["version"];
+          const plural = Object.entries(TYPE_BY_PLURAL).find(([, value]) => value === type)?.[0];
+          if (plural === undefined) throw new Error(`Unknown extension type ${type}`);
+          const extensionKey = key(owner, plural, name);
+          const existingVisibility = extensionVisibilities.get(extensionKey);
+          const visibility =
+            existingVisibility === undefined
+              ? {
+                  value: requestedVisibility ?? "public",
+                  disposition: "establish",
+                  source: requestedVisibility === undefined ? "platform" : "explicit",
+                }
+              : {
+                  value: existingVisibility,
+                  disposition: "preserve",
+                  source: "existing",
+                };
+          const condition = `"e2e-${crypto
+            .createHash("sha256")
+            .update(`${targetKey(owner, plural, name, version)}:${JSON.stringify(visibility)}`)
+            .digest("hex")}"`;
+          previewConditions.set(targetKey(owner, plural, name, version), condition);
+          return {
+            kind: "resolved",
+            target: { owner, type, name, version },
+            visibility,
+            condition,
+          };
+        });
+        if (options.publishPreviewMode === "unavailable") {
+          sendJson(
+            response,
+            200,
+            previews.map((preview) => ({
+              kind: "unavailable",
+              target: preview.target,
+              code: "publish/target-unavailable",
+            })),
+          );
+          return;
+        }
+        sendJson(
+          response,
+          200,
+          options.publishPreviewMode === "incomplete" ? previews.slice(0, -1) : previews,
+        );
+        return;
+      }
+
       if (request.method === "PUT") {
         const match = PUBLISH_PATH.exec(pathname);
         if (match === null) {
@@ -206,6 +294,11 @@ export const startHttpRegistry = async (
         }
         if (request.headers.authorization === undefined) {
           sendProblem(response, 401, "Publishing requires a bearer token.");
+          return;
+        }
+        const expectedCondition = previewConditions.get(targetKey(owner, plural, name, version));
+        if (expectedCondition === undefined || request.headers["if-match"] !== expectedCondition) {
+          sendProblem(response, 412, "Publish preview condition is missing or stale.");
           return;
         }
 
@@ -229,14 +322,23 @@ export const startHttpRegistry = async (
         if (delayMs > 0) {
           await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
         }
-        const versions = extensions.get(key(owner, plural, name)) ?? [];
+        const extensionKey = key(owner, plural, name);
+        const versions = extensions.get(extensionKey) ?? [];
         if (versions.some((entry) => entry.version === version)) {
           sendProblem(response, 409, `Version ${version} already exists.`);
           return;
         }
         const published = new Date("2026-01-01T00:00:00.000Z").toISOString();
+        const existingVisibility = extensionVisibilities.get(extensionKey);
+        const requestedVisibility = url.searchParams.get("visibility");
+        const establishedVisibility =
+          requestedVisibility === "public" || requestedVisibility === "private"
+            ? requestedVisibility
+            : "public";
+        const resolvedVisibility = existingVisibility ?? establishedVisibility;
         versions.push({ version, integrity, archive, published });
-        extensions.set(key(owner, plural, name), versions);
+        extensions.set(extensionKey, versions);
+        extensionVisibilities.set(extensionKey, resolvedVisibility);
         publishes.push({
           owner,
           plural,
@@ -245,6 +347,8 @@ export const startHttpRegistry = async (
           integrity,
           authorization: request.headers.authorization,
           contentType: request.headers["content-type"],
+          ifMatch: request.headers["if-match"],
+          requestedVisibility: requestedVisibility ?? undefined,
           byteLength: archive.byteLength,
         });
 
@@ -258,9 +362,13 @@ export const startHttpRegistry = async (
           published_at: published,
           publish_status: "available",
           visibility:
-            versions.length > 1
-              ? { value: "public", disposition: "preserve", source: "existing" }
-              : { value: "public", disposition: "establish", source: "platform" },
+            existingVisibility === undefined
+              ? {
+                  value: resolvedVisibility,
+                  disposition: "establish",
+                  source: requestedVisibility === null ? "platform" : "explicit",
+                }
+              : { value: existingVisibility, disposition: "preserve", source: "existing" },
           warnings: [],
           links: { html: `https://example.test/${owner}/${plural}/${name}` },
         });
@@ -326,7 +434,7 @@ export const startHttpRegistry = async (
           owner,
           type,
           publisher_binding_id: "hbnd_e2e",
-          visibility: "public",
+          visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
           versions: versions.map((entry) => ({
             version: entry.version,
             published: entry.published,

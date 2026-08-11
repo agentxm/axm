@@ -60,7 +60,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     onExisting: onExistingFlag,
     backfill: backfillFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
-      Flag.withDescription("Initial visibility for one explicit publish"),
+      Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
     yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),

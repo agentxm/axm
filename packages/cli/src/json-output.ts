@@ -31,6 +31,10 @@ import {
   serializeErrorCauseChain,
 } from "@agentxm/client-core/unstable/app-error";
 import {
+  PublishVisibilitySchema,
+  type PublishVisibility,
+} from "@agentxm/client-core/unstable/publish";
+import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
@@ -274,6 +278,7 @@ const PublishResultItemSchema = Schema.Struct({
   reason: Schema.optional(PublishReasonSchema),
   status: Schema.optional(PublishStatusSchema),
   message: Schema.optional(Schema.String),
+  visibility: Schema.optional(PublishVisibilitySchema),
   links: Schema.optional(
     Schema.Struct({
       html: Schema.String,
@@ -359,8 +364,17 @@ const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<Suggest
     item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
   );
 
-const publishItemLine = (item: PublishResultItem): string =>
-  item.links === undefined ? publishIdentity(item) : `${publishIdentity(item)}\n${item.links.html}`;
+const publishVisibilityLine = (visibility: PublishVisibility): string =>
+  `visibility: ${visibility.value} (${visibility.disposition}, ${visibility.source})`;
+
+const publishItemLine = (item: PublishResultItem): string => {
+  const identity = publishIdentity(item);
+  const withVisibility =
+    item.visibility === undefined
+      ? identity
+      : `${identity} — ${publishVisibilityLine(item.visibility)}`;
+  return item.links === undefined ? withVisibility : `${withVisibility}\n${item.links.html}`;
+};
 
 const renderHumanPublishResult = (
   renderer: typeof CliRenderer.Service,
@@ -419,7 +433,7 @@ const renderHumanPublishResult = (
         const [previewItem] = previewItems;
         const headline =
           previewItem !== undefined && previewItems.length === 1
-            ? `Would publish ${publishIdentity(previewItem)}`
+            ? `Would publish ${publishItemLine(previewItem)}`
             : `Would publish ${count(previewItems.length, "extension")}`;
         const summary =
           previewItems.length <= 1
@@ -433,7 +447,10 @@ const renderHumanPublishResult = (
       } else if (verifiedExisting.length > 0 && failed.length === 0 && blocked.length === 0) {
         yield* renderer.success(
           `All ${verifiedExisting.length} selected versions are already published and integrity-verified`,
-          suggestions,
+          {
+            summary: verifiedExisting.map((item) => publishItemLine(item)).join("\n"),
+            ...(suggestions ?? {}),
+          },
         );
       }
       if (
@@ -441,7 +458,9 @@ const renderHumanPublishResult = (
         (previewItems.length > 0 || failed.length > 0 || blocked.length > 0)
       ) {
         yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
+            .map((item) => publishItemLine(item))
+            .join("\n")}`,
         );
       }
       if (failed.length > 0) {
@@ -469,7 +488,9 @@ const renderHumanPublishResult = (
       });
       if (verifiedExisting.length > 0) {
         yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
+            .map((item) => publishItemLine(item))
+            .join("\n")}`,
         );
       }
       return;
@@ -483,7 +504,9 @@ const renderHumanPublishResult = (
       );
       if (verifiedExisting.length > 0) {
         yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
+            .map((item) => publishItemLine(item))
+            .join("\n")}`,
         );
       }
       return;
@@ -498,7 +521,9 @@ const renderHumanPublishResult = (
       yield* renderer.error(headline, suggestions);
       if (verifiedExisting.length > 0) {
         yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified`,
+          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
+            .map((item) => publishItemLine(item))
+            .join("\n")}`,
         );
       }
       if (blocked.length > 0) {
@@ -510,11 +535,16 @@ const renderHumanPublishResult = (
     const [verifiedItem] = verifiedExisting;
     const headline =
       verifiedItem !== undefined && verifiedExisting.length === 1 && skipped.length === 0
-        ? `Already published and integrity-verified — ${publishIdentity(verifiedItem)}`
+        ? `Already published and integrity-verified — ${publishItemLine(verifiedItem)}`
         : verifiedExisting.length > 0
           ? `All ${verifiedExisting.length} selected versions are already published and integrity-verified`
           : `No extensions published — ${count(skipped.length, "extension")} skipped`;
-    yield* renderer.success(headline, suggestions);
+    yield* renderer.success(headline, {
+      ...(verifiedExisting.length > 1
+        ? { summary: verifiedExisting.map((item) => publishItemLine(item)).join("\n") }
+        : {}),
+      ...(suggestions ?? {}),
+    });
   });
 
 const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOptions): Step => {

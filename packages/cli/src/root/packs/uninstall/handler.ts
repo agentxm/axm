@@ -1,7 +1,8 @@
 import * as Effect from "effect/Effect";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitPlanResolutionResult, toPlanResolutionResult } from "../../../json-output.js";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
 import { makeUninstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
@@ -26,6 +27,14 @@ export const handleUninstallPack = (
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);
+    if (resolution._tag === "PreviewedPlan" && result.totalSteps === 0) {
+      const emitted = yield* emitPlanResolutionResult("packs.uninstall", resolution);
+      if (!emitted) {
+        const renderer = yield* CliRenderer;
+        yield* renderer.success("No packs would be uninstalled.");
+      }
+      return;
+    }
     if (result.outcome === "no-op") {
       yield* emitNoOpOutcome("packs.uninstall", {
         planName: result.planName,

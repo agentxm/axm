@@ -92,4 +92,55 @@ describe("atomic pack graph transition", () => {
       }),
     );
   });
+
+  it.effect("runs the destructive precondition before every child step", () => {
+    const { provide } = makeWorkspaceHandlerTestContext({
+      wsOptions: { projectRoot: tempDir },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        let childRan = false;
+        const graphStep = yield* buildAtomicPackGraphStep({
+          label: "@test/packs/preconditioned",
+          message: "updated preconditioned pack graph",
+          artifact: {
+            path: "pack graph",
+            scope: "project",
+            change: "updated",
+          },
+          steps: [
+            {
+              readiness: "ready",
+              label: "child",
+              run: Effect.sync(() => {
+                childRan = true;
+                return {
+                  result: "success",
+                  message: "child ran",
+                } satisfies JobStepResult;
+              }),
+            },
+          ],
+          preTransition: Effect.fail(
+            makeAppError({
+              code: "conflict",
+              detail: "selected pack changed",
+            }),
+          ),
+          validate: Effect.void,
+        });
+        if (graphStep.readiness === "error") {
+          return yield* makeAppError({
+            code: "internal",
+            detail: graphStep.errorMessage,
+          });
+        }
+
+        const error = yield* Effect.flip(graphStep.run);
+        expect(error.code).toBe("conflict");
+        expect(childRan).toBe(false);
+      }),
+    );
+  });
 });

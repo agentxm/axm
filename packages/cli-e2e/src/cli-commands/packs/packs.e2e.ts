@@ -1018,6 +1018,111 @@ describe("axm packs install", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs uninstall", () => {
+  const createWorkspacePack = async (name: string) => {
+    const temp = createTempDir();
+    await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+    const settingsPath = path.join(temp.path, ".axm", "settings.json");
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+    settings.owner = "@test";
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    const created = await runCli(["packs", "new", name, "--yes"], { cwd: temp.path });
+    expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+    return temp;
+  };
+
+  it.each(["workspace-pack", "@test/packs/workspace-pack"])(
+    "previews and uninstalls a workspace-authored pack selected as %s",
+    async (selector) => {
+      const temp = await createWorkspacePack("workspace-pack");
+      try {
+        const axmDir = path.join(temp.path, ".axm");
+        const settingsPath = path.join(axmDir, "settings.json");
+        const lockPath = path.join(axmDir, "axm-lock.yaml");
+        const trustPath = path.join(axmDir, "trust.json");
+        const packageDir = path.join(axmDir, "extensions", "@test", "packs", "workspace-pack");
+        const before = {
+          settings: fs.readFileSync(settingsPath, "utf8"),
+          lockfile: fs.readFileSync(lockPath, "utf8"),
+          trust: fs.readFileSync(trustPath, "utf8"),
+          manifest: fs.readFileSync(path.join(packageDir, "pack.json"), "utf8"),
+        };
+
+        const preview = await runCli(
+          ["packs", "uninstall", selector, "--preview", "--json", "--non-interactive"],
+          { cwd: temp.path },
+        );
+        expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+        expect(JSON.parse(preview.stdout)).toMatchObject({
+          result: { outcome: "previewed", planName: "Uninstall pack", totalSteps: 1 },
+        });
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
+        expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lockfile);
+        expect(fs.readFileSync(trustPath, "utf8")).toBe(before.trust);
+        expect(fs.readFileSync(path.join(packageDir, "pack.json"), "utf8")).toBe(before.manifest);
+
+        const applied = await runCli(
+          ["packs", "uninstall", selector, "--yes", "--json", "--non-interactive"],
+          { cwd: temp.path },
+        );
+        expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+        expect(JSON.parse(applied.stdout)).toMatchObject({ result: { outcome: "applied" } });
+        expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).packs?.["workspace-pack"]).toBe(
+          undefined,
+        );
+        expect(YAML.parse(fs.readFileSync(lockPath, "utf8")).packs?.["workspace-pack"]).toBe(
+          undefined,
+        );
+        expect(
+          JSON.parse(fs.readFileSync(trustPath, "utf8")).records?.["pack:workspace-pack"],
+        ).toBe(undefined);
+        expect(fs.existsSync(packageDir)).toBe(false);
+      } finally {
+        temp.cleanup();
+      }
+    },
+  );
+
+  it("treats a same-name pack under another owner as a no-op", async () => {
+    const temp = await createWorkspacePack("owned-pack");
+    try {
+      const result = await runCli(
+        ["packs", "uninstall", "@other/packs/owned-pack", "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(
+        JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "settings.json"), "utf8")).packs?.[
+          "owned-pack"
+        ],
+      ).toBe("workspace:@test/packs/owned-pack");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("makes empty previews explicit without changing JSON plan semantics", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      const human = await runCli(["packs", "uninstall", "missing-*", "--preview"], {
+        cwd: temp.path,
+      });
+      expect(human.exitCode, human.stdout + human.stderr).toBe(0);
+      expect(human.stdout + human.stderr).toContain("No packs would be uninstalled.");
+
+      const machine = await runCli(["packs", "uninstall", "missing-*", "--preview", "--json"], {
+        cwd: temp.path,
+      });
+      expect(machine.exitCode, machine.stdout + machine.stderr).toBe(0);
+      expect(JSON.parse(machine.stdout)).toMatchObject({
+        result: { outcome: "previewed", planName: "Uninstall packs", totalSteps: 0, steps: [] },
+      });
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("is idempotent for a literal pack not in the lockfile or settings", async () => {
     const temp = createTempDir();
     try {

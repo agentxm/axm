@@ -21,6 +21,7 @@ import {
   RegistryUrl,
   resolveRequestToken,
   runPublishAuthorization,
+  type PublishCapabilityResponse,
 } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -82,6 +83,7 @@ import {
   createRegistryClient,
   type ExtensionVisibility,
   type PublishPreviewResult,
+  type PublishExtensionArgs,
   type RegistryClient,
   type VersionEntry,
 } from "@agentxm/client-core/unstable/registry";
@@ -316,6 +318,17 @@ export const publishAuthenticationPreconditions = (options: {
         },
       ]
     : [];
+
+export const exactPublishUploadBinding = (
+  capability: PublishCapabilityResponse,
+): Pick<PublishExtensionArgs, "accessToken" | "condition" | "initialVisibility"> => ({
+  accessToken: capability.accessToken,
+  condition: capability.condition,
+  ...(capability.visibility.disposition === "establish" &&
+  capability.visibility.source === "explicit"
+    ? { initialVisibility: capability.visibility.value }
+    : {}),
+});
 
 export const validatePublishOwners = (
   owners: ReadonlyArray<Handle>,
@@ -996,19 +1009,7 @@ const publishCandidate = (
     const storedToken = yield* resolveRequestToken(registry.url, defaultRegistryUrl);
     const isRemoteRegistry =
       registry.url.startsWith("https://") || registry.url.startsWith("http://");
-    if (isRemoteRegistry && Option.isNone(storedToken) && Option.isSome(visibility)) {
-      return yield* makeAppError({
-        code: "auth",
-        detail:
-          "--visibility requires a logged-in session or PAT; an exact publish capability can only upload the approved archive",
-        suggestions: [
-          {
-            description: "Log in or configure a PAT, then rerun publish with --visibility.",
-          },
-        ],
-      });
-    }
-    const accessToken =
+    const exactCapability =
       isRemoteRegistry && Option.isNone(storedToken)
         ? yield* runPublishAuthorization({
             registryUrl: registry.url,
@@ -1017,6 +1018,10 @@ const publishCandidate = (
             name: candidate.name,
             version: candidate.version,
             archive: candidate.archive,
+            ...Option.match(visibility, {
+              onNone: () => ({}),
+              onSome: (requestedVisibility) => ({ requestedVisibility }),
+            }),
           })
         : undefined;
     const metadata: VersionEntry = {
@@ -1033,11 +1038,17 @@ const publishCandidate = (
       version: candidate.version,
       archive: candidate.archive,
       metadata,
-      ...(Option.isNone(visibility) ? {} : { initialVisibility: visibility.value }),
-      ...(accessToken === undefined ? {} : { accessToken }),
-      ...(candidate.publishPreview === undefined
-        ? {}
-        : { condition: candidate.publishPreview.condition }),
+      ...(exactCapability === undefined
+        ? Option.match(visibility, {
+            onNone: () => ({}),
+            onSome: (initialVisibility) => ({ initialVisibility }),
+          })
+        : exactPublishUploadBinding(exactCapability)),
+      ...(exactCapability === undefined
+        ? candidate.publishPreview === undefined
+          ? {}
+          : { condition: candidate.publishPreview.condition }
+        : {}),
     });
     return {
       stepResult: {

@@ -7,7 +7,8 @@ import { CliRenderer } from "../cli-renderer/index.js";
 import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { Version } from "../version-constraints/version-constraints.js";
-import { AuthClient } from "./auth-client.js";
+import type { PublishVisibility } from "../publish/visibility.js";
+import { AuthClient, type PublishCapabilityResponse } from "./auth-client.js";
 import { DeviceLoginInteraction } from "./device-login.js";
 import {
   LoopbackCallbackRejected,
@@ -25,6 +26,7 @@ export interface PublishAuthorizationInput {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly archive: Uint8Array;
+  readonly requestedVisibility?: PublishVisibility["value"];
 }
 
 const loopbackFailureToAppError = (
@@ -84,6 +86,10 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
       name: input.name,
       version: input.version,
       archiveSha256,
+      visibilityContract: "v1",
+      ...(input.requestedVisibility === undefined
+        ? {}
+        : { requestedVisibility: input.requestedVisibility }),
     })
     .pipe(Effect.tapError(() => server.close));
 
@@ -113,5 +119,5 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
     redirectUri: server.redirectUri,
   });
 
-  return capability.accessToken;
-});
+  return capability;
+}, Effect.satisfiesSuccessType<PublishCapabilityResponse>());

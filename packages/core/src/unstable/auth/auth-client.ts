@@ -26,6 +26,7 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import { DateTimeUtcSchema } from "../date-time.js";
 import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
+import { PublishVisibilitySchema, type PublishVisibility } from "../publish/visibility.js";
 import type { Version } from "../version-constraints/version-constraints.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
@@ -33,6 +34,7 @@ import * as GeneratedRegistryClient from "../registry/__generated__/registry-cli
 import {
   isRegistryClientError,
   isAnyRegistryClientError,
+  isSchemaError,
   hasTagSuffix,
   getString,
   isTransientHttpClientError,
@@ -175,6 +177,8 @@ export interface CreatePublishAuthorizationRequestParams {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly archiveSha256: string;
+  readonly visibilityContract: "v1";
+  readonly requestedVisibility?: PublishVisibility["value"];
 }
 
 export interface PublishAuthorizationRequestResponse {
@@ -195,6 +199,9 @@ export interface PublishCapabilityResponse {
   readonly expiresAt: DateTime.Utc;
   readonly scope: string;
   readonly publishRequestId: string;
+  readonly visibilityContract: "v1";
+  readonly visibility: PublishVisibility;
+  readonly condition: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -305,6 +312,9 @@ const PublishCapabilityResponseSchema = Schema.Struct({
   expires_at: DateTimeUtcSchema,
   scope: Schema.String,
   publish_request_id: Schema.String,
+  visibility_contract: Schema.Literal("v1"),
+  visibility: PublishVisibilitySchema,
+  condition: Schema.String.check(Schema.isMinLength(1)),
 });
 
 const OAuthTokenErrorResponseSchema = Schema.Struct({
@@ -737,6 +747,10 @@ export const AuthClientLive = Layer.effect(
             name: params.name,
             version: params.version,
             archive_sha256: params.archiveSha256,
+            visibility_contract: params.visibilityContract,
+            ...(params.requestedVisibility === undefined
+              ? {}
+              : { visibility: params.requestedVisibility }),
           }),
           (request) =>
             httpClient
@@ -786,6 +800,19 @@ export const AuthClientLive = Layer.effect(
           ),
           Effect.mapError((error) => {
             const code = getOAuthErrorCode(error);
+            if (isSchemaError(error)) {
+              return makeAppError({
+                code: "internal",
+                detail: "The registry is incompatible with exact publish authorization.",
+                suggestions: [
+                  {
+                    description:
+                      "Use a registry that supports visibility-bound exact publish capabilities.",
+                  },
+                ],
+                cause: error,
+              });
+            }
             return makeAppError({
               code: "auth",
               detail:
@@ -805,6 +832,9 @@ export const AuthClientLive = Layer.effect(
           expiresAt: response.expires_at,
           scope: response.scope,
           publishRequestId: response.publish_request_id,
+          visibilityContract: response.visibility_contract,
+          visibility: response.visibility,
+          condition: response.condition,
         } satisfies PublishCapabilityResponse;
       });
 

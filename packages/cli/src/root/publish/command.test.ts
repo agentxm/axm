@@ -218,7 +218,12 @@ describe("root publish", () => {
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
 
-          expect(logs.success).toContain("Published @acme/skills/review@1.0.0");
+          expect(
+            logs.success.some((message) =>
+              message.startsWith("Published @acme/skills/review@1.0.0"),
+            ),
+          ).toBe(true);
+          expect(logs.success.join("\n")).toContain("visibility: public (establish, platform)");
           expect(rendererState.spinnerMessages).toContain("Resolving publish registry");
           expect(rendererState.spinnerMessages).toContain("Preparing publish candidates");
           expect(rendererState.spinnerMessages).toContain("Applying Publish extensions");
@@ -235,7 +240,12 @@ describe("root publish", () => {
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl));
 
-          expect(logs.success).toContain("Would publish @acme/skills/review@1.0.0");
+          expect(
+            logs.success.some((message) =>
+              message.startsWith("Would publish @acme/skills/review@1.0.0"),
+            ),
+          ).toBe(true);
+          expect(logs.success.join("\n")).toContain("visibility: public (establish, platform)");
           expect(logs.success.some((message) => message.startsWith("Published "))).toBe(false);
         }),
       );
@@ -610,6 +620,124 @@ describe("root publish", () => {
       return item;
     };
 
+    const expectVisibility = (
+      item: Record<string, unknown>,
+      expected: {
+        readonly value: "public" | "private";
+        readonly disposition: "establish" | "preserve";
+        readonly source: "explicit" | "account" | "platform" | "existing";
+      },
+    ) => {
+      expect(expectRecord(property(item, "visibility"))).toEqual(expected);
+    };
+
+    it.effect(
+      "previews bulk visibility for authored, filtered, glob, and multi-selector sets",
+      () => {
+        writeTwoSkillSettings();
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+        const selections: ReadonlyArray<Partial<RootPublishHandlerArgs>> = [
+          {},
+          { types: ["skill"] },
+          { selectors: ["@acme/skills/*"] },
+          { selectors: ["@acme/skills/review", "@acme/skills/deploy"] },
+        ];
+
+        return provide(
+          Effect.gen(function* () {
+            for (const selection of selections) {
+              yield* handleRootPublish(
+                args(registryUrl, {
+                  ...selection,
+                  visibility: Option.some("private"),
+                }),
+              );
+            }
+
+            expect(rendererState.results).toHaveLength(selections.length);
+            for (const rendered of rendererState.results) {
+              const items = resultItems(rendered.data, "preview", 2);
+              for (const item of items) {
+                expectVisibility(item, {
+                  value: "private",
+                  disposition: "establish",
+                  source: "explicit",
+                });
+              }
+            }
+          }),
+        );
+      },
+    );
+
+    it.effect("overrides new extensions and preserves existing extension visibility", () => {
+      writeSkillSettings(["review"]);
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          writeSkillSettings(["review", "deploy"]);
+          writeSkill("review", "1.1.0");
+
+          yield* handleRootPublish(
+            args(registryUrl, {
+              preview: false,
+              visibility: Option.some("private"),
+            }),
+          );
+
+          const items = resultItems(at(rendererState.results, 1).data, "apply", 2);
+          expectVisibility(itemNamed(items, "review"), {
+            value: "public",
+            disposition: "preserve",
+            source: "existing",
+          });
+          expectVisibility(itemNamed(items, "deploy"), {
+            value: "private",
+            disposition: "establish",
+            source: "explicit",
+          });
+        }),
+      );
+    });
+
+    it.effect(
+      "blocks every upload when a visibility override has no eligible new extension",
+      () => {
+        writeSkillSettings(["review"]);
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            writeSkill("review", "1.1.0");
+
+            const exit = yield* handleRootPublish(
+              args(registryUrl, {
+                preview: false,
+                visibility: Option.some("private"),
+              }),
+            ).pipe(Effect.exit);
+            expect(Exit.isFailure(exit)).toBe(true);
+
+            const failedItems = resultItems(at(rendererState.results, 1).data, "apply", 1);
+            const failed = itemNamed(failedItems, "review");
+            expect(property(failed, "status")).toBe("failed");
+            expect(property(failed, "message")).toContain("no eligible new extension");
+            expect(Object.keys(failed)).not.toContain("visibility");
+
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            const retriedItems = resultItems(at(rendererState.results, 2).data, "apply", 1);
+            expect(property(itemNamed(retriedItems, "review"), "status")).toBe("success");
+          }),
+        );
+      },
+    );
+
     it.effect("bulk publish verifies existing versions and uploads only new candidates", () => {
       writeTwoSkillSettings();
       const { provide, rendererState } = makeContext(false);
@@ -626,6 +754,11 @@ describe("root publish", () => {
           expect(property(review, "action")).toBe("skip");
           expect(property(review, "status")).toBe("success");
           expect(property(review, "reason")).toBe("version_already_published");
+          expectVisibility(review, {
+            value: "public",
+            disposition: "preserve",
+            source: "existing",
+          });
           const deploy = itemNamed(items, "deploy");
           expect(property(deploy, "action")).toBe("publish");
           expect(property(deploy, "status")).toBe("success");

@@ -33,6 +33,9 @@ const registryEnv = (registryUrl: string): Record<string, string> => ({
   AXM_TOKEN: TOKEN,
 });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 interface ScaffoldPublish {
   /** Extra flags `axm <plural> new` needs for this type. */
   readonly newArgs: ReadonlyArray<string>;
@@ -173,6 +176,7 @@ describe("HTTP registry transport", () => {
       expect(record?.integrity.startsWith("sha512-")).toBe(true);
       expect(record?.contentType).toBe("application/zip");
       expect(record?.authorization).toBe(`Bearer ${TOKEN}`);
+      expect(record?.ifMatch).toMatch(/^"e2e-[a-f0-9]{64}"$/);
       expect(record?.byteLength).toBeGreaterThan(0);
 
       expect(registry.requests).toContainEqual({
@@ -184,6 +188,11 @@ describe("HTTP registry transport", () => {
       // The upload really went over the remote transport, at the versioned
       // path — not through a file:// shortcut.
       expect(registry.requests).toContainEqual({
+        method: "POST",
+        path: "/v1/publish-previews",
+        status: 200,
+      });
+      expect(registry.requests).toContainEqual({
         method: "PUT",
         path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
         status: 201,
@@ -192,6 +201,113 @@ describe("HTTP registry transport", () => {
       await registry.close();
     }
   });
+
+  it("bulk visibility establishes new extensions and preserves existing visibility", async () => {
+    const registry = await startHttpRegistry();
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const createReview = await runCli(
+        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(createReview.exitCode, createReview.stderr).toBe(0);
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+
+      const createDeploy = await runCli(
+        ["skills", "new", "deploy", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(createDeploy.exitCode, createDeploy.stderr).toBe(0);
+      const bumpReview = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(bumpReview.exitCode, bumpReview.stderr).toBe(0);
+
+      const published = await runCli(
+        ["publish", "--owner", OWNER, "--visibility", "private", "--yes", "--json"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode, `${published.stderr}\n${published.stdout}`).toBe(0);
+      const output: unknown = JSON.parse(published.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected structured publish output");
+      }
+      const results = output["result"]["results"];
+      if (!Array.isArray(results)) throw new Error("Expected publish result items");
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "review",
+            status: "success",
+            visibility: { value: "public", disposition: "preserve", source: "existing" },
+          }),
+          expect.objectContaining({
+            name: "deploy",
+            status: "success",
+            visibility: { value: "private", disposition: "establish", source: "explicit" },
+          }),
+        ]),
+      );
+      expect(registry.publishes).toHaveLength(3);
+      expect(registry.publishes.every((record) => record.ifMatch !== undefined)).toBe(true);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  it.each(["unavailable", "incomplete", "missing"] as const)(
+    "fails closed without uploading when publish preview is %s",
+    async (publishPreviewMode) => {
+      const registry = await startHttpRegistry({ publishPreviewMode });
+      const workspace = createTempDir();
+
+      try {
+        await initWorkspace(workspace.path, registry.url);
+        const created = await runCli(
+          [
+            "skills",
+            "new",
+            `blocked-${publishPreviewMode}`,
+            "--owner",
+            OWNER,
+            "--agent",
+            "claude-code",
+            "--yes",
+          ],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(created.exitCode, created.stderr).toBe(0);
+
+        const published = await runCli(
+          ["skills", "publish", `${OWNER}/skills/blocked-${publishPreviewMode}`, "--yes", "--json"],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(published.exitCode).not.toBe(0);
+        expect(registry.publishes).toHaveLength(0);
+        const output: unknown = JSON.parse(published.stdout);
+        if (!isRecord(output) || !isRecord(output["result"])) {
+          throw new Error("Expected structured failed publish output");
+        }
+        const results = output["result"]["results"];
+        if (!Array.isArray(results) || !isRecord(results[0])) {
+          throw new Error("Expected one failed publish result item");
+        }
+        expect(results[0]["status"]).toBe("failed");
+        expect(results[0]).not.toHaveProperty("visibility");
+      } finally {
+        await registry.close();
+        workspace.cleanup();
+      }
+    },
+  );
 
   it("root publish uploads selected pack dependencies before the pack", async () => {
     const registry = await startHttpRegistry({

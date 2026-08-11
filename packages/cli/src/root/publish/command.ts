@@ -73,6 +73,7 @@ import {
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
+  type PublishVisibility,
   publishArchiveOptions,
   runPublishLintGate,
   validateArchive,
@@ -80,6 +81,7 @@ import {
 import {
   createRegistryClient,
   type ExtensionVisibility,
+  type PublishPreviewResult,
   type RegistryClient,
   type VersionEntry,
 } from "@agentxm/client-core/unstable/registry";
@@ -215,6 +217,12 @@ interface PublishCandidate extends SelectedEntry {
   readonly integrity: string;
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
+  readonly publishPreview?: ResolvedPublishPreview;
+}
+
+interface ResolvedPublishPreview {
+  readonly visibility: PublishVisibility;
+  readonly condition: string;
 }
 
 interface PublishPlanCandidate {
@@ -461,6 +469,25 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
 
 const parseRootSelector = (selector: string) => {
   if (selector.startsWith("@")) {
+    if (isGlobPattern(selector)) {
+      const [owner, plural, name, extra] = selector.split("/");
+      const supportedPlural = selectableTypes.some(
+        (candidate) => extensionTypeToPlural[candidate] === plural,
+      );
+      if (
+        owner === undefined ||
+        plural === undefined ||
+        name === undefined ||
+        extra !== undefined ||
+        !supportedPlural
+      ) {
+        return makeAppError({
+          code: "validation",
+          detail: `Unsupported publish selector: ${selector}`,
+        });
+      }
+      return Effect.succeed({ plural, name });
+    }
     return Effect.fromResult(Result.mapError(parseFqn(selector), fqnInvalidErrorToAppError));
   }
   const [plural, name, extra] = selector.split("/");
@@ -507,12 +534,6 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     return yield* makeAppError({
       code: "usage",
       detail: "Selection filters cannot be combined with explicit selectors",
-    });
-  }
-  if (Option.isSome(args.visibility) && args.selectors.length !== 1) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--visibility requires exactly one explicit selector",
     });
   }
   if (args.includeDependency.length > 0 && !args.includeDependencies) {
@@ -680,7 +701,6 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   selected: SelectedEntry,
   policy: ExistingVersionPolicy,
   registry: TargetRegistry,
-  visibility: Option.Option<ExtensionVisibility>,
   backfillRequested: boolean,
 ) {
   if (selected.skipReason !== undefined) return undefined;
@@ -824,12 +844,6 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     type: selected.type,
     name: manifest.name,
   });
-  if (Option.isSome(visibility) && Option.isSome(index)) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `--visibility is only valid for the initial publish of ${selected.fqn}`,
-    });
-  }
   const existing = Option.isSome(index)
     ? index.value.versions.find((entry) => entry.version === manifest.version)
     : undefined;
@@ -891,6 +905,86 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   } satisfies PublishCandidate;
 });
 
+const publishTargetKey = (target: {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+}): string =>
+  `${target.owner}/${extensionTypeToPlural[target.type]}/${target.name}@${target.version}`;
+
+const resolvedPublishPreview = (
+  result: PublishPreviewResult,
+): Effect.Effect<ResolvedPublishPreview, AppError> =>
+  result.kind === "resolved"
+    ? Effect.succeed({ visibility: result.visibility, condition: result.condition })
+    : makeAppError({
+        code: "validation",
+        detail: `The registry could not authoritatively preview ${publishTargetKey(result.target)}.`,
+      });
+
+const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function* (
+  candidates: ReadonlyArray<PublishCandidate>,
+  client: Pick<RegistryClient, "previewExtensionPublishes">,
+  visibility: Option.Option<ExtensionVisibility>,
+) {
+  const results = yield* client.previewExtensionPublishes({
+    candidates: candidates.map((candidate) => ({
+      owner: candidate.owner,
+      type: candidate.type,
+      name: candidate.name,
+      version: candidate.version,
+    })),
+    ...(Option.isNone(visibility) ? {} : { initialVisibility: visibility.value }),
+  });
+  if (results.length !== candidates.length) {
+    return yield* makeAppError({
+      code: "internal",
+      detail: "The registry returned an incomplete authoritative publish preview.",
+    });
+  }
+
+  const resultsByTarget = new Map<string, PublishPreviewResult>();
+  for (const result of results) {
+    const key = publishTargetKey(result.target);
+    if (resultsByTarget.has(key)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: "The registry returned an incompatible authoritative publish preview.",
+      });
+    }
+    resultsByTarget.set(key, result);
+  }
+
+  const prepared = yield* Effect.forEach(candidates, (candidate) =>
+    Effect.gen(function* () {
+      const result = resultsByTarget.get(publishTargetKey(candidate));
+      if (result === undefined) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "The registry returned an incomplete authoritative publish preview.",
+        });
+      }
+      return {
+        ...candidate,
+        publishPreview: yield* resolvedPublishPreview(result),
+      } satisfies PublishCandidate;
+    }),
+  );
+
+  if (
+    Option.isSome(visibility) &&
+    !prepared.some((candidate) => candidate.publishPreview?.visibility.disposition === "establish")
+  ) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail:
+        "--visibility applies only to extensions created by this publish, but the selection contains no eligible new extension.",
+    });
+  }
+  return prepared;
+});
+
 const publishCandidate = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
@@ -941,33 +1035,18 @@ const publishCandidate = (
       metadata,
       ...(Option.isNone(visibility) ? {} : { initialVisibility: visibility.value }),
       ...(accessToken === undefined ? {} : { accessToken }),
+      ...(candidate.publishPreview === undefined
+        ? {}
+        : { condition: candidate.publishPreview.condition }),
     });
-    let verified = false;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const readback = yield* client.getExtensionIndex({
-        owner: candidate.owner,
-        type: candidate.type,
-        name: candidate.name,
-      });
-      verified =
-        Option.isSome(readback) &&
-        readback.value.versions.some(
-          (entry) => entry.version === candidate.version && entry.integrity === candidate.integrity,
-        );
-      if (verified) break;
-      if (attempt < 4) yield* Effect.sleep("250 millis");
-    }
-    if (!verified) {
-      return yield* makeAppError({
-        code: "internal",
-        detail: `Published ${candidate.fqn}@${candidate.version}, but registry readback verification failed`,
-      });
-    }
     return {
-      result: "success",
-      message: `Published ${candidate.fqn}@${candidate.version}`,
-      ...(response.links === undefined ? {} : { links: response.links }),
-    } satisfies JobStepResult;
+      stepResult: {
+        result: "success",
+        message: `Published ${candidate.fqn}@${candidate.version}`,
+        ...(response.links === undefined ? {} : { links: response.links }),
+      } satisfies JobStepResult,
+      visibility: response.visibility,
+    };
   });
 
 const refreshAuthoredPublishBaseline = Effect.fn("Publish.refreshAuthoredBaseline")(function* (
@@ -1025,6 +1104,9 @@ const selectedResult = (
       action: "skip",
       reason: "version_already_published",
       status: "success",
+      ...(candidate.publishPreview === undefined
+        ? {}
+        : { visibility: candidate.publishPreview.visibility }),
     };
   }
   return {
@@ -1035,6 +1117,9 @@ const selectedResult = (
     sourceType: candidate.sourceType,
     authored: candidate.authored,
     action: "publish",
+    ...(candidate.publishPreview === undefined
+      ? {}
+      : { visibility: candidate.publishPreview.visibility }),
   };
 };
 
@@ -1095,7 +1180,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
                   includedDependency: entry.includedDependency === true,
                 }),
                 registry,
-                args.visibility,
                 args.backfill,
               ),
             ),
@@ -1108,7 +1192,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const selection = prepared.selection;
   const selected = selection.entries;
   const decoded = prepared.decoded;
-  const candidates = decoded.flatMap((result) =>
+  const decodedCandidates = decoded.flatMap((result) =>
     Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
   );
   const preflightErrors = decoded.flatMap((result) =>
@@ -1130,38 +1214,89 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return;
   }
 
+  const isRemoteRegistry =
+    registry.url.startsWith("https://") || registry.url.startsWith("http://");
+  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const shouldPreviewAuthoritatively =
+    preflightErrors.length === 0 &&
+    decodedCandidates.length > 0 &&
+    (!isRemoteRegistry || Option.isSome(storedToken));
+  const authoritativePreview: Result.Result<
+    ReadonlyArray<PublishCandidate>,
+    AppError
+  > = shouldPreviewAuthoritatively
+    ? yield* Effect.result(
+        Effect.gen(function* () {
+          const client = yield* createRegistryClient(registry.url);
+          return yield* previewPublishCandidates(decodedCandidates, client, args.visibility);
+        }),
+      )
+    : Result.succeed(decodedCandidates);
+  const authoritativePreflightError = Result.isFailure(authoritativePreview)
+    ? authoritativePreview.failure
+    : undefined;
+  const candidates = Result.isSuccess(authoritativePreview)
+    ? authoritativePreview.success
+    : decodedCandidates;
+  const candidatesByTarget = new Map(
+    candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
+  );
+
   const initialPreflightResults = selected.map((entry, index) => {
     const decodedResult = decoded[index];
     if (decodedResult === undefined) return selectedResult(entry, undefined);
     if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
-    return selectedResult(entry, decodedResult.success);
+    const candidate = decodedResult.success;
+    return selectedResult(
+      entry,
+      candidate === undefined
+        ? undefined
+        : (candidatesByTarget.get(publishTargetKey(candidate)) ?? candidate),
+    );
   });
-  const preflightResults =
-    preflightErrors.length === 0
-      ? initialPreflightResults
-      : initialPreflightResults.map((result): PublishResultItem =>
-          result.action === "publish"
-            ? {
-                ...result,
-                status: "blocked",
-                reason: "blocked_by_preflight",
-                message: "Not attempted because another selected extension failed preflight",
-              }
-            : result,
-        );
-  if (preflightErrors.length > 0) {
+  let assignedAuthoritativeFailure = false;
+  const preflightResults = initialPreflightResults.map((result): PublishResultItem => {
+    if (preflightErrors.length > 0) {
+      return result.action === "publish"
+        ? {
+            ...result,
+            status: "blocked",
+            reason: "blocked_by_preflight",
+            message: "Not attempted because another selected extension failed preflight",
+          }
+        : result;
+    }
+    if (authoritativePreflightError === undefined || result.version === undefined) return result;
+    if (!assignedAuthoritativeFailure) {
+      assignedAuthoritativeFailure = true;
+      return {
+        ...result,
+        action: "error",
+        status: "failed",
+        message: authoritativePreflightError.detail,
+      };
+    }
+    return {
+      ...result,
+      status: "blocked",
+      reason: "blocked_by_preflight",
+      message: "Not attempted because authoritative publish preflight failed",
+    };
+  });
+  const allPreflightErrors = [
+    ...preflightErrors,
+    ...(authoritativePreflightError === undefined ? [] : [authoritativePreflightError]),
+  ];
+  if (allPreflightErrors.length > 0) {
     const emitted = yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
       selection: selectionOutput,
       results: preflightResults,
     });
-    const failure = aggregatePublishFailure(preflightErrors.length, preflightErrors);
+    const failure = aggregatePublishFailure(allPreflightErrors.length, allPreflightErrors);
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
   }
 
-  const isRemoteRegistry =
-    registry.url.startsWith("https://") || registry.url.startsWith("http://");
-  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
   const authenticationPreconditions = publishAuthenticationPreconditions({
     preview: args.preview,
     remoteRegistry: isRemoteRegistry,
@@ -1169,8 +1304,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
     hasPublishCandidates: candidates.some((candidate) => candidate.action === "publish"),
   });
 
+  const publishedVisibilities = new Map<string, PublishVisibility>();
+
   const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
     const run = publishCandidate(candidate, registry, args.visibility).pipe(
+      Effect.map(({ stepResult, visibility }) => {
+        publishedVisibilities.set(publishTargetKey(candidate), visibility);
+        return stepResult;
+      }),
       Effect.tap(() => refreshAuthoredPublishBaseline(candidate)),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -1289,20 +1430,28 @@ const runPublish = Effect.fn("Publish.run")(function* (
           : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
       if (step === undefined) return result;
       if (step.result.result === "error") {
-        return {
-          ...result,
+        const failedResult: PublishResultItem = {
+          owner: result.owner,
+          type: result.type,
+          name: result.name,
+          ...(result.version === undefined ? {} : { version: result.version }),
+          ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
+          ...(result.authored === undefined ? {} : { authored: result.authored }),
           action: "error",
           status: "failed",
           message: step.result.message,
-          ...(step.result.message.includes("readback verification failed")
-            ? { reason: "verify_failed" }
-            : {}),
         };
+        return failedResult;
       }
+      const authoritativeVisibility =
+        candidate === undefined
+          ? undefined
+          : publishedVisibilities.get(publishTargetKey(candidate));
       return {
         ...result,
         status: "success",
         message: step.result.message,
+        ...(authoritativeVisibility === undefined ? {} : { visibility: authoritativeVisibility }),
         ...(step.result.links === undefined ? {} : { links: step.result.links }),
       };
     });
@@ -1370,7 +1519,7 @@ const publishConfig = {
   onExisting: onExistingFlag,
   backfill: backfillFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
-    Flag.withDescription("Initial visibility for one explicit publish"),
+    Flag.withDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),

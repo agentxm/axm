@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
+import type { PublishVisibility } from "../publish/index.js";
 import type {
   Author,
   ExtensionDependencyConstraintMap,
@@ -116,9 +117,36 @@ export interface PublishExtensionArgs {
   readonly initialVisibility?: ExtensionVisibility;
   /** Ephemeral exact publish capability. Never persisted by the registry client. */
   readonly accessToken?: string;
+  /** Opaque authoritative preview condition, sent as If-Match. */
+  readonly condition?: string;
 }
 
 export type ExtensionVisibility = "public" | "private";
+
+export interface PublishPreviewTarget {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+}
+
+export interface PreviewExtensionPublishesArgs {
+  readonly candidates: ReadonlyArray<PublishPreviewTarget>;
+  readonly initialVisibility?: ExtensionVisibility;
+}
+
+export type PublishPreviewResult =
+  | {
+      readonly kind: "resolved";
+      readonly target: PublishPreviewTarget;
+      readonly visibility: PublishVisibility;
+      readonly condition: string;
+    }
+  | {
+      readonly kind: "unavailable";
+      readonly target: PublishPreviewTarget;
+      readonly code: "publish/target-unavailable";
+    };
 
 export interface UpdateExtensionVisibilityArgs {
   readonly owner: Handle;
@@ -181,6 +209,13 @@ export interface ExtensionLinks {
 
 export interface PublishExtensionResponse {
   readonly published: true;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  readonly integrity: string;
+  readonly status: "pending" | "available" | "failed";
+  readonly visibility: PublishVisibility;
   readonly links?: ExtensionLinks;
 }
 
@@ -281,6 +316,9 @@ export interface RegistryClient {
   readonly publishExtension: (
     args: PublishExtensionArgs,
   ) => Effect.Effect<PublishExtensionResponse, AppError>;
+  readonly previewExtensionPublishes: (
+    args: PreviewExtensionPublishesArgs,
+  ) => Effect.Effect<ReadonlyArray<PublishPreviewResult>, AppError>;
   readonly updateExtensionVisibility?: (
     args: UpdateExtensionVisibilityArgs,
   ) => Effect.Effect<void, AppError>;

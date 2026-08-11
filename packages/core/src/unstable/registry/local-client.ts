@@ -10,6 +10,7 @@
 
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
+import { createHash } from "node:crypto";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -32,7 +33,9 @@ import type {
   UpdateExtensionVisibilityArgs,
   ExtensionExistsArgs,
   GetExtensionsByOwnerResponse,
+  PreviewExtensionPublishesArgs,
   DiscoverPackagesArgs,
+  PublishPreviewResult,
 } from "./client.js";
 import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
 import {
@@ -47,6 +50,7 @@ import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./disco
 import { purlMatch } from "../packaging/purl-match.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
+import type { PublishVisibility } from "../publish/index.js";
 
 const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ExtensionIndexSchema),
@@ -58,6 +62,42 @@ const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
 const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
 const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
+
+const resolveLocalPublishVisibility = (
+  index: ExtensionIndex | undefined,
+  initialVisibility: "public" | "private" | undefined,
+): PublishVisibility =>
+  index === undefined
+    ? {
+        value: initialVisibility ?? "public",
+        disposition: "establish",
+        source: initialVisibility === undefined ? "platform" : "explicit",
+      }
+    : {
+        value: index.visibility ?? "public",
+        disposition: "preserve",
+        source: "existing",
+      };
+
+const makeLocalPublishCondition = (args: {
+  readonly target: {
+    readonly owner: string;
+    readonly type: ExtensionType;
+    readonly name: string;
+    readonly version: string;
+  };
+  readonly visibility: PublishVisibility;
+  readonly targetVersionExists: boolean;
+}): string =>
+  `"pv1-${createHash("sha256")
+    .update(
+      JSON.stringify({
+        target: args.target,
+        visibility: args.visibility,
+        targetVersionExists: args.targetVersionExists,
+      }),
+    )
+    .digest("hex")}"`;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -332,6 +372,40 @@ export const createLocalRegistryClient = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): RegistryClient => ({
+  previewExtensionPublishes: (args: PreviewExtensionPublishesArgs) =>
+    Effect.gen(function* () {
+      if (args.candidates.length > 100) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "Publish preview accepts at most 100 candidates.",
+        });
+      }
+      return yield* Effect.forEach(
+        args.candidates,
+        (target): Effect.Effect<PublishPreviewResult, AppError> => {
+          const indexPath = path.join(
+            extensionDir(registryRoot, target.owner, target.type, target.name, path.join),
+            "index.json",
+          );
+          return Effect.gen(function* () {
+            const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            const visibility = resolveLocalPublishVisibility(index, args.initialVisibility);
+            return {
+              kind: "resolved",
+              target,
+              visibility,
+              condition: makeLocalPublishCondition({
+                target,
+                visibility,
+                targetVersionExists:
+                  index?.versions.some((entry) => entry.version === target.version) ?? false,
+              }),
+            };
+          });
+        },
+      );
+    }),
   getExtensionsByScope: (args) =>
     Effect.gen(function* () {
       if (args.owner === "*") {
@@ -522,36 +596,61 @@ export const createLocalRegistryClient = (
         lockPath,
         Effect.gen(function* () {
           const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+          const currentIndex = indexExists
+            ? yield* fs.readFileString(indexPath).pipe(
+                Effect.flatMap(decodeExtensionIndexFromJsonString),
+                Effect.mapError((cause) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: "Registry index schema is invalid",
+                    cause,
+                  }),
+                ),
+              )
+            : undefined;
+          const resolvedVisibility = resolveLocalPublishVisibility(
+            currentIndex,
+            args.initialVisibility,
+          );
+          if (args.condition !== undefined) {
+            const currentCondition = makeLocalPublishCondition({
+              target: {
+                owner: args.owner,
+                type: args.type,
+                name: args.name,
+                version: args.version,
+              },
+              visibility: resolvedVisibility,
+              targetVersionExists:
+                currentIndex?.versions.some((entry) => entry.version === args.version) ?? false,
+            });
+            if (args.condition !== currentCondition) {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: "Publish precondition changed; preview again before publishing.",
+              });
+            }
+          }
           const nextIndex = indexExists
             ? yield* Effect.gen(function* () {
-                const content = yield* fs.readFileString(indexPath).pipe(
-                  Effect.mapError((cause) =>
-                    errRegistryPublishRejected({
-                      message: `Registry index could not be read: ${indexPath}`,
-                      cause,
-                    }),
-                  ),
-                );
-                const existingIndex = yield* decodeExtensionIndexFromJsonString(content).pipe(
-                  Effect.mapError((cause) =>
-                    errRegistryPublishRejected({
-                      message: "Registry index schema is invalid",
-                      cause,
-                    }),
-                  ),
-                );
-                if (args.initialVisibility !== undefined) {
+                if (currentIndex === undefined) {
+                  return yield* makeAppError({
+                    code: "internal",
+                    detail: "Registry index disappeared during publication.",
+                  });
+                }
+                if (args.condition === undefined && args.initialVisibility !== undefined) {
                   return yield* makeAppError({
                     code: "conflict",
                     detail: "Initial visibility is only valid when creating an extension.",
                   });
                 }
-                if (existingIndex.versions.some((version) => version.version === args.version)) {
+                if (currentIndex.versions.some((version) => version.version === args.version)) {
                   return yield* errPublishConflict({ version: args.version });
                 }
                 return {
-                  ...existingIndex,
-                  versions: [args.metadata, ...existingIndex.versions],
+                  ...currentIndex,
+                  versions: [args.metadata, ...currentIndex.versions],
                 } satisfies ExtensionIndex;
               })
             : ({
@@ -559,7 +658,7 @@ export const createLocalRegistryClient = (
                 owner,
                 type: args.type,
                 publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
-                visibility: args.initialVisibility ?? "public",
+                visibility: resolvedVisibility.value,
                 versions: [args.metadata],
               } satisfies ExtensionIndex);
 
@@ -594,7 +693,16 @@ export const createLocalRegistryClient = (
                   }),
           });
 
-          return { published: true } as const;
+          return {
+            published: true,
+            owner: args.owner,
+            type: args.type,
+            name: args.name,
+            version: args.version,
+            integrity: args.metadata.integrity,
+            status: "available",
+            visibility: resolvedVisibility,
+          } as const;
         }),
       );
     }),

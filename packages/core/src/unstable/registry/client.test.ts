@@ -599,10 +599,159 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
   });
 
   // -----------------------------------------------------------------------------
+  // LocalRegistryClient.previewExtensionPublishes
+  // -----------------------------------------------------------------------------
+
+  describe("LocalRegistryClient.previewExtensionPublishes", () => {
+    it.effect("resolves omitted visibility to the local platform default", () => {
+      const registryRoot = makeRegistryDir();
+      return Effect.gen(function* () {
+        const client = yield* makeLocalClient(registryRoot);
+        const [result] = yield* client.previewExtensionPublishes({
+          candidates: [
+            {
+              ...makeIndexArgs(),
+              version: exactVersion("1.0.0"),
+            },
+          ],
+        });
+
+        expect(result?.kind).toBe("resolved");
+        if (result?.kind === "resolved") {
+          expect(result.visibility).toEqual({
+            value: "public",
+            disposition: "establish",
+            source: "platform",
+          });
+          expect(result.condition).toMatch(/^"pv1-[0-9a-f]{64}"$/);
+        }
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      );
+    });
+
+    it.effect("preserves existing visibility when an override is requested", () => {
+      const registryRoot = makeRegistryDir();
+      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+      return Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(skillDir, { recursive: true });
+        yield* fs.writeFileString(
+          nodePath.join(skillDir, "index.json"),
+          JSON.stringify({ ...makeIndex(), visibility: "private" }),
+        );
+        const client = yield* makeLocalClient(registryRoot);
+
+        const [result] = yield* client.previewExtensionPublishes({
+          candidates: [
+            {
+              ...makeIndexArgs(),
+              version: exactVersion("2.0.0"),
+            },
+          ],
+          initialVisibility: "public",
+        });
+
+        expect(result?.kind).toBe("resolved");
+        if (result?.kind === "resolved") {
+          expect(result.visibility).toEqual({
+            value: "private",
+            disposition: "preserve",
+            source: "existing",
+          });
+        }
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------------
   // LocalRegistryClient.publishExtension
   // -----------------------------------------------------------------------------
 
   describe("LocalRegistryClient.publishExtension", () => {
+    it.effect("validates the preview condition and returns authoritative visibility", () => {
+      const registryRoot = makeRegistryDir();
+      const archive = createTestZip("SKILL.md", "conditioned content");
+
+      return Effect.gen(function* () {
+        const integrity = yield* computeIntegrity(archive);
+        const entry = makeVersionEntry({ integrity });
+        const client = yield* makeLocalClient(registryRoot);
+        const [preview] = yield* client.previewExtensionPublishes({
+          candidates: [
+            {
+              ...makeIndexArgs(),
+              version: exactVersion("1.0.0"),
+            },
+          ],
+          initialVisibility: "private",
+        });
+        if (preview?.kind !== "resolved") return;
+
+        const result = yield* client.publishExtension({
+          ...makePublishArgs(archive, entry),
+          initialVisibility: "private",
+          condition: preview.condition,
+        });
+
+        expect(result.visibility).toEqual(preview.visibility);
+        expect(result.integrity).toBe(integrity);
+        expect(result.status).toBe("available");
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      );
+    });
+
+    it.effect("rejects a stale preview condition before writing", () => {
+      const registryRoot = makeRegistryDir();
+      const archive = createTestZip("SKILL.md", "stale content");
+      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+
+      return Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const integrity = yield* computeIntegrity(archive);
+        const entry = makeVersionEntry({ integrity });
+        const client = yield* makeLocalClient(registryRoot);
+        const [preview] = yield* client.previewExtensionPublishes({
+          candidates: [
+            {
+              ...makeIndexArgs(),
+              version: exactVersion("1.0.0"),
+            },
+          ],
+        });
+        if (preview?.kind !== "resolved") return;
+        yield* fs.makeDirectory(skillDir, { recursive: true });
+        yield* fs.writeFileString(
+          nodePath.join(skillDir, "index.json"),
+          JSON.stringify({ ...makeIndex(), visibility: "private" }),
+        );
+
+        const result = yield* client
+          .publishExtension({
+            ...makePublishArgs(archive, entry),
+            condition: preview.condition,
+          })
+          .pipe(Effect.result);
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") expect(result.failure.code).toBe("conflict");
+        expect(yield* fs.exists(nodePath.join(skillDir, "1.0.0.zip"))).toBe(false);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      );
+    });
+
     it.effect("creates new index and writes archive", () => {
       const registryRoot = makeRegistryDir();
       const archive = createTestZip("SKILL.md", "content");
@@ -1496,6 +1645,11 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
                   sha256_hex: "aaaa",
                   published_at: "2025-01-01T00:00:00Z",
                   publish_status: "available",
+                  visibility: {
+                    value: "public",
+                    disposition: "establish",
+                    source: "platform",
+                  },
                   warnings: [],
                   links: { html: "https://agentxm.ai/test/skills/my-skill" },
                 }),
@@ -1513,6 +1667,17 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         );
         expect(result).toEqual({
           published: true,
+          owner: "@test",
+          type: "skill",
+          name: "my-skill",
+          version: "1.0.0",
+          integrity: "sha512-AAAA==",
+          status: "available",
+          visibility: {
+            value: "public",
+            disposition: "establish",
+            source: "platform",
+          },
           links: { html: "https://agentxm.ai/test/skills/my-skill" },
         });
       }),
@@ -1612,6 +1777,11 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
                   sha256_hex: "aaaa",
                   published_at: "2025-01-01T00:00:00Z",
                   publish_status: "available",
+                  visibility: {
+                    value: "public",
+                    disposition: "establish",
+                    source: "platform",
+                  },
                   warnings: [],
                   links: { html: "https://agentxm.ai/test/skills/my-skill" },
                 }),

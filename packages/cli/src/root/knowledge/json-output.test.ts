@@ -156,6 +156,45 @@ describe("knowledge JSON output", () => {
     );
   });
 
+  it.effect("lint preserves resource diagnostic codes and severity exits", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeAuthoredBundle(path.join(tempDir, "pkg"), { valid: true });
+    const conceptPath = path.join(tempDir, "pkg", "src", "auth.md");
+    fs.writeFileSync(
+      conceptPath,
+      "---\ntype: policy\ndescription: Auth policy\ntags: [auth]\nresource: ./missing.md\n---\n# Auth\n",
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        const warningExit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+        expect(Exit.isSuccess(warningExit)).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          valid: true,
+          diagnostics: [
+            expect.objectContaining({
+              code: "unresolved-resource",
+              severity: "warning",
+              relativePath: "auth.md",
+            }),
+          ],
+        });
+
+        fs.writeFileSync(
+          conceptPath,
+          "---\ntype: policy\ndescription: Auth policy\ntags: [auth]\nresource: ../outside.md\n---\n# Auth\n",
+        );
+        const errorExit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+        expect(Exit.isFailure(errorExit)).toBe(true);
+        expect(rendererState.results[1]?.data).toMatchObject({
+          valid: false,
+          diagnostics: [expect.objectContaining({ code: "escaping-resource", severity: "error" })],
+        });
+      }),
+    );
+  });
+
   it.effect("lint still reports the error tally in human output", () => {
     const { provide, logs } = makeWorkspaceHandlerTestContext();
     writeWorkspaceFiles(path.join(tempDir, ".axm"));

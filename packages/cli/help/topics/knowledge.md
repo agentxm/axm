@@ -139,6 +139,17 @@ OKF provenance fields are validated when present: `sources`, `generated`,
 `verified`, `status`, `stale_after`, and `resource`. Actors follow the OKF
 convention — `<producer>/<version>`, `human:<id>`, or `process:<id>`.
 
+Concept `resource` values may be absolute URIs or paths contained in the
+bundle. A `sources[].resource` additionally accepts a prose scope description.
+Paths beginning with `/` resolve from the bundle root; other paths resolve from
+the concept document that declares them. AXM rejects paths that escape the
+bundle, and warns without failing when a contained target is missing. Query and
+fragment suffixes do not affect containment or existence checks.
+
+The active schemes `javascript:`, `vbscript:`, and `data:` are blocked
+case-insensitively. Other syntactically absolute schemes are accepted; AXM does
+not dereference resource URIs during validation.
+
 ## Authoring
 
 Run `axm knowledge new <name>` to scaffold a bundle with its manifest and a
@@ -151,9 +162,10 @@ axm knowledge lint --path ./.axm/extensions/@acme/knowledge/platform
 ```
 
 Lint reports errors (missing root index, missing concept `type`, invalid
-frontmatter, unsafe paths, broken internal links, detected secrets) and
-warnings (missing description or tags, concepts unreachable from an index).
-Errors exit non-zero; warnings do not.
+frontmatter, escaping resource paths, unsafe paths, broken internal links,
+detected secrets) and warnings (missing resource targets, missing description
+or tags, concepts unreachable from an index). Errors exit non-zero; warnings do
+not.
 
 ## Install and update
 

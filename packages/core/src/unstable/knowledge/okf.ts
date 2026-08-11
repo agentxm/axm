@@ -63,6 +63,8 @@ export interface KnowledgeDiagnostic {
     | "invalid-index"
     | "invalid-log"
     | "invalid-resource"
+    | "escaping-resource"
+    | "unresolved-resource"
     | "broken-internal-link"
     | "escaping-link"
     | "unreachable-concept"
@@ -220,19 +222,119 @@ const normalizedPath = (
 const activeScheme = (target: string): boolean =>
   /^(?:javascript|vbscript|data):/i.test(target.trim());
 
+const schemeLike = (target: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(target);
+
+const resourcePathPortion = (target: string): string => {
+  const query = target.indexOf("?");
+  const fragment = target.indexOf("#");
+  const suffix = [query, fragment]
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0];
+  return suffix === undefined ? target : target.slice(0, suffix);
+};
+
+const resourceSuffix = (target: string): string => target.slice(resourcePathPortion(target).length);
+
+type ResourceKind = "url" | "path" | "scope" | "invalid";
+
+const classifyResource = (value: string, allowScope: boolean): ResourceKind => {
+  const target = value.trim();
+  if (target.length === 0) return "invalid";
+  if (schemeLike(target)) {
+    if (activeScheme(target)) return "invalid";
+    try {
+      return new URL(target).protocol.length > 1 ? "url" : "invalid";
+    } catch {
+      return "invalid";
+    }
+  }
+  if (!allowScope) return "path";
+  const pathPortion = resourcePathPortion(target);
+  return pathPortion.startsWith("/") ||
+    pathPortion.startsWith("./") ||
+    pathPortion.startsWith("../") ||
+    pathPortion.includes("/") ||
+    (/^\S+$/.test(pathPortion) && /\.[a-z0-9]{1,8}$/i.test(pathPortion))
+    ? "path"
+    : "scope";
+};
+
+interface ResourceIssue {
+  readonly code:
+    "invalid-resource" | "invalid-sources" | "escaping-resource" | "unresolved-resource";
+  readonly severity: "error" | "warning";
+  readonly message: string;
+}
+
+interface ResourceInspection {
+  readonly kind: ResourceKind;
+  readonly identity?: string;
+  readonly issue?: ResourceIssue;
+}
+
+const inspectResource = (
+  value: string,
+  sourcePath: string,
+  allFilePaths: ReadonlySet<string>,
+  options: {
+    readonly allowScope: boolean;
+    readonly invalidCode: "invalid-resource" | "invalid-sources";
+    readonly label: string;
+  },
+): ResourceInspection => {
+  const target = value.trim();
+  const kind = classifyResource(value, options.allowScope);
+  if (kind === "invalid") {
+    return {
+      kind,
+      issue: {
+        code: options.invalidCode,
+        severity: "error",
+        message: `${options.label} must be a safe absolute URI${options.allowScope ? ", contained path, or scope description" : " or contained path"}.`,
+      },
+    };
+  }
+  if (kind === "url") return { kind, identity: value };
+  if (kind === "scope") return { kind };
+  const normalized = normalizedPath(sourcePath, target);
+  if (normalized === null) {
+    return {
+      kind: "invalid",
+      issue: {
+        code: options.invalidCode,
+        severity: "error",
+        message: `${options.label} must be a safe absolute URI${options.allowScope ? ", contained path, or scope description" : " or contained path"}.`,
+      },
+    };
+  }
+  if (normalized.escaped) {
+    return {
+      kind,
+      issue: {
+        code: "escaping-resource",
+        severity: "error",
+        message: `${options.label} escapes the Knowledge bundle.`,
+      },
+    };
+  }
+  const identity = `${normalized.path}${resourceSuffix(target)}`;
+  if (!allFilePaths.has(normalized.path)) {
+    return {
+      kind,
+      identity,
+      issue: {
+        code: "unresolved-resource",
+        severity: "warning",
+        message: `${options.label} points to missing bundle path ${resourcePathPortion(target)}.`,
+      },
+    };
+  }
+  return { kind, identity };
+};
+
 const validIsoTimestamp = (value: string): boolean =>
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
   !Number.isNaN(Date.parse(value));
-
-const validResource = (value: string): boolean => {
-  if (activeScheme(value)) return false;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol.length > 1;
-  } catch {
-    return false;
-  }
-};
 
 const validIsoDate = (value: string): boolean =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
@@ -271,51 +373,75 @@ const actorRecordIssues = (value: unknown, label: string): ReadonlyArray<string>
   return issues;
 };
 
-const sourcesIssues = (value: unknown): ReadonlyArray<string> => {
-  if (!Array.isArray(value)) return ["sources must be a list of source entries."];
-  const issues: string[] = [];
+const sourcesIssues = (
+  value: unknown,
+  relativePath: string,
+  allFilePaths: ReadonlySet<string>,
+): ReadonlyArray<ResourceIssue> => {
+  if (!Array.isArray(value)) {
+    return [
+      {
+        code: "invalid-sources",
+        severity: "error",
+        message: "sources must be a list of source entries.",
+      },
+    ];
+  }
+  const issues: ResourceIssue[] = [];
+  const invalid = (message: string): void => {
+    issues.push({ code: "invalid-sources", severity: "error", message });
+  };
   const ids = new Map<string, number>();
   value.forEach((entry: unknown, index) => {
     const label = `sources[${index}]`;
     if (!isRecord(entry)) {
-      issues.push(`${label} must be a mapping.`);
+      invalid(`${label} must be a mapping.`);
       return;
     }
     const resource = entry["resource"];
-    if (typeof resource !== "string" || !validResource(resource)) {
-      issues.push(`${label}.resource is required and must be a safe absolute URI.`);
+    if (typeof resource !== "string") {
+      invalid(
+        `${label}.resource is required and must be a safe absolute URI, contained path, or scope description.`,
+      );
+    } else {
+      const inspected = inspectResource(resource, relativePath, allFilePaths, {
+        allowScope: true,
+        invalidCode: "invalid-sources",
+        label: `${label}.resource`,
+      });
+      if (inspected.issue !== undefined) issues.push(inspected.issue);
     }
     const id = entry["id"];
     if (id !== undefined) {
       if (typeof id !== "string" || id.trim().length === 0) {
-        issues.push(`${label}.id must be a non-empty string.`);
+        invalid(`${label}.id must be a non-empty string.`);
       } else {
         const seen = ids.get(id);
-        if (seen !== undefined) issues.push(`${label}.id duplicates sources[${seen}].id.`);
+        if (seen !== undefined) invalid(`${label}.id duplicates sources[${seen}].id.`);
         else ids.set(id, index);
       }
     }
     const title = entry["title"];
     if (title !== undefined && typeof title !== "string") {
-      issues.push(`${label}.title must be a string.`);
+      invalid(`${label}.title must be a string.`);
     }
     // `author` is a free-form credibility signal, not an actor field; the spec
     // uses values such as `team:ga4-docs` that the actor convention rejects.
     const author = entry["author"];
     if (author !== undefined && (typeof author !== "string" || author.trim().length === 0)) {
-      issues.push(`${label}.author must be a non-empty string.`);
+      invalid(`${label}.author must be a non-empty string.`);
     }
     const usageCount = entry["usage_count"];
     if (
       usageCount !== undefined &&
       (typeof usageCount !== "number" || !Number.isInteger(usageCount) || usageCount < 0)
     ) {
-      issues.push(`${label}.usage_count must be a non-negative integer.`);
+      invalid(`${label}.usage_count must be a non-negative integer.`);
     }
     const lastModified = entry["last_modified"];
     if (lastModified !== undefined) {
       const issue = dateIssue(lastModified, `${label}.last_modified`);
-      if (issue !== undefined) issues.push(issue);
+      if (issue !== undefined) invalid(issue);
     }
   });
   return issues;
@@ -697,6 +823,14 @@ export const inspectKnowledgeEntries = <E>(
           : undefined;
       const resourceValue = metadataField(metadata, "resource");
       const resource = typeof resourceValue === "string" ? resourceValue : undefined;
+      const resourceInspection =
+        resource === undefined
+          ? undefined
+          : inspectResource(resource, relativePath, allFilePaths, {
+              allowScope: false,
+              invalidCode: "invalid-resource",
+              label: `${relativePath} resource`,
+            });
       const timestampValue = metadataField(metadata, "timestamp");
       if (isMetadata && "tags" in metadata && metadata.tags !== undefined && tags === undefined) {
         diagnostics.push({
@@ -728,14 +862,16 @@ export const inspectKnowledgeEntries = <E>(
       if (
         !RESERVED_BASENAMES.has(baseName) &&
         resourceValue !== undefined &&
-        (resource === undefined || !validResource(resource))
+        (resource === undefined || resourceInspection?.issue !== undefined)
       ) {
-        diagnostics.push({
-          code: "invalid-resource",
-          severity: "error",
-          relativePath,
-          message: `${relativePath} resource must be a safe absolute URI.`,
-        });
+        const issue =
+          resourceInspection?.issue ??
+          ({
+            code: "invalid-resource",
+            severity: "error",
+            message: `${relativePath} resource must be a safe absolute URI or contained path.`,
+          } satisfies ResourceIssue);
+        diagnostics.push({ ...issue, relativePath });
       }
       if (!RESERVED_BASENAMES.has(baseName) && timestampValue !== undefined) {
         diagnostics.push({
@@ -778,12 +914,12 @@ export const inspectKnowledgeEntries = <E>(
             : "machine-confirmed";
       if (!RESERVED_BASENAMES.has(baseName)) {
         if (sourcesValue !== undefined) {
-          for (const issue of sourcesIssues(sourcesValue)) {
+          for (const issue of sourcesIssues(sourcesValue, relativePath, allFilePaths)) {
             diagnostics.push({
-              code: "invalid-sources",
-              severity: "error",
+              code: issue.code,
+              severity: issue.severity,
               relativePath,
-              message: `${relativePath} ${issue}`,
+              message: `${relativePath} ${issue.message}`,
             });
           }
         }
@@ -887,10 +1023,16 @@ export const inspectKnowledgeEntries = <E>(
           message: `${relativePath} should include frontmatter tags for discovery.`,
         });
       }
-      if (!RESERVED_BASENAMES.has(baseName) && resource !== undefined && validResource(resource)) {
-        const matching = resources.get(resource) ?? [];
+      if (
+        !RESERVED_BASENAMES.has(baseName) &&
+        resource !== undefined &&
+        resourceInspection?.identity !== undefined &&
+        resourceInspection.issue?.code !== "escaping-resource" &&
+        resourceInspection.issue?.code !== "invalid-resource"
+      ) {
+        const matching = resources.get(resourceInspection.identity) ?? [];
         matching.push(relativePath);
-        resources.set(resource, matching);
+        resources.set(resourceInspection.identity, matching);
       }
       if (!RESERVED_BASENAMES.has(baseName) && type !== undefined) {
         const spellings = types.get(type.toLocaleLowerCase()) ?? new Set<string>();

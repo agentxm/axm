@@ -46,6 +46,7 @@ import {
   buildPublishJobs,
   exactPublishUploadBinding,
   handleRootPublish,
+  previewPublishUploadBinding,
   publishAuthenticationPreconditions,
   validatePublishOwners,
   type RootPublishHandlerArgs,
@@ -231,6 +232,19 @@ describe("root publish", () => {
         condition: '"pv1-reviewed"',
       });
     }
+
+    expect(
+      previewPublishUploadBinding({
+        condition: '"pv1-existing"',
+        visibility: { value: "public", disposition: "preserve", source: "existing" },
+      }),
+    ).toEqual({ condition: '"pv1-existing"' });
+    expect(
+      previewPublishUploadBinding({
+        condition: '"pv1-explicit"',
+        visibility: { value: "private", disposition: "establish", source: "explicit" },
+      }),
+    ).toEqual({ condition: '"pv1-explicit"', initialVisibility: "private" });
   });
 
   it.effect("publishes with the browser-reviewed visibility and condition without readback", () => {

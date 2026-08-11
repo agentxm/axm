@@ -200,7 +200,7 @@ use `../external/Effect-TS/effect`, not `../../Effect-TS/effect`.
 
 | Package                  | Version          | Local path                     | Upstream                                                | Tag                     |
 | ------------------------ | ---------------- | ------------------------------ | ------------------------------------------------------- | ----------------------- |
-| `effect` (+ `@effect/*`) | `4.0.0-beta.101` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.101` |
+| `effect` (+ `@effect/*`) | `4.0.0-beta.107` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.107` |
 
 Setup and sync instructions are in the
 [agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).

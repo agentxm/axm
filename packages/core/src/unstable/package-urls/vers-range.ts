@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
@@ -177,7 +176,7 @@ export const parseVersRange = (
 const parseVersRangeEffect = (value: string) => {
   const result = parseVersRange(value);
   return typeof result === "string"
-    ? Effect.fail(new SchemaIssue.Forbidden(Option.some(value), { message: result }))
+    ? Effect.fail(new SchemaIssue.Forbidden({ message: result }, value))
     : Effect.succeed(result);
 };
 

@@ -110,7 +110,7 @@ export const inspectExtensionPackage = (
         }),
       ),
     );
-    const raw = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(text).pipe(
+    const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",

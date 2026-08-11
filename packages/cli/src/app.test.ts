@@ -167,7 +167,7 @@ describe("root command help", () => {
 
   it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {
     const doc = await Effect.runPromise(captureHelpDoc([]));
-    const learnMore = ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
+    const learnMore = ServiceMap.get(doc.annotations, LearnMore);
 
     expect(learnMore).toContain("LEARN MORE");
     expect(learnMore).toContain("axm help getting-started");

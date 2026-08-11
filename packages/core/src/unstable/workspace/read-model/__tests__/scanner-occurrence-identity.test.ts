@@ -16,6 +16,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { AGENTS } from "../../../agents/registry.js";
 import { buildFixture } from "../__fixtures__/builder.js";
 import {
   makeAgentDirOccurrence,
@@ -175,108 +176,122 @@ describe("scanner occurrence identity", () => {
   });
 
   describe("identity against the spec multi-origin scenarios", () => {
-    it("same skill in two agent dirs and canonical AXM yields three distinct identities", () =>
-      Effect.gen(function* () {
-        const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-        const diag = makeDiagnostics(ref);
-        const deps = yield* buildFixture({
-          workspaceRoot: WORKSPACE_ROOT,
-          userHome: USER_HOME,
-          project: {
-            agentDirs: {
-              "claude-code": {
-                "skills/some-skill/SKILL.md": "# claude\n",
+    it.effect(
+      "same skill in two agent dirs and canonical AXM yields three distinct identities",
+      () =>
+        Effect.gen(function* () {
+          const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+          const diag = makeDiagnostics(ref);
+          const deps = yield* buildFixture({
+            workspaceRoot: WORKSPACE_ROOT,
+            userHome: USER_HOME,
+            project: {
+              agentDirs: {
+                "claude-code": {
+                  "skills/some-skill/SKILL.md": "# claude\n",
+                },
+                codex: {
+                  "skills/some-skill/SKILL.md": "# codex\n",
+                },
               },
-              codex: {
-                "skills/some-skill/SKILL.md": "# codex\n",
+              axmExtensions: {
+                "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
               },
             },
-            axmExtensions: {
-              "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+          });
+          const canonical = yield* makeCanonicalExtensionsScanner({
+            fs: deps.fs,
+            path: deps.path,
+            workspaceRoot: WORKSPACE_ROOT,
+            scope: "project",
+            diagnostics: diag,
+          });
+          const agentDir = yield* makeAgentDirScanner({
+            fs: deps.fs,
+            path: deps.path,
+            workspaceRoot: WORKSPACE_ROOT,
+            scope: "project",
+            diagnostics: diag,
+            agentRegistry: {
+              "claude-code": AGENTS["claude-code"],
+              codex: AGENTS.codex,
             },
-          },
-        });
-        const canonical = yield* makeCanonicalExtensionsScanner({
-          fs: deps.fs,
-          path: deps.path,
-          workspaceRoot: WORKSPACE_ROOT,
-          scope: "project",
-          diagnostics: diag,
-        });
-        const agentDir = yield* makeAgentDirScanner({
-          fs: deps.fs,
-          path: deps.path,
-          workspaceRoot: WORKSPACE_ROOT,
-          scope: "project",
-          diagnostics: diag,
-        });
-        const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
-        const someSkillOccurrences = all.filter((occ) => {
-          if (occ._tag === "canonical-extension")
-            return occ.type === "skill" && occ.name === "some-skill";
-          if (occ._tag === "agent-dir") return occ.type === "skill" && occ.name === "some-skill";
-          return false;
-        });
-        expect(someSkillOccurrences).toHaveLength(3);
-        const identityKeys = new Set(
-          someSkillOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
-        );
-        expect(identityKeys.size).toBe(3);
-        // De-duplicating across the array does not collapse them.
-        const collapsed = dedupeByIdentity(someSkillOccurrences);
-        expect(collapsed).toHaveLength(3);
-      }).pipe(Effect.provide(Path.layer)));
+          });
+          const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
+          const someSkillOccurrences = all.filter((occ) => {
+            if (occ._tag === "canonical-extension")
+              return occ.type === "skill" && occ.name === "some-skill";
+            if (occ._tag === "agent-dir") return occ.type === "skill" && occ.name === "some-skill";
+            return false;
+          });
+          expect(someSkillOccurrences).toHaveLength(3);
+          const identityKeys = new Set(
+            someSkillOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
+          );
+          expect(identityKeys.size).toBe(3);
+          // De-duplicating across the array does not collapse them.
+          const collapsed = dedupeByIdentity(someSkillOccurrences);
+          expect(collapsed).toHaveLength(3);
+        }).pipe(Effect.provide(Path.layer)),
+    );
 
-    it("same skill in two agent dirs and external AXM yields three distinct identities", () =>
-      Effect.gen(function* () {
-        const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-        const diag = makeDiagnostics(ref);
-        const deps = yield* buildFixture({
-          workspaceRoot: WORKSPACE_ROOT,
-          userHome: USER_HOME,
-          project: {
-            agentDirs: {
-              "claude-code": {
-                "skills/some-skill/SKILL.md": "# claude\n",
+    it.effect(
+      "same skill in two agent dirs and external AXM yields three distinct identities",
+      () =>
+        Effect.gen(function* () {
+          const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+          const diag = makeDiagnostics(ref);
+          const deps = yield* buildFixture({
+            workspaceRoot: WORKSPACE_ROOT,
+            userHome: USER_HOME,
+            project: {
+              agentDirs: {
+                "claude-code": {
+                  "skills/some-skill/SKILL.md": "# claude\n",
+                },
+                codex: {
+                  "skills/some-skill/SKILL.md": "# codex\n",
+                },
               },
-              codex: {
-                "skills/some-skill/SKILL.md": "# codex\n",
+              axmExtensions: {
+                "external/skills/some-skill/SKILL.md": "# external\n",
               },
             },
-            axmExtensions: {
-              "external/skills/some-skill/SKILL.md": "# external\n",
+          });
+          const canonical = yield* makeCanonicalExtensionsScanner({
+            fs: deps.fs,
+            path: deps.path,
+            workspaceRoot: WORKSPACE_ROOT,
+            scope: "project",
+            diagnostics: diag,
+          });
+          const agentDir = yield* makeAgentDirScanner({
+            fs: deps.fs,
+            path: deps.path,
+            workspaceRoot: WORKSPACE_ROOT,
+            scope: "project",
+            diagnostics: diag,
+            agentRegistry: {
+              "claude-code": AGENTS["claude-code"],
+              codex: AGENTS.codex,
             },
-          },
-        });
-        const canonical = yield* makeCanonicalExtensionsScanner({
-          fs: deps.fs,
-          path: deps.path,
-          workspaceRoot: WORKSPACE_ROOT,
-          scope: "project",
-          diagnostics: diag,
-        });
-        const agentDir = yield* makeAgentDirScanner({
-          fs: deps.fs,
-          path: deps.path,
-          workspaceRoot: WORKSPACE_ROOT,
-          scope: "project",
-          diagnostics: diag,
-        });
-        const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
-        const someSkillOccurrences = all.filter((occ) => {
-          if (occ._tag === "canonical-extension")
-            return occ.type === "skill" && occ.name === "some-skill";
-          if (occ._tag === "agent-dir") return occ.type === "skill" && occ.name === "some-skill";
-          return false;
-        });
-        expect(someSkillOccurrences).toHaveLength(3);
-        const identityKeys = new Set(
-          someSkillOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
-        );
-        expect(identityKeys.size).toBe(3);
-      }).pipe(Effect.provide(Path.layer)));
+          });
+          const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
+          const someSkillOccurrences = all.filter((occ) => {
+            if (occ._tag === "canonical-extension")
+              return occ.type === "skill" && occ.name === "some-skill";
+            if (occ._tag === "agent-dir") return occ.type === "skill" && occ.name === "some-skill";
+            return false;
+          });
+          expect(someSkillOccurrences).toHaveLength(3);
+          const identityKeys = new Set(
+            someSkillOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
+          );
+          expect(identityKeys.size).toBe(3);
+        }).pipe(Effect.provide(Path.layer)),
+    );
 
-    it("workspace and agent MCP servers with the same name yield distinct identities", () =>
+    it.effect("workspace and agent MCP servers with the same name yield distinct identities", () =>
       Effect.gen(function* () {
         const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
         const diag = makeDiagnostics(ref);
@@ -303,6 +318,9 @@ describe("scanner occurrence identity", () => {
           workspaceRoot: WORKSPACE_ROOT,
           scope: "project",
           diagnostics: diag,
+          agentRegistry: {
+            "claude-code": AGENTS["claude-code"],
+          },
         });
         const sharedOccurrences = occurrences.filter((o) => o.name === "shared");
         expect(sharedOccurrences).toHaveLength(2);
@@ -310,7 +328,8 @@ describe("scanner occurrence identity", () => {
           sharedOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
         );
         expect(identityKeys.size).toBe(2);
-      }).pipe(Effect.provide(Path.layer)));
+      }).pipe(Effect.provide(Path.layer)),
+    );
   });
 
   // Reference imports the linter would otherwise flag as unused.

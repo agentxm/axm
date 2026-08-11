@@ -1,5 +1,6 @@
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -84,6 +85,9 @@ const positiveNumericProperty = (properties: TelemetryProperties, key: string): 
   const value = properties[key];
   return typeof value === "number" && value > 0;
 };
+
+const elapsedMilliseconds = (start: bigint, end: bigint): number =>
+  Duration.toMillis(Duration.nanos(end - start));
 
 export const exitCodeForSemanticProperties = (
   properties: TelemetryProperties,
@@ -249,7 +253,7 @@ export const withCliErrorHandling = <A, R>(
     yield* trackCliCommand({ command, properties: allProperties });
 
     // Execute program with timing
-    const startTime = yield* Clock.currentTimeMillis;
+    const startTime = yield* Clock.monotonicTimeNanos;
 
     return yield* program.pipe(
       Effect.tap(() =>
@@ -259,7 +263,7 @@ export const withCliErrorHandling = <A, R>(
           yield* trackCliCommandCompleted({
             command,
             result: semanticExitCode === undefined ? "success" : "error",
-            durationMs: (yield* Clock.currentTimeMillis) - startTime,
+            durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
             ...(semanticExitCode !== undefined && {
               errorCode: "issues",
               errorCategory: "issues",
@@ -283,7 +287,7 @@ export const withCliErrorHandling = <A, R>(
               yield* trackCliCommandCompleted({
                 command,
                 result,
-                durationMs: (yield* Clock.currentTimeMillis) - startTime,
+                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
                 ...(error._tag === "AppError" && {
                   errorCode: error.code,
                   errorCategory: error.code,
@@ -312,7 +316,7 @@ export const withCliErrorHandling = <A, R>(
               yield* trackCliCommandCompleted({
                 command,
                 result: "defect",
-                durationMs: (yield* Clock.currentTimeMillis) - startTime,
+                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
                 semanticProperties,
               });
             }),

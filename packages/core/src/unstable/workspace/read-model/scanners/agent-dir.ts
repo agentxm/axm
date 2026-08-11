@@ -68,7 +68,7 @@ export interface AgentDirScannerDeps {
   readonly workspaceRoot: string;
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
-  readonly agentRegistry?: Readonly<Record<AgentId, AgentDescriptor>>;
+  readonly agentRegistry?: Readonly<Partial<Record<AgentId, AgentDescriptor>>>;
 }
 
 /**

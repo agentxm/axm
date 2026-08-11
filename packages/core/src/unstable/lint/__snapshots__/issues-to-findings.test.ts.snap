@@ -7,7 +7,7 @@ exports[`issuesToFindings > emits findings at nested paths 1`] = `
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`compatibility.requires[1]\` has the wrong type. Detail: Expected string, got 42. Edit \`skill.json\` and replace it with a value of the expected type.",
+    "message": "Skill manifest field \`compatibility.requires[1]\` has the wrong type. Detail: Expected string. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -21,7 +21,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`name\` has the wrong type. Detail: Expected string, got 123. Edit \`skill.json\` and replace it with a value of the expected type.",
+    "message": "Skill manifest field \`name\` has the wrong type. Detail: Expected string. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -30,7 +30,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`version\` has the wrong type. Detail: Expected string, got 456. Edit \`skill.json\` and replace it with a value of the expected type.",
+    "message": "Skill manifest field \`version\` has the wrong type. Detail: Expected string. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -39,7 +39,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`owner\` has the wrong type. Detail: Expected string, got true. Edit \`skill.json\` and replace it with a value of the expected type.",
+    "message": "Skill manifest field \`owner\` has the wrong type. Detail: Expected string. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },
@@ -48,7 +48,7 @@ exports[`issuesToFindings > emits one finding per invalid top-level field 1`] = 
     "location": {
       "file": "skill.json",
     },
-    "message": "Skill manifest field \`description\` has the wrong type. Detail: Expected string, got null. Edit \`skill.json\` and replace it with a value of the expected type.",
+    "message": "Skill manifest field \`description\` has the wrong type. Detail: Expected string. Edit \`skill.json\` and replace it with a value of the expected type.",
     "ruleId": "skill/manifest-schema-valid",
     "severity": "error",
   },

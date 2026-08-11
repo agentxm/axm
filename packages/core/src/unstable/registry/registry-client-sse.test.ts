@@ -73,6 +73,24 @@ describe("RegistryClient.DebugDebugStreamSse", () => {
     }),
   );
 
+  it.effect("preserves optional SSE event ids", () =>
+    Effect.gen(function* () {
+      const client = makeSseClient(
+        sseBody([
+          'data: {"sequence":0,"message":"debug-event-0"}',
+          'id: debug-1\ndata: {"sequence":1,"message":"debug-event-1"}',
+        ]),
+      );
+
+      const frames = yield* Stream.runCollect(
+        client.DebugDebugStreamSse({ params: { count: "2" } }),
+      );
+
+      expect(frames[0]?.id).toBeUndefined();
+      expect(frames[1]?.id).toBe("debug-1");
+    }),
+  );
+
   it.effect("decodes a mid-stream failure event back to the original typed cause", () =>
     Effect.gen(function* () {
       const client = makeSseClient(

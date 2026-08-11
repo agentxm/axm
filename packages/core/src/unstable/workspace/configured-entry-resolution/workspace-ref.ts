@@ -164,7 +164,9 @@ export const resolveWorkspaceExtensionRef = (args: {
           ),
         ),
       );
-    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(rawManifest).pipe(
+    const json = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      rawManifest,
+    ).pipe(
       Effect.mapError((cause) =>
         workspaceSourceError(
           args.source,

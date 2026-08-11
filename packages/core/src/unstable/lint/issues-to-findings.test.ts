@@ -8,7 +8,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
@@ -184,9 +183,7 @@ describe("issuesToFindings", () => {
   it("formats forbidden findings with concrete remediation", () => {
     const issue = new SchemaIssue.Pointer(
       ["name"],
-      new SchemaIssue.Forbidden(Option.some("blocked"), {
-        message: "forbidden in this context",
-      }),
+      new SchemaIssue.Forbidden({ message: "forbidden in this context" }, "blocked"),
     );
 
     const [finding] = issuesToFindings("skill/manifest-schema-valid", "error", "skill.json", issue);
@@ -203,7 +200,7 @@ describe("issuesToFindings", () => {
   it("formats one-of findings with branch-specific wording", () => {
     const issue = new SchemaIssue.Pointer(
       ["name"],
-      new SchemaIssue.OneOf(OneOfSchema.ast, "a", [Schema.Literal("a").ast, Schema.String.ast]),
+      new SchemaIssue.OneOf(OneOfSchema.ast, [Schema.Literal("a").ast, Schema.String.ast], "a"),
     );
 
     const [finding] = issuesToFindings("skill/manifest-schema-valid", "error", "skill.json", issue);
@@ -219,7 +216,7 @@ describe("issuesToFindings", () => {
   it("formats any-of fallbacks with branch-specific wording", () => {
     const issue = new SchemaIssue.Pointer(
       ["name"],
-      new SchemaIssue.AnyOf(OneOfSchema.ast, "z", []),
+      new SchemaIssue.AnyOf(OneOfSchema.ast, [], "z"),
     );
 
     const [finding] = issuesToFindings("skill/manifest-schema-valid", "error", "skill.json", issue);

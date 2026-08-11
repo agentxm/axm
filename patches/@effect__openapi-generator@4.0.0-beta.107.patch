@@ -1,0 +1,841 @@
+diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
+index a1c2dce..7a83179 100644
+--- a/dist/OpenApiGenerator.js
++++ b/dist/OpenApiGenerator.js
+@@ -307,21 +307,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+           });
+         }
+         const representable = [];
++        const jsonResponseEntries = findContentEntriesByMediaType(content, isJsonMediaType);
+         let jsonSchemaName;
+-        const jsonResponseSchema = content?.["application/json"]?.schema;
+-        if (Predicate.isNotUndefined(jsonResponseSchema)) {
++        if (jsonResponseEntries.length > 0) {
++          const jsonResponseSchema = combineJsonResponseSchemas(jsonResponseEntries);
+           jsonSchemaName = addSchema(`${schemaId}${status}`, jsonResponseSchema, op);
+           if (isHttpApi) {
+-            representable.push({
+-              contentType: "application/json",
+-              encoding: "json",
+-              schema: jsonSchemaName
+-            });
++            const multipleJsonRepresentations = jsonResponseEntries.length > 1;
++            for (const [contentType, mediaType] of jsonResponseEntries) {
++              const schema = mediaType.schema;
++              const schemaName = multipleJsonRepresentations ? addSchema(`${schemaId}${status}${mediaTypeToSuffix(contentType)}`, schema, op) : jsonSchemaName;
++              representable.push({
++                contentType,
++                encoding: "json",
++                schema: schemaName
++              });
++            }
+           }
+         }
+         if (isHttpApi) {
+           for (const [contentType, mediaType] of Object.entries(content ?? {})) {
+-            if (contentType === "application/json") {
++            if (isJsonMediaType(contentType.toLowerCase())) {
+               continue;
+             }
+             if (!Predicate.isObject(mediaType)) {
+@@ -406,10 +412,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+             op.sseSchema = addSchema(`${schemaId}${status}Sse`, op.sseSchemaMode === "event" ? makeSseEventSchema(resolveReference(sseResponseSchema, resolveRef), effectStream?.encoding === "sse" ? effectStream.failureEvent : undefined) : sseResponseSchema, op);
+           }
+         }
+-        if (Predicate.isNotUndefined(content?.["application/octet-stream"])) {
+-          const statusMajorNumber = Number(parsedStatus[0]);
+-          if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
+-            op.binaryResponse = true;
++        // Effect-TS/effect#6368 / Effect-TS/effect#6404: Preserve response representations per status
++        // Includes broader binary detection plus explicit binary success decoding in matchStatus
++        if (Predicate.isNotUndefined(content)) {
++          for (const [contentType, mediaType] of Object.entries(content)) {
++            const schema = Predicate.isObject(mediaType) ? mediaType.schema : undefined;
++            const isBinary = isBinaryMediaType(contentType.toLowerCase()) || Predicate.isObject(schema) && schema.type === "string" && schema.format === "binary";
++            if (!isBinary) {
++              continue;
++            }
++            const statusMajorNumber = Number(parsedStatus[0]);
++            if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
++              op.binaryResponse = true;
++              op.binarySuccessStatuses.add(parsedStatus.toLowerCase());
++            }
++            break;
+           }
+         }
+         if (isEmptyResponse) {
+@@ -625,9 +642,32 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
+   const items = value.items;
+   return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
+ };
++const combineJsonResponseSchemas = entries => {
++  const schemas = entries.map(([, mediaType]) => mediaType.schema);
++  const first = schemas[0];
++  if (first === undefined) {
++    return {};
++  }
++  return schemas.length === 1 ? first : {
++    anyOf: schemas
++  };
++};
++const findContentEntriesByMediaType = (content, predicate) => {
++  if (Predicate.isUndefined(content)) {
++    return [];
++  }
++  const matches = [];
++  for (const [contentType, mediaType] of Object.entries(content)) {
++    if (predicate(contentType.toLowerCase()) && Predicate.isObject(mediaType) && Predicate.isObject(mediaType.schema)) {
++      matches.push([contentType, mediaType]);
++    }
++  }
++  return matches;
++};
+ const isJsonMediaType = contentType => contentType === "application/json" || contentType.startsWith("application/") && contentType.endsWith("+json");
+ const isTextMediaType = contentType => contentType.startsWith("text/");
+-const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
++// Effect-TS/effect#6368 / Effect-TS/effect#6404: Broadened binary media-type recognition
++const isBinaryMediaType = contentType => contentType === "application/octet-stream" || contentType === "application/zip" || contentType === "application/gzip" || contentType === "application/pdf" || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream"));
+ const getRequestMediaTypeEncoding = contentType => {
+   const normalized = contentType.toLowerCase();
+   if (isJsonMediaType(normalized)) {
+@@ -892,4 +932,4 @@ const processPath = path => {
+     pathTemplate
+   };
+ };
+-//# sourceMappingURL=OpenApiGenerator.js.map
+\ No newline at end of file
++//# sourceMappingURL=OpenApiGenerator.js.map
+diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
+index f78e093..ad76050 100644
+--- a/dist/OpenApiTransformer.js
++++ b/dist/OpenApiTransformer.js
+@@ -33,6 +33,7 @@ const computeImportRequirements = operations => {
+   let eventStreamData = false;
+   let eventStreamSchema = false;
+   let octetStream = false;
++  let binarySuccess = false; // Effect-TS/effect#6368 / Effect-TS/effect#6404
+   for (const op of operations) {
+     if (op.sseSchema) {
+       eventStream = true;
+@@ -45,15 +46,21 @@ const computeImportRequirements = operations => {
+     if (op.binaryResponse) {
+       octetStream = true;
+     }
++    if (op.binarySuccessStatuses.size > 0) {
++      binarySuccess = true;
++    }
+   }
+   return {
+     eventStream,
+     eventStreamData,
+     eventStreamSchema,
+-    octetStream
++    octetStream,
++    binarySuccess
+   };
+ };
+ const requiresStreaming = requirements => requirements.eventStream || requirements.octetStream;
++// Effect-TS/effect#6373 / Effect-TS/effect#6403: Route 4xx/5xx void statuses to error channel
++const hasVoidErrors = operations => operations.some(op => Array.from(op.voidSchemas).some(Utils.isErrorStatus));
+ /**
+  * Create the transformer used for schema-backed HttpClient output.
+  *
+@@ -110,13 +117,22 @@ ${clientErrorSource(name)}`;
+       args.push(`options: { ${options.join("; ")} } | undefined`);
+     }
+     let success = "void";
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values()).map(schema => `typeof ${schema}.Type`).join(" | ");
++    const successTypes = Array.from(operation.successSchemas.values()).map(schema => `typeof ${schema}.Type`);
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array");
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ");
+     }
+     const errors = ["HttpClientError.HttpClientError", "SchemaError"];
+     if (operation.errorSchemas.size > 0) {
+       Utils.spreadElementsInto(Array.from(operation.errorSchemas.values()).map(schema => `${name}Error<"${schema}", typeof ${schema}.Type>`), errors);
+     }
++    for (const status of operation.voidSchemas) {
++      if (Utils.isErrorStatus(status)) {
++        errors.push(`${name}Error<"${status}", undefined>`);
++      }
++    }
+     const jsdoc = Utils.toComment(operation.description);
+     const methodKey = `readonly "${operation.id}"`;
+     const generic = `<Config extends OperationConfig>`;
+@@ -199,6 +215,10 @@ ${clientErrorSource(name)}`;
+     if (requirements.octetStream) {
+       helpers.push(binaryRequestSource);
+     }
++    if (requirements.binarySuccess) { // Effect-TS/effect#6368 / Effect-TS/effect#6404
++      helpers.push(decodeBinarySource);
++    }
++    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect#6373 / Effect-TS/effect#6403
+     return `export interface OperationConfig {
+   /**
+    * Whether or not the response should be included in the value returned from
+@@ -239,7 +259,11 @@ export const make = (
+         HttpClientResponse.schemaBodyJson(schema)(response),
+         (cause) => Effect.fail(${name}Error(tag, cause, response)),
+       )
+-  return {
++  ${needsVoidError ? `const decodeVoidError =
++    <const Tag extends string>(tag: Tag) =>
++    (response: HttpClientResponse.HttpClientResponse) =>
++      Effect.fail(${name}Error(tag, undefined, response))
++  ` : ""}return {
+     httpClient,
+     ${implMethods.join(",\n    ")}
+   }
+@@ -269,16 +293,25 @@ export const make = (
+       pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadVarName})`);
+     }
+     const decodes = [];
+-    const singleSuccessCode = operation.successSchemas.size === 1;
++    const singleSuccessCode = operation.successSchemas.size === 1 && operation.binarySuccessStatuses.size === 0;
+     operation.successSchemas.forEach((schema, status) => {
+       const statusCode = singleSuccessCode && status.startsWith("2") ? "2xx" : status;
+       decodes.push(`"${statusCode}": decodeSuccess(${schema})`);
+     });
++    const singleBinaryCode = operation.binarySuccessStatuses.size === 1 && operation.successSchemas.size === 0;
++    operation.binarySuccessStatuses.forEach(status => {
++      const statusCode = singleBinaryCode && status.startsWith("2") ? "2xx" : status;
++      decodes.push(`"${statusCode}": decodeBinary`);
++    });
+     operation.errorSchemas.forEach((schema, status) => {
+       decodes.push(`"${status}": decodeError("${schema}", ${schema})`);
+     });
+     operation.voidSchemas.forEach(status => {
+-      decodes.push(`"${status}": () => Effect.void`);
++      if (Utils.isErrorStatus(status)) {
++        decodes.push(`"${status}": decodeVoidError("${status}")`);
++      } else {
++        decodes.push(`"${status}": () => Effect.void`);
++      }
+     });
+     decodes.push(`orElse: unexpectedStatus`);
+     const configAccessor = resolveConfigAccessor(operation, "options", "config");
+@@ -432,8 +465,12 @@ ${clientErrorSource(name)}`;
+       args.push(`options: { ${options.join("; ")} } | undefined`);
+     }
+     let success = "void";
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values()).join(" | ");
++    const successTypes = Array.from(operation.successSchemas.values());
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array");
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ");
+     }
+     const errors = ["HttpClientError.HttpClientError"];
+     if (operation.errorSchemas.size > 0) {
+@@ -441,6 +478,11 @@ ${clientErrorSource(name)}`;
+         errors.push(`${name}Error<"${schema}", ${schema}>`);
+       }
+     }
++    for (const status of operation.voidSchemas) {
++      if (Utils.isErrorStatus(status)) {
++        errors.push(`${name}Error<"${status}", undefined>`);
++      }
++    }
+     const jsdoc = Utils.toComment(operation.description);
+     const methodKey = `readonly "${operation.id}"`;
+     const generic = `<Config extends OperationConfig>`;
+@@ -519,6 +561,10 @@ ${clientErrorSource(name)}`;
+     if (requirements.octetStream) {
+       helpers.push(binaryRequestSourceTs);
+     }
++    if (requirements.binarySuccess) { // Effect-TS/effect#6368 / Effect-TS/effect#6404
++      helpers.push(decodeBinarySource);
++    }
++    const needsVoidError = hasVoidErrors(operations); // Effect-TS/effect#6373 / Effect-TS/effect#6403
+     return `export interface OperationConfig {
+   /**
+    * Whether or not the response should be included in the value returned from
+@@ -564,20 +610,38 @@ export const make = (
+         response.json as Effect.Effect<E, HttpClientError.HttpClientError>,
+         (cause) => Effect.fail(${name}Error(tag, cause, response)),
+       )
+-  const onRequest = <Config extends OperationConfig>(config: Config | undefined) => (
++  ${needsVoidError ? `const decodeVoidError =
++    <Tag extends string>(tag: Tag) =>
++    (
++      response: HttpClientResponse.HttpClientResponse,
++    ): Effect.Effect<never, ${name}Error<Tag, undefined>> =>
++      Effect.fail(${name}Error(tag, undefined, response))
++  ` : ""}const onRequest = <Config extends OperationConfig>(config: Config | undefined) => (
+     successCodes: ReadonlyArray<string>,
+-    errorCodes?: Record<string, string>,
++    errorCodes?: Record<string, string>,${needsVoidError ? `
++    voidErrorCodes?: ReadonlyArray<string>,` : ""}${requirements.binarySuccess ? `
++    binaryCodes?: ReadonlyArray<string>,` : ""}
+   ) => {
+     const cases: any = { orElse: unexpectedStatus }
+     for (const code of successCodes) {
+       cases[code] = decodeSuccess
+-    }
++    }${requirements.binarySuccess ? `
++    if (binaryCodes) {
++      for (const code of binaryCodes) {
++        cases[code] = decodeBinary
++      }
++    }` : ""}
+     if (errorCodes) {
+       for (const [code, tag] of Object.entries(errorCodes)) {
+         cases[code] = decodeError(tag)
+       }
+-    }
+-    if (successCodes.length === 0) {
++    }${needsVoidError ? `
++    if (voidErrorCodes) {
++      for (const code of voidErrorCodes) {
++        cases[code] = decodeVoidError(code)
++      }
++    }` : ""}
++    if (successCodes.length === 0${requirements.binarySuccess ? ` && (!binaryCodes || binaryCodes.length === 0)` : ""}) {
+       cases["2xx"] = decodeVoid
+     }
+     return withResponse(config)(HttpClientResponse.matchStatus(cases) as any)
+@@ -611,10 +675,25 @@ export const make = (
+     }
+     const successCodesRaw = Array.from(operation.successSchemas.keys());
+     const successCodes = successCodesRaw.map(_ => JSON.stringify(_)).join(", ");
+-    const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2");
++    const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2") && operation.binarySuccessStatuses.size === 0;
+     const errorCodes = operation.errorSchemas.size > 0 && Object.fromEntries(operation.errorSchemas.entries());
++    const voidErrorStatuses = Array.from(operation.voidSchemas).filter(Utils.isErrorStatus);
++    const binaryCodesRaw = Array.from(operation.binarySuccessStatuses);
++    const singleBinaryCode = binaryCodesRaw.length === 1 && binaryCodesRaw[0].startsWith("2") && operation.successSchemas.size === 0;
++    const binaryCodes = binaryCodesRaw.map(c => singleBinaryCode ? `"2xx"` : JSON.stringify(c)).join(", ");
+     const configAccessor = resolveConfigAccessor(operation, "options", "config");
+-    pipeline.push(`onRequest(${configAccessor})([${singleSuccessCode ? `"2xx"` : successCodes}]${errorCodes ? `, ${JSON.stringify(errorCodes)}` : ""})`);
++    const hasBinary = binaryCodesRaw.length > 0;
++    const onRequestArgs = [`[${singleSuccessCode ? `"2xx"` : successCodes}]`];
++    if (errorCodes || voidErrorStatuses.length > 0 || hasBinary) {
++      onRequestArgs.push(errorCodes ? JSON.stringify(errorCodes) : "undefined");
++    }
++    if (needsVoidError && (voidErrorStatuses.length > 0 || hasBinary)) {
++      onRequestArgs.push(voidErrorStatuses.length > 0 ? JSON.stringify(voidErrorStatuses) : "undefined");
++    }
++    if (requirements.binarySuccess && hasBinary) {
++      onRequestArgs.push(`[${binaryCodes}]`);
++    }
++    pipeline.push(`onRequest(${configAccessor})(${onRequestArgs.join(", ")})`);
+     return `"${operation.id}": (${params}) => ` + `HttpClientRequest.${operation.method}(${operation.pathTemplate})` + `.pipe(\n    ${pipeline.join(",\n    ")}\n  )`;
+   };
+   const operationToSseImpl = operation => {
+@@ -782,6 +861,9 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
+       Effect.map((response) => response.stream),
+       Stream.unwrap
+     )`;
++// Effect-TS/effect#6368 / Effect-TS/effect#6404: Decode binary success responses as Uint8Array
++const decodeBinarySource = `const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
++    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer))`;
+ const clientErrorSource = name => `export interface ${name}Error<Tag extends string, E> {
+   readonly _tag: Tag
+   readonly request: HttpClientRequest.HttpClientRequest
+@@ -831,4 +913,4 @@ const resolveParamsAccessor = (operation, rootKey, paramsKey) => {
+   }
+   return `${rootKey}.${paramsKey}`;
+ };
+-//# sourceMappingURL=OpenApiTransformer.js.map
+\ No newline at end of file
++//# sourceMappingURL=OpenApiTransformer.js.map
+diff --git a/dist/ParsedOperation.d.ts b/dist/ParsedOperation.d.ts
+index 661e28d..5fb7559 100644
+--- a/dist/ParsedOperation.d.ts
++++ b/dist/ParsedOperation.d.ts
+@@ -193,6 +193,7 @@ export interface ParsedOperation {
+     readonly successSchemas: ReadonlyMap<string, string>;
+     readonly errorSchemas: ReadonlyMap<string, string>;
+     readonly voidSchemas: ReadonlySet<string>;
++    readonly binarySuccessStatuses: ReadonlySet<string>;
+     readonly sseSchema?: string;
+     readonly sseSchemaMode: "data" | "event";
+     readonly binaryResponse: boolean;
+@@ -210,4 +211,4 @@ export declare const makeDeepMutable: (options: {
+     readonly pathTemplate: string;
+     readonly description: string | undefined;
+ }) => Types.DeepMutable<ParsedOperation>;
+-//# sourceMappingURL=ParsedOperation.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=ParsedOperation.d.ts.map
+diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
+index d71609b..e0e161e 100644
+--- a/dist/ParsedOperation.js
++++ b/dist/ParsedOperation.js
+@@ -41,6 +41,7 @@ export const makeDeepMutable = options => ({
+   voidSchemas: new Set(),
+   paramsOptional: true,
+   sseSchemaMode: "data",
+-  binaryResponse: false
++  binaryResponse: false,
++  binarySuccessStatuses: new Set() // Effect-TS/effect#6368 / Effect-TS/effect#6404
+ });
+-//# sourceMappingURL=ParsedOperation.js.map
+\ No newline at end of file
++//# sourceMappingURL=ParsedOperation.js.map
+diff --git a/dist/Utils.d.ts b/dist/Utils.d.ts
+index fdb9dff..10c5f53 100644
+--- a/dist/Utils.d.ts
++++ b/dist/Utils.d.ts
+@@ -30,6 +30,8 @@ export declare const identifier: (operationId: string) => Capitalize<string>;
+  * @since 4.0.0
+  */
+ export declare const nonEmptyString: (a: unknown) => string | undefined;
++/** Classifies 4xx and 5xx response status patterns. */
++export declare const isErrorStatus: (status: string) => boolean;
+ /**
+  * Renders an optional description as a JSDoc block for generated TypeScript.
+  *
+@@ -54,4 +56,4 @@ export declare const toComment: (self: string | undefined) => string;
+  * @since 4.0.0
+  */
+ export declare const spreadElementsInto: <A>(source: Array<A>, destination: Array<A>) => void;
+-//# sourceMappingURL=Utils.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=Utils.d.ts.map
+diff --git a/dist/Utils.js b/dist/Utils.js
+index fe8fc9e..d7717f7 100644
+--- a/dist/Utils.js
++++ b/dist/Utils.js
+@@ -67,6 +67,12 @@ export const nonEmptyString = a => {
+     }
+   }
+ };
++// Effect-TS/effect#6373 / Effect-TS/effect#6403: classify error response statuses
++// to route 4xx/5xx void statuses to the error channel.
++export const isErrorStatus = status => {
++  const major = Number(status[0]);
++  return !Number.isNaN(major) && major >= 4;
++};
+ /**
+  * Renders an optional description as a JSDoc block for generated TypeScript.
+  *
+diff --git a/src/OpenApiGenerator.ts b/src/OpenApiGenerator.ts
+index a82813e..d58bede 100644
+--- a/src/OpenApiGenerator.ts
++++ b/src/OpenApiGenerator.ts
+@@ -494,22 +494,30 @@ const parseOpenApi = (
+         }
+         const representable: Array<ParsedOperation.ParsedOperationMediaTypeSchema> = []
+
++        const jsonResponseEntries = findContentEntriesByMediaType(content, isJsonMediaType)
+         let jsonSchemaName: string | undefined
+-        const jsonResponseSchema = content?.["application/json"]?.schema
+-        if (Predicate.isNotUndefined(jsonResponseSchema)) {
++        if (jsonResponseEntries.length > 0) {
++          const jsonResponseSchema = combineJsonResponseSchemas(jsonResponseEntries)
+           jsonSchemaName = addSchema(`${schemaId}${status}`, jsonResponseSchema, op)
+           if (isHttpApi) {
+-            representable.push({
+-              contentType: "application/json",
+-              encoding: "json",
+-              schema: jsonSchemaName
+-            })
++            const multipleJsonRepresentations = jsonResponseEntries.length > 1
++            for (const [contentType, mediaType] of jsonResponseEntries) {
++              const schema = mediaType.schema
++              const schemaName = multipleJsonRepresentations
++                ? addSchema(`${schemaId}${status}${mediaTypeToSuffix(contentType)}`, schema, op)
++                : jsonSchemaName
++              representable.push({
++                contentType,
++                encoding: "json",
++                schema: schemaName
++              })
++            }
+           }
+         }
+
+         if (isHttpApi) {
+           for (const [contentType, mediaType] of Object.entries(content ?? {})) {
+-            if (contentType === "application/json") {
++            if (isJsonMediaType(contentType.toLowerCase())) {
+               continue
+             }
+             if (!Predicate.isObject(mediaType)) {
+@@ -625,10 +633,22 @@ const parseOpenApi = (
+           }
+         }
+
+-        if (Predicate.isNotUndefined(content?.["application/octet-stream"])) {
+-          const statusMajorNumber = Number(parsedStatus[0])
+-          if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
+-            op.binaryResponse = true
++        // Effect-TS/effect#6368 / Effect-TS/effect#6404: Preserve response representations per status.
++        // Includes broader binary detection plus explicit binary success decoding in matchStatus.
++        if (Predicate.isNotUndefined(content)) {
++          for (const [contentType, mediaType] of Object.entries(content)) {
++            const schema = Predicate.isObject(mediaType) ? mediaType.schema : undefined
++            const isBinary = isBinaryMediaType(contentType.toLowerCase()) ||
++              (Predicate.isObject(schema) && schema.type === "string" && schema.format === "binary")
++            if (!isBinary) {
++              continue
++            }
++            const statusMajorNumber = Number(parsedStatus[0])
++            if (!Number.isNaN(statusMajorNumber) && statusMajorNumber < 4) {
++              op.binaryResponse = true
++              op.binarySuccessStatuses.add(parsedStatus.toLowerCase())
++            }
++            break
+           }
+         }
+
+@@ -916,6 +936,41 @@ const isMultipartBinaryFiles = (value: Record<string, unknown>, singleFileRef: s
+   return isMultipartBinaryFile(items) || (Predicate.isObject(items) && items.$ref === singleFileRef)
+ }
+
++interface JsonMediaTypeEntry {
++  readonly schema: JsonSchema.JsonSchema
++}
++
++const combineJsonResponseSchemas = (
++  entries: ReadonlyArray<readonly [string, JsonMediaTypeEntry]>
++): JsonSchema.JsonSchema => {
++  const schemas = entries.map(([, mediaType]) => mediaType.schema)
++  const first = schemas[0]
++  if (first === undefined) {
++    return {}
++  }
++  return schemas.length === 1 ? first : { anyOf: schemas }
++}
++
++const findContentEntriesByMediaType = (
++  content: Record<string, unknown> | undefined,
++  predicate: (contentType: string) => boolean
++): Array<readonly [string, JsonMediaTypeEntry]> => {
++  if (Predicate.isUndefined(content)) {
++    return []
++  }
++  const matches: Array<readonly [string, JsonMediaTypeEntry]> = []
++  for (const [contentType, mediaType] of Object.entries(content)) {
++    if (
++      predicate(contentType.toLowerCase()) &&
++      Predicate.isObject(mediaType) &&
++      Predicate.isObject(mediaType.schema)
++    ) {
++      matches.push([contentType, { schema: mediaType.schema }])
++    }
++  }
++  return matches
++}
++
+ const isJsonMediaType = (contentType: string): boolean =>
+   contentType === "application/json" ||
+   (contentType.startsWith("application/") && contentType.endsWith("+json"))
+@@ -924,6 +979,12 @@ const isTextMediaType = (contentType: string): boolean => contentType.startsWith
+
+ const isBinaryMediaType = (contentType: string): boolean =>
+   contentType === "application/octet-stream" ||
++  contentType === "application/zip" ||
++  contentType === "application/gzip" ||
++  contentType === "application/pdf" ||
++  contentType.startsWith("image/") ||
++  contentType.startsWith("audio/") ||
++  contentType.startsWith("video/") ||
+   (contentType.startsWith("application/") && (contentType.includes("binary") || contentType.endsWith("+octet-stream")))
+
+ const getRequestMediaTypeEncoding = (
+diff --git a/src/OpenApiTransformer.ts b/src/OpenApiTransformer.ts
+index e56c657..fd9a14e 100644
+--- a/src/OpenApiTransformer.ts
++++ b/src/OpenApiTransformer.ts
+@@ -43,6 +43,7 @@ interface ImportRequirements {
+   readonly eventStreamData: boolean
+   readonly eventStreamSchema: boolean
+   readonly octetStream: boolean
++  readonly binarySuccess: boolean
+ }
+
+ const computeImportRequirements = (operations: ReadonlyArray<ParsedOperation>): ImportRequirements => {
+@@ -50,6 +51,7 @@ const computeImportRequirements = (operations: ReadonlyArray<ParsedOperation>):
+   let eventStreamData = false
+   let eventStreamSchema = false
+   let octetStream = false
++  let binarySuccess = false
+   for (const op of operations) {
+     if (op.sseSchema) {
+       eventStream = true
+@@ -62,13 +64,20 @@ const computeImportRequirements = (operations: ReadonlyArray<ParsedOperation>):
+     if (op.binaryResponse) {
+       octetStream = true
+     }
++    if (op.binarySuccessStatuses.size > 0) {
++      binarySuccess = true
++    }
+   }
+-  return { eventStream, eventStreamData, eventStreamSchema, octetStream }
++  return { eventStream, eventStreamData, eventStreamSchema, octetStream, binarySuccess }
+ }
+
+ const requiresStreaming = (requirements: ImportRequirements): boolean =>
+   requirements.eventStream || requirements.octetStream
+
++// Effect-TS/effect#6373 / Effect-TS/effect#6403: Route 4xx/5xx void statuses to the error channel.
++const hasVoidErrors = (operations: ReadonlyArray<ParsedOperation>): boolean =>
++  operations.some((operation) => Array.from(operation.voidSchemas).some(Utils.isErrorStatus))
++
+ /**
+  * Create the transformer used for schema-backed HttpClient output.
+  *
+@@ -133,10 +142,13 @@ ${clientErrorSource(name)}`
+     }
+
+     let success = "void"
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values())
+-        .map((schema) => `typeof ${schema}.Type`)
+-        .join(" | ")
++    const successTypes = Array.from(operation.successSchemas.values())
++      .map((schema) => `typeof ${schema}.Type`)
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array")
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ")
+     }
+     const errors = ["HttpClientError.HttpClientError", "SchemaError"]
+     if (operation.errorSchemas.size > 0) {
+@@ -147,6 +159,11 @@ ${clientErrorSource(name)}`
+         errors
+       )
+     }
++    for (const status of operation.voidSchemas) {
++      if (Utils.isErrorStatus(status)) {
++        errors.push(`${name}Error<"${status}", undefined>`)
++      }
++    }
+
+     const jsdoc = Utils.toComment(operation.description)
+     const methodKey = `readonly "${operation.id}"`
+@@ -247,6 +264,10 @@ ${clientErrorSource(name)}`
+     if (requirements.octetStream) {
+       helpers.push(binaryRequestSource)
+     }
++    if (requirements.binarySuccess) {
++      helpers.push(decodeBinarySource)
++    }
++    const needsVoidError = hasVoidErrors(operations)
+
+     return `export interface OperationConfig {
+   /**
+@@ -288,7 +309,13 @@ export const make = (
+         HttpClientResponse.schemaBodyJson(schema)(response),
+         (cause) => Effect.fail(${name}Error(tag, cause, response)),
+       )
+-  return {
++  ${needsVoidError
++    ? `const decodeVoidError =
++    <const Tag extends string>(tag: Tag) =>
++    (response: HttpClientResponse.HttpClientResponse) =>
++      Effect.fail(${name}Error(tag, undefined, response))
++  `
++    : ""}return {
+     httpClient,
+     ${implMethods.join(",\n    ")}
+   }
+@@ -328,16 +355,25 @@ export const make = (
+     }
+
+     const decodes: Array<string> = []
+-    const singleSuccessCode = operation.successSchemas.size === 1
++    const singleSuccessCode = operation.successSchemas.size === 1 && operation.binarySuccessStatuses.size === 0
+     operation.successSchemas.forEach((schema, status) => {
+       const statusCode = singleSuccessCode && status.startsWith("2") ? "2xx" : status
+       decodes.push(`"${statusCode}": decodeSuccess(${schema})`)
+     })
++    const singleBinaryCode = operation.binarySuccessStatuses.size === 1 && operation.successSchemas.size === 0
++    operation.binarySuccessStatuses.forEach((status) => {
++      const statusCode = singleBinaryCode && status.startsWith("2") ? "2xx" : status
++      decodes.push(`"${statusCode}": decodeBinary`)
++    })
+     operation.errorSchemas.forEach((schema, status) => {
+       decodes.push(`"${status}": decodeError("${schema}", ${schema})`)
+     })
+     operation.voidSchemas.forEach((status) => {
+-      decodes.push(`"${status}": () => Effect.void`)
++      if (Utils.isErrorStatus(status)) {
++        decodes.push(`"${status}": decodeVoidError("${status}")`)
++      } else {
++        decodes.push(`"${status}": () => Effect.void`)
++      }
+     })
+     decodes.push(`orElse: unexpectedStatus`)
+
+@@ -548,8 +584,12 @@ ${clientErrorSource(name)}`
+     }
+
+     let success = "void"
+-    if (operation.successSchemas.size > 0) {
+-      success = Array.from(operation.successSchemas.values()).join(" | ")
++    const successTypes = Array.from(operation.successSchemas.values())
++    if (operation.binarySuccessStatuses.size > 0) {
++      successTypes.push("Uint8Array")
++    }
++    if (successTypes.length > 0) {
++      success = successTypes.join(" | ")
+     }
+
+     const errors = ["HttpClientError.HttpClientError"]
+@@ -558,6 +598,11 @@ ${clientErrorSource(name)}`
+         errors.push(`${name}Error<"${schema}", ${schema}>`)
+       }
+     }
++    for (const status of operation.voidSchemas) {
++      if (Utils.isErrorStatus(status)) {
++        errors.push(`${name}Error<"${status}", undefined>`)
++      }
++    }
+
+     const jsdoc = Utils.toComment(operation.description)
+     const methodKey = `readonly "${operation.id}"`
+@@ -651,6 +696,10 @@ ${clientErrorSource(name)}`
+     if (requirements.octetStream) {
+       helpers.push(binaryRequestSourceTs)
+     }
++    if (requirements.binarySuccess) {
++      helpers.push(decodeBinarySource)
++    }
++    const needsVoidError = hasVoidErrors(operations)
+
+     return `export interface OperationConfig {
+   /**
+@@ -697,20 +746,44 @@ export const make = (
+         response.json as Effect.Effect<E, HttpClientError.HttpClientError>,
+         (cause) => Effect.fail(${name}Error(tag, cause, response)),
+       )
+-  const onRequest = <Config extends OperationConfig>(config: Config | undefined) => (
++  ${needsVoidError
++    ? `const decodeVoidError =
++    <Tag extends string>(tag: Tag) =>
++    (
++      response: HttpClientResponse.HttpClientResponse,
++    ): Effect.Effect<never, ${name}Error<Tag, undefined>> =>
++      Effect.fail(${name}Error(tag, undefined, response))
++  `
++    : ""}const onRequest = <Config extends OperationConfig>(config: Config | undefined) => (
+     successCodes: ReadonlyArray<string>,
+     errorCodes?: Record<string, string>,
++    ${needsVoidError ? "voidErrorCodes?: ReadonlyArray<string>," : ""}
++    ${requirements.binarySuccess ? "binaryCodes?: ReadonlyArray<string>," : ""}
+   ) => {
+     const cases: any = { orElse: unexpectedStatus }
+     for (const code of successCodes) {
+       cases[code] = decodeSuccess
+     }
++    ${requirements.binarySuccess
++      ? `if (binaryCodes) {
++      for (const code of binaryCodes) {
++        cases[code] = decodeBinary
++      }
++    }`
++      : ""}
+     if (errorCodes) {
+       for (const [code, tag] of Object.entries(errorCodes)) {
+         cases[code] = decodeError(tag)
+       }
+     }
+-    if (successCodes.length === 0) {
++    ${needsVoidError
++      ? `if (voidErrorCodes) {
++      for (const code of voidErrorCodes) {
++        cases[code] = decodeVoidError(code)
++      }
++    }`
++      : ""}
++    if (successCodes.length === 0${requirements.binarySuccess ? " && (!binaryCodes || binaryCodes.length === 0)" : ""}) {
+       cases["2xx"] = decodeVoid
+     }
+     return withResponse(config)(HttpClientResponse.matchStatus(cases) as any)
+@@ -756,15 +829,32 @@ export const make = (
+     const successCodes = successCodesRaw
+       .map((_) => JSON.stringify(_))
+       .join(", ")
+-    const singleSuccessCode = successCodesRaw.length === 1 && successCodesRaw[0].startsWith("2")
++    const singleSuccessCode = successCodesRaw.length === 1 &&
++      successCodesRaw[0].startsWith("2") &&
++      operation.binarySuccessStatuses.size === 0
+     const errorCodes = operation.errorSchemas.size > 0 &&
+       Object.fromEntries(operation.errorSchemas.entries())
++    const voidErrorStatuses = Array.from(operation.voidSchemas).filter(Utils.isErrorStatus)
++    const binaryCodesRaw = Array.from(operation.binarySuccessStatuses)
++    const singleBinaryCode = binaryCodesRaw.length === 1 &&
++      binaryCodesRaw[0].startsWith("2") &&
++      operation.successSchemas.size === 0
++    const binaryCodes = binaryCodesRaw
++      .map((code) => singleBinaryCode ? `"2xx"` : JSON.stringify(code))
++      .join(", ")
+     const configAccessor = resolveConfigAccessor(operation, "options", "config")
+-    pipeline.push(
+-      `onRequest(${configAccessor})([${singleSuccessCode ? `"2xx"` : successCodes}]${
+-        errorCodes ? `, ${JSON.stringify(errorCodes)}` : ""
+-      })`
+-    )
++    const hasBinary = binaryCodesRaw.length > 0
++    const onRequestArgs = [`[${singleSuccessCode ? `"2xx"` : successCodes}]`]
++    if (errorCodes || voidErrorStatuses.length > 0 || hasBinary) {
++      onRequestArgs.push(errorCodes ? JSON.stringify(errorCodes) : "undefined")
++    }
++    if (needsVoidError && (voidErrorStatuses.length > 0 || hasBinary)) {
++      onRequestArgs.push(voidErrorStatuses.length > 0 ? JSON.stringify(voidErrorStatuses) : "undefined")
++    }
++    if (requirements.binarySuccess && hasBinary) {
++      onRequestArgs.push(`[${binaryCodes}]`)
++    }
++    pipeline.push(`onRequest(${configAccessor})(${onRequestArgs.join(", ")})`)
+
+     return (
+       `"${operation.id}": (${params}) => ` +
+@@ -989,6 +1079,10 @@ const binaryRequestSourceTs =
+       Stream.unwrap
+     )`
+
++// Effect-TS/effect#6368 / Effect-TS/effect#6404: Decode binary success responses as Uint8Array.
++const decodeBinarySource = `const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
++    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer))`
++
+ const clientErrorSource = (
+   name: string
+ ) =>
+diff --git a/src/ParsedOperation.ts b/src/ParsedOperation.ts
+index b6812e5..bc70232 100644
+--- a/src/ParsedOperation.ts
++++ b/src/ParsedOperation.ts
+@@ -219,6 +219,7 @@ export interface ParsedOperation {
+   readonly successSchemas: ReadonlyMap<string, string>
+   readonly errorSchemas: ReadonlyMap<string, string>
+   readonly voidSchemas: ReadonlySet<string>
++  readonly binarySuccessStatuses: ReadonlySet<string>
+   // SSE streaming response schema (text/event-stream)
+   readonly sseSchema?: string
+   readonly sseSchemaMode: "data" | "event"
+@@ -275,5 +276,6 @@ export const makeDeepMutable = (options: {
+   voidSchemas: new Set(),
+   paramsOptional: true,
+   sseSchemaMode: "data",
+-  binaryResponse: false
++  binaryResponse: false,
++  binarySuccessStatuses: new Set()
+ })
+diff --git a/src/Utils.ts b/src/Utils.ts
+index aef310c..7b251a0 100644
+--- a/src/Utils.ts
++++ b/src/Utils.ts
+@@ -74,6 +74,13 @@ export const nonEmptyString = (a: unknown): string | undefined => {
+   }
+ }
+
++// Effect-TS/effect#6373 / Effect-TS/effect#6403: classify error response statuses
++// to route 4xx/5xx void statuses to the error channel.
++export const isErrorStatus = (status: string): boolean => {
++  const major = Number(status[0])
++  return !Number.isNaN(major) && major >= 4
++}
++
+ /**
+  * Renders an optional description as a JSDoc block for generated TypeScript.
+  *

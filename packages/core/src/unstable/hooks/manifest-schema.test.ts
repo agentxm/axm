@@ -48,7 +48,7 @@ describe("HookManifestSchema", () => {
         ...baseManifest,
         bindings: [{ on: "notification" }],
       }),
-    ).toThrow("notification");
+    ).toThrow("HookEvent");
   });
 
   it("accepts advisory decision subfields without making them schema requirements", () => {

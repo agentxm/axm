@@ -64,7 +64,7 @@ export const discoverManifestPackagesInDir =
         if (!exists) return Option.none<DiscoveredManifestPackage<Type, Manifest>>();
         const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
         if (Option.isNone(raw)) return Option.none<DiscoveredManifestPackage<Type, Manifest>>();
-        const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(
+        const json = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
           raw.value,
         ).pipe(Effect.option);
         if (Option.isNone(json)) return Option.none<DiscoveredManifestPackage<Type, Manifest>>();

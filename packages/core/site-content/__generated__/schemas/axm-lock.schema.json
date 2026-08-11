@@ -4,12 +4,26 @@
   "definitions": {
     "SourceNamespace": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "SourceSegment": { "type": "string", "allOf": [{ "minLength": 1 }] },
+    "Union_": {
+      "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+    },
     "SourceSubPath": { "type": "string", "allOf": [{ "minLength": 1 }] },
+    "Union_1": { "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }] },
     "IsoDateTimeString": {
       "type": "string",
       "title": "ISO Date-Time String",
       "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
       "format": "date-time"
+    },
+    "Union_2": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+    "Union_3": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+        },
+        { "type": "null" }
+      ]
     },
     "Handle": {
       "type": "string",
@@ -49,15 +63,11 @@
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["inline"] },
-        "command": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-        },
+        "command": { "$ref": "#/definitions/Union_" },
         "args": {
           "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
         },
-        "url": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-        },
+        "url": { "$ref": "#/definitions/Union_" },
         "headers": {
           "anyOf": [
             { "type": "object", "additionalProperties": { "type": "string" } },
@@ -66,7 +76,7 @@
         },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-        "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "gitTreeHash": { "$ref": "#/definitions/Union_2" }
       },
       "required": ["type", "installedAt", "updatedAt"],
       "additionalProperties": false,
@@ -115,6 +125,12 @@
       "title": "Resolved Extension",
       "description": "Last successful pack-member resolution from a workspace or Registry authority."
     },
+    "Objects_": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+      "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
+    },
+    "Union_4": { "anyOf": [{ "$ref": "#/definitions/Objects_" }, { "type": "null" }] },
     "RegistryPackLockEntry": {
       "type": "object",
       "properties": {
@@ -125,62 +141,15 @@
         "integrity": { "type": "string" },
         "sourceName": { "type": "string" },
         "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
-        "sourceHash": {
-          "anyOf": [
-            {
-              "type": "string",
-              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-            },
-            { "type": "null" }
-          ]
-        },
+        "sourceHash": { "$ref": "#/definitions/Union_3" },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-        "resolvedSkills": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedMcpServers": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedSubagents": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedRules": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        },
-        "resolvedHooks": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        },
-        "resolvedKnowledge": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        }
+        "resolvedSkills": { "$ref": "#/definitions/Objects_" },
+        "resolvedMcpServers": { "$ref": "#/definitions/Objects_" },
+        "resolvedSubagents": { "$ref": "#/definitions/Objects_" },
+        "resolvedRules": { "$ref": "#/definitions/Union_4" },
+        "resolvedHooks": { "$ref": "#/definitions/Union_4" },
+        "resolvedKnowledge": { "$ref": "#/definitions/Union_4" }
       },
       "required": [
         "type",
@@ -214,51 +183,12 @@
         },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-        "resolvedSkills": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedMcpServers": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedSubagents": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-        },
-        "resolvedRules": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        },
-        "resolvedHooks": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        },
-        "resolvedKnowledge": {
-          "anyOf": [
-            {
-              "type": "object",
-              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
-            },
-            { "type": "null" }
-          ]
-        }
+        "resolvedSkills": { "$ref": "#/definitions/Objects_" },
+        "resolvedMcpServers": { "$ref": "#/definitions/Objects_" },
+        "resolvedSubagents": { "$ref": "#/definitions/Objects_" },
+        "resolvedRules": { "$ref": "#/definitions/Union_4" },
+        "resolvedHooks": { "$ref": "#/definitions/Union_4" },
+        "resolvedKnowledge": { "$ref": "#/definitions/Union_4" }
       },
       "required": [
         "type",
@@ -304,27 +234,12 @@
                   "type": { "type": "string", "enum": ["github"] },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                  },
+                  "ref": { "$ref": "#/definitions/Union_" },
+                  "path": { "$ref": "#/definitions/Union_1" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -335,27 +250,12 @@
                   "type": { "type": "string", "enum": ["gitlab"] },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                  },
+                  "ref": { "$ref": "#/definitions/Union_" },
+                  "path": { "$ref": "#/definitions/Union_1" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -366,27 +266,12 @@
                   "type": { "type": "string", "enum": ["bitbucket"] },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                  },
+                  "ref": { "$ref": "#/definitions/Union_" },
+                  "path": { "$ref": "#/definitions/Union_1" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -398,27 +283,12 @@
                   "organization": { "$ref": "#/definitions/SourceSegment" },
                   "project": { "$ref": "#/definitions/SourceSegment" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                  },
+                  "ref": { "$ref": "#/definitions/Union_" },
+                  "path": { "$ref": "#/definitions/Union_1" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "organization", "project", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -428,27 +298,12 @@
                 "properties": {
                   "type": { "type": "string", "enum": ["git"] },
                   "url": { "type": "string" },
-                  "ref": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
-                  "path": {
-                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                  },
+                  "ref": { "$ref": "#/definitions/Union_" },
+                  "path": { "$ref": "#/definitions/Union_1" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "url", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -460,16 +315,8 @@
                   "path": { "type": "string" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": ["type", "path", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -489,16 +336,8 @@
                   "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                  "sourceHash": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      },
-                      { "type": "null" }
-                    ]
-                  }
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                  "sourceHash": { "$ref": "#/definitions/Union_3" }
                 },
                 "required": [
                   "type",
@@ -523,7 +362,7 @@
                   "version": { "$ref": "#/definitions/Version" },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                   "sourceHash": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -556,19 +395,12 @@
                       "type": { "type": "string", "enum": ["github"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -579,19 +411,12 @@
                       "type": { "type": "string", "enum": ["gitlab"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -602,19 +427,12 @@
                       "type": { "type": "string", "enum": ["bitbucket"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -626,19 +444,12 @@
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": [
                       "type",
@@ -655,19 +466,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
                       "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -679,8 +483,8 @@
                       "path": { "type": "string" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -700,8 +504,8 @@
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_2" }
                     },
                     "required": [
                       "type",
@@ -726,7 +530,7 @@
                       "version": { "$ref": "#/definitions/Version" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -764,27 +568,12 @@
                           "type": { "type": "string", "enum": ["github"] },
                           "owner": { "$ref": "#/definitions/SourceNamespace" },
                           "repo": { "$ref": "#/definitions/SourceSegment" },
-                          "ref": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
-                          "path": {
-                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                          },
+                          "ref": { "$ref": "#/definitions/Union_" },
+                          "path": { "$ref": "#/definitions/Union_1" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                         "additionalProperties": false
@@ -795,27 +584,12 @@
                           "type": { "type": "string", "enum": ["gitlab"] },
                           "owner": { "$ref": "#/definitions/SourceNamespace" },
                           "repo": { "$ref": "#/definitions/SourceSegment" },
-                          "ref": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
-                          "path": {
-                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                          },
+                          "ref": { "$ref": "#/definitions/Union_" },
+                          "path": { "$ref": "#/definitions/Union_1" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                         "additionalProperties": false
@@ -826,27 +600,12 @@
                           "type": { "type": "string", "enum": ["bitbucket"] },
                           "owner": { "$ref": "#/definitions/SourceNamespace" },
                           "repo": { "$ref": "#/definitions/SourceSegment" },
-                          "ref": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
-                          "path": {
-                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                          },
+                          "ref": { "$ref": "#/definitions/Union_" },
+                          "path": { "$ref": "#/definitions/Union_1" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                         "additionalProperties": false
@@ -858,27 +617,12 @@
                           "organization": { "$ref": "#/definitions/SourceSegment" },
                           "project": { "$ref": "#/definitions/SourceSegment" },
                           "repo": { "$ref": "#/definitions/SourceSegment" },
-                          "ref": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
-                          "path": {
-                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                          },
+                          "ref": { "$ref": "#/definitions/Union_" },
+                          "path": { "$ref": "#/definitions/Union_1" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": [
                           "type",
@@ -895,27 +639,12 @@
                         "properties": {
                           "type": { "type": "string", "enum": ["git"] },
                           "url": { "type": "string" },
-                          "ref": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
-                          "path": {
-                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                          },
+                          "ref": { "$ref": "#/definitions/Union_" },
+                          "path": { "$ref": "#/definitions/Union_1" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": ["type", "url", "installedAt", "updatedAt"],
                         "additionalProperties": false
@@ -927,16 +656,8 @@
                           "path": { "type": "string" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": ["type", "path", "installedAt", "updatedAt"],
                         "additionalProperties": false
@@ -956,16 +677,8 @@
                           "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "sourceHash": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                              },
-                              { "type": "null" }
-                            ]
-                          }
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                          "sourceHash": { "$ref": "#/definitions/Union_3" }
                         },
                         "required": [
                           "type",
@@ -990,7 +703,7 @@
                           "version": { "$ref": "#/definitions/Version" },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                           "sourceHash": {
                             "type": "string",
                             "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1029,27 +742,12 @@
                       "type": { "type": "string", "enum": ["github"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1060,27 +758,12 @@
                       "type": { "type": "string", "enum": ["gitlab"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1091,27 +774,12 @@
                       "type": { "type": "string", "enum": ["bitbucket"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1123,27 +791,12 @@
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1160,27 +813,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
                       "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1192,16 +830,8 @@
                       "path": { "type": "string" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1221,16 +851,8 @@
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1255,7 +877,7 @@
                       "version": { "$ref": "#/definitions/Version" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1291,27 +913,12 @@
                       "type": { "type": "string", "enum": ["github"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1322,27 +929,12 @@
                       "type": { "type": "string", "enum": ["gitlab"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1353,27 +945,12 @@
                       "type": { "type": "string", "enum": ["bitbucket"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1385,27 +962,12 @@
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1422,27 +984,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
                       "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1454,16 +1001,8 @@
                       "path": { "type": "string" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1483,16 +1022,8 @@
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1517,7 +1048,7 @@
                       "version": { "$ref": "#/definitions/Version" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
@@ -1553,27 +1084,12 @@
                       "type": { "type": "string", "enum": ["github"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1584,27 +1100,12 @@
                       "type": { "type": "string", "enum": ["gitlab"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1615,27 +1116,12 @@
                       "type": { "type": "string", "enum": ["bitbucket"] },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1647,27 +1133,12 @@
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1684,27 +1155,12 @@
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
                       "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
+                      "ref": { "$ref": "#/definitions/Union_" },
+                      "path": { "$ref": "#/definitions/Union_1" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "url", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1716,16 +1172,8 @@
                       "path": { "type": "string" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": ["type", "path", "installedAt", "updatedAt"],
                     "additionalProperties": false
@@ -1745,16 +1193,8 @@
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "sourceHash": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                          },
-                          { "type": "null" }
-                        ]
-                      }
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
+                      "sourceHash": { "$ref": "#/definitions/Union_3" }
                     },
                     "required": [
                       "type",
@@ -1779,7 +1219,7 @@
                       "version": { "$ref": "#/definitions/Version" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "gitTreeHash": { "$ref": "#/definitions/Union_2" },
                       "sourceHash": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."

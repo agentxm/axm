@@ -46,7 +46,7 @@ const readJson = (filePath: string): Effect.Effect<unknown, AppError, FileSystem
         }),
       ),
     );
-    return yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(text).pipe(
+    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",

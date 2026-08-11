@@ -20,7 +20,7 @@
  * @packageDocumentation
  */
 
-import type { Issue } from "effect/SchemaIssue";
+import * as SchemaIssue from "effect/SchemaIssue";
 import { describeSchemaDocument } from "./describe-document.js";
 import type { AdvisoryFinding, Severity } from "./rule.js";
 
@@ -42,7 +42,7 @@ export const issuesToFindings = (
   ruleId: string,
   severity: Severity,
   file: string,
-  issue: Issue,
+  issue: SchemaIssue.Issue,
 ): ReadonlyArray<AdvisoryFinding> => {
   const findings: Array<AdvisoryFinding> = [];
   walkIssue(issue, [], (leaf, path) => {
@@ -55,9 +55,13 @@ export const issuesToFindings = (
 // Internal walk
 // -----------------------------------------------------------------------------
 
-type Visitor = (issue: Issue, path: ReadonlyArray<PropertyKey>) => void;
+type Visitor = (issue: SchemaIssue.Issue, path: ReadonlyArray<PropertyKey>) => void;
 
-const walkIssue = (issue: Issue, path: ReadonlyArray<PropertyKey>, visit: Visitor): void => {
+const walkIssue = (
+  issue: SchemaIssue.Issue,
+  path: ReadonlyArray<PropertyKey>,
+  visit: Visitor,
+): void => {
   switch (issue._tag) {
     case "Pointer": {
       walkIssue(issue.issue, [...path, ...issue.path], visit);
@@ -97,7 +101,7 @@ const toFinding = (
   ruleId: string,
   severity: Severity,
   file: string,
-  issue: Issue,
+  issue: SchemaIssue.Issue,
   path: ReadonlyArray<PropertyKey>,
 ): AdvisoryFinding => {
   return {
@@ -112,7 +116,7 @@ const toFinding = (
 const formatIssueMessage = (
   documentLabel: string,
   file: string,
-  issue: Issue,
+  issue: SchemaIssue.Issue,
   path: ReadonlyArray<PropertyKey>,
 ): string => {
   const pathStr = formatPath(path);
@@ -124,25 +128,27 @@ const formatIssueMessage = (
     case "UnexpectedKey":
       return formatUnexpectedKeyMessage(documentLabel, file, pathStr);
     case "InvalidType":
-      return `${valueRef} has the wrong type. Detail: ${String(issue)}. ${formatRemediation(file, "replace it with a value of the expected type")}`;
+      return `${valueRef} has the wrong type. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "replace it with a value of the expected type")}`;
     case "InvalidValue":
-      return `${valueRef} is invalid. Detail: ${String(issue)}. ${formatRemediation(file, "update it so it satisfies the schema constraint")}`;
+      return `${valueRef} is invalid. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "update it so it satisfies the schema constraint")}`;
     case "Forbidden":
-      return `${valueRef} uses a value or operation the schema does not allow. Detail: ${String(issue)}. ${formatRemediation(file, "update it so the document satisfies the schema")}`;
+      return `${valueRef} uses a value or operation the schema does not allow. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "update it so the document satisfies the schema")}`;
     case "OneOf":
-      return `${valueRef} matches more than one allowed shape. Detail: ${String(issue)}. ${formatRemediation(file, "rewrite it so exactly one allowed shape matches")}`;
+      return `${valueRef} matches more than one allowed shape. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "rewrite it so exactly one allowed shape matches")}`;
     case "AnyOf":
-      return `${valueRef} does not match any allowed shape. Detail: ${String(issue)}. ${formatRemediation(file, "rewrite it so it matches one of the allowed shapes")}`;
+      return `${valueRef} does not match any allowed shape. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "rewrite it so it matches one of the allowed shapes")}`;
     case "Filter":
-      return `${valueRef} fails a schema constraint. Detail: ${String(issue)}. ${formatRemediation(file, "update it so it satisfies the constraint")}`;
+      return `${valueRef} fails a schema constraint. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "update it so it satisfies the constraint")}`;
     case "Encoding":
-      return `${valueRef} cannot be encoded or decoded as required by the schema. Detail: ${String(issue)}. ${formatRemediation(file, "update it to the shape the schema expects")}`;
+      return `${valueRef} cannot be encoded or decoded as required by the schema. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "update it to the shape the schema expects")}`;
     case "Pointer":
-      return `${documentLabel} has a schema problem${pathStr === "" ? "" : ` at ${pathStr}`}. Detail: ${String(issue)}. ${formatRemediation(file, "fix the value at that path so the document satisfies the schema")}`;
+      return `${documentLabel} has a schema problem${pathStr === "" ? "" : ` at ${pathStr}`}. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "fix the value at that path so the document satisfies the schema")}`;
     case "Composite":
-      return `${valueRef} has multiple schema problems. Detail: ${String(issue)}. ${formatRemediation(file, "fix the referenced values so the document satisfies the schema")}`;
+      return `${valueRef} has multiple schema problems. Detail: ${formatSchemaIssue(issue)}. ${formatRemediation(file, "fix the referenced values so the document satisfies the schema")}`;
   }
 };
+
+const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
 const formatMissingKeyMessage = (
   documentLabel: string,

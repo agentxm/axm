@@ -1,3 +1,13 @@
+## 0.26.3 (2026-08-11)
+
+### 🩹 Fixes
+
+- Upgrade the Effect runtime and generated-client toolchain while preserving CLI and client contracts.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.2 (2026-08-11)
 
 ### 🚀 Features

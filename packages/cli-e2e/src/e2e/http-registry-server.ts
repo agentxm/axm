@@ -331,6 +331,10 @@ export const startHttpRegistry = async (
         const published = new Date("2026-01-01T00:00:00.000Z").toISOString();
         const existingVisibility = extensionVisibilities.get(extensionKey);
         const requestedVisibility = url.searchParams.get("visibility");
+        if (existingVisibility !== undefined && requestedVisibility !== null) {
+          sendProblem(response, 409, "Initial visibility is only valid for a new extension.");
+          return;
+        }
         const establishedVisibility =
           requestedVisibility === "public" || requestedVisibility === "private"
             ? requestedVisibility

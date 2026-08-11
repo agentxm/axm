@@ -222,7 +222,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly publishPreview?: ResolvedPublishPreview;
 }
 
-interface ResolvedPublishPreview {
+export interface ResolvedPublishPreview {
   readonly visibility: PublishVisibility;
   readonly condition: string;
 }
@@ -327,6 +327,15 @@ export const exactPublishUploadBinding = (
   ...(capability.visibility.disposition === "establish" &&
   capability.visibility.source === "explicit"
     ? { initialVisibility: capability.visibility.value }
+    : {}),
+});
+
+export const previewPublishUploadBinding = (
+  preview: ResolvedPublishPreview,
+): Pick<PublishExtensionArgs, "condition" | "initialVisibility"> => ({
+  condition: preview.condition,
+  ...(preview.visibility.disposition === "establish" && preview.visibility.source === "explicit"
+    ? { initialVisibility: preview.visibility.value }
     : {}),
 });
 
@@ -1039,16 +1048,10 @@ const publishCandidate = (
       archive: candidate.archive,
       metadata,
       ...(exactCapability === undefined
-        ? Option.match(visibility, {
-            onNone: () => ({}),
-            onSome: (initialVisibility) => ({ initialVisibility }),
-          })
-        : exactPublishUploadBinding(exactCapability)),
-      ...(exactCapability === undefined
         ? candidate.publishPreview === undefined
           ? {}
-          : { condition: candidate.publishPreview.condition }
-        : {}),
+          : previewPublishUploadBinding(candidate.publishPreview)
+        : exactPublishUploadBinding(exactCapability)),
     });
     return {
       stepResult: {

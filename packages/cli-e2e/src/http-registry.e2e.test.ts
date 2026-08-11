@@ -257,6 +257,13 @@ describe("HTTP registry transport", () => {
       );
       expect(registry.publishes).toHaveLength(3);
       expect(registry.publishes.every((record) => record.ifMatch !== undefined)).toBe(true);
+      expect(
+        registry.publishes.find((record) => record.name === "review" && record.version === "0.1.0"),
+      ).toHaveProperty("requestedVisibility", undefined);
+      expect(registry.publishes.find((record) => record.name === "deploy")).toHaveProperty(
+        "requestedVisibility",
+        "private",
+      );
     } finally {
       await registry.close();
       workspace.cleanup();

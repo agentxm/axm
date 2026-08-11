@@ -116,6 +116,7 @@ const publishSuccessResponse = {
   sha256_hex: "abc123",
   published_at: "2025-01-01T00:00:00Z",
   publish_status: "available",
+  visibility: { value: "public", disposition: "establish", source: "platform" },
   warnings: [],
   links: { html: "https://agentxm.ai/acme/skills/test-skill" },
 };
@@ -727,6 +728,114 @@ describe("discoverPackages", () => {
 });
 
 // =============================================================================
+// previewExtensionPublishes
+// =============================================================================
+
+describe("previewExtensionPublishes", () => {
+  it.effect("sends one batch and returns complete authoritative items", () =>
+    Effect.gen(function* () {
+      let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
+      const httpClient = makeMockHttpClient((request) => {
+        capturedRequest = request;
+        return new Response(
+          JSON.stringify([
+            {
+              kind: "resolved",
+              target: {
+                owner: "@acme",
+                type: "skill",
+                name: "test-skill",
+                version: "1.0.0",
+              },
+              visibility: {
+                value: "public",
+                disposition: "establish",
+                source: "explicit",
+              },
+              condition: '"preview-condition"',
+            },
+          ]),
+          { status: 200 },
+        );
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.previewExtensionPublishes({
+        candidates: [
+          {
+            owner: registryOwner,
+            type: "skill",
+            name: skillName,
+            version: exactVersion("1.0.0"),
+          },
+        ],
+        initialVisibility: "public",
+      });
+
+      expect(result).toEqual([
+        {
+          kind: "resolved",
+          target: {
+            owner: "@acme",
+            type: "skill",
+            name: "test-skill",
+            version: "1.0.0",
+          },
+          visibility: {
+            value: "public",
+            disposition: "establish",
+            source: "explicit",
+          },
+          condition: '"preview-condition"',
+        },
+      ]);
+      expect(capturedRequest?.method).toBe("POST");
+      expect(capturedRequest?.url).toBe(`${BASE_URL}/v1/publish-previews`);
+    }),
+  );
+
+  it.effect("maps the Registry batch limit response", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              kind: "PublishPreviewBatchTooLargeHttpError",
+              type: "about:blank",
+              title: "Payload Too Large",
+              status: 413,
+              detail: "At most 100 candidates are allowed.",
+              code: "publish/preflight-batch-too-large",
+              max_items: 100,
+            }),
+            { status: 413 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(client.previewExtensionPublishes({ candidates: [] }));
+
+      expect(error.code).toBe("validation");
+      expect(error.detail).toContain("100");
+    }),
+  );
+
+  it.effect("fails closed when an older Registry lacks the endpoint", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify({ detail: "Not found" }), { status: 404 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(client.previewExtensionPublishes({ candidates: [] }));
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toContain("incompatible");
+    }),
+  );
+});
+
+// =============================================================================
 // publishExtension
 // =============================================================================
 
@@ -787,6 +896,21 @@ describe("publishExtension", () => {
     }),
   );
 
+  it.effect("sends an opaque preview condition as If-Match", () =>
+    Effect.gen(function* () {
+      let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
+      const httpClient = makeMockHttpClient((request) => {
+        capturedRequest = request;
+        return new Response(JSON.stringify(publishSuccessResponse), { status: 201 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      yield* client.publishExtension({ ...publishArgs, condition: '"preview-condition"' });
+
+      expect(capturedRequest?.headers["if-match"]).toBe('"preview-condition"');
+    }),
+  );
+
   it.effect("returns published:true on 200", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
@@ -797,7 +921,25 @@ describe("publishExtension", () => {
       const result = yield* client.publishExtension(publishArgs);
 
       expect(result.published).toBe(true);
+      expect(result.visibility).toEqual(publishSuccessResponse.visibility);
+      expect(result.integrity).toBe("sha512-abc123");
+      expect(result.status).toBe("available");
       expect(result.links).toEqual({ html: "https://agentxm.ai/acme/skills/test-skill" });
+    }),
+  );
+
+  it.effect("fails closed when a publish response omits authoritative visibility", () =>
+    Effect.gen(function* () {
+      const { visibility: _visibility, ...incompleteResponse } = publishSuccessResponse;
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(incompleteResponse), { status: 201 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(client.publishExtension(publishArgs));
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toContain("could not parse");
     }),
   );
 

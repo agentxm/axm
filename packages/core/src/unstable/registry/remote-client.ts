@@ -30,6 +30,7 @@ import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
   DiscoverPackagesArgs,
@@ -41,8 +42,10 @@ import type {
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   OwnerExistsResponse,
+  PreviewExtensionPublishesArgs,
   PublishExtensionArgs,
   PublishExtensionResponse,
+  PublishPreviewResult,
   RegistryClient,
   RegistryExtensionManifest,
   UpdateExtensionVisibilityArgs,
@@ -83,6 +86,15 @@ const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
  * this validates the value is within our supported subset.
  */
 const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType(type);
+
+const mapPublishPreviewTarget = (
+  target: GeneratedRegistryClient.PublishPreviewTarget,
+): import("./client.js").PublishPreviewTarget => ({
+  owner: decodeHandleSync(target.owner),
+  type: narrowExtensionType(target.type),
+  name: decodeExtensionNameSync(target.name),
+  version: decodeVersionSync(target.version),
+});
 
 /**
  * Map the generated ExtensionsGet200 response to our domain ExtensionIndex type.
@@ -657,18 +669,112 @@ export const createRemoteRegistryClient = (
         pluralizeType(args.type),
         args.name,
         args.version,
-        args.initialVisibility === undefined
+        args.initialVisibility === undefined && args.condition === undefined
           ? undefined
-          : { params: { visibility: args.initialVisibility } },
+          : {
+              params: {
+                ...(args.initialVisibility === undefined
+                  ? {}
+                  : { visibility: args.initialVisibility }),
+                ...(args.condition === undefined ? {} : { "if-match": args.condition }),
+              },
+            },
       )
       .pipe(
-        Effect.map((response) => ({ published: true as const, links: response.links })),
+        Effect.map(
+          (response) =>
+            ({
+              published: true,
+              owner: decodeHandleSync(response.owner),
+              type: narrowExtensionType(response.type),
+              name: decodeExtensionNameSync(response.name),
+              version: decodeVersionSync(response.version),
+              integrity: response.integrity,
+              status: response.publish_status,
+              visibility: response.visibility,
+              links: response.links,
+            }) satisfies PublishExtensionResponse,
+        ),
         // Single mapError handler for all error types to avoid error channel narrowing issues
         Effect.mapError((e) =>
           mapPublishError(e, networkSuggestions, networkDiagnosisDetails, publishRequest),
         ),
       );
   };
+
+  const previewExtensionPublishes = (
+    args: PreviewExtensionPublishesArgs,
+  ): Effect.Effect<ReadonlyArray<PublishPreviewResult>, AppError> =>
+    client
+      .PublishPreviewsPreviewExtensionPublishes({
+        payload: {
+          candidates: args.candidates,
+          ...(args.initialVisibility === undefined ? {} : { visibility: args.initialVisibility }),
+        },
+        config: undefined,
+      })
+      .pipe(
+        Effect.map((response) =>
+          response.map((item): PublishPreviewResult =>
+            item.kind === "unavailable"
+              ? {
+                  kind: "unavailable",
+                  target: mapPublishPreviewTarget(item.target),
+                  code: item.code,
+                }
+              : {
+                  kind: "resolved",
+                  target: mapPublishPreviewTarget(item.target),
+                  visibility: item.visibility,
+                  condition: item.condition,
+                },
+          ),
+        ),
+        Effect.mapError((error) => {
+          if (isHttpClientError(error)) {
+            if (error.reason._tag === "StatusCodeError") {
+              return makeAppError({
+                code: "internal",
+                detail: "The registry is incompatible with authoritative publish previews.",
+                cause: error,
+              });
+            }
+            return mapNetworkError(
+              error,
+              "Failed to connect to the publish preview endpoint",
+              baseUrl,
+            );
+          }
+          if (isSchemaError(error)) {
+            return makeAppError({
+              code: "internal",
+              detail: "The registry is incompatible with authoritative publish previews.",
+              cause: error,
+            });
+          }
+          if (isAnyRegistryClientError(error)) {
+            if (getTag(error) === "PublishPreviewsPreviewExtensionPublishes413") {
+              return registryClientErrorToAppError(error);
+            }
+            if (
+              getTag(error) === "PublishPreviewsPreviewExtensionPublishes401" ||
+              getTag(error) === "PublishPreviewsPreviewExtensionPublishes403"
+            ) {
+              return registryClientErrorToAppError(error);
+            }
+            return makeAppError({
+              code: "internal",
+              detail: "The registry is incompatible with authoritative publish previews.",
+              cause: error,
+            });
+          }
+          return makeAppError({
+            code: "internal",
+            detail: "Publish preview failed",
+            cause: error,
+          });
+        }),
+      );
 
   const updateExtensionVisibility = (
     args: UpdateExtensionVisibilityArgs,
@@ -807,6 +913,7 @@ export const createRemoteRegistryClient = (
     ownerExists,
     getExtensionPackage,
     publishExtension,
+    previewExtensionPublishes,
     updateExtensionVisibility,
     extensionExists,
     discoverPackages,

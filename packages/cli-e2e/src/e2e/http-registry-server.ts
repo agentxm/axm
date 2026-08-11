@@ -257,6 +257,10 @@ export const startHttpRegistry = async (
           sha256_hex: crypto.createHash("sha256").update(archive).digest("hex"),
           published_at: published,
           publish_status: "available",
+          visibility:
+            versions.length > 1
+              ? { value: "public", disposition: "preserve", source: "existing" }
+              : { value: "public", disposition: "establish", source: "platform" },
           warnings: [],
           links: { html: `https://example.test/${owner}/${plural}/${name}` },
         });

@@ -458,7 +458,9 @@
                   "type": { "$ref": "#/components/schemas/ExtensionType" },
                   "name": { "$ref": "#/components/schemas/ExtensionName" },
                   "version": { "$ref": "#/components/schemas/Version" },
-                  "archive_sha256": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                  "archive_sha256": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "visibility_contract": { "type": "string", "enum": ["v1"] },
+                  "visibility": { "$ref": "#/components/schemas/Visibility" }
                 },
                 "required": [
                   "client_id",
@@ -610,8 +612,40 @@
               }
             }
           },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
           "422": {
             "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -652,19 +686,10 @@
             }
           },
           "401": {
-            "description": "StepUpRequiredError | UnauthorizedError",
+            "description": "UnauthorizedError",
             "content": {
               "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
-                    { "$ref": "#/components/schemas/ProblemDetails" }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
-                  }
-                }
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           },
@@ -673,14 +698,6 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "503": {
-            "description": "ServiceUnavailableError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -1212,6 +1229,30 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Update extension visibility",
@@ -1388,8 +1429,16 @@
               }
             }
           },
-          "503": {
-            "description": "ServiceUnavailableError",
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -1574,6 +1623,12 @@
             "required": true
           },
           {
+            "name": "if-match",
+            "in": "header",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
             "name": "visibility",
             "in": "query",
             "schema": {
@@ -1603,6 +1658,7 @@
                       "enum": ["pending", "available", "failed"],
                       "readOnly": true
                     },
+                    "visibility": { "$ref": "#/components/schemas/PublishVisibility" },
                     "warnings": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/PublishLintFinding" },
@@ -1619,6 +1675,7 @@
                     "sha256_hex",
                     "published_at",
                     "publish_status",
+                    "visibility",
                     "warnings",
                     "links"
                   ],
@@ -1674,6 +1731,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "412": {
+            "description": "PreconditionFailedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/PreconditionFailedError" }
               }
             }
           },
@@ -2229,7 +2294,12 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
               }
             }
           },
@@ -2241,8 +2311,24 @@
               }
             }
           },
-          "503": {
-            "description": "ServiceUnavailableError",
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -2357,7 +2443,12 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
               }
             }
           },
@@ -2369,8 +2460,24 @@
               }
             }
           },
-          "503": {
-            "description": "ServiceUnavailableError",
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -2464,7 +2571,12 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
               }
             }
           },
@@ -2476,8 +2588,24 @@
               }
             }
           },
-          "503": {
-            "description": "ServiceUnavailableError",
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "429": {
+            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -2633,6 +2761,70 @@
           }
         },
         "summary": "Preview permanent Extension deletion impact"
+      }
+    },
+    "/v1/publish-previews": {
+      "post": {
+        "tags": ["PublishPreviews"],
+        "operationId": "PublishPreviews.previewExtensionPublishes",
+        "parameters": [],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "PublishPreviewResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublishPreviewResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "413": {
+            "description": "PublishPreviewBatchTooLargeHttpError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/PublishPreviewBatchTooLargeHttpError" }
+              }
+            }
+          }
+        },
+        "summary": "Preview extension publications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PublishPreviewRequest" }
+            }
+          },
+          "required": true
+        }
       }
     },
     "/v1/libraries/{owner}": {
@@ -3429,6 +3621,32 @@
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
       },
+      "PublishVisibility": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string", "enum": ["public", "private"] },
+              "disposition": { "type": "string", "enum": ["establish"] },
+              "source": { "type": "string", "enum": ["explicit", "account", "platform"] }
+            },
+            "required": ["value", "disposition", "source"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string", "enum": ["public", "private"] },
+              "disposition": { "type": "string", "enum": ["preserve"] },
+              "source": { "type": "string", "enum": ["existing"] }
+            },
+            "required": ["value", "disposition", "source"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Publish Visibility",
+        "description": "Complete operation-time visibility resolved for a proposed or completed publication."
+      },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
@@ -3459,6 +3677,28 @@
               {
                 "type": "string",
                 "description": "Publish authorization request that produced a non-refreshable exact capability."
+              },
+              { "type": "null" }
+            ]
+          },
+          "visibility_contract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["v1"],
+                "description": "Visibility binding contract carried by an exact publish capability."
+              },
+              { "type": "null" }
+            ]
+          },
+          "visibility": {
+            "anyOf": [{ "$ref": "#/components/schemas/PublishVisibility" }, { "type": "null" }]
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Opaque reviewed publish condition to send as If-Match during upload."
               },
               { "type": "null" }
             ]
@@ -3685,6 +3925,7 @@
           }
         ]
       },
+      "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
       "PublishAuthorizationRequestId": {
         "type": "string",
         "allOf": [
@@ -3832,6 +4073,7 @@
               "scope_escalation",
               "gat_requires_session",
               "recent_authentication_required",
+              "step_up_wrong_actor",
               "team_create_not_authorized",
               "team_delete_not_authorized",
               "team_update_not_authorized",
@@ -3965,7 +4207,6 @@
           "detail": { "type": "string" },
           "instance": { "type": "string" },
           "code": { "type": "string", "enum": ["eotp"] },
-          "max_age": { "type": "integer" },
           "step_up": {
             "type": "object",
             "properties": {
@@ -3987,9 +4228,10 @@
               "target"
             ],
             "additionalProperties": false
-          }
+          },
+          "max_age": { "type": "integer" }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code", "max_age", "step_up"],
+        "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
       "OwnerResponse": {
@@ -4111,7 +4353,7 @@
         "allOf": [
           { "minLength": 1 },
           {
-            "pattern": "^[~^<>=*xXvV0-9A-Za-z| .-]+$",
+            "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
             "title": "Version Range",
             "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
             "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
@@ -4221,7 +4463,6 @@
         "title": "Deprecate Body",
         "description": "Request body for deprecating an extension."
       },
-      "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
@@ -4299,6 +4540,21 @@
         "additionalProperties": false,
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
+      },
+      "PreconditionFailedError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["PreconditionFailedError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["publish/precondition-changed"] },
+          "details": { "$ref": "#/components/schemas/PublishDetails" }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
       },
       "PublishIdentity": {
         "type": "object",
@@ -4435,6 +4691,82 @@
         "additionalProperties": false,
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
+      },
+      "PublishPreviewTarget": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["owner", "type", "name", "version"],
+        "additionalProperties": false,
+        "title": "Publish Preview Target"
+      },
+      "PublishPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublishPreviewTarget" }
+          },
+          "visibility": { "$ref": "#/components/schemas/Visibility" }
+        },
+        "required": ["candidates"],
+        "additionalProperties": false,
+        "title": "Publish Preview Request"
+      },
+      "ResolvedPublishPreview": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["resolved"] },
+          "target": { "$ref": "#/components/schemas/PublishPreviewTarget" },
+          "visibility": { "$ref": "#/components/schemas/PublishVisibility" },
+          "condition": {
+            "type": "string",
+            "description": "Opaque strong ETag to send as If-Match when publishing this candidate."
+          }
+        },
+        "required": ["kind", "target", "visibility", "condition"],
+        "additionalProperties": false,
+        "title": "Resolved Publish Preview"
+      },
+      "UnavailablePublishPreview": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["unavailable"] },
+          "target": { "$ref": "#/components/schemas/PublishPreviewTarget" },
+          "code": { "type": "string", "enum": ["publish/target-unavailable"] }
+        },
+        "required": ["kind", "target", "code"],
+        "additionalProperties": false,
+        "title": "Unavailable Publish Preview"
+      },
+      "PublishPreviewResponse": {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            { "$ref": "#/components/schemas/ResolvedPublishPreview" },
+            { "$ref": "#/components/schemas/UnavailablePublishPreview" }
+          ]
+        },
+        "title": "Publish Preview Response"
+      },
+      "PublishPreviewBatchTooLargeHttpError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["PublishPreviewBatchTooLargeHttpError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["publish/preflight-batch-too-large"] },
+          "max_items": { "type": "number", "enum": [100] }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code", "max_items"],
+        "additionalProperties": false
       },
       "LibraryVisibility": {
         "type": "string",
@@ -4672,6 +5004,7 @@
     { "name": "Tokens" },
     { "name": "Owners" },
     { "name": "Extensions" },
+    { "name": "PublishPreviews" },
     { "name": "Libraries" },
     { "name": "Discovery" },
     { "name": "Health" },

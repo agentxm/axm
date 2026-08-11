@@ -149,7 +149,22 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
         detail: "not implemented",
       }),
     ),
-  publishExtension: () => Effect.succeed({ published: true } as const),
+  publishExtension: (args) =>
+    Effect.succeed({
+      published: true,
+      owner: args.owner,
+      type: args.type,
+      name: args.name,
+      version: args.version,
+      integrity: args.metadata.integrity,
+      status: "available",
+      visibility: {
+        value: args.initialVisibility ?? "public",
+        disposition: "establish",
+        source: args.initialVisibility === undefined ? "platform" : "explicit",
+      },
+    } as const),
+  previewExtensionPublishes: () => Effect.succeed([]),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverPackages: () => Effect.succeed({ results: [] }),
   ...overrides,
@@ -191,6 +206,8 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+  previewExtensionPublishes: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
   extensionExists: () =>
     Effect.fail(
       makeAppError({
@@ -695,7 +712,20 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
     const client = createMockClient({
       publishExtension: (args) => {
         capturedArgs = args;
-        return Effect.succeed({ published: true } as const);
+        return Effect.succeed({
+          published: true,
+          owner: args.owner,
+          type: args.type,
+          name: args.name,
+          version: args.version,
+          integrity: args.metadata.integrity,
+          status: "available",
+          visibility: {
+            value: "public",
+            disposition: "establish",
+            source: "platform",
+          },
+        } as const);
       },
     });
 

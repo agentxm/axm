@@ -83,6 +83,105 @@ describe("axm knowledge lifecycle", () => {
     }
   });
 
+  it("publishes source-faithful frontmatter only from machine-readable open", async () => {
+    const temp = createTempDir();
+    try {
+      const sourceRoot = path.join(temp.path, "knowledge-source");
+      createKnowledgePackage(sourceRoot);
+      fs.writeFileSync(path.join(sourceRoot, "src", "source.txt"), "source");
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "architecture.md"),
+        [
+          "---",
+          "type: reference",
+          "description: Platform architecture",
+          "tags: [platform, architecture]",
+          "status: stable",
+          "sources:",
+          "  - { resource: ./source.txt, title: Architecture source }",
+          "producer:",
+          "  nested: [one, true, null]",
+          "---",
+          "# Architecture",
+          "",
+          "Architecture body.",
+          "",
+        ].join("\n"),
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "cyclic.md"),
+        [
+          "---",
+          "type: reference",
+          "description: Cyclic producer data",
+          "producer: &producer",
+          "  self: *producer",
+          "---",
+          "# Cyclic",
+          "",
+        ].join("\n"),
+      );
+      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        agents: [],
+        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+      });
+      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
+
+      const open = await runCli(["knowledge", "open", "platform", "architecture", "--json"], {
+        cwd: temp.path,
+      });
+      expect(open.exitCode, open.stdout + open.stderr).toBe(0);
+      expect(JSON.parse(open.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          concept: {
+            body: "# Architecture\n\nArchitecture body.\n",
+            frontmatter: {
+              type: "reference",
+              description: "Platform architecture",
+              tags: ["platform", "architecture"],
+              status: "stable",
+              sources: [{ resource: "./source.txt", title: "Architecture source" }],
+              producer: { nested: ["one", true, null] },
+            },
+          },
+        },
+      });
+
+      const search = await runCli(["knowledge", "search", "Architecture", "--json"], {
+        cwd: temp.path,
+      });
+      expect(search.exitCode, search.stdout + search.stderr).toBe(0);
+      const searchDocument = JSON.parse(search.stdout);
+      expect(searchDocument.result.items).toHaveLength(1);
+      expect(searchDocument.result.items[0]).not.toHaveProperty("frontmatter");
+
+      const human = await runCli(["knowledge", "open", "platform", "architecture"], {
+        cwd: temp.path,
+      });
+      expect(human.exitCode, human.stdout + human.stderr).toBe(0);
+      expect(human.stdout).toBe("");
+      expect(human.stderr).toContain("# Architecture\n\nArchitecture body.\n");
+      expect(human.stderr).not.toContain("frontmatter");
+
+      const cyclic = await runCli(["knowledge", "open", "platform", "cyclic", "--json"], {
+        cwd: temp.path,
+      });
+      expect(cyclic.exitCode).not.toBe(0);
+      expect(JSON.parse(cyclic.stdout)).toMatchObject({ ok: false });
+      expect(cyclic.stdout).not.toContain('"concept"');
+    } finally {
+      temp.cleanup();
+    }
+  }, 30_000);
+
   it("converges configured local Knowledge through install, update, sync, activation, and uninstall", async () => {
     const temp = createTempDir();
 

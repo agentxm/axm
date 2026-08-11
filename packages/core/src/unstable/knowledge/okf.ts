@@ -26,6 +26,7 @@ export type KnowledgeTrustTier = "unverified" | "machine-confirmed" | "human-rev
 export interface KnowledgeConcept {
   readonly id: string;
   readonly title: string;
+  readonly frontmatter?: Readonly<Record<string, unknown>>;
   readonly type?: string;
   readonly description?: string;
   readonly tags?: ReadonlyArray<string>;
@@ -1052,6 +1053,7 @@ export const inspectKnowledgeEntries = <E>(
       concepts.push({
         id: conceptId(relativePath),
         title: title ?? conceptId(relativePath),
+        ...(isRecord(metadata) ? { frontmatter: metadata } : {}),
         ...(type === undefined ? {} : { type }),
         ...(description === undefined ? {} : { description }),
         ...(tags === undefined ? {} : { tags }),

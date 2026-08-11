@@ -7,6 +7,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 
 import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
@@ -21,7 +22,8 @@ import {
 import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
-import { handleKnowledgeSearch } from "./search.js";
+import { handleKnowledgeOpen, KnowledgeOpenQueryResultSchema } from "./open.js";
+import { handleKnowledgeSearch, KnowledgeSearchQueryResultSchema } from "./search.js";
 
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
@@ -249,6 +251,130 @@ describe("knowledge JSON output", () => {
         });
       }),
     );
+  });
+
+  it.effect(
+    "open publishes complete parsed frontmatter without changing search or human output",
+    () => {
+      const axmDir = path.join(tempDir, ".axm");
+      writeKnowledgeExtension(axmDir, "platform");
+      const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
+      fs.writeFileSync(
+        path.join(packageRoot, "src", "architecture.md"),
+        [
+          "---",
+          "type: reference",
+          "description: Platform architecture",
+          "tags: [platform, architecture]",
+          "status: stable",
+          "stale_after: 2026-12-31",
+          "generated: { by: process:docs-build, at: 2026-08-11T00:00:00Z }",
+          "verified:",
+          "  - { by: human:reviewer, at: 2026-08-11T01:00:00Z }",
+          "sources:",
+          "  - { resource: ./source.txt, title: Architecture source }",
+          "producer:",
+          "  nested: [one, true, null]",
+          "---",
+          "# Architecture",
+          "",
+          "Architecture body.",
+          "",
+        ].join("\n"),
+      );
+      fs.writeFileSync(path.join(packageRoot, "src", "source.txt"), "source");
+      writeWorkspaceFiles(axmDir, {
+        knowledge: { platform: "workspace:@acme/knowledge/platform" },
+        lockfileKnowledge: {
+          platform: {
+            type: "workspace",
+            owner: "@acme",
+            extensionType: "knowledge",
+            name: "platform",
+            version: "1.0.0",
+            sourceHash: computePackageContentHashSync(packageRoot),
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        },
+      });
+
+      const machine = makeWorkspaceHandlerTestContext({ machine: true });
+      const human = makeWorkspaceHandlerTestContext();
+      return machine.provide(
+        Effect.gen(function* () {
+          yield* handleKnowledgeOpen("platform", "architecture");
+          const openOutput = Schema.encodeUnknownSync(KnowledgeOpenQueryResultSchema)(
+            machine.rendererState.results[0]?.data,
+          );
+          expect(openOutput).toEqual({
+            concept: {
+              bundle: "platform",
+              id: "architecture",
+              title: "Architecture",
+              type: "reference",
+              description: "Platform architecture",
+              tags: ["platform", "architecture"],
+              relativePath: "architecture.md",
+              body: "# Architecture\n\nArchitecture body.\n",
+              frontmatter: {
+                type: "reference",
+                description: "Platform architecture",
+                tags: ["platform", "architecture"],
+                status: "stable",
+                stale_after: "2026-12-31",
+                generated: { by: "process:docs-build", at: "2026-08-11T00:00:00Z" },
+                verified: [{ by: "human:reviewer", at: "2026-08-11T01:00:00Z" }],
+                sources: [{ resource: "./source.txt", title: "Architecture source" }],
+                producer: { nested: ["one", true, null] },
+              },
+            },
+          });
+
+          yield* handleKnowledgeSearch("Architecture");
+          const searchOutput = Schema.encodeUnknownSync(KnowledgeSearchQueryResultSchema)(
+            machine.rendererState.results[1]?.data,
+          );
+          expect(searchOutput.items).toHaveLength(1);
+          expect(searchOutput.items[0]).not.toHaveProperty("frontmatter");
+
+          yield* human.provide(handleKnowledgeOpen("platform", "architecture"));
+          expect(human.rendererState.diagnostics).toEqual([
+            "# Architecture\n\nArchitecture body.\n",
+          ]);
+        }),
+      );
+    },
+  );
+
+  it("open rejects values outside the recursive JSON data model", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic["self"] = cyclic;
+    const invalidValues: ReadonlyArray<unknown> = [
+      undefined,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1n,
+      Symbol("producer"),
+      () => "producer",
+      new Date("2026-08-11T00:00:00Z"),
+      cyclic,
+    ];
+    const concept = {
+      bundle: "platform",
+      id: "architecture",
+      title: "Architecture",
+      relativePath: "architecture.md",
+      body: "# Architecture\n",
+    };
+
+    for (const value of invalidValues) {
+      expect(() =>
+        Schema.encodeUnknownSync(KnowledgeOpenQueryResultSchema)({
+          concept: { ...concept, frontmatter: { producer: value } },
+        }),
+      ).toThrow();
+    }
   });
 
   it.effect("disable emits exactly one JSON document", () => {

@@ -10,9 +10,11 @@ import { openKnowledgeConcept } from "@agentxm/client-core/unstable/knowledge";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
 import { inspectInstalledKnowledge } from "./inspect.js";
-import { ConceptSchema } from "./schemas.js";
+import { KnowledgeOpenConceptSchema } from "./schemas.js";
 
-export const KnowledgeOpenQueryResultSchema = Schema.Struct({ concept: ConceptSchema });
+export const KnowledgeOpenQueryResultSchema = Schema.Struct({
+  concept: KnowledgeOpenConceptSchema,
+});
 export type KnowledgeOpenQueryResult = typeof KnowledgeOpenQueryResultSchema.Type;
 
 export const handleKnowledgeOpen = Effect.fn("Knowledge.open")(function* (

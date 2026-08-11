@@ -22,6 +22,10 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  preconfirmedApplyExecution,
+  previewExecution,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildMaterializeOperation,
@@ -1325,8 +1329,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
   }
 
   const resolution = yield* previewOrApplyPlan(plan, {
-    yes: true,
-    preview: args.preview,
+    execution: args.preview ? previewExecution : preconfirmedApplyExecution,
     displayApplied: false,
   });
   if (resolution._tag === "ExecutedPlan") yield* displayPlan(resolution);

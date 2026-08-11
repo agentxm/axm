@@ -1,8 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
+  credentialFreeLocatorRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
+  type PlanExecutionMode,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
@@ -32,6 +36,10 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -41,9 +49,10 @@ export interface RootUpdateFlags {
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly source: Option.Option<string>;
+  readonly recoveryCommand?: ReadonlyArray<string>;
 }
 
-const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
+const runUpdateIntent = (intent: RootUpdateIntent, execution: PlanExecutionMode) =>
   Effect.gen(function* () {
     switch (intent.type) {
       case "skill": {
@@ -51,41 +60,41 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
           actions,
-          args,
+          { execution },
         );
       }
       case "mcp-server": {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, args);
+        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution });
       }
       case "rule": {
         const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, args);
+        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution });
       }
       case "hook": {
         const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, args);
+        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution });
       }
       case "knowledge": {
         const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, { execution });
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
           actions,
-          args,
+          { execution },
         );
       }
       case "pack": {
         const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = { source: intent.source, unattended: true };
-        return yield* runInstallCommandWorkflow(packArgs, actions, args);
+        return yield* runInstallCommandWorkflow(packArgs, actions, { execution });
       }
     }
   });
@@ -102,8 +111,15 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       }),
     onSome: (source) =>
       Effect.gen(function* () {
+        const execution = yield* makePlanExecutionMode(
+          args,
+          makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
+            recoverySwitch("--refresh", args.force),
+            recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
+          ]),
+        );
         const intent = yield* resolveRootUpdateIntent(source);
-        const resolution = yield* runUpdateIntent(intent, args);
+        const resolution = yield* runUpdateIntent(intent, execution);
         const outputResolution: PlanResolution = resolution;
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(

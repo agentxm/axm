@@ -10,6 +10,10 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  preconfirmedApplyExecution,
+  previewExecution,
+} from "@agentxm/client-core/unstable/cli-runtime";
+import {
   hasAxmManagedMarker,
   WorkspaceMutations,
   unmanagedRowsByName,
@@ -344,8 +348,7 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
   }
 
   const resolution = yield* previewOrApplyPlan(makeRootPrunePlan(candidates, ws.scope), {
-    yes: flags.yes,
-    preview: !flags.yes,
+    execution: flags.yes ? preconfirmedApplyExecution : previewExecution,
     displayApplied: false,
   });
   yield* emitAppliedPlanOutcome({

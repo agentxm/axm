@@ -69,6 +69,35 @@ describe("requireInteractive", () => {
     }),
   );
 
+  it.effect("uses caller-supplied recovery suggestions when non-interactive", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      const error = yield* requireInteractive(Prompt.succeed("from-prompt"), {
+        message: "Apply changes?",
+        suggestions: [
+          {
+            description: "Retry with explicit confirmation",
+            cmd: "axm install @acme/skills/review --yes",
+          },
+        ],
+      }).pipe(
+        Effect.flip,
+        Effect.provide(
+          Layer.mergeAll(harness.layer, Layer.succeed(nonInteractiveFlag, Option.some(true))),
+        ),
+      );
+
+      expect(error._tag).toBe("AppError");
+      if (error._tag !== "AppError") return;
+      expect(error.suggestions).toEqual([
+        {
+          description: "Retry with explicit confirmation",
+          cmd: "axm install @acme/skills/review --yes",
+        },
+      ]);
+    }),
+  );
+
   it.effect("maps QuitError to PromptCancelled", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;

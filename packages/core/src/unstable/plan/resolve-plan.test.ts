@@ -6,11 +6,19 @@ import * as Option from "effect/Option";
 
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestRenderer } from "../cli-renderer/index.js";
+import {
+  confirmableApplyExecution,
+  preconfirmedApplyExecution,
+  previewExecution,
+  type ConfirmationRecovery,
+} from "../cli-runtime/confirmation-recovery.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
+
+const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 
 const makeTestContext = (
   confirmApplyChanges?: () => Effect.Effect<boolean>,
@@ -61,8 +69,7 @@ describe("previewOrApplyPlan", () => {
 
     return Effect.gen(function* () {
       const result = yield* previewOrApplyPlan(plan, {
-        yes: true,
-        preview: true,
+        execution: previewExecution,
       });
 
       expect(result._tag).toBe("PreviewedPlan");
@@ -93,8 +100,7 @@ describe("previewOrApplyPlan", () => {
 
     return Effect.gen(function* () {
       yield* previewOrApplyPlan(plan, {
-        yes: true,
-        preview: false,
+        execution: preconfirmedApplyExecution,
       });
 
       expect(context.rendererState.spinnerMessages).toEqual([
@@ -128,7 +134,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      yield* previewOrApplyPlan(plan, { yes: true, preview: false });
+      yield* previewOrApplyPlan(plan, { execution: preconfirmedApplyExecution });
 
       expect(
         context.rendererState.logs.some(
@@ -173,8 +179,7 @@ describe("previewOrApplyPlan", () => {
 
     return Effect.gen(function* () {
       const result = yield* previewOrApplyPlan(plan, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       });
 
       expect(result._tag).toBe("CancelledPlan");
@@ -215,8 +220,7 @@ describe("previewOrApplyPlan", () => {
 
     return Effect.gen(function* () {
       const error = yield* previewOrApplyPlan(plan, {
-        yes: true,
-        preview: false,
+        execution: preconfirmedApplyExecution,
       }).pipe(Effect.flip);
 
       expect(error).toMatchObject({ code: "conflict" });
@@ -235,7 +239,9 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, { yes: false, preview: false });
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: confirmableApplyExecution(testRecovery),
+      });
 
       expect(result._tag).toBe("ExecutedPlan");
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);

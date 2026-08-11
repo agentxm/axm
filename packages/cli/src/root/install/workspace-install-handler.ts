@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
@@ -12,6 +13,10 @@ import { planResolutionToSummary, toPlanResolutionResult } from "../../json-outp
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {
@@ -19,9 +24,35 @@ const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableTyp
     onSome: (value) => value,
   });
 
+const workspaceInstallCommand = (
+  type: Option.Option<WorkspaceInstallableType>,
+): ReadonlyArray<string> =>
+  Option.match(type, {
+    onNone: () => ["install"],
+    onSome: (value) => {
+      switch (value) {
+        case "skill":
+          return ["skills", "install"];
+        case "mcp-server":
+          return ["mcps", "install"];
+        case "subagent":
+          return ["subagents", "install"];
+        case "rule":
+          return ["rules", "install"];
+        case "hook":
+          return ["hooks", "install"];
+        case "knowledge":
+          return ["knowledge", "install"];
+        case "pack":
+          return ["packs", "install"];
+      }
+    },
+  });
+
 export interface WorkspaceInstallFlags {
   readonly yes: boolean;
   readonly preview: boolean;
+  readonly force?: boolean;
 }
 
 export const handleWorkspaceInstall = (args: {
@@ -57,10 +88,13 @@ export const handleWorkspaceInstall = (args: {
       return;
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, {
-      yes: args.flags.yes,
-      preview: args.flags.preview,
-    });
+    const execution = yield* makePlanExecutionMode(
+      args.flags,
+      makeConfirmationRecovery(workspaceInstallCommand(args.type), [
+        recoverySwitch("--reinstall", args.flags.force === true),
+      ]),
+    );
+    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
         planResolutionToSummary(resolution, {
@@ -99,9 +133,12 @@ export const runWorkspaceInstall = (args: {
       return Option.none<PlanResolution>();
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, {
-      yes: args.flags.yes,
-      preview: args.flags.preview,
-    });
+    const execution = yield* makePlanExecutionMode(
+      args.flags,
+      makeConfirmationRecovery(workspaceInstallCommand(args.type), [
+        recoverySwitch("--reinstall", args.flags.force === true),
+      ]),
+    );
+    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     return Option.some(resolution);
   });

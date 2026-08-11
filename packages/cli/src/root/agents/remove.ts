@@ -27,6 +27,7 @@ import {
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
@@ -212,11 +213,12 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
   });
   const plan = makePlan(agentIds, atomicSteps);
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["agents", "remove"],
+    agentIds,
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
 
   const suggestions = [{ description: "Inspect configured agents", cmd: "axm agents list" }];
   yield* emitAppliedPlanOutcome({

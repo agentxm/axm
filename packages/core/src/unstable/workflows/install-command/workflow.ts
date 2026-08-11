@@ -14,6 +14,7 @@ import { CliRenderer } from "../../cli-renderer/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 import type { Plan, PlanResolution } from "../../plan/plan.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
+import type { PlanExecutionMode } from "../../cli-runtime/confirmation-recovery.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface
@@ -77,7 +78,7 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  flags: { yes: boolean; preview: boolean; displayApplied?: boolean },
+  options: { execution: PlanExecutionMode; displayApplied?: boolean },
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -87,9 +88,8 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
       { successMessage: "Resolved extension sources" },
     );
     return yield* previewOrApplyPlan(plan, {
-      yes: flags.yes,
-      preview: flags.preview,
-      ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
+      execution: options.execution,
+      ...(options.displayApplied === undefined ? {} : { displayApplied: options.displayApplied }),
     });
   }).pipe(
     Effect.scoped,

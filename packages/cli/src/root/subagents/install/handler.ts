@@ -1,11 +1,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 
@@ -64,10 +70,21 @@ export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSu
     }
 
     const actions = yield* InstallSubagentCommandWorkflowActions;
+    const execution = yield* makeInstallPlanExecutionMode(
+      flags,
+      ["subagents", "install"],
+      [args.source.value],
+      [
+        recoverySwitch("--all", args.all),
+        ...args.subagents.map((subagent) =>
+          recoveryOption("--subagent", publicRecoveryValue(subagent)),
+        ),
+      ],
+    );
     const resolution = yield* runInstallCommandWorkflow(
       { source: args.source.value, subagents: args.subagents, all: args.all },
       actions,
-      { ...flags, displayApplied: false },
+      { execution, displayApplied: false },
     );
     const result = toPlanResolutionResult(resolution);
     if (result.outcome === "no-op" && result.totalSteps === 0) {

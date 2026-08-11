@@ -12,6 +12,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
+import {
+  confirmableApplyExecution,
+  preconfirmedApplyExecution,
+  type ConfirmationRecovery,
+} from "../../cli-runtime/confirmation-recovery.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
 import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";
@@ -30,6 +35,11 @@ type TestParsed = { readonly parsedName: string };
 type TestReq = { readonly source: string };
 type TestRef = { readonly refName: string };
 type TestIntent = { readonly intentName: string };
+
+const testRecovery: ConfirmationRecovery = {
+  command: ["skills", "install"],
+  arguments: [],
+};
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -86,8 +96,7 @@ describe("runInstallCommandWorkflow", () => {
 
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "review" }, actions, {
-        yes: true,
-        preview: false,
+        execution: preconfirmedApplyExecution,
       });
 
       expect(context.rendererState.spinnerMessages).toContain("Resolving extension sources");
@@ -142,8 +151,7 @@ describe("runInstallCommandWorkflow", () => {
         };
 
         yield* runInstallCommandWorkflow({ name: "test-skill" }, actions, {
-          yes: false,
-          preview: false,
+          execution: confirmableApplyExecution(testRecovery),
         });
 
         expect(callOrder).toEqual([
@@ -180,8 +188,7 @@ describe("runInstallCommandWorkflow", () => {
 
     return Effect.gen(function* () {
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       });
       // previewOrApplyPlan is now a free function; buildPlan output flows through automatically
       expect(testPlan.name).toBe("captured-plan");
@@ -234,8 +241,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        yes: true,
-        preview: false,
+        execution: preconfirmedApplyExecution,
       });
 
       expect(stepRan).toBe(true);
@@ -290,8 +296,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "my-skill" }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       });
 
       expect(capturedParsed).toEqual({ parsedName: "my-skill" });
@@ -325,8 +330,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -349,8 +353,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -392,8 +395,7 @@ describe("runInstallCommandWorkflow", () => {
       };
 
       yield* runInstallCommandWorkflow({ name: "test" }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
 
       expect(callOrder).toEqual(["resolveSourceRequests"]);

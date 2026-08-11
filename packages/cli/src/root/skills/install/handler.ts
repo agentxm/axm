@@ -2,12 +2,18 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 
@@ -85,10 +91,19 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
     }
 
     const actions = yield* InstallSkillCommandWorkflowActions;
+    const execution = yield* makeInstallPlanExecutionMode(
+      flags,
+      ["skills", "install"],
+      [args.source.value],
+      [
+        recoverySwitch("--all", args.all),
+        ...args.skills.map((skill) => recoveryOption("--skill", publicRecoveryValue(skill))),
+      ],
+    );
     const resolution = yield* runInstallCommandWorkflow(
       { source: args.source.value, skills: args.skills, all: args.all, force: flags.force },
       actions,
-      { ...flags, displayApplied: false },
+      { execution, displayApplied: false },
     );
     const result = toPlanResolutionResult(resolution);
     if (result.outcome === "no-op" && result.totalSteps === 0) {

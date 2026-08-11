@@ -1,10 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { protectedRecoveryValue, recoveryOption } from "@agentxm/client-core/unstable/cli-runtime";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   InstallMcpServerCommandWorkflowActions,
@@ -42,8 +44,14 @@ export const handleInstallMcpServer = (
       source: args.source.value,
       env: args.env,
     };
+    const execution = yield* makeInstallPlanExecutionMode(
+      flags,
+      ["mcps", "install"],
+      [args.source.value],
+      args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
+    );
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
-      ...flags,
+      execution,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

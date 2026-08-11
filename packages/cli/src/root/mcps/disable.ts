@@ -17,6 +17,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(function* (args: {
@@ -63,11 +64,12 @@ export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(funct
     description: Option.some(`Disable ${args.name}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["mcps", "disable"],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   yield* emitAppliedPlanOutcome({
     command: "mcps.disable",
     headline: `Disabled MCP server ${args.name}`,

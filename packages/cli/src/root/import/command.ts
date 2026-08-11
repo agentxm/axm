@@ -11,7 +11,13 @@ import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  credentialFreeLocatorRecoveryValue,
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
@@ -34,6 +40,10 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 export const handleImport = Effect.fn("Import.handle")(function* (args: {
   readonly source: string;
@@ -215,10 +225,18 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["import"],
+      [
+        recoverySwitch("--enable", args.enable),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+        recoveryPositional(publicRecoveryValue(args.target)),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitPlanResolutionResult("import", resolution);
 });
 

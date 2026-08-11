@@ -8,6 +8,7 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { InstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
@@ -39,9 +40,13 @@ export const installCommand = Command.make(
           // InstallKnowledgeCommandWorkflowActionsLive over KnowledgeManagerLive
           // so one KnowledgeManager instance serves the whole run.
           const actions = yield* InstallKnowledgeCommandWorkflowActions;
+          const execution = yield* makeInstallPlanExecutionMode(
+            { yes, preview },
+            ["knowledge", "install"],
+            [value],
+          );
           const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
-            yes,
-            preview,
+            execution,
             displayApplied: false,
           });
           yield* emitAppliedPlanOutcome({

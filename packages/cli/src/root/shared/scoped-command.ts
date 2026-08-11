@@ -4,7 +4,9 @@ import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime"
 import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
 
 export const commandForScope = (command: string, scope: WorkspaceScope): string =>
-  scope === "user" && !command.includes("--scope") ? `${command} --scope user` : command;
+  scope === "user" && !/(?:^|\s)--scope(?:\s|=|$)/.test(command)
+    ? `${command} --scope user`
+    : command;
 
 export const suggestionsForScope = (
   suggestions: ReadonlyArray<SuggestedAction>,

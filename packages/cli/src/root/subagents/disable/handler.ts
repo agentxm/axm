@@ -11,6 +11,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { DisableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
 import { disableSubagent } from "@agentxm/client-core/unstable/subagents";
 import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 
 export interface DisableSubagentHandlerArgs {
@@ -86,11 +87,12 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["subagents", "disable"],
+    [subagentName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   yield* emitAppliedPlanOutcome({
     command: "subagents.disable",
     headline: `Disabled subagent ${subagentName}`,

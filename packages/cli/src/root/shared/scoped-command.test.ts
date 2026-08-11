@@ -12,6 +12,12 @@ describe("scoped command suggestions", () => {
     expect(commandForScope("axm skills list --scope user", "user")).toBe(
       "axm skills list --scope user",
     );
+    expect(commandForScope("axm skills list --scope=user", "user")).toBe(
+      "axm skills list --scope=user",
+    );
+    expect(commandForScope("axm skills list --scopeful", "user")).toBe(
+      "axm skills list --scopeful --scope user",
+    );
   });
 
   it("preserves descriptions and actions without commands", () => {

@@ -16,6 +16,13 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  credentialFreeLocatorRecoveryValue,
+  publicRecoveryValue,
+  recoveryOption,
+  recoveryPositional,
+  recoverySwitch,
+} from "@agentxm/client-core/unstable/cli-runtime";
 
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import {
@@ -49,6 +56,10 @@ import {
 } from "./constraint-resolution.js";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../../shared/confirmation-recovery.js";
 import {
   UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
@@ -581,10 +592,22 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           };
 
   // Step 11: Resolve plan
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["skills", "update"],
+      [
+        recoverySwitch("--ignore-version-constraints", args.force),
+        ...args.agents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
+        ...args.skills.map((skill) => recoveryOption("--name", publicRecoveryValue(skill))),
+        ...Option.match(args.source, {
+          onNone: () => [],
+          onSome: (source) => [recoveryPositional(credentialFreeLocatorRecoveryValue(source))],
+        }),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitPlanResolutionResult("skills.update", resolution);
 });
 

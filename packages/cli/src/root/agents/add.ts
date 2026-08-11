@@ -20,6 +20,7 @@ import {
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
@@ -260,11 +261,8 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
 
   // Goes through the reconciling resolver rather than the local one: adding an
   // agent materializes installed extensions, which needs a readable lockfile.
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(args, ["agents", "add"], agentIds);
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions =
     resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
   yield* emitAppliedPlanOutcome({

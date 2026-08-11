@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 import { toPlanResolutionResult } from "../../../json-output.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { makeInstallPlanExecutionMode } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   InstallRuleCommandWorkflowActions,
@@ -14,8 +15,13 @@ export const handleInstallRule = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallRuleCommandWorkflowActions;
+    const execution = yield* makeInstallPlanExecutionMode(
+      flags,
+      ["rules", "install"],
+      [args.source],
+    );
     const resolution = yield* runInstallCommandWorkflow(args, actions, {
-      ...flags,
+      execution,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

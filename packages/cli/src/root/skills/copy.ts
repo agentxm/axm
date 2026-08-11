@@ -8,7 +8,13 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  credentialFreeLocatorRecoveryValue,
+  publicRecoveryValue,
+  recoveryOption,
+  recoveryPositional,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildNewExtensionStep,
@@ -44,6 +50,10 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 import { resolveSkillInstallSource } from "./install/resolve-skill-install-source.js";
 
 export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
@@ -219,10 +229,21 @@ export const handleCopySkill = Effect.fn("CopySkill.handle")(function* (args: {
     description: Option.some(`Copy ${args.source} into ${fqn}`),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["skills", "copy"],
+      [
+        ...Option.match(args.from, {
+          onNone: () => [],
+          onSome: (value) => [recoveryOption("--from", publicRecoveryValue(value))],
+        }),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+        recoveryPositional(publicRecoveryValue(args.target)),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitPlanResolutionResult("skills.copy", resolution);
 });
 

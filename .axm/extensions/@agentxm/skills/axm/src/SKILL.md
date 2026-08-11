@@ -134,9 +134,9 @@ the reviewable `axm lint --fix` plan.
 | Inspect desired and resolved pack state   | `axm packs show <pack>`                   |
 | Preview authored-pack trust recovery      | `axm packs repair <pack> --preview`       |
 | Unpack a pack into individual entries     | `axm packs unpack <pack>`                 |
-| Publish all authored workspace extensions | `axm publish`                             |
-| Publish selected extensions               | `axm publish <fqn...>`                    |
-| Publish authored extensions of one type   | `axm <type> publish`                      |
+| Publish all authored workspace extensions | `axm publish --yes`                       |
+| Publish selected extensions               | `axm publish <fqn...> --yes`              |
+| Publish authored extensions of one type   | `axm <type> publish --yes`                |
 | Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>` |
 | Set an exact version                      | `axm version <fqn> set <x.y.z>`           |
 
@@ -155,7 +155,7 @@ archives cannot be bypassed, and `--include-dependencies` /
 | List installed extensions of a type         | `axm <type> list`                     |
 | List all local extension state              | `axm list`                            |
 | Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>` |
-| Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                 |
+| Install (omit FQN to reinstall all)         | `axm install [<fqn>] --yes`           |
 | Uninstall                                   | `axm uninstall <fqn>`                 |
 | Update (omit FQN to update all)             | `axm update [<fqn>]`                  |
 | Show extensions with available updates      | `axm list --outdated`                 |
@@ -197,7 +197,7 @@ Treat `.axm/settings.json` as desired state, `.axm/trust.json` as source trust,
 and `.axm/axm-lock.yaml` as receipt history. Never hand-rewrite trust or receipt
 hashes to reconstruct a missing declaration. When `axm status` or `axm lint`
 reports a receipt-only skill, use the exact reported `axm skills install
-<source>` command to declare and retain it, or explicitly run `axm skills
+<source> --yes` command to declare and retain it, or explicitly run `axm skills
 uninstall <name>`. Do not use `axm lint --fix` to choose between those outcomes.
 
 ### Auth

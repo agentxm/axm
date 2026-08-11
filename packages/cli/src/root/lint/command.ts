@@ -5,11 +5,12 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import type { LintView } from "@agentxm/client-core/unstable/lint";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
-import { materializeStagedWorkspace } from "./staged-workspace.js";
+import { materializeGitIndexWorkspace } from "./staged-workspace.js";
 
 const lintConfig = {
   path: Argument.string("path").pipe(
@@ -34,8 +35,9 @@ const lintConfig = {
   details: Flag.boolean("details").pipe(
     Flag.withDescription("Show the full human report instead of the grouped summary."),
   ),
-  staged: Flag.boolean("staged").pipe(
-    Flag.withDescription("Lint the complete project workspace represented by the Git index."),
+  view: Flag.choice("view", ["workspace", "git-index"] as const).pipe(
+    Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),
+    Flag.withDefault("workspace"),
   ),
 } as const;
 
@@ -45,38 +47,37 @@ interface RunLintCommandArgs {
   readonly fix: boolean;
   readonly strict: boolean;
   readonly details: boolean;
-  readonly staged: boolean;
+  readonly view: LintView;
 }
 
 const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
-  if (args.staged && args.fix) {
+  if (args.view === "git-index" && args.fix) {
     return yield* makeAppError({
       code: "validation",
-      detail: "--staged cannot be combined with --fix because staged lint is read-only",
+      detail: "--view git-index cannot be combined with --fix because Git-index lint is read-only",
     });
   }
-  if (args.staged && args.scope === "user") {
+  if (args.view === "git-index" && args.scope === "user") {
     return yield* makeAppError({
       code: "validation",
       detail:
-        "--staged cannot be combined with --scope user because Git indexes are project-scoped",
+        "--view git-index cannot be combined with --scope user because Git indexes are project-scoped",
     });
   }
 
-  if (args.staged) {
+  if (args.view === "git-index") {
     const startPath = Option.getOrElse(args.path, () => process.cwd());
-    const snapshot = yield* materializeStagedWorkspace(startPath);
+    const snapshot = yield* materializeGitIndexWorkspace(startPath, {
+      selectRepositoryRoot: Option.isNone(args.path),
+    });
     return yield* handleLint({
       pathArg: Option.some(snapshot.workspaceRoot),
       scope: "project",
       fix: false,
       strict: args.strict,
       details: args.details,
-      displayWorkspaceRoot: snapshot.gitRoot,
-      // Instruction aliases are generated, intentionally gitignored workspace
-      // state, so they cannot be evaluated from the exact Git index. Full
-      // `axm lint --strict` (recommended for pre-push and CI) still checks them.
-      ruleOverrides: { "workspace/instructions-target-current": "off" },
+      displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
+      input: { view: "git-index", fingerprint: snapshot.fingerprint },
     }).pipe(withWorkspace({ scope: "project", projectRoot: snapshot.workspaceRoot }));
   }
 
@@ -90,14 +91,15 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
     fix: args.fix,
     strict: args.strict,
     details: args.details,
+    input: { view: "workspace" },
   }).pipe(withWorkspace(workspaceOptions));
 });
 
 export const lintCommand = Command.make(
   "lint",
   lintConfig,
-  ({ path, scope, fix, strict, details, staged }) =>
-    runLintCommand({ path, scope, fix, strict, details, staged }).pipe(withRuntime("lint")),
+  ({ path, scope, fix, strict, details, view }) =>
+    runLintCommand({ path, scope, fix, strict, details, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
   Command.withDescription("Check and fix workspace configuration"),
@@ -120,7 +122,7 @@ export const lintCommand = Command.make(
       description: "Show the detailed path-by-path report",
     },
     {
-      command: "axm lint --staged",
+      command: "axm lint --view git-index",
       description: "Lint the complete workspace represented by the Git index",
     },
     {

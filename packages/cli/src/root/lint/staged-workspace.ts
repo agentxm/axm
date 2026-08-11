@@ -13,13 +13,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/unstable/process";
+import { createHash } from "node:crypto";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { findGitRoot } from "@agentxm/client-core/unstable/git";
 import { readEnvironment } from "@agentxm/client-core/unstable/utils";
 
 export interface StagedWorkspace {
   readonly gitRoot: string;
+  readonly snapshotRoot: string;
   readonly workspaceRoot: string;
+  readonly displayWorkspaceRoot: string;
+  readonly fingerprint: string;
 }
 
 interface IndexEntry {
@@ -94,7 +98,7 @@ const parseIndexEntries = (raw: string): Effect.Effect<ReadonlyArray<IndexEntry>
       if (stage !== "0") {
         return yield* stagedSnapshotError({
           detail:
-            "The Git index contains unmerged entries. Resolve the merge conflicts and stage the result before running axm lint --staged.",
+            "The Git index contains unmerged entries. Resolve the merge conflicts and stage the result before running axm lint --view git-index.",
         });
       }
       entries.push({ mode, objectId, path: entryPath });
@@ -171,7 +175,7 @@ const readIndexEntries = (gitRoot: string) =>
     });
     const result = yield* Effect.all(
       {
-        stdout: collectText(handle.stdout),
+        stdout: collectBytes(handle.stdout),
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
@@ -182,7 +186,9 @@ const readIndexEntries = (gitRoot: string) =>
         detail: `AXM could not enumerate the Git index${result.stderr.trim().length === 0 ? "" : `: ${result.stderr.trim()}`}`,
       });
     }
-    return yield* parseIndexEntries(result.stdout);
+    const fingerprint = `sha256:${createHash("sha256").update(result.stdout).digest("hex")}`;
+    const raw = new TextDecoder().decode(result.stdout);
+    return { entries: yield* parseIndexEntries(raw), fingerprint };
   }).pipe(
     Effect.mapError((cause) =>
       cause._tag === "AppError"
@@ -297,41 +303,67 @@ const writeIndexEntry = (args: {
       .pipe(Effect.mapError(mapFileError));
   });
 
-export const materializeStagedWorkspace = Effect.fn("Lint.materializeStagedWorkspace")(function* (
-  startPath: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const gitRoot = yield* findGitRoot(startPath);
+export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexWorkspace")(
+  function* (startPath: string, options: { readonly selectRepositoryRoot?: boolean } = {}) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const resolvedStartPath = path.resolve(startPath);
+    const gitRoot = yield* findGitRoot(resolvedStartPath);
 
-  if (Option.isNone(gitRoot)) {
-    return yield* stagedSnapshotError({
-      title: "Git index unavailable",
-      detail: `axm lint --staged requires a Git repository; no .git entry was found from '${path.resolve(startPath)}'`,
-    });
-  }
+    if (Option.isNone(gitRoot)) {
+      return yield* stagedSnapshotError({
+        title: "Git index unavailable",
+        detail: `axm lint --view git-index requires a Git repository; no .git entry was found from '${resolvedStartPath}'`,
+      });
+    }
 
-  const workspaceRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-lint-staged-" }).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: "Failed to create the temporary staged-workspace snapshot",
-        cause,
-      }),
-    ),
-  );
-  const entries = yield* readIndexEntries(gitRoot.value);
-  const objectIds = [
-    ...new Set(entries.filter((entry) => entry.mode !== "160000").map((entry) => entry.objectId)),
-  ];
-  const blobs = yield* readIndexBlobs({ gitRoot: gitRoot.value, objectIds });
-  yield* Effect.forEach(entries, (entry) => writeIndexEntry({ entry, blobs, workspaceRoot }), {
-    concurrency: 32,
-    discard: true,
-  });
+    const displayWorkspaceRoot = options.selectRepositoryRoot ? gitRoot.value : resolvedStartPath;
+    const selectedRelative = path.relative(gitRoot.value, displayWorkspaceRoot);
+    if (selectedRelative.startsWith("..") || path.isAbsolute(selectedRelative)) {
+      return yield* stagedSnapshotError({
+        detail: `Lint path '${displayWorkspaceRoot}' is outside Git repository '${gitRoot.value}'`,
+      });
+    }
 
-  return {
-    gitRoot: gitRoot.value,
-    workspaceRoot,
-  } satisfies StagedWorkspace;
-});
+    const snapshotRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-lint-git-index-" }).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Failed to create the temporary Git-index snapshot",
+          cause,
+        }),
+      ),
+    );
+    const { entries, fingerprint } = yield* readIndexEntries(gitRoot.value);
+    const objectIds = [
+      ...new Set(entries.filter((entry) => entry.mode !== "160000").map((entry) => entry.objectId)),
+    ];
+    const blobs = yield* readIndexBlobs({ gitRoot: gitRoot.value, objectIds });
+    yield* Effect.forEach(
+      entries,
+      (entry) => writeIndexEntry({ entry, blobs, workspaceRoot: snapshotRoot }),
+      {
+        concurrency: 32,
+        discard: true,
+      },
+    );
+
+    const workspaceRoot =
+      selectedRelative.length === 0 ? snapshotRoot : path.resolve(snapshotRoot, selectedRelative);
+    yield* fs
+      .makeDirectory(workspaceRoot, { recursive: true })
+      .pipe(
+        Effect.mapError((cause) =>
+          makeAppError({ code: "internal", detail: "Failed to select Git-index workspace", cause }),
+        ),
+      );
+
+    return {
+      gitRoot: gitRoot.value,
+      snapshotRoot,
+      workspaceRoot,
+      displayWorkspaceRoot,
+      fingerprint,
+    } satisfies StagedWorkspace;
+  },
+);

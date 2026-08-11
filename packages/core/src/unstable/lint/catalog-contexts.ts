@@ -27,6 +27,8 @@ import {
   ruleRules,
   skillRules,
   subagentRules,
+  liveOnlyWorkspaceRules,
+  repositoryWorkspaceRules,
   workspaceRules,
 } from "./catalog/index.js";
 import type { ExtensionType } from "../extensions/common.js";
@@ -74,6 +76,9 @@ export interface CatalogRuleContexts {
  */
 export type CatalogGroup = ExtensionType | "workspace";
 
+/** Filesystem identity evaluated by a lint run. */
+export type LintView = "workspace" | "git-index";
+
 /** The context type a given catalog's rules consume. */
 export type CatalogContext<K extends CatalogGroup> = CatalogRuleContexts[K][number];
 
@@ -86,7 +91,7 @@ export type CatalogContext<K extends CatalogGroup> = CatalogRuleContexts[K][numb
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const LINT_CATALOGS: {
+export const REPOSITORY_LINT_CATALOGS: {
   readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>>>;
 } = {
   skill: skillRules,
@@ -96,8 +101,24 @@ export const LINT_CATALOGS: {
   rule: ruleRules,
   hook: hookRules,
   knowledge: knowledgeRules,
-  workspace: workspaceRules,
+  workspace: repositoryWorkspaceRules,
 };
+
+/** Positive catalog of rules that require live operational state. */
+export const LIVE_ONLY_LINT_CATALOGS = {
+  workspace: liveOnlyWorkspaceRules,
+} satisfies { readonly workspace: ReadonlyArray<LintRule<WorkspaceRuleContext>> };
+
+/** Select positive rule catalogs for a view without an exclusion list. */
+export const lintCatalogsForView = (
+  view: LintView,
+): { readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>>> } => ({
+  ...REPOSITORY_LINT_CATALOGS,
+  workspace: view === "workspace" ? workspaceRules : REPOSITORY_LINT_CATALOGS.workspace,
+});
+
+/** Complete workspace catalog retained for callers that do not select a view. */
+export const LINT_CATALOGS = lintCatalogsForView("workspace");
 
 /**
  * Catalog evaluation and rendering order.
@@ -119,18 +140,6 @@ export const CATALOG_GROUP_ORDER = [
   "knowledge",
   "workspace",
 ] as const satisfies ReadonlyArray<CatalogGroup>;
-
-/**
- * Groups that participate in publish-gate drift detection.
- *
- * `workspace` is excluded: its rules have no publish-gate counterpart, so a
- * workspace-rule override cannot drift from what the registry enforces.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DRIFT_DETECTED_GROUPS: ReadonlyArray<CatalogGroup> = CATALOG_GROUP_ORDER.filter(
-  (group) => group !== "workspace",
-);
 
 /**
  * An empty context record. Callers that evaluate only some catalogs spread

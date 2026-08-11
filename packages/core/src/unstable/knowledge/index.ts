@@ -9,13 +9,16 @@ export {
 export {
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
+  KNOWLEDGE_DIAGNOSTIC_CODES,
   openKnowledgeConcept,
   searchKnowledgeConcepts,
   type KnowledgeBundleEntry,
   type KnowledgeConcept,
   type KnowledgeDiagnostic,
+  type KnowledgeDiagnosticCode,
   type KnowledgeInspection,
 } from "./okf.js";
+export { inspectKnowledgePackage } from "./package-inspection.js";
 export type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,

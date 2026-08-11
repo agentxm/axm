@@ -571,7 +571,7 @@ describe("toLintJsonDocument", () => {
     const summary = summarizeEvaluations(evaluations, {
       rules: { "skill/manifest-schema-valid": "off" },
     });
-    const doc = toLintJsonDocument({ summary });
+    const doc = toLintJsonDocument({ summary, input: { view: "workspace" } });
     expect(doc.findings).toHaveLength(1);
     expect(doc.findings[0]?.ruleId).toBe("workspace/lockfile-valid");
     expect(doc.summary.exitCategory).toBe("errors");
@@ -583,6 +583,7 @@ describe("toLintJsonDocument", () => {
     const summary = summarizeEvaluations(noEvaluations, {});
     const doc = toLintJsonDocument({
       summary,
+      input: { view: "workspace" },
       fixSummary: { attempted: 3, applied: 3, failed: 0, warnings: [] },
     });
     expect(doc.fix).toEqual({ attempted: 3, applied: 3, failed: 0, warnings: [] });

@@ -10,6 +10,7 @@ const decode = Schema.decodeUnknownResult(LintJsonDocumentSchema);
 describe("LintJsonDocumentSchema", () => {
   it("round-trips a document built by toLintJsonDocument", () => {
     const document = toLintJsonDocument({
+      input: { view: "workspace" },
       summary: {
         findings: [
           {
@@ -53,6 +54,7 @@ describe("LintJsonDocumentSchema", () => {
   it("accepts every catalog group as a finding group", () => {
     for (const group of CATALOG_GROUP_ORDER) {
       const decoded = decode({
+        input: { view: "workspace" },
         findings: [
           {
             group,
@@ -71,8 +73,31 @@ describe("LintJsonDocumentSchema", () => {
     }
   });
 
+  it("accepts a Git-index input with an opaque fingerprint", () => {
+    const decoded = decode({
+      input: { view: "git-index", fingerprint: `sha256:${"a".repeat(64)}` },
+      findings: [],
+      summary: { total: 0, errors: 0, warnings: 0, infos: 0, exitCategory: "clean" },
+      driftBanner: [],
+    });
+    expect(Result.isSuccess(decoded)).toBe(true);
+  });
+
+  it("rejects a Git-index input without a valid fingerprint", () => {
+    for (const input of [{ view: "git-index" }, { view: "git-index", fingerprint: "/tmp/repo" }]) {
+      const decoded = decode({
+        input,
+        findings: [],
+        summary: { total: 0, errors: 0, warnings: 0, infos: 0, exitCategory: "clean" },
+        driftBanner: [],
+      });
+      expect(Result.isFailure(decoded)).toBe(true);
+    }
+  });
+
   it("rejects a finding group that is not a catalog", () => {
     const decoded = decode({
+      input: { view: "workspace" },
       findings: [
         {
           group: "not-a-catalog",

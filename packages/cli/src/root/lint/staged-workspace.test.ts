@@ -10,7 +10,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
-import { isolatedGitEnvironment, materializeStagedWorkspace } from "./staged-workspace.js";
+import { isolatedGitEnvironment, materializeGitIndexWorkspace } from "./staged-workspace.js";
 
 const git = (root: string, args: ReadonlyArray<string>): string =>
   execFileSync("git", args, {
@@ -28,12 +28,12 @@ const write = (root: string, relativePath: string, contents: string): void => {
   fs.writeFileSync(target, contents);
 };
 
-describe("staged workspace materialization", () => {
+describe("Git-index workspace materialization", () => {
   let root: string;
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-staged-workspace-test-"));
-    git(root, ["init", "--quiet"]);
+    git(root, ["init", "--quiet", "--initial-branch=main"]);
     git(root, ["config", "user.email", "test@example.com"]);
     git(root, ["config", "user.name", "Test"]);
 
@@ -63,6 +63,8 @@ describe("staged workspace materialization", () => {
       fs.rmSync(path.join(root, "deleted.txt"));
       git(root, ["add", "deleted.txt"]);
       git(root, ["mv", "old-name.txt", "new-name.txt"]);
+      const commit = git(root, ["rev-parse", "HEAD"]).trim();
+      git(root, ["update-index", "--add", "--cacheinfo", `160000,${commit},vendor/dependency`]);
 
       const statusBefore = git(root, ["status", "--porcelain=v2", "-z"]);
       const indexBefore = git(root, ["ls-files", "--stage", "-z"]);
@@ -71,29 +73,35 @@ describe("staged workspace materialization", () => {
 
       const snapshotPath = yield* Effect.scoped(
         Effect.gen(function* () {
-          const snapshot = yield* materializeStagedWorkspace(nested);
+          const snapshot = yield* materializeGitIndexWorkspace(nested);
 
           expect(snapshot.gitRoot).toBe(root);
-          expect(fs.readFileSync(path.join(snapshot.workspaceRoot, "unchanged.txt"), "utf8")).toBe(
+          expect(snapshot.workspaceRoot).toBe(path.join(snapshot.snapshotRoot, "nested", "path"));
+          expect(snapshot.displayWorkspaceRoot).toBe(nested);
+          expect(snapshot.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+          expect(fs.readFileSync(path.join(snapshot.snapshotRoot, "unchanged.txt"), "utf8")).toBe(
             "unchanged\n",
           );
-          expect(fs.readFileSync(path.join(snapshot.workspaceRoot, "partial.txt"), "utf8")).toBe(
+          expect(fs.readFileSync(path.join(snapshot.snapshotRoot, "partial.txt"), "utf8")).toBe(
             stagedBytes,
           );
-          expect(fs.existsSync(path.join(snapshot.workspaceRoot, "untracked.txt"))).toBe(false);
-          expect(fs.existsSync(path.join(snapshot.workspaceRoot, "deleted.txt"))).toBe(false);
-          expect(fs.existsSync(path.join(snapshot.workspaceRoot, "old-name.txt"))).toBe(false);
-          expect(fs.readFileSync(path.join(snapshot.workspaceRoot, "new-name.txt"), "utf8")).toBe(
+          expect(fs.existsSync(path.join(snapshot.snapshotRoot, "untracked.txt"))).toBe(false);
+          expect(fs.existsSync(path.join(snapshot.snapshotRoot, "deleted.txt"))).toBe(false);
+          expect(fs.existsSync(path.join(snapshot.snapshotRoot, "old-name.txt"))).toBe(false);
+          expect(fs.readFileSync(path.join(snapshot.snapshotRoot, "new-name.txt"), "utf8")).toBe(
             "renamed\n",
           );
-          expect(fs.readlinkSync(path.join(snapshot.workspaceRoot, "link.txt"))).toBe(
+          expect(fs.readlinkSync(path.join(snapshot.snapshotRoot, "link.txt"))).toBe(
             "unchanged.txt",
           );
           expect(
-            fs.statSync(path.join(snapshot.workspaceRoot, "executable.sh")).mode & 0o111,
+            fs.statSync(path.join(snapshot.snapshotRoot, "executable.sh")).mode & 0o111,
           ).not.toBe(0);
+          expect(
+            fs.statSync(path.join(snapshot.snapshotRoot, "vendor", "dependency")).isDirectory(),
+          ).toBe(true);
 
-          return snapshot.workspaceRoot;
+          return snapshot.snapshotRoot;
         }),
       );
 
@@ -105,11 +113,42 @@ describe("staged workspace materialization", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("fingerprints the complete ordered index identity", () =>
+    Effect.gen(function* () {
+      const first = yield* Effect.scoped(materializeGitIndexWorkspace(root));
+      const second = yield* Effect.scoped(materializeGitIndexWorkspace(root));
+      expect(second.fingerprint).toBe(first.fingerprint);
+
+      write(root, "unchanged.txt", "changed\n");
+      git(root, ["add", "unchanged.txt"]);
+      const changed = yield* Effect.scoped(materializeGitIndexWorkspace(root));
+      expect(changed.fingerprint).not.toBe(first.fingerprint);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("rejects an unmerged index before materialization", () =>
+    Effect.gen(function* () {
+      git(root, ["checkout", "-q", "-b", "other"]);
+      write(root, "partial.txt", "other\n");
+      git(root, ["add", "partial.txt"]);
+      git(root, ["commit", "--quiet", "-m", "other"]);
+      git(root, ["checkout", "-q", "main"]);
+      write(root, "partial.txt", "main\n");
+      git(root, ["add", "partial.txt"]);
+      git(root, ["commit", "--quiet", "-m", "main"]);
+      expect(() => git(root, ["merge", "other"])).toThrow();
+
+      const error = yield* Effect.scoped(materializeGitIndexWorkspace(root)).pipe(Effect.flip);
+      expect(error.detail).toContain("unmerged entries");
+      expect(error.detail).toContain("--view git-index");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("fails clearly outside a Git repository", () =>
     Effect.gen(function* () {
       const outside = fs.mkdtempSync(path.join(os.tmpdir(), "axm-staged-outside-git-"));
       try {
-        const error = yield* Effect.scoped(materializeStagedWorkspace(outside)).pipe(Effect.flip);
+        const error = yield* Effect.scoped(materializeGitIndexWorkspace(outside)).pipe(Effect.flip);
         expect(error.code).toBe("validation");
         expect(error.title).toBe("Git index unavailable");
         expect(error.detail).toContain("requires a Git repository");

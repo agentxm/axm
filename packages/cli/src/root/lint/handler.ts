@@ -69,6 +69,7 @@ import {
   type LintHumanDiagnostic,
   LintJsonDocumentSchema,
   type LintJsonDocument,
+  type LintInput,
   type LintSummary,
 } from "@agentxm/client-core/unstable/lint";
 import type { LintConfig } from "@agentxm/client-core/unstable/lint";
@@ -117,6 +118,7 @@ export interface HandleLintArgs {
   readonly fix: boolean;
   readonly strict: boolean;
   readonly details: boolean;
+  readonly input: LintInput;
   readonly displayWorkspaceRoot?: string;
   readonly ruleOverrides?: LintConfig["rules"];
 }
@@ -1543,6 +1545,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({
+    view: args.input.view,
     contexts: {
       skill: skillContexts,
       pack: packContexts,
@@ -1640,6 +1643,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const handledByMachine = yield* emitJsonDocument(
     toLintJsonDocument({
       summary,
+      input: args.input,
       ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
     }),
     fixResolution,

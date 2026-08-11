@@ -30,7 +30,7 @@ export { mcpServerRules } from "./mcp-server.js";
 export { hookRules } from "./hook.js";
 export { ruleRules } from "./rule.js";
 export { knowledgeRules } from "./knowledge.js";
-export { workspaceRules } from "./workspace.js";
+export { liveOnlyWorkspaceRules, repositoryWorkspaceRules, workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
 export {

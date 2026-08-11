@@ -40,49 +40,54 @@ export interface KnowledgeConcept {
   readonly body: string;
 }
 
+export const KNOWLEDGE_DIAGNOSTIC_CODES = [
+  "bundle-too-large",
+  "file-too-large",
+  "invalid-tags",
+  "missing-root-index",
+  "missing-okf-version",
+  "missing-title",
+  "missing-description",
+  "missing-manifest-description",
+  "empty-bundle",
+  "missing-tags",
+  "symbolic-link",
+  "too-many-files",
+  "unsupported-okf-version",
+  "missing-type",
+  "invalid-frontmatter",
+  "case-collision",
+  "dangerous-uri",
+  "detected-secret",
+  "unsafe-path",
+  "invalid-index",
+  "invalid-log",
+  "invalid-resource",
+  "escaping-resource",
+  "unresolved-resource",
+  "broken-internal-link",
+  "escaping-link",
+  "unreachable-concept",
+  "missing-index-entry",
+  "stale-index-entry",
+  "embedded-html",
+  "duplicate-resource",
+  "inconsistent-type",
+  "large-concept",
+  "large-index",
+  "unreferenced-asset",
+  "invalid-sources",
+  "invalid-generated",
+  "invalid-verified",
+  "invalid-status",
+  "invalid-stale-after",
+  "invalid-attestation",
+] as const;
+
+export type KnowledgeDiagnosticCode = (typeof KNOWLEDGE_DIAGNOSTIC_CODES)[number];
+
 export interface KnowledgeDiagnostic {
-  readonly code:
-    | "bundle-too-large"
-    | "file-too-large"
-    | "invalid-tags"
-    | "missing-root-index"
-    | "missing-okf-version"
-    | "missing-title"
-    | "missing-description"
-    | "missing-manifest-description"
-    | "empty-bundle"
-    | "missing-tags"
-    | "symbolic-link"
-    | "too-many-files"
-    | "unsupported-okf-version"
-    | "missing-type"
-    | "invalid-frontmatter"
-    | "case-collision"
-    | "dangerous-uri"
-    | "detected-secret"
-    | "unsafe-path"
-    | "invalid-index"
-    | "invalid-log"
-    | "invalid-resource"
-    | "escaping-resource"
-    | "unresolved-resource"
-    | "broken-internal-link"
-    | "escaping-link"
-    | "unreachable-concept"
-    | "missing-index-entry"
-    | "stale-index-entry"
-    | "embedded-html"
-    | "duplicate-resource"
-    | "inconsistent-type"
-    | "large-concept"
-    | "large-index"
-    | "unreferenced-asset"
-    | "invalid-sources"
-    | "invalid-generated"
-    | "invalid-verified"
-    | "invalid-status"
-    | "invalid-stale-after"
-    | "invalid-attestation";
+  readonly code: KnowledgeDiagnosticCode;
   readonly severity: "error" | "warning";
   readonly relativePath: string;
   readonly line?: number;

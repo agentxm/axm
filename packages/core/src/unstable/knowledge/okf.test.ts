@@ -232,6 +232,133 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
     }).pipe(Effect.scoped),
   );
 
+  it.effect("accepts OKF provenance resource forms and diagnoses unsafe paths", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Resources\n\n- [Guide](guides/guide.md)\n'],
+        [
+          "guides/guide.md",
+          [
+            "---",
+            "type: reference",
+            "description: Resource forms",
+            "tags: [resources]",
+            "sources:",
+            '  - { resource: "https://example.com/source" }',
+            '  - { resource: "urn:isbn:9780143127741" }',
+            '  - { resource: "/assets/root.txt" }',
+            '  - { resource: "./same.txt" }',
+            '  - { resource: "../shared/parent.txt" }',
+            '  - { resource: "notes.txt" }',
+            '  - { resource: "all queries in analytics project X" }',
+            '  - { resource: "./missing.txt" }',
+            '  - { resource: "../../outside.txt" }',
+            '  - { resource: "" }',
+            '  - { resource: "JaVaScRiPt:alert(1)" }',
+            '  - { resource: "https://[" }',
+            "---",
+            "# Guide",
+            "",
+          ].join("\n"),
+        ],
+        ["assets/root.txt", "root"],
+        ["guides/same.txt", "same"],
+        ["shared/parent.txt", "parent"],
+        ["guides/notes.txt", "notes"],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+
+      const resourceDiagnostics = inspected.diagnostics.filter(({ code }) =>
+        ["invalid-sources", "escaping-resource", "unresolved-resource"].includes(code),
+      );
+      expect(resourceDiagnostics.map(({ code, severity }) => ({ code, severity }))).toEqual([
+        { code: "unresolved-resource", severity: "warning" },
+        { code: "escaping-resource", severity: "error" },
+        { code: "invalid-sources", severity: "error" },
+        { code: "invalid-sources", severity: "error" },
+        { code: "invalid-sources", severity: "error" },
+      ]);
+      expect(resourceDiagnostics[0]?.message).toContain("sources[7].resource");
+      expect(resourceDiagnostics[1]?.message).toContain("sources[8].resource");
+    }),
+  );
+
+  it.effect("normalizes concept resource paths only for duplicate identity", () =>
+    Effect.gen(function* () {
+      const concept = (resource: string, title: string): string =>
+        [
+          "---",
+          "type: reference",
+          `description: ${title}`,
+          "tags: [resources]",
+          `resource: ${JSON.stringify(resource)}`,
+          "---",
+          `# ${title}`,
+          "",
+        ].join("\n");
+      const contents = new Map([
+        [
+          "index.md",
+          '---\nokf_version: "0.2"\n---\n# Resources\n\n- [URL](concepts/url.md)\n- [One](concepts/one.md)\n- [Two](concepts/two.md)\n- [Query](concepts/query.md)\n- [Missing](concepts/missing.md)\n- [Escape](concepts/escape.md)\n',
+        ],
+        ["concepts/url.md", concept("https://example.com/item", "URL")],
+        ["concepts/one.md", concept("/assets/item.json", "One")],
+        ["concepts/two.md", concept("../assets/./item.json", "Two")],
+        ["concepts/query.md", concept("../assets/item.json?view=compact#top", "Query")],
+        ["concepts/missing.md", concept("./missing.json", "Missing")],
+        ["concepts/escape.md", concept("../../outside.json", "Escape")],
+        ["assets/item.json", "{}"],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+
+      expect(openKnowledgeConcept(inspected.concepts, "concepts/two")?.resource).toBe(
+        "../assets/./item.json",
+      );
+      expect(openKnowledgeConcept(inspected.concepts, "concepts/url")?.resource).toBe(
+        "https://example.com/item",
+      );
+      expect(
+        inspected.diagnostics
+          .filter(({ code }) => code === "duplicate-resource")
+          .map(({ relativePath }) => relativePath),
+      ).toEqual(["concepts/one.md", "concepts/two.md"]);
+      expect(inspected.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "unresolved-resource",
+          severity: "warning",
+          relativePath: "concepts/missing.md",
+        }),
+      );
+      expect(inspected.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "escaping-resource",
+          severity: "error",
+          relativePath: "concepts/escape.md",
+        }),
+      );
+      expect(
+        inspected.diagnostics.some(
+          ({ code, relativePath }) =>
+            code === "duplicate-resource" && relativePath === "concepts/query.md",
+        ),
+      ).toBe(false);
+    }),
+  );
+
   it.effect("derives machine-confirmed and unverified trust tiers", () =>
     Effect.gen(function* () {
       const contents = new Map([

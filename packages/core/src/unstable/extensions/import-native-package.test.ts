@@ -96,4 +96,47 @@ describe("importNativeExtensionPackage", () => {
       );
     }),
   );
+
+  it.effect("imports warning-only Knowledge and rejects an escaping resource", () =>
+    Effect.gen(function* () {
+      const source = path.join(root, "knowledge");
+      const target = path.join(root, "managed-knowledge");
+      fs.mkdirSync(source, { recursive: true });
+      fs.writeFileSync(
+        path.join(source, "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
+      );
+      fs.writeFileSync(
+        path.join(source, "concept.md"),
+        "---\ntype: reference\ndescription: Concept\ntags: [test]\nresource: ./missing.md\n---\n# Concept\n",
+      );
+
+      yield* importNativeExtensionPackage({
+        sourcePath: source,
+        targetDir: target,
+        target: { owner: handle("@acme"), type: "knowledge", name: extensionName("handbook") },
+      }).pipe(Effect.provide(NodeServices.layer));
+      expect(fs.existsSync(path.join(target, "src", "concept.md"))).toBe(true);
+
+      const escapingSource = path.join(root, "escaping-knowledge");
+      fs.mkdirSync(escapingSource, { recursive: true });
+      fs.writeFileSync(
+        path.join(escapingSource, "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
+      );
+      fs.writeFileSync(
+        path.join(escapingSource, "concept.md"),
+        "---\ntype: reference\ndescription: Concept\ntags: [test]\nresource: ../outside.md\n---\n# Concept\n",
+      );
+      const result = yield* Effect.result(
+        importNativeExtensionPackage({
+          sourcePath: escapingSource,
+          targetDir: path.join(root, "rejected-knowledge"),
+          target: { owner: handle("@acme"), type: "knowledge", name: extensionName("rejected") },
+        }),
+      ).pipe(Effect.provide(NodeServices.layer));
+      expect(Result.isFailure(result)).toBe(true);
+      if (Result.isFailure(result)) expect(result.failure.detail).toContain("escapes");
+    }),
+  );
 });

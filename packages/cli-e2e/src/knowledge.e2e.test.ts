@@ -33,6 +33,56 @@ const createKnowledgePackage = (packageRoot: string) => {
 };
 
 describe("axm knowledge lifecycle", () => {
+  it("lints OKF resource paths and renders their diagnostics", async () => {
+    const temp = createTempDir();
+    try {
+      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const packageRoot = path.join(temp.path, "knowledge");
+      createKnowledgePackage(packageRoot);
+      const conceptPath = path.join(packageRoot, "src", "architecture.md");
+      fs.writeFileSync(path.join(packageRoot, "src", "source.txt"), "source");
+      fs.writeFileSync(
+        conceptPath,
+        "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ./source.txt\nsources:\n  - resource: platform records in the analytics warehouse\n---\n# Architecture\n",
+      );
+
+      const safe = await runCli(["knowledge", "lint", "--path", packageRoot, "--json"], {
+        cwd: temp.path,
+      });
+      expect(safe.exitCode, safe.stdout + safe.stderr).toBe(0);
+      expect(JSON.parse(safe.stdout)).toMatchObject({ ok: true, result: { valid: true } });
+
+      fs.writeFileSync(
+        conceptPath,
+        "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ./missing.txt\n---\n# Architecture\n",
+      );
+      const missing = await runCli(["knowledge", "lint", "--path", packageRoot, "--json"], {
+        cwd: temp.path,
+      });
+      expect(missing.exitCode, missing.stdout + missing.stderr).toBe(0);
+      expect(missing.stdout).toContain('"code": "unresolved-resource"');
+      expect(missing.stdout).toContain('"severity": "warning"');
+
+      fs.writeFileSync(
+        conceptPath,
+        "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ../outside.txt\n---\n# Architecture\n",
+      );
+      const escaping = await runCli(["knowledge", "lint", "--path", packageRoot], {
+        cwd: temp.path,
+      });
+      expect(escaping.exitCode).toBe(1);
+      expect(escaping.stdout + escaping.stderr).toContain("escapes the Knowledge bundle");
+
+      const help = await runCli(["help", "knowledge"], { cwd: temp.path });
+      expect(help.exitCode).toBe(0);
+      expect(help.stdout).toContain("prose scope description");
+      expect(help.stdout).toContain("resolve from the bundle root");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("converges configured local Knowledge through install, update, sync, activation, and uninstall", async () => {
     const temp = createTempDir();
 

@@ -17,7 +17,12 @@ import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 import type { LocalKnowledgeRef } from "./refs.js";
 
-const writeKnowledgePackage = (root: string, name: string, includeType: boolean) => {
+const writeKnowledgePackage = (
+  root: string,
+  name: string,
+  includeType: boolean,
+  resource?: string,
+) => {
   mkdirSync(nodePath.join(root, "src"), { recursive: true });
   writeFileSync(
     nodePath.join(root, "knowledge.json"),
@@ -40,7 +45,7 @@ const writeKnowledgePackage = (root: string, name: string, includeType: boolean)
   );
   writeFileSync(
     nodePath.join(root, "src", "concept.md"),
-    `${includeType ? "---\ntype: concept\n---\n" : ""}# A useful concept\n`,
+    `${includeType ? `---\ntype: concept${resource === undefined ? "" : `\nresource: ${resource}`}\n---\n` : ""}# A useful concept\n`,
   );
 };
 
@@ -141,6 +146,44 @@ describe("KnowledgeManager", () => {
             ),
           ),
         ).toBe(false);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("materializes a missing resource warning and rejects an escaping resource", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      try {
+        const warningRoot = nodePath.join(workspaceRoot, "warning-source");
+        writeKnowledgePackage(warningRoot, "warning-handbook", true, "./missing.md");
+        yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.materializeInstall({ ref: localRef("warning-handbook", warningRoot) });
+        }).pipe(Effect.provide(managerLayer(workspaceRoot)));
+        expect(
+          existsSync(
+            nodePath.join(
+              workspaceRoot,
+              ".axm",
+              "extensions",
+              "external",
+              "knowledge",
+              "warning-handbook",
+              "src",
+              "concept.md",
+            ),
+          ),
+        ).toBe(true);
+
+        const escapingRoot = nodePath.join(workspaceRoot, "escaping-source");
+        writeKnowledgePackage(escapingRoot, "escaping-handbook", true, "../outside.md");
+        const error = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.materializeInstall({ ref: localRef("escaping-handbook", escapingRoot) });
+        }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
+        expect(error.detail).toContain("escapes");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }

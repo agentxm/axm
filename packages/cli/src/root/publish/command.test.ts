@@ -438,7 +438,7 @@ describe("root publish", () => {
         "verified: { by: human:ahormati, at: 2026-06-25T09:00:00Z }",
         "sources:",
         "  - id: adr-1",
-        "    resource: https://example.com/adr-1",
+        "    resource: ./missing-adr.md",
         "---",
         "# Architecture",
         "",
@@ -463,6 +463,34 @@ describe("root publish", () => {
         const item = expectRecord(at(results, 0));
         expect(property(item, "type")).toBe("knowledge");
         expect(property(item, "status")).toBe("pending");
+
+        fs.writeFileSync(
+          path.join(knowledgeDir, "src", "architecture.md"),
+          [
+            "---",
+            "type: reference",
+            "description: Platform architecture",
+            "tags: [platform]",
+            "sources:",
+            "  - id: adr-1",
+            "    resource: ../outside.md",
+            "---",
+            "# Architecture",
+            "",
+          ].join("\n"),
+        );
+        const exit = yield* handleRootPublish(
+          args(pathToFileURL(path.join(tempDir, "registry")).href, {
+            types: ["knowledge"],
+          }),
+        ).pipe(Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
+        }
+        expect(JSON.stringify(at(rendererState.results, 1).data)).toContain(
+          "escapes the Knowledge bundle",
+        );
       }),
     );
   });

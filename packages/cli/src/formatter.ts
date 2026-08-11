@@ -49,8 +49,7 @@ export const formatLearnMore = (
   return ["LEARN MORE", ...lines].join("\n");
 };
 
-const getLearnMore = (doc: HelpDoc): string =>
-  ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
+const getLearnMore = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, LearnMore);
 
 type RootSubcommandDoc = {
   readonly name: string;

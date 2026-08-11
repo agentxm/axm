@@ -28,8 +28,7 @@ const groupHelpTopics = [
 
 const HELP_TOPIC_REFERENCE = /\baxm help ([a-z][a-z0-9-]*)/g;
 
-const learnMoreOf = (doc: HelpDoc): string =>
-  ServiceMap.getReferenceUnsafe(doc.annotations, LearnMore);
+const learnMoreOf = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, LearnMore);
 
 describe("LEARN MORE footers", () => {
   it.each(groupHelpTopics)("axm %s points at the %s help topic", async (group, topic) => {

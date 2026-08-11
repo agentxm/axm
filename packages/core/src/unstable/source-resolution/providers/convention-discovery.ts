@@ -194,9 +194,9 @@ const readSubagentDiscovery = (dir: string) =>
     const manifestPath = path.join(dir, MANIFEST_FILENAME);
     const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
     if (Option.isNone(raw)) return Option.none<SubagentDiscovery>();
-    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw.value).pipe(
-      Effect.option,
-    );
+    const json = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      raw.value,
+    ).pipe(Effect.option);
     if (Option.isNone(json)) return Option.none<SubagentDiscovery>();
     const manifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(json.value).pipe(
       Effect.option,
@@ -218,9 +218,9 @@ const readKnowledgeDiscovery = (dir: string) =>
     const manifestPath = path.join(dir, KNOWLEDGE_MANIFEST_FILENAME);
     const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
     if (Option.isNone(raw)) return Option.none<KnowledgeDiscovery>();
-    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw.value).pipe(
-      Effect.option,
-    );
+    const json = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      raw.value,
+    ).pipe(Effect.option);
     if (Option.isNone(json)) return Option.none<KnowledgeDiscovery>();
     const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(json.value).pipe(
       Effect.option,

@@ -32,7 +32,7 @@ export const readManifestJson = (
     }
 
     const raw = decoder.decode(bytes);
-    return yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw).pipe(
+    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
       Effect.catch(() => Effect.succeed(makeManifestJsonParseFailure(filename))),
     );
   });

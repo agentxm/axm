@@ -32,6 +32,7 @@ export const TelemetryMetaResponse = Schema.Struct({
   title: "Telemetry Meta Response",
   description:
     "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
+  identifier: "TelemetryMetaResponse",
 });
 export type DecodeErrorResponse = {
   readonly kind: "DecodeErrorResponse";
@@ -46,11 +47,11 @@ export const DecodeErrorResponse = Schema.Struct({
   kind: Schema.Literal("DecodeErrorResponse"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
-});
+}).annotate({ identifier: "DecodeErrorResponse" });
 export type TelemetryEvent = {
   readonly event: string;
   readonly distinctId: string;
@@ -62,9 +63,18 @@ export type TelemetryEvent = {
   readonly anonymous?: boolean;
 };
 export const TelemetryEvent = Schema.Struct({
-  event: Schema.String.check(Schema.isMinLength(1)),
-  distinctId: Schema.String.check(Schema.isMinLength(1)),
-  timestamp: Schema.String.check(Schema.isMinLength(1, { format: "date-time" })),
+  event: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
+  distinctId: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
+  timestamp: Schema.String.check(
+    Schema.isMinLength(1).annotate({
+      expected: "a value with a length of at least 1",
+      format: "date-time",
+    }),
+  ),
   properties: Schema.optionalKey(Schema.Struct({})),
   userProperties: Schema.optionalKey(
     Schema.Struct({
@@ -78,14 +88,20 @@ export const TelemetryEvent = Schema.Struct({
 }).annotate({
   title: "Telemetry Event",
   description: "One analytics event captured by the AgentXM client or integration.",
+  identifier: "TelemetryEvent",
 });
 export type TelemetryClientContext = { readonly name: string; readonly version: string };
 export const TelemetryClientContext = Schema.Struct({
-  name: Schema.String.check(Schema.isMinLength(1)),
-  version: Schema.String.check(Schema.isMinLength(1)),
+  name: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
+  version: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
 }).annotate({
   title: "Telemetry Client Context",
   description: "Identifies the client emitting telemetry, including its name and version.",
+  identifier: "TelemetryClientContext",
 });
 export type PayloadTooLargeError = {
   readonly kind: "PayloadTooLargeError";
@@ -100,10 +116,61 @@ export const PayloadTooLargeError = Schema.Struct({
   kind: Schema.Literal("PayloadTooLargeError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
+}).annotate({ identifier: "PayloadTooLargeError" });
+export type TelemetryStackFrame = {
+  readonly filename?: string;
+  readonly function?: string;
+  readonly lineno?: number;
+  readonly colno?: number;
+  readonly absPath?: string;
+  readonly inApp?: boolean;
+  readonly contextLine?: string;
+  readonly preContext?: ReadonlyArray<string>;
+  readonly postContext?: ReadonlyArray<string>;
+};
+export const TelemetryStackFrame = Schema.Struct({
+  filename: Schema.optionalKey(Schema.String),
+  function: Schema.optionalKey(Schema.String),
+  lineno: Schema.optionalKey(
+    Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  ),
+  colno: Schema.optionalKey(
+    Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  ),
+  absPath: Schema.optionalKey(Schema.String),
+  inApp: Schema.optionalKey(Schema.Boolean),
+  contextLine: Schema.optionalKey(Schema.String),
+  preContext: Schema.optionalKey(Schema.Array(Schema.String)),
+  postContext: Schema.optionalKey(Schema.Array(Schema.String)),
+}).annotate({ identifier: "TelemetryStackFrame" });
+export type TelemetryBreadcrumb = {
+  readonly type?: string;
+  readonly category?: string;
+  readonly message?: string;
+  readonly timestamp?: string;
+  readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
+  readonly data?: {};
+};
+export const TelemetryBreadcrumb = Schema.Struct({
+  type: Schema.optionalKey(Schema.String),
+  category: Schema.optionalKey(Schema.String),
+  message: Schema.optionalKey(Schema.String),
+  timestamp: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
+  level: Schema.optionalKey(
+    Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
+      title: "Severity Level",
+      description: "Severity level associated with an error report or breadcrumb.",
+    }),
+  ),
+  data: Schema.optionalKey(Schema.Struct({})),
+}).annotate({
+  title: "Telemetry Breadcrumb",
+  description: "Lightweight diagnostic breadcrumb attached to an error report.",
+  identifier: "TelemetryBreadcrumb",
 });
 export type TelemetryContext = {
   readonly client: TelemetryClientContext;
@@ -118,7 +185,9 @@ export const TelemetryContext = Schema.Struct({
   client: TelemetryClientContext,
   os: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
       version: Schema.optionalKey(Schema.String),
     }).annotate({
       title: "Operating System Context",
@@ -127,23 +196,35 @@ export const TelemetryContext = Schema.Struct({
   ),
   runtime: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
-      version: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+      version: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
     }).annotate({
       title: "Runtime Context",
       description: "Language or process runtime metadata captured alongside telemetry.",
     }),
   ),
   device: Schema.optionalKey(
-    Schema.Struct({ arch: Schema.String.check(Schema.isMinLength(1)) }).annotate({
+    Schema.Struct({
+      arch: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+    }).annotate({
       title: "Device Context",
       description: "Device characteristics attached to telemetry submissions.",
     }),
   ),
   ide: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
-      version: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+      version: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
     }).annotate({
       title: "IDE Context",
       description:
@@ -155,6 +236,7 @@ export const TelemetryContext = Schema.Struct({
 }).annotate({
   title: "Telemetry Context",
   description: "Shared environment metadata attached to analytics event batches.",
+  identifier: "TelemetryContext",
 });
 export type TelemetryErrorContext = {
   readonly command: string;
@@ -167,11 +249,15 @@ export type TelemetryErrorContext = {
   readonly ci?: boolean;
 };
 export const TelemetryErrorContext = Schema.Struct({
-  command: Schema.String.check(Schema.isMinLength(1)),
+  command: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
   client: TelemetryClientContext,
   os: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
       version: Schema.optionalKey(Schema.String),
     }).annotate({
       title: "Operating System Context",
@@ -180,23 +266,35 @@ export const TelemetryErrorContext = Schema.Struct({
   ),
   runtime: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
-      version: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+      version: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
     }).annotate({
       title: "Runtime Context",
       description: "Language or process runtime metadata captured alongside telemetry.",
     }),
   ),
   device: Schema.optionalKey(
-    Schema.Struct({ arch: Schema.String.check(Schema.isMinLength(1)) }).annotate({
+    Schema.Struct({
+      arch: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+    }).annotate({
       title: "Device Context",
       description: "Device characteristics attached to telemetry submissions.",
     }),
   ),
   ide: Schema.optionalKey(
     Schema.Struct({
-      name: Schema.String.check(Schema.isMinLength(1)),
-      version: Schema.String.check(Schema.isMinLength(1)),
+      name: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+      version: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
     }).annotate({
       title: "IDE Context",
       description:
@@ -208,6 +306,41 @@ export const TelemetryErrorContext = Schema.Struct({
 }).annotate({
   title: "Telemetry Error Context",
   description: "Execution context attached to error-report submissions.",
+  identifier: "TelemetryErrorContext",
+});
+export type TelemetryErrorItem = {
+  readonly message: string;
+  readonly name: string;
+  readonly module?: string;
+  readonly stackFrames?: ReadonlyArray<TelemetryStackFrame>;
+  readonly stack?: string;
+  readonly details?: ReadonlyArray<string>;
+};
+export const TelemetryErrorItem = Schema.Struct({
+  message: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
+  name: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
+  module: Schema.optionalKey(Schema.String),
+  stackFrames: Schema.optionalKey(
+    Schema.Array(TelemetryStackFrame).check(
+      Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" }),
+    ),
+  ),
+  stack: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(
+    Schema.Array(
+      Schema.String.check(
+        Schema.isMaxLength(512).annotate({ expected: "a value with a length of at most 512" }),
+      ),
+    ).check(Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" })),
+  ),
+}).annotate({
+  title: "Telemetry Error Item",
+  description: "One error instance included in a telemetry error report.",
+  identifier: "TelemetryErrorItem",
 });
 export type TelemetryEventsRequest = {
   readonly events: ReadonlyArray<TelemetryEvent>;
@@ -221,37 +354,14 @@ export const TelemetryEventsRequest = Schema.Struct({
 }).annotate({
   title: "Telemetry Events Request",
   description: "Request payload accepted by the telemetry events ingestion endpoint.",
+  identifier: "TelemetryEventsRequest",
 });
 export type TelemetryErrorsRequest = {
-  readonly errors: ReadonlyArray<{
-    readonly message: string;
-    readonly name: string;
-    readonly module?: string;
-    readonly stackFrames?: ReadonlyArray<{
-      readonly filename?: string;
-      readonly function?: string;
-      readonly lineno?: number;
-      readonly colno?: number;
-      readonly absPath?: string;
-      readonly inApp?: boolean;
-      readonly contextLine?: string;
-      readonly preContext?: ReadonlyArray<string>;
-      readonly postContext?: ReadonlyArray<string>;
-    }>;
-    readonly stack?: string;
-    readonly details?: ReadonlyArray<string>;
-  }>;
+  readonly errors: ReadonlyArray<TelemetryErrorItem>;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
   readonly errorClass?: "internal" | "user" | "external";
   readonly handled?: boolean;
-  readonly breadcrumbs?: ReadonlyArray<{
-    readonly type?: string;
-    readonly category?: string;
-    readonly message?: string;
-    readonly timestamp?: string;
-    readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-    readonly data?: {};
-  }>;
+  readonly breadcrumbs?: ReadonlyArray<TelemetryBreadcrumb>;
   readonly tags?: { readonly [x: string]: string };
   readonly fingerprint?: ReadonlyArray<string>;
   readonly user?: { readonly id?: string; readonly username?: string };
@@ -259,37 +369,9 @@ export type TelemetryErrorsRequest = {
   readonly context: TelemetryErrorContext;
 };
 export const TelemetryErrorsRequest = Schema.Struct({
-  errors: Schema.Array(
-    Schema.Struct({
-      message: Schema.String.check(Schema.isMinLength(1)),
-      name: Schema.String.check(Schema.isMinLength(1)),
-      module: Schema.optionalKey(Schema.String),
-      stackFrames: Schema.optionalKey(
-        Schema.Array(
-          Schema.Struct({
-            filename: Schema.optionalKey(Schema.String),
-            function: Schema.optionalKey(Schema.String),
-            lineno: Schema.optionalKey(Schema.Number.check(Schema.isInt())),
-            colno: Schema.optionalKey(Schema.Number.check(Schema.isInt())),
-            absPath: Schema.optionalKey(Schema.String),
-            inApp: Schema.optionalKey(Schema.Boolean),
-            contextLine: Schema.optionalKey(Schema.String),
-            preContext: Schema.optionalKey(Schema.Array(Schema.String)),
-            postContext: Schema.optionalKey(Schema.Array(Schema.String)),
-          }),
-        ).check(Schema.isMaxLength(100)),
-      ),
-      stack: Schema.optionalKey(Schema.String),
-      details: Schema.optionalKey(
-        Schema.Array(Schema.String.check(Schema.isMaxLength(512))).check(Schema.isMaxLength(16)),
-      ),
-    }).annotate({
-      title: "Telemetry Error Item",
-      description: "One error instance included in a telemetry error report.",
-    }),
-  )
-    .check(Schema.isMinLength(1))
-    .check(Schema.isMaxLength(10)),
+  errors: Schema.Array(TelemetryErrorItem)
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(10).annotate({ expected: "a value with a length of at most 10" })),
   level: Schema.optionalKey(
     Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
       title: "Severity Level",
@@ -305,29 +387,23 @@ export const TelemetryErrorsRequest = Schema.Struct({
   ),
   handled: Schema.optionalKey(Schema.Boolean),
   breadcrumbs: Schema.optionalKey(
-    Schema.Array(
-      Schema.Struct({
-        type: Schema.optionalKey(Schema.String),
-        category: Schema.optionalKey(Schema.String),
-        message: Schema.optionalKey(Schema.String),
-        timestamp: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
-        level: Schema.optionalKey(
-          Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
-            title: "Severity Level",
-            description: "Severity level associated with an error report or breadcrumb.",
-          }),
-        ),
-        data: Schema.optionalKey(Schema.Struct({})),
-      }).annotate({
-        title: "Telemetry Breadcrumb",
-        description: "Lightweight diagnostic breadcrumb attached to an error report.",
-      }),
-    ).check(Schema.isMaxLength(50)),
+    Schema.Array(TelemetryBreadcrumb).check(
+      Schema.isMaxLength(50).annotate({ expected: "a value with a length of at most 50" }),
+    ),
   ),
   tags: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.String.check(Schema.isMaxLength(200))),
+    Schema.Record(
+      Schema.String,
+      Schema.String.check(
+        Schema.isMaxLength(200).annotate({ expected: "a value with a length of at most 200" }),
+      ),
+    ),
   ),
-  fingerprint: Schema.optionalKey(Schema.Array(Schema.String).check(Schema.isMaxLength(10))),
+  fingerprint: Schema.optionalKey(
+    Schema.Array(Schema.String).check(
+      Schema.isMaxLength(10).annotate({ expected: "a value with a length of at most 10" }),
+    ),
+  ),
   user: Schema.optionalKey(
     Schema.Struct({
       id: Schema.optionalKey(Schema.String),
@@ -339,6 +415,7 @@ export const TelemetryErrorsRequest = Schema.Struct({
 }).annotate({
   title: "Telemetry Errors Request",
   description: "Request payload accepted by the telemetry error ingestion endpoint.",
+  identifier: "TelemetryErrorsRequest",
 });
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
@@ -396,7 +473,9 @@ export const HealthGetDeepHealth200 = Schema.Struct({
             componentType: Schema.Literals(["datastore", "system", "component"]),
             measurementName: Schema.String,
             status: Schema.Literals(["pass", "warn", "fail"]),
-            observedValue: Schema.Number.check(Schema.isFinite()),
+            observedValue: Schema.Number.check(
+              Schema.isFinite().annotate({ expected: "a finite number" }),
+            ),
             observedUnit: Schema.String,
             time: Schema.String,
           }),

@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
@@ -186,9 +185,7 @@ export const RegistrySourcePatternSchema = Schema.String.pipe(
         const parsed = parseRegistrySourcePatternParts(input);
         return parsed === undefined
           ? Effect.fail(
-              new SchemaIssue.Forbidden(Option.some(input), {
-                message: invalidRegistrySourcePattern(input),
-              }),
+              new SchemaIssue.Forbidden({ message: invalidRegistrySourcePattern(input) }, input),
             )
           : Effect.succeed(parsed);
       },
@@ -205,9 +202,7 @@ export const RegistrySourceRefSchema = Schema.String.pipe(
         const parsed = parseRegistrySourceRef(input);
         return parsed === undefined
           ? Effect.fail(
-              new SchemaIssue.Forbidden(Option.some(input), {
-                message: invalidRegistrySourceRef(input),
-              }),
+              new SchemaIssue.Forbidden({ message: invalidRegistrySourceRef(input) }, input),
             )
           : Effect.succeed(parsed);
       },

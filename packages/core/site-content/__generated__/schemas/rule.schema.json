@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/RuleManifest",
   "definitions": {
+    "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
     "PublishOptions": {
       "type": "object",
       "properties": {
@@ -160,8 +161,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "email": { "$ref": "#/definitions/Union_" },
+        "url": { "$ref": "#/definitions/Union_" }
       },
       "required": ["name"],
       "additionalProperties": false,
@@ -180,7 +181,7 @@
         }
       ]
     },
-    "VersRange": {
+    "VersRangeEncoded": {
       "type": "string",
       "allOf": [
         {
@@ -193,7 +194,9 @@
       "type": "object",
       "properties": {
         "purl": { "$ref": "#/definitions/PackageIdentityPurl" },
-        "versionRange": { "anyOf": [{ "$ref": "#/definitions/VersRange" }, { "type": "null" }] }
+        "versionRange": {
+          "anyOf": [{ "$ref": "#/definitions/VersRangeEncoded" }, { "type": "null" }]
+        }
       },
       "required": ["purl"],
       "additionalProperties": false,
@@ -227,7 +230,7 @@
     "RuleManifest": {
       "type": "object",
       "properties": {
-        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "$schema": { "$ref": "#/definitions/Union_" },
         "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },

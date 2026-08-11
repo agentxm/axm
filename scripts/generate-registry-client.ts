@@ -104,75 +104,26 @@ const mapInlineDateTimeSchemas = (source: string): string => {
 };
 
 /**
- * openapigen's SSE surface double-wraps the event schema: it passes the full
- * `*200Sse` event struct to `Sse.decodeDataSchema`, which itself wraps the
- * given schema in `Schema.fromJsonString` under a `data` key — so decoding
- * always fails at runtime ("Missing key" under data). It also models the SSE
- * `id` field as `string | null`, while the SSE parser emits an ABSENT id.
- * Rewrite the helper to decode whole events with `Sse.decodeSchema` and fix
- * the id fields to optional. Remove when the upstream generator emits a
- * working SSE pipeline.
+ * The SSE decoder supplies an explicit `id: undefined` when a frame has no
+ * id. JSON Schema optional properties currently render as `optionalKey`,
+ * which accepts an absent property but rejects that wire value. Narrow this
+ * rewrite to SSE event structs so generated clients accept both forms.
  */
-const fixSseSurface = (source: string): string => {
-  if (!source.includes("const sseRequest =")) {
-    return source;
-  }
-
-  const idConstPattern =
-    /"id": Schema\.Union\(\[Schema\.String, Schema\.Null\]\),(?= "event": Schema\.String, "data":)/g;
-  const idTypePattern =
-    /readonly "id": string \| null,(?= readonly "event": string, readonly "data":)/g;
-
-  const start = source.indexOf("const sseRequest =");
-  const end = source.indexOf("const binaryRequest");
-  const hasIdConst = source.search(idConstPattern) !== -1;
-  const hasIdType = source.search(idTypePattern) !== -1;
-  if (start === -1 || end === -1 || !hasIdConst || !hasIdType) {
+const fixSseOptionalIds = (source: string): string => {
+  const pattern = /"id": Schema\.optionalKey\(Schema\.String\),(?=\s+"event":)/g;
+  const matches = source.match(pattern);
+  if (source.includes("const sseEventRequest") && matches === null) {
     console.error(
-      "generate-registry-client: SSE anchors not found in generated output; " +
-        "update fixSseSurface for the new generated shape (upstream SSE " +
-        "double-wrap defect may have been fixed - re-evaluate this rewrite).",
+      "generate-registry-client: SSE optional-id anchor not found; re-evaluate the generated event schema.",
     );
     process.exit(1);
   }
-
-  const replacement = `const sseRequest =
-    <Type, DecodingServices>(
-      schema: Schema.Codec<
-        { readonly event: string; readonly id?: string | undefined; readonly data: Type },
-        { readonly id?: string | undefined; readonly event?: string | undefined; readonly data: string },
-        DecodingServices,
-        never
-      >,
-    ) =>
-    (
-      request: HttpClientRequest.HttpClientRequest,
-    ): Stream.Stream<
-      { readonly event: string; readonly id: string | undefined; readonly data: Type },
-      HttpClientError.HttpClientError | SchemaError | Sse.Retry,
-      DecodingServices
-    > =>
-      HttpClient.filterStatusOk(httpClient)
-        .execute(request)
-        .pipe(
-          Effect.map((response) => response.stream),
-          Stream.unwrap,
-          Stream.decodeText(),
-          Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
-          Stream.map((event) => ({ event: event.event, id: event.id, data: event.data })),
-        );
-  `;
-
-  const sseDataTypePattern = /readonly data: typeof (\w+Sse)\.Type \}/g;
-  return (source.slice(0, start) + replacement + source.slice(end))
-    .replace(idConstPattern, '"id": Schema.optional(Schema.String),')
-    .replace(idTypePattern, 'readonly "id"?: string | undefined,')
-    .replace(sseDataTypePattern, 'readonly data: (typeof $1.Type)["data"] }');
+  return source.replace(pattern, '"id": Schema.optional(Schema.String),');
 };
 
 fs.writeFileSync(
   OUTPUT_PATH,
-  header + fixSseSurface(mapInlineDateTimeSchemas(swapDateTimeSchema(result.stdout))),
+  header + fixSseOptionalIds(mapInlineDateTimeSchemas(swapDateTimeSchema(result.stdout))),
 );
 
 const formatResult = childProcess.spawnSync("pnpm", ["exec", "prettier", "--write", OUTPUT_PATH], {

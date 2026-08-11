@@ -7,7 +7,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
@@ -115,9 +114,7 @@ export const PackageUrlSchema = Schema.String.pipe(
           return Effect.succeed(parts);
         } catch {
           return Effect.fail(
-            new SchemaIssue.Forbidden(Option.some(input), {
-              message: `Expected valid purl, got: ${input}`,
-            }),
+            new SchemaIssue.Forbidden({ message: `Expected valid purl, got: ${input}` }, input),
           );
         }
       },

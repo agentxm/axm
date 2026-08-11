@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/WorkspaceTrustState",
   "definitions": {
+    "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
     "ExtensionType": {
       "type": "string",
       "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
@@ -28,12 +29,12 @@
           ]
         },
         "sourceIdentity": { "type": "string" },
-        "sourceName": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "resolvedVersion": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "immutableRevision": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "publisherBindingId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "integrity": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "contentIdentity": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "sourceName": { "$ref": "#/definitions/Union_" },
+        "resolvedVersion": { "$ref": "#/definitions/Union_" },
+        "immutableRevision": { "$ref": "#/definitions/Union_" },
+        "publisherBindingId": { "$ref": "#/definitions/Union_" },
+        "integrity": { "$ref": "#/definitions/Union_" },
+        "contentIdentity": { "$ref": "#/definitions/Union_" },
         "packManifest": {
           "anyOf": [
             {
@@ -60,7 +61,7 @@
     "WorkspaceTrustState": {
       "type": "object",
       "properties": {
-        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "$schema": { "$ref": "#/definitions/Union_" },
         "trustStateVersion": { "type": "number", "enum": [1] },
         "records": {
           "type": "object",

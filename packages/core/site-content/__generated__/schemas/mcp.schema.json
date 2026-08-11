@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/McpServerManifest",
   "definitions": {
+    "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
     "PublishOptions": {
       "type": "object",
       "properties": {
@@ -160,8 +161,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "email": { "$ref": "#/definitions/Union_" },
+        "url": { "$ref": "#/definitions/Union_" }
       },
       "required": ["name"],
       "additionalProperties": false,
@@ -180,7 +181,7 @@
         }
       ]
     },
-    "VersRange": {
+    "VersRangeEncoded": {
       "type": "string",
       "allOf": [
         {
@@ -193,7 +194,9 @@
       "type": "object",
       "properties": {
         "purl": { "$ref": "#/definitions/PackageIdentityPurl" },
-        "versionRange": { "anyOf": [{ "$ref": "#/definitions/VersRange" }, { "type": "null" }] }
+        "versionRange": {
+          "anyOf": [{ "$ref": "#/definitions/VersRangeEncoded" }, { "type": "null" }]
+        }
       },
       "required": ["purl"],
       "additionalProperties": false,
@@ -231,25 +234,29 @@
       "additionalProperties": false,
       "title": "MCP Registry Stdio Transport"
     },
+    "Union_1": {
+      "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+    },
+    "Union_2": {
+      "anyOf": [
+        { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+        { "type": "null" }
+      ]
+    },
+    "Union_3": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+    "Union_4": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
     "McpRegistryKeyValueInput": {
       "type": "object",
       "properties": {
-        "choices": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "format": {
-          "anyOf": [
-            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-            { "type": "null" }
-          ]
-        },
-        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "choices": { "$ref": "#/definitions/Union_1" },
+        "default": { "$ref": "#/definitions/Union_" },
+        "description": { "$ref": "#/definitions/Union_" },
+        "format": { "$ref": "#/definitions/Union_2" },
+        "isRequired": { "$ref": "#/definitions/Union_3" },
+        "isSecret": { "$ref": "#/definitions/Union_3" },
+        "placeholder": { "$ref": "#/definitions/Union_" },
+        "value": { "$ref": "#/definitions/Union_" },
+        "variables": { "$ref": "#/definitions/Union_4" },
         "name": { "type": "string" }
       },
       "required": ["name"],
@@ -308,24 +315,17 @@
         {
           "type": "object",
           "properties": {
-            "choices": {
-              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-            },
-            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "format": {
-              "anyOf": [
-                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-                { "type": "null" }
-              ]
-            },
-            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+            "choices": { "$ref": "#/definitions/Union_1" },
+            "default": { "$ref": "#/definitions/Union_" },
+            "description": { "$ref": "#/definitions/Union_" },
+            "format": { "$ref": "#/definitions/Union_2" },
+            "isRequired": { "$ref": "#/definitions/Union_3" },
+            "isSecret": { "$ref": "#/definitions/Union_3" },
+            "placeholder": { "$ref": "#/definitions/Union_" },
+            "value": { "$ref": "#/definitions/Union_" },
+            "variables": { "$ref": "#/definitions/Union_4" },
             "type": { "type": "string", "enum": ["positional"] },
-            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "isRepeated": { "$ref": "#/definitions/Union_3" },
             "valueHint": { "type": "string" }
           },
           "required": ["type", "valueHint"],
@@ -334,24 +334,17 @@
         {
           "type": "object",
           "properties": {
-            "choices": {
-              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-            },
-            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "format": {
-              "anyOf": [
-                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-                { "type": "null" }
-              ]
-            },
-            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "choices": { "$ref": "#/definitions/Union_1" },
+            "default": { "$ref": "#/definitions/Union_" },
+            "description": { "$ref": "#/definitions/Union_" },
+            "format": { "$ref": "#/definitions/Union_2" },
+            "isRequired": { "$ref": "#/definitions/Union_3" },
+            "isSecret": { "$ref": "#/definitions/Union_3" },
+            "placeholder": { "$ref": "#/definitions/Union_" },
             "value": { "type": "string" },
-            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+            "variables": { "$ref": "#/definitions/Union_4" },
             "type": { "type": "string", "enum": ["positional"] },
-            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+            "isRepeated": { "$ref": "#/definitions/Union_3" }
           },
           "required": ["value", "type"],
           "additionalProperties": false
@@ -363,25 +356,18 @@
     "McpRegistryNamedArgument": {
       "type": "object",
       "properties": {
-        "choices": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "format": {
-          "anyOf": [
-            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-            { "type": "null" }
-          ]
-        },
-        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "choices": { "$ref": "#/definitions/Union_1" },
+        "default": { "$ref": "#/definitions/Union_" },
+        "description": { "$ref": "#/definitions/Union_" },
+        "format": { "$ref": "#/definitions/Union_2" },
+        "isRequired": { "$ref": "#/definitions/Union_3" },
+        "isSecret": { "$ref": "#/definitions/Union_3" },
+        "placeholder": { "$ref": "#/definitions/Union_" },
+        "value": { "$ref": "#/definitions/Union_" },
+        "variables": { "$ref": "#/definitions/Union_4" },
         "type": { "type": "string", "enum": ["named"] },
         "name": { "type": "string" },
-        "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+        "isRepeated": { "$ref": "#/definitions/Union_3" }
       },
       "required": ["type", "name"],
       "additionalProperties": false,
@@ -405,8 +391,8 @@
         "version": {
           "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
         },
-        "registryBaseUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "runtimeHint": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "registryBaseUrl": { "$ref": "#/definitions/Union_" },
+        "runtimeHint": { "$ref": "#/definitions/Union_" },
         "runtimeArguments": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/McpRegistryArgument" } },
@@ -440,22 +426,15 @@
     "McpRegistryInput": {
       "type": "object",
       "properties": {
-        "choices": {
-          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-        },
-        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "format": {
-          "anyOf": [
-            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-            { "type": "null" }
-          ]
-        },
-        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
+        "choices": { "$ref": "#/definitions/Union_1" },
+        "default": { "$ref": "#/definitions/Union_" },
+        "description": { "$ref": "#/definitions/Union_" },
+        "format": { "$ref": "#/definitions/Union_2" },
+        "isRequired": { "$ref": "#/definitions/Union_3" },
+        "isSecret": { "$ref": "#/definitions/Union_3" },
+        "placeholder": { "$ref": "#/definitions/Union_" },
+        "value": { "$ref": "#/definitions/Union_" },
+        "variables": { "$ref": "#/definitions/Union_4" }
       },
       "additionalProperties": false,
       "title": "MCP Registry Input",
@@ -525,8 +504,8 @@
       "properties": {
         "url": { "type": "string" },
         "source": { "type": "string" },
-        "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "subfolder": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "id": { "$ref": "#/definitions/Union_" },
+        "subfolder": { "$ref": "#/definitions/Union_" }
       },
       "required": ["url", "source"],
       "additionalProperties": false,
@@ -565,7 +544,7 @@
     "McpRegistryServerDetail": {
       "type": "object",
       "properties": {
-        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "$schema": { "$ref": "#/definitions/Union_" },
         "name": {
           "type": "string",
           "allOf": [{ "minLength": 1 }, { "pattern": "^[a-zA-Z0-9.-]+\\/[a-zA-Z0-9._-]+$" }]
@@ -596,7 +575,7 @@
             { "type": "null" }
           ]
         },
-        "websiteUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "websiteUrl": { "$ref": "#/definitions/Union_" },
         "_meta": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
       },
       "required": ["name", "description", "version"],
@@ -607,7 +586,7 @@
     "McpServerManifest": {
       "type": "object",
       "properties": {
-        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "$schema": { "$ref": "#/definitions/Union_" },
         "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },

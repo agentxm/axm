@@ -234,7 +234,9 @@ export const resolveManifest = (
     const rawBytes = yield* input.readEntry(manifestEntry.fileName);
     const text = new TextDecoder().decode(rawBytes);
 
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(text).pipe(
+    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      text,
+    ).pipe(
       Effect.mapError(
         () =>
           new ManifestError({

@@ -121,7 +121,7 @@
       "title": "Instructions Config",
       "description": "Instruction-file management settings for configured agents."
     },
-    "RulesConfig": {
+    "RulesConfigEncoded": {
       "type": "object",
       "properties": {
         "instructions": {
@@ -679,7 +679,7 @@
           "items": { "$ref": "#/definitions/ConfigurableAgentId" }
         },
         "rulesConfig": {
-          "anyOf": [{ "$ref": "#/definitions/RulesConfig" }],
+          "anyOf": [{ "$ref": "#/definitions/RulesConfigEncoded" }],
           "description": "Feature-level options for rules capabilities."
         },
         "sources": {

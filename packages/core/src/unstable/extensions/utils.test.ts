@@ -8,7 +8,7 @@ const PROPERTY_OPTIONS = { fastCheck: { numRuns: 250, seed: 0x41584d } };
 describe("sanitizeName", () => {
   it.prop(
     "is idempotent",
-    [Schema.toArbitrary(Schema.String)],
+    [Schema.toArbitrary(Schema.String)(FastCheck)],
     ([name]) => {
       const sanitized = sanitizeName(name);
       expect(sanitizeName(sanitized)).toBe(sanitized);

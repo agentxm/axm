@@ -28,6 +28,7 @@ export {
   type PublishInput,
 } from "./input-normalization.js";
 export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";
+export { PublishVisibilitySchema, type PublishVisibility } from "./visibility.js";
 export {
   PublishIgnoreError,
   protectedPublishPaths,

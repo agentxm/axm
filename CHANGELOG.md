@@ -1,3 +1,14 @@
+## 0.26.2 (2026-08-11)
+
+### 🚀 Features
+
+- Add authoritative publish visibility preflight and conditional Registry uploads.
+- Unify plan-bearing mutations behind candidate-bound consent, policy overrides, freshness checks, and local rollback.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.1 (2026-08-11)
 
 ### 🚀 Features

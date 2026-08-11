@@ -130,6 +130,37 @@ async function publishRegistrySkill(registryPath: string, name: string) {
   }
 }
 
+async function publishRegistryPack(
+  registryPath: string,
+  name: string,
+  dependencies: Record<string, string>,
+) {
+  const workspace = createTempDir();
+  const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+
+  try {
+    const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+      cwd: workspace.path,
+    });
+    expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+    configureRegistrySource(settingsPath, `file://${registryPath}`);
+
+    const created = await runCli(["packs", "new", name, "--yes"], {
+      cwd: workspace.path,
+    });
+    expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+    updatePackManifest(workspace.path, name, { version: "0.0.1", dependencies });
+
+    const published = await runCli(["packs", "publish", `@test/packs/${name}`, "--yes", "--json"], {
+      cwd: workspace.path,
+      env: { AXM_TOKEN: "e2e-test-token" },
+    });
+    expect(published.exitCode, published.stdout + published.stderr).toBe(0);
+  } finally {
+    workspace.cleanup();
+  }
+}
+
 function updatePackManifest(
   workspaceRoot: string,
   packName: string,
@@ -513,6 +544,151 @@ describe("axm packs publish", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs install", () => {
+  it("keeps overlapping pack installation lint-clean with an existing direct skill", async () => {
+    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    const directSkill = "shared-review";
+    const firstMember = "frontend-review";
+    const secondMember = "backend-review";
+    const firstPack = "frontend-toolkit";
+    const secondPack = "backend-toolkit";
+
+    try {
+      for (const skill of [directSkill, firstMember, secondMember]) {
+        await publishRegistrySkill(registryDir.path, skill);
+      }
+      await publishRegistryPack(registryDir.path, firstPack, {
+        [`@test/skills/${directSkill}`]: "0.0.1",
+        [`@test/skills/${firstMember}`]: "0.0.1",
+      });
+      await publishRegistryPack(registryDir.path, secondPack, {
+        [`@test/skills/${directSkill}`]: "0.0.1",
+        [`@test/skills/${secondMember}`]: "0.0.1",
+      });
+
+      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+
+      const directInstall = await runCli(
+        ["skills", "install", `@test/skills/${directSkill}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(directInstall.exitCode, directInstall.stdout + directInstall.stderr).toBe(0);
+      expect(JSON.parse(directInstall.stdout)).toMatchObject({
+        ok: true,
+        result: { outcome: "applied" },
+      });
+
+      const directDesiredEntry = readSettings().skills?.[directSkill];
+      expect(directDesiredEntry).toBeDefined();
+      const directCanonical = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "skills",
+        directSkill,
+      );
+      const directProjection = path.join(temp.path, ".claude", "skills", directSkill);
+      expect(readLock().skills?.[directSkill]).toBeDefined();
+      expect(
+        JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "trust.json"), "utf8")).records?.[
+          `skill:${directSkill}`
+        ],
+      ).toBeDefined();
+      expect(fs.existsSync(directCanonical)).toBe(true);
+      expect(fs.lstatSync(directProjection).isSymbolicLink()).toBe(true);
+      expect(fs.realpathSync(directProjection)).toBe(
+        fs.realpathSync(path.join(directCanonical, "src")),
+      );
+
+      const baselineLint = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(baselineLint.exitCode, baselineLint.stdout + baselineLint.stderr).toBe(0);
+      expect(JSON.parse(baselineLint.stdout)).toMatchObject({
+        ok: true,
+        result: { findings: [] },
+      });
+
+      for (const pack of [firstPack, secondPack]) {
+        const installed = await runCli(
+          ["packs", "install", `@test/packs/${pack}`, "--yes", "--json"],
+          { cwd: temp.path },
+        );
+        expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
+        expect(JSON.parse(installed.stdout)).toMatchObject({
+          ok: true,
+          result: { outcome: "applied" },
+        });
+      }
+
+      const settings = readSettings();
+      expect(settings.skills?.[directSkill]).toEqual(directDesiredEntry);
+      expect(settings.skills?.[firstMember]).toBeUndefined();
+      expect(settings.skills?.[secondMember]).toBeUndefined();
+      expect(settings.packs?.[firstPack]).toBeDefined();
+      expect(settings.packs?.[secondPack]).toBeDefined();
+
+      const lock = readLock();
+      for (const skill of [directSkill, firstMember, secondMember]) {
+        expect(lock.skills?.[skill]).toBeDefined();
+      }
+      expect(Object.keys(lock.packs?.[firstPack]?.resolvedSkills ?? {}).sort()).toEqual(
+        [`@test/skills/${directSkill}`, `@test/skills/${firstMember}`].sort(),
+      );
+      expect(Object.keys(lock.packs?.[secondPack]?.resolvedSkills ?? {}).sort()).toEqual(
+        [`@test/skills/${directSkill}`, `@test/skills/${secondMember}`].sort(),
+      );
+
+      const trust = JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "trust.json"), "utf8"));
+      expect(Object.keys(trust.records ?? {})).toEqual(
+        expect.arrayContaining([
+          `skill:${directSkill}`,
+          `skill:${firstMember}`,
+          `skill:${secondMember}`,
+          `pack:${firstPack}`,
+          `pack:${secondPack}`,
+        ]),
+      );
+      expect(
+        Object.values(trust.records ?? {}).filter(
+          (record) =>
+            typeof record === "object" &&
+            record !== null &&
+            Reflect.get(record, "sourceIdentity") === `@test/skills/${directSkill}`,
+        ),
+      ).toHaveLength(1);
+
+      for (const skill of [directSkill, firstMember, secondMember]) {
+        const canonical = path.join(temp.path, ".axm", "extensions", "@test", "skills", skill);
+        const projection = path.join(temp.path, ".claude", "skills", skill);
+        expect(fs.existsSync(canonical), `${skill} canonical package`).toBe(true);
+        expect(fs.lstatSync(projection).isSymbolicLink(), `${skill} Claude projection`).toBe(true);
+        expect(fs.realpathSync(projection)).toBe(fs.realpathSync(path.join(canonical, "src")));
+      }
+
+      const finalLint = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(finalLint.exitCode, finalLint.stdout + finalLint.stderr).toBe(0);
+      const lintDocument = JSON.parse(finalLint.stdout);
+      expect(lintDocument).toMatchObject({ ok: true, result: { findings: [] } });
+      const implicatedRules = new Set([
+        "workspace/skills-lockfile-aligned",
+        "workspace/skills-managed",
+        "workspace/packs-dependencies-resolved",
+      ]);
+      expect(
+        (lintDocument.result?.findings ?? []).filter((finding: unknown) => {
+          if (typeof finding !== "object" || finding === null) return false;
+          return implicatedRules.has(Reflect.get(finding, "ruleId"));
+        }),
+      ).toEqual([]);
+    } finally {
+      cleanup();
+    }
+  });
+
   it("installs pack from registry, updates settings and lockfile", async () => {
     const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();

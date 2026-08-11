@@ -39,12 +39,21 @@ import {
   Verbosity,
   yesFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 export interface PacksAddHandlerArgs {
   readonly pack: string;
@@ -360,11 +369,18 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["packs", "add"],
+      [
+        recoverySwitch("--replace-existing", args.force),
+        recoveryPositional(publicRecoveryValue(args.pack)),
+        recoveryPositional(publicRecoveryValue(args.extension)),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions = [
     { description: "Inspect installed packs", cmd: "axm packs list" },
     {

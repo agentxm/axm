@@ -7,12 +7,18 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type { AppError } from "../app-error/index.js";
 import { requireInteractive } from "../cli/prompt/index.js";
+import {
+  confirmationRecoverySuggestions,
+  type ConfirmationRecovery,
+} from "../cli-runtime/confirmation-recovery.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const confirmApplyChangesMessage = "Apply changes?";
 
 export interface ResolvePlanInteractionService {
-  readonly confirmApplyChanges: () => Effect.Effect<boolean, PromptCancelled | AppError>;
+  readonly confirmApplyChanges: (
+    recovery: ConfirmationRecovery,
+  ) => Effect.Effect<boolean, PromptCancelled | AppError>;
 }
 
 export class ResolvePlanInteraction extends ServiceMap.Service<
@@ -33,30 +39,33 @@ export const ResolvePlanInteractionLive = Layer.effect(
     );
 
     return {
-      confirmApplyChanges: () =>
+      confirmApplyChanges: (recovery) =>
         requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
           message: confirmApplyChangesMessage,
+          suggestions: confirmationRecoverySuggestions(recovery),
         }).pipe(Effect.provide(promptEnvironment)),
     } satisfies ResolvePlanInteractionService;
   }),
 );
 
 export interface ResolvePlanInteractionTestState {
-  readonly confirmApplyChangesCalls: Array<null>;
+  readonly confirmApplyChangesCalls: Array<ConfirmationRecovery>;
 }
 
 export const ResolvePlanInteractionTest = (overrides?: {
-  readonly confirmApplyChanges?: () => Effect.Effect<boolean, PromptCancelled | AppError>;
+  readonly confirmApplyChanges?: (
+    recovery: ConfirmationRecovery,
+  ) => Effect.Effect<boolean, PromptCancelled | AppError>;
 }) => {
   const state: ResolvePlanInteractionTestState = {
     confirmApplyChangesCalls: [],
   };
 
   const layer = Layer.succeed(ResolvePlanInteraction, {
-    confirmApplyChanges: () =>
+    confirmApplyChanges: (recovery) =>
       Effect.gen(function* () {
-        state.confirmApplyChangesCalls.push(null);
-        return yield* overrides?.confirmApplyChanges?.() ?? Effect.succeed(true);
+        state.confirmApplyChangesCalls.push(recovery);
+        return yield* overrides?.confirmApplyChanges?.(recovery) ?? Effect.succeed(true);
       }),
   } satisfies ResolvePlanInteractionService);
 

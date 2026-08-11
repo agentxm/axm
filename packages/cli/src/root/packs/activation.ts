@@ -37,6 +37,7 @@ import {
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
@@ -366,11 +367,12 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     ],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["packs", verb],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   yield* emitAppliedPlanOutcome({
     command: `packs.${verb}`,
     headline: `${titleVerb}d pack ${args.name}`,

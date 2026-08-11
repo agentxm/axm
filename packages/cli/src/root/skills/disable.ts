@@ -15,6 +15,7 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 
@@ -82,11 +83,12 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["skills", "disable"],
+    [skillName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   yield* emitAppliedPlanOutcome({
     command: "skills.disable",
     headline: `Disabled skill ${skillName}`,

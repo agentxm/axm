@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { Plan, PlanResolution } from "../../plan/plan.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
+import type { PlanExecutionMode } from "../../cli-runtime/confirmation-recovery.js";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface
@@ -36,8 +37,7 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 }
 
 export interface UninstallWorkflowFlags {
-  readonly yes: boolean;
-  readonly preview: boolean;
+  readonly execution: PlanExecutionMode;
   readonly displayApplied?: boolean;
 }
 
@@ -61,8 +61,7 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent, flags);
     return yield* previewOrApplyPlan(plan, {
-      yes: flags.yes,
-      preview: flags.preview,
+      execution: flags.execution,
       ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
     });
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

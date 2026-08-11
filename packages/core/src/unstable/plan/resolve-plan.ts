@@ -51,6 +51,7 @@ import { displayPlan } from "../workspace/display-plan.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { Verbosity } from "../cli-flags/index.js";
+import type { PlanExecutionMode } from "../cli-runtime/confirmation-recovery.js";
 
 // Total over ReconcileExtensionType: a missing key is a compile error, so a
 // type can never again be silently dropped from lockfile reconciliation.
@@ -79,9 +80,8 @@ const reconciliationAdapters = Object.values(reconciliationAdaptersByType);
  */
 export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   plan: Plan,
-  flags: {
-    yes: boolean;
-    preview: boolean;
+  options: {
+    execution: PlanExecutionMode;
     displayApplied?: boolean;
   },
 ) {
@@ -158,12 +158,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   // Step 4: Display the same augmented plan for preview and apply. A quiet,
   // pre-confirmed apply has no confirmation boundary and remains silent.
-  if (flags.preview || !flags.yes || verbosity.level !== "quiet") {
+  if (options.execution._tag !== "PreconfirmedApply" || verbosity.level !== "quiet") {
     yield* showPlan(augmentedPlan);
   }
 
   // Step 5: Preview or confirm
-  if (flags.preview) {
+  if (options.execution._tag === "Preview") {
     return {
       _tag: "PreviewedPlan",
       name: augmentedPlan.name,
@@ -176,9 +176,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   }
 
   const hasSteps = augmentedPlan.jobs.some((job) => job.steps.length > 0);
-  if (!flags.yes && hasSteps) {
+  if (options.execution._tag === "ConfirmableApply" && hasSteps) {
     const interaction = yield* ResolvePlanInteraction;
-    const confirmed = yield* interaction.confirmApplyChanges();
+    const confirmed = yield* interaction.confirmApplyChanges(options.execution.recovery);
     if (!confirmed) {
       return {
         _tag: "CancelledPlan",
@@ -198,7 +198,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     () => applyPlan(augmentedPlan),
     { successMessage: `Processed ${augmentedPlan.name}` },
   );
-  if (flags.displayApplied !== false) {
+  if (options.displayApplied !== false) {
     yield* showPlan(executed);
   }
   return executed;

@@ -24,7 +24,15 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  credentialFreeLocatorRecoveryValue,
+  effectCliExit,
+  publicRecoveryValue,
+  recoveryOption,
+  recoveryPositional,
+  recoverySwitch,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionNameSchema,
@@ -52,6 +60,10 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
 import {
   KNOWLEDGE_SOURCE_DIR,
@@ -269,6 +281,9 @@ export interface RootPublishHandlerArgs {
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
   readonly includeDependency: ReadonlyArray<string>;
+  readonly recoveryCommand?: ReadonlyArray<string>;
+  readonly recoverySelectors?: ReadonlyArray<string>;
+  readonly recoveryExcludes?: ReadonlyArray<string>;
 }
 
 export const publishAuthenticationPreconditions = (options: {
@@ -1203,11 +1218,48 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : { preconditions: authenticationPreconditions }),
     jobs,
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const typedRecovery = args.recoveryCommand !== undefined;
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(args.recoveryCommand ?? ["publish"], [
+      recoverySwitch("--authored", args.authored),
+      recoverySwitch("--all", args.all),
+      ...args.owners.map((owner) => recoveryOption("--owner", publicRecoveryValue(owner))),
+      ...(typedRecovery
+        ? []
+        : args.types.map((type) => recoveryOption("--type", publicRecoveryValue(type)))),
+      ...(args.recoveryExcludes ?? args.excludes).map((exclude) =>
+        recoveryOption("--exclude", publicRecoveryValue(exclude)),
+      ),
+      ...Option.match(args.registry, {
+        onNone: () => [],
+        onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
+      }),
+      ...Option.match(args.registryUrl, {
+        onNone: () => [],
+        onSome: (url) => [
+          recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
+        ],
+      }),
+      ...Option.match(args.onExisting, {
+        onNone: () => [],
+        onSome: (policy) => [recoveryOption("--on-existing", publicRecoveryValue(policy))],
+      }),
+      recoverySwitch("--backfill", args.backfill),
+      ...Option.match(args.visibility, {
+        onNone: () => [],
+        onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
+      }),
+      recoverySwitch("--include-dependencies", args.includeDependencies),
+      ...args.includeDependency.map((dependency) =>
+        recoveryOption("--include-dependency", publicRecoveryValue(dependency)),
+      ),
+      ...(args.recoverySelectors ?? args.selectors).map((selector) =>
+        recoveryPositional(publicRecoveryValue(selector)),
+      ),
+    ]),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const failedStepErrors =
     resolution._tag === "ExecutedPlan"
       ? resolution.jobs

@@ -23,6 +23,7 @@ import {
   ResolvePlanInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { preconfirmedApplyExecution } from "@agentxm/client-core/unstable/cli-runtime";
 import type { PackRef } from "@agentxm/client-core/unstable/packs";
 import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
 import {
@@ -1508,8 +1509,7 @@ describe("packs install handler", () => {
             ],
           };
           const result = yield* previewOrApplyPlan(plan, {
-            yes: true,
-            preview: false,
+            execution: preconfirmedApplyExecution,
           }).pipe(Effect.flip);
           expect(logs.warn).toEqual([]);
           expect(result).toMatchObject({

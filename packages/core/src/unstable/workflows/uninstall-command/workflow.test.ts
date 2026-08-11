@@ -12,6 +12,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
+import {
+  confirmableApplyExecution,
+  type ConfirmationRecovery,
+} from "../../cli-runtime/confirmation-recovery.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
 import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";
@@ -28,6 +32,11 @@ import {
 type TestArgs = { readonly names: ReadonlyArray<string> };
 type TestParsed = { readonly parsedNames: ReadonlyArray<string> };
 type TestIntent = { readonly targets: ReadonlyArray<string> };
+
+const testRecovery: ConfirmationRecovery = {
+  command: ["skills", "uninstall"],
+  arguments: [],
+};
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -84,8 +93,7 @@ describe("runUninstallCommandWorkflow", () => {
           };
 
         yield* runUninstallCommandWorkflow({ names: ["skill-a"] }, actions, {
-          yes: false,
-          preview: false,
+          execution: confirmableApplyExecution(testRecovery),
         });
 
         expect(callOrder).toEqual(["parseArgs", "finalizeIntent", "buildUninstallPlan"]);
@@ -108,8 +116,7 @@ describe("runUninstallCommandWorkflow", () => {
 
     return Effect.gen(function* () {
       yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       });
       // previewOrApplyPlan is now a free function; buildUninstallPlan output flows through automatically
       expect(testPlan.name).toBe("captured-uninstall-plan");
@@ -143,8 +150,7 @@ describe("runUninstallCommandWorkflow", () => {
       };
 
       yield* runUninstallCommandWorkflow({ names: ["skill-a", "skill-b"] }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       });
 
       expect(capturedParsed).toEqual({ parsedNames: ["skill-a", "skill-b"] });
@@ -167,8 +173,7 @@ describe("runUninstallCommandWorkflow", () => {
       };
 
       const exit = yield* runUninstallCommandWorkflow({ names: [] }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -184,8 +189,7 @@ describe("runUninstallCommandWorkflow", () => {
       };
 
       const exit = yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
       expect(exit._tag).toBe("Failure");
     }).pipe(Effect.provide(makeTestLayer())),
@@ -213,8 +217,7 @@ describe("runUninstallCommandWorkflow", () => {
       };
 
       yield* runUninstallCommandWorkflow({ names: ["x"] }, actions, {
-        yes: false,
-        preview: false,
+        execution: confirmableApplyExecution(testRecovery),
       }).pipe(Effect.exit);
 
       expect(callOrder).toEqual(["finalizeIntent"]);

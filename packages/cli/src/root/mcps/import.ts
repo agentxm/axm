@@ -51,6 +51,10 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import {
   type McpImportAdoption,
@@ -737,11 +741,17 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
     return;
   }
   const plan = makePlan(preflight, ws, fs, path, hooks);
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(["mcps", "import"], []),
+  );
   const confirmed =
-    args.preview || args.yes || preflight.candidates.length === 0 || preflight.conflicts.length > 0
+    execution._tag !== "ConfirmableApply" ||
+    preflight.candidates.length === 0 ||
+    preflight.conflicts.length > 0
       ? true
       : yield* ResolvePlanInteraction.pipe(
-          Effect.flatMap((interaction) => interaction.confirmApplyChanges()),
+          Effect.flatMap((interaction) => interaction.confirmApplyChanges(execution.recovery)),
         );
   const resolution = confirmed
     ? yield* previewOrApplyLocalPlan(plan, {

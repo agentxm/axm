@@ -7,7 +7,11 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { syncInlineMcpServerToAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { inspectMcpServerAcrossAgents } from "@agentxm/client-core/unstable/mcps";
 import type {
   JobStepArtifact,
@@ -25,6 +29,10 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 const isInlineMcpServerEntry = (entry: McpServerEntry): boolean =>
   entry.source === "inline" && (entry.command !== undefined || entry.url !== undefined);
@@ -158,11 +166,18 @@ export const handleRepairMcpServer = Effect.fn("Mcps.repair")(function* (args: {
       },
     ],
   };
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["mcps", "repair"],
+      [recoveryPositional(publicRecoveryValue(args.name))],
+    ),
+  );
   const confirmed =
-    args.preview || args.yes
+    execution._tag !== "ConfirmableApply"
       ? true
       : yield* ResolvePlanInteraction.pipe(
-          Effect.flatMap((interaction) => interaction.confirmApplyChanges()),
+          Effect.flatMap((interaction) => interaction.confirmApplyChanges(execution.recovery)),
         );
   const resolution: PlanResolution = confirmed
     ? yield* previewOrApplyLocalPlan(plan, { preview: args.preview, displayApplied: false })

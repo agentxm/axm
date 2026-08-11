@@ -15,7 +15,13 @@ import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  protectedRecoveryValue,
+  publicRecoveryValue,
+  recoveryOption,
+  recoveryPositional,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   resolveWorkspaceExtensionRef,
@@ -44,6 +50,10 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 const mcpNewArtifactOutput = (
   resolution: PlanResolution,
@@ -278,11 +288,23 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     description: Option.some(`Create ${fqn}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["mcps", "new"],
+      [
+        ...(args.description.length === 0
+          ? []
+          : [recoveryOption("--description", protectedRecoveryValue())]),
+        ...Option.match(args.owner, {
+          onNone: () => [],
+          onSome: (value) => [recoveryOption("--owner", publicRecoveryValue(value))],
+        }),
+        recoveryPositional(publicRecoveryValue(args.name)),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,

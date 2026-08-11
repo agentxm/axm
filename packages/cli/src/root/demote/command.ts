@@ -7,7 +7,12 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  credentialFreeLocatorRecoveryValue,
+  publicRecoveryValue,
+  recoveryPositional,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildInstallOperation,
@@ -40,6 +45,10 @@ import {
 
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -227,10 +236,17 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-  });
+  const execution = yield* makePlanExecutionMode(
+    args,
+    makeConfirmationRecovery(
+      ["demote"],
+      [
+        recoveryPositional(publicRecoveryValue(args.fqn)),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitPlanResolutionResult("demote", resolution);
 });
 

@@ -17,6 +17,7 @@ import { resolveConfiguredRule, WorkspaceMutations } from "@agentxm/client-core/
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { makePublicPositionalPlanExecutionMode } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
   activeInstructionsConfig,
@@ -113,11 +114,12 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
+  const execution = yield* makePublicPositionalPlanExecutionMode(
+    args,
+    ["rules", "enable"],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   yield* emitAppliedPlanOutcome({
     command: "rules.enable",
     headline: `Enabled rule ${args.name}`,

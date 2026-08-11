@@ -2,6 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
@@ -11,6 +14,10 @@ import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/un
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -21,7 +28,33 @@ const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>)
 export interface WorkspaceUpdateFlags {
   readonly yes: boolean;
   readonly preview: boolean;
+  readonly force?: boolean;
 }
+
+const workspaceUpdateCommand = (
+  type: Option.Option<WorkspaceUpdatableType>,
+): ReadonlyArray<string> =>
+  Option.match(type, {
+    onNone: () => ["update"],
+    onSome: (value) => {
+      switch (value) {
+        case "skill":
+          return ["skills", "update"];
+        case "mcp-server":
+          return ["mcps", "update"];
+        case "subagent":
+          return ["subagents", "update"];
+        case "rule":
+          return ["rules", "update"];
+        case "hook":
+          return ["hooks", "update"];
+        case "knowledge":
+          return ["knowledge", "update"];
+        case "pack":
+          return ["packs", "update"];
+      }
+    },
+  });
 
 export const handleWorkspaceUpdate = (args: {
   readonly command: string;
@@ -59,10 +92,14 @@ export const handleWorkspaceUpdate = (args: {
       return;
     }
 
-    const resolution = yield* previewOrApplyPlan(planResult.plan, {
-      yes: args.flags.yes,
-      preview: args.flags.preview,
-    });
+    const execution = yield* makePlanExecutionMode(
+      args.flags,
+      makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
+        recoverySwitch("--refresh", args.flags.force === true),
+        ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
+      ]),
+    );
+    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     const outputResolution: PlanResolution = resolution;
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(

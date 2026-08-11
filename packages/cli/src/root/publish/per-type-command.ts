@@ -114,6 +114,9 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           visibility: parsed.visibility,
           includeDependencies: parsed.includeDependencies,
           includeDependency: [...parsed.includeDependency],
+          recoveryCommand: [plural, "publish"],
+          recoverySelectors: [...parsed.extensions],
+          recoveryExcludes: [...parsed.exclude],
         });
       }).pipe(
         withWorkspace("project"),
@@ -153,6 +156,9 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         visibility: parsed.visibility,
         includeDependencies: false,
         includeDependency: [],
+        recoveryCommand: [plural, "publish"],
+        recoverySelectors: [...parsed.extensions],
+        recoveryExcludes: [...parsed.exclude],
       });
     }).pipe(withWorkspace("project"), Effect.provide(AuthLayer), withRuntime(`${plural} publish`)),
   ).pipe(

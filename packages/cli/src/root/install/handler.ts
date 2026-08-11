@@ -1,8 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
+  credentialFreeLocatorRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
+  type PlanExecutionMode,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
@@ -37,6 +41,10 @@ import {
 } from "./resolve-root-install-intent.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecutionMode,
+} from "../shared/confirmation-recovery.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -54,7 +62,7 @@ type RegistryExtensionRootInstallIntent = RootInstallIntent & {
 
 const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,
-  args: RootInstallFlags,
+  execution: PlanExecutionMode,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
@@ -63,41 +71,41 @@ const runRegistryInstallIntent = (
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
           actions,
-          args,
+          { execution },
         );
       }
       case "mcp-server": {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, args);
+        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution });
       }
       case "rule": {
         const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, args);
+        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution });
       }
       case "hook": {
         const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, args);
+        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution });
       }
       case "knowledge": {
         const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, { execution });
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
           actions,
-          args,
+          { execution },
         );
       }
       case "pack": {
         const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(packArgs, actions, args);
+        return yield* runInstallCommandWorkflow(packArgs, actions, { execution });
       }
     }
   });
@@ -122,7 +130,7 @@ const runLocatorWorkflow = <A, E, R>(type: RootInstallableType, effect: Effect.E
     ),
   );
 
-const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
+const runLocatorInstallIntent = (source: string, execution: PlanExecutionMode) =>
   Effect.gen(function* () {
     const skillActions = yield* InstallSkillCommandWorkflowActions;
     const ruleActions = yield* InstallRuleCommandWorkflowActions;
@@ -133,17 +141,25 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     const attempts = [
       yield* runLocatorWorkflow(
         "skill",
-        runInstallCommandWorkflow({ source, skills: [], all: true }, skillActions, args),
+        runInstallCommandWorkflow({ source, skills: [], all: true }, skillActions, { execution }),
       ),
-      yield* runLocatorWorkflow("rule", runInstallCommandWorkflow({ source }, ruleActions, args)),
-      yield* runLocatorWorkflow("hook", runInstallCommandWorkflow({ source }, hookActions, args)),
+      yield* runLocatorWorkflow(
+        "rule",
+        runInstallCommandWorkflow({ source }, ruleActions, { execution }),
+      ),
+      yield* runLocatorWorkflow(
+        "hook",
+        runInstallCommandWorkflow({ source }, hookActions, { execution }),
+      ),
       yield* runLocatorWorkflow(
         "knowledge",
-        runInstallCommandWorkflow({ source }, knowledgeActions, args),
+        runInstallCommandWorkflow({ source }, knowledgeActions, { execution }),
       ),
       yield* runLocatorWorkflow(
         "subagent",
-        runInstallCommandWorkflow({ source, subagents: [], all: true }, subagentActions, args),
+        runInstallCommandWorkflow({ source, subagents: [], all: true }, subagentActions, {
+          execution,
+        }),
       ),
     ];
 
@@ -189,12 +205,22 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
       }),
     onSome: (source) =>
       Effect.gen(function* () {
+        const execution = yield* makePlanExecutionMode(
+          args,
+          makeConfirmationRecovery(
+            ["install"],
+            [
+              recoverySwitch("--reinstall", args.force),
+              recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
+            ],
+          ),
+        );
         const intent = yield* resolveRootInstallIntent(source);
         if (intent.type === "locator") {
-          yield* runLocatorInstallIntent(intent.source, args);
+          yield* runLocatorInstallIntent(intent.source, execution);
           return;
         }
-        const resolution = yield* runRegistryInstallIntent(intent, args);
+        const resolution = yield* runRegistryInstallIntent(intent, execution);
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             planResolutionToSummary(resolution, {

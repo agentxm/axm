@@ -38,7 +38,13 @@ export const updateCommand = Command.make(
       // spelling, so a bare positional stays on the root update path that
       // re-resolves it from the source.
       if (Option.isSome(source) && name.length === 0) {
-        return yield* handleUpdate({ source, yes, force, preview });
+        return yield* handleUpdate({
+          source,
+          yes,
+          force,
+          preview,
+          recoveryCommand: ["mcps", "update"],
+        });
       }
 
       const selection = yield* resolveWorkspaceUpdateSelection({
@@ -58,7 +64,7 @@ export const updateCommand = Command.make(
         type: Option.some("mcp-server"),
         planName: PLAN_NAME,
         planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { yes, preview },
+        flags: { yes, preview, force },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
     }).pipe(withWorkspace(scope), withRuntime("mcps update")),

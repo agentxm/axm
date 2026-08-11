@@ -1,8 +1,13 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as NodeHttp from "node:http";
 import { pathToFileURL } from "node:url";
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+  type CreatePublishAuthorizationRequestParams,
+} from "@agentxm/client-core/unstable/auth";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
@@ -15,8 +20,12 @@ import {
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -35,6 +44,7 @@ import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
   buildPublishJobs,
+  exactPublishUploadBinding,
   handleRootPublish,
   publishAuthenticationPreconditions,
   validatePublishOwners,
@@ -141,6 +151,13 @@ describe("root publish", () => {
     );
   };
 
+  const scheduleCallback = (url: string) => {
+    setTimeout(() => {
+      const request = NodeHttp.get(url, (response) => response.resume());
+      request.on("error", () => undefined);
+    }, 10);
+  };
+
   const reviewTrustRecord = () => {
     const trust = expectRecord(
       JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "trust.json"), "utf8")),
@@ -178,6 +195,260 @@ describe("root publish", () => {
         publishAuthenticationPreconditions({ ...options, hasPublishCandidates: true }),
       ),
     ).toEqual([[], [], []]);
+  });
+
+  it("maps the browser-reviewed exact binding into the upload request", () => {
+    const baseCapability = {
+      accessToken: "axm_pub_capability",
+      expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+      scope: "extensions:publish:new",
+      publishRequestId: "pubreq_test",
+      visibilityContract: "v1" as const,
+      condition: '"pv1-reviewed"',
+    };
+
+    expect(
+      exactPublishUploadBinding({
+        ...baseCapability,
+        visibility: {
+          value: "private",
+          disposition: "establish",
+          source: "explicit",
+        },
+      }),
+    ).toEqual({
+      accessToken: "axm_pub_capability",
+      condition: '"pv1-reviewed"',
+      initialVisibility: "private",
+    });
+
+    for (const visibility of [
+      { value: "private", disposition: "establish", source: "account" },
+      { value: "private", disposition: "preserve", source: "existing" },
+    ] as const) {
+      expect(exactPublishUploadBinding({ ...baseCapability, visibility })).toEqual({
+        accessToken: "axm_pub_capability",
+        condition: '"pv1-reviewed"',
+      });
+    }
+  });
+
+  it.effect("publishes with the browser-reviewed visibility and condition without readback", () => {
+    writeReviewSkill();
+    const context = makeWorkspaceHandlerTestContext({
+      machine: true,
+      wsOptions: { projectRoot: tempDir },
+    });
+    const registryUrl = "https://registry.example.com";
+    let authorizationRequest: CreatePublishAuthorizationRequestParams | undefined;
+    let uploadRequest: HttpClientRequest.HttpClientRequest | undefined;
+    let extensionReadCount = 0;
+    const httpClient = HttpClient.make((request) =>
+      Effect.sync(() => {
+        const url = new URL(request.url);
+        if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ displayName: "Acme" }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        if (request.method === "PUT") {
+          uploadRequest = request;
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify({
+                owner: "@acme",
+                type: "skill",
+                name: "review",
+                version: "1.0.0",
+                integrity: "sha512-authoritative",
+                sha256_hex: "a".repeat(64),
+                published_at: "2026-08-11T00:00:00.000Z",
+                publish_status: "available",
+                visibility: {
+                  value: "private",
+                  disposition: "establish",
+                  source: "explicit",
+                },
+                warnings: [],
+                links: { html: "https://agentxm.ai/acme/skills/review" },
+              }),
+              { status: 201, headers: { "content-type": "application/json" } },
+            ),
+          );
+        }
+        if (url.pathname.includes("/v1/extensions/")) extensionReadCount += 1;
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              type: "about:blank",
+              title: "Not Found",
+              status: 404,
+              detail: "Extension not found",
+              code: "not_found",
+            }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }),
+    );
+    const authClient = AuthClientTest({
+      createPublishAuthorizationRequest: (request) => {
+        authorizationRequest = request;
+        return Effect.succeed({
+          requestId: "pubreq_exact",
+          authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_exact",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
+        });
+      },
+      exchangePublishAuthorizationCode: () =>
+        Effect.succeed({
+          accessToken: "axm_pub_capability",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+          scope: "extensions:publish:new",
+          publishRequestId: "pubreq_exact",
+          visibilityContract: "v1",
+          visibility: {
+            value: "private",
+            disposition: "establish",
+            source: "explicit",
+          },
+          condition: '"pv1-reviewed"',
+        }),
+    });
+    const interaction = DeviceLoginInteractionTest({
+      openBrowser: () =>
+        Effect.sync(() => {
+          if (authorizationRequest === undefined) return false;
+          const callback = new URL(authorizationRequest.redirectUri);
+          callback.searchParams.set("code", "axm_pubac_code");
+          callback.searchParams.set("state", authorizationRequest.state);
+          callback.searchParams.set("iss", "https://agentxm.ai");
+          scheduleCallback(callback.href);
+          return true;
+        }),
+    });
+    const provide = makeEffectProvide(
+      Layer.mergeAll(
+        context.fullLayer,
+        authClient,
+        interaction.layer,
+        Layer.succeed(HttpClient.HttpClient, httpClient),
+      ),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPublish(
+          args(registryUrl, {
+            preview: false,
+            visibility: Option.some("private"),
+          }),
+        );
+
+        expect(authorizationRequest).toMatchObject({
+          visibilityContract: "v1",
+          requestedVisibility: "private",
+        });
+        expect(uploadRequest?.headers["authorization"]).toBe("Bearer axm_pub_capability");
+        const uploadedUrl =
+          uploadRequest === undefined
+            ? undefined
+            : Option.getOrUndefined(HttpClientRequest.toUrl(uploadRequest));
+        expect(uploadedUrl?.searchParams.get("visibility")).toBe("private");
+        expect(uploadRequest?.headers["if-match"]).toBe('"pv1-reviewed"');
+        expect(extensionReadCount).toBe(1);
+
+        const result = expectPublishResult(at(context.rendererState.results, 0).data, {
+          mode: "apply",
+          count: 1,
+        });
+        const results = property(result, "results");
+        if (!Array.isArray(results)) throw new Error("Expected publish results");
+        expect(expectRecord(property(expectRecord(at(results, 0)), "visibility"))).toEqual({
+          value: "private",
+          disposition: "establish",
+          source: "explicit",
+        });
+      }),
+    );
+  });
+
+  it.effect("does not create exact authority during an unauthenticated preview", () => {
+    writeReviewSkill();
+    const context = makeWorkspaceHandlerTestContext({
+      machine: true,
+      wsOptions: { projectRoot: tempDir },
+    });
+    let authorizationRequests = 0;
+    const httpClient = HttpClient.make((request) =>
+      Effect.sync(() => {
+        const url = new URL(request.url);
+        if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ displayName: "Acme" }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              type: "about:blank",
+              title: "Not Found",
+              status: 404,
+              detail: "Extension not found",
+              code: "not_found",
+            }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }),
+    );
+    const authClient = AuthClientTest({
+      createPublishAuthorizationRequest: () => {
+        authorizationRequests += 1;
+        return Effect.fail(
+          makeAppError({ code: "internal", detail: "Preview must not create publish authority" }),
+        );
+      },
+    });
+    const provide = makeEffectProvide(
+      Layer.mergeAll(
+        context.fullLayer,
+        authClient,
+        DeviceLoginInteractionTest().layer,
+        Layer.succeed(HttpClient.HttpClient, httpClient),
+      ),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPublish(
+          args("https://registry.example.com", { visibility: Option.some("private") }),
+        );
+
+        expect(authorizationRequests).toBe(0);
+        const result = expectPublishResult(at(context.rendererState.results, 0).data, {
+          mode: "preview",
+          count: 1,
+        });
+        const preconditions = property(result, "preconditions");
+        if (!Array.isArray(preconditions)) throw new Error("Expected preview preconditions");
+        expect(expectRecord(at(preconditions, 0))).toMatchObject({
+          id: "authentication",
+          status: "unmet",
+        });
+      }),
+    );
   });
 
   it.effect(

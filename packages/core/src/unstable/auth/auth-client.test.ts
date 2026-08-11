@@ -20,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { AuthClient, AuthClientLive, pollOnce, readStepUpRequest } from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
 
@@ -148,6 +149,117 @@ describe("AuthClient.buildAuthorizeUrl", () => {
       expect(url.pathname).toBe("/oauth/authorize");
       expect(url.searchParams.get("request_expires_at")).toBe(DateTime.formatIso(expiresAt));
       expect(url.searchParams.get("scope")).toContain("extensions:publish:new");
+    }).pipe(Effect.provide(layer));
+  });
+});
+
+describe("AuthClient exact publish authorization", () => {
+  it.effect("sends the v1 visibility request and decodes the complete bound capability", () => {
+    const requests: Array<Readonly<Record<string, unknown>>> = [];
+    const layer = makeTestLayer((request) => {
+      if (request.url.endsWith("/v1/auth/publish-requests")) {
+        if (request.body._tag !== "Uint8Array") {
+          throw new Error("Expected an encoded request body");
+        }
+        const body: unknown = JSON.parse(new TextDecoder().decode(request.body.body));
+        if (typeof body !== "object" || body === null || Array.isArray(body)) {
+          throw new Error("Expected a JSON object request body");
+        }
+        requests.push(Object.fromEntries(Object.entries(body)));
+        return new Response(
+          JSON.stringify({
+            request_id: "pubreq_test",
+            authorization_url: "https://agentxm.ai/publish/authorize/pubreq_test",
+            expires_at: "2099-01-01T00:10:00.000Z",
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          access_token: "axm_pub_capability",
+          expires_at: "2099-01-01T00:15:00.000Z",
+          scope: "extensions:publish:new",
+          publish_request_id: "pubreq_test",
+          visibility_contract: "v1",
+          visibility: {
+            value: "private",
+            disposition: "establish",
+            source: "explicit",
+          },
+          condition: '"pv1-reviewed"',
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.createPublishAuthorizationRequest({
+        registryUrl: REGISTRY_URL,
+        redirectUri: "http://127.0.0.1:49152/callback",
+        state: "state",
+        codeChallenge: "challenge",
+        owner: handle("@alice"),
+        type: "skill",
+        name: extensionName("review"),
+        version: exactVersion("1.0.0"),
+        archiveSha256: "a".repeat(64),
+        visibilityContract: "v1",
+        requestedVisibility: "private",
+      });
+      const capability = yield* client.exchangePublishAuthorizationCode({
+        registryUrl: REGISTRY_URL,
+        code: "code",
+        verifier: "verifier",
+        redirectUri: "http://127.0.0.1:49152/callback",
+      });
+
+      expect(requests[0]).toMatchObject({
+        visibility_contract: "v1",
+        visibility: "private",
+      });
+      expect(capability).toMatchObject({
+        accessToken: "axm_pub_capability",
+        visibilityContract: "v1",
+        visibility: {
+          value: "private",
+          disposition: "establish",
+          source: "explicit",
+        },
+        condition: '"pv1-reviewed"',
+      });
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("rejects a legacy capability response before upload", () => {
+    const layer = makeTestLayer(
+      () =>
+        new Response(
+          JSON.stringify({
+            access_token: "axm_pub_legacy",
+            expires_at: "2099-01-01T00:15:00.000Z",
+            scope: "extensions:publish:new",
+            publish_request_id: "pubreq_legacy",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = yield* client
+        .exchangePublishAuthorizationCode({
+          registryUrl: REGISTRY_URL,
+          code: "code",
+          verifier: "verifier",
+          redirectUri: "http://127.0.0.1:49152/callback",
+        })
+        .pipe(Effect.flip);
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toContain("incompatible");
     }).pipe(Effect.provide(layer));
   });
 });

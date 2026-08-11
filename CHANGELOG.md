@@ -1,3 +1,34 @@
+## 0.26.1 (2026-08-11)
+
+### 🚀 Features
+
+- Remove expired CLI, shared-kernel, and lockfile compatibility surfaces. Upgrade
+  JSON consumers should use `recommendedCommand` and `executedCommands`; update
+  selectors should use `--name`; version-resolution consumers should use
+  `targetVersion` and `versionRelation`. Regenerate stale lockfile receipts with
+  `axm lint --fix` so Registry pack members carry `source` and `integrity`.
+
+- Add managed extension forking and native extension import workflows.
+- Add the shared schema for authoritative publish visibility results.
+
+### 🩹 Fixes
+
+- Accept OKF resource URLs, contained paths, and provenance scope descriptions while diagnosing escaping and missing targets.
+- Expose complete parsed OKF frontmatter from machine-readable Knowledge open output while preserving search and human output.
+- Include `--yes` and a shell-runnable semantic retry in confirmation-required
+  errors while suppressing commands that would disclose protected values.
+
+- Uninstall workspace-authored packs by bare name or fully qualified identity,
+  with owner-safe selection, transactional drift protection, and explicit empty
+  preview output.
+
+- Add selectable workspace and Git-index lint views with complete Knowledge diagnostics.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## Unreleased
 
 ### ⚠️ Breaking Changes

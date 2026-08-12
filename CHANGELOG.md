@@ -1,3 +1,13 @@
+## 0.26.4 (2026-08-12)
+
+### 🩹 Fixes
+
+- Make Registry update resolution release-age aware
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.3 (2026-08-11)
 
 ### 🩹 Fixes

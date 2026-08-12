@@ -9,6 +9,7 @@ export {
   parseNdjsonOutput,
 } from "./assertions.js";
 export { copyFixture } from "./fixtures.js";
+export { withoutLocalGitEnvironment } from "./git-environment.js";
 export {
   isAgent,
   isCI,

@@ -69,12 +69,7 @@ export {
 } from "./schema.js";
 
 // Settings I/O
-export {
-  createDefaultSettings,
-  orderSettingsKeys,
-  SETTINGS_FILENAME,
-  writeSettings,
-} from "./settings.js";
+export { createDefaultSettings, SETTINGS_FILENAME, writeSettings } from "./settings.js";
 
 // Format-preserving JSON
 export type { JsonModification } from "./format-preserving-json.js";

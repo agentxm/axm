@@ -108,6 +108,9 @@ Let AXM edit settings for routine install, remove, enable, disable, agent, and
 source changes. Hand-edit settings when reviewing generated changes, adding
 source hosts, or adjusting `lint.rules`.
 
+AXM writes new settings files in canonical key order. When editing an existing
+file, it preserves the file's key order and untouched formatting.
+
 Workspace sources are authoritative local packages. AXM protects them across
 their lifecycle:
 

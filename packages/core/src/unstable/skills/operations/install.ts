@@ -223,7 +223,7 @@ export const skillArtifactFromTargets = (args: {
     return {
       path: displayPath,
       scope: args.scope,
-      ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
+      agents: artifactAgents,
       change: args.change,
       ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
     } satisfies JobStepArtifact;
@@ -948,7 +948,7 @@ export const installSkill: OperationHandler<
       artifact: {
         path: displayPath.length === 0 ? "." : displayPath,
         scope: ws.scope,
-        ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
+        agents: artifactAgents,
         ...(version !== undefined ? { version } : {}),
         change: artifactChange,
         ...(previousVersion !== undefined && previousVersion !== version

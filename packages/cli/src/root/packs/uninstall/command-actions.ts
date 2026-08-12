@@ -394,7 +394,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
               change: "removed",
             })),
           },
-          steps,
+          children: steps.map((step) => ({ step, coverage: "ineligible" })),
           preTransition: Effect.gen(function* () {
             const currentGraph = yield* ws.getDesiredStateGraph();
             yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);

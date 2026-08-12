@@ -492,6 +492,22 @@ describe("installSkill", () => {
       }),
     );
 
+    it.effect("reports applicable empty coverage when no coding agent can receive the skill", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: [] })),
+        );
+
+        expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact?.agents).toEqual([]);
+        }
+      }),
+    );
+
     it.effect("dedupes shared universal target locations for multiple configured agents", () =>
       Effect.gen(function* () {
         const src = setupSource();

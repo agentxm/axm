@@ -77,7 +77,7 @@ describe("summarizeExecutedOutcome", () => {
                 artifact: {
                   path: ".agents/skills/quality",
                   scope: "user",
-                  agents: ["cursor", "universal"],
+                  agents: ["cursor", "claude-code", "universal"],
                   change: "created",
                   targets: [
                     {
@@ -101,6 +101,144 @@ describe("summarizeExecutedOutcome", () => {
   });
 
   it("reports no agent coverage when an install only writes canonical content", () => {
-    expect(installationCoverage(plan)).toEqual({ agents: [], scope: "project" });
+    expect(installationCoverage(plan)).toBeUndefined();
+  });
+
+  it("distinguishes applicable empty coverage from non-applicable target provenance", () => {
+    const applicablePlan: ExecutedPlan = {
+      ...plan,
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "success",
+                message: "Installed quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "project",
+                  agents: [],
+                  change: "created",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const provenanceOnlyPlan: ExecutedPlan = {
+      ...applicablePlan,
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "canonical package",
+              result: {
+                result: "success",
+                message: "Installed canonical package",
+                artifact: {
+                  path: ".axm/extensions/@acme/skills/quality",
+                  scope: "project",
+                  change: "created",
+                  targets: [
+                    {
+                      path: ".agents/skills/quality",
+                      change: "created",
+                      agentIds: ["codex"],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(installationCoverage(applicablePlan)).toEqual({ agents: [], scope: "project" });
+    expect(installationCoverage(provenanceOnlyPlan)).toBeUndefined();
+  });
+
+  it("rejects target recipients outside the artifact union", () => {
+    const invalidPlan: ExecutedPlan = {
+      ...plan,
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "success",
+                message: "Installed quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "project",
+                  agents: ["cursor"],
+                  change: "created",
+                  targets: [
+                    {
+                      path: ".claude/skills/quality",
+                      change: "created",
+                      agentIds: ["claude-code"],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(() => installationCoverage(invalidPlan)).toThrow(
+      "Artifact target agent claude-code is absent from artifact agents",
+    );
+  });
+
+  it("rejects applicable artifacts from mixed scopes", () => {
+    const mixedScopePlan: ExecutedPlan = {
+      ...plan,
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "project quality",
+              result: {
+                result: "success",
+                message: "Installed project quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "project",
+                  agents: ["codex"],
+                  change: "created",
+                },
+              },
+            },
+            {
+              label: "user quality",
+              result: {
+                result: "success",
+                message: "Installed user quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "user",
+                  agents: ["claude-code"],
+                  change: "created",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(() => installationCoverage(mixedScopePlan)).toThrow(
+      "Installation coverage spans project and user scopes",
+    );
   });
 });

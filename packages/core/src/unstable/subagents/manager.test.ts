@@ -284,6 +284,22 @@ describe("SubagentManager", () => {
         yield* manager.materializeInstall({
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
+        if (manager.getLastMaterialization === undefined) {
+          throw new Error("Subagent materialization observation is unavailable");
+        }
+        expect(
+          yield* manager.getLastMaterialization({
+            target: { type: "subagent", name: "planner" },
+          }),
+        ).toEqual({
+          agents: ["claude-code"],
+          targets: [
+            {
+              path: ".claude/agents/planner.md",
+              agentIds: ["claude-code"],
+            },
+          ],
+        });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
         expect(addSubagentCalls[0]?.editSourcePath).toBe(
           ".axm/extensions/external/subagents/planner/planner.md",
@@ -379,6 +395,22 @@ describe("SubagentManager", () => {
         const manager = yield* SubagentManager;
         const ref = makeLocalSubagentRef("planner", sourceDir);
         yield* manager.materializeInstall({ ref });
+        if (manager.getLastMaterialization === undefined) {
+          throw new Error("Subagent materialization observation is unavailable");
+        }
+        expect(
+          yield* manager.getLastMaterialization({
+            target: { type: "subagent", name: "planner" },
+          }),
+        ).toEqual({
+          agents: ["cline"],
+          targets: [
+            {
+              path: ".cline/skills/planner",
+              agentIds: ["cline"],
+            },
+          ],
+        });
         yield* manager.upsertLockfileEntry({ ref });
 
         const skillPath = nodePath.join(skillsDir, "planner", "SKILL.md");
@@ -434,6 +466,38 @@ describe("SubagentManager", () => {
         expect(error.detail).toContain("fallback is none");
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [fallbackAgent] })));
     });
+
+    it.effect(
+      "reports applicable empty coverage when no agent supports a native or fallback surface",
+      () => {
+        const sourceDir = nodePath.join(tmpDir, "source", "planner");
+        nodeFs.mkdirSync(sourceDir, { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(sourceDir, "planner.md"),
+          makeSubagentContent("planner", "Plans work"),
+        );
+        const axmDir = nodePath.join(tmpDir, "project", ".axm");
+        nodeFs.mkdirSync(axmDir, { recursive: true });
+        const unsupportedAgent = makeMockCodingAgent("cline", {
+          addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+          resolveEffectiveSkillsDir: () =>
+            Effect.succeed({ _tag: "unsupported", reason: "no skills surface" }),
+        });
+
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          yield* manager.materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir) });
+          if (manager.getLastMaterialization === undefined) {
+            throw new Error("Subagent materialization observation is unavailable");
+          }
+          expect(
+            yield* manager.getLastMaterialization({
+              target: { type: "subagent", name: "planner" },
+            }),
+          ).toEqual({ agents: [], targets: [] });
+        }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [unsupportedAgent] })));
+      },
+    );
   });
 
   describe("materializeUninstall", () => {

@@ -17,7 +17,7 @@ import { TokenListDocumentSchema } from "./auth/token.js";
 import { DiscoverOutputSchema } from "./discover/handler.js";
 import { HookPortabilityResultSchema } from "./hooks/info.js";
 import { KnowledgeListQueryResultSchema } from "./knowledge/list.js";
-import { KnowledgeSearchQueryResultSchema } from "./knowledge/search.js";
+import { KnowledgeConceptQueryPageSchema } from "./knowledge/concepts/schemas.js";
 import { ExtensionListDocumentSchema } from "./list/command.js";
 import { InstructionsStatusOutputSchema } from "./rules/instructions.js";
 
@@ -34,7 +34,11 @@ const COLLECTION_PAYLOADS = [
   ],
   ["axm hooks info", HookPortabilityResultSchema.fields, ["items", "count"]],
   ["axm knowledge list", KnowledgeListQueryResultSchema.fields, ["items", "count"]],
-  ["axm knowledge search", KnowledgeSearchQueryResultSchema.fields, ["query", "items", "count"]],
+  [
+    "axm knowledge concepts search",
+    KnowledgeConceptQueryPageSchema.fields,
+    ["query", "corpusFingerprint", "items", "count", "hasMore", "cursor", "explanation"],
+  ],
   [
     "axm list",
     ExtensionListDocumentSchema.fields,

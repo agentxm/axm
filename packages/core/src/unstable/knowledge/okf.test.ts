@@ -39,6 +39,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         "index",
         "payments/refunds",
       ]);
+      expect(inspected.concepts.map((concept) => concept.kind)).toEqual(["index", "concept"]);
+      expect(openKnowledgeConcept(inspected.concepts, "index")?.authoredLinks).toEqual([
+        { target: "payments/refunds.md", line: 6, resolvedConceptId: "payments/refunds" },
+      ]);
       expect(search(inspected.concepts, '"30 days"')).toHaveLength(1);
       expect(search(inspected.concepts, "payments")).toHaveLength(2);
       expect(openKnowledgeConcept(inspected.concepts, "payments/refunds")?.type).toBe("policy");

@@ -22,8 +22,8 @@ const missingManifestDescription = (): KnowledgeDiagnostic => ({
   message: `${KNOWLEDGE_MANIFEST_FILENAME} should include a concise bundle description for discovery.`,
 });
 
-/** Inspect one complete Knowledge package, including manifest-level profile diagnostics. */
-export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(function* (
+/** Read and decode one Knowledge package manifest without inspecting its bundle body. */
+export const readKnowledgePackageManifest = Effect.fn("Knowledge.readPackageManifest")(function* (
   packageRoot: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
@@ -41,6 +41,14 @@ export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(fun
   });
   const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestUnknown);
   const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
+  return { sourceRoot, manifest };
+});
+
+/** Inspect one complete Knowledge package, including manifest-level profile diagnostics. */
+export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(function* (
+  packageRoot: string,
+) {
+  const { sourceRoot, manifest } = yield* readKnowledgePackageManifest(packageRoot);
   const inspected = yield* inspectKnowledgeBundle(sourceRoot);
   const inspection: KnowledgeInspection = {
     ...inspected,

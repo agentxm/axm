@@ -11,6 +11,7 @@ import * as Option from "effect/Option";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
+import { KnowledgeIndexLive } from "@agentxm/client-core/unstable/knowledge";
 import {
   AuthGuardInteractionTest,
   CredentialStoreTest,
@@ -493,7 +494,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
         }
       : wsOptions;
   const wsLayer = Layer.provide(coreWorkspaceLayer(workspaceOptions), cliTestContext.baseLayer);
-  const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer);
+  const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer, KnowledgeIndexLive);
 
   return {
     ...cliTestContext,

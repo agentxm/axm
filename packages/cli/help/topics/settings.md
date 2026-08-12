@@ -72,8 +72,8 @@ and `mcpServersConfig`.
 
 `knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
 the canonical instruction source. It defaults to enabled; persist only the
-non-default `false`. This setting does not affect install, trust, enablement,
-search, or open behavior.
+non-default `false`. This setting does not affect install, trust, enablement, or
+concept discovery.
 
 ```jsonc
 {

@@ -14,6 +14,11 @@ const runBinary = createBinaryRunner(binaryPath);
 const getOutput = (result: { readonly stdout: string; readonly stderr: string }): string =>
   result.stdout + result.stderr;
 
+const writeJson = (filePath: string, value: unknown): void => {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+};
+
 const serveCurrentRelease = async (version: string) => {
   const server = http.createServer((_request, response) => {
     const address = server.address();
@@ -92,6 +97,87 @@ describe("compiled binary smoke", () => {
     expect(result.exitCode).toBe(0);
     expect(getOutput(result)).toContain("USAGE\n  axm <command> [flags]");
     expect(getOutput(result)).toContain("CORE");
+  });
+
+  it("exposes the complete Knowledge concept-discovery surface", async () => {
+    const result = await runBinary(["knowledge", "concepts", "--help"]);
+
+    expect(result.exitCode, getOutput(result)).toBe(0);
+    for (const command of ["resolve", "search", "query", "get", "related", "status"]) {
+      expect(getOutput(result)).toContain(command);
+    }
+  });
+
+  it("returns deterministic Knowledge identities and ordering through the compiled binary", async () => {
+    const temp = createTempDir();
+    const environment = {
+      AXM_USER_HOME: temp.path,
+      HOME: temp.path,
+      USERPROFILE: temp.path,
+    };
+    try {
+      const sourceRoot = path.join(temp.path, "knowledge-source");
+      writeJson(path.join(sourceRoot, "knowledge.json"), {
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform",
+        version: "1.0.0",
+        description: "Portable discovery fixture.",
+        format: { name: "okf", version: "0.2" },
+        bundleRoot: "src",
+      });
+      fs.mkdirSync(path.join(sourceRoot, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Platform\n',
+      );
+      for (const [id, title] of [
+        ["alpha", "Alpha"],
+        ["beta", "Beta"],
+      ]) {
+        fs.writeFileSync(
+          path.join(sourceRoot, "src", `${id}.md`),
+          `---\ntype: reference\ndescription: ${title} concept\n---\n# ${title}\n`,
+        );
+      }
+      const setup = await runBinary(["setup", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+        env: environment,
+      });
+      expect(setup.exitCode, getOutput(setup)).toBe(0);
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      writeJson(settingsPath, {
+        agents: [],
+        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+      });
+      const install = await runBinary(["knowledge", "install", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+        env: environment,
+      });
+      expect(install.exitCode, getOutput(install)).toBe(0);
+      const query = await runBinary(["knowledge", "concepts", "query", "--json"], {
+        cwd: temp.path,
+        env: environment,
+      });
+      expect(query.exitCode, getOutput(query)).toBe(0);
+      const document = JSON.parse(query.stdout);
+      expect(
+        document.result.items.map((item: { ref: { conceptId: string } }) => item.ref.conceptId),
+      ).toEqual(["alpha", "beta"]);
+      expect(document.result.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            ref: expect.objectContaining({
+              bundle: "@acme/knowledge/platform",
+              bundleVersion: "1.0.0",
+              contentRevision: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+            }),
+          }),
+        ]),
+      );
+    } finally {
+      temp.cleanup();
+    }
   });
 
   it("lists cross-type workspace inventory through the compiled binary", async () => {

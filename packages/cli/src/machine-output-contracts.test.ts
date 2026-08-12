@@ -38,8 +38,15 @@ import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/comman
 import { HookPortabilityResultSchema } from "./root/hooks/info.js";
 import { KnowledgeLintQueryResultSchema } from "./root/knowledge/lint.js";
 import { KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
-import { KnowledgeOpenQueryResultSchema } from "./root/knowledge/open.js";
-import { KnowledgeSearchQueryResultSchema } from "./root/knowledge/search.js";
+import {
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeConceptCorpusChangingFailureSchema,
+  KnowledgeConceptCursorFailureSchema,
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeConceptStatusOutputSchema,
+} from "./root/knowledge/concepts/schemas.js";
 import { LintFixDocumentSchema, LintResultDocumentSchema } from "./root/lint/handler.js";
 import { ExtensionListDocumentSchema } from "./root/list/command.js";
 import { PackRepairResultSchema } from "./root/packs/repair.js";
@@ -71,8 +78,13 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   JsonVersionDocSchema,
   KnowledgeLintQueryResultSchema,
   KnowledgeListQueryResultSchema,
-  KnowledgeOpenQueryResultSchema,
-  KnowledgeSearchQueryResultSchema,
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeConceptCorpusChangingFailureSchema,
+  KnowledgeConceptCursorFailureSchema,
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeConceptStatusOutputSchema,
   LintFixDocumentSchema,
   LintResultDocumentSchema,
   LoginDocumentSchema,

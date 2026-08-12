@@ -390,21 +390,94 @@ const knowledgeListFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
 });
 
-const knowledgeOpenFamily = defineResultFamily({
-  id: "knowledge-open",
-  schemaNames: ["KnowledgeOpenQueryResultSchema"],
-  requiredTopLevelKeys: ["concept"],
-  scenarios: ["concept found", "not found"],
-  rationale: "Opening a knowledge concept is a read query.",
+const knowledgeConceptGetFamily = defineResultFamily({
+  id: "knowledge-concept-get",
+  schemaNames: ["KnowledgeConceptGetOutputSchema", "KnowledgeConceptCorpusChangingFailureSchema"],
+  requiredTopLevelKeys: ["outcome"],
+  optionalTopLevelKeys: ["concept", "reason", "ref", "expectedRevision", "currentRevision"],
+  scenarios: ["concept found", "revision changed", "not found"],
+  rationale: "Concept get returns exact source and resolved revision identity.",
   commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
 });
 
-const knowledgeSearchFamily = defineResultFamily({
-  id: "knowledge-search",
-  schemaNames: ["KnowledgeSearchQueryResultSchema"],
-  requiredTopLevelKeys: ["query", "items", "count"],
-  scenarios: ["matches", "no matches"],
-  rationale: "Knowledge search is a read query.",
+const knowledgeConceptQueryFamily = defineResultFamily({
+  id: "knowledge-concept-query",
+  schemaNames: [
+    "KnowledgeConceptQueryPageSchema",
+    "KnowledgeConceptCursorFailureSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: [
+    "query",
+    "corpusFingerprint",
+    "items",
+    "count",
+    "hasMore",
+    "cursor",
+    "explanation",
+    "outcome",
+    "reason",
+  ],
+  scenarios: ["matches", "no matches", "next page", "cursor expired", "corpus changing", "explain"],
+  rationale: "Concept search and query share a canonical paginated query result.",
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
+});
+
+const knowledgeConceptResolveFamily = defineResultFamily({
+  id: "knowledge-concept-resolve",
+  schemaNames: [
+    "KnowledgeConceptResolveOutputSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: ["outcome"],
+  optionalTopLevelKeys: ["candidate", "candidates", "reason"],
+  scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
+  rationale: "Concept resolution returns one identity or bounded candidates.",
+  commandCoverage: ["packages/core/src/unstable/knowledge/knowledge-graph.test.ts"],
+});
+
+const knowledgeConceptRelatedFamily = defineResultFamily({
+  id: "knowledge-concept-related",
+  schemaNames: [
+    "KnowledgeConceptRelatedOutputSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: [
+    "ref",
+    "maximumDepth",
+    "includesIndexBacklinks",
+    "items",
+    "count",
+    "corpusFingerprint",
+    "outcome",
+    "reason",
+  ],
+  scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
+  rationale: "Related traversal returns bounded graph results and corpus identity.",
+  commandCoverage: ["packages/core/src/unstable/knowledge/knowledge-graph.test.ts"],
+});
+
+const knowledgeConceptStatusFamily = defineResultFamily({
+  id: "knowledge-concept-status",
+  schemaNames: ["KnowledgeConceptStatusOutputSchema"],
+  requiredTopLevelKeys: [
+    "capabilities",
+    "readiness",
+    "health",
+    "bundleCount",
+    "conceptCount",
+    "scopeCollisions",
+  ],
+  optionalTopLevelKeys: ["corpusFingerprint"],
+  scenarios: [
+    "selected corpus",
+    "empty corpus",
+    "unhealthy corpus",
+    "cross-scope collisions not determined",
+  ],
+  rationale: "Discovery status exposes the canonical capabilities and selected corpus identity.",
   commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
 });
 
@@ -570,6 +643,7 @@ const rowsFor = (
 
 export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRow> = [
   ...rowsFor(helpFamily, formatterPaths),
+  ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(publishFamily, publishPaths),
   ...rowsFor(agentsListFamily, ["axm agents", "axm agents list", "axm agents ls"]),
@@ -614,8 +688,14 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(hooksInfoFamily, ["axm hooks info"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
   ...rowsFor(knowledgeListFamily, ["axm knowledge list", "axm knowledge ls"]),
-  ...rowsFor(knowledgeOpenFamily, ["axm knowledge open"]),
-  ...rowsFor(knowledgeSearchFamily, ["axm knowledge search"]),
+  ...rowsFor(knowledgeConceptResolveFamily, ["axm knowledge concepts resolve"]),
+  ...rowsFor(knowledgeConceptQueryFamily, [
+    "axm knowledge concepts search",
+    "axm knowledge concepts query",
+  ]),
+  ...rowsFor(knowledgeConceptGetFamily, ["axm knowledge concepts get"]),
+  ...rowsFor(knowledgeConceptRelatedFamily, ["axm knowledge concepts related"]),
+  ...rowsFor(knowledgeConceptStatusFamily, ["axm knowledge concepts status"]),
   ...rowsFor(lintFamily, ["axm lint"]),
   ...rowsFor(extensionListFamily, ["axm list"]),
   ...rowsFor(instructionsFamily, ["axm rules instructions", "axm rules instructions status"]),

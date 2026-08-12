@@ -38,7 +38,7 @@ import {
 } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+import { KnowledgeIndexLive, KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -303,6 +303,7 @@ const makeWorkspaceProgramLayer = (
     skillsLayer,
     subagentsLayer,
     knowledgeLayer,
+    KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
   return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);

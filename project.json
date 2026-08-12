@@ -27,7 +27,7 @@
     "scripts-typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
         "command": "pnpm scripts-typecheck",
@@ -37,7 +37,7 @@
     "scripts-test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
@@ -48,7 +48,7 @@
     "release-prepare": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm release-prepare",
         "cwd": "."
@@ -57,7 +57,7 @@
     "release-publish": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm release-publish",
         "cwd": "."
@@ -66,7 +66,7 @@
     "release-publish-local": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm release-publish-local",
         "cwd": "."
@@ -75,7 +75,7 @@
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm validate-release-tag",
         "cwd": "."
@@ -84,7 +84,7 @@
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm resolve-release-meta",
         "cwd": "."
@@ -93,7 +93,7 @@
     "download-ci-binaries": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["utils:build", "core:build"],
       "options": {
         "command": "pnpm download-ci-binaries",
         "cwd": "."

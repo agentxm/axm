@@ -1,5 +1,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import * as Option from "effect/Option";
 import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
+
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+  parseSkillMd,
+} from "@agentxm/client-core/unstable/skills";
 
 import { capture, run, tryCapture } from "./release-command.js";
 
@@ -11,6 +19,7 @@ export const RELEASE_PACKAGE_JSON_PATHS = [
 
 export const AXM_SKILL_MANIFEST_PATH = ".axm/extensions/@agentxm/skills/axm/skill.json";
 export const AXM_SKILL_DOCUMENT_PATH = ".axm/extensions/@agentxm/skills/axm/src/SKILL.md";
+export const AXM_SKILL_GENERATED_PATH = "packages/cli/src/__generated__/bundled-axm-skill.ts";
 
 const RELEASE_VERSION_JSON_PATHS = [
   ...RELEASE_PACKAGE_JSON_PATHS,
@@ -71,18 +80,74 @@ export const readPackageVersion = (path: string): string =>
 export const readPackageVersionAtRef = (ref: string, path: string): string =>
   readVersionFromJson(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
-const readSkillCliVersionFromContent = (content: string, source: string): string => {
-  const match = /^[ \t]*agentxm\.ai\/cli-version:[ \t]*["']?([^"'\s]+)["']?[ \t]*$/m.exec(content);
-  return match?.[1] ?? fail(`Missing cli-version release stamp in ${source}.`);
+export interface GeneratedAxmSkillCompatibility extends AxmSkillCompatibilityDeclaration {
+  readonly version: string;
+}
+
+const readGeneratedStringConstant = (content: string, name: string, source: string): string => {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`^export const ${escapedName} = ("(?:[^"\\\\]|\\\\.)*");$`, "m").exec(
+    content,
+  );
+  if (match?.[1] === undefined) throw new Error(`Missing ${name} in ${source}.`);
+
+  const parsed: unknown = JSON.parse(match[1]);
+  if (typeof parsed !== "string") throw new Error(`Expected ${name} to be a string in ${source}.`);
+  return parsed;
 };
 
-export const readSkillCliVersion = (path: string = AXM_SKILL_DOCUMENT_PATH): string =>
-  readSkillCliVersionFromContent(readFileSync(path, "utf8"), path);
+export const readGeneratedSkillCompatibilityFromContent = (
+  content: string,
+  source: string,
+): GeneratedAxmSkillCompatibility => ({
+  version: readGeneratedStringConstant(content, "AXM_SKILL_VERSION", source),
+  cliVersion: readGeneratedStringConstant(content, "AXM_SKILL_CLI_VERSION", source),
+  cliVersionRange: readGeneratedStringConstant(content, "AXM_SKILL_CLI_VERSION_RANGE", source),
+});
 
-export const readSkillCliVersionAtRef = (
+const readGeneratedSkillCompatibility = (
+  path: string = AXM_SKILL_GENERATED_PATH,
+): GeneratedAxmSkillCompatibility =>
+  readGeneratedSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
+
+const readGeneratedSkillCompatibilityAtRef = (
+  ref: string,
+  path: string = AXM_SKILL_GENERATED_PATH,
+): GeneratedAxmSkillCompatibility =>
+  readGeneratedSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
+
+export interface AxmSkillCompatibilityDeclaration {
+  readonly cliVersion: string;
+  readonly cliVersionRange: string;
+}
+
+export const readSkillCompatibilityFromContent = (
+  content: string,
+  source: string,
+): AxmSkillCompatibilityDeclaration => {
+  const parsedSkill = Option.getOrNull(parseSkillMd(content, "axm"));
+  if (parsedSkill === null) throw new Error(`Invalid AXM skill document in ${source}.`);
+
+  const metadata = Option.getOrNull(parsedSkill.metadata);
+  const cliVersion = metadata?.[AXM_SKILL_CLI_VERSION_METADATA_KEY];
+  const cliVersionRange = metadata?.[AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY];
+  if (cliVersion === undefined || cliVersionRange === undefined) {
+    throw new Error(`Missing AXM skill compatibility declaration in ${source}.`);
+  }
+
+  return { cliVersion, cliVersionRange };
+};
+
+export const readSkillCompatibility = (
+  path: string = AXM_SKILL_DOCUMENT_PATH,
+): AxmSkillCompatibilityDeclaration =>
+  readSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
+
+export const readSkillCompatibilityAtRef = (
   ref: string,
   path: string = AXM_SKILL_DOCUMENT_PATH,
-): string => readSkillCliVersionFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
+): AxmSkillCompatibilityDeclaration =>
+  readSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
 const replaceExactlyOnce = (
   content: string,
@@ -110,13 +175,63 @@ export const writeSkillVersion = (version: string, path: string = AXM_SKILL_MANI
   writeFileSync(path, updated, "utf8");
 };
 
-export const stampSkillCliVersion = (version: string, path: string = AXM_SKILL_DOCUMENT_PATH) => {
+const requireCompatibleSkillDeclaration = (
+  version: string,
+  declaration: AxmSkillCompatibilityDeclaration,
+  source: string,
+): AxmSkillCompatibilityDeclaration => {
+  const result = evaluateAxmSkillCompatibility({
+    cliVersion: version,
+    skill: {
+      manifestVersion: version,
+      metadata: {
+        [AXM_SKILL_CLI_VERSION_METADATA_KEY]: declaration.cliVersion,
+        [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: declaration.cliVersionRange,
+      },
+      source,
+    },
+  });
+  if (result.status !== "compatible") {
+    throw new Error(
+      `Incompatible AXM skill declaration in ${source}: ${result.reasonCode ?? "unknown"}: ${result.detail ?? "no detail"}`,
+    );
+  }
+  return declaration;
+};
+
+export const transitionSkillCompatibility = (
+  current: AxmSkillCompatibilityDeclaration,
+  releaseVersion: string,
+): AxmSkillCompatibilityDeclaration => {
+  requireCompatibleSkillDeclaration(current.cliVersion, current, "current AXM skill");
+  const next = {
+    cliVersion: releaseVersion,
+    cliVersionRange:
+      current.cliVersionRange === current.cliVersion ? releaseVersion : current.cliVersionRange,
+  } satisfies AxmSkillCompatibilityDeclaration;
+  return requireCompatibleSkillDeclaration(releaseVersion, next, "next AXM skill");
+};
+
+export const stampSkillCompatibility = (
+  version: string,
+  path: string = AXM_SKILL_DOCUMENT_PATH,
+) => {
   validateReleaseVersion(version);
   const content = readFileSync(path, "utf8");
-  const updated = replaceExactlyOnce(
+  const next = transitionSkillCompatibility(
+    readSkillCompatibilityFromContent(content, path),
+    version,
+  );
+  const withVersion = replaceExactlyOnce(
     content,
-    /^[ \t]*agentxm\.ai\/cli-version:[ \t]*.+$/gm,
-    `  agentxm.ai/cli-version: "${version}"`,
+    /^[ \t]*axm\.sh\/cli-version:[ \t]*.+$/gm,
+    `  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: "${next.cliVersion}"`,
+    path,
+  );
+  const updated = replaceExactlyOnce(
+    withVersion,
+    /^[ \t]*axm\.sh\/cli-version-range:[ \t]*.+$/gm,
+    `  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${next.cliVersionRange}"`,
     path,
   );
   writeFileSync(path, updated, "utf8");
@@ -172,26 +287,70 @@ const requireMatchingVersions = (
   return firstVersion;
 };
 
+const requireMatchingReleaseCompatibility = (
+  versions: ReadonlyArray<readonly [path: string, version: string]>,
+  declaration: AxmSkillCompatibilityDeclaration,
+  generated: GeneratedAxmSkillCompatibility,
+  source: string,
+): string => {
+  const version = requireMatchingVersions(versions, source);
+  requireCompatibleSkillDeclaration(version, declaration, source);
+  validateGeneratedSkillCompatibility(version, declaration, generated, source);
+
+  return version;
+};
+
+const failOnReleaseCompatibilityError = (validate: () => string): string => {
+  try {
+    return validate();
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : String(error));
+  }
+};
+
+export const validateGeneratedSkillCompatibility = (
+  version: string,
+  declaration: AxmSkillCompatibilityDeclaration,
+  generated: GeneratedAxmSkillCompatibility,
+  source: string,
+): void => {
+  if (
+    generated.version !== version ||
+    generated.cliVersion !== declaration.cliVersion ||
+    generated.cliVersionRange !== declaration.cliVersionRange
+  ) {
+    throw new Error(
+      `Generated AXM skill mismatch in ${source}: generated version=${generated.version}, cli-version=${generated.cliVersion}, cli-version-range=${generated.cliVersionRange}; canonical version=${version}, cli-version=${declaration.cliVersion}, cli-version-range=${declaration.cliVersionRange}.`,
+    );
+  }
+};
+
 export const requireMatchingReleasePackageVersions = (): string =>
-  requireMatchingVersions(
-    [
-      ...RELEASE_VERSION_JSON_PATHS.map(
-        (filePath) => [filePath, readPackageVersion(filePath)] as const,
-      ),
-      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersion()] as const,
-    ],
-    "working tree",
+  failOnReleaseCompatibilityError(() =>
+    requireMatchingReleaseCompatibility(
+      [
+        ...RELEASE_VERSION_JSON_PATHS.map(
+          (filePath) => [filePath, readPackageVersion(filePath)] as const,
+        ),
+      ],
+      readSkillCompatibility(),
+      readGeneratedSkillCompatibility(),
+      "working tree",
+    ),
   );
 
 export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
-  requireMatchingVersions(
-    [
-      ...RELEASE_VERSION_JSON_PATHS.map(
-        (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
-      ),
-      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersionAtRef(ref)] as const,
-    ],
-    ref,
+  failOnReleaseCompatibilityError(() =>
+    requireMatchingReleaseCompatibility(
+      [
+        ...RELEASE_VERSION_JSON_PATHS.map(
+          (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
+        ),
+      ],
+      readSkillCompatibilityAtRef(ref),
+      readGeneratedSkillCompatibilityAtRef(ref),
+      ref,
+    ),
   );
 
 export const requireReleaseCommitMessage = (tag: string) => {

@@ -24,7 +24,7 @@ import {
   requireMainBranch,
   requireMatchingReleasePackageVersions,
   requireNotBehindOriginMain,
-  stampSkillCliVersion,
+  stampSkillCompatibility,
   writeSkillVersion,
 } from "./release-shared.js";
 import { run } from "./release-command.js";
@@ -103,7 +103,7 @@ const prepareReleaseArtifacts = async () => {
     console.log("  Registry preview is skipped in dry-run mode.");
   } else {
     writeSkillVersion(version);
-    stampSkillCliVersion(version);
+    stampSkillCompatibility(version);
     run("pnpm", ["exec", "nx", "run", "cli:generate:bundled-axm-skill", "--outputStyle=static"]);
     run("pnpm", [
       "axm:local",

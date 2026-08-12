@@ -116,9 +116,12 @@
     },
     "generate:bundled-axm-skill": {
       "cache": true,
-      "dependsOn": ["generate:type-enumerations"],
+      "dependsOn": ["generate:type-enumerations", { "projects": ["core"], "target": "build" }],
       "inputs": [
+        "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
+        "{workspaceRoot}/packages/core/src/unstable/skills/axm-skill-compatibility.ts",
+        "{workspaceRoot}/packages/core/src/unstable/skills/skill-content.ts",
         "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/skill.json",
         "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/**/*"
       ],

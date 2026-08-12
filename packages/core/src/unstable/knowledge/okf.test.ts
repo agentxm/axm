@@ -3,12 +3,19 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { parseKnowledgeSearchQuery } from "./knowledge-search.js";
 import {
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
   openKnowledgeConcept,
   searchKnowledgeConcepts,
 } from "./okf.js";
+
+const search = (concepts: Parameters<typeof searchKnowledgeConcepts>[0], query: string) => {
+  const parsed = parseKnowledgeSearchQuery(query);
+  expect(parsed.ok).toBe(true);
+  return parsed.ok ? searchKnowledgeConcepts(concepts, parsed.query) : [];
+};
 
 layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format bundles", (it) => {
   it.effect("discovers typed concepts and preserves reserved index semantics", () =>
@@ -32,8 +39,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
         "index",
         "payments/refunds",
       ]);
-      expect(searchKnowledgeConcepts(inspected.concepts, "30 days")).toHaveLength(1);
-      expect(searchKnowledgeConcepts(inspected.concepts, "payments")).toHaveLength(2);
+      expect(search(inspected.concepts, '"30 days"')).toHaveLength(1);
+      expect(search(inspected.concepts, "payments")).toHaveLength(2);
       expect(openKnowledgeConcept(inspected.concepts, "payments/refunds")?.type).toBe("policy");
     }).pipe(Effect.scoped),
   );

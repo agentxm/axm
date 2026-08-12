@@ -216,6 +216,79 @@ describe("axm knowledge lifecycle", () => {
     }
   }, 30_000);
 
+  it("searches normalized tokens, phrases, and exact literals with stable validation", async () => {
+    const temp = createTempDir();
+    try {
+      const sourceRoot = path.join(temp.path, "knowledge-source");
+      createKnowledgePackage(sourceRoot);
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "architecture.md"),
+        [
+          "---",
+          "type: reference",
+          "description: Specification guide",
+          "tags: [source-of-truth]",
+          "---",
+          "# SpecDrivenDevelopment",
+          "",
+          "Treat the spec as authoritative.",
+          "",
+        ].join("\n"),
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "split.md"),
+        "---\ntype: reference\ndescription: boundary only\n---\n# Cross field\n",
+      );
+      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        agents: [],
+        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+      });
+      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
+
+      const cases = [
+        ["specification source of truth", 1],
+        ["spec as source", 1],
+        ["truth specification source", 1],
+        ["  SOURCE\tOF  TRUTH  ", 1],
+        ['"source of truth"', 1],
+        ['literal:"SOURCE-OF-TRUTH"', 1],
+        ['literal:"source of truth"', 0],
+        ["spec driven development", 1],
+        ["specifications", 0],
+        ["field boundary", 1],
+        ['"field boundary"', 0],
+        ["executed-zero-match", 0],
+      ] as const;
+      for (const [query, count] of cases) {
+        const result = await runCli(["knowledge", "search", query, "--json"], { cwd: temp.path });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, result: { query, count } });
+      }
+
+      for (const query of ["", " \t ", '""', 'literal:""']) {
+        const result = await runCli(["knowledge", "search", query, "--json"], { cwd: temp.path });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(9);
+        expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "validation" });
+      }
+
+      const help = await runCli(["help", "knowledge"], { cwd: temp.path });
+      expect(help.exitCode, help.stdout + help.stderr).toBe(0);
+      expect(help.stdout).toContain("Bare terms use all-terms matching");
+      expect(help.stdout).toContain('literal:"<text>"');
+      expect(help.stdout).toContain("never matches by spanning two searchable fields");
+      expect(help.stdout).toContain("fail validation instead of enumerating the corpus");
+    } finally {
+      temp.cleanup();
+    }
+  }, 60_000);
+
   it("converges configured local Knowledge through install, update, sync, activation, and uninstall", async () => {
     const temp = createTempDir();
 

@@ -4,7 +4,11 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { searchKnowledgeConcepts } from "@agentxm/client-core/unstable/knowledge";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  parseKnowledgeSearchQuery,
+  searchKnowledgeConcepts,
+} from "@agentxm/client-core/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
@@ -35,6 +39,10 @@ const ConceptTable = {
 } as const satisfies TableView<ConceptRow>;
 
 export const handleKnowledgeSearch = Effect.fn("Knowledge.search")(function* (query: string) {
+  const parsed = parseKnowledgeSearchQuery(query);
+  if (!parsed.ok) {
+    return yield* makeAppError({ code: "validation", detail: parsed.detail });
+  }
   const renderer = yield* CliRenderer;
   const bundles = yield* renderer.withSpinner(
     `Searching knowledge for "${query}"`,
@@ -42,7 +50,7 @@ export const handleKnowledgeSearch = Effect.fn("Knowledge.search")(function* (qu
     { successMessage: `Searched knowledge for "${query}"` },
   );
   const concepts = bundles.flatMap(({ name, inspection }) =>
-    searchKnowledgeConcepts(inspection.concepts, query).map((concept) => ({
+    searchKnowledgeConcepts(inspection.concepts, parsed.query).map((concept) => ({
       bundle: name,
       ...concept,
     })),
@@ -73,7 +81,9 @@ export const handleKnowledgeSearch = Effect.fn("Knowledge.search")(function* (qu
 
 const searchConfig = {
   query: Argument.string("query").pipe(
-    Argument.withDescription("Text to find across installed concepts"),
+    Argument.withDescription(
+      'All terms to find; use "phrase" for contiguous tokens or literal:"text" for exact punctuation',
+    ),
   ),
   ...scopeConfig,
 } as const;
@@ -86,7 +96,15 @@ export const searchCommand = Command.make("search", searchConfig, ({ query, scop
   Command.withExamples([
     {
       command: 'axm knowledge search "authentication"',
-      description: "Search concept metadata and content",
+      description: "Match all ordinary terms across concept metadata and content",
+    },
+    {
+      command: "axm knowledge search '\"source of truth\"'",
+      description: "Match a contiguous normalized phrase",
+    },
+    {
+      command: "axm knowledge search 'literal:\"source-of-truth\"'",
+      description: "Match exact authored punctuation and whitespace",
     },
   ]),
 );

@@ -211,9 +211,27 @@ AXM-managed Knowledge projections. Unknown files are preserved.
 
 - `axm knowledge list` (`ls`) — installed bundles with concept and diagnostic
   counts.
-- `axm knowledge search "<query>"` — match concept titles, descriptions, tags,
-  and bodies across every enabled bundle.
+- `axm knowledge search "<query>"` — match concept IDs, titles, descriptions,
+  tags, types, and bodies across every enabled bundle.
 - `axm knowledge open <bundle> <concept>` — print one concept by ID.
+
+Search uses a case-insensitive, Unicode-normalized lexical grammar:
+
+- Bare terms use all-terms matching. Term order does not matter, and separate
+  terms may match different fields of one concept.
+- Whitespace and punctuation delimit ordinary terms. Repeated spaces, tabs,
+  newlines, hyphens, underscores, and comparable punctuation are equivalent
+  boundaries; surrounding whitespace is ignored.
+- Camel-case and code-token boundaries split into terms. Terms match complete
+  tokens only; AXM does not stem words or match a term as a word substring.
+- A double-quoted phrase requires contiguous normalized tokens in one field,
+  so `"source of truth"` matches authored `source-of-truth`.
+- `literal:"<text>"` preserves the authored punctuation and whitespace. Literal
+  matching remains case-insensitive: `literal:"source-of-truth"` does not match
+  authored `source of truth`.
+- A term, phrase, or literal never matches by spanning two searchable fields.
+- Empty, whitespace-only, punctuation-only, empty-phrase, and empty-literal
+  queries fail validation instead of enumerating the corpus.
 
 `knowledge open --json` returns the existing concept fields plus optional
 `result.concept.frontmatter`, containing the complete parsed frontmatter
@@ -224,6 +242,8 @@ output do not include frontmatter.
 
 ```bash
 axm knowledge search "session"
+axm knowledge search '"source of truth"'
+axm knowledge search 'literal:"source-of-truth"'
 axm knowledge open platform auth/session-management
 ```
 

@@ -19,7 +19,11 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeOpen, KnowledgeOpenQueryResultSchema } from "./open.js";
@@ -249,6 +253,83 @@ describe("knowledge JSON output", () => {
           query: "Authentication",
           count: 1,
         });
+      }),
+    );
+  });
+
+  it.effect("search applies token, phrase, literal, and field-boundary semantics", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeKnowledgeExtension(axmDir, "platform");
+    const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
+    fs.writeFileSync(
+      path.join(packageRoot, "src", "spec.md"),
+      [
+        "---",
+        "type: reference",
+        "description: Specification guide",
+        "tags: [source-of-truth]",
+        "---",
+        "# SpecDrivenDevelopment",
+        "",
+        "Treat the spec as authoritative.",
+        "",
+      ].join("\n"),
+    );
+    fs.writeFileSync(
+      path.join(packageRoot, "src", "split.md"),
+      "---\ntype: reference\ndescription: boundary only\n---\n# Cross field\n",
+    );
+    writeWorkspaceFiles(axmDir, {
+      knowledge: { platform: "workspace:@acme/knowledge/platform" },
+      lockfileKnowledge: {
+        platform: {
+          type: "workspace",
+          owner: "@acme",
+          extensionType: "knowledge",
+          name: "platform",
+          version: "1.0.0",
+          sourceHash: computePackageContentHashSync(packageRoot),
+          installedAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        const cases = [
+          ["source of truth", 1],
+          ["truth specification source", 1],
+          ["  SOURCE\tOF  TRUTH  ", 1],
+          ['"source of truth"', 1],
+          ['literal:"SOURCE-OF-TRUTH"', 1],
+          ['literal:"source of truth"', 0],
+          ["spec driven development", 1],
+          ["specifications", 0],
+          ["field boundary", 1],
+          ['"field boundary"', 0],
+          ["definitely-absent", 0],
+        ] as const;
+        for (const [query, count] of cases) {
+          yield* handleKnowledgeSearch(query);
+          expect(rendererState.results.at(-1)?.data).toMatchObject({ query, count });
+        }
+      }),
+    );
+  });
+
+  it.effect("search rejects empty and malformed parsed queries as validation errors", () => {
+    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
+    return provide(
+      Effect.gen(function* () {
+        for (const query of ["", " \t ", '""', 'literal:""', '"unterminated']) {
+          const exit = yield* handleKnowledgeSearch(query).pipe(Effect.exit);
+          expect(Exit.isFailure(exit)).toBe(true);
+          if (Exit.isFailure(exit)) {
+            expect(getAppError(Cause.squash(exit.cause)).code).toBe("validation");
+          }
+        }
       }),
     );
   });

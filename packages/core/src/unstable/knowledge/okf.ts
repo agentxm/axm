@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
+import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
 /** OKF dialect versions this inspector understands. */
 export type OkfVersion = "0.2";
@@ -1209,16 +1210,9 @@ export const inspectKnowledgeBundle = (
 
 export const searchKnowledgeConcepts = (
   concepts: ReadonlyArray<KnowledgeConcept>,
-  query: string,
-): ReadonlyArray<KnowledgeConcept> => {
-  const needle = query.trim().toLocaleLowerCase();
-  if (needle.length === 0) return concepts;
-  return concepts.filter((concept) =>
-    `${concept.id}\n${concept.title}\n${concept.description ?? ""}\n${concept.tags?.join(" ") ?? ""}\n${concept.type ?? ""}\n${concept.body}`
-      .toLocaleLowerCase()
-      .includes(needle),
-  );
-};
+  query: KnowledgeSearchQuery,
+): ReadonlyArray<KnowledgeConcept> =>
+  concepts.filter((concept) => matchesKnowledgeSearchQuery(concept, query));
 
 export const openKnowledgeConcept = (
   concepts: ReadonlyArray<KnowledgeConcept>,

@@ -18,6 +18,15 @@ export {
   type KnowledgeDiagnosticCode,
   type KnowledgeInspection,
 } from "./okf.js";
+export {
+  KNOWLEDGE_SEARCH_TOKENIZER_PROFILE,
+  matchesKnowledgeSearchQuery,
+  parseKnowledgeSearchQuery,
+  tokenizeKnowledgeSearchText,
+  type KnowledgeSearchClause,
+  type KnowledgeSearchQuery,
+  type KnowledgeSearchQueryParseResult,
+} from "./knowledge-search.js";
 export { inspectKnowledgePackage } from "./package-inspection.js";
 export type {
   GitHostedKnowledgeRef,

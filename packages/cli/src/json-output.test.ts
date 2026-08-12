@@ -116,6 +116,57 @@ describe("toPlanResolutionResult", () => {
     });
   });
 
+  it("maps release-age holdback and bypass evidence", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Update extensions",
+      description: Option.none(),
+      releaseAge: {
+        evaluatedAt: "2026-08-12T00:00:00.000Z",
+        holdbacks: [
+          {
+            reason: "minimum-release-age",
+            target: "@acme/packs/toolkit",
+            dependencyPath: ["@acme/packs/toolkit", "@acme/skills/review"],
+            requestedRange: "^1.0.0",
+            selectedVersion: "1.0.0",
+            candidateVersion: "1.1.0",
+            publishedAt: "2026-08-11T12:00:00.000Z",
+            eligibleAt: "2026-08-12T12:00:00.000Z",
+            minimumReleaseAgeSeconds: 86_400,
+          },
+        ],
+        bypasses: [
+          {
+            reason: "minimum-release-age",
+            target: "@acme/skills/direct",
+            dependencyPath: ["@acme/skills/direct"],
+            candidateVersion: "2.0.0",
+            publishedAt: "2026-08-11T18:00:00.000Z",
+            eligibleAt: "2026-08-12T18:00:00.000Z",
+            minimumReleaseAgeSeconds: 86_400,
+          },
+        ],
+      },
+      jobs: [{ concurrency: 1, steps: [] }],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toMatchObject({
+      evaluatedAt: "2026-08-12T00:00:00.000Z",
+      holdbackCount: 1,
+      holdbacks: [
+        {
+          target: "@acme/packs/toolkit",
+          dependencyPath: ["@acme/packs/toolkit", "@acme/skills/review"],
+          selectedVersion: "1.0.0",
+          candidateVersion: "1.1.0",
+        },
+      ],
+      releaseAgeBypassCount: 1,
+      releaseAgeBypasses: [{ target: "@acme/skills/direct", candidateVersion: "2.0.0" }],
+    });
+  });
+
   it("includes destructive targets in preview JSON", () => {
     const resolution: PreviewedPlan = {
       _tag: "PreviewedPlan",

@@ -103,15 +103,26 @@ export {
   extractZip,
   pluralizeType,
   resolveVersionEntry,
+  resolveVersionEntryForReleaseAge,
   resolveVersionEntryWithReleaseAge,
   selectVersion,
 } from "./utils.js";
+export type { ReleaseAgeVersionResolution } from "./utils.js";
 
 export {
   DEFAULT_MINIMUM_RELEASE_AGE,
   DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
   filterMatureVersions,
+  isVersionEntryEligibleAt,
   isVersionEntryMature,
   parseMinimumReleaseAge,
+  releaseAgeEvidence,
+  normalizeReleaseAgeRecords,
   releaseAgeHoldbackWarning,
+} from "./release-age-policy.js";
+export type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeOperationEvidence,
+  ReleaseAgeRecord,
 } from "./release-age-policy.js";

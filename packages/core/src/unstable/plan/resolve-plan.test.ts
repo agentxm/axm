@@ -25,9 +25,26 @@ import {
 import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
+import { makeExecutionCandidate } from "./execution-candidate.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
+const releaseAge = {
+  evaluatedAt: "2026-08-12T00:00:00.000Z",
+  holdbacks: [
+    {
+      reason: "minimum-release-age" as const,
+      target: "@acme/skills/code-review",
+      dependencyPath: ["@acme/skills/code-review"],
+      selectedVersion: "1.0.0",
+      candidateVersion: "1.1.0",
+      publishedAt: "2026-08-11T12:00:00.000Z",
+      eligibleAt: "2026-08-12T12:00:00.000Z",
+      minimumReleaseAgeSeconds: 86_400,
+    },
+  ],
+  bypasses: [],
+};
 
 const makeTestContext = (
   confirmApplyChanges?: () => Effect.Effect<boolean>,
@@ -60,6 +77,7 @@ describe("previewOrApplyPlan", () => {
       _tag: "Plan",
       name: "Install skill",
       description: Option.none(),
+      releaseAge,
       jobs: [
         {
           concurrency: 1,
@@ -83,6 +101,7 @@ describe("previewOrApplyPlan", () => {
       });
 
       expect(result._tag).toBe("PreviewedPlan");
+      expect(result.releaseAge).toEqual(releaseAge);
       expect(appliedCount).toBe(0);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
@@ -94,6 +113,7 @@ describe("previewOrApplyPlan", () => {
       _tag: "Plan",
       name: "Install skill",
       description: Option.none(),
+      releaseAge,
       jobs: [
         {
           concurrency: 1,
@@ -162,6 +182,7 @@ describe("previewOrApplyPlan", () => {
       _tag: "Plan",
       name: "Install skill",
       description: Option.none(),
+      releaseAge,
       jobs: [
         {
           concurrency: 1,
@@ -185,6 +206,7 @@ describe("previewOrApplyPlan", () => {
       });
 
       expect(result._tag).toBe("ExecutedPlan");
+      expect(result.releaseAge).toEqual(releaseAge);
       expect(appliedCount).toBe(1);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
@@ -207,6 +229,7 @@ describe("previewOrApplyPlan", () => {
       _tag: "Plan",
       name: "Install skill",
       description: Option.none(),
+      releaseAge,
       riskConditions: [
         {
           level: "confirmable",
@@ -237,6 +260,7 @@ describe("previewOrApplyPlan", () => {
       });
 
       expect(result._tag).toBe("CancelledPlan");
+      expect(result.releaseAge).toEqual(releaseAge);
       expect(displayedBeforeConfirmation).toBe(true);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(1);
       expect(appliedCount).toBe(0);
@@ -250,6 +274,7 @@ describe("previewOrApplyPlan", () => {
       _tag: "Plan",
       name: "Install skills",
       description: Option.none(),
+      releaseAge,
       jobs: [
         {
           concurrency: 1,
@@ -281,6 +306,7 @@ describe("previewOrApplyPlan", () => {
         _tag: "FailedPlan",
         reason: "hard-blocked",
         errorCode: "conflict",
+        releaseAge,
       });
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
       expect(appliedCount).toBe(0);
@@ -305,6 +331,29 @@ describe("previewOrApplyPlan", () => {
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
+
+  it.effect("includes release-age evidence in execution candidate identity", () =>
+    Effect.gen(function* () {
+      const base: Plan = {
+        _tag: "Plan",
+        name: "Update skill",
+        description: Option.none(),
+        jobs: [{ concurrency: 1, steps: [] }],
+      };
+      const withoutEvidence = yield* makeExecutionCandidate(
+        base,
+        "/tmp/axm-candidate/.axm",
+        "/tmp",
+      );
+      const withEvidence = yield* makeExecutionCandidate(
+        { ...base, releaseAge },
+        "/tmp/axm-candidate/.axm",
+        "/tmp",
+      );
+
+      expect(withEvidence.id).not.toBe(withoutEvidence.id);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it.effect("requires deterministic approval for confirmable risk in non-interactive mode", () => {
     let appliedCount = 0;

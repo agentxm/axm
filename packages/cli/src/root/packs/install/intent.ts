@@ -9,10 +9,13 @@
 import type * as Option from "effect/Option";
 import type { PackRef } from "@agentxm/client-core/unstable/packs";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { ReleaseAgeEvaluation } from "@agentxm/client-core/unstable/registry";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;
   readonly versionRange: Option.Option<VersionRange>;
   readonly unattended?: boolean;
+  readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
+  readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
   readonly diagnosticLines?: ReadonlyArray<string>;
 }

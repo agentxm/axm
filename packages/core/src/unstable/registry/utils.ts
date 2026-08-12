@@ -22,7 +22,13 @@ import type { Handle } from "../extensions/handle.js";
 import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
-import { filterMatureVersions } from "./release-age-policy.js";
+import {
+  filterMatureVersions,
+  isVersionEntryEligibleAt,
+  releaseAgeEvidence,
+  type ReleaseAgeEvaluation,
+  type ReleaseAgeEvidence,
+} from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection
@@ -103,6 +109,58 @@ export const resolveVersionEntryWithReleaseAge = (
   return filterMatureVersions(versions, minimumReleaseAge.value).pipe(
     Effect.map((mature) => resolveVersionEntry(mature, versionRange)),
   );
+};
+
+export type ReleaseAgeVersionResolution =
+  | {
+      readonly kind: "selected";
+      readonly version: VersionEntry;
+      readonly newerHeld?: ReleaseAgeEvidence;
+      readonly bypassed?: ReleaseAgeEvidence;
+    }
+  | { readonly kind: "version_unsatisfied" }
+  | { readonly kind: "policy_held"; readonly candidate: ReleaseAgeEvidence };
+
+/**
+ * Resolve one visible Registry index under one caller-supplied release-age
+ * evaluation. The supplied timestamp makes a complete operation deterministic.
+ */
+export const resolveVersionEntryForReleaseAge = (
+  versions: ReadonlyArray<VersionEntry>,
+  versionRange: Option.Option<string>,
+  evaluation: ReleaseAgeEvaluation,
+): ReleaseAgeVersionResolution => {
+  const otherwiseSelected = resolveVersionEntry(versions, versionRange);
+  if (Option.isNone(otherwiseSelected)) {
+    return { kind: "version_unsatisfied" };
+  }
+
+  const candidate = otherwiseSelected.value;
+  const candidateEligible = isVersionEntryEligibleAt(candidate, evaluation);
+  if (evaluation.mode === "ignore") {
+    return {
+      kind: "selected",
+      version: candidate,
+      ...(candidateEligible ? {} : { bypassed: releaseAgeEvidence(candidate, evaluation) }),
+    };
+  }
+
+  const eligible = versions.filter((entry) => isVersionEntryEligibleAt(entry, evaluation));
+  const selected = resolveVersionEntry(eligible, versionRange);
+  if (Option.isNone(selected)) {
+    return {
+      kind: "policy_held",
+      candidate: releaseAgeEvidence(candidate, evaluation),
+    };
+  }
+
+  return {
+    kind: "selected",
+    version: selected.value,
+    ...(candidate.version === selected.value.version || candidateEligible
+      ? {}
+      : { newerHeld: releaseAgeEvidence(candidate, evaluation) }),
+  };
 };
 
 // -----------------------------------------------------------------------------

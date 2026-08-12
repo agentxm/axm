@@ -74,6 +74,7 @@ const managerLayer = (
     ),
     Layer.provide(
       Layer.succeed(SourceHostProviders, {
+        resolveNamedRegistry: () => Effect.die("not used"),
         find: () => Effect.succeed([]),
         fetch: () => Effect.fail(makeAppError({ code: "validation", detail: "not used" })),
         cloneUrl: () => Option.none(),

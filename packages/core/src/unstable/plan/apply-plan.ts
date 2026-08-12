@@ -198,6 +198,7 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
       _tag: "ExecutedPlan",
       name: plan.name,
       description: plan.description,
+      ...(plan.releaseAge === undefined ? {} : { releaseAge: plan.releaseAge }),
       ...(plan.preconditions === undefined ? {} : { preconditions: plan.preconditions }),
       ...(plan.riskConditions === undefined ? {} : { riskConditions: plan.riskConditions }),
       jobs: Array.map(jobResults, (steps, i) => ({

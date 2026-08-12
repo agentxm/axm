@@ -94,6 +94,7 @@ const makeMockProviders = (
 } => {
   const findCalls: Array<{ source: unknown; options: FindOptions }> = [];
   const service: SourceHostProvidersService = {
+    resolveNamedRegistry: () => Effect.die("not used"),
     find: (source, options) => {
       findCalls.push({ source, options });
       return Effect.succeed(findResult);

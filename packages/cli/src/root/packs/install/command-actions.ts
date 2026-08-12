@@ -9,6 +9,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -27,7 +28,10 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import {
+  versionSatisfiesRange,
+  type VersionRange,
+} from "@agentxm/client-core/unstable/version-constraints";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
@@ -40,6 +44,7 @@ import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unsta
 import {
   PackManager,
   expandPackInstallRefs,
+  expandPackInstallRefsWithReleaseAge,
   type PackRef,
 } from "@agentxm/client-core/unstable/packs";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
@@ -71,7 +76,11 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { parseMinimumReleaseAge } from "@agentxm/client-core/unstable/registry";
+import {
+  parseMinimumReleaseAge,
+  normalizeReleaseAgeRecords,
+  type ReleaseAgeEvaluation,
+} from "@agentxm/client-core/unstable/registry";
 import type {
   HookExtensionTarget,
   KnowledgeExtensionTarget,
@@ -80,6 +89,10 @@ import type {
   SkillExtensionTarget,
   SubagentExtensionTarget,
   DesiredStateGraph,
+} from "@agentxm/client-core/unstable/workspace";
+import {
+  usableTrustedCanonical,
+  validateDesiredPackTrust,
 } from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
@@ -94,6 +107,8 @@ import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../gra
 export interface InstallPackHandlerArgs {
   readonly source: string;
   readonly unattended?: boolean;
+  readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
+  readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
 }
 
 /** Parsed and validated pack install args. */
@@ -105,6 +120,8 @@ export interface ParsedPackInstallArgs {
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
   readonly sourceResolution?: string;
   readonly unattended: boolean;
+  readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
+  readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
 }
 
 /** Source request for pack registry lookup. */
@@ -435,6 +452,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
                 resolvedInput: trimmed,
                 unattended: args.unattended ?? false,
+                ...(args.releaseAgeEvaluation === undefined
+                  ? {}
+                  : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
+                ...(args.releaseAgeHoldbackBehavior === undefined
+                  ? {}
+                  : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
               };
             }
 
@@ -476,6 +499,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               resolvedInput,
               sourceResolution: `${trimmed} -> ${resolvedInput}`,
               unattended: args.unattended ?? false,
+              ...(args.releaseAgeEvaluation === undefined
+                ? {}
+                : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
+              ...(args.releaseAgeHoldbackBehavior === undefined
+                ? {}
+                : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
             };
           }
 
@@ -727,6 +756,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           packToInstall: packRef,
           versionRange: parsed.versionRange,
           unattended: parsed.unattended,
+          ...(parsed.releaseAgeEvaluation === undefined
+            ? {}
+            : { releaseAgeEvaluation: parsed.releaseAgeEvaluation }),
+          ...(parsed.releaseAgeHoldbackBehavior === undefined
+            ? {}
+            : { releaseAgeHoldbackBehavior: parsed.releaseAgeHoldbackBehavior }),
           ...(discovery.diagnosticLines !== undefined
             ? { diagnosticLines: discovery.diagnosticLines }
             : {}),
@@ -736,19 +771,116 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const buildPlan = (intent: InstallPackCommandIntent) =>
       Effect.gen(function* () {
         const minimumReleaseAge = yield* resolveMinimumReleaseAge(ws, intent.unattended ?? false);
-        const refs = yield* expandPackInstallRefs({
-          pack: intent.packToInstall,
-          supportedDependencyTypes: [
-            "skill",
-            "mcp-server",
-            "subagent",
-            "rule",
-            "hook",
-            "knowledge",
-          ],
-          sources,
-          minimumReleaseAge,
-        });
+        const supportedDependencyTypes = [
+          "skill",
+          "mcp-server",
+          "subagent",
+          "rule",
+          "hook",
+          "knowledge",
+        ] as const;
+        const expansion =
+          intent.releaseAgeEvaluation === undefined
+            ? {
+                kind: "selected" as const,
+                refs: yield* expandPackInstallRefs({
+                  pack: intent.packToInstall,
+                  supportedDependencyTypes,
+                  sources,
+                  minimumReleaseAge,
+                }),
+                holdbacks: [],
+                bypasses: [],
+              }
+            : yield* expandPackInstallRefsWithReleaseAge({
+                pack: intent.packToInstall,
+                supportedDependencyTypes,
+                sources,
+                releaseAgeEvaluation: intent.releaseAgeEvaluation,
+              });
+        const releaseAge =
+          intent.releaseAgeEvaluation === undefined
+            ? undefined
+            : {
+                evaluatedAt: DateTime.formatIso(intent.releaseAgeEvaluation.evaluatedAt),
+                holdbacks: normalizeReleaseAgeRecords(expansion.holdbacks),
+                bypasses: normalizeReleaseAgeRecords(expansion.bypasses),
+              };
+        if (expansion.kind === "policy_held") {
+          let preservable = false;
+          if (intent.releaseAgeHoldbackBehavior === "preserve-or-block") {
+            const initialGraph = yield* ws.getDesiredStateGraph();
+            const trust = yield* ws.getTrustState();
+            const graph = yield* provide(
+              validateDesiredPackTrust({
+                baseDir: ws.baseDir,
+                graph: initialGraph,
+                trust,
+              }),
+            );
+            if (graph.complete) {
+              const currentPack = yield* provide(
+                usableTrustedCanonical({
+                  workspace: ws,
+                  type: "pack",
+                  name: intent.packToInstall.pack.name,
+                }),
+              );
+              if (
+                Option.isSome(currentPack) &&
+                currentPack.value.ref.refType === "registry" &&
+                currentPack.value.ref.owner === intent.packToInstall.owner &&
+                currentPack.value.ref.name === intent.packToInstall.name &&
+                (Option.isNone(intent.versionRange) ||
+                  versionSatisfiesRange(currentPack.value.ref.version, intent.versionRange.value))
+              ) {
+                const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+                const nodes = graph.nodes.filter(
+                  (node) =>
+                    (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
+                    node.origins.some(
+                      (origin) => origin.type === "pack" && origin.pack === packIdentity,
+                    ),
+                );
+                const usable = yield* Effect.forEach(nodes, (node) =>
+                  provide(
+                    usableTrustedCanonical({
+                      workspace: ws,
+                      type: node.type,
+                      name: node.name,
+                    }),
+                  ).pipe(Effect.map(Option.isSome)),
+                );
+                preservable = usable.every((value) => value);
+              }
+            }
+          }
+          const blocked = intent.releaseAgeHoldbackBehavior === "preserve-or-block" && !preservable;
+          return {
+            _tag: "Plan",
+            name: "Install pack",
+            description: Option.some(
+              blocked
+                ? "The selected pack graph includes a release held by minimumReleaseAge"
+                : "The current pack graph is unchanged while a required release ages",
+            ),
+            jobs: [],
+            ...(releaseAge === undefined ? {} : { releaseAge }),
+            ...(blocked
+              ? {
+                  riskConditions: [
+                    {
+                      level: "blocked" as const,
+                      id: "minimum-release-age",
+                      detail: "The selected pack graph has no complete trusted usable fallback.",
+                      errorCode: "conflict" as const,
+                    },
+                  ],
+                }
+              : {}),
+          } satisfies Plan;
+        }
+        const refs = expansion.refs;
         const graph = yield* ws.getDesiredStateGraph();
         // Installing is also the repair path for a configured pack whose
         // canonical manifest or trust baseline is unavailable. Preserve
@@ -1009,6 +1141,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               ? Option.none()
               : Option.some(intent.diagnosticLines.join("\n")),
           jobs: [{ concurrency: 1, steps: [graphStep] }],
+          ...(releaseAge === undefined ? {} : { releaseAge }),
           sections: [
             {
               title: "Pack graph transition",

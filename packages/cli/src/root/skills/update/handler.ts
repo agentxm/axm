@@ -11,6 +11,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
 import type * as Duration from "effect/Duration";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -33,9 +34,13 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   createRegistryClient,
-  filterMatureVersions,
+  isVersionEntryEligibleAt,
+  normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
+  releaseAgeEvidence,
   releaseAgeHoldbackWarning,
+  type ReleaseAgeEvaluation,
+  type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
@@ -83,13 +88,25 @@ type ResolveResult =
       readonly ref: SkillExtensionRef;
       readonly versionRange: Option.Option<string>;
       readonly warnings: ReadonlyArray<string>;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
     }
   | {
       readonly type: "skip";
       readonly name: string;
       readonly source: string;
       readonly reason: string;
+      readonly holdback?: ReleaseAgeRecord;
     };
+
+type RegistrySkillConstraintResolution =
+  | {
+      readonly kind: "selected";
+      readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
+      readonly versionRange: Option.Option<string>;
+      readonly warnings: ReadonlyArray<string>;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+    }
+  | { readonly kind: "policy_held"; readonly record: ReleaseAgeRecord };
 
 const skippedSkillStep = (
   outcome: Extract<ResolveResult, { readonly type: "skip" }>,
@@ -131,6 +148,20 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
+  const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
+  const minimumReleaseAge = parseMinimumReleaseAge(minimumReleaseAgeText);
+  if (Option.isNone(minimumReleaseAge)) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Invalid minimumReleaseAge "${minimumReleaseAgeText}"`,
+      recover: "Use a duration such as 24h, 1440m, or 0s.",
+    });
+  }
+  const releaseAgeEvaluation = {
+    minimumReleaseAge: minimumReleaseAge.value,
+    evaluatedAt: yield* DateTime.now,
+    mode: "enforce",
+  } satisfies ReleaseAgeEvaluation;
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
@@ -224,16 +255,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     lookupName,
     userConstraint,
     packConstraints,
-    minimumAge,
-    minimumReleaseAge,
+    evaluation,
   }: {
     readonly source: RegistrySource;
     readonly owner: Handle;
     readonly lookupName: ExtensionName;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
-    readonly minimumAge: Duration.Duration;
-    readonly minimumReleaseAge: string;
+    readonly evaluation: ReleaseAgeEvaluation;
   }) =>
     Effect.gen(function* () {
       const location =
@@ -245,11 +274,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         name: lookupName,
       });
       if (Option.isNone(indexOption)) {
-        return Option.none<{
-          readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
-          readonly versionRange: Option.Option<string>;
-          readonly warnings: ReadonlyArray<string>;
-        }>();
+        return Option.none<RegistrySkillConstraintResolution>();
       }
 
       const skillFqn = `${owner}/skills/${lookupName}`;
@@ -265,20 +290,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
       }
 
-      const matureVersions = (yield* filterMatureVersions(
-        indexOption.value.versions,
-        minimumAge,
-      )).map((entry) => entry.version);
-      if (matureVersions.length === 0) {
-        return Option.none<{
-          readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
-          readonly versionRange: Option.Option<string>;
-          readonly warnings: ReadonlyArray<string>;
-        }>();
-      }
-
-      const resolvedVersion = resolveConstrainedVersion(matureVersions, constraints, skillFqn);
-      if (Option.isNone(resolvedVersion)) {
+      const desiredVersion = resolveConstrainedVersion(
+        indexOption.value.versions.map((entry) => entry.version),
+        constraints,
+        skillFqn,
+      );
+      if (Option.isNone(desiredVersion)) {
         const constraintLabel = Option.match(userConstraint, {
           onNone: () => "the configured constraints",
           onSome: (constraint) => `"${constraint}"`,
@@ -289,12 +306,41 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           recover: "Relax the version constraint or update the dependent pack constraints",
         });
       }
+      const desiredEntry = indexOption.value.versions.find(
+        (entry) => entry.version === desiredVersion.value.resolvedVersion,
+      );
+      if (desiredEntry === undefined) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Resolved version "${desiredVersion.value.resolvedVersion}" for "${skillFqn}" is missing from its Registry index`,
+        });
+      }
+      const matureVersions = indexOption.value.versions
+        .filter((entry) => isVersionEntryEligibleAt(entry, evaluation))
+        .map((entry) => entry.version);
+      const resolvedVersion = resolveConstrainedVersion(matureVersions, constraints, skillFqn);
+      if (Option.isNone(resolvedVersion)) {
+        const evidence = releaseAgeEvidence(desiredEntry, evaluation);
+        return Option.some<RegistrySkillConstraintResolution>({
+          kind: "policy_held" as const,
+          record: {
+            reason: "minimum-release-age" as const,
+            target: skillFqn,
+            dependencyPath: [skillFqn],
+            ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
+            candidateVersion: evidence.version,
+            publishedAt: evidence.publishedAt,
+            eligibleAt: evidence.eligibleAt,
+            minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
+          },
+        });
+      }
 
       const exactRefs = yield* findSkillRefs(source, {
         skillNames: [lookupName],
         owner: Option.some(owner),
         versionRange: Option.some(resolvedVersion.value.resolvedVersion),
-        minimumReleaseAge: Option.some(minimumAge),
+        minimumReleaseAge: Option.some(evaluation.minimumReleaseAge),
       });
       const exactRef = exactRefs.find(
         (ref): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
@@ -311,18 +357,42 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
       }
 
-      return Option.some({
+      const newerHeld =
+        desiredEntry.version === resolvedVersion.value.resolvedVersion ||
+        isVersionEntryEligibleAt(desiredEntry, evaluation)
+          ? []
+          : (() => {
+              const evidence = releaseAgeEvidence(desiredEntry, evaluation);
+              return [
+                {
+                  reason: "minimum-release-age" as const,
+                  target: skillFqn,
+                  dependencyPath: [skillFqn],
+                  ...(Option.isSome(userConstraint)
+                    ? { requestedRange: userConstraint.value }
+                    : {}),
+                  selectedVersion: resolvedVersion.value.resolvedVersion,
+                  candidateVersion: evidence.version,
+                  publishedAt: evidence.publishedAt,
+                  eligibleAt: evidence.eligibleAt,
+                  minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
+                },
+              ];
+            })();
+      return Option.some<RegistrySkillConstraintResolution>({
+        kind: "selected" as const,
         ref: exactRef,
         versionRange: userConstraint,
+        holdbacks: newerHeld,
         warnings: [
-          ...(resolvedVersion.value.resolvedVersion === latestVersion
+          ...(newerHeld.length === 0
             ? []
             : [
                 releaseAgeHoldbackWarning({
                   fqn: skillFqn,
                   selectedVersion: resolvedVersion.value.resolvedVersion,
-                  heldVersion: latestVersion,
-                  minimumReleaseAge,
+                  heldVersion: desiredEntry.version,
+                  minimumReleaseAge: minimumReleaseAgeText,
                 }),
               ]),
           ...resolvedVersion.value.warnings,
@@ -359,15 +429,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             reason: `Skill "${name}" is workspace-sourced and unchanged`,
           } satisfies ResolveResult;
         }
-        const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-        const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
-        if (Option.isNone(minimumAge)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
-            recover: "Use a duration such as 24h, 1440m, or 0s.",
-          });
-        }
         const source = yield* resolveSource(sourceStr);
         const registryPattern = toRegistrySkillPattern(sourceStr);
 
@@ -384,15 +445,24 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 : Option.some(registryPattern.value.versionRange),
             packConstraints:
               packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ?? [],
-            minimumAge: minimumAge.value,
-            minimumReleaseAge,
+            evaluation: releaseAgeEvaluation,
           });
           if (Option.isSome(registryResolved)) {
+            if (registryResolved.value.kind === "policy_held") {
+              return {
+                type: "skip",
+                name,
+                source: sourceStr,
+                reason: `Skill "${name}" is held by minimumReleaseAge until ${registryResolved.value.record.eligibleAt}`,
+                holdback: registryResolved.value.record,
+              } satisfies ResolveResult;
+            }
             return {
               type: "match",
               ref: registryResolved.value.ref,
               versionRange: registryResolved.value.versionRange,
               warnings: registryResolved.value.warnings,
+              holdbacks: registryResolved.value.holdbacks,
             } satisfies ResolveResult;
           }
         }
@@ -406,7 +476,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           skillNames: [name],
           owner: requestedOwner,
           versionRange: Option.none(),
-          minimumReleaseAge: Option.some(minimumAge.value),
+          minimumReleaseAge: Option.some(releaseAgeEvaluation.minimumReleaseAge),
         });
         const skillRef = namedRefs.find((r) => r.skill.name === name);
 
@@ -416,6 +486,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             ref: skillRef,
             versionRange: Option.none(),
             warnings: [],
+            holdbacks: [],
           } satisfies ResolveResult;
         }
 
@@ -450,7 +521,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     resolved.length === 0 &&
     Option.isSome(args.source) &&
     skipped.length > 0 &&
-    skipped.every((item) => !isWorkspaceSourceLocator(item.source))
+    skipped.every((item) => !isWorkspaceSourceLocator(item.source) && item.holdback === undefined)
   ) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
@@ -565,6 +636,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         };
   const basePlanWithWarnings: Plan = {
     ...basePlan,
+    releaseAge: {
+      evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
+      holdbacks: normalizeReleaseAgeRecords([
+        ...resolved.flatMap((item) => item.holdbacks),
+        ...skipped.flatMap((item) => (item.holdback === undefined ? [] : [item.holdback])),
+      ]),
+      bypasses: [],
+    },
     jobs: basePlan.jobs.map((job) => ({
       ...job,
       steps: job.steps.map((step) => {
@@ -576,7 +655,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       }),
     })),
   };
-  const skippedSteps = [...skipped, ...disabledSkillEntries].map((item) => skippedSkillStep(item));
+  const skippedSteps = [
+    ...skipped.filter((item) => item.holdback === undefined),
+    ...disabledSkillEntries,
+  ].map((item) => skippedSkillStep(item));
   const [firstJob, ...restJobs] = basePlanWithWarnings.jobs;
   const plan: Plan =
     skippedSteps.length === 0

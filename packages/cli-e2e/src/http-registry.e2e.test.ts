@@ -93,6 +93,22 @@ const configureRegistry = (workspacePath: string, location: string) => {
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
+const configureMinimumReleaseAge = (workspacePath: string, value: string) => {
+  const settingsPath = settingsPathIn(workspacePath);
+  const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  if (!isRecord(settings)) throw new Error("Expected settings object");
+  settings["minimumReleaseAge"] = value;
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+};
+
+const structuredPlanResult = (stdout: string): Record<string, unknown> => {
+  const output: unknown = JSON.parse(stdout);
+  if (!isRecord(output) || !isRecord(output["result"])) {
+    throw new Error("Expected structured plan result");
+  }
+  return output["result"];
+};
+
 const initWorkspace = async (workspacePath: string, location: string) => {
   const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
     cwd: workspacePath,
@@ -198,6 +214,94 @@ describe("HTTP registry transport", () => {
         status: 201,
       });
     } finally {
+      await registry.close();
+    }
+  });
+
+  it("reports root and targeted holdbacks and an explicit targeted bypass", async () => {
+    const registry = await startHttpRegistry();
+    const publisher = createTempDir();
+    const consumer = createTempDir();
+    const env = registryEnv(registry.url);
+
+    try {
+      await initWorkspace(publisher.path, registry.url);
+      const created = await runCli(
+        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: publisher.path, env },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+      const firstPublished = registry.publishes[0];
+      if (firstPublished === undefined) throw new Error("Expected first published skill version");
+
+      await initWorkspace(consumer.path, registry.url);
+      const installed = await runCli(["install", `${OWNER}/skills/review`, "--yes"], {
+        cwd: consumer.path,
+        env,
+      });
+      expect(installed.exitCode, installed.stderr).toBe(0);
+      configureMinimumReleaseAge(consumer.path, "365d");
+
+      const bumped = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(bumped.exitCode, bumped.stderr).toBe(0);
+      const secondPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(secondPublish.exitCode, secondPublish.stderr).toBe(0);
+      const secondPublished = registry.publishes[1];
+      if (secondPublished === undefined) throw new Error("Expected second published skill version");
+
+      const root = await runCli(["update", "--yes", "--json"], { cwd: consumer.path, env });
+      expect(root.exitCode, `${root.stderr}\n${root.stdout}`).toBe(0);
+      expect(structuredPlanResult(root.stdout)).toMatchObject({
+        outcome: "no-op",
+        holdbackCount: 1,
+        holdbacks: [
+          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+        ],
+      });
+
+      const targeted = await runCli(["update", `${OWNER}/skills/review`, "--yes", "--json"], {
+        cwd: consumer.path,
+        env,
+      });
+      expect(targeted.exitCode, `${targeted.stderr}\n${targeted.stdout}`).toBe(0);
+      expect(structuredPlanResult(targeted.stdout)).toMatchObject({
+        outcome: "no-op",
+        holdbacks: [
+          {
+            target: `${OWNER}/skills/review`,
+            currentVersion: firstPublished.version,
+            selectedVersion: firstPublished.version,
+            candidateVersion: secondPublished.version,
+          },
+        ],
+      });
+
+      const bypass = await runCli(
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        { cwd: consumer.path, env },
+      );
+      expect(bypass.exitCode, `${bypass.stderr}\n${bypass.stdout}`).toBe(0);
+      expect(structuredPlanResult(bypass.stdout)).toMatchObject({
+        outcome: "applied",
+        releaseAgeBypassCount: 1,
+        releaseAgeBypasses: [
+          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+        ],
+      });
+    } finally {
+      publisher.cleanup();
+      consumer.cleanup();
       await registry.close();
     }
   });

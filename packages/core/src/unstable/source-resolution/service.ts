@@ -24,6 +24,8 @@ import type { ExtensionRef } from "../extensions/index.js";
 import type {
   ExtensionFiles,
   FindOptions,
+  NamedRegistryFindOptions,
+  NamedRegistryResolution,
   GitHostingSource,
   RegistrySource,
   Source,
@@ -53,6 +55,11 @@ export interface SourceHostProvidersService {
     source: Source,
     options: FindOptions,
   ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, Scope.Scope>;
+  /** Resolve one explicit Registry target with a typed selection outcome. */
+  readonly resolveNamedRegistry: (
+    source: RegistrySource,
+    options: NamedRegistryFindOptions,
+  ) => Effect.Effect<NamedRegistryResolution, AppError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
@@ -154,6 +161,13 @@ export const createRegistryMetaProvider = () => ({
       const provider = yield* createRegistrySourceHostProviderFromHost(source);
       const registrySource: RegistrySource = { ...source, owner };
       return yield* provider.find(registrySource, options);
+    }),
+
+  resolveNamed: (source: RegistrySource, options: NamedRegistryFindOptions) =>
+    Effect.gen(function* () {
+      const provider = yield* createRegistrySourceHostProviderFromHost(source);
+      const registrySource: RegistrySource = { ...source, owner: Option.some(options.owner) };
+      return yield* provider.resolveNamed(registrySource, options);
     }),
 
   fetch: (source: RegistrySource, ref: ExtensionRef) =>
@@ -266,6 +280,13 @@ export const SourceHostProvidersLive: Layer.Layer<
     const service: SourceHostProvidersService = {
       find: (source, options) =>
         findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
+      resolveNamedRegistry: (source, options) =>
+        registryMetaProvider
+          .resolveNamed(source, options)
+          .pipe(
+            Effect.provide(depLayer),
+            Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
+          ),
       fetch: (ref) => {
         const source = ref.source;
         return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));

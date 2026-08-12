@@ -54,6 +54,14 @@ that workspace version does not satisfy the constraint, AXM fails without
 falling back to the Registry. Registry resolution is used only when there is no
 matching configured workspace authority.
 
+Minimum release age applies to the pack and every Registry-resolved member as
+one atomic graph. A held member holds the complete pack graph: workspace-wide
+update leaves that graph unchanged and continues, while a targeted update
+preserves the complete trusted, usable graph or stops without writing. A
+targeted `axm update @owner/packs/name --ignore-release-age` bypasses the policy
+for the pack and all of its Registry dependencies for that invocation, and the
+result identifies each bypass by dependency path.
+
 Configured pack manifests expand desired state across skills, MCP servers,
 subagents, rules, hooks, and knowledge bundles. AXM
 keeps owner, type, locator, and constraints when combining direct and pack

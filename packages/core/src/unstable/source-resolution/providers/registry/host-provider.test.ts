@@ -13,6 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -222,6 +223,136 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+});
+
+describe("RegistrySourceHostProvider.resolveNamed", () => {
+  const evaluation = {
+    minimumReleaseAge: Duration.hours(24),
+    evaluatedAt: DateTime.makeUnsafe("2025-01-03T00:00:00Z"),
+    mode: "enforce" as const,
+  };
+  const options = {
+    name: "my-skill",
+    type: "skill" as const,
+    owner: handle("@test"),
+    versionRange: Option.none<string>(),
+    releaseAgeEvaluation: evaluation,
+  };
+
+  it.effect("returns not_found from one index read when the target is not visible", () => {
+    let reads = 0;
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () => {
+          reads += 1;
+          return Effect.succeed(Option.none());
+        },
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, options);
+        expect(result).toEqual({ kind: "not_found", target: "@test/skills/my-skill" });
+        expect(reads).toBe(1);
+      }),
+    );
+  });
+
+  it.effect("distinguishes a visible unsatisfied range", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [makeVersionEntry({ version: "1.0.0" })],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          versionRange: Option.some("^2.0.0"),
+        });
+        expect(result).toEqual({
+          kind: "version_unsatisfied",
+          target: "@test/skills/my-skill",
+          requestedRange: "^2.0.0",
+        });
+      }),
+    );
+  });
+
+  it.effect("returns a policy-held candidate with absolute eligibility evidence", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" })],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, options);
+        expect(result).toEqual({
+          kind: "policy_held",
+          target: "@test/skills/my-skill",
+          candidate: {
+            version: "2.0.0",
+            publishedAt: "2025-01-02T12:00:00.000Z",
+            eligibleAt: "2025-01-03T12:00:00.000Z",
+            minimumReleaseAgeSeconds: 86_400,
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("selects the newest eligible version and discloses a newer held candidate", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [
+                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
+                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" }),
+              ],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, options);
+        expect(result.kind).toBe("selected");
+        if (result.kind !== "selected") return;
+        if (result.ref.refType !== "registry") return;
+        expect(result.ref.version).toBe("1.0.0");
+        expect(result.newerHeld?.version).toBe("2.0.0");
+      }),
+    );
+  });
 });
 
 const expectRegistrySkillRef = (ref: ExtensionRef): RegistrySkillRef => {

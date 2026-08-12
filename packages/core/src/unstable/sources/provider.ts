@@ -16,6 +16,7 @@ import type { AppError } from "../app-error/index.js";
 import type { ExtensionType, Handle } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { Source } from "./types.js";
+import type { ReleaseAgeEvaluation, ReleaseAgeEvidence } from "../registry/release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -42,6 +43,35 @@ export interface FindOptions {
    */
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
 }
+
+export interface NamedRegistryFindOptions {
+  readonly name: string;
+  readonly type: ExtensionType;
+  readonly owner: Handle;
+  readonly versionRange: Option.Option<string>;
+  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+}
+
+export type NamedRegistryResolution =
+  | {
+      readonly kind: "selected";
+      readonly target: string;
+      readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
+      readonly newerHeld?: ReleaseAgeEvidence;
+      readonly bypassed?: ReleaseAgeEvidence;
+    }
+  | { readonly kind: "not_found"; readonly target: string }
+  | {
+      readonly kind: "version_unsatisfied";
+      readonly target: string;
+      readonly requestedRange: string;
+    }
+  | {
+      readonly kind: "policy_held";
+      readonly target: string;
+      readonly requestedRange?: string;
+      readonly candidate: ReleaseAgeEvidence;
+    };
 
 // -----------------------------------------------------------------------------
 // Fetch Result

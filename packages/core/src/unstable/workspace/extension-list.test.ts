@@ -81,6 +81,7 @@ describe("extension list assessment", () => {
         },
       ];
       const providers: SourceHostProvidersService = {
+        resolveNamedRegistry: () => Effect.die("not used"),
         find: (_source, options) =>
           Effect.succeed(
             refs.filter((ref) =>
@@ -152,6 +153,7 @@ describe("extension list assessment", () => {
       const layer = Layer.mergeAll(
         Layer.succeed(WorkspaceMutations, ws),
         Layer.succeed(SourceHostProviders, {
+          resolveNamedRegistry: () => Effect.die("not used"),
           find: () => Effect.succeed([]),
           fetch: () => Effect.die(new Error("not used")),
           cloneUrl: () => Option.none(),

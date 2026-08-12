@@ -8,6 +8,7 @@ import type { RuleExtensionRef } from "../../rules/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "../../version-constraints/version-constraints.js";
+import type { NamedRegistryResolution } from "../../sources/index.js";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"
@@ -28,6 +29,10 @@ export type ResolvedConfiguredHook = ResolvedConfiguredEntry<HookExtensionRef>;
 export type ResolvedConfiguredKnowledge = ResolvedConfiguredEntry<KnowledgeExtensionRef>;
 export type ResolvedConfiguredMcpServer = ResolvedConfiguredEntry<McpServerExtensionRef>;
 export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
+
+export type ConfiguredRegistryResolution = NamedRegistryResolution & {
+  readonly versionRange: Option.Option<VersionRange>;
+};
 
 export const toConfiguredEntryFailureReason = (error: AppError): ConfiguredEntryFailureReason => {
   switch (error.code) {

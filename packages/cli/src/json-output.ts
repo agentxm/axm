@@ -148,6 +148,23 @@ const StepSchema = Schema.Struct({
 type Step = typeof StepSchema.Type;
 type StepArtifact = typeof StepArtifactSchema.Type;
 
+const ReleaseAgeRecordSchema = Schema.Struct({
+  reason: Schema.Literal("minimum-release-age"),
+  target: Schema.String,
+  dependencyPath: Schema.Array(Schema.String),
+  requestedRange: Schema.optional(Schema.String),
+  currentVersion: Schema.optional(Schema.String),
+  selectedVersion: Schema.optional(Schema.String),
+  candidateVersion: Schema.String,
+  publishedAt: Schema.String,
+  eligibleAt: Schema.String,
+  minimumReleaseAgeSeconds: Schema.Number,
+}).annotate({
+  identifier: "ReleaseAgeRecord",
+  title: "Release Age Record",
+  description: "One deterministic minimum-release-age holdback or bypass record.",
+});
+
 const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
@@ -199,6 +216,11 @@ export const PlanResolutionResultSchema = Schema.Struct({
   reason: Schema.optional(PlanExecutionReasonSchema),
   errorCode: Schema.optional(Schema.String),
   candidateId: Schema.optional(Schema.String),
+  evaluatedAt: Schema.optional(Schema.String),
+  holdbackCount: Schema.optional(Schema.Number),
+  holdbacks: Schema.optional(Schema.Array(ReleaseAgeRecordSchema)),
+  releaseAgeBypassCount: Schema.optional(Schema.Number),
+  releaseAgeBypasses: Schema.optional(Schema.Array(ReleaseAgeRecordSchema)),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -638,6 +660,17 @@ const flattenExecutedSteps = (plan: ExecutedPlan): ReadonlyArray<CompletedJobSte
 const planDescription = (resolution: PlanResolution): string | undefined =>
   Option.getOrUndefined(resolution.description);
 
+const releaseAgeResultFields = (resolution: PlanResolution) =>
+  resolution.releaseAge === undefined
+    ? {}
+    : {
+        evaluatedAt: resolution.releaseAge.evaluatedAt,
+        holdbackCount: resolution.releaseAge.holdbacks.length,
+        holdbacks: resolution.releaseAge.holdbacks,
+        releaseAgeBypassCount: resolution.releaseAge.bypasses.length,
+        releaseAgeBypasses: resolution.releaseAge.bypasses,
+      };
+
 export const toPlanResolutionResult = (
   resolution: PlanResolution,
   options: PlanResolutionResultOptions = {},
@@ -656,6 +689,7 @@ export const toPlanResolutionResult = (
       return {
         outcome: resolution._tag === "PreviewedPlan" ? "previewed" : "cancelled",
         planName: resolution.name,
+        ...releaseAgeResultFields(resolution),
         ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
         ...(description !== undefined ? { planDescription: description } : {}),
         totalSteps: steps.length,
@@ -694,6 +728,7 @@ export const toPlanResolutionResult = (
         errorCode: resolution.errorCode,
         ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
         planName: resolution.name,
+        ...releaseAgeResultFields(resolution),
         ...(description === undefined ? {} : { planDescription: description }),
         totalSteps: steps.length,
         readyCount: steps.filter((step) => step.status === "ready").length,
@@ -738,6 +773,7 @@ export const toPlanResolutionResult = (
       return {
         outcome,
         planName: resolution.name,
+        ...releaseAgeResultFields(resolution),
         ...(description !== undefined ? { planDescription: description } : {}),
         totalSteps: steps.length,
         readyCount: 0,
@@ -837,6 +873,40 @@ export const emitPlanResolutionResult = <TCommand extends string>(
         if ((step.status === "failed" || step.status === "blocked") && step.message !== undefined) {
           yield* renderer.info(`${step.label}: ${step.message}`);
         }
+      }
+    }
+    if (!emitted && result.holdbacks !== undefined && result.holdbacks.length > 0) {
+      yield* renderer.warn(
+        `Held by minimum release age (${count(result.holdbacks.length, "release")})`,
+      );
+      for (const holdback of result.holdbacks) {
+        yield* renderer.info(
+          `${holdback.target} ${holdback.candidateVersion} is eligible at ${holdback.eligibleAt}`,
+        );
+      }
+      const targets = Array.from(
+        new Set(result.holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
+      );
+      yield* renderer.info(
+        `Wait until eligible, choose an eligible version, or change minimumReleaseAge.${
+          targets.length === 1
+            ? ` For a one-shot bypass, run axm update ${targets[0]} --ignore-release-age.`
+            : " For a one-shot bypass, target one held Registry extension with axm update <fqn> --ignore-release-age."
+        }`,
+      );
+    }
+    if (
+      !emitted &&
+      result.releaseAgeBypasses !== undefined &&
+      result.releaseAgeBypasses.length > 0
+    ) {
+      yield* renderer.warn(
+        `${count(result.releaseAgeBypasses.length, "release")} bypassed minimumReleaseAge`,
+      );
+      for (const bypass of result.releaseAgeBypasses) {
+        yield* renderer.info(
+          `${bypass.target} ${bypass.candidateVersion} was selected before ${bypass.eligibleAt}`,
+        );
       }
     }
     return emitted;

@@ -19,6 +19,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
+import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
 
 export const PlanPolicyIds = [
   "break-dependencies",
@@ -220,6 +221,7 @@ export interface Plan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   /** Optional extra sections rendered after the plan steps. */
   readonly sections?: ReadonlyArray<PlanSection>;
@@ -248,6 +250,7 @@ export interface ExecutedPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<ExecutedJob>;
+  readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
@@ -258,6 +261,7 @@ export interface PreviewedPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
@@ -268,6 +272,7 @@ export interface CancelledPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
@@ -278,6 +283,7 @@ export interface FailedPlan {
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job>;
+  readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly reason: PlanExecutionReason;
   readonly errorCode: AppErrorCode;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;

@@ -10,6 +10,8 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
@@ -70,6 +72,7 @@ const MYORG = normalizeHandle("@myorg");
 /** Stub methods for SourceHostProvidersService. */
 const serviceStubs: SourceHostProvidersService = {
   find: () => Effect.succeed([]),
+  resolveNamedRegistry: () => Effect.die("unused"),
   fetch: () => Effect.fail(makeAppError({ code: "internal", detail: "stub" })),
   cloneUrl: () => Option.none(),
   origin: () => "unknown",
@@ -717,6 +720,73 @@ describe("packs install handler", () => {
       publisherBindingId: "hbnd_test",
       packages: [],
     });
+
+    it.effect(
+      "continues root updates but blocks fresh targeted graphs for held dependencies",
+      () => {
+        const packRef = makePackRef("test-pack", {
+          skills: constraints({ "@acme/skills/code-review": "^1.0.0" }),
+        });
+        const mockService: SourceHostProvidersService = {
+          ...serviceStubs,
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/skills/${options.name}`,
+              requestedRange: "^1.0.0",
+              candidate: {
+                version: "1.1.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+        };
+        initWorkspace(path.join(tempDir, ".axm"), {
+          sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        });
+        const { provide } = makeLayersWithMockSources(mockService);
+        const releaseAgeEvaluation = {
+          minimumReleaseAge: Duration.hours(24),
+          evaluatedAt: DateTime.makeUnsafe("2026-08-12T00:00:00Z"),
+          mode: "enforce" as const,
+        };
+
+        return provide(
+          Effect.gen(function* () {
+            const actions = yield* InstallPackCommandWorkflowActions;
+            const rootPlan = yield* actions.buildPlan({
+              packToInstall: packRef,
+              versionRange: Option.none(),
+              unattended: true,
+              releaseAgeEvaluation,
+              releaseAgeHoldbackBehavior: "continue",
+            });
+            expect(rootPlan.jobs).toEqual([]);
+            expect(rootPlan.riskConditions).toBeUndefined();
+            expect(rootPlan.releaseAge).toMatchObject({
+              holdbacks: [
+                {
+                  dependencyPath: ["@acme/packs/test-pack", "@acme/skills/code-review"],
+                },
+              ],
+            });
+
+            const targetedPlan = yield* actions.buildPlan({
+              packToInstall: packRef,
+              versionRange: Option.none(),
+              unattended: true,
+              releaseAgeEvaluation,
+              releaseAgeHoldbackBehavior: "preserve-or-block",
+            });
+            expect(targetedPlan.jobs).toEqual([]);
+            expect(targetedPlan.riskConditions).toMatchObject([
+              { level: "blocked", id: "minimum-release-age", errorCode: "conflict" },
+            ]);
+          }),
+        );
+      },
+    );
 
     it.effect("builds plan from pack ref returned by sources.find", () => {
       const packRef = makePackRef("test-pack", {

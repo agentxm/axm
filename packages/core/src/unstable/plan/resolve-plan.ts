@@ -215,6 +215,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     _tag: "FailedPlan",
     name: candidatePlan.name,
     description: candidatePlan.description,
+    ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
     jobs: candidatePlan.jobs,
     reason: options.reason,
     errorCode: options.errorCode,
@@ -255,6 +256,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       _tag: "PreviewedPlan",
       name: candidatePlan.name,
       description: candidatePlan.description,
+      ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
       ...(candidatePlan.preconditions === undefined
         ? {}
         : { preconditions: candidatePlan.preconditions }),
@@ -316,6 +318,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         _tag: "CancelledPlan",
         name: candidatePlan.name,
         description: candidatePlan.description,
+        ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
         ...(candidatePlan.preconditions === undefined
           ? {}
           : { preconditions: candidatePlan.preconditions }),

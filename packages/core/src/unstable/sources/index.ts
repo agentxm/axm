@@ -71,7 +71,13 @@ export type {
 export { fileUrlToPath } from "./utils.js";
 
 // Provider types
-export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";
+export type {
+  ExtensionFiles,
+  FindOptions,
+  NamedRegistryFindOptions,
+  NamedRegistryResolution,
+  SourceHostProvider,
+} from "./provider.js";
 
 // Input pattern read-model record
 export { parseInputPattern } from "./parser.js";

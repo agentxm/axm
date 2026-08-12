@@ -1,3 +1,13 @@
+## 0.26.6 (2026-08-12)
+
+### 🩹 Fixes
+
+- Enable publishing custom extension manifest metadata
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.5 (2026-08-12)
 
 ### 🩹 Fixes

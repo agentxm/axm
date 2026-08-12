@@ -461,7 +461,7 @@ describe("root update handler", () => {
     }),
   );
 
-  it.effect("rejects release-age bypass for an untargeted root update", () =>
+  it.effect("accepts release-age bypass for an untargeted root update", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
       const { provide } = makeLayers(calls);
@@ -470,20 +470,16 @@ describe("root update handler", () => {
         owner: "@axm",
       });
 
-      const error = yield* provide(
+      yield* provide(
         handleUpdate({
           source: Option.none(),
           yes: false,
           force: false,
           preview: true,
           ignoreReleaseAge: true,
-        }).pipe(Effect.flip),
+        }),
       );
 
-      expect(getAppError(error)).toMatchObject({
-        code: "usage",
-        detail: "--ignore-release-age requires one targeted Registry FQN",
-      });
       expect(calls).toEqual([]);
     }),
   );
@@ -637,6 +633,8 @@ describe("root update handler", () => {
                 resolution.kind === "selected"
                   ? {
                       ...resolution,
+                      kind: "exempted" as const,
+                      exemption: { bypassCause: "ignore-flag" as const },
                       bypassed: {
                         version: "1.0.0",
                         publishedAt: "2026-08-11T12:00:00.000Z",

@@ -1,10 +1,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as DateTime from "effect/DateTime";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  normalizeReleaseAgeRecords,
+  type ReleaseAgeBypassRecord,
+  type ReleaseAgeEvaluation,
+  type ReleaseAgeHoldbackRecord,
+} from "@agentxm/client-core/unstable/registry";
 import {
   type Plan,
   type PlanSection,
@@ -12,6 +19,7 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -57,6 +65,8 @@ interface StepFragment {
 interface CollectedWorkspaceInstallPlans {
   readonly plans: ReadonlyArray<Plan>;
   readonly fragments: ReadonlyArray<StepFragment>;
+  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 type WorkspaceInstallCollectorContext =
@@ -75,11 +85,9 @@ type WorkspaceInstallCollectorContext =
 
 interface WorkspaceInstallCollector {
   readonly type: WorkspaceInstallableType;
-  readonly collect: () => Effect.Effect<
-    CollectedWorkspaceInstallPlans,
-    AppError,
-    WorkspaceInstallCollectorContext
-  >;
+  readonly collect: (
+    releaseAgeEvaluation: ReleaseAgeEvaluation,
+  ) => Effect.Effect<CollectedWorkspaceInstallPlans, AppError, WorkspaceInstallCollectorContext>;
 }
 
 export type WorkspaceInstallPlanResult =
@@ -132,12 +140,18 @@ const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSectio
 
 const toCollectedWorkspaceInstallPlans = ({
   plans,
+  holdbacks = [],
+  bypasses = [],
   originForStep = () => "direct" as const,
 }: {
   readonly plans: ReadonlyArray<Plan>;
+  readonly holdbacks?: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+  readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
   readonly originForStep?: (index: number) => StepOrigin;
 }): CollectedWorkspaceInstallPlans => ({
   plans,
+  holdbacks: [...holdbacks, ...plans.flatMap((plan) => plan.releaseAge?.holdbacks ?? [])],
+  bypasses: [...bypasses, ...plans.flatMap((plan) => plan.releaseAge?.bypasses ?? [])],
   fragments: plans.flatMap((plan) =>
     flattenPlanSteps(plan).map((step, index) => ({
       key: step.key ?? step.label,
@@ -146,6 +160,33 @@ const toCollectedWorkspaceInstallPlans = ({
     })),
   ),
 });
+
+const attachConfiguredReleaseAge = (
+  plan: Plan,
+  evaluation: ReleaseAgeEvaluation,
+  releaseAge:
+    | {
+        readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+        readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+      }
+    | undefined,
+): Plan => {
+  if (releaseAge === undefined) return plan;
+  return {
+    ...plan,
+    releaseAge: {
+      evaluatedAt: DateTime.formatIso(evaluation.evaluatedAt),
+      holdbacks: normalizeReleaseAgeRecords([
+        ...releaseAge.holdbacks,
+        ...(plan.releaseAge?.holdbacks ?? []),
+      ]),
+      bypasses: normalizeReleaseAgeRecords([
+        ...releaseAge.bypasses,
+        ...(plan.releaseAge?.bypasses ?? []),
+      ]),
+    },
+  };
+};
 
 const matchesRequestedType = (
   requestedType: Option.Option<WorkspaceInstallableType>,
@@ -176,81 +217,121 @@ const mergeFragments = (
   return [...byKey.values()];
 };
 
-const resolveSkillIntent = (name: string, source: string) =>
-  resolveConfiguredSkill(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          skillsToInstall: [{ ref, versionRange }],
-        }) satisfies InstallSkillCommandIntent,
-    ),
+const resolveSkillIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredSkill(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: { skillsToInstall: [{ ref, versionRange }] } satisfies InstallSkillCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolveSubagentIntent = (name: string, source: string) =>
-  resolveConfiguredSubagent(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
+const resolveSubagentIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredSubagent(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: {
           subagentsToInstall: [{ ref, versionRange }],
-        }) satisfies InstallSubagentCommandIntent,
-    ),
+        } satisfies InstallSubagentCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolveRuleIntent = (name: string, source: string) =>
-  resolveConfiguredRule(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-        }) satisfies InstallRuleCommandIntent,
-    ),
+const resolveRuleIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredRule(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: { refs: [{ ref, versionRange }] } satisfies InstallRuleCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolveHookIntent = (name: string, source: string) =>
-  resolveConfiguredHook(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-        }) satisfies InstallHookCommandIntent,
-    ),
+const resolveHookIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredHook(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: { refs: [{ ref, versionRange }] } satisfies InstallHookCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolveKnowledgeIntent = (name: string, source: string) =>
-  resolveConfiguredKnowledge(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          refs: [{ ref, versionRange }],
-        }) satisfies InstallKnowledgeCommandIntent,
-    ),
+const resolveKnowledgeIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredKnowledge(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: { refs: [{ ref, versionRange }] } satisfies InstallKnowledgeCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolveMcpServerIntent = (name: string, source: string) =>
-  resolveConfiguredMcpServer(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
-          ref,
-          versionRange,
-          force: false,
-        }) satisfies InstallMcpServerCommandIntent,
-    ),
+const resolveMcpServerIntent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredMcpServer(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: { ref, versionRange, force: false } satisfies InstallMcpServerCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const resolvePackRef = (name: string, source: string) =>
-  resolveConfiguredPack(name, source).pipe(
-    Effect.map(
-      ({ ref, versionRange }) =>
-        ({
+const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+  resolveConfiguredPack(name, source, releaseAgeEvaluation).pipe(
+    Effect.map((resolved) => {
+      const { ref, versionRange } = resolved;
+      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+      return {
+        intent: {
           packToInstall: ref,
           versionRange,
           unattended: true,
-        }) satisfies InstallPackCommandIntent,
-    ),
+        } satisfies InstallPackCommandIntent,
+        releaseAge,
+      };
+    }),
   );
 
-const collectSkillPlans = () =>
+const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
@@ -260,8 +341,16 @@ const collectSkillPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveSkillIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveSkillIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -269,7 +358,7 @@ const collectSkillPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectRulePlans = () =>
+const collectRulePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallRuleCommandWorkflowActions;
@@ -279,8 +368,16 @@ const collectRulePlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveRuleIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveRuleIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -288,7 +385,7 @@ const collectRulePlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectHookPlans = () =>
+const collectHookPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallHookCommandWorkflowActions;
@@ -298,8 +395,16 @@ const collectHookPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveHookIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveHookIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -307,7 +412,7 @@ const collectHookPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectKnowledgePlans = () =>
+const collectKnowledgePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallKnowledgeCommandWorkflowActions;
@@ -317,8 +422,16 @@ const collectKnowledgePlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveKnowledgeIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveKnowledgeIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -326,7 +439,7 @@ const collectKnowledgePlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectSubagentPlans = () =>
+const collectSubagentPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
@@ -336,8 +449,16 @@ const collectSubagentPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveSubagentIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveSubagentIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -345,7 +466,7 @@ const collectSubagentPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectMcpServerPlans = () =>
+const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
@@ -355,8 +476,16 @@ const collectMcpServerPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveMcpServerIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolveMcpServerIntent(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -364,7 +493,7 @@ const collectMcpServerPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectPackPlans = () =>
+const collectPackPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
@@ -374,8 +503,16 @@ const collectPackPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        resolvePackRef(name, entry.source, releaseAgeEvaluation).pipe(
+          Effect.flatMap(({ intent, releaseAge }) =>
+            actions
+              .buildPlan(intent)
+              .pipe(
+                Effect.map((plan) =>
+                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                ),
+              ),
+          ),
         ),
       { concurrency: "unbounded" },
     );
@@ -409,26 +546,36 @@ const makePlan = (
   description: Option.Option<string>,
   steps: ReadonlyArray<PlannedJobStep>,
   sections: ReadonlyArray<PlanSection> | undefined,
+  releaseAge: Plan["releaseAge"],
 ): Plan => ({
   _tag: "Plan",
   name,
   description,
   jobs: [{ concurrency: 1 as const, steps }],
   ...(sections === undefined ? {} : { sections }),
+  ...(releaseAge === undefined ? {} : { releaseAge }),
 });
 
 export const buildWorkspaceInstallPlan = (args: {
   readonly type: Option.Option<WorkspaceInstallableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
+  readonly ignoreReleaseAge?: boolean;
 }) =>
   Effect.gen(function* () {
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
+      args.ignoreReleaseAge === true ? "ignore" : "enforce",
+    );
     const selectedCollectors = workspaceInstallCollectors.filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );
-    const collections = yield* Effect.forEach(selectedCollectors, ({ collect }) => collect(), {
-      concurrency: "unbounded",
-    });
+    const collections = yield* Effect.forEach(
+      selectedCollectors,
+      ({ collect }) => collect(releaseAgeEvaluation),
+      {
+        concurrency: "unbounded",
+      },
+    );
     const fragments = mergeFragments(collections);
 
     if (fragments.length === 0) {
@@ -440,6 +587,20 @@ export const buildWorkspaceInstallPlan = (args: {
 
     const plans = collections.flatMap((collection) => collection.plans);
     const sections = mergePlanSections(plans);
+    const holdbacks = normalizeReleaseAgeRecords(
+      collections.flatMap((collection) => collection.holdbacks),
+    );
+    const bypasses = normalizeReleaseAgeRecords(
+      collections.flatMap((collection) => collection.bypasses),
+    );
+    const releaseAge =
+      holdbacks.length === 0 && bypasses.length === 0
+        ? undefined
+        : {
+            evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
+            holdbacks,
+            bypasses,
+          };
 
     return {
       _tag: "WorkspaceInstallPlan",
@@ -448,6 +609,7 @@ export const buildWorkspaceInstallPlan = (args: {
         args.planDescription,
         fragments.map((fragment) => fragment.step),
         sections,
+        releaseAge,
       ),
     } satisfies WorkspaceInstallPlanResult;
   });

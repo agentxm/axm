@@ -646,6 +646,73 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("getMinimumReleaseAgeExclude", () => {
+    it.effect("uses project patterns and reports their scope", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { minimumReleaseAgeExclude: ["@project/*"] });
+
+        const ws = yield* getService(defaultOptions);
+
+        expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([
+          {
+            pattern: { owner: "@project", type: "*", name: "*" },
+            scope: "project",
+          },
+        ]);
+      }),
+    );
+
+    it.effect("inherits user patterns for a project workspace", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(homeDir, { minimumReleaseAgeExclude: ["@user/skills/*"] });
+
+        const ws = yield* getService(defaultOptions);
+
+        expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([
+          {
+            pattern: { owner: "@user", type: "skill", name: "*" },
+            scope: "user",
+          },
+        ]);
+      }),
+    );
+
+    it.effect("lets an explicit project [] suppress user inheritance", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { minimumReleaseAgeExclude: [] });
+        writeSettingsTo(homeDir, { minimumReleaseAgeExclude: ["@user/*"] });
+
+        const ws = yield* getService(defaultOptions);
+
+        expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([]);
+      }),
+    );
+
+    it.effect("does not consult project settings from user scope", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { minimumReleaseAgeExclude: ["@project/*"] });
+        writeSettingsTo(homeDir, { minimumReleaseAgeExclude: ["@user/*"] });
+
+        const ws = yield* getService({ scope: "user" });
+
+        expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([
+          {
+            pattern: { owner: "@user", type: "*", name: "*" },
+            scope: "user",
+          },
+        ]);
+      }),
+    );
+
+    it.effect("defaults to an empty list", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService(defaultOptions);
+
+        expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([]);
+      }),
+    );
+  });
+
   describe("addConfiguredSource", () => {
     it.effect("appends source to project settings", () =>
       Effect.gen(function* () {

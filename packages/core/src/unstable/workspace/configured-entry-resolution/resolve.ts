@@ -1,7 +1,7 @@
-import type * as Duration from "effect/Duration";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -10,8 +10,13 @@ import type { HookExtensionRef } from "../../hooks/index.js";
 import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
+import type {
+  ReleaseAgeBypassRecord,
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeHoldbackRecord,
+} from "../../registry/index.js";
 import { parseMinimumReleaseAge } from "../../registry/index.js";
-import type { ReleaseAgeEvaluation } from "../../registry/index.js";
 import type { ExtensionType } from "../../extensions/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
@@ -21,26 +26,125 @@ import type { VersionRange } from "../../version-constraints/version-constraints
 import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
-import type { ConfiguredRegistryResolution } from "./types.js";
+import type { ConfiguredRegistryResolution, ResolvedConfiguredEntry } from "./types.js";
 
-const configuredMinimumReleaseAge = (): Effect.Effect<
-  Option.Option<Duration.Duration>,
-  AppError,
-  WorkspaceMutations
-> =>
+export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const configured = yield* ws.getMinimumReleaseAge();
-    const parsed = parseMinimumReleaseAge(configured);
-    if (Option.isNone(parsed)) {
+    const minimumReleaseAge = parseMinimumReleaseAge(configured);
+    if (Option.isNone(minimumReleaseAge)) {
       return yield* makeAppError({
         code: "validation",
         detail: `Invalid minimumReleaseAge "${configured}"`,
         recover: "Use a duration such as 24h, 1440m, or 0s.",
       });
     }
-    return parsed;
+    const evaluatedAt = yield* DateTime.now;
+    const exclude = yield* ws.getMinimumReleaseAgeExclude();
+    return {
+      minimumReleaseAge: minimumReleaseAge.value,
+      evaluatedAt,
+      mode,
+      exclude,
+    } satisfies ReleaseAgeEvaluation;
   });
+
+const releaseAgeRecord = (args: {
+  readonly target: string;
+  readonly versionRange: Option.Option<string>;
+  readonly evidence: ReleaseAgeEvidence;
+  readonly selectedVersion?: string;
+}): ReleaseAgeHoldbackRecord => ({
+  reason: "minimum-release-age",
+  target: args.target,
+  dependencyPath: [args.target],
+  ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
+  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
+  candidateVersion: args.evidence.version,
+  publishedAt: args.evidence.publishedAt,
+  eligibleAt: args.evidence.eligibleAt,
+  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
+});
+
+type ConfiguredRegistryRef = Extract<
+  ConfiguredRegistryResolution,
+  { readonly kind: "selected" | "exempted" }
+>["ref"];
+
+const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) =>
+  Effect.gen(function* () {
+    if (resolution.kind === "not_found") {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Configured extension "${resolution.target}" could not be found in its source`,
+        suggestions: [{ description: "Verify the configured source or update settings.json." }],
+      });
+    }
+    if (resolution.kind === "version_unsatisfied") {
+      return yield* makeAppError({
+        code: "conflict",
+        title: "No compatible version",
+        detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
+      });
+    }
+    if (resolution.kind === "policy_held") {
+      return yield* makeAppError({
+        code: "conflict",
+        title: "Release held by minimumReleaseAge",
+        detail: `${resolution.target}@${resolution.candidate.version} is held by minimumReleaseAge until ${resolution.candidate.eligibleAt}`,
+      });
+    }
+
+    const holdbacks =
+      resolution.kind === "exempted" || resolution.newerHeld === undefined
+        ? []
+        : [
+            releaseAgeRecord({
+              target: resolution.target,
+              versionRange: resolution.versionRange,
+              evidence: resolution.newerHeld,
+              selectedVersion: resolution.ref.version,
+            }),
+          ];
+    const bypasses: ReadonlyArray<ReleaseAgeBypassRecord> =
+      resolution.kind === "selected"
+        ? []
+        : [
+            {
+              ...releaseAgeRecord({
+                target: resolution.target,
+                versionRange: resolution.versionRange,
+                evidence: resolution.bypassed,
+                selectedVersion: resolution.ref.version,
+              }),
+              ...resolution.exemption,
+            },
+          ];
+    return {
+      ref: resolution.ref,
+      versionRange: resolution.versionRange,
+      ...(holdbacks.length === 0 && bypasses.length === 0
+        ? {}
+        : { releaseAge: { holdbacks, bypasses } }),
+    };
+  });
+
+const resolveConfiguredRegistryRef = (
+  name: string,
+  source: string,
+  expectedType: ExtensionType,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
+  resolveConfiguredRegistryEntry(name, source, expectedType, releaseAgeEvaluation).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.succeed(Option.none<ResolvedConfiguredEntry<ConfiguredRegistryRef>>()),
+        onSome: (resolution) =>
+          configuredRegistryResolution(resolution).pipe(Effect.map(Option.some)),
+      }),
+    ),
+  );
 
 export const resolveConfiguredRegistryEntry = (
   name: string,
@@ -105,7 +209,11 @@ export const resolveConfiguredRegistryEntry = (
     return Option.some({ ...resolution, versionRange });
   });
 
-export const resolveConfiguredSkill = (name: string, source: string) =>
+export const resolveConfiguredSkill = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -123,6 +231,18 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         });
       }
       return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "skill",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "skill") {
+        return yield* makeAppError({ code: "internal", detail: "Registry returned a non-skill" });
+      }
+      return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -146,15 +266,12 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "skills"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
-
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "skill",
         owner: requestedOwner,
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -193,7 +310,11 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredSubagent = (name: string, source: string) =>
+export const resolveConfiguredSubagent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -211,6 +332,21 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         });
       }
       return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "subagent",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "subagent") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Registry returned a non-subagent",
+        });
+      }
+      return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -234,15 +370,12 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "subagents"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
-
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "subagent",
         owner: requestedOwner,
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -281,7 +414,11 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredRule = (name: string, source: string) =>
+export const resolveConfiguredRule = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -299,6 +436,18 @@ export const resolveConfiguredRule = (name: string, source: string) =>
         });
       }
       return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "rule",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "rule") {
+        return yield* makeAppError({ code: "internal", detail: "Registry returned a non-rule" });
+      }
+      return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -322,15 +471,12 @@ export const resolveConfiguredRule = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "rules"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
-
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "rule",
         owner: requestedOwner,
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -371,7 +517,11 @@ export const resolveConfiguredRule = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredHook = (name: string, source: string) =>
+export const resolveConfiguredHook = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -389,6 +539,18 @@ export const resolveConfiguredHook = (name: string, source: string) =>
         });
       }
       return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "hook",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "hook") {
+        return yield* makeAppError({ code: "internal", detail: "Registry returned a non-hook" });
+      }
+      return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -412,15 +574,12 @@ export const resolveConfiguredHook = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "hooks"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
-
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "hook",
         owner: requestedOwner,
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -461,7 +620,11 @@ export const resolveConfiguredHook = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredKnowledge = (name: string, source: string) =>
+export const resolveConfiguredKnowledge = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -479,6 +642,21 @@ export const resolveConfiguredKnowledge = (name: string, source: string) =>
         });
       }
       return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "knowledge",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "knowledge") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Registry returned non-knowledge content",
+        });
+      }
+      return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -501,14 +679,12 @@ export const resolveConfiguredKnowledge = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "knowledge"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "knowledge",
         owner: requestedOwner,
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -535,7 +711,11 @@ export const resolveConfiguredKnowledge = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredMcpServer = (name: string, source: string) =>
+export const resolveConfiguredMcpServer = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -554,6 +734,21 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
       }
       return { ref, versionRange: Option.none<VersionRange>() };
     }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "mcp-server",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "mcp-server") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Registry returned a non-MCP-server",
+        });
+      }
+      return { ...registry.value, ref: registry.value.ref };
+    }
     const parsed = parseRegistrySourceRef(source);
 
     if (parsed === undefined || parsed.type !== "mcps" || parsed.name !== name) {
@@ -566,7 +761,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -583,7 +777,6 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         type: "mcp-server",
         owner: Option.some(parsed.owner),
         versionRange,
-        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -622,7 +815,11 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredPack = (name: string, source: string) =>
+export const resolveConfiguredPack = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
@@ -641,6 +838,18 @@ export const resolveConfiguredPack = (name: string, source: string) =>
       }
       return { ref, versionRange: Option.none<VersionRange>() };
     }
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      "pack",
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      if (registry.value.ref.type !== "pack") {
+        return yield* makeAppError({ code: "internal", detail: "Registry returned a non-pack" });
+      }
+      return { ...registry.value, ref: registry.value.ref };
+    }
     const parsed = parseRegistrySourceRef(source);
 
     if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {
@@ -653,7 +862,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -670,7 +878,6 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         type: "pack",
         owner: Option.some(parsed.owner),
         versionRange,
-        minimumReleaseAge,
       });
 
     const refs = yield* findWith(resolvedSource).pipe(

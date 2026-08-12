@@ -226,6 +226,7 @@ export const makeBaseWorkspaceMock = (
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredOwner: () => Effect.succeed(Option.none()),
     getMinimumReleaseAge: () => Effect.succeed("24h"),
+    getMinimumReleaseAgeExclude: () => Effect.succeed([]),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkillEntries: () => Effect.succeed({}),
     getConfiguredRuleEntries: () => Effect.succeed({}),
@@ -365,6 +366,8 @@ export interface WriteWorkspaceFilesOptions {
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
+  readonly minimumReleaseAge?: string | undefined;
+  readonly minimumReleaseAgeExclude?: ReadonlyArray<string> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfileHooks?: Record<string, unknown> | undefined;
@@ -388,6 +391,10 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(opts.sources && { sources: opts.sources }),
+    ...(opts.minimumReleaseAge && { minimumReleaseAge: opts.minimumReleaseAge }),
+    ...(opts.minimumReleaseAgeExclude && {
+      minimumReleaseAgeExclude: opts.minimumReleaseAgeExclude,
+    }),
   };
 
   const lockfile: Record<string, unknown> = {

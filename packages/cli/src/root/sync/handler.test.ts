@@ -47,6 +47,27 @@ const writeSettings = (baseDir: string, value: unknown) => {
   writeJson(path.join(baseDir, ".axm", "settings.json"), value);
 };
 
+const writeRegistrySkillIndex = (registryRoot: string, name: string) => {
+  writeJson(path.join(registryRoot, "extensions", "@acme", "skills", name, "index.json"), {
+    owner: "@acme",
+    type: "skill",
+    name,
+    publisherBindingId: "hbnd_test",
+    versions: [
+      {
+        version: "2.0.0",
+        published: "2099-01-01T00:00:00Z",
+        integrity: "sha512-BBBB==",
+      },
+      {
+        version: "1.0.0",
+        published: "1960-01-01T00:00:00Z",
+        integrity: "sha512-AAAA==",
+      },
+    ],
+  });
+};
+
 const writeSubagentExtension = (baseDir: string, name: string) => {
   const subagentDir = path.join(baseDir, ".axm", "extensions", "@acme", "subagents", name);
   writeJson(path.join(subagentDir, "subagent.json"), {
@@ -220,6 +241,38 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         message: "Workspace materialization is up to date",
       });
+    }),
+  );
+
+  it.effect("emits release-age holdback evidence when sync selects an older mature version", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      const registryDir = path.join(tempDir, "registry");
+      writeRegistrySkillIndex(registryDir, "review");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      writeSettings(tempDir, {
+        agents: [],
+        minimumReleaseAge: "24h",
+        sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+        skills: { review: "@acme/skills/review" },
+      });
+
+      yield* provide(handleSync({ preview: true }));
+
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(result).toMatchObject({
+        holdbackCount: 1,
+        holdbacks: [
+          {
+            target: "@acme/skills/review",
+            selectedVersion: "1.0.0",
+            candidateVersion: "2.0.0",
+          },
+        ],
+      });
+      expect(typeof property(result, "evaluatedAt")).toBe("string");
     }),
   );
 

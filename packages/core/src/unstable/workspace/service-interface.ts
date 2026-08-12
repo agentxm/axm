@@ -55,6 +55,7 @@ import type {
   SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
+import type { ScopedReleaseAgeExcludePattern } from "../registry/index.js";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
@@ -390,6 +391,11 @@ export interface WorkspaceMutationsService {
   readonly getConfiguredOwner: () => Effect.Effect<Option.Option<Handle>, AppError>;
   /** Resolve minimumReleaseAge: project settings -> user-scope settings -> default. */
   readonly getMinimumReleaseAge: () => Effect.Effect<MinimumReleaseAge, AppError>;
+  /** Resolve minimumReleaseAgeExclude with the same scope precedence; an explicit [] wins. */
+  readonly getMinimumReleaseAgeExclude: () => Effect.Effect<
+    ReadonlyArray<ScopedReleaseAgeExcludePattern>,
+    AppError
+  >;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Read settings and return configured skills, defaulting to `{}`. */

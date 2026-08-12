@@ -32,6 +32,7 @@ export {
   canUsePersistedCredentials,
   CredentialStore,
   CredentialStoreLive,
+  CredentialStoreSessionLive,
   CredentialStoreTest,
   detectEnvironment,
   makePersistedCredentialsUnsupportedError,

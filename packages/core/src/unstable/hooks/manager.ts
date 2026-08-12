@@ -49,7 +49,10 @@ import {
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
-import { resolveConfiguredHook } from "../workspace/configured-entry-resolution/index.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+} from "../workspace/configured-entry-resolution/index.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -597,13 +600,16 @@ export const HookManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
+        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const renderedHooks = yield* Effect.forEach(
           Object.entries(configured).filter(
             ([name, entry]) =>
               entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.hook.name,
           ),
           ([name, entry]) =>
-            Effect.scoped(provide(resolveConfiguredHook(name, entry.source))).pipe(
+            Effect.scoped(
+              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)),
+            ).pipe(
               Effect.flatMap(({ ref }) =>
                 Effect.gen(function* () {
                   const packageRoot = yield* materializePackage(ref);
@@ -644,13 +650,16 @@ export const HookManagerLive = Layer.effect(
     }) =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
+        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const installed = yield* Effect.forEach(
           Object.entries(configured).filter(
             ([name, entry]) =>
               entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.hook.name,
           ),
           ([name, entry]) =>
-            Effect.scoped(provide(resolveConfiguredHook(name, entry.source))).pipe(
+            Effect.scoped(
+              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)),
+            ).pipe(
               Effect.flatMap(({ ref }) =>
                 Effect.gen(function* () {
                   const packageRoot = yield* materializePackage(ref);
@@ -985,11 +994,14 @@ export const HookManagerLive = Layer.effect(
 
       listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
+        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const refs = yield* Effect.scoped(
           Effect.forEach(
             enabledConfiguredEntries(configured),
             ([name, entry]) =>
-              provide(resolveConfiguredHook(name, entry.source)).pipe(Effect.map(({ ref }) => ref)),
+              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)).pipe(
+                Effect.map(({ ref }) => ref),
+              ),
             { concurrency: "unbounded" },
           ),
         );

@@ -30,9 +30,10 @@ Both top-level schemas are `Schema.StructWithRest(base, [Schema.Record(String,
 Unknown)])`:
 
 - **Top level: tolerate and preserve.** Unknown top-level keys decode into the
-  value, survive `writeSettings` (appended after the canonical
-  `SETTINGS_KEY_ORDER` keys) and `commitLockfileSnapshotUpdate` (carried from
-  the on-disk snapshot), and re-serialize value-identically. Steady-state
+  value, survive `writeSettings` in their existing position and
+  `commitLockfileSnapshotUpdate` from the on-disk snapshot, and re-serialize
+  value-identically. New settings files use `SETTINGS_KEY_ORDER`; existing
+  settings files keep their key order and untouched formatting. Steady-state
   write cycles are byte-identical.
 - **Nested: strict.** Entry objects keep `onExcessProperty: "error"` semantics;
   an unknown key inside a skill entry or lock entry still fails decode. Do not

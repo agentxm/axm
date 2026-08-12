@@ -25,7 +25,11 @@ import {
   recoverySwitch,
 } from "@agentxm/client-core/unstable/cli-runtime";
 
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  makeConfiguredReleaseAgeEvaluation,
+} from "@agentxm/client-core/unstable/workspace";
 import {
   decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
@@ -36,10 +40,10 @@ import {
   createRegistryClient,
   isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,
-  parseMinimumReleaseAge,
   releaseAgeEvidence,
   releaseAgeHoldbackWarning,
   type ReleaseAgeEvaluation,
+  type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -89,6 +93,7 @@ type ResolveResult =
       readonly versionRange: Option.Option<string>;
       readonly warnings: ReadonlyArray<string>;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
   | {
       readonly type: "skip";
@@ -105,6 +110,7 @@ type RegistrySkillConstraintResolution =
       readonly versionRange: Option.Option<string>;
       readonly warnings: ReadonlyArray<string>;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
   | { readonly kind: "policy_held"; readonly record: ReleaseAgeRecord };
 
@@ -149,19 +155,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
   const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const minimumReleaseAge = parseMinimumReleaseAge(minimumReleaseAgeText);
-  if (Option.isNone(minimumReleaseAge)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Invalid minimumReleaseAge "${minimumReleaseAgeText}"`,
-      recover: "Use a duration such as 24h, 1440m, or 0s.",
-    });
-  }
-  const releaseAgeEvaluation = {
-    minimumReleaseAge: minimumReleaseAge.value,
-    evaluatedAt: yield* DateTime.now,
-    mode: "enforce",
-  } satisfies ReleaseAgeEvaluation;
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
@@ -310,7 +304,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           });
         }
         const holdbacks =
-          compatible.newerHeld === undefined
+          compatible.kind === "exempted" || compatible.newerHeld === undefined
             ? []
             : [
                 {
@@ -327,13 +321,33 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                   minimumReleaseAgeSeconds: compatible.newerHeld.minimumReleaseAgeSeconds,
                 },
               ];
+        const bypasses: ReadonlyArray<ReleaseAgeBypassRecord> =
+          compatible.kind === "selected"
+            ? []
+            : [
+                {
+                  reason: "minimum-release-age",
+                  target: skillFqn,
+                  dependencyPath: [skillFqn],
+                  ...(Option.isSome(userConstraint)
+                    ? { requestedRange: userConstraint.value }
+                    : {}),
+                  selectedVersion: compatible.ref.version,
+                  candidateVersion: compatible.bypassed.version,
+                  publishedAt: compatible.bypassed.publishedAt,
+                  eligibleAt: compatible.bypassed.eligibleAt,
+                  minimumReleaseAgeSeconds: compatible.bypassed.minimumReleaseAgeSeconds,
+                  ...compatible.exemption,
+                },
+              ];
         return Option.some<RegistrySkillConstraintResolution>({
           kind: "selected",
           ref: compatible.ref,
           versionRange: userConstraint,
           holdbacks,
+          bypasses,
           warnings:
-            compatible.newerHeld === undefined
+            compatible.kind === "exempted" || compatible.newerHeld === undefined
               ? []
               : [
                   releaseAgeHoldbackWarning({
@@ -548,6 +562,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               versionRange: registryResolved.value.versionRange,
               warnings: registryResolved.value.warnings,
               holdbacks: registryResolved.value.holdbacks,
+              ...(registryResolved.value.bypasses === undefined
+                ? {}
+                : { bypasses: registryResolved.value.bypasses }),
             } satisfies ResolveResult;
           }
         }
@@ -730,7 +747,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         ...resolved.flatMap((item) => item.holdbacks),
         ...skipped.flatMap((item) => (item.holdback === undefined ? [] : [item.holdback])),
       ]),
-      bypasses: [],
+      bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
     },
     jobs: basePlan.jobs.map((job) => ({
       ...job,

@@ -22,10 +22,21 @@ const syncConfig = {
   preview: Flag.boolean("preview").pipe(
     Flag.withDescription("Preview the materialization plan without applying it"),
   ),
+  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
+    Flag.withDescription(
+      "Allow configured Registry releases newer than minimumReleaseAge for this sync",
+    ),
+  ),
 } as const;
 
-export const syncCommand = Command.make("sync", syncConfig, ({ target, type, scope, preview }) =>
-  handleSync({ target, type, preview }).pipe(withWorkspace(scope), withRuntime("sync")),
+export const syncCommand = Command.make(
+  "sync",
+  syncConfig,
+  ({ target, type, scope, preview, ignoreReleaseAge }) =>
+    handleSync({ target, type, preview, ignoreReleaseAge }).pipe(
+      withWorkspace(scope),
+      withRuntime("sync"),
+    ),
 ).pipe(
   withArgvTracking(syncConfig),
   Command.withDescription("Materialize configured workspace files"),

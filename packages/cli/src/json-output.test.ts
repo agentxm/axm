@@ -184,6 +184,7 @@ describe("toPlanResolutionResult", () => {
         bypasses: [
           {
             reason: "minimum-release-age",
+            bypassCause: "ignore-flag",
             target: "@acme/skills/direct",
             dependencyPath: ["@acme/skills/direct"],
             candidateVersion: "2.0.0",

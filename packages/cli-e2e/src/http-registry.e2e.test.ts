@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -33,8 +34,46 @@ const registryEnv = (registryUrl: string): Record<string, string> => ({
   AXM_TOKEN: TOKEN,
 });
 
+const anonymousRegistryEnv = (registryUrl: string): Record<string, string> => ({
+  AXM_REGISTRY_URL: registryUrl,
+  AXM_TOKEN: "",
+});
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasLoginSuggestion = (value: unknown): boolean =>
+  isRecord(value) &&
+  Array.isArray(value["suggestions"]) &&
+  value["suggestions"].some(
+    (suggestion) => isRecord(suggestion) && suggestion["cmd"] === "axm login",
+  );
+
+const requestRegistry = (
+  url: string,
+  options?: { readonly method?: "GET" | "HEAD"; readonly authorization?: string },
+) =>
+  new Promise<{ readonly status: number; readonly body: string }>((resolve, reject) => {
+    const request = http.request(
+      url,
+      {
+        method: options?.method ?? "GET",
+        headers:
+          options?.authorization === undefined ? {} : { authorization: options.authorization },
+      },
+      (response) => {
+        response.setEncoding("utf8");
+        let body = "";
+        response.on("data", (chunk: string) => {
+          body += chunk;
+        });
+        response.on("end", () => resolve({ status: response.statusCode ?? 0, body }));
+        response.on("error", reject);
+      },
+    );
+    request.on("error", reject);
+    request.end();
+  });
 
 interface ScaffoldPublish {
   /** Extra flags `axm <plural> new` needs for this type. */
@@ -171,6 +210,61 @@ describe("HTTP registry transport", () => {
     expect(publishRows.length + blockedRows.length).toBe(EXTENSION_TYPE_MATRIX.length);
   });
 
+  it("hides private read routes from anonymous and non-owner callers", async () => {
+    const registry = await startHttpRegistry({ tokenOwners: { "other-token": "@other" } });
+    const workspace = createTempDir();
+    const name = "private-route-policy";
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(
+        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+      const published = await runCli(
+        ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode, published.stderr).toBe(0);
+      const version = registry.publishes[0]?.version;
+      if (version === undefined) throw new Error("Expected a published private version");
+
+      const paths = [
+        `/v1/extensions/${OWNER}/skills/${name}`,
+        `/v1/extensions/${OWNER}/skills/${name}/${version}`,
+        `/v1/extensions/${OWNER}/skills/${name}/${version}/archive`,
+      ];
+      for (const pathname of paths) {
+        const anonymous = await requestRegistry(`${registry.url}${pathname}`);
+        const nonOwner = await requestRegistry(`${registry.url}${pathname}`, {
+          authorization: "Bearer other-token",
+        });
+        const owner = await requestRegistry(`${registry.url}${pathname}`, {
+          authorization: `Bearer ${TOKEN}`,
+        });
+
+        expect(anonymous.status).toBe(404);
+        expect(nonOwner.status).toBe(404);
+        expect(nonOwner.body).toBe(anonymous.body);
+        expect(owner.status).toBe(200);
+      }
+
+      for (const pathname of paths.slice(0, 2)) {
+        const anonymous = await requestRegistry(`${registry.url}${pathname}`, { method: "HEAD" });
+        const owner = await requestRegistry(`${registry.url}${pathname}`, {
+          method: "HEAD",
+          authorization: `Bearer ${TOKEN}`,
+        });
+        expect(anonymous.status).toBe(404);
+        expect(owner.status).toBe(200);
+      }
+    } finally {
+      workspace.cleanup();
+      await registry.close();
+    }
+  });
+
   for (const { row, reason } of blockedRows) {
     it.skip(`publishes a ${row.sentenceLabel} over HTTP — ${reason}`, () => {
       // Skipped until the named obligation clears; the title carries the reason.
@@ -195,24 +289,30 @@ describe("HTTP registry transport", () => {
       expect(record?.ifMatch).toMatch(/^"e2e-[a-f0-9]{64}"$/);
       expect(record?.byteLength).toBeGreaterThan(0);
 
-      expect(registry.requests).toContainEqual({
-        method: "GET",
-        path: `/v1/owners/${OWNER}`,
-        status: 200,
-      });
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "GET",
+          path: `/v1/owners/${OWNER}`,
+          status: 200,
+        }),
+      );
 
       // The upload really went over the remote transport, at the versioned
       // path — not through a file:// shortcut.
-      expect(registry.requests).toContainEqual({
-        method: "POST",
-        path: "/v1/publish-previews",
-        status: 200,
-      });
-      expect(registry.requests).toContainEqual({
-        method: "PUT",
-        path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
-        status: 201,
-      });
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "POST",
+          path: "/v1/publish-previews",
+          status: 200,
+        }),
+      );
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "PUT",
+          path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
+          status: 201,
+        }),
+      );
     } finally {
       await registry.close();
     }
@@ -506,6 +606,151 @@ describe("HTTP registry transport", () => {
       fileRegistry.cleanup();
       httpWorkspace.cleanup();
       fileWorkspace.cleanup();
+    }
+  });
+
+  it("authenticates private install reads while preserving not-found privacy", async () => {
+    const registry = await startHttpRegistry({ tokenOwners: { "other-token": "@other" } });
+    const publisher = createTempDir();
+    const latestConsumer = createTempDir();
+    const exactConsumer = createTempDir();
+    const anonymousConsumer = createTempDir();
+    const nonOwnerConsumer = createTempDir();
+    const name = "private-install";
+    const fqn = `${OWNER}/skills/${name}`;
+    const env = registryEnv(registry.url);
+
+    try {
+      await initWorkspace(publisher.path, registry.url);
+      const created = await runCli(
+        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: publisher.path, env },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+      const firstPublish = await runCli(
+        ["skills", "publish", fqn, "--visibility", "private", "--yes"],
+        { cwd: publisher.path, env },
+      );
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+      const firstVersion = registry.publishes[0]?.version;
+      if (firstVersion === undefined) throw new Error("Expected a published private version");
+
+      registry.copyVersion(OWNER, "skills", name, firstVersion, "2.0.0");
+      registry.copyVersion(OWNER, "skills", name, firstVersion, "3.0.0");
+      registry.yank(OWNER, "skills", name, "3.0.0");
+
+      for (const consumer of [latestConsumer, exactConsumer, anonymousConsumer, nonOwnerConsumer]) {
+        await initWorkspace(consumer.path, registry.url);
+      }
+
+      const latestRequestOffset = registry.requests.length;
+      const latest = await runCli(["install", fqn, "--yes"], {
+        cwd: latestConsumer.path,
+        env,
+      });
+      expect(latest.exitCode, latest.stderr).toBe(0);
+      expect(registry.requests.slice(latestRequestOffset)).toContainEqual(
+        expect.objectContaining({
+          path: `/v1/extensions/${OWNER}/skills/${name}/2.0.0/archive`,
+          status: 200,
+          authorization: `Bearer ${TOKEN}`,
+          userAgent: expect.stringMatching(/^axm-cli\//),
+        }),
+      );
+
+      const exactRequestOffset = registry.requests.length;
+      const exact = await runCli(["install", `${fqn}@${firstVersion}`, "--yes"], {
+        cwd: exactConsumer.path,
+        env,
+      });
+      expect(exact.exitCode, exact.stderr).toBe(0);
+      expect(registry.requests.slice(exactRequestOffset)).toContainEqual(
+        expect.objectContaining({
+          path: `/v1/extensions/${OWNER}/skills/${name}/${firstVersion}/archive`,
+          status: 200,
+        }),
+      );
+
+      const anonymous = await runCli(["install", fqn, "--yes", "--json"], {
+        cwd: anonymousConsumer.path,
+        env: anonymousRegistryEnv(registry.url),
+      });
+      const nonOwner = await runCli(["install", fqn, "--yes", "--json"], {
+        cwd: nonOwnerConsumer.path,
+        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+      });
+      expect(anonymous.exitCode).not.toBe(0);
+      expect(nonOwner.exitCode).toBe(anonymous.exitCode);
+      const anonymousError: unknown = JSON.parse(anonymous.stdout);
+      const nonOwnerError: unknown = JSON.parse(nonOwner.stdout);
+      expect(anonymousError).toMatchObject({ ok: false, code: "not_found" });
+      expect(nonOwnerError).toMatchObject({ ok: false, code: "not_found" });
+      if (!isRecord(anonymousError) || !isRecord(nonOwnerError)) {
+        throw new Error("Expected structured install errors");
+      }
+      expect(nonOwnerError["detail"]).toBe(anonymousError["detail"]);
+      expect(hasLoginSuggestion(anonymousError)).toBe(true);
+      expect(hasLoginSuggestion(nonOwnerError)).toBe(false);
+
+      const anonymousFinalize = await runCli(
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        {
+          cwd: anonymousConsumer.path,
+          env: anonymousRegistryEnv(registry.url),
+        },
+      );
+      const nonOwnerFinalize = await runCli(
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        {
+          cwd: nonOwnerConsumer.path,
+          env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+        },
+      );
+      const anonymousFinalizeError: unknown = JSON.parse(anonymousFinalize.stdout);
+      const nonOwnerFinalizeError: unknown = JSON.parse(nonOwnerFinalize.stdout);
+      expect(anonymousFinalize.exitCode).not.toBe(0);
+      expect(nonOwnerFinalize.exitCode).toBe(anonymousFinalize.exitCode);
+      expect(anonymousFinalizeError).toMatchObject({ ok: false, code: "not_found" });
+      expect(nonOwnerFinalizeError).toMatchObject({ ok: false, code: "not_found" });
+      if (!isRecord(anonymousFinalizeError) || !isRecord(nonOwnerFinalizeError)) {
+        throw new Error("Expected structured finalize errors");
+      }
+      expect(nonOwnerFinalizeError["detail"]).toBe(anonymousFinalizeError["detail"]);
+      expect(hasLoginSuggestion(anonymousFinalizeError)).toBe(true);
+      expect(hasLoginSuggestion(nonOwnerFinalizeError)).toBe(false);
+    } finally {
+      publisher.cleanup();
+      latestConsumer.cleanup();
+      exactConsumer.cleanup();
+      anonymousConsumer.cleanup();
+      nonOwnerConsumer.cleanup();
+      await registry.close();
+    }
+  });
+
+  it("keeps anonymous public installs unauthenticated", async () => {
+    const registry = await startHttpRegistry();
+    const consumer = createTempDir();
+    const name = "anonymous-public";
+    const fqn = `${OWNER}/skills/${name}`;
+
+    try {
+      await scaffoldAndPublish(registry.url, "skills", "skill", name);
+      await initWorkspace(consumer.path, registry.url);
+      const requestOffset = registry.requests.length;
+      const installed = await runCli(["install", fqn, "--yes"], {
+        cwd: consumer.path,
+        env: anonymousRegistryEnv(registry.url),
+      });
+      expect(installed.exitCode, installed.stderr).toBe(0);
+      const installRequests = registry.requests.slice(requestOffset);
+      expect(installRequests.some((request) => request.path.includes(`/skills/${name}`))).toBe(
+        true,
+      );
+      expect(installRequests.every((request) => request.authorization === undefined)).toBe(true);
+    } finally {
+      consumer.cleanup();
+      await registry.close();
     }
   });
 });

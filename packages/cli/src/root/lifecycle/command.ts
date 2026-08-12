@@ -24,7 +24,7 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 
-import { withAuthRuntime } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { runWithStepUp } from "../step-up.js";
 
@@ -289,7 +289,7 @@ const extensionRefConfig = {
 } as const;
 
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
-  handleYank(input).pipe(withAuthRuntime("yank")),
+  handleYank(input).pipe(withRuntime("yank")),
 ).pipe(
   withArgvTracking(yankConfig),
   Command.withDescription("Exclude extension versions from fresh resolution"),
@@ -303,7 +303,7 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
 );
 
 export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
-  handleUnyank(ref).pipe(withAuthRuntime("unyank")),
+  handleUnyank(ref).pipe(withRuntime("unyank")),
 ).pipe(
   withArgvTracking(exactRefConfig),
   Command.withDescription("Restore one exact version to fresh resolution"),
@@ -316,7 +316,7 @@ export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
 );
 
 export const deprecateCommand = Command.make("deprecate", deprecateConfig, (input) =>
-  handleDeprecate(input).pipe(withAuthRuntime("deprecate")),
+  handleDeprecate(input).pipe(withRuntime("deprecate")),
 ).pipe(
   withArgvTracking(deprecateConfig),
   Command.withDescription("Add a warning-only deprecation notice to an extension"),
@@ -329,7 +329,7 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
 );
 
 export const undeprecateCommand = Command.make("undeprecate", extensionRefConfig, ({ ref }) =>
-  handleUndeprecate(ref).pipe(withAuthRuntime("undeprecate")),
+  handleUndeprecate(ref).pipe(withRuntime("undeprecate")),
 ).pipe(
   withArgvTracking(extensionRefConfig),
   Command.withDescription("Remove an extension deprecation notice"),

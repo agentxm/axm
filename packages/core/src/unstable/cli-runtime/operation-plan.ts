@@ -46,6 +46,8 @@ const OperationReleaseAgeRecordSchema = Schema.Struct({
   publishedAt: Schema.String,
   eligibleAt: Schema.String,
   minimumReleaseAgeSeconds: Schema.Number,
+  bypassCause: Schema.optional(Schema.Literals(["exclude", "ignore-flag"] as const)),
+  exemptionScope: Schema.optional(Schema.Literals(["project", "user"] as const)),
 });
 
 export const OperationPlanFields = {

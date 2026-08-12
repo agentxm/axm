@@ -13,6 +13,7 @@ import {
   EXTENSION_NAME_PATTERN,
   FQN_PATTERN,
 } from "../extensions/common.js";
+import { ReleaseAgeExcludePatternSchema } from "../extensions/fqn-pattern.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
@@ -342,6 +343,9 @@ export const MinimumReleaseAgeSchema = Schema.String.check(
 
 /** @experimental */
 export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchema>;
+
+/** @experimental */
+export type MinimumReleaseAgeExclude = ReadonlyArray<typeof ReleaseAgeExcludePatternSchema.Type>;
 
 const compactOrVerboseEntry = <
   ObjectEntry,
@@ -1067,8 +1071,8 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
 /**
  * Canonical key order for settings properties.
  *
- * Used by `writeSettings` to ensure properties
- * appear in the same order as defined in `SettingsSchema`.
+ * Used by `writeSettings` for new files and to place new top-level keys in
+ * existing files whose recognized keys already follow this order.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1077,6 +1081,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "telemetry",
   "owner",
   "minimumReleaseAge",
+  "minimumReleaseAgeExclude",
   "sources",
   "agents",
   "rulesConfig",
@@ -1097,6 +1102,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * Settings define workspace configuration for AXM including:
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
  * - minimumReleaseAge: Minimum published age for registry versions during unattended resolution
+ * - minimumReleaseAgeExclude: Registry extension identities exempt from minimum release age
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - rulesConfig: Feature-level configuration for rules capabilities
@@ -1134,6 +1140,19 @@ const SettingsBaseSchema = Schema.Struct({
       description:
         "Minimum published age for registry versions during unattended sync/update resolution. Defaults to 24h; use 0s to disable.",
     }),
+  ),
+  minimumReleaseAgeExclude: Schema.optionalKey(
+    Schema.Array(ReleaseAgeExcludePatternSchema)
+      .annotate({
+        description:
+          "Registry extension identities exempt from minimumReleaseAge, as exact FQNs, owner/type patterns, or owner patterns.",
+      })
+      .pipe(
+        Schema.annotateEncoded({
+          examples: [["@acme/skills/code-review", "@acme/rules/*", "@acme/*"]],
+        }),
+      )
+      .check(Schema.isUnique()),
   ),
   agents: Schema.optionalKey(
     Schema.Array(ConfigurableAgentIdSchema)

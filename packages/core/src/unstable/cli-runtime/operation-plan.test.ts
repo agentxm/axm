@@ -13,11 +13,12 @@ describe("makeOperationPlan", () => {
       eligibleAt: "2026-08-12T12:00:00.000Z",
       minimumReleaseAgeSeconds: 86_400,
     };
+    const bypass = { ...record, bypassCause: "ignore-flag" as const };
     const result = makeOperationPlan({
       planName: "Update skill",
       evaluatedAt: "2026-08-12T00:00:00.000Z",
       holdbacks: [record],
-      releaseAgeBypasses: [record],
+      releaseAgeBypasses: [bypass],
       steps: [],
     });
 
@@ -26,7 +27,7 @@ describe("makeOperationPlan", () => {
       holdbackCount: 1,
       holdbacks: [record],
       releaseAgeBypassCount: 1,
-      releaseAgeBypasses: [record],
+      releaseAgeBypasses: [bypass],
     });
   });
 });

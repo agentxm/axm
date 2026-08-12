@@ -50,7 +50,10 @@ import type {
   MaterializationObservation,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { resolveConfiguredRule } from "../workspace/configured-entry-resolution/index.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredRule,
+} from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
@@ -391,13 +394,16 @@ export const RuleManagerLive = Layer.effect(
     }) =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredRuleEntries();
+        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const renderedRules = yield* Effect.forEach(
           Object.entries(configured).filter(
             ([name, entry]) =>
               entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.rule.name,
           ),
           ([name, entry]) =>
-            Effect.scoped(provide(resolveConfiguredRule(name, entry.source))).pipe(
+            Effect.scoped(
+              provide(resolveConfiguredRule(name, entry.source, releaseAgeEvaluation)),
+            ).pipe(
               Effect.flatMap(({ ref }) =>
                 Effect.gen(function* () {
                   const packageRoot = yield* materializePackage(ref);
@@ -636,11 +642,14 @@ export const RuleManagerLive = Layer.effect(
 
       listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredRuleEntries();
+        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const refs = yield* Effect.scoped(
           Effect.forEach(
             enabledConfiguredEntries(configured),
             ([name, entry]) =>
-              provide(resolveConfiguredRule(name, entry.source)).pipe(Effect.map(({ ref }) => ref)),
+              provide(resolveConfiguredRule(name, entry.source, releaseAgeEvaluation)).pipe(
+                Effect.map(({ ref }) => ref),
+              ),
             { concurrency: "unbounded" },
           ),
         );

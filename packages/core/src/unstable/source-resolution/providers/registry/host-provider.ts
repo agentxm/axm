@@ -34,6 +34,7 @@ import {
   extensionLifecycleWarnings,
   isVersionEntryEligibleAt,
   releaseAgeEvidence,
+  releaseAgeExemptionForIdentity,
 } from "../../../registry/index.js";
 import { evaluateAxmSkillCandidate } from "../../../skills/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
@@ -185,6 +186,7 @@ const manifestForVersion = (
 const versionsMatchingNamedOptions = (
   versions: ReadonlyArray<VersionEntry>,
   options: NamedRegistryFindOptions,
+  exempt: boolean,
 ): ReadonlyArray<VersionEntry> => {
   const requested = Option.getOrElse(options.versionRange, () => "*");
   const exact = semver.valid(requested) === requested;
@@ -194,11 +196,7 @@ const versionsMatchingNamedOptions = (
         ? entry.version === requested
         : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
     )
-    .filter(
-      (entry) =>
-        options.releaseAgeEvaluation.mode === "ignore" ||
-        isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation),
-    )
+    .filter((entry) => exempt || isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation))
     .sort((left, right) => semver.compareBuild(right.version, left.version));
 };
 
@@ -281,12 +279,22 @@ const resolveNamedFromClient = (
       return { kind: "not_found", target } as const;
     }
 
+    const exemption = releaseAgeExemptionForIdentity(options.releaseAgeEvaluation, {
+      owner: indexOption.value.owner,
+      type: indexOption.value.type,
+      name: indexOption.value.name,
+    });
     const resolution = resolveVersionEntryForReleaseAge(
       indexOption.value.versions,
       options.versionRange,
       options.releaseAgeEvaluation,
+      exemption,
     );
     if (resolution.kind === "version_unsatisfied") {
+      const requested = Option.getOrUndefined(options.versionRange);
+      if (requested !== undefined && semver.valid(requested) === requested) {
+        return { kind: "not_found", target } as const;
+      }
       return {
         kind: "version_unsatisfied",
         target,
@@ -305,7 +313,11 @@ const resolveNamedFromClient = (
     }
 
     if (isOfficialAxmSkill(options)) {
-      const candidates = versionsMatchingNamedOptions(indexOption.value.versions, options);
+      const candidates = versionsMatchingNamedOptions(
+        indexOption.value.versions,
+        options,
+        exemption !== undefined,
+      );
       let latestIncompatibility: string | null = null;
       for (const candidate of candidates) {
         const probed = yield* probeAxmSkillCompatibility(
@@ -318,17 +330,25 @@ const resolveNamedFromClient = (
           latestIncompatibility = probed.result.detail;
           continue;
         }
-        const bypassed =
-          options.releaseAgeEvaluation.mode === "ignore" &&
+        if (
+          exemption !== undefined &&
           !isVersionEntryEligibleAt(candidate, options.releaseAgeEvaluation)
-            ? releaseAgeEvidence(candidate, options.releaseAgeEvaluation)
-            : undefined;
+        ) {
+          return {
+            kind: "exempted",
+            target,
+            ref: probed.ref,
+            bypassed: releaseAgeEvidence(candidate, options.releaseAgeEvaluation),
+            exemption,
+          } as const;
+        }
         return {
           kind: "selected",
           target,
           ref: probed.ref,
-          ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
-          ...(bypassed === undefined ? {} : { bypassed }),
+          ...(resolution.kind === "selected" && resolution.newerHeld !== undefined
+            ? { newerHeld: resolution.newerHeld }
+            : {}),
         } as const;
       }
 
@@ -355,13 +375,20 @@ const resolveNamedFromClient = (
         detail: `Registry returned unsupported extension type for ${target}`,
       });
     }
-    return {
-      kind: "selected",
-      target,
-      ref: ref.value,
-      ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
-      ...(resolution.bypassed === undefined ? {} : { bypassed: resolution.bypassed }),
-    } as const;
+    return resolution.kind === "exempted"
+      ? ({
+          kind: "exempted",
+          target,
+          ref: ref.value,
+          bypassed: resolution.bypassed,
+          exemption: resolution.exemption,
+        } as const)
+      : ({
+          kind: "selected",
+          target,
+          ref: ref.value,
+          ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
+        } as const);
   });
 
 const findOfficialAxmSkill = (

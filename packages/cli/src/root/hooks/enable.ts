@@ -16,7 +16,11 @@ import {
   type JobStepArtifactTarget,
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
-import { resolveConfiguredHook, WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
@@ -90,7 +94,8 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
     return;
   }
 
-  const resolved = yield* resolveConfiguredHook(args.name, entry.source);
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation);
   const { ref, versionRange } = resolved;
   const plan: Plan = {
     _tag: "Plan",

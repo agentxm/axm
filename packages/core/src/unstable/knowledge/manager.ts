@@ -29,7 +29,10 @@ import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
-import { resolveConfiguredKnowledge } from "../workspace/configured-entry-resolution/index.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredKnowledge,
+} from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
@@ -784,20 +787,22 @@ export const KnowledgeManagerLive = Layer.effect(
           .getConfiguredKnowledgeEntries()
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       listMaterializable: () =>
-        activeKnowledgeNodes().pipe(
-          Effect.flatMap((nodes) =>
-            Effect.scoped(
-              Effect.forEach(
-                nodes,
-                (node) =>
-                  provide(resolveConfiguredKnowledge(node.name, node.source)).pipe(
-                    Effect.map(({ ref }) => ref),
-                  ),
-                { concurrency: "unbounded" },
-              ),
+        Effect.gen(function* () {
+          const nodes = yield* activeKnowledgeNodes();
+          const releaseAgeEvaluation = yield* provide(
+            makeConfiguredReleaseAgeEvaluation("enforce"),
+          );
+          return yield* Effect.scoped(
+            Effect.forEach(
+              nodes,
+              (node) =>
+                provide(
+                  resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation),
+                ).pipe(Effect.map(({ ref }) => ref)),
+              { concurrency: "unbounded" },
             ),
-          ),
-        ),
+          );
+        }),
       materializeUninstall,
       materializeDeactivate,
       upsertSettingsEntry: ({ ref, versionRange }) =>

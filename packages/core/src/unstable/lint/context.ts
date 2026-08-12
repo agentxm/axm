@@ -28,6 +28,7 @@ import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desir
 import type { CanonicalObservation } from "../workspace/canonical-observation.js";
 import type { KnowledgeInspection } from "../knowledge/okf.js";
 import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
+import type { Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -323,6 +324,8 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
+  /** Effective configured owner (project, then user scope), when available. */
+  readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** One caller-built evaluation over the authoritative installed AXM skill. */
   readonly axmSkillCompatibility?: Effect.Effect<AxmSkillCompatibility>;
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */

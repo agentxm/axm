@@ -77,7 +77,10 @@ import {
   type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
-import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
+import {
+  DEFAULT_MINIMUM_RELEASE_AGE,
+  type ScopedReleaseAgeExcludePattern,
+} from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
@@ -745,6 +748,28 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
         return DEFAULT_MINIMUM_RELEASE_AGE satisfies MinimumReleaseAge;
       }),
+
+      getMinimumReleaseAgeExclude: Effect.fn("WorkspaceMutations.getMinimumReleaseAgeExclude")(
+        function* () {
+          const scopedSettings = yield* readSettingsSafe(workspaceDir);
+          if (scopedSettings.minimumReleaseAgeExclude !== undefined) {
+            return scopedSettings.minimumReleaseAgeExclude.map(
+              (pattern): ScopedReleaseAgeExcludePattern => ({ pattern, scope: options.scope }),
+            );
+          }
+
+          if (options.scope === "project") {
+            const globalSettings = yield* readSettingsSafe(globalDir);
+            if (globalSettings.minimumReleaseAgeExclude !== undefined) {
+              return globalSettings.minimumReleaseAgeExclude.map(
+                (pattern): ScopedReleaseAgeExcludePattern => ({ pattern, scope: "user" }),
+              );
+            }
+          }
+
+          return [];
+        },
+      ),
 
       addConfiguredSource: (source: SourceHostConfig) =>
         withMutex(

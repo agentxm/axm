@@ -21,6 +21,7 @@ import type { Source } from "@agentxm/client-core/unstable/sources";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
 
 export interface InstallRuleHandlerArgs {
@@ -55,6 +56,7 @@ export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
     const ruleManager = yield* RuleManager;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
 
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
@@ -130,9 +132,14 @@ export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<InstallRuleCommandIntent, AppError> =>
       Effect.gen(function* () {
         if (refs.length === 0) {
+          const suggestions =
+            parsed.source.type === "registry"
+              ? yield* loginSuggestionsFor([parsed.source.location.href])
+              : [];
           return yield* makeAppError({
             code: "not_found",
             detail: "No rules found in source",
+            suggestions,
           });
         }
         return {

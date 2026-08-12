@@ -44,6 +44,7 @@ describe("root install command help", () => {
     expect(output).toContain("axm install @acme/skills/code-review");
     expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
     expect(output).toContain('refs cannot contain "/"');
+    expect(output).toContain("--ignore-release-age");
     expect(output).toContain(
       "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge",
     );

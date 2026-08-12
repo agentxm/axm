@@ -7,6 +7,7 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
@@ -18,6 +19,7 @@ import {
   type Settings,
   SettingsSchema,
 } from "./schema.js";
+import { applyJsonPatchToText } from "./format-preserving-json.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -53,9 +55,6 @@ export const createDefaultSettings = (): Settings => ({});
  *
  * @experimental This API is unstable and may change without notice.
  */
-const encodeSettingsSync = Schema.encodeSync(SettingsSchema);
-const decodeSettingsSync = Schema.decodeUnknownSync(SettingsSchema);
-
 const settingsConfigKeys = new Set(["rulesConfig", "knowledgeConfig"]);
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -86,8 +85,97 @@ const orderSettingsRecord = (
   return ordered;
 };
 
-export const orderSettingsKeys = (settings: Settings): Settings =>
-  decodeSettingsSync(orderSettingsRecord(encodeSettingsSync(settings)));
+const isJsonArray = (value: Schema.Json): value is Schema.JsonArray => Array.isArray(value);
+
+const isJsonObject = (value: Schema.Json): value is Schema.JsonObject =>
+  typeof value === "object" && value !== null && !isJsonArray(value);
+
+const parseJson = (text: string): Schema.Json | undefined => {
+  try {
+    return Schema.decodeUnknownSync(Schema.Json)(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
+};
+
+const serializeCanonicalSettings = (settings: Readonly<Record<string, unknown>>): string =>
+  JSON.stringify(settings, null, 2) + "\n";
+
+const ensureSingleTrailingNewline = (content: string): string =>
+  content.replace(/[\r\n]+$/, "") + "\n";
+
+const hasCanonicalTopLevelOrder = (settings: Schema.Json): boolean => {
+  if (!isJsonObject(settings)) return false;
+
+  let previousIndex = -1;
+  let foundUnknownKey = false;
+  for (const key of Object.keys(settings)) {
+    const index = SETTINGS_KEY_ORDER.indexOf(key);
+    if (index === -1) {
+      foundUnknownKey = true;
+      continue;
+    }
+    if (foundUnknownKey || index <= previousIndex) return false;
+    previousIndex = index;
+  }
+  return true;
+};
+
+const insertionIndexFor = (
+  priorWasCanonical: boolean,
+  path: ReadonlyArray<string | number>,
+  properties: ReadonlyArray<string>,
+): number => {
+  const key = path.length === 1 ? path[0] : undefined;
+  if (!priorWasCanonical || typeof key !== "string") return properties.length;
+
+  const keyIndex = SETTINGS_KEY_ORDER.indexOf(key);
+  if (keyIndex === -1) return properties.length;
+
+  const nextIndex = properties.findIndex((property) => {
+    const propertyIndex = SETTINGS_KEY_ORDER.indexOf(property);
+    return propertyIndex === -1 || propertyIndex > keyIndex;
+  });
+  return nextIndex === -1 ? properties.length : nextIndex;
+};
+
+type ExistingSettingsRenderResult = {
+  readonly content: string;
+  readonly fallbackReason?: "edit_failed" | "edited_content_invalid";
+};
+
+/** @internal */
+export const renderExistingSettings = (
+  priorText: string,
+  prior: Schema.Json,
+  target: Schema.Json,
+  canonicalContent: string,
+  applyPatch: typeof applyJsonPatchToText = applyJsonPatchToText,
+): ExistingSettingsRenderResult => {
+  const patch = JsonPatch.get(prior, target);
+  if (patch.length === 0) {
+    return { content: ensureSingleTrailingNewline(priorText) };
+  }
+
+  const priorWasCanonical = hasCanonicalTopLevelOrder(prior);
+  const edited = applyPatch(priorText, prior, patch, {
+    getInsertionIndex: (path, properties) => insertionIndexFor(priorWasCanonical, path, properties),
+  });
+  if (edited._tag === "Failure") {
+    return { content: canonicalContent, fallbackReason: "edit_failed" };
+  }
+
+  const parsed = parseJson(edited.text);
+  if (parsed === undefined || JsonPatch.get(parsed, target).length !== 0) {
+    return { content: canonicalContent, fallbackReason: "edited_content_invalid" };
+  }
+
+  if (isJsonObject(target) && Object.keys(target).length === 0) {
+    return { content: canonicalContent };
+  }
+
+  return { content: ensureSingleTrailingNewline(edited.text) };
+};
 
 // -----------------------------------------------------------------------------
 // Core Functions
@@ -131,8 +219,55 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       ),
     );
 
-    // Serialize to JSON with pretty printing and trailing newline.
-    const content = JSON.stringify(orderSettingsRecord(encoded), null, 2) + "\n";
+    const ordered = orderSettingsRecord(encoded);
+    const canonicalContent = serializeCanonicalSettings(ordered);
+    const targetResult = yield* Effect.result(Schema.decodeUnknownEffect(Schema.Json)(ordered));
+    let content = canonicalContent;
+
+    if (targetResult._tag === "Failure") {
+      yield* Effect.logDebug("Falling back to canonical settings serialization", {
+        settingsPath,
+        reason: "target_not_json",
+      });
+    } else {
+      const existsResult = yield* Effect.result(fs.exists(settingsPath));
+      if (existsResult._tag === "Failure") {
+        yield* Effect.logDebug("Falling back to canonical settings serialization", {
+          settingsPath,
+          reason: "existence_check_failed",
+        });
+      } else if (existsResult.success) {
+        const readResult = yield* Effect.result(fs.readFileString(settingsPath));
+        if (readResult._tag === "Failure") {
+          yield* Effect.logDebug("Falling back to canonical settings serialization", {
+            settingsPath,
+            reason: "read_failed",
+          });
+        } else if (readResult.success.trim() !== "") {
+          const prior = parseJson(readResult.success);
+          if (prior === undefined) {
+            yield* Effect.logDebug("Falling back to canonical settings serialization", {
+              settingsPath,
+              reason: "parse_failed",
+            });
+          } else {
+            const rendered = renderExistingSettings(
+              readResult.success,
+              prior,
+              targetResult.success,
+              canonicalContent,
+            );
+            content = rendered.content;
+            if (rendered.fallbackReason !== undefined) {
+              yield* Effect.logDebug("Falling back to canonical settings serialization", {
+                settingsPath,
+                reason: rendered.fallbackReason,
+              });
+            }
+          }
+        }
+      }
+    }
 
     yield* protectWorkspacePath(settingsPath);
 

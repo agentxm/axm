@@ -13,9 +13,19 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
-`minimumReleaseAge` controls unattended registry resolution for `axm sync` and
-update commands. It defaults to `"24h"` so brand-new versions are held until
-they have aged for 24 hours; use `"0s"` to disable the holdback.
+`minimumReleaseAge` controls unattended Registry resolution for bare `axm
+install`, `axm sync`, and update commands. It defaults to `"24h"` so brand-new
+versions are held until they have aged for 24 hours; use `"0s"` to disable the
+holdback.
+
+`minimumReleaseAgeExclude` declares reviewed Registry exemptions. Each entry is
+an exact FQN (`@owner/skills/name`), an owner/type pattern
+(`@owner/skills/*`), or an owner pattern (`@owner/*`). Project settings take
+precedence over user settings, including an explicit empty array. AXM resolves
+the Registry index first and matches its authoritative owner, type, and name;
+an excluded pack exempts its complete Registry dependency graph. `axm lint`
+warns when an excluded publisher differs from the workspace's declared
+`owner`.
 
 An update chooses the newest version that both satisfies the configured range
 and has reached the minimum age. If a newer matching version is still too new,
@@ -24,10 +34,13 @@ matching version is too new, a workspace-wide `axm update` leaves that target
 unchanged and continues with other targets. A targeted update preserves already
 trusted and usable desired state; otherwise it stops without writing.
 
-Use `axm update <registry-fqn> --ignore-release-age` for a reviewed, one-shot
-targeted bypass. The flag does not change settings and is rejected without one
-Registry FQN. JSON and NDJSON results report the evaluation time, holdbacks,
-dependency paths, eligibility times, and explicit bypasses.
+Use `--ignore-release-age` on bare `axm install`, `axm sync`, or `axm update`
+for a reviewed, one-shot workspace bypass. A targeted Registry update also
+accepts the flag; attended named installs accept it but already select the
+requested release without the unattended gate. The flag does not change
+settings. JSON and NDJSON results report the evaluation time, holdbacks,
+dependency paths, eligibility times, and each bypass cause and exemption
+scope.
 
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
@@ -107,6 +120,9 @@ syncing agent config.
 Let AXM edit settings for routine install, remove, enable, disable, agent, and
 source changes. Hand-edit settings when reviewing generated changes, adding
 source hosts, or adjusting `lint.rules`.
+
+AXM writes new settings files in canonical key order. When editing an existing
+file, it preserves the file's key order and untouched formatting.
 
 Workspace sources are authoritative local packages. AXM protects them across
 their lifecycle:

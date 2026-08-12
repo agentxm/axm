@@ -7,10 +7,9 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  parseMinimumReleaseAge,
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
-  type ReleaseAgeEvidence,
+  type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
@@ -21,6 +20,7 @@ import {
 import {
   WorkspaceMutations,
   configuredRowsByName,
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -73,6 +73,7 @@ interface CollectedWorkspaceUpdatePlans {
   readonly plans: ReadonlyArray<Plan>;
   readonly fragments: ReadonlyArray<StepFragment>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection {
@@ -201,14 +202,17 @@ const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSectio
 const toCollectedWorkspaceUpdatePlans = ({
   plans,
   holdbacks = [],
+  bypasses = [],
   originForStep = () => "direct" as const,
 }: {
   readonly plans: ReadonlyArray<Plan>;
   readonly holdbacks?: ReadonlyArray<ReleaseAgeRecord>;
+  readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
   readonly originForStep?: (index: number) => StepOrigin;
 }): CollectedWorkspaceUpdatePlans => ({
   plans,
   holdbacks,
+  bypasses,
   fragments: plans.flatMap((plan) =>
     flattenPlanSteps(plan).map((step, index) => ({
       key: step.key ?? step.label,
@@ -218,75 +222,36 @@ const toCollectedWorkspaceUpdatePlans = ({
   ),
 });
 
-const toReleaseAgeRecord = (args: {
+type ConfiguredUpdateResolution<TIntent> =
+  | {
+      readonly kind: "selected";
+      readonly intent: TIntent;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+    }
+  | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> };
+
+const releaseAgeRecord = (args: {
   readonly target: string;
-  readonly requestedRange: Option.Option<string>;
-  readonly evidence: ReleaseAgeEvidence;
+  readonly versionRange: Option.Option<string>;
+  readonly evidence: {
+    readonly version: string;
+    readonly publishedAt: string;
+    readonly eligibleAt: string;
+    readonly minimumReleaseAgeSeconds: number;
+  };
   readonly selectedVersion?: string;
 }): ReleaseAgeRecord => ({
   reason: "minimum-release-age",
   target: args.target,
   dependencyPath: [args.target],
-  ...(Option.isSome(args.requestedRange) ? { requestedRange: args.requestedRange.value } : {}),
+  ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
   ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
   candidateVersion: args.evidence.version,
   publishedAt: args.evidence.publishedAt,
   eligibleAt: args.evidence.eligibleAt,
   minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
 });
-
-type ConfiguredUpdateResolution<TIntent> =
-  | {
-      readonly kind: "selected";
-      readonly intent: TIntent;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-    }
-  | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> };
-
-const namedResolutionError = (resolution: {
-  readonly kind: "not_found" | "version_unsatisfied";
-  readonly target: string;
-  readonly requestedRange?: string;
-}): AppError =>
-  resolution.kind === "not_found"
-    ? makeAppError({
-        code: "not_found",
-        detail: `Configured extension "${resolution.target}" could not be found in its source`,
-        suggestions: [{ description: "Verify the configured source or update settings.json." }],
-      })
-    : makeAppError({
-        code: "conflict",
-        title: "No compatible version",
-        detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange ?? "the configured range"}`,
-      });
-
-const selectedHoldbacks = (resolution: {
-  readonly target: string;
-  readonly versionRange: Option.Option<string>;
-  readonly selectedVersion: string;
-  readonly newerHeld?: ReleaseAgeEvidence;
-}): ReadonlyArray<ReleaseAgeRecord> =>
-  resolution.newerHeld === undefined
-    ? []
-    : [
-        toReleaseAgeRecord({
-          target: resolution.target,
-          requestedRange: resolution.versionRange,
-          selectedVersion: resolution.selectedVersion,
-          evidence: resolution.newerHeld,
-        }),
-      ];
-
-const heldRecord = (resolution: {
-  readonly target: string;
-  readonly versionRange: Option.Option<string>;
-  readonly candidate: ReleaseAgeEvidence;
-}): ReleaseAgeRecord =>
-  toReleaseAgeRecord({
-    target: resolution.target,
-    requestedRange: resolution.versionRange,
-    evidence: resolution.candidate,
-  });
 
 const matchesRequestedType = (
   requestedType: Option.Option<WorkspaceUpdatableType>,
@@ -323,7 +288,14 @@ const resolveUpdateIntent = <TIntent, R>(args: {
   readonly source: string;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   readonly fallback: Effect.Effect<
-    { readonly ref: ExtensionRef; readonly versionRange: Option.Option<VersionRange> },
+    {
+      readonly ref: ExtensionRef;
+      readonly versionRange: Option.Option<VersionRange>;
+      readonly releaseAge?: {
+        readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+        readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+      };
+    },
     AppError,
     R
   >;
@@ -337,51 +309,90 @@ const resolveUpdateIntent = <TIntent, R>(args: {
   R | WorkspaceUpdateCollectorContext
 > =>
   Effect.gen(function* () {
-    const registry = yield* resolveConfiguredRegistryEntry(
+    const registryResolution = yield* resolveConfiguredRegistryEntry(
       args.name,
       args.source,
       args.type,
       args.releaseAgeEvaluation,
     );
-    if (Option.isNone(registry)) {
-      const fallback = yield* args.fallback;
-      const intent = args.makeIntent(fallback.ref, fallback.versionRange);
+    if (Option.isSome(registryResolution)) {
+      const resolution = registryResolution.value;
+      if (resolution.kind === "not_found") {
+        return yield* makeAppError({
+          code: "not_found",
+          detail: `Configured extension "${resolution.target}" could not be found in its source`,
+          suggestions: [{ description: "Verify the configured source or update settings.json." }],
+        });
+      }
+      if (resolution.kind === "version_unsatisfied") {
+        return yield* makeAppError({
+          code: "conflict",
+          title: "No compatible version",
+          detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
+        });
+      }
+      if (resolution.kind === "policy_held") {
+        return {
+          kind: "policy_held",
+          holdbacks: [
+            releaseAgeRecord({
+              target: resolution.target,
+              versionRange: resolution.versionRange,
+              evidence: resolution.candidate,
+            }),
+          ],
+        } as const;
+      }
+      const intent = args.makeIntent(resolution.ref, resolution.versionRange);
       if (intent === undefined) {
         return yield* makeAppError({
           code: "internal",
-          detail: `Configured ${args.type} resolution returned ${fallback.ref.type}`,
+          detail: `Configured ${args.type} resolution returned ${resolution.ref.type}`,
         });
       }
-      return { kind: "selected", intent, holdbacks: [] } as const;
-    }
-
-    const resolution = registry.value;
-    if (resolution.kind === "not_found" || resolution.kind === "version_unsatisfied") {
-      return yield* namedResolutionError(resolution);
-    }
-    if (resolution.kind === "policy_held") {
       return {
-        kind: "policy_held",
-        holdbacks: [heldRecord(resolution)],
+        kind: "selected",
+        intent,
+        holdbacks:
+          resolution.kind === "exempted" || resolution.newerHeld === undefined
+            ? []
+            : [
+                releaseAgeRecord({
+                  target: resolution.target,
+                  versionRange: resolution.versionRange,
+                  evidence: resolution.newerHeld,
+                  selectedVersion: resolution.ref.version,
+                }),
+              ],
+        bypasses:
+          resolution.kind === "selected"
+            ? []
+            : [
+                {
+                  ...releaseAgeRecord({
+                    target: resolution.target,
+                    versionRange: resolution.versionRange,
+                    evidence: resolution.bypassed,
+                    selectedVersion: resolution.ref.version,
+                  }),
+                  ...resolution.exemption,
+                },
+              ],
       } as const;
     }
-
-    const intent = args.makeIntent(resolution.ref, resolution.versionRange);
+    const resolved = yield* args.fallback;
+    const intent = args.makeIntent(resolved.ref, resolved.versionRange);
     if (intent === undefined) {
       return yield* makeAppError({
         code: "internal",
-        detail: `Configured ${args.type} resolution returned ${resolution.ref.type}`,
+        detail: `Configured ${args.type} resolution returned ${resolved.ref.type}`,
       });
     }
     return {
       kind: "selected",
       intent,
-      holdbacks: selectedHoldbacks({
-        target: resolution.target,
-        versionRange: resolution.versionRange,
-        selectedVersion: resolution.ref.version,
-        ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
-      }),
+      holdbacks: resolved.releaseAge?.holdbacks ?? [],
+      bypasses: resolved.releaseAge?.bypasses ?? [],
     } as const;
   });
 
@@ -395,7 +406,7 @@ const resolveSkillIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredSkill(name, source),
+    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "skill"
         ? ({ skillsToInstall: [{ ref, versionRange }] } satisfies InstallSkillCommandIntent)
@@ -412,7 +423,7 @@ const resolveSubagentIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredSubagent(name, source),
+    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "subagent"
         ? ({ subagentsToInstall: [{ ref, versionRange }] } satisfies InstallSubagentCommandIntent)
@@ -429,7 +440,7 @@ const resolveRuleIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredRule(name, source),
+    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "rule"
         ? ({ refs: [{ ref, versionRange }] } satisfies InstallRuleCommandIntent)
@@ -446,7 +457,7 @@ const resolveHookIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredHook(name, source),
+    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "hook"
         ? ({ refs: [{ ref, versionRange }] } satisfies InstallHookCommandIntent)
@@ -463,7 +474,7 @@ const resolveKnowledgeIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredKnowledge(name, source),
+    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "knowledge"
         ? ({ refs: [{ ref, versionRange }] } satisfies InstallKnowledgeCommandIntent)
@@ -480,7 +491,7 @@ const resolveMcpServerIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredMcpServer(name, source),
+    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "mcp-server"
         ? ({ ref, versionRange, force: false } satisfies InstallMcpServerCommandIntent)
@@ -493,7 +504,7 @@ const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: Rele
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredPack(name, source),
+    fallback: resolveConfiguredPack(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "pack"
         ? ({
@@ -509,6 +520,7 @@ const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: Rele
 interface ResolvedPlanCollection {
   readonly plans: ReadonlyArray<Plan>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 const collectResolvedPlan = <TIntent, RResolution, RPlan>(
@@ -518,17 +530,26 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
   resolution.pipe(
     Effect.flatMap((resolved) =>
       resolved.kind === "policy_held"
-        ? Effect.succeed<ResolvedPlanCollection>({ plans: [], holdbacks: resolved.holdbacks })
+        ? Effect.succeed<ResolvedPlanCollection>({
+            plans: [],
+            holdbacks: resolved.holdbacks,
+            bypasses: [],
+          })
         : buildPlan(resolved.intent).pipe(
             Effect.map((plan): ResolvedPlanCollection => ({
               plans: [plan],
               holdbacks: [...resolved.holdbacks, ...(plan.releaseAge?.holdbacks ?? [])],
+              bypasses: [...resolved.bypasses, ...(plan.releaseAge?.bypasses ?? [])],
             })),
           ),
     ),
   );
 
-const collectedWorkspaceSourcePlan = (plan: Plan) => ({ plans: [plan], holdbacks: [] });
+const collectedWorkspaceSourcePlan = (plan: Plan): ResolvedPlanCollection => ({
+  plans: [plan],
+  holdbacks: [],
+  bypasses: [],
+});
 
 const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
@@ -556,6 +577,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -585,6 +607,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -614,6 +637,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -643,6 +667,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -672,6 +697,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -701,6 +727,7 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
     });
   });
 
@@ -730,6 +757,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     return toCollectedWorkspaceUpdatePlans({
       plans: resolved.flatMap((item) => item.plans),
       holdbacks: resolved.flatMap((item) => item.holdbacks),
+      bypasses: resolved.flatMap((item) => item.bypasses),
       originForStep: (index) => (index === 0 ? "direct" : "dependency"),
     });
   });
@@ -773,26 +801,15 @@ export const buildWorkspaceUpdatePlan = (args: {
   readonly planDescription: Option.Option<string>;
   /** Installed names the caller's selector resolved to; omit to update all. */
   readonly names?: ReadonlyArray<string>;
+  readonly ignoreReleaseAge?: boolean;
 }) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-    const minimumReleaseAge = parseMinimumReleaseAge(minimumReleaseAgeText);
-    if (Option.isNone(minimumReleaseAge)) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Invalid minimumReleaseAge "${minimumReleaseAgeText}"`,
-        recover: "Use a duration such as 24h, 1440m, or 0s.",
-      });
-    }
-    const evaluatedAt = yield* DateTime.now;
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
+      args.ignoreReleaseAge === true ? "ignore" : "enforce",
+    );
     const selection: WorkspaceUpdateCollectionRequest = {
       names: args.names === undefined ? undefined : new Set(args.names),
-      releaseAgeEvaluation: {
-        minimumReleaseAge: minimumReleaseAge.value,
-        evaluatedAt,
-        mode: "enforce",
-      },
+      releaseAgeEvaluation,
     };
     const selectedCollectors = workspaceUpdateCollectors.filter(({ type }) =>
       matchesRequestedType(args.type, type),
@@ -806,6 +823,9 @@ export const buildWorkspaceUpdatePlan = (args: {
     const holdbacks = normalizeReleaseAgeRecords(
       collections.flatMap((collection) => collection.holdbacks),
     );
+    const bypasses = normalizeReleaseAgeRecords(
+      collections.flatMap((collection) => collection.bypasses),
+    );
 
     if (fragments.length === 0 && holdbacks.length === 0) {
       return {
@@ -817,9 +837,9 @@ export const buildWorkspaceUpdatePlan = (args: {
     const plans = collections.flatMap((collection) => collection.plans);
     const sections = mergePlanSections(plans);
     const releaseAge = {
-      evaluatedAt: DateTime.formatIso(evaluatedAt),
+      evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks,
-      bypasses: [],
+      bypasses,
     } satisfies NonNullable<Plan["releaseAge"]>;
 
     return {

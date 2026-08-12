@@ -7,6 +7,8 @@
  */
 
 import { createServer, type Server } from "node:http";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -28,9 +30,11 @@ import {
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,
+  expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  property,
 } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -43,12 +47,16 @@ const initWorkspace = (
   opts?: {
     sources?: ReadonlyArray<unknown>;
     owner?: string;
+    minimumReleaseAgeExclude?: ReadonlyArray<string>;
   },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.sources) settings["sources"] = opts.sources;
   if (opts?.owner) settings["owner"] = opts.owner;
+  if (opts?.minimumReleaseAgeExclude) {
+    settings["minimumReleaseAgeExclude"] = opts.minimumReleaseAgeExclude;
+  }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
@@ -60,13 +68,25 @@ const createRegistrySkill = ({
   registryRoot,
   owner,
   name,
+  published = "2025-01-01T00:00:00Z",
 }: {
   readonly registryRoot: string;
   readonly owner: string;
   readonly name: string;
+  readonly published?: string;
 }) => {
   const skillDir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(skillDir, { recursive: true });
+  const stagingDir = path.join(skillDir, "staging");
+  fs.mkdirSync(path.join(stagingDir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(stagingDir, "src", "SKILL.md"),
+    `---\nname: ${name}\ndescription: Test skill\n---\n\n# Test\n`,
+  );
+  const archivePath = path.join(skillDir, "1.0.0.zip");
+  execFileSync("zip", ["-qr", archivePath, "src"], { cwd: stagingDir });
+  fs.rmSync(stagingDir, { recursive: true, force: true });
+  const archive = fs.readFileSync(archivePath);
   fs.writeFileSync(
     path.join(skillDir, "index.json"),
     JSON.stringify({
@@ -77,9 +97,9 @@ const createRegistrySkill = ({
       versions: [
         {
           version: "1.0.0",
-          published: "2025-01-01T00:00:00Z",
+          published,
           agents: [],
-          integrity: "sha512-AAAA==",
+          integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
         },
       ],
     }),
@@ -175,12 +195,15 @@ describe("skills install handler — error propagation", () => {
     verbose?: boolean;
     debug?: boolean;
     nonInteractive?: boolean;
+    machine?: boolean;
   }) => {
+    const { machine, ...flags } = flagsOverrides ?? {};
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
-      flags: flagsOverrides,
+      flags,
+      machine,
     });
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -396,6 +419,63 @@ describe("skills install handler — error propagation", () => {
         expect(rendererState.spinnerMessages).toContain("Resolved extension sources");
         expect(logs.info.some((line) => line.includes("Source:"))).toBe(true);
         expect(logs.info.some((line) => line.includes("Resolution:"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("warns for a brand-new attended registry skill", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const registryDir = path.join(tempDir, "registry");
+    createRegistrySkill({
+      registryRoot: registryDir,
+      owner: "@myorg",
+      name: "effect-basics",
+      published: "2099-01-01T00:00:00Z",
+    });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      owner: "@myorg",
+      sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/skills/effect-basics@1.0.0"), {
+          yes: true,
+          force: false,
+          preview: false,
+        });
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        expect(property(result, "warningCount")).toBe(1);
+      }),
+    );
+  });
+
+  it.effect("suppresses the brand-new advisory for an excluded attended registry skill", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const registryDir = path.join(tempDir, "registry");
+    createRegistrySkill({
+      registryRoot: registryDir,
+      owner: "@myorg",
+      name: "effect-basics",
+      published: "2099-01-01T00:00:00Z",
+    });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      owner: "@myorg",
+      minimumReleaseAgeExclude: ["@myorg/skills/effect-basics"],
+      sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/skills/effect-basics@1.0.0"), {
+          yes: true,
+          force: false,
+          preview: false,
+        });
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        expect(property(result, "warningCount")).toBe(0);
       }),
     );
   });

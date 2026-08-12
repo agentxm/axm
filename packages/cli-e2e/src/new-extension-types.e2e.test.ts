@@ -19,6 +19,39 @@ const configureWorkspace = (
   writeJson(settingsPath, update(readJson(settingsPath)));
 };
 
+describe("axm skills new", () => {
+  it("preserves unrelated settings layout in a divergent workspace", async () => {
+    const temp = createTempDir();
+
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@test",
+        lint: { rules: {} },
+      }));
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const before = fs.readFileSync(settingsPath, "utf-8");
+
+      const result = await runCli(["skills", "new", "layout-check", "--yes"], {
+        cwd: temp.path,
+      });
+
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      const after = fs.readFileSync(settingsPath, "utf-8");
+      const intendedEntry = ',\n    "layout-check": "workspace:@test/skills/layout-check"';
+      expect(after).toContain(intendedEntry);
+      expect(after.endsWith("\n")).toBe(true);
+      expect(after.replace(intendedEntry, "").slice(0, -1)).toBe(before);
+      expect(readJson(settingsPath)["skills"]).toMatchObject({
+        "layout-check": "workspace:@test/skills/layout-check",
+      });
+    } finally {
+      temp.cleanup();
+    }
+  });
+});
+
 describe("axm mcps new", () => {
   it("scaffolds, registers, and writes lockfile for an authored MCP server", async () => {
     const temp = createTempDir();

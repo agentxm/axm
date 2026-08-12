@@ -17,7 +17,9 @@ import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/index.js";
 import { isCI } from "../cli-flags/index.js";
@@ -516,6 +518,76 @@ export const CredentialStoreLive = Layer.effect(
       save,
       load,
       clear,
+    } satisfies CredentialStoreService;
+  }),
+);
+
+/**
+ * Decorates a credential store with a per-layer, per-origin read memo.
+ * Successful empty reads are memoized; failures remain retryable. Every
+ * successful write invalidates only the affected origin.
+ */
+export const CredentialStoreSessionLive = Layer.effect(
+  CredentialStore,
+  Effect.gen(function* () {
+    const store = yield* CredentialStore;
+    const cache = yield* Ref.make(new Map<string, Option.Option<StoredCredentials>>());
+    const locks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
+
+    const getLock = (registryUrl: string) =>
+      Ref.modify(locks, (current) => {
+        const existing = current.get(registryUrl);
+        if (existing !== undefined) return [existing, current];
+        const created = Semaphore.makeUnsafe(1);
+        const updated = new Map(current);
+        updated.set(registryUrl, created);
+        return [created, updated];
+      });
+
+    const getCached = (registryUrl: string) =>
+      Effect.map(Ref.get(cache), (current) => {
+        const cached = current.get(registryUrl);
+        return cached === undefined
+          ? Option.none<Option.Option<StoredCredentials>>()
+          : Option.some(cached);
+      });
+
+    const invalidate = (registryUrl: string) =>
+      Ref.update(cache, (current) => {
+        const updated = new Map(current);
+        updated.delete(registryUrl);
+        return updated;
+      });
+
+    const load: CredentialStoreService["load"] = (registryUrl) =>
+      Effect.gen(function* () {
+        const cached = yield* getCached(registryUrl);
+        if (Option.isSome(cached)) return cached.value;
+
+        const lock = yield* getLock(registryUrl);
+        return yield* lock.withPermits(1)(
+          Effect.gen(function* () {
+            const afterWait = yield* getCached(registryUrl);
+            if (Option.isSome(afterWait)) return afterWait.value;
+            const loaded = yield* store.load(registryUrl);
+            yield* Ref.update(cache, (current) => {
+              const updated = new Map(current);
+              updated.set(registryUrl, loaded);
+              return updated;
+            });
+            return loaded;
+          }),
+        );
+      });
+
+    return {
+      tier: store.tier,
+      allowsPersistedCredentials: store.allowsPersistedCredentials,
+      load,
+      save: (registryUrl, handle, credentials) =>
+        store.save(registryUrl, handle, credentials).pipe(Effect.andThen(invalidate(registryUrl))),
+      clear: (registryUrl) =>
+        store.clear(registryUrl).pipe(Effect.andThen(invalidate(registryUrl))),
     } satisfies CredentialStoreService;
   }),
 );

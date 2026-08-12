@@ -15,14 +15,16 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Semaphore from "effect/Semaphore";
 
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
 import { RegistryUrl } from "./registry-url.js";
-import type { TokenSource } from "./schema.js";
-import { refreshStoredToken, resolveRequestToken } from "./token-resolution.js";
+import type { CredentialStoreTokenSource, TokenSource } from "./schema.js";
+import { refreshStoredToken, resolveRequestToken, resolveStoredToken } from "./token-resolution.js";
 
 // -----------------------------------------------------------------------------
 // AuthMiddleware layer
@@ -52,6 +54,59 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
         onSome: (fileSystem) =>
           Layer.merge(authLayerBase, Layer.succeed(FileSystem.FileSystem, fileSystem)),
       });
+      const refreshLocks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
+      const refreshOutcomes = yield* Ref.make(
+        new Map<
+          string,
+          {
+            readonly attemptedToken: string;
+            readonly result: Option.Option<CredentialStoreTokenSource>;
+          }
+        >(),
+      );
+
+      const getRefreshLock = (registryUrl: string) =>
+        Ref.modify(refreshLocks, (current) => {
+          const existing = current.get(registryUrl);
+          if (existing !== undefined) return [existing, current];
+          const created = Semaphore.makeUnsafe(1);
+          const updated = new Map(current);
+          updated.set(registryUrl, created);
+          return [created, updated];
+        });
+
+      const refreshAfterUnauthorized = (tokenSource: CredentialStoreTokenSource) =>
+        Effect.gen(function* () {
+          const lock = yield* getRefreshLock(tokenSource.registryUrl);
+          return yield* lock.withPermits(1)(
+            Effect.gen(function* () {
+              const latest = yield* resolveStoredToken(tokenSource.registryUrl).pipe(
+                Effect.provide(authLayer),
+                Effect.catch(() => Effect.succeed(Option.none<CredentialStoreTokenSource>())),
+              );
+              if (Option.isNone(latest)) return latest;
+              if (latest.value.token !== tokenSource.token) return latest;
+
+              const outcomes = yield* Ref.get(refreshOutcomes);
+              const previous = outcomes.get(tokenSource.registryUrl);
+              if (previous?.attemptedToken === tokenSource.token) return previous.result;
+
+              const result = yield* refreshStoredToken(latest.value).pipe(
+                Effect.provide(authLayer),
+                Effect.option,
+              );
+              yield* Ref.update(refreshOutcomes, (current) => {
+                const updated = new Map(current);
+                updated.set(tokenSource.registryUrl, {
+                  attemptedToken: tokenSource.token,
+                  result,
+                });
+                return updated;
+              });
+              return result;
+            }),
+          );
+        });
 
       return HttpClient.make((request) =>
         Effect.gen(function* () {
@@ -78,10 +133,7 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
 
           // Automatic refresh on 401 (credential store tokens only)
           if (response.status === 401 && tokenSource._tag === "CredentialStore") {
-            const refreshResult = yield* refreshStoredToken(tokenSource).pipe(
-              Effect.provide(authLayer),
-              Effect.option,
-            );
+            const refreshResult = yield* refreshAfterUnauthorized(tokenSource);
 
             if (Option.isSome(refreshResult)) {
               const retryRequest = HttpClientRequest.bearerToken(

@@ -31,7 +31,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
@@ -218,7 +218,7 @@ const newConfig = {
 export const newCommand = Command.make("new", newConfig, ({ name, owner, title, yes, preview }) =>
   handleRulesNew({ name, owner, title, yes, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withAuthRuntime("rules new"),
+    withRuntime("rules new"),
   ),
 ).pipe(
   withArgvTracking(newConfig),

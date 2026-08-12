@@ -143,6 +143,11 @@ export {
   FqnInvalidError,
   fqnInvalidErrorToAppError,
 } from "./fqn.js";
+export {
+  matchesReleaseAgeExcludePattern,
+  ReleaseAgeExcludePatternSchema,
+  type ReleaseAgeExcludePattern,
+} from "./fqn-pattern.js";
 
 // Constants
 export { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";

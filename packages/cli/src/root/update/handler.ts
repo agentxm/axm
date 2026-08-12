@@ -14,11 +14,10 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
-  parseMinimumReleaseAge,
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
+  type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
-  type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
   SourceHostProviders,
@@ -26,6 +25,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import {
   WorkspaceMutations,
+  makeConfiguredReleaseAgeEvaluation,
   usableTrustedCanonical,
   validateDesiredPackTrust,
 } from "@agentxm/client-core/unstable/workspace";
@@ -138,7 +138,7 @@ const releaseAgeRecord = (args: {
   readonly evidence: ReleaseAgeEvidence;
   readonly currentVersion?: string;
   readonly selectedVersion?: string;
-}): ReleaseAgeRecord => ({
+}): ReleaseAgeHoldbackRecord => ({
   reason: "minimum-release-age",
   target: args.intent.target,
   dependencyPath: [args.intent.target],
@@ -274,27 +274,14 @@ const resolveTargetedUpdate = (
   ignoreReleaseAge: boolean,
 ) =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const minimumReleaseAgeText = yield* workspace.getMinimumReleaseAge();
-    const minimumReleaseAge = parseMinimumReleaseAge(minimumReleaseAgeText);
-    if (Option.isNone(minimumReleaseAge)) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Invalid minimumReleaseAge "${minimumReleaseAgeText}"`,
-        recover: "Use a duration such as 24h, 1440m, or 0s.",
-      });
-    }
-    const evaluatedAt = yield* DateTime.now;
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
+      ignoreReleaseAge ? "ignore" : "enforce",
+    );
     const source = yield* resolveSource(intent.source);
     if (source.type !== "registry") {
       return yield* makeAppError({ code: "usage", detail: "Root update requires a Registry FQN" });
     }
     const providers = yield* SourceHostProviders;
-    const releaseAgeEvaluation = {
-      minimumReleaseAge: minimumReleaseAge.value,
-      evaluatedAt,
-      mode: ignoreReleaseAge ? "ignore" : "enforce",
-    } satisfies ReleaseAgeEvaluation;
     const selected = yield* providers.resolveNamedRegistry(source, {
       name: intent.name,
       type: intent.type,
@@ -315,7 +302,7 @@ const resolveTargetedUpdate = (
         detail: `No visible version of "${selected.target}" satisfies ${selected.requestedRange}`,
       });
     }
-    const evaluatedAtText = DateTime.formatIso(evaluatedAt);
+    const evaluatedAtText = DateTime.formatIso(releaseAgeEvaluation.evaluatedAt);
     if (selected.kind === "policy_held") {
       return yield* heldTargetResolution({
         intent,
@@ -327,7 +314,7 @@ const resolveTargetedUpdate = (
     const exactIntent = { ...intent, source: `${intent.target}@${selected.ref.version}` };
     const resolution = yield* runUpdateIntent(exactIntent, execution, releaseAgeEvaluation);
     const holdbacks =
-      selected.newerHeld === undefined
+      selected.kind === "exempted" || selected.newerHeld === undefined
         ? []
         : [
             releaseAgeRecord({
@@ -337,14 +324,17 @@ const resolveTargetedUpdate = (
             }),
           ];
     const bypasses =
-      selected.bypassed === undefined
+      selected.kind === "selected"
         ? []
         : [
-            releaseAgeRecord({
-              intent,
-              evidence: selected.bypassed,
-              selectedVersion: selected.ref.version,
-            }),
+            {
+              ...releaseAgeRecord({
+                intent,
+                evidence: selected.bypassed,
+                selectedVersion: selected.ref.version,
+              }),
+              ...selected.exemption,
+            },
           ];
     return withReleaseAge(resolution, {
       evaluatedAt: evaluatedAtText,
@@ -362,19 +352,13 @@ const resolveTargetedUpdate = (
 export const handleUpdate = (args: RootUpdateHandlerArgs) =>
   Option.match(args.source, {
     onNone: () =>
-      args.ignoreReleaseAge === true
-        ? makeAppError({
-            code: "usage",
-            detail: "--ignore-release-age requires one targeted Registry FQN",
-            recover: "Retry with one fully qualified Registry extension target.",
-          })
-        : handleWorkspaceUpdate({
-            command: "update",
-            type: Option.none(),
-            planName: "Update configured extensions",
-            planDescription: Option.some("Update configured workspace extensions"),
-            flags: args,
-          }),
+      handleWorkspaceUpdate({
+        command: "update",
+        type: Option.none(),
+        planName: "Update configured extensions",
+        planDescription: Option.some("Update configured workspace extensions"),
+        flags: args,
+      }),
     onSome: (source) =>
       Effect.gen(function* () {
         const execution = yield* makePlanExecution(

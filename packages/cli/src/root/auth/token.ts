@@ -24,7 +24,7 @@ import {
   type SuggestedAction,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { withAuthRuntime } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";
 
 export const TokenDataSchema = Schema.Struct({
@@ -462,7 +462,7 @@ const createTokenCommand = Command.make(
       orgPermission,
       cidr,
       bypassMfa,
-    }).pipe(withAuthRuntime("auth token create")),
+    }).pipe(withRuntime("auth token create")),
 ).pipe(
   withArgvTracking(createTokenConfig),
   Command.withDescription("Create a granular access token"),
@@ -481,7 +481,7 @@ const createTokenCommand = Command.make(
 const listTokenConfig = {} as const;
 
 const listTokenCommand = Command.make("list", listTokenConfig, () =>
-  handleListTokens().pipe(withAuthRuntime("auth token list")),
+  handleListTokens().pipe(withRuntime("auth token list")),
 ).pipe(
   withArgvTracking(listTokenConfig),
   Command.withDescription("List granular access tokens"),
@@ -495,7 +495,7 @@ const revokeTokenConfig = {
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
-  handleRevokeToken(id).pipe(withAuthRuntime("auth token revoke")),
+  handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
   withArgvTracking(revokeTokenConfig),
   Command.withDescription("Revoke a granular access token"),
@@ -505,7 +505,7 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
 );
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>
-  handleToken().pipe(withAuthRuntime("auth token")),
+  handleToken().pipe(withRuntime("auth token")),
 ).pipe(
   withArgvTracking(tokenConfig),
   Command.withSubcommands([createTokenCommand, listTokenCommand, revokeTokenCommand]),

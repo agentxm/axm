@@ -1,0 +1,12 @@
+{
+  "description": "A release-age exclusion for the configured owner is trusted.",
+  "state": {
+    "settings": {
+      "owner": "@acme",
+      "minimumReleaseAgeExclude": ["@acme/skills/*"]
+    },
+    "existingPaths": [".axm", ".axm/settings.json"]
+  },
+  "scope": "project",
+  "expectedFindings": []
+}

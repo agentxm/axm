@@ -42,7 +42,11 @@ import {
   SkillManager,
   type SkillExtensionRef,
 } from "@agentxm/client-core/unstable/skills";
-import { buildInstallOperation, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import {
+  buildInstallOperation,
+  matchesReleaseAgeExcludePattern,
+  sanitizeName,
+} from "@agentxm/client-core/unstable/extensions";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/client-core/unstable/plan";
@@ -367,6 +371,15 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const brandNewReleaseAgeWarning = (ref: SkillExtensionRef, installedBefore: boolean) =>
       Effect.gen(function* () {
         if (installedBefore || ref.refType !== "registry") return Option.none<string>();
+
+        const excluded = (yield* ws.getMinimumReleaseAgeExclude()).some(({ pattern }) =>
+          matchesReleaseAgeExcludePattern(pattern, {
+            owner: ref.owner,
+            type: "skill",
+            name: ref.name,
+          }),
+        );
+        if (excluded) return Option.none<string>();
 
         const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
         const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);

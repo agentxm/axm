@@ -16,6 +16,7 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 import { strToU8, zipSync } from "fflate";
@@ -28,7 +29,7 @@ import type {
   GetExtensionsByOwnerResponse,
   VersionEntry,
 } from "../../../registry/index.js";
-import type { ExtensionRef } from "../../../extensions/index.js";
+import { ReleaseAgeExcludePatternSchema, type ExtensionRef } from "../../../extensions/index.js";
 import type { RegistrySkillRef } from "../../../skills/index.js";
 import type { RegistryMcpServerRef } from "../../../mcps/index.js";
 import type { RegistryPackRef } from "../../../packs/index.js";
@@ -320,10 +321,14 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, options);
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          versionRange: Option.some("2.0.0"),
+        });
         expect(result).toEqual({
           kind: "policy_held",
           target: "@test/skills/my-skill",
+          requestedRange: "2.0.0",
           candidate: {
             version: "2.0.0",
             publishedAt: "2025-01-02T12:00:00.000Z",
@@ -331,6 +336,110 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
             minimumReleaseAgeSeconds: 86_400,
           },
         });
+      }),
+    );
+  });
+
+  it.effect("selects an under-age release excluded by authoritative Registry identity", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" })],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          releaseAgeEvaluation: {
+            ...evaluation,
+            mode: "ignore",
+            exclude: [
+              {
+                pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)("@test/skills/*"),
+                scope: "project",
+              },
+            ],
+          },
+        });
+        expect(result.kind).toBe("exempted");
+        if (result.kind !== "exempted") return;
+        expect(result.exemption).toEqual({
+          bypassCause: "exclude",
+          exemptionScope: "project",
+        });
+      }),
+    );
+  });
+
+  it.effect("does not emit bypass evidence when an excluded release is already mature", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" })],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          releaseAgeEvaluation: {
+            ...evaluation,
+            exclude: [
+              {
+                pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)("@test/*"),
+                scope: "user",
+              },
+            ],
+          },
+        });
+        expect(result.kind).toBe("selected");
+      }),
+    );
+  });
+
+  it.effect("returns not_found when an exact requested release is absent", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              versions: [makeVersionEntry({ version: "1.0.0" })],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        expect(
+          yield* provider.resolveNamed(testSource, {
+            ...options,
+            versionRange: Option.some("2.0.0"),
+          }),
+        ).toEqual({ kind: "not_found", target: "@test/skills/my-skill" });
       }),
     );
   });

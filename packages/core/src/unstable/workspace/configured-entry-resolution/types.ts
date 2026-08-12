@@ -9,6 +9,7 @@ import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "../../version-constraints/version-constraints.js";
 import type { NamedRegistryResolution } from "../../sources/index.js";
+import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "../../registry/index.js";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"
@@ -20,6 +21,10 @@ export type ConfiguredEntryFailureReason =
 export interface ResolvedConfiguredEntry<TRef> {
   readonly ref: TRef;
   readonly versionRange: Option.Option<VersionRange>;
+  readonly releaseAge?: {
+    readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+    readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+  };
 }
 
 export type ResolvedConfiguredSkill = ResolvedConfiguredEntry<SkillExtensionRef>;

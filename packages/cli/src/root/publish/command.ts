@@ -100,7 +100,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 
 import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
-import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   backfillFlag,
   onExistingFlag,
@@ -1559,7 +1559,7 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     visibility: parsed.visibility,
     includeDependencies: false,
     includeDependency: [],
-  }).pipe(withWorkspace("project"), Effect.provide(AuthLayer), withRuntime("publish")),
+  }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
   Command.withDescription("Publish project-workspace extensions to a registry"),

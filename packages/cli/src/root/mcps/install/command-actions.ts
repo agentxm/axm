@@ -36,6 +36,7 @@ import type { Plan } from "@agentxm/client-core/unstable/plan";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -129,6 +130,13 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const agentRepo = yield* CodingAgentRepository;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
+
+    const registryLoginSuggestions = ws
+      .getRegistrySourceHosts()
+      .pipe(
+        Effect.flatMap((hosts) => loginSuggestionsFor(hosts.map((host) => host.location.href))),
+      );
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -305,6 +313,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<InstallMcpServerCommandIntent, AppError> =>
       Effect.gen(function* () {
         if (refs.length === 0) {
+          const loginSuggestions = yield* registryLoginSuggestions;
           return yield* makeAppError({
             code: "not_found",
             detail: `MCP server "${parsed.serverName}" not found in registry`,
@@ -312,11 +321,13 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               {
                 description: "Verify the server name and check available MCP servers.",
               },
+              ...loginSuggestions,
             ],
           });
         }
         const [ref] = refs;
         if (ref === undefined) {
+          const loginSuggestions = yield* registryLoginSuggestions;
           return yield* makeAppError({
             code: "not_found",
             detail: `MCP server "${parsed.serverName}" not found in registry`,
@@ -324,6 +335,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               {
                 description: "Verify the server name and check available MCP servers.",
               },
+              ...loginSuggestions,
             ],
           });
         }

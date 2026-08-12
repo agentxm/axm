@@ -65,13 +65,13 @@ describe("axm token", () => {
       expect(result.stderr).toContain("Target: e2e-step-up");
       expect(registry.requests).toEqual(
         expect.arrayContaining([
-          { method: "POST", path: "/v1/tokens", status: 401 },
-          {
+          expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 401 }),
+          expect.objectContaining({
             method: "GET",
             path: "/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
             status: 200,
-          },
-          { method: "POST", path: "/v1/tokens", status: 201 },
+          }),
+          expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 201 }),
         ]),
       );
     } finally {

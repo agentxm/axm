@@ -41,7 +41,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
@@ -384,7 +384,7 @@ export const newCommand = Command.make(
       matcher,
       yes,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("hooks new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("hooks new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new hook in the project-workspace authoring root"),

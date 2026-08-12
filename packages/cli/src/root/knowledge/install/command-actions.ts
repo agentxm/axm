@@ -26,6 +26,7 @@ import type { Source } from "@agentxm/client-core/unstable/sources";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallKnowledgeCommandIntent } from "./intent.js";
 
 export interface InstallKnowledgeHandlerArgs {
@@ -58,6 +59,7 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
   const env = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
     Layer.succeed(WorkspaceMutations, ws),
@@ -121,16 +123,25 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
         { concurrency: "unbounded" },
       ).pipe(Effect.map((groups) => groups.flat())),
     finalizeIntent: (parsed, refs) =>
-      refs.length === 0
-        ? Effect.fail(
-            makeAppError({ code: "not_found", detail: "No knowledge bundles found in source" }),
-          )
-        : Effect.succeed({
-            refs: refs.map((ref) => ({
-              ref,
-              versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
-            })),
-          }),
+      Effect.gen(function* () {
+        if (refs.length === 0) {
+          const suggestions =
+            parsed.source.type === "registry"
+              ? yield* loginSuggestionsFor([parsed.source.location.href])
+              : [];
+          return yield* makeAppError({
+            code: "not_found",
+            detail: "No knowledge bundles found in source",
+            suggestions,
+          });
+        }
+        return {
+          refs: refs.map((ref) => ({
+            ref,
+            versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
+          })),
+        };
+      }),
     buildPlan: (intent) =>
       Effect.succeed({
         _tag: "Plan",

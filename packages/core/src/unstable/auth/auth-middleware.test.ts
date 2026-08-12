@@ -13,10 +13,17 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, expect } from "vitest";
 
+import { makeAppError } from "../app-error/index.js";
 import { AuthClientLive } from "./auth-client.js";
-import { CredentialStoreTest } from "./credential-store.js";
+import {
+  CredentialStore,
+  CredentialStoreSessionLive,
+  CredentialStoreTest,
+  type CredentialStoreService,
+} from "./credential-store.js";
 import { makeAuthMiddlewareLive } from "./auth-middleware.js";
 import { RegistryUrl } from "./registry-url.js";
 import { handle } from "../test-helpers.js";
@@ -27,9 +34,16 @@ import { handle } from "../test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+type MockResponse = Response | Effect.Effect<Response>;
+
+const makeMockHttpClient = (
+  handler: (request: HttpClientRequest.HttpClientRequest) => MockResponse,
+) =>
   HttpClient.make((request) =>
-    Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
+    Effect.suspend(() => {
+      const result = handler(request);
+      return Effect.isEffect(result) ? result : Effect.succeed(result);
+    }).pipe(Effect.map((response) => HttpClientResponse.fromWeb(request, response))),
   );
 
 const authorizationHeader = (request: HttpClientRequest.HttpClientRequest): string | null => {
@@ -38,12 +52,17 @@ const authorizationHeader = (request: HttpClientRequest.HttpClientRequest): stri
 };
 
 const makeTestLayers = (
-  handler: (request: HttpClientRequest.HttpClientRequest) => Response,
+  handler: (request: HttpClientRequest.HttpClientRequest) => MockResponse,
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
   flagToken?: string,
+  credentialStoreService?: CredentialStoreService,
 ) => {
   const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
-  const credStoreLayer = CredentialStoreTest("restricted-file", credentialData);
+  const rawCredStoreLayer =
+    credentialStoreService === undefined
+      ? CredentialStoreTest("restricted-file", credentialData)
+      : Layer.succeed(CredentialStore, credentialStoreService);
+  const credStoreLayer = Layer.provide(CredentialStoreSessionLive, rawCredStoreLayer);
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
   const authClientLayer = Layer.provide(
     AuthClientLive,
@@ -78,6 +97,40 @@ const storedCredentials = (expiresAt?: DateTime.Utc) => ({
     },
   },
 });
+
+const makeCountingCredentialStore = (
+  initial: Readonly<Record<string, Option.Option<Parameters<CredentialStoreService["save"]>[2]>>>,
+  failingOrigins: ReadonlySet<string> = new Set(),
+) => {
+  const credentials = new Map(Object.entries(initial));
+  const loadCounts = new Map<string, number>();
+  const service: CredentialStoreService = {
+    tier: "restricted-file",
+    allowsPersistedCredentials: true,
+    load: (origin) =>
+      Effect.gen(function* () {
+        loadCounts.set(origin, (loadCounts.get(origin) ?? 0) + 1);
+        if (failingOrigins.has(origin)) {
+          return yield* makeAppError({
+            code: "auth",
+            detail: `Credential load failed for ${origin}`,
+          });
+        }
+        const entry = credentials.get(origin);
+        if (entry === undefined || Option.isNone(entry)) return Option.none();
+        return Option.some({ handle: handle("@alice"), ...entry.value });
+      }),
+    save: (origin, _handle, entry) =>
+      Effect.sync(() => {
+        credentials.set(origin, Option.some(entry));
+      }),
+    clear: (origin) =>
+      Effect.sync(() => {
+        credentials.delete(origin);
+      }),
+  };
+  return { service, loadCounts };
+};
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -493,6 +546,171 @@ describe("AuthMiddleware", () => {
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         yield* client.execute(request);
         expect(capturedAuth).toBe("Bearer axm_ses_env_default");
+      }).pipe(Effect.provide(layers));
+    });
+  });
+
+  describe("per-run credential coordination", () => {
+    it.effect("shares one refresh across concurrent 401 responses", () =>
+      Effect.gen(function* () {
+        const requestCount = 6;
+        let refreshRequests = 0;
+
+        const layers = makeTestLayers((request) => {
+          if (request.url.includes("/v1/auth/token")) {
+            refreshRequests++;
+            return Effect.yieldNow.pipe(
+              Effect.as(
+                new Response(
+                  JSON.stringify({
+                    access_token: "axm_ses_refreshed",
+                    refresh_token: "axm_ref_refreshed",
+                    token_type: "Bearer",
+                    expires_in: 3600,
+                    expires_at: DateTime.formatIso(futureExpiry()),
+                  }),
+                  { status: 200, headers: { "content-type": "application/json" } },
+                ),
+              ),
+            );
+          }
+          if (authorizationHeader(request) === "Bearer axm_ses_stored") {
+            return new Response("unauthorized", { status: 401 });
+          }
+          return new Response("ok", { status: 200 });
+        }, storedCredentials());
+
+        const client = yield* HttpClient.HttpClient.pipe(Effect.provide(layers));
+        const responses = yield* Effect.all(
+          Array.from({ length: requestCount }, () =>
+            client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
+          ),
+          { concurrency: "unbounded" },
+        );
+
+        expect(responses.map((response) => response.status)).toEqual(
+          Array.from({ length: requestCount }, () => 200),
+        );
+        expect(refreshRequests).toBe(1);
+      }),
+    );
+
+    it.effect("invalidates the memo after a credential write", () => {
+      const observed: Array<string | null> = [];
+      const layers = makeTestLayers((request) => {
+        observed.push(authorizationHeader(request));
+        return new Response("ok", { status: 200 });
+      }, storedCredentials());
+
+      return Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const store = yield* CredentialStore;
+        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
+        yield* client.execute(request);
+        yield* store.save(REGISTRY_URL, handle("@alice"), {
+          access_token: "axm_ses_new",
+          refresh_token: "axm_ref_new",
+          expires_at: futureExpiry(),
+        });
+        yield* client.execute(request);
+        expect(observed).toEqual(["Bearer axm_ses_stored", "Bearer axm_ses_new"]);
+      }).pipe(Effect.provide(layers));
+    });
+
+    it.effect("memoizes credential loads independently by origin", () => {
+      const secondRegistry = "https://registry-two.example.com";
+      const firstEntry = {
+        access_token: "axm_ses_first",
+        refresh_token: "axm_ref_first",
+        expires_at: futureExpiry(),
+      };
+      const secondEntry = {
+        access_token: "axm_ses_second",
+        refresh_token: "axm_ref_second",
+        expires_at: futureExpiry(),
+      };
+      const counting = makeCountingCredentialStore({
+        [REGISTRY_URL]: Option.some(firstEntry),
+        [secondRegistry]: Option.some(secondEntry),
+      });
+      const layers = makeTestLayers(
+        () => new Response("ok", { status: 200 }),
+        undefined,
+        undefined,
+        counting.service,
+      );
+
+      return Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        for (const origin of [REGISTRY_URL, secondRegistry, REGISTRY_URL, secondRegistry]) {
+          yield* client.execute(HttpClientRequest.get(`${origin}/v1/extensions`));
+        }
+        expect(counting.loadCounts.get(REGISTRY_URL)).toBe(1);
+        expect(counting.loadCounts.get(secondRegistry)).toBe(1);
+      }).pipe(Effect.provide(layers));
+    });
+
+    it.effect("degrades a credential load failure to anonymous without caching it", () => {
+      const counting = makeCountingCredentialStore({}, new Set([REGISTRY_URL]));
+      const observed: Array<string | null> = [];
+      const layers = makeTestLayers(
+        (request) => {
+          observed.push(authorizationHeader(request));
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        counting.service,
+      );
+
+      return Effect.gen(function* () {
+        const client = yield* HttpClient.HttpClient;
+        const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
+        yield* client.execute(request);
+        yield* client.execute(request);
+        expect(observed).toEqual([null, null]);
+        expect(counting.loadCounts.get(REGISTRY_URL)).toBe(2);
+      }).pipe(Effect.provide(layers));
+    });
+
+    it.effect("shares a failed refresh and returns every original 401", () =>
+      Effect.gen(function* () {
+        const requestCount = 6;
+        let refreshRequests = 0;
+        const layers = makeTestLayers((request) => {
+          if (request.url.includes("/v1/auth/token")) {
+            refreshRequests++;
+            return Effect.yieldNow.pipe(Effect.as(new Response("forbidden", { status: 403 })));
+          }
+          return new Response("unauthorized", { status: 401 });
+        }, storedCredentials());
+
+        const client = yield* HttpClient.HttpClient.pipe(Effect.provide(layers));
+        const responses = yield* Effect.all(
+          Array.from({ length: requestCount }, () =>
+            client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
+          ),
+          { concurrency: "unbounded" },
+        );
+
+        expect(responses.map((response) => response.status)).toEqual(
+          Array.from({ length: requestCount }, () => 401),
+        );
+        expect(refreshRequests).toBe(1);
+      }),
+    );
+
+    it.effect("does not load credentials until an HTTP request is executed", () => {
+      const counting = makeCountingCredentialStore({});
+      const layers = makeTestLayers(
+        () => new Response("ok", { status: 200 }),
+        undefined,
+        undefined,
+        counting.service,
+      );
+      return Effect.gen(function* () {
+        yield* HttpClient.HttpClient;
+        expect(counting.loadCounts.size).toBe(0);
       }).pipe(Effect.provide(layers));
     });
   });

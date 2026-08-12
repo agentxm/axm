@@ -37,7 +37,7 @@ import {
 } from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { envOption } from "@agentxm/client-core/unstable/utils";
-import { withAuthRuntime } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
   ...OperationPlanFields,
@@ -350,7 +350,7 @@ export const loginCommand = Command.make(
         onSome: (timeoutSeconds) => ({ timeoutSeconds }),
       }),
       scopes: scope,
-    }).pipe(withAuthRuntime("auth login")),
+    }).pipe(withRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),

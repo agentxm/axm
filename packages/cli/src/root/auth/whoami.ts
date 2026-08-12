@@ -6,7 +6,7 @@ import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-c
 import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { withAuthRuntime } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
 
 export const WhoamiDataSchema = Schema.Struct({
   user: Schema.String,
@@ -51,7 +51,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
 const whoamiConfig = {} as const;
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  handleWhoami().pipe(withAuthRuntime("auth whoami")),
+  handleWhoami().pipe(withRuntime("auth whoami")),
 ).pipe(
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),

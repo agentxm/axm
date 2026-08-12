@@ -50,6 +50,7 @@ import {
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
+  CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
@@ -118,9 +119,14 @@ const AxmHttpClientLayer = Layer.provide(
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
+const CredentialStoreLayer = Layer.provide(
+  CredentialStoreSessionLive,
+  Layer.provide(CredentialStoreLive, RegistryRuntimeLayer),
+);
+
 const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(CredentialStoreLive, PendingDeviceLoginStoreLive, AuthClientLive),
-  RegistryRuntimeLayer,
+  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive),
+  Layer.mergeAll(RegistryRuntimeLayer, CredentialStoreLayer),
 );
 
 const AuthMiddlewareWrappedLayer = Layer.provide(
@@ -387,11 +393,6 @@ export const withWorkspace =
       );
     });
 
-export const withAuthRuntime =
-  (command?: string) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
-    program.pipe(Effect.provide(AuthLayer), withRuntime(command));
-
 export const withRuntime =
   (command?: string) =>
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
@@ -412,7 +413,7 @@ export const withRuntime =
         Layer.mergeAll(foundationLayer, interactionLayer),
       );
 
-      return yield* withCliErrorHandling(program, {
+      return yield* withCliErrorHandling(program.pipe(Effect.provide(AuthLayer)), {
         command,
         format,
         telemetryConfig: config.telemetryConfig,

@@ -17,9 +17,10 @@
 
 import * as crypto from "node:crypto";
 import * as http from "node:http";
-import { unzipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 
 const PUBLISH_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
+const VERSION_PATH = PUBLISH_PATH;
 const ARCHIVE_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
 const INDEX_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)$/;
 const OWNER_PATH = /^\/v1\/owners\/(@[^/]+)$/;
@@ -54,12 +55,22 @@ export interface RequestRecord {
   readonly method: string;
   readonly path: string;
   readonly status: number;
+  readonly authorization: string | undefined;
+  readonly userAgent: string | undefined;
 }
 
 export interface HttpRegistry {
   readonly url: string;
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
+  readonly copyVersion: (
+    owner: string,
+    plural: string,
+    name: string,
+    sourceVersion: string,
+    targetVersion: string,
+  ) => void;
+  readonly yank: (owner: string, plural: string, name: string, version: string) => void;
   readonly close: () => Promise<void>;
 }
 
@@ -72,6 +83,8 @@ export interface HttpRegistryOptions {
   readonly stepUpTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract. */
   readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing";
+  /** Map bearer tokens to the owner whose private extensions they may read. */
+  readonly tokenOwners?: Readonly<Record<string, string>>;
 }
 
 interface StoredVersion {
@@ -79,6 +92,7 @@ interface StoredVersion {
   readonly integrity: string;
   readonly archive: Buffer;
   readonly published: string;
+  readonly yankedAt?: string;
 }
 
 const readBody = async (request: http.IncomingMessage): Promise<Buffer> => {
@@ -148,6 +162,10 @@ export const startHttpRegistry = async (
   const previewConditions = new Map<string, string>();
   const publishes: Array<PublishRecord> = [];
   const requests: Array<RequestRecord> = [];
+  const tokenOwners: Readonly<Record<string, string>> = {
+    "e2e-test-token": TEST_OWNER,
+    ...options.tokenOwners,
+  };
 
   const key = (owner: string, plural: string, name: string) => `${owner}/${plural}/${name}`;
   const targetKey = (owner: string, plural: string, name: string, version: string) =>
@@ -161,6 +179,8 @@ export const startHttpRegistry = async (
         method: request.method ?? "UNKNOWN",
         path: pathname,
         status: response.statusCode,
+        authorization: request.headers.authorization,
+        userAgent: request.headers["user-agent"],
       });
     });
 
@@ -406,13 +426,22 @@ export const startHttpRegistry = async (
         return;
       }
 
+      const requesterOwner = (() => {
+        const authorization = request.headers.authorization;
+        if (authorization === undefined || !authorization.startsWith("Bearer ")) return undefined;
+        return tokenOwners[authorization.slice("Bearer ".length)];
+      })();
+      const canRead = (owner: string, plural: string, name: string): boolean =>
+        extensionVisibilities.get(key(owner, plural, name)) !== "private" ||
+        requesterOwner === owner;
+
       const archiveMatch = ARCHIVE_PATH.exec(pathname);
       if (archiveMatch !== null) {
         const [, owner = "", plural = "", name = "", version = ""] = archiveMatch;
         const stored = extensions
           .get(key(owner, plural, name))
           ?.find((entry) => entry.version === version);
-        if (stored === undefined) {
+        if (stored === undefined || !canRead(owner, plural, name)) {
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
@@ -424,12 +453,41 @@ export const startHttpRegistry = async (
         return;
       }
 
+      const versionMatch = VERSION_PATH.exec(pathname);
+      if (versionMatch !== null) {
+        const [, owner = "", plural = "", name = "", version = ""] = versionMatch;
+        const type = TYPE_BY_PLURAL[plural];
+        const stored = extensions
+          .get(key(owner, plural, name))
+          ?.find((entry) => entry.version === version);
+        if (type === undefined || stored === undefined || !canRead(owner, plural, name)) {
+          sendProblem(response, 404, `No version for ${plural}/${name}@${version}`);
+          return;
+        }
+        sendJson(response, 200, {
+          name,
+          owner,
+          type,
+          version: stored.version,
+          published: stored.published,
+          integrity: stored.integrity,
+          yanked_at: stored.yankedAt,
+          visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
+        });
+        return;
+      }
+
       const indexMatch = INDEX_PATH.exec(pathname);
       if (indexMatch !== null) {
         const [, owner = "", plural = "", name = ""] = indexMatch;
         const type = TYPE_BY_PLURAL[plural];
         const versions = extensions.get(key(owner, plural, name));
-        if (type === undefined || versions === undefined || versions.length === 0) {
+        if (
+          type === undefined ||
+          versions === undefined ||
+          versions.length === 0 ||
+          !canRead(owner, plural, name)
+        ) {
           sendProblem(response, 404, `No extension ${plural}/${name}`);
           return;
         }
@@ -443,6 +501,7 @@ export const startHttpRegistry = async (
             version: entry.version,
             published: entry.published,
             integrity: entry.integrity,
+            yanked_at: entry.yankedAt,
           })),
         });
         return;
@@ -468,6 +527,43 @@ export const startHttpRegistry = async (
     url: `http://127.0.0.1:${address.port}`,
     publishes,
     requests,
+    copyVersion: (owner, plural, name, sourceVersion, targetVersion) => {
+      const extensionKey = key(owner, plural, name);
+      const versions = extensions.get(extensionKey) ?? [];
+      const source = versions.find((entry) => entry.version === sourceVersion);
+      if (source === undefined) throw new Error(`No source version ${sourceVersion}`);
+      const entries = unzipSync(source.archive);
+      const type = TYPE_BY_PLURAL[plural];
+      if (type === undefined) throw new Error(`Unknown extension type segment "${plural}"`);
+      const manifestName = type === "mcp-server" ? "mcp.json" : `${type}.json`;
+      const manifestBytes = entries[manifestName];
+      if (manifestBytes === undefined) throw new Error(`No ${manifestName} in source archive`);
+      const manifest: unknown = JSON.parse(new TextDecoder().decode(manifestBytes));
+      if (!isRecord(manifest)) throw new Error(`Invalid ${manifestName} in source archive`);
+      manifest["version"] = targetVersion;
+      entries[manifestName] = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+      const archive = Buffer.from(zipSync(entries));
+      extensions.set(extensionKey, [
+        ...versions,
+        {
+          ...source,
+          version: targetVersion,
+          integrity: sha512Integrity(archive),
+          archive,
+          published: "2026-01-02T00:00:00.000Z",
+        },
+      ]);
+    },
+    yank: (owner, plural, name, version) => {
+      const extensionKey = key(owner, plural, name);
+      const versions = extensions.get(extensionKey) ?? [];
+      extensions.set(
+        extensionKey,
+        versions.map((entry) =>
+          entry.version === version ? { ...entry, yankedAt: "2026-01-02T00:00:00.000Z" } : entry,
+        ),
+      );
+    },
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));

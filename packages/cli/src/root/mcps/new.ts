@@ -45,7 +45,7 @@ import {
 } from "@agentxm/client-core/unstable/mcps";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
@@ -352,7 +352,7 @@ export const newCommand = Command.make(
       owner,
       yes,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("mcps new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("mcps new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new MCP server in the project-workspace authoring root"),

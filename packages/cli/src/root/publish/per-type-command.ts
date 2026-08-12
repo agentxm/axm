@@ -12,7 +12,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { PublishableType } from "./command.js";
 
-import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
@@ -118,11 +118,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           recoverySelectors: [...parsed.extensions],
           recoveryExcludes: [...parsed.exclude],
         });
-      }).pipe(
-        withWorkspace("project"),
-        Effect.provide(AuthLayer),
-        withRuntime(`${plural} publish`),
-      ),
+      }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
     ).pipe(
       withArgvTracking(config),
       Command.withDescription(`Publish project-workspace ${plural} to a registry`),
@@ -160,7 +156,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         recoverySelectors: [...parsed.extensions],
         recoveryExcludes: [...parsed.exclude],
       });
-    }).pipe(withWorkspace("project"), Effect.provide(AuthLayer), withRuntime(`${plural} publish`)),
+    }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
   ).pipe(
     withArgvTracking(config),
     Command.withDescription(`Publish project-workspace ${plural} to a registry`),

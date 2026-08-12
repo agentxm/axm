@@ -17,6 +17,7 @@ import {
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { ADD_REGISTRY_SOURCE } from "../../suggested-actions.js";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 
 export type RegistryLookupProbe = {
   readonly location: string;
@@ -102,6 +103,7 @@ const resolveRegistrySource = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -177,6 +179,10 @@ const resolveRegistrySource = (
       }
     }
 
+    const loginSuggestions = yield* loginSuggestionsFor(
+      registrySources.map((source) => source.location.href),
+    );
+
     if (Option.isSome(options.subagentName)) {
       const subagentName = options.subagentName.value;
       return yield* makeAppError({
@@ -190,6 +196,7 @@ const resolveRegistrySource = (
                 "Verify the owner/subagent name, or install with an explicit source like github:owner/repo",
             }),
           },
+          ...loginSuggestions,
         ],
       });
     }
@@ -204,6 +211,7 @@ const resolveRegistrySource = (
             fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
           }),
         },
+        ...loginSuggestions,
       ],
     });
   });
@@ -215,6 +223,7 @@ const resolveSubagentRegistrySourceByName = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
@@ -230,6 +239,9 @@ const resolveSubagentRegistrySourceByName = (
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
+    const loginSuggestions = yield* loginSuggestionsFor(
+      registryHosts.map((source) => source.location.href),
+    );
 
     const resolved = yield* Effect.scoped(
       resolveIdentifier({
@@ -254,6 +266,7 @@ const resolveSubagentRegistrySourceByName = (
               description:
                 "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
             },
+            ...loginSuggestions,
           ],
           cause: error,
         });
@@ -269,6 +282,7 @@ const resolveSubagentRegistrySourceByName = (
             description:
               "Verify the subagent name, or install with an explicit source like github:owner/repo or @owner/subagents/name",
           },
+          ...loginSuggestions,
         ],
       });
     }

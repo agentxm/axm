@@ -96,6 +96,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
@@ -411,6 +412,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const knowledgeManager = yield* KnowledgeManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
     const verbosityOption = yield* Effect.serviceOption(Verbosity);
     const verbose = Option.match(verbosityOption, {
       onNone: () => false,
@@ -711,6 +713,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 : undefined;
 
               if (!resolvedRefs || resolvedRefs.length === 0) {
+                const loginSuggestions = yield* loginSuggestionsFor(
+                  probes.map((probe) => probe.location),
+                );
                 return yield* makeAppError({
                   code: "not_found",
                   detail: `Pack "${req.packName}" not found in registry`,
@@ -718,6 +723,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     {
                       description: "Verify the pack name and check available packs.",
                     },
+                    ...loginSuggestions,
                   ],
                 });
               }
@@ -738,9 +744,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Effect.gen(function* () {
         const discovery = refs[0];
         if (!discovery) {
+          const registryHosts = yield* ws.getRegistrySourceHosts();
+          const loginSuggestions = yield* loginSuggestionsFor(
+            registryHosts.map((host) => host.location.href),
+          );
           return yield* makeAppError({
             code: "not_found",
             detail: "No pack reference found",
+            suggestions: loginSuggestions,
           });
         }
 

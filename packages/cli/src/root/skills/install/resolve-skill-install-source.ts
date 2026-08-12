@@ -17,6 +17,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { ADD_REGISTRY_SOURCE, INSTALL_SKILL_FROM_REGISTRY } from "../../suggested-actions.js";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 
 export type RegistryLookupProbe = {
   readonly location: string;
@@ -102,6 +103,7 @@ const resolveRegistrySource = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -171,6 +173,10 @@ const resolveRegistrySource = (
       }
     }
 
+    const loginSuggestions = yield* loginSuggestionsFor(
+      registrySources.map((source) => source.location.href),
+    );
+
     if (Option.isSome(options.skillName)) {
       const skillName = options.skillName.value;
       return yield* makeAppError({
@@ -182,6 +188,7 @@ const resolveRegistrySource = (
             "Verify the owner/skill name, or install with an explicit source like github:owner/repo",
         }),
         cmd: "axm skills install <source>",
+        suggestions: loginSuggestions,
       });
     }
 
@@ -192,6 +199,7 @@ const resolveRegistrySource = (
         issues,
         fallback: `Verify the owner name is correct, or add a registry that hosts "${owner}"`,
       }),
+      suggestions: loginSuggestions,
     });
   });
 
@@ -202,6 +210,7 @@ const resolveSkillRegistrySourceByName = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
     const registryHosts = yield* ws.getRegistrySourceHosts();
 
     if (registryHosts.length === 0) {
@@ -212,6 +221,9 @@ const resolveSkillRegistrySourceByName = (
       });
     }
     const maybeProfile = yield* ws.getConfiguredOwner();
+    const loginSuggestions = yield* loginSuggestionsFor(
+      registryHosts.map((source) => source.location.href),
+    );
 
     const resolved = yield* Effect.scoped(
       resolveIdentifier({
@@ -236,6 +248,7 @@ const resolveSkillRegistrySourceByName = (
               description: "Verify the skill name",
             },
             INSTALL_SKILL_FROM_REGISTRY,
+            ...loginSuggestions,
           ],
           cause: error,
         });
@@ -246,7 +259,11 @@ const resolveSkillRegistrySourceByName = (
       return yield* makeAppError({
         code: "not_found",
         detail: `Skill "${name}" was not found in configured registries`,
-        suggestions: [{ description: "Verify the skill name" }, INSTALL_SKILL_FROM_REGISTRY],
+        suggestions: [
+          { description: "Verify the skill name" },
+          INSTALL_SKILL_FROM_REGISTRY,
+          ...loginSuggestions,
+        ],
       });
     }
     const defaultRegistry = registryHosts[0];

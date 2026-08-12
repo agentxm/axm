@@ -23,7 +23,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
-import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const ListFilterSchema = Schema.Literals(["all", "outdated", "deprecated"] as const);
 type ListFilter = typeof ListFilterSchema.Type;
@@ -208,7 +208,6 @@ export const listCommand = Command.make(
   ({ scope, type, outdated, deprecated }) =>
     handleList({ type, outdated, deprecated }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
-      Effect.provide(AuthLayer),
       withRuntime("list"),
     ),
 ).pipe(

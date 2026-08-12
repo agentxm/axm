@@ -11,7 +11,7 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
-import { withAuthRuntime } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
 
 export const LogoutResultSchema = Schema.Struct({
   ...OperationPlanFields,
@@ -134,7 +134,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
 const logoutConfig = {} as const;
 
 export const logoutCommand = Command.make("logout", logoutConfig, () =>
-  handleLogout().pipe(withAuthRuntime("auth logout")),
+  handleLogout().pipe(withRuntime("auth logout")),
 ).pipe(
   withArgvTracking(logoutConfig),
   Command.withDescription("Sign out of a registry"),

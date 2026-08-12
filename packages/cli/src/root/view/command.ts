@@ -5,7 +5,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
@@ -29,11 +29,11 @@ const viewConfig = {
 export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) => {
   const parts = parseExtensionFqnParts(handle);
   if (Option.isNone(registry) && Option.isNone(type) && parts !== undefined) {
-    return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(withAuthRuntime("view"));
+    return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(withRuntime("view"));
   }
   return handleView({ handle, field, registry, type }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withAuthRuntime("view"),
+    withRuntime("view"),
   );
 }).pipe(
   withArgvTracking(viewConfig),

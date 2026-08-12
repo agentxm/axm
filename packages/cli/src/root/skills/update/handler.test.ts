@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import * as Option from "effect/Option";
+import semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
@@ -659,6 +660,7 @@ describe("update.handler — error recovery", () => {
   it.effect("updates the official AXM skill to the newest compatible release", () => {
     const { provide } = makeLayers();
     const registryRoot = path.join(tempDir, "registry");
+    const newerIncompatibleVersion = semver.inc(AXM_SKILL_VERSION, "patch") ?? "999.0.0";
     const skillBody = (version: string) =>
       `---\nname: axm\ndescription: AXM guidance\nmetadata:\n  axm.sh/cli-version: "${version}"\n  axm.sh/cli-version-range: "${version}"\n---\n`;
     writeRegistrySkill({
@@ -667,13 +669,13 @@ describe("update.handler — error recovery", () => {
       name: "axm",
       versions: [
         {
-          version: "0.26.4",
-          skillBody: skillBody("0.26.4"),
+          version: newerIncompatibleVersion,
+          skillBody: skillBody(newerIncompatibleVersion),
           officialManifest: true,
         },
         {
-          version: "0.26.3",
-          skillBody: skillBody("0.26.3"),
+          version: AXM_SKILL_VERSION,
+          skillBody: skillBody(AXM_SKILL_VERSION),
           officialManifest: true,
         },
       ],
@@ -689,7 +691,7 @@ describe("update.handler — error recovery", () => {
       ],
       skills: { axm: "@agentxm/skills/axm" },
       skillLocks: {
-        axm: makeRegistryLockEntry("@agentxm", "axm", "0.26.2"),
+        axm: makeRegistryLockEntry("@agentxm", "axm", "0.0.0"),
       },
     });
 
@@ -702,7 +704,7 @@ describe("update.handler — error recovery", () => {
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
         const lockedSkill = expectRecord(lockedSkills["axm"], "Expected AXM skill lock entry");
-        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("0.26.3");
+        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe(AXM_SKILL_VERSION);
       }),
     );
   });

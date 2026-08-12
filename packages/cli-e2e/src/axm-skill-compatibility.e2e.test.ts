@@ -2,13 +2,16 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir, runCli, withoutLocalGitEnvironment } from "./e2e/utils.js";
 
 const git = (root: string, args: ReadonlyArray<string>): string =>
   execFileSync("git", args, {
     cwd: root,
     encoding: "utf8",
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: {
+      ...withoutLocalGitEnvironment(process.env),
+      GIT_TERMINAL_PROMPT: "0",
+    },
   });
 
 const initializeGit = (root: string): void => {

@@ -864,6 +864,42 @@ describe("root publish", () => {
       }),
     );
   });
+
+  it.effect("blocks metadata publication before producing an archive", () => {
+    writeReviewSkill();
+    const { provide } = makeContext(false);
+    const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+    const manifestPath = path.join(
+      tempDir,
+      ".axm",
+      "extensions",
+      "@acme",
+      "skills",
+      "review",
+      "skill.json",
+    );
+    const manifest = expectRecord(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({ ...manifest, metadata: { "com.example/tool": { enabled: true } } }),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        const error = getAppError(
+          yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(Effect.flip),
+        );
+
+        expect(error.code).toBe("validation");
+        expect(error.detail).toContain("metadata publication is not active yet");
+        expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
+          "Remove metadata and retry, or upgrade to the AXM activation release when it is available.",
+        );
+        expect(fs.readdirSync(path.join(tempDir, "registry"))).toEqual([]);
+      }),
+    );
+  });
+
   describe("existing version policy", () => {
     const writeSkill = (name: string, version: string) => {
       const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);

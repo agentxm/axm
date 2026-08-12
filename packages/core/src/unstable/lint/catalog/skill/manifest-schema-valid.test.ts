@@ -54,6 +54,35 @@ describe("skill/manifest-schema-valid", () => {
     }),
   );
 
+  it.effect("accepts bounded opaque metadata", () =>
+    Effect.gen(function* () {
+      const findings = yield* manifestSchemaValidRule.check(
+        makeContext({
+          isNative: true,
+          skillJson: { ...validManifest, metadata: { "com.example/tool": [true, null, "✓"] } },
+        }),
+      );
+      expect(findings).toEqual([]);
+    }),
+  );
+
+  it.effect("reports oversized metadata at the metadata field", () =>
+    Effect.gen(function* () {
+      const findings = yield* manifestSchemaValidRule.check(
+        makeContext({
+          isNative: true,
+          skillJson: {
+            ...validManifest,
+            metadata: { value: "x".repeat(65_525) },
+          },
+        }),
+      );
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("metadata");
+      expect(findings[0]?.message).toContain("65,536 compact UTF-8 JSON bytes");
+    }),
+  );
+
   it.effect("early-returns zero findings for non-native skills", () =>
     Effect.gen(function* () {
       const findings = yield* manifestSchemaValidRule.check(

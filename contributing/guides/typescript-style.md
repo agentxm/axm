@@ -23,7 +23,7 @@ testing conventions (see [Testing Guide](./testing.md)).
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/) - Language
   reference
 - [Effect Guide](./effect.md) - Effect-specific patterns used in this repo
-- [Effect Option Guide](./effect-option.md) - Option versus nullable guidance
+- [Effect option skill](../../.axm/extensions/@craigsmitham/skills/effect-v4-option/src/SKILL.md) - Option versus nullable guidance
 
 ---
 
@@ -191,7 +191,8 @@ function getLength(value: string | undefined): number {
       (`??`), or explicit checks — never `!`
 - [ ] **Option in Effect code** — In Effect pipelines, prefer `Option<T>` over
       nullable types for semantic absence; see
-      [Effect Option Guide](./effect-option.md) for when to use each
+      [Effect option skill](../../.axm/extensions/@craigsmitham/skills/effect-v4-option/src/SKILL.md)
+      for when to use each
 
 ---
 
@@ -344,5 +345,5 @@ const event: EventName = "user.created"; // ok
 ## See Also
 
 - [Effect Guide](./effect.md) - Effect conventions and services
-- [Effect Option Guide](./effect-option.md) - Option versus nullable guidance
+- [Effect option skill](../../.axm/extensions/@craigsmitham/skills/effect-v4-option/src/SKILL.md) - Option versus nullable guidance
 - [Testing Guide](./testing.md) - Test quality and coverage expectations

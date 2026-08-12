@@ -5,28 +5,19 @@ skills:
     owner: "@agentxm"
     extensionType: skill
     name: axm
-    version: 0.26.0
+    version: 0.26.3
     installedAt: 2026-07-29T00:51:41.963Z
-    updatedAt: 2026-08-08T19:38:34.696Z
-    sourceHash: 806661c5c682e92ef86b7f96981badcbebdb298ccb09ee3feb16d2ab1d94c546
-  effect-basics:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-basics
-    version: 0.1.0
-    installedAt: 2026-08-07T16:50:04.474Z
-    updatedAt: 2026-08-07T16:50:04.476Z
-    sourceHash: 0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9
+    updatedAt: 2026-08-12T05:48:31.253Z
+    sourceHash: e518e26c1e58b9e1b362b01c2890ee44ca5ddfb0c74c24a8c17c98c4513c8582
   code-review:
     type: workspace
-    owner: "@axm"
+    owner: "@agentxm"
     extensionType: skill
     name: code-review
     version: 0.1.0
     installedAt: 2026-08-07T16:50:04.524Z
-    updatedAt: 2026-08-07T16:50:04.525Z
-    sourceHash: c98aeff12cd9034725ca1a4d2ff8248d1dd753b648f2735b704fac33c01c5999
+    updatedAt: 2026-08-12T05:44:27.524Z
+    sourceHash: 492ce886ae7d6aaff154aa8fb3ba1c34efa0bb4ac4c3f28c1d2f148d3653812e
   e2e-publish-check:
     type: workspace
     owner: "@local-dev"
@@ -45,96 +36,6 @@ skills:
     installedAt: 2026-08-07T16:50:04.860Z
     updatedAt: 2026-08-07T20:58:25.083Z
     sourceHash: 81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b
-  effect-collections:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-collections
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.514Z
-    updatedAt: 2026-08-07T16:51:13.516Z
-    sourceHash: c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a
-  effect-concurrency:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-concurrency
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.556Z
-    updatedAt: 2026-08-07T16:51:13.558Z
-    sourceHash: 9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84
-  effect-filesystem:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-filesystem
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.598Z
-    updatedAt: 2026-08-07T16:51:13.599Z
-    sourceHash: 217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e
-  effect-iteration:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-iteration
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.633Z
-    updatedAt: 2026-08-07T16:51:13.635Z
-    sourceHash: f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0
-  effect-option:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-option
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.668Z
-    updatedAt: 2026-08-07T16:51:13.670Z
-    sourceHash: 72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d
-  effect-schema:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-schema
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.704Z
-    updatedAt: 2026-08-07T16:51:13.705Z
-    sourceHash: ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361
-  effect-service:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-service
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.740Z
-    updatedAt: 2026-08-07T16:51:13.741Z
-    sourceHash: bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722
-  effect-stream:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-stream
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.773Z
-    updatedAt: 2026-08-07T16:51:13.775Z
-    sourceHash: a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae
-  effect-testing:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-testing
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.811Z
-    updatedAt: 2026-08-07T16:51:13.813Z
-    sourceHash: ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7
-  effect-wrapping:
-    type: workspace
-    owner: "@axm"
-    extensionType: skill
-    name: effect-wrapping
-    version: 0.1.0
-    installedAt: 2026-08-07T16:51:13.849Z
-    updatedAt: 2026-08-07T16:51:13.850Z
-    sourceHash: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
   field-notes:
     type: registry
     owner: "@craigsmitham"
@@ -157,6 +58,226 @@ skills:
     installedAt: 2026-08-08T19:49:53.070Z
     updatedAt: 2026-08-08T19:49:53.075Z
     sourceHash: 2a7002b455b9ff4ae35d719a12d215fc55da9db5eda3c09b502fab6a3da8989a
+  effect-v4-config:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-config
+    resolvedVersion: 0.1.0
+    integrity: sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.833Z
+    updatedAt: 2026-08-12T05:39:00.842Z
+    sourceHash: 1a41e00740263dd41f584890825b077806c96023a121a7df12738b2263f816b9
+  effect-v4-optics:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-optics
+    resolvedVersion: 0.1.0
+    integrity: sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.858Z
+    updatedAt: 2026-08-12T05:39:00.869Z
+    sourceHash: 14eb071bd5d61c49ba05189f09933d505195df62c0f10045188d27d1596f2d74
+  effect-v4-option:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-option
+    resolvedVersion: 0.1.0
+    integrity: sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.885Z
+    updatedAt: 2026-08-12T05:39:00.891Z
+    sourceHash: fab84f8ae1934fa197de0b478a791f7cc86a2f69d489afccd4718df7865064b6
+  effect-v4-streams:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-streams
+    resolvedVersion: 0.1.0
+    integrity: sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.906Z
+    updatedAt: 2026-08-12T05:39:00.912Z
+    sourceHash: 775abc4ad710429c3685227390c58668627601180ab8dc7190c726dc32459d5c
+  effect-v4-testing:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-testing
+    resolvedVersion: 0.1.0
+    integrity: sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.926Z
+    updatedAt: 2026-08-12T05:39:00.932Z
+    sourceHash: 2970f1088b2f2795d2d3d137b0e48f3b7f8a3c2da79674a271aea6aa3ea74fc6
+  effect-v4-http-api:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-http-api
+    resolvedVersion: 0.1.0
+    integrity: sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.950Z
+    updatedAt: 2026-08-12T05:39:00.955Z
+    sourceHash: 0b5616334caa8ad9b5942a845d467b6d2960f67236d284183dd23b35305fea41
+  effect-v4-wrapping:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-wrapping
+    resolvedVersion: 0.1.0
+    integrity: sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:00.978Z
+    updatedAt: 2026-08-12T05:39:00.993Z
+    sourceHash: 961ca7050b4f4605c7a7facb348f5af07959f1e2cd4d23727eb3751d3f3b217b
+  effect-v4-iteration:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-iteration
+    resolvedVersion: 0.1.0
+    integrity: sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.034Z
+    updatedAt: 2026-08-12T05:39:01.046Z
+    sourceHash: 61bf89492a068ba28b6ed9682222e9eb6ccb5bf550028aa229dfb695462f46a8
+  effect-v4-filesystem:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-filesystem
+    resolvedVersion: 0.1.0
+    integrity: sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.074Z
+    updatedAt: 2026-08-12T05:39:01.083Z
+    sourceHash: 451c8b742ba97355f60ba631da7ed00a228b49da653ad427b24f8def2d6f54d2
+  effect-v4-collections:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-collections
+    resolvedVersion: 0.1.0
+    integrity: sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.099Z
+    updatedAt: 2026-08-12T05:39:01.105Z
+    sourceHash: c3743ff80895e4a01b4073e759793b21978063cbc46bac6ca1569c5e340b297c
+  effect-v4-branded-types:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-branded-types
+    resolvedVersion: 0.1.0
+    integrity: sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.118Z
+    updatedAt: 2026-08-12T05:39:01.124Z
+    sourceHash: 2623e93462a0fd9cbd02a4899476c61ff040a71fb88a9946087a0964c17cb2a6
+  effect-v4-observability:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-observability
+    resolvedVersion: 0.1.0
+    integrity: sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.137Z
+    updatedAt: 2026-08-12T05:39:01.143Z
+    sourceHash: 0052a91c7b53820dc4f4a073766bd854a462876712d5953258849855ff0516c5
+  effect-v4-error-modeling:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-error-modeling
+    resolvedVersion: 0.1.0
+    integrity: sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.157Z
+    updatedAt: 2026-08-12T05:39:01.163Z
+    sourceHash: 87d8e63616c12d90d2858567a1c0676e759dff59d4e56fefa9c54b079357375e
+  effect-v4-resource-safety:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-resource-safety
+    resolvedVersion: 0.1.0
+    integrity: sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.181Z
+    updatedAt: 2026-08-12T05:39:01.187Z
+    sourceHash: 04db6c39fd0b73689543c197bf0e57b67f57b13c81f83323eb186169360450ec
+  effect-v4-schema-boundaries:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-schema-boundaries
+    resolvedVersion: 0.1.0
+    integrity: sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.202Z
+    updatedAt: 2026-08-12T05:39:01.208Z
+    sourceHash: 600e3e9e9fae7e68ca4fbc8bb4baa31d087f9db099a60f6c4c962e1b4880afa0
+  effect-v4-async-coordination:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-async-coordination
+    resolvedVersion: 0.1.0
+    integrity: sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.221Z
+    updatedAt: 2026-08-12T05:39:01.227Z
+    sourceHash: 4495bbae1dd8d64d6371043bc99fd30fb663680ee6d4270c5fe979a5706af8b5
+  effect-v4-cloudflare-workers:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-cloudflare-workers
+    resolvedVersion: 0.1.0
+    integrity: sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.242Z
+    updatedAt: 2026-08-12T05:39:01.248Z
+    sourceHash: 2895ecc724715ab5ce72dd46a212c6700fed9d750b46566965bf793a69fb73fc
+  effect-v4-services-and-layers:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-services-and-layers
+    resolvedVersion: 0.1.0
+    integrity: sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.262Z
+    updatedAt: 2026-08-12T05:39:01.268Z
+    sourceHash: cbd2a655a5773bb06f66bd04990b2be7ed15a041a695ec8575af9db0cb392c48
+  effect-v4-structured-concurrency:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-structured-concurrency
+    resolvedVersion: 0.1.0
+    integrity: sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.283Z
+    updatedAt: 2026-08-12T05:39:01.290Z
+    sourceHash: 01c3a3dedc5ae6b7aaa64edeb1212b2c487b8686ebdbbea8a839aafa6382d247
+  effect-v4-request-batching-and-cache:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4-request-batching-and-cache
+    resolvedVersion: 0.1.0
+    integrity: sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    installedAt: 2026-08-12T05:39:01.304Z
+    updatedAt: 2026-08-12T05:39:01.311Z
+    sourceHash: bef31eb745b47e62ba62d7389a81abc0efd6badd78daf6391926780365772627
 rules:
   field-notes:
     type: registry
@@ -202,76 +323,6 @@ knowledge:
     updatedAt: 2026-08-08T17:50:30.597Z
     sourceHash: 8355be6f86b4fa052c68f3964f261e4f87392ad3ef03c88775d5b8ecd8d7285f
 packs:
-  effect:
-    type: workspace
-    owner: "@axm"
-    extensionType: pack
-    name: effect
-    version: 0.0.1
-    sourceHash: f3c0b17898a74062f8ba45f4f328dc2fd769c5b88577fc7cd51c672ceae37301
-    installedAt: 2026-08-07T16:51:17.868Z
-    updatedAt: 2026-08-07T16:51:17.871Z
-    resolvedSkills:
-      "@axm/skills/effect-testing":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-testing
-        contentIdentity: ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7
-      "@axm/skills/effect-wrapping":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-wrapping
-        contentIdentity: 509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432
-      "@axm/skills/effect-schema":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-schema
-        contentIdentity: ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361
-      "@axm/skills/effect-service":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-service
-        contentIdentity: bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722
-      "@axm/skills/effect-collections":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-collections
-        contentIdentity: c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a
-      "@axm/skills/effect-iteration":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-iteration
-        contentIdentity: f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0
-      "@axm/skills/effect-basics":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-basics
-        contentIdentity: 0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9
-      "@axm/skills/effect-option":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-option
-        contentIdentity: 72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d
-      "@axm/skills/effect-filesystem":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-filesystem
-        contentIdentity: 217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e
-      "@axm/skills/effect-concurrency":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-concurrency
-        contentIdentity: 9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84
-      "@axm/skills/effect-stream":
-        source: workspace
-        version: 0.1.0
-        sourceIdentity: workspace:@axm/skills/effect-stream
-        contentIdentity: a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae
-    resolvedMcpServers: {}
-    resolvedSubagents: {}
-    resolvedRules: {}
-    resolvedHooks: {}
-    resolvedKnowledge: {}
   field-notes:
     type: registry
     owner: "@craigsmitham"
@@ -304,5 +355,122 @@ packs:
         version: 0.1.1
         publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
         integrity: sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==
+  effect-v4:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4
+    resolvedVersion: 0.1.0
+    integrity: sha512-p/4NFlnUMJ6Gvvqd1LyRq533EcXCDbyCzs5W6TMD/VMxsSfJ5rCshTDMJ73K04mYEgrrJR06NXDgnl8s5kyrFQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    sourceHash: 883026bd7091dcce3e40821dd25ad81b57dc54845973ca5b0d254b43a1e24f92
+    installedAt: 2026-08-12T05:39:00.774Z
+    updatedAt: 2026-08-12T05:39:00.783Z
+    resolvedSkills:
+      "@craigsmitham/skills/effect-v4-config":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==
+      "@craigsmitham/skills/effect-v4-optics":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==
+      "@craigsmitham/skills/effect-v4-option":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==
+      "@craigsmitham/skills/effect-v4-streams":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==
+      "@craigsmitham/skills/effect-v4-testing":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==
+      "@craigsmitham/skills/effect-v4-http-api":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==
+      "@craigsmitham/skills/effect-v4-wrapping":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==
+      "@craigsmitham/skills/effect-v4-iteration":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==
+      "@craigsmitham/skills/effect-v4-filesystem":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==
+      "@craigsmitham/skills/effect-v4-collections":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==
+      "@craigsmitham/skills/effect-v4-branded-types":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==
+      "@craigsmitham/skills/effect-v4-observability":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==
+      "@craigsmitham/skills/effect-v4-error-modeling":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==
+      "@craigsmitham/skills/effect-v4-resource-safety":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==
+      "@craigsmitham/skills/effect-v4-schema-boundaries":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==
+      "@craigsmitham/skills/effect-v4-async-coordination":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==
+      "@craigsmitham/skills/effect-v4-cloudflare-workers":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==
+      "@craigsmitham/skills/effect-v4-services-and-layers":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==
+      "@craigsmitham/skills/effect-v4-structured-concurrency":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==
+      "@craigsmitham/skills/effect-v4-request-batching-and-cache":
+        source: registry
+        version: 0.1.0
+        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+        integrity: sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==
+    resolvedMcpServers: {}
+    resolvedSubagents: {}
+    resolvedRules: {}
+    resolvedHooks: {}
+    resolvedKnowledge: {}
 commands: {}
 files: {}

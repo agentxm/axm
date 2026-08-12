@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "effect-v4-schema-boundaries",
+  "version": "0.1.0",
+  "description": "Defines trustworthy Effect v4 Schema decoding and encoding boundaries",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "schema",
+    "validation"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/effect-v4"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/effect-v4-schema-boundaries"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

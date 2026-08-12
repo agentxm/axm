@@ -1,103 +1,54 @@
-# Effect Guide
-
-Comprehensive Effect v4 patterns for using Effect as this project's standard
-library. Covers typed errors, `ServiceMap.Service`-based services,
-Option/nullable handling, collections (Array, Chunk, HashMap), iteration and
-streaming, schema validation, wrapping external APIs, and testing Effect
-programs.
-
-This repo commonly aliases `effect/Context` as `ServiceMap`, so local examples
-use `ServiceMap.Service` and `ServiceMap.Reference`. Upstream Effect docs and
-newer migration notes call the same API surface `Context.Service`.
-
-> [Effect](../../CLAUDE.md#effect) — critical guidance
-
-## Key Resources
-
-- [Effect Option Guide](./effect-option.md) — Option versus nullable guidance for
-  this repo
-- [Effect v4 Quick Reference](./effect-v4-quick-ref.md) — Common migration
-  patterns used here
-- [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
-  Official service and layer documentation
-- [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
-  Official error handling patterns
-- [Effect Schema Classes](https://effect.website/docs/schema/classes/) —
-  Schema.TaggedClass, Schema.Class, and class-based schemas
-- [Effect Solutions - Data Modeling](https://www.effect.solutions/data-modeling) —
-  Tagged unions, branded types, and domain modeling patterns
-- [EffectPatterns](https://github.com/PaulJPhilp/EffectPatterns) —
-  Community patterns for error recovery, streams, and configuration
-
-## Skills
-
-| Skill                                                                                   | Command | Description                                                |
-| --------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-| [effect-basics](../../.axm/extensions/@axm/skills/effect-basics/src/SKILL.md)           | —       | Core patterns, when to use functions vs services           |
-| [effect-service](../../.axm/extensions/@axm/skills/effect-service/src/SKILL.md)         | —       | Service definition, interface design, error types, retries |
-| [effect-layers](../../.claude/skills/effect-layers/SKILL.md)                            | —       | Layer construction, composition, provision, memoization    |
-| [effect-option](../../.axm/extensions/@axm/skills/effect-option/src/SKILL.md)           | —       | Option vs nullable types, conversion at boundaries         |
-| [effect-collections](../../.axm/extensions/@axm/skills/effect-collections/src/SKILL.md) | —       | Arrays, Chunks, Records, HashMaps: when to use each        |
-| [effect-iteration](../../.axm/extensions/@axm/skills/effect-iteration/src/SKILL.md)     | —       | Loops, forEach, all, Schedule, retries and polling         |
-| [effect-stream](../../.axm/extensions/@axm/skills/effect-stream/src/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences   |
-| [effect-schema](../../.axm/extensions/@axm/skills/effect-schema/src/SKILL.md)           | —       | Schema naming conventions and type inference               |
-| [effect-wrapping](../../.axm/extensions/@axm/skills/effect-wrapping/src/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions            |
-| [effect-filesystem](../../.axm/extensions/@axm/skills/effect-filesystem/src/SKILL.md)   | —       | FileSystem and Path services, never use node:fs/node:path  |
-| [effect-testing](../../.axm/extensions/@axm/skills/effect-testing/src/SKILL.md)         | —       | Testing patterns for Effect programs                       |
-
+---
+status: active
+last-reviewed: 2026-08-12
+version: 0.3.0
+description: Consult before writing Effect code in AXM. Routes portable Effect v4 topics to the installed public skills and records AXM-only schema and inference policy.
+depends-on:
+  - ./effect-errors.md
+  - ./effect-layers.md
 ---
 
-## Schema Annotations
+# Effect in AXM
 
-Only these annotations are emitted to generated JSON Schema: `identifier`,
-`title`, `description`, `default`, `examples`, `readOnly`, `writeOnly`,
-`format`, `contentEncoding`, and `contentMediaType`.
+AXM consumes `@craigsmitham/packs/effect-v4@0.1.0` for portable Effect
+4.0.0-beta.107 guidance. This guide owns only AXM-specific policy; choose the
+installed topic skill for general API patterns.
 
-Decode-time annotations such as `message`, `messageMissingKey`,
-`messageUnexpectedKey`, and `meta` are not published as JSON Schema metadata.
+> [Effect](../../AGENTS.md#effect) — required repository policy
 
-Annotations attached to custom `Schema.makeFilter` filters are dropped unless
-the filter has JSON Schema-aware `meta`. Prefer recognized checks such as
-`Schema.isPattern`, then attach JSON-visible `.annotate()` to that recognized
-check level instead of the custom filter. For branded strings, keep examples as
-plain encoded values by annotating before `.brand()`.
+## Local policy
 
----
+- Use the repository-matched Effect checkout at
+  `../external/Effect-TS/effect` for API verification.
+- Use `effect/FileSystem` and `effect/Path`, never `node:fs` or `node:path` in
+  production Effect code.
+- Let Effect infer `Effect<A, E, R>` for internal functions. Add explicit
+  return types only at published package boundaries, for recursion, or when
+  TypeScript requires one.
+- Alias `effect/Context` as `ServiceMap` where the existing AXM code does so;
+  upstream `Context.Service` and local `ServiceMap.Service` name the same API.
+- Follow [Effect Errors](./effect-errors.md) for AXM's `AppError` and
+  cancellation boundary.
+- Follow [Effect Layers](./effect-layers.md) for AXM CLI composition and
+  `runCliMain` policy.
 
-## Type Inference
+### JSON Schema annotations
 
-**Prefer inference over explicit return type annotations.** Effect's architecture
-enables powerful type inference—the covariant `R` parameter automatically tracks
-dependencies as you compose effects.
+Generated JSON Schema emits `identifier`, `title`, `description`, `default`,
+`examples`, `readOnly`, `writeOnly`, `format`, `contentEncoding`, and
+`contentMediaType`. Decode-only annotations such as `message`,
+`messageMissingKey`, `messageUnexpectedKey`, and `meta` are not published.
 
-- Let Effect infer `Effect<A, E, R>` signatures
-- Avoid tacit (point-free) usage which breaks inference
-- Add explicit annotations only at published package boundaries (types
-  consumed by external callers), recursive functions, or when TypeScript
-  requires them (`Effect.async`)
-- Internal monorepo functions do not need return type annotations even if
-  exported across workspace packages
+Annotations on custom `Schema.makeFilter` filters are dropped unless the
+filter has JSON Schema-aware metadata. Prefer recognized checks such as
+`Schema.isPattern`, then annotate that recognized check. Annotate branded
+strings before `.brand()` so examples remain plain encoded values.
 
-See [CLAUDE.md#type-inference](../../CLAUDE.md#type-inference) for examples.
+## Installed topic skills
 
----
-
-## Why Effect?
-
-Effect serves as this project's standard library, replacing raw Promises and
-async/await with composable operations. The CLI architecture separates
-`effect/unstable/cli` parsing from Effect handlers so business logic stays
-independently testable from CLI wiring.
-
-Key benefits for this codebase:
-
-- **Typed errors** — CLI commands surface specific failure modes (not just
-  `unknown`)
-- **Service layers** — Handlers declare dependencies; layers provide them at the
-  edge
-- **Testability** — Test layers replace real services without mocking
-- **Concurrency** — `Effect.all` and `Effect.forEach` parallelize I/O safely
-
-The type signature `Effect<A, E, R>` captures success type, error type, and
-dependencies. When you see `Effect<User, AuthError | DbError, Database>`, you
-know exactly what it returns, what can go wrong, and what it needs to run.
+| Topic                    | Skill                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Types and data           | [branded-types](../../.axm/extensions/@craigsmitham/skills/effect-v4-branded-types/src/SKILL.md), [collections](../../.axm/extensions/@craigsmitham/skills/effect-v4-collections/src/SKILL.md), [iteration](../../.axm/extensions/@craigsmitham/skills/effect-v4-iteration/src/SKILL.md), [optics](../../.axm/extensions/@craigsmitham/skills/effect-v4-optics/src/SKILL.md), [option](../../.axm/extensions/@craigsmitham/skills/effect-v4-option/src/SKILL.md), [schema-boundaries](../../.axm/extensions/@craigsmitham/skills/effect-v4-schema-boundaries/src/SKILL.md), [wrapping](../../.axm/extensions/@craigsmitham/skills/effect-v4-wrapping/src/SKILL.md)                                                             |
+| Application architecture | [config](../../.axm/extensions/@craigsmitham/skills/effect-v4-config/src/SKILL.md), [error-modeling](../../.axm/extensions/@craigsmitham/skills/effect-v4-error-modeling/src/SKILL.md), [observability](../../.axm/extensions/@craigsmitham/skills/effect-v4-observability/src/SKILL.md), [request-batching-and-cache](../../.axm/extensions/@craigsmitham/skills/effect-v4-request-batching-and-cache/src/SKILL.md), [resource-safety](../../.axm/extensions/@craigsmitham/skills/effect-v4-resource-safety/src/SKILL.md), [services-and-layers](../../.axm/extensions/@craigsmitham/skills/effect-v4-services-and-layers/src/SKILL.md), [testing](../../.axm/extensions/@craigsmitham/skills/effect-v4-testing/src/SKILL.md) |
+| Concurrency              | [async-coordination](../../.axm/extensions/@craigsmitham/skills/effect-v4-async-coordination/src/SKILL.md), [streams](../../.axm/extensions/@craigsmitham/skills/effect-v4-streams/src/SKILL.md), [structured-concurrency](../../.axm/extensions/@craigsmitham/skills/effect-v4-structured-concurrency/src/SKILL.md)                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Platforms                | [cloudflare-workers](../../.axm/extensions/@craigsmitham/skills/effect-v4-cloudflare-workers/src/SKILL.md), [filesystem](../../.axm/extensions/@craigsmitham/skills/effect-v4-filesystem/src/SKILL.md), [http-api](../../.axm/extensions/@craigsmitham/skills/effect-v4-http-api/src/SKILL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                 |

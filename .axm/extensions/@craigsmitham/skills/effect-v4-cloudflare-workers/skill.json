@@ -1,0 +1,17 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "effect-v4-cloudflare-workers",
+  "version": "0.1.0",
+  "description": "Integrates Effect v4 Layers and runtimes with Cloudflare Workers",
+  "keywords": ["effect", "effect-v4", "typescript", "cloudflare", "workers", "runtime"],
+  "recommendedPacks": ["@craigsmitham/packs/effect-v4"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/effect-v4-cloudflare-workers"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

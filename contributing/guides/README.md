@@ -10,9 +10,9 @@ for skills.
 
 Each guide is a single markdown file named after its topic:
 
-- `effect.md` — Effect patterns for typed errors, services, and async
-- `effect-option.md` — When to use `Option` versus nullable values
-- `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
+- `effect.md` — Installed Effect v4 skill index and AXM-specific policy
+- `effect-errors.md` — AXM AppError, Registry translation, and cancellation policy
+- `effect-layers.md` — AXM CLI entry-point and command-provision policy
 - `workspace-read-model.md` — Scoped workspace read model, caching, and test fixtures
 - `workspace-state.md` — Desired, observed, trust, receipt, and reconciliation semantics
 - `workspace-schema-evolution.md` — Settings and lockfile schema changes and decode strictness

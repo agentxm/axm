@@ -26,11 +26,11 @@ configuration.
 
 ## Skills
 
-| Skill                                                                           | Command | Description                                        |
-| ------------------------------------------------------------------------------- | ------- | -------------------------------------------------- |
-| [axm-testing-e2e](../../.claude/skills/axm-testing-e2e/SKILL.md)                | —       | E2E test patterns for CLI commands                 |
-| [effect-testing](../../.axm/extensions/@axm/skills/effect-testing/src/SKILL.md) | —       | Effect testing with @effect/vitest                 |
-| [effect-service](../../.axm/extensions/@axm/skills/effect-service/src/SKILL.md) | —       | Service patterns including test layer construction |
+| Skill                                                                                                                  | Command | Description                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------- |
+| [axm-testing-e2e](../../.claude/skills/axm-testing-e2e/SKILL.md)                                                       | —       | E2E test patterns for CLI commands                 |
+| [effect-v4-testing](../../.axm/extensions/@craigsmitham/skills/effect-v4-testing/src/SKILL.md)                         | —       | Effect testing with `@effect/vitest`               |
+| [effect-v4-services-and-layers](../../.axm/extensions/@craigsmitham/skills/effect-v4-services-and-layers/src/SKILL.md) | —       | Service patterns including test layer construction |
 
 ---
 

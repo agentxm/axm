@@ -7,18 +7,7 @@
     }
   },
   "skills": {
-    "effect-basics": "workspace:@axm/skills/effect-basics",
-    "effect-collections": "workspace:@axm/skills/effect-collections",
-    "effect-concurrency": "workspace:@axm/skills/effect-concurrency",
-    "effect-filesystem": "workspace:@axm/skills/effect-filesystem",
-    "effect-iteration": "workspace:@axm/skills/effect-iteration",
-    "effect-option": "workspace:@axm/skills/effect-option",
-    "effect-schema": "workspace:@axm/skills/effect-schema",
-    "effect-service": "workspace:@axm/skills/effect-service",
-    "effect-stream": "workspace:@axm/skills/effect-stream",
-    "effect-testing": "workspace:@axm/skills/effect-testing",
-    "effect-wrapping": "workspace:@axm/skills/effect-wrapping",
-    "code-review": "workspace:@axm/skills/code-review",
+    "code-review": "workspace:@agentxm/skills/code-review",
     "e2e-publish-check": "workspace:@local-dev/skills/e2e-publish-check",
     "axm": "workspace:@agentxm/skills/axm",
     "okf-author": "workspace:@craigsmitham/skills/okf-author",
@@ -29,12 +18,11 @@
     "workflow-automation": "@craigsmitham/knowledge/workflow-automation"
   },
   "packs": {
-    "effect": "workspace:@axm/packs/effect",
-    "field-notes": "@craigsmitham/packs/field-notes"
+    "field-notes": "@craigsmitham/packs/field-notes",
+    "effect-v4": "@craigsmitham/packs/effect-v4@0.1.0"
   },
   "lint": {
     "rules": {
-      "skill/frontmatter-standard-valid": "off",
       "workspace/agents-detected-declared": "off",
       "workspace/instructions-target-current": "off",
       "workspace/skills-managed": "off"

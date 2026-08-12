@@ -1,0 +1,17 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "effect-v4-option",
+  "version": "0.1.0",
+  "description": "Models meaningful absence and nullable boundaries with Effect v4 Option",
+  "keywords": ["effect", "effect-v4", "typescript", "option", "nullable", "absence"],
+  "recommendedPacks": ["@craigsmitham/packs/effect-v4"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/effect-v4-option"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

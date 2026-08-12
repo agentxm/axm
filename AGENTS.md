@@ -118,11 +118,9 @@ the summary here, follow the guide.
 | [CLI Design Guide](contributing/guides/cli-design.md)                                 | Before designing a CLI command, read for shape, flags, prompts, and handlers                    |
 | [CLI Renderer Guide](contributing/guides/cli-renderer.md)                             | Before changing JSON output or renderer boundaries, read for contracts and diagnostics          |
 | [Testing Guide](contributing/guides/testing.md)                                       | Before writing or reviewing tests, read for levels, E2E scope, and Effect testing               |
-| [Effect Guide](contributing/guides/effect.md)                                         | Before writing Effect code, read for core patterns and the skill index                          |
-| [Effect Option Guide](contributing/guides/effect-option.md)                           | When handling optional values in Effect code, read for Option and nullable boundaries           |
-| [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md)               | When translating v3-era examples, read for common v4 renames and migrations                     |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                           | Before designing or translating Effect errors, read for AppError and service patterns           |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                           | Before building or wiring layers, read for composition and provision rules                      |
+| [Effect Guide](contributing/guides/effect.md)                                         | Before writing Effect code, route portable topics to installed skills and apply AXM policy      |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                           | Before handling CLI failures, read for AppError, Registry translation, and cancellation policy  |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                           | Before wiring the CLI runtime, read for AXM entry-point and command-provision policy            |
 | [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)             | Before migrating workspace reads or using context test fixtures                                 |
 | [Workspace State Guide](contributing/guides/workspace-state.md)                       | Before changing reconciliation, lifecycle, trust, receipts, sync, packs, or workspace mutations |
 | [Workspace Schema Evolution Guide](contributing/guides/workspace-schema-evolution.md) | Before changing settings/lockfile schemas or decode strictness on workspace paths               |
@@ -208,9 +206,8 @@ Setup and sync instructions are in the
 ## Effect
 
 See [Effect Guide](contributing/guides/effect.md),
-[Effect Option Guide](contributing/guides/effect-option.md),
-[Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md), and
-[Effect Errors Guide](contributing/guides/effect-errors.md).
+[Effect Errors Guide](contributing/guides/effect-errors.md), and
+[Effect Layers Guide](contributing/guides/effect-layers.md).
 
 - Use `../external/Effect-TS/effect` for repo-matched Effect v4 references.
 - No raw Promises or async/await in production code.

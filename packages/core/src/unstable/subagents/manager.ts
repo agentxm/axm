@@ -171,6 +171,7 @@ export const SubagentManagerLive = Layer.effect(
       string,
       {
         readonly sourceHash: SourceHash;
+        readonly materialization: MaterializationObservation;
       }
     >();
     const lastUninstallState = new Map<string, MaterializationObservation>();
@@ -513,8 +514,30 @@ export const SubagentManagerLive = Layer.effect(
           if (outcome._tag !== "success") return Effect.void;
           return Effect.logDebug(`Rendered ${ref.subagent.name} for ${agentId}`);
         });
+        const successfulResults = renderResults.filter(({ outcome }) => outcome._tag === "success");
+        const agentIdsByPath = new Map<string, Array<string>>();
+        for (const { agentId, outcome } of successfulResults) {
+          if (outcome._tag !== "success") continue;
+          for (const renderedFilePath of outcome.renderedFilePaths) {
+            const relativePath = path.isAbsolute(renderedFilePath)
+              ? path.relative(baseDir, renderedFilePath)
+              : path.normalize(renderedFilePath);
+            const agentIds = agentIdsByPath.get(relativePath) ?? [];
+            if (!agentIds.includes(agentId)) agentIds.push(agentId);
+            agentIdsByPath.set(relativePath, agentIds);
+          }
+        }
         lastInstallState.set(ref.subagent.name, {
           sourceHash: yield* Effect.provide(computePackageContentHash(canonicalPath), fsPathLayer),
+          materialization: {
+            agents: successfulResults.map(({ agentId }) => agentId),
+            targets: Array.from(agentIdsByPath.entries())
+              .sort(([left], [right]) => left.localeCompare(right))
+              .map(([targetPath, agentIds]) => ({
+                path: targetPath,
+                agentIds,
+              })),
+          },
         });
       });
 
@@ -623,6 +646,10 @@ export const SubagentManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed(
+          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
+        ),
       getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredSubagentEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

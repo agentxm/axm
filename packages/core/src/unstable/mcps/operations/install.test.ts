@@ -737,6 +737,7 @@ describe("installMcpServer", () => {
         expect(result.artifact).toEqual(
           expect.objectContaining({
             change: "created",
+            agents: ["claude-code", "codex"],
             fileCount: 3,
             targets: [
               expect.objectContaining({
@@ -798,6 +799,10 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
         expect(result.message).toContain("agent-sync=degraded");
+        if (result.result !== "success") {
+          throw new Error(result.message);
+        }
+        expect(result.artifact).toEqual(expect.objectContaining({ agents: [] }));
       }),
     );
 
@@ -857,6 +862,7 @@ describe("installMcpServer", () => {
         expect(result.message).toContain("agent-sync=green");
         expect(result.artifact).toEqual(
           expect.objectContaining({
+            agents: [],
             fileCount: 2,
             targets: [
               expect.objectContaining({ path: ".axm/extensions/@community/mcps/my-server" }),

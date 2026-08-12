@@ -27,17 +27,68 @@ const failedStep = (label: string, result: JobStepResult) =>
       )
     : Effect.succeed(result);
 
+export interface AtomicPackGraphChild {
+  readonly step: PlannedJobStep;
+  readonly coverage: "eligible" | "ineligible";
+}
+
+interface PackCoverage {
+  readonly applicable: boolean;
+  readonly agents: ReadonlyArray<string>;
+}
+
+const aggregatePackCoverage = (
+  results: ReadonlyArray<{
+    readonly result: JobStepResult;
+    readonly coverage: AtomicPackGraphChild["coverage"];
+  }>,
+  scope: JobStepArtifact["scope"],
+): Effect.Effect<PackCoverage, AppError> =>
+  Effect.gen(function* () {
+    const applicableArtifacts = results.flatMap(({ result, coverage }) =>
+      coverage === "eligible" &&
+      result.result === "success" &&
+      result.artifact?.agents !== undefined
+        ? [result.artifact]
+        : [],
+    );
+    const agents: Array<string> = [];
+    for (const artifact of applicableArtifacts) {
+      if (artifact.scope !== scope) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Pack coverage spans ${scope} and ${artifact.scope} scopes`,
+        });
+      }
+      const artifactAgents = new Set(artifact.agents);
+      for (const target of artifact.targets ?? []) {
+        for (const agent of target.agentIds ?? []) {
+          if (!artifactAgents.has(agent)) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Pack child target agent ${agent} is absent from its artifact agents`,
+            });
+          }
+        }
+      }
+      for (const agent of artifact.agents ?? []) {
+        if (agent !== "universal" && !agents.includes(agent)) agents.push(agent);
+      }
+    }
+    return { applicable: applicableArtifacts.length > 0, agents };
+  });
+
 export const buildAtomicPackGraphStep = (args: {
   readonly label: string;
   readonly message: string;
   readonly artifact: JobStepArtifact;
-  readonly steps: ReadonlyArray<PlannedJobStep>;
+  readonly children: ReadonlyArray<AtomicPackGraphChild>;
   readonly preTransition?: Effect.Effect<void, AppError, WorkspaceMutations>;
   readonly validate: Effect.Effect<void, AppError, WorkspaceMutations>;
 }): Effect.Effect<PlannedJobStep, never, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const readinessErrors = args.steps.flatMap((step) =>
+    const readinessErrors = args.children.flatMap(({ step }) =>
       step.readiness === "error" ? [step.errorMessage] : [],
     );
     if (readinessErrors.length > 0) {
@@ -49,12 +100,14 @@ export const buildAtomicPackGraphStep = (args: {
       } satisfies PlannedJobStep;
     }
 
-    const readinessWarnings = args.steps.flatMap((step) =>
+    const readinessWarnings = args.children.flatMap(({ step }) =>
       step.readiness === "warn" ? [step.warnMessage] : [],
     );
-    const runnableSteps = args.steps.filter(
-      (step): step is ReadyJobStep | WarnJobStep => step.readiness !== "error",
+    const runnableChildren = args.children.filter(
+      (child): child is AtomicPackGraphChild & { readonly step: ReadyJobStep | WarnJobStep } =>
+        child.step.readiness !== "error",
     );
+    let validatedCoverage: PackCoverage = { applicable: false, agents: [] };
     const run = ws
       .runTransaction({
         transition: Effect.gen(function* () {
@@ -62,20 +115,30 @@ export const buildAtomicPackGraphStep = (args: {
             yield* args.preTransition.pipe(Effect.provideService(WorkspaceMutations, ws));
           }
           return yield* Effect.forEach(
-            runnableSteps,
-            (step) => step.run.pipe(Effect.flatMap((result) => failedStep(step.label, result))),
+            runnableChildren,
+            ({ step, coverage }) =>
+              step.run.pipe(
+                Effect.flatMap((result) => failedStep(step.label, result)),
+                Effect.map((result) => ({ result, coverage })),
+              ),
             { concurrency: 1 },
           );
         }),
-        validate: () => args.validate.pipe(Effect.provideService(WorkspaceMutations, ws)),
+        validate: (results) =>
+          Effect.gen(function* () {
+            yield* args.validate.pipe(Effect.provideService(WorkspaceMutations, ws));
+            validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
+          }),
       })
       .pipe(
         Effect.map((results) => {
-          const warnings = results.flatMap((result) => result.warnings ?? []);
+          const warnings = results.flatMap(({ result }) => result.warnings ?? []);
           return {
             result: "success",
             message: args.message,
-            artifact: args.artifact,
+            artifact: !validatedCoverage.applicable
+              ? args.artifact
+              : { ...args.artifact, agents: validatedCoverage.agents },
             ...(warnings.length === 0 ? {} : { warnings }),
           } satisfies JobStepResult;
         }),

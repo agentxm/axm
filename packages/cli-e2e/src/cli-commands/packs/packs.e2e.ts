@@ -544,6 +544,79 @@ describe("axm packs publish", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs install", () => {
+  it("distinguishes applicable empty coverage from a pack with no applicable members", async () => {
+    const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
+    const skill = "empty-coverage-skill";
+    const applicablePack = "empty-coverage-pack";
+    const nonApplicablePack = "canonical-only-pack";
+
+    try {
+      await publishRegistrySkill(registryDir.path, skill);
+      await publishRegistryPack(registryDir.path, applicablePack, {
+        [`@test/skills/${skill}`]: "0.0.1",
+      });
+      await publishRegistryPack(registryDir.path, nonApplicablePack, {});
+
+      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      settings.agents = [];
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+      const applicable = await runCli(
+        ["packs", "install", `@test/packs/${applicablePack}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(applicable.exitCode, applicable.stdout + applicable.stderr).toBe(0);
+      expect(JSON.parse(applicable.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          agentCoverage: { scope: "project", agents: [] },
+          steps: [{ artifact: { agents: [] } }],
+        },
+      });
+
+      const applicableHuman = await runCli(
+        ["packs", "install", `@test/packs/${applicablePack}`, "--yes"],
+        { cwd: temp.path },
+      );
+      expect(applicableHuman.exitCode, applicableHuman.stdout + applicableHuman.stderr).toBe(0);
+      expect(applicableHuman.stdout + applicableHuman.stderr).toContain(
+        "No coding-agent targets were materialized",
+      );
+
+      const nonApplicable = await runCli(
+        ["packs", "install", `@test/packs/${nonApplicablePack}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(nonApplicable.exitCode, nonApplicable.stdout + nonApplicable.stderr).toBe(0);
+      const nonApplicableDocument = JSON.parse(nonApplicable.stdout);
+      expect(nonApplicableDocument).toMatchObject({
+        ok: true,
+        result: { outcome: "applied" },
+      });
+      expect(nonApplicableDocument.result).not.toHaveProperty("agentCoverage");
+      expect(nonApplicableDocument.result.steps[0]?.artifact).not.toHaveProperty("agents");
+
+      const nonApplicableHuman = await runCli(
+        ["packs", "install", `@test/packs/${nonApplicablePack}`, "--yes"],
+        { cwd: temp.path },
+      );
+      expect(
+        nonApplicableHuman.exitCode,
+        nonApplicableHuman.stdout + nonApplicableHuman.stderr,
+      ).toBe(0);
+      expect(nonApplicableHuman.stdout + nonApplicableHuman.stderr).not.toContain(
+        "No coding-agent targets were materialized",
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
   it("keeps overlapping pack installation lint-clean with an existing direct skill", async () => {
     const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
@@ -566,9 +639,12 @@ describe("axm packs install", () => {
         [`@test/skills/${secondMember}`]: "0.0.1",
       });
 
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--agent", "claude-code", "--agent", "cursor"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
@@ -618,11 +694,50 @@ describe("axm packs install", () => {
           { cwd: temp.path },
         );
         expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
-        expect(JSON.parse(installed.stdout)).toMatchObject({
+        const document = JSON.parse(installed.stdout);
+        expect(document).toMatchObject({
           ok: true,
-          result: { outcome: "applied" },
+          result: {
+            outcome: "applied",
+            agentCoverage: {
+              scope: "project",
+              agents: ["claude-code", "cursor"],
+            },
+            steps: [
+              {
+                artifact: {
+                  agents: ["claude-code", "cursor"],
+                },
+              },
+            ],
+          },
         });
       }
+
+      const alignedInstall = await runCli(
+        ["packs", "install", `@test/packs/${secondPack}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(alignedInstall.exitCode, alignedInstall.stdout + alignedInstall.stderr).toBe(0);
+      expect(JSON.parse(alignedInstall.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          agentCoverage: {
+            scope: "project",
+            agents: ["claude-code", "cursor"],
+          },
+          steps: [{ artifact: { agents: ["claude-code", "cursor"] } }],
+        },
+      });
+
+      const humanInstall = await runCli(
+        ["packs", "install", `@test/packs/${secondPack}`, "--yes"],
+        { cwd: temp.path },
+      );
+      expect(humanInstall.exitCode, humanInstall.stdout + humanInstall.stderr).toBe(0);
+      const humanOutput = humanInstall.stdout + humanInstall.stderr;
+      expect(humanOutput).toContain("Agent coverage: claude-code, cursor");
+      expect(humanOutput).not.toContain("No coding-agent targets were materialized");
 
       const settings = readSettings();
       expect(settings.skills?.[directSkill]).toEqual(directDesiredEntry);

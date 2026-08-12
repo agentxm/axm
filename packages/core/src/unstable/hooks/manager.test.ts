@@ -114,6 +114,20 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("identity-check", packageRoot),
           });
+          if (manager.getLastMaterialization === undefined) {
+            throw new Error("Hook materialization observation is unavailable");
+          }
+          expect(
+            yield* manager.getLastMaterialization({
+              target: { type: "hook", name: "identity-check" },
+            }),
+          ).toEqual({
+            agents: ["claude-code"],
+            targets: [
+              { path: ".claude/settings.json", agentIds: ["claude-code"] },
+              { path: "AGENTS.md" },
+            ],
+          });
         }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)));
 
         const raw = readFileSync(settingsPath, "utf8");
@@ -194,6 +208,17 @@ describe("HookManager", () => {
           const manager = yield* HookManager;
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("unsupported-agent", packageRoot),
+          });
+          if (manager.getLastMaterialization === undefined) {
+            throw new Error("Hook materialization observation is unavailable");
+          }
+          expect(
+            yield* manager.getLastMaterialization({
+              target: { type: "hook", name: "unsupported-agent" },
+            }),
+          ).toEqual({
+            agents: ["windsurf"],
+            targets: [{ path: "AGENTS.md", agentIds: ["windsurf"] }],
           });
         }).pipe(
           Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),

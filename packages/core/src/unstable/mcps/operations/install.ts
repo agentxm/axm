@@ -792,6 +792,7 @@ export const installMcpServer: (
         lockEntry,
         scope: ws.scope,
         change,
+        agents: agentOutcomes.map(({ agentId }) => agentId),
         targets: [
           ...(ref.refType === "registry" ? [mcpSourceTarget(lockEntry, change)] : []),
           mcpSettingsTarget(change),

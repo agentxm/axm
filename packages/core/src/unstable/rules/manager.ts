@@ -44,7 +44,11 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  MaterializationObservation,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredRule } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
@@ -136,6 +140,31 @@ const normalizeMarkdown = (content: string): string =>
     .join("\n")
     .trim();
 
+export const ruleMaterializationObservation = (
+  managedTarget: string,
+  instructionItems: ReadonlyArray<{
+    readonly agentId: string;
+    readonly health: string;
+  }>,
+): MaterializationObservation => {
+  const agents = Array.from(
+    new Set(
+      instructionItems
+        .filter(({ agentId, health }) => health === "ok" && agentId !== "universal")
+        .map(({ agentId }) => agentId),
+    ),
+  );
+  return {
+    agents,
+    targets: [
+      {
+        path: managedTarget,
+        ...(agents.length === 0 ? {} : { agentIds: agents }),
+      },
+    ],
+  };
+};
+
 export const RuleManagerLive = Layer.effect(
   RuleManager,
   Effect.gen(function* () {
@@ -161,6 +190,7 @@ export const RuleManagerLive = Layer.effect(
       {
         readonly ref: RuleExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
+        readonly materialization: MaterializationObservation;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
       }
@@ -475,23 +505,26 @@ export const RuleManagerLive = Layer.effect(
           ),
         );
 
-        if (Option.isSome(instructions)) {
-          yield* provide(
-            reconcileInstructionTargets({
-              workspaceRoot: baseDir,
-              scope: ws.scope,
-              configuredAgents: instructions.value.agents,
-              config: instructions.value.config,
-            }),
-          );
-        }
+        const instructionItems = Option.isSome(instructions)
+          ? (yield* provide(
+              reconcileInstructionTargets({
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+                configuredAgents: instructions.value.agents,
+                config: instructions.value.config,
+              }),
+            )).status.items
+          : [];
 
-        return decodeMaterializedTarget({
-          target: target.relative,
-          mode: "managed-region",
-          region: RULES_REGION,
-          renderHash: computeSourceHash(rendered),
-        });
+        return {
+          materializedTarget: decodeMaterializedTarget({
+            target: target.relative,
+            mode: "managed-region",
+            region: RULES_REGION,
+            renderHash: computeSourceHash(rendered),
+          }),
+          materialization: ruleMaterializationObservation(target.relative, instructionItems),
+        };
       });
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
@@ -511,11 +544,14 @@ export const RuleManagerLive = Layer.effect(
         });
       }
 
-      const materializedTarget = yield* writeRulesRegion({ include: { ref, packageRoot } });
+      const { materializedTarget, materialization } = yield* writeRulesRegion({
+        include: { ref, packageRoot },
+      });
       const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.rule.name, {
         ref,
         materializedTargets: [materializedTarget],
+        materialization,
         workspaceRelativeLocalSourcePath,
         sourceHash,
       });
@@ -575,7 +611,9 @@ export const RuleManagerLive = Layer.effect(
 
     return {
       type: "rule",
-      reconcileInstructions: writeRulesRegion(),
+      reconcileInstructions: writeRulesRegion().pipe(
+        Effect.map(({ materializedTarget }) => materializedTarget),
+      ),
       runTransaction: ws.runTransaction,
       validateTrustTransition: (args) =>
         ws
@@ -587,6 +625,10 @@ export const RuleManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed(
+          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
+        ),
       getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredRuleEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

@@ -347,6 +347,42 @@ const registrySourceArtifact = (args: {
   };
 };
 
+const registrySourceArtifactWithCoverage = (args: {
+  readonly ref: ExtensionRef;
+  readonly scope: JobStepArtifact["scope"];
+  readonly installedBefore: boolean;
+  readonly materialization: Effect.Effect<
+    {
+      readonly agents: ReadonlyArray<string>;
+      readonly targets: ReadonlyArray<{
+        readonly path: string;
+        readonly agentIds?: ReadonlyArray<string>;
+      }>;
+    },
+    never
+  >;
+}) =>
+  Effect.gen(function* () {
+    const artifact = registrySourceArtifact(args);
+    const materialization = yield* args.materialization;
+    return { ...artifact, agents: materialization.agents } satisfies JobStepArtifact;
+  });
+
+const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineligible" => {
+  switch (ref?.type) {
+    case "skill":
+    case "mcp-server":
+    case "subagent":
+    case "rule":
+    case "hook":
+      return "eligible";
+    case "pack":
+    case "knowledge":
+    case undefined:
+      return "ineligible";
+  }
+};
+
 const registrySourcePath = (ref: ExtensionRef): string =>
   ref.refType === "registry"
     ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${registryPluralSegment(ref.type)}/${ref.name}`
@@ -922,7 +958,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    skillMgr.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : skillMgr.getLastMaterialization({
+                          target: { type: "skill", name: ref.skill.name },
+                        }),
+                }),
             });
           }
 
@@ -968,7 +1014,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    subagentMgr.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : subagentMgr.getLastMaterialization({
+                          target: { type: "subagent", name: ref.subagent.name },
+                        }),
+                }),
             });
           }
 
@@ -983,7 +1039,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    ruleManager.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : ruleManager.getLastMaterialization({
+                          target: { type: "rule", name: ref.rule.name },
+                        }),
+                }),
             });
           }
 
@@ -998,7 +1064,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    hookManager.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : hookManager.getLastMaterialization({
+                          target: { type: "hook", name: ref.hook.name },
+                        }),
+                }),
             });
           }
 
@@ -1108,7 +1184,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             fileCount: refs.length + droppedTargets.length,
             targets: artifactTargets,
           },
-          steps: [...installSteps, ...uninstallSteps],
+          children: [
+            ...installSteps.map((step, index) => ({
+              step,
+              coverage: packInstallCoverage(refs[index]),
+            })),
+            ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
+          ],
           validate: validatePackGraphPostcondition({
             requiredPacks: [
               {

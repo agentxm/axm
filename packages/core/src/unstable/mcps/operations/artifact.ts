@@ -96,6 +96,7 @@ export const mcpServerArtifact = (args: {
   readonly scope: JobStepArtifact["scope"];
   readonly change: JobStepArtifact["change"];
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
+  readonly agents?: ReadonlyArray<string>;
 }): JobStepArtifact => {
   const version = args.lockEntry === undefined ? undefined : mcpServerVersion(args.lockEntry);
 
@@ -103,6 +104,7 @@ export const mcpServerArtifact = (args: {
     path: args.lockEntry === undefined ? MCP_CONFIG_SURFACE : mcpServerSourcePath(args.lockEntry),
     scope: args.scope,
     change: args.change,
+    ...(args.agents === undefined ? {} : { agents: args.agents }),
     ...(version === undefined ? {} : { version }),
     ...(args.targets.length === 0
       ? {}

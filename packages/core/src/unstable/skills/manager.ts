@@ -26,6 +26,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
+  MaterializationObservation,
   SkillExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
@@ -100,6 +101,7 @@ export const SkillManagerLive = Layer.effect(
     // Provide FileSystem + Path to an effect that needs them
     const provide: ProvideFs = (effect) => Effect.provide(effect, fsPathLayer);
     const lastSourceHashes = new Map<string, SourceHash>();
+    const lastMaterializations = new Map<string, MaterializationObservation>();
 
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
@@ -182,6 +184,20 @@ export const SkillManagerLive = Layer.effect(
             ? yield* provide(computePackageContentHash(path.dirname(skillSrcPath)))
             : yield* provide(computeSkillSourceHash(skillSrcPath));
       lastSourceHashes.set(ref.skill.name, sourceHash);
+      lastMaterializations.set(ref.skill.name, {
+        agents: Array.dedupe(
+          installTargets
+            .map((target) => target.agentId)
+            .filter((agentId) => agentId !== "universal"),
+        ),
+        targets: [...locations.values()].map((location) => {
+          const agentIds = location.agentIds.filter((agentId) => agentId !== "universal");
+          return {
+            path: path.relative(baseDir, path.join(location.dir, sanitized)),
+            ...(agentIds.length === 0 ? {} : { agentIds }),
+          };
+        }),
+      });
     });
 
     const makeMaterializeRemoval = (
@@ -250,6 +266,13 @@ export const SkillManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed(
+          lastMaterializations.get(target.name) ?? {
+            agents: [],
+            targets: [],
+          },
+        ),
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredSkillEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

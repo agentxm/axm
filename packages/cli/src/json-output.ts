@@ -48,7 +48,18 @@ import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js"
 export interface PlanResolutionResultOptions {
   readonly verbose?: boolean;
   readonly debug?: boolean;
+  readonly agentCoverage?: AgentCoverage;
 }
+
+export const AgentCoverageSchema = Schema.Struct({
+  scope: Schema.Literals(["project", "user"] as const),
+  agents: Schema.Array(Schema.String),
+}).annotate({
+  identifier: "AgentCoverage",
+  title: "Agent Coverage",
+  description: "Coding agents where at least one retained coverage-applicable extension is usable.",
+});
+export type AgentCoverage = typeof AgentCoverageSchema.Type;
 
 const StepStatusSchema = Schema.Literals([
   "ready",
@@ -238,6 +249,7 @@ export const PlanResolutionResultSchema = Schema.Struct({
   conflictingCount: Schema.optional(Schema.Number),
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   riskConditions: Schema.optional(Schema.Array(PlanRiskConditionSchema)),
+  agentCoverage: Schema.optional(AgentCoverageSchema),
   steps: Schema.Array(StepSchema),
 }).annotate({
   identifier: "PlanResolutionResult",
@@ -782,6 +794,9 @@ export const toPlanResolutionResult = (
         appliedCount,
         failedCount,
         blockedCount,
+        ...(outcome === "failed" || outcome === "partial" || options.agentCoverage === undefined
+          ? {}
+          : { agentCoverage: options.agentCoverage }),
         ...(resolution.preconditions === undefined
           ? {}
           : { preconditions: resolution.preconditions }),
@@ -807,6 +822,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       readonly skippedCount: number;
       readonly conflictingCount: number;
     };
+    readonly agentCoverage?: AgentCoverage;
   },
 ) =>
   Effect.gen(function* () {
@@ -823,6 +839,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
     const planResult = toPlanResolutionResult(resolution, {
       verbose: verbosity.isAtLeast("verbose"),
       debug: verbosity.level === "debug",
+      ...(options?.agentCoverage === undefined ? {} : { agentCoverage: options.agentCoverage }),
     });
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({

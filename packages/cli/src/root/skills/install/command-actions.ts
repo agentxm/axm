@@ -706,7 +706,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   return {
                     path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
                     scope: ws.scope,
-                    ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
+                    agents: artifactAgents,
                     ...(version !== undefined ? { version } : {}),
                     change: artifactChange,
                     ...(previousVersion !== undefined && previousVersion !== version

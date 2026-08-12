@@ -11,6 +11,7 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as semver from "semver";
@@ -65,11 +66,23 @@ const commandResult = (
   stdout = `${TARGET_VERSION}\n`,
   exitCode = 0,
   stderr = "",
-): CommandResult => ({ exitCode, stdout, stderr });
+): CommandResult => ({ executionState: "exited", exitCode, stdout, stderr });
+
+const unavailableCommand = (
+  executionState: "not-started" | "timed-out",
+  stderr: string,
+): CommandResult => ({ executionState, exitCode: null, stdout: "", stderr });
+
+const homebrewInfo = (version: string) =>
+  JSON.stringify({
+    formulae: [{ full_name: "agentxm/tap/axm", versions: { stable: version } }],
+  });
 
 const makeSubprocess = (
   responder: (invocation: Invocation, index: number) => CommandResult | "never" = () =>
     commandResult(),
+  resolveExecutable: (executable: string) => string | null = (executable) =>
+    `/resolved/${executable}`,
 ) => {
   const calls: Array<Invocation> = [];
   return {
@@ -82,6 +95,7 @@ const makeSubprocess = (
           const response = responder(invocation, calls.length - 1);
           return response === "never" ? Effect.never : Effect.succeed(response);
         }),
+      resolveExecutable: (executable) => Effect.succeed(resolveExecutable(executable)),
     }),
   };
 };
@@ -301,6 +315,7 @@ describe("upgrade JSON contract", () => {
             executable: "npm",
             args: ["install", "-g", "axm.sh@2.0.0"],
             display: "npm install -g axm.sh@2.0.0",
+            executionState: "exited",
             exitCode: 0,
             stdout: "",
             stderr: "",
@@ -360,6 +375,7 @@ describe("upgrade JSON contract", () => {
             purpose: "delegation",
             executable: "npm",
             args: ["install", "-g", "axm.sh@2.0.0"],
+            executionState: "exited",
             exitCode: 0,
             outputTruncated: false,
           },
@@ -463,17 +479,33 @@ describe("delegated upgrades", () => {
     }),
   );
 
-  it.effect("uses Homebrew upgrade and reinstall without manager substitution", () =>
+  it.effect("refreshes Homebrew and verifies its stable and PATH-resolved executables", () =>
     Effect.gen(function* () {
       const subprocess = makeSubprocess((invocation) => {
         if (invocation.executable === "brew" && invocation.args[0] === "tap") {
           return commandResult("agentxm/tap\n");
         }
-        return commandResult();
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(TARGET_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.args[0] === "--version") return commandResult(TARGET_VERSION);
+        return commandResult("");
       });
       const method = new Homebrew({ execPath: "/opt/homebrew/Cellar/axm/1/bin/axm" });
       const upgrade = makeHarness(method, { subprocess });
       yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(upgrade.layer));
+      expect(resultFrom(upgrade.renderer)).toMatchObject({
+        resultStatus: "upgraded",
+        verification: "verified",
+        executablePath: "/opt/homebrew/bin/axm",
+        observedFormulaVersion: TARGET_VERSION,
+      });
       expect(upgrade.subprocess.calls).toContainEqual(
         expect.objectContaining({
           executable: "brew",
@@ -485,7 +517,17 @@ describe("delegated upgrades", () => {
         if (invocation.executable === "brew" && invocation.args[0] === "tap") {
           return commandResult("agentxm/tap\n");
         }
-        return commandResult(LOCAL_VERSION);
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(LOCAL_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.args[0] === "--version") return commandResult(LOCAL_VERSION);
+        return commandResult("");
       });
       const reinstall = makeHarness(method, {
         version: LOCAL_VERSION,
@@ -498,6 +540,297 @@ describe("delegated upgrades", () => {
           args: ["reinstall", "agentxm/tap/axm"],
         }),
       );
+    }),
+  );
+
+  it.effect("recovers one successful Homebrew no-op with one reinstall", () =>
+    Effect.gen(function* () {
+      let reinstallRan = false;
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(TARGET_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "reinstall") {
+          reinstallRan = true;
+          return commandResult("");
+        }
+        if (invocation.args[0] === "--version") {
+          return commandResult(reinstallRan ? TARGET_VERSION : LOCAL_VERSION);
+        }
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
+
+      const result = resultFrom(harness.renderer);
+      expect(result).toMatchObject({
+        resultStatus: "upgraded",
+        verification: "verified",
+        mutationState: "updated",
+        recommendedCommand: null,
+      });
+      expect(
+        harness.subprocess.calls.filter(
+          (invocation) => invocation.executable === "brew" && invocation.args[0] === "reinstall",
+        ),
+      ).toHaveLength(1);
+      expect(harness.metadata).toEqual([
+        expect.objectContaining({
+          method: "homebrew",
+          executablePath: "/opt/homebrew/bin/axm",
+        }),
+      ]);
+      expect(property(result, "verificationExecutables")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ role: "manager-owned", phase: "pre-mutation" }),
+          expect.objectContaining({ role: "path-resolved", phase: "post-primary" }),
+          expect.objectContaining({ role: "manager-owned", phase: "post-fallback" }),
+        ]),
+      );
+    }),
+  );
+
+  it.effect("does not mutate when Homebrew's formula is ahead of the selected target", () =>
+    Effect.gen(function* () {
+      const ahead = semver.inc(TARGET_VERSION, "patch") ?? "999.0.0";
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(ahead));
+        }
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "upgrade-incomplete",
+        verification: "not-attempted",
+        mutationState: "not-attempted",
+        homebrewFailure: "formula-ahead-of-target",
+        observedFormulaVersion: ahead,
+        recommendedCommand: null,
+      });
+      expect(
+        harness.subprocess.calls.some(
+          (invocation) =>
+            invocation.executable === "brew" &&
+            (invocation.args[0] === "upgrade" || invocation.args[0] === "reinstall"),
+        ),
+      ).toBe(false);
+      const updateCalls = harness.subprocess.calls.filter(
+        (invocation) => invocation.executable === "brew" && invocation.args[0] === "update",
+      );
+      const infoCalls = harness.subprocess.calls.filter(
+        (invocation) => invocation.executable === "brew" && invocation.args[0] === "info",
+      );
+      expect(updateCalls).toHaveLength(1);
+      expect(infoCalls).toHaveLength(1);
+    }),
+  );
+
+  it.effect("waits for the exact Homebrew formula inside the publication window", () =>
+    Effect.gen(function* () {
+      let formulaQueries = 0;
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          formulaQueries += 1;
+          return commandResult(homebrewInfo(formulaQueries === 1 ? LOCAL_VERSION : TARGET_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.args[0] === "--version") return commandResult(TARGET_VERSION);
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+      const fiber = yield* handleUpgrade({ reinstall: false }).pipe(
+        Effect.provide(harness.layer),
+        Effect.forkChild,
+      );
+
+      yield* TestClock.adjust("2 seconds");
+      yield* Fiber.join(fiber);
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "upgraded",
+        observedFormulaVersion: TARGET_VERSION,
+      });
+      expect(formulaQueries).toBe(2);
+    }),
+  );
+
+  it.effect("stops without mutation when the selected formula misses the deadline", () =>
+    Effect.gen(function* () {
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(LOCAL_VERSION));
+        }
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+      const fiber = yield* handleUpgrade({ reinstall: false }).pipe(
+        Effect.provide(harness.layer),
+        Effect.forkChild,
+      );
+
+      yield* TestClock.adjust("91 seconds");
+      yield* Fiber.join(fiber);
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "upgrade-incomplete",
+        homebrewFailure: "target-formula-unavailable",
+        observedFormulaVersion: LOCAL_VERSION,
+        verification: "not-attempted",
+        mutationState: "not-attempted",
+        recommendedCommand: null,
+      });
+      expect(
+        harness.subprocess.calls.some(
+          (invocation) =>
+            invocation.executable === "brew" &&
+            (invocation.args[0] === "upgrade" || invocation.args[0] === "reinstall"),
+        ),
+      ).toBe(false);
+      const updateCalls = harness.subprocess.calls.filter(
+        (invocation) => invocation.executable === "brew" && invocation.args[0] === "update",
+      );
+      const infoCalls = harness.subprocess.calls.filter(
+        (invocation) => invocation.executable === "brew" && invocation.args[0] === "info",
+      );
+      expect(updateCalls).toHaveLength(45);
+      expect(infoCalls).toHaveLength(45);
+    }),
+  );
+
+  it.effect("does not reinstall after a timed-out Homebrew upgrade", () =>
+    Effect.gen(function* () {
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(TARGET_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "upgrade") {
+          return unavailableCommand("timed-out", "timed out");
+        }
+        if (invocation.args[0] === "--version") return commandResult(LOCAL_VERSION);
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "upgrade-incomplete",
+        homebrewFailure: "delegation-failed",
+        verification: "unchanged",
+        mutationState: "unchanged",
+        recommendedCommand: null,
+      });
+      expect(
+        harness.subprocess.calls.filter(
+          (invocation) => invocation.executable === "brew" && invocation.args[0] === "reinstall",
+        ),
+      ).toHaveLength(0);
+    }),
+  );
+
+  it.effect("reports a fresh PATH shadow without reinstalling or rewriting it", () =>
+    Effect.gen(function* () {
+      let primaryRan = false;
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "brew" && invocation.args[0] === "tap") {
+          return commandResult("agentxm/tap\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "update") {
+          return commandResult("");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "info") {
+          return commandResult(homebrewInfo(TARGET_VERSION));
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "--prefix") {
+          return commandResult("/opt/homebrew\n");
+        }
+        if (invocation.executable === "brew" && invocation.args[0] === "upgrade") {
+          primaryRan = true;
+          return commandResult("");
+        }
+        if (invocation.executable === "/opt/homebrew/bin/axm") {
+          return commandResult(primaryRan ? TARGET_VERSION : LOCAL_VERSION);
+        }
+        if (invocation.executable === "/resolved/axm") return commandResult(LOCAL_VERSION);
+        return commandResult("");
+      });
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "upgrade-incomplete",
+        homebrewFailure: "manager-path-disagreement",
+        verification: "mismatch",
+        mutationState: "updated",
+        recommendedCommand: null,
+      });
+      expect(
+        harness.subprocess.calls.filter(
+          (invocation) => invocation.executable === "brew" && invocation.args[0] === "reinstall",
+        ),
+      ).toHaveLength(0);
     }),
   );
 
@@ -777,6 +1110,7 @@ describe("transactional script upgrade", () => {
                   })
                 : Effect.succeed(commandResult());
             }),
+          resolveExecutable: (executable) => Effect.succeed(`/resolved/${executable}`),
         }),
       };
       const harness = makeHarness(new Script({ execPath: target }), { subprocess });

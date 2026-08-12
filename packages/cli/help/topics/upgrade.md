@@ -18,6 +18,21 @@ Supported owners are the AXM installer, Homebrew, npm, pnpm, and Yarn Classic
 1.x. Modern Yarn releases do not provide the required global-install command
 and therefore require manual action.
 
+## Homebrew convergence
+
+For a Homebrew-managed installation, the GitHub-selected target stays fixed for
+the invocation. AXM explicitly refreshes Homebrew metadata and requires
+`agentxm/tap/axm` to advertise that exact version before mutation. A temporarily
+older formula is retried for up to 90 seconds; a newer formula stops the command
+without silently installing a different release.
+
+Before and after mutation, AXM records the version reported by Homebrew's stable
+`bin/axm` entrypoint and by a fresh PATH resolution. Both must report the exact
+target for success. If an exit-0 `brew upgrade` leaves Homebrew's entrypoint on
+its known older version, AXM attempts one `brew reinstall` recovery and verifies
+both identities again. It never loops or recommends an upgrade or reinstall
+that already proved ineffective.
+
 ## Transaction safety
 
 Direct AXM-installer upgrades acquire a per-executable lock, download the
@@ -40,17 +55,20 @@ $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 
 `axm upgrade --json` emits one document. Important result fields are:
 
-| Field                | Meaning                                                                                                                                                                     |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resultStatus`       | `upgraded`, `reinstalled`, `already-up-to-date`, `local-newer`, `downgrade-refused`, `upgrade-incomplete`, `upgrade-unverified`, `manual-action-required`, or `rolled-back` |
-| `localVersion`       | Observed version before the command, or `null`                                                                                                                              |
-| `targetVersion`      | Selected stable release; fatal selection failures use the `ok: false` error envelope                                                                                        |
-| `reportedVersion`    | Version actually observed afterward, or `null`                                                                                                                              |
-| `installMethod`      | `script`, `homebrew`, `npm`, `pnpm`, `yarn`, or `unknown`                                                                                                                   |
-| `verification`       | `verified`, `unchanged`, `mismatch`, `unavailable`, or `not-attempted`                                                                                                      |
-| `mutationState`      | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                        |
-| `executedCommands`   | Structured detection, preparation, delegation, verification, and rollback commands AXM actually ran                                                                         |
-| `recommendedCommand` | A safe next command AXM did not execute, or `null`                                                                                                                          |
+| Field                     | Meaning                                                                                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resultStatus`            | `upgraded`, `reinstalled`, `already-up-to-date`, `local-newer`, `downgrade-refused`, `upgrade-incomplete`, `upgrade-unverified`, `manual-action-required`, or `rolled-back` |
+| `localVersion`            | Observed version before the command, or `null`                                                                                                                              |
+| `targetVersion`           | Selected stable release; fatal selection failures use the `ok: false` error envelope                                                                                        |
+| `reportedVersion`         | Version actually observed afterward, or `null`                                                                                                                              |
+| `installMethod`           | `script`, `homebrew`, `npm`, `pnpm`, `yarn`, or `unknown`                                                                                                                   |
+| `verification`            | `verified`, `unchanged`, `mismatch`, `unavailable`, or `not-attempted`                                                                                                      |
+| `mutationState`           | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                        |
+| `executedCommands`        | Structured detection, preparation, delegation, verification, and rollback commands, including whether each did not start, exited, or timed out                              |
+| `verificationExecutables` | Requested and resolved executable identities, phases, query outcomes, and reported versions                                                                                 |
+| `homebrewFailure`         | Stable Homebrew terminal reason on a Homebrew-specific incomplete result                                                                                                    |
+| `observedFormulaVersion`  | Refreshed Homebrew formula version when observed                                                                                                                            |
+| `recommendedCommand`      | A safe next command AXM did not execute, or `null`                                                                                                                          |
 
 Operational attention outcomes carry a failed or blocked plan step, report
 `ok: false`, and exit 1. Release lookup, network, validation, and unexpected

@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 
-import { sanitizeExternalOutput } from "./subprocess.js";
+import { sanitizeExternalOutput, Subprocess, SubprocessLive } from "./subprocess.js";
+
+const testLayer = SubprocessLive.pipe(Layer.provide(NodeServices.layer));
 
 describe("sanitizeExternalOutput", () => {
   it("strips ANSI and control injection while preserving newline and tab", () => {
@@ -28,4 +33,38 @@ describe("sanitizeExternalOutput", () => {
     expect(new TextEncoder().encode(result.value).length).toBeLessThanOrEqual(8192);
     expect(result.truncated).toBe(true);
   });
+
+  it.live("distinguishes exited, not-started, and timed-out commands", () =>
+    Effect.gen(function* () {
+      const subprocess = yield* Subprocess;
+      const exited = yield* subprocess.run(process.execPath, ["-e", "process.stdout.write('ok')"]);
+      const notStarted = yield* subprocess.run("axm-command-that-does-not-exist", []);
+      const timedOut = yield* subprocess.run(
+        process.execPath,
+        ["-e", "setTimeout(() => undefined, 1000)"],
+        { timeoutMs: 5 },
+      );
+
+      expect(exited).toMatchObject({
+        executionState: "exited",
+        exitCode: 0,
+        stdout: "ok",
+      });
+      expect(notStarted).toMatchObject({
+        executionState: "not-started",
+        exitCode: null,
+      });
+      expect(timedOut).toMatchObject({
+        executionState: "timed-out",
+        exitCode: null,
+      });
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.live("resolves an absolute executable from the current PATH snapshot", () =>
+    Effect.gen(function* () {
+      const subprocess = yield* Subprocess;
+      expect(yield* subprocess.resolveExecutable(process.execPath)).toBe(process.execPath);
+    }).pipe(Effect.provide(testLayer)),
+  );
 });

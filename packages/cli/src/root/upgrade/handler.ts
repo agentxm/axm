@@ -79,6 +79,7 @@ const CommandRecordSchema = Schema.Struct({
   executable: Schema.String,
   args: Schema.Array(Schema.String),
   display: Schema.String,
+  executionState: Schema.Literals(["not-started", "exited", "timed-out"] as const),
   exitCode: Schema.NullOr(Schema.Number),
   stdout: Schema.String,
   stderr: Schema.String,
@@ -97,10 +98,34 @@ type RecommendedCommand = typeof RecommendedCommandSchema.Type;
 const VerificationExecutableSchema = Schema.Struct({
   role: Schema.Literals(["invoked", "manager-owned", "path-resolved"] as const),
   path: Schema.String,
+  phase: Schema.optional(
+    Schema.Literals(["pre-mutation", "post-primary", "post-fallback"] as const),
+  ),
+  requestedExecutable: Schema.optional(Schema.String),
+  resolvedExecutable: Schema.optional(Schema.NullOr(Schema.String)),
+  queryOutcome: Schema.optional(
+    Schema.Literals(["reported", "unavailable", "invalid", "not-attempted"] as const),
+  ),
   reportedVersion: Schema.NullOr(Schema.String),
   exitCode: Schema.NullOr(Schema.Number),
 });
 type VerificationExecutable = typeof VerificationExecutableSchema.Type;
+
+const HomebrewFailureSchema = Schema.Literals([
+  "tap-query-failed",
+  "tap-preparation-failed",
+  "refresh-failed",
+  "formula-query-failed",
+  "target-formula-unavailable",
+  "formula-ahead-of-target",
+  "delegation-failed",
+  "manager-version-unchanged",
+  "manager-version-mismatch",
+  "path-version-unavailable",
+  "path-version-mismatch",
+  "manager-path-disagreement",
+] as const);
+type HomebrewFailure = typeof HomebrewFailureSchema.Type;
 
 const UpgradeCoreResultSchema = Schema.Struct({
   resultStatus: ResultStatusSchema,
@@ -138,6 +163,8 @@ const UpgradeCoreResultSchema = Schema.Struct({
   reinstall: Schema.Boolean,
   details: Schema.Array(Schema.String),
   backupPath: Schema.NullOr(Schema.String),
+  homebrewFailure: Schema.optional(HomebrewFailureSchema),
+  observedFormulaVersion: Schema.optional(Schema.NullOr(Schema.String)),
 });
 export type UpgradeCoreResult = typeof UpgradeCoreResultSchema.Type;
 
@@ -189,6 +216,8 @@ export const UpgradeResultSchema = Schema.Struct({
   reinstall: UpgradeCoreResultSchema.fields.reinstall,
   details: UpgradeCoreResultSchema.fields.details,
   backupPath: UpgradeCoreResultSchema.fields.backupPath,
+  homebrewFailure: UpgradeCoreResultSchema.fields.homebrewFailure,
+  observedFormulaVersion: UpgradeCoreResultSchema.fields.observedFormulaVersion,
 });
 export type UpgradeResult = typeof UpgradeResultSchema.Type;
 
@@ -196,6 +225,9 @@ export const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeResultSchema
 export type UpgradeDocument = typeof UpgradeDocumentSchema.Type;
 
 const HOMEBREW_TAP = "agentxm/tap";
+const HOMEBREW_FORMULA = `${HOMEBREW_TAP}/axm`;
+const HOMEBREW_CONVERGENCE_MS = 90_000;
+const HOMEBREW_RETRY_MS = 2_000;
 const NPM_PACKAGE = "axm.sh";
 const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
@@ -389,6 +421,7 @@ const commandRecord = (
   executable,
   args: [...args],
   display: displayCommand(executable, args),
+  executionState: result?.executionState ?? "not-started",
   exitCode: result?.exitCode ?? null,
   stdout: result?.stdout ?? "",
   stderr: result?.stderr ?? failureDetail,
@@ -404,12 +437,9 @@ const runRecorded = (
 ) =>
   Effect.gen(function* () {
     const subprocess = yield* Subprocess;
-    const attempted = yield* subprocess.run(executable, args, options).pipe(
-      Effect.map((result) => ({ result, failure: "" })),
-      Effect.catch((error) => Effect.succeed({ result: null, failure: error.detail })),
-    );
-    records.push(commandRecord(purpose, executable, args, attempted.result, attempted.failure));
-    return attempted.result;
+    const result = yield* subprocess.run(executable, args, options);
+    records.push(commandRecord(purpose, executable, args, result));
+    return result;
   });
 
 const normalizedOwnershipPath = (value: string): string =>
@@ -612,6 +642,224 @@ const verifyDelegated = (
     } satisfies VerificationResult;
   });
 
+const HomebrewInfoSchema = Schema.Struct({
+  formulae: Schema.Array(
+    Schema.Struct({
+      full_name: Schema.String,
+      versions: Schema.Struct({ stable: Schema.String }),
+    }),
+  ),
+});
+
+interface HomebrewAvailability {
+  readonly ready: boolean;
+  readonly failure?: HomebrewFailure;
+  readonly observedVersion: string | null;
+  readonly details: ReadonlyArray<string>;
+}
+
+const queryHomebrewFormula = (records: Array<CommandRecord>, timeoutMs?: number) =>
+  Effect.gen(function* () {
+    const result = yield* runRecorded(
+      records,
+      "detection",
+      "brew",
+      ["info", "--json=v2", HOMEBREW_FORMULA],
+      { env: HOMEBREW_ENV, ...(timeoutMs === undefined ? {} : { timeoutMs }) },
+    );
+    if (result.executionState !== "exited" || result.exitCode !== 0) return null;
+    const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(HomebrewInfoSchema))(
+      result.stdout,
+    );
+    if (Option.isNone(decoded) || decoded.value.formulae.length !== 1) return null;
+    const formula = decoded.value.formulae[0];
+    if (formula === undefined || formula.full_name !== HOMEBREW_FORMULA) return null;
+    return semver.valid(formula.versions.stable);
+  });
+
+const remainingConvergenceMs = (startedAt: bigint, now: bigint): number =>
+  Math.max(0, HOMEBREW_CONVERGENCE_MS - Number((now - startedAt) / 1_000_000n));
+
+const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: string) =>
+  Effect.gen(function* () {
+    let convergenceStartedAt: bigint | null = null;
+    let observedVersion: string | null = null;
+
+    while (true) {
+      const remaining =
+        convergenceStartedAt === null
+          ? undefined
+          : remainingConvergenceMs(convergenceStartedAt, yield* Clock.monotonicTimeNanos);
+      if (remaining !== undefined && remaining <= 0) {
+        return {
+          ready: false,
+          failure: "target-formula-unavailable",
+          observedVersion,
+          details: [
+            `Homebrew still advertises ${observedVersion ?? "an unknown release"}; selected AXM ${targetVersion} did not become available within 90 seconds.`,
+            "Wait for the Homebrew formula publication to complete, then rerun axm upgrade.",
+          ],
+        } satisfies HomebrewAvailability;
+      }
+
+      const timeoutMs = remaining === undefined ? undefined : Math.max(1, remaining);
+      const refresh = yield* runRecorded(records, "preparation", "brew", ["update"], {
+        env: HOMEBREW_ENV,
+        ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      });
+      if (refresh.executionState !== "exited" || refresh.exitCode !== 0) {
+        return {
+          ready: false,
+          failure: "refresh-failed",
+          observedVersion,
+          details: [
+            "Homebrew metadata refresh did not complete, so AXM did not attempt a package mutation.",
+            "Resolve the reported Homebrew update failure, then rerun axm upgrade.",
+          ],
+        } satisfies HomebrewAvailability;
+      }
+
+      const queryTimeoutMs =
+        convergenceStartedAt === null
+          ? undefined
+          : remainingConvergenceMs(convergenceStartedAt, yield* Clock.monotonicTimeNanos);
+      if (queryTimeoutMs !== undefined && queryTimeoutMs <= 0) continue;
+      observedVersion = yield* queryHomebrewFormula(
+        records,
+        queryTimeoutMs === undefined ? undefined : Math.max(1, queryTimeoutMs),
+      );
+      if (observedVersion === null) {
+        return {
+          ready: false,
+          failure: "formula-query-failed",
+          observedVersion,
+          details: [
+            `Homebrew did not return a valid ${HOMEBREW_FORMULA} formula version after refresh.`,
+            `Inspect the tap with brew info ${HOMEBREW_FORMULA}, then rerun axm upgrade after it is healthy.`,
+          ],
+        } satisfies HomebrewAvailability;
+      }
+      const comparison = semver.compare(observedVersion, targetVersion);
+      if (comparison === 0) {
+        return {
+          ready: true,
+          observedVersion,
+          details: [],
+        } satisfies HomebrewAvailability;
+      }
+      if (comparison > 0) {
+        return {
+          ready: false,
+          failure: "formula-ahead-of-target",
+          observedVersion,
+          details: [
+            `Homebrew advertises AXM ${observedVersion}, which is newer than the immutable selected target ${targetVersion}.`,
+            "Rerun axm upgrade so release selection can choose from the current publication state.",
+          ],
+        } satisfies HomebrewAvailability;
+      }
+
+      convergenceStartedAt ??= yield* Clock.monotonicTimeNanos;
+      const afterQueryRemaining = remainingConvergenceMs(
+        convergenceStartedAt,
+        yield* Clock.monotonicTimeNanos,
+      );
+      if (afterQueryRemaining <= 0) continue;
+      yield* Effect.sleep(Math.min(HOMEBREW_RETRY_MS, afterQueryRemaining));
+    }
+  });
+
+type HomebrewPhase = "pre-mutation" | "post-primary" | "post-fallback";
+
+interface HomebrewVerification {
+  readonly managerPath: string | null;
+  readonly managerVersion: string | null;
+  readonly pathVersion: string | null;
+  readonly executables: ReadonlyArray<VerificationExecutable>;
+}
+
+const queryExecutable = (
+  records: Array<CommandRecord>,
+  role: "manager-owned" | "path-resolved",
+  phase: HomebrewPhase,
+  requestedExecutable: string,
+  resolvedExecutable: string | null,
+) =>
+  Effect.gen(function* () {
+    if (resolvedExecutable === null) {
+      return {
+        role,
+        phase,
+        path: requestedExecutable,
+        requestedExecutable,
+        resolvedExecutable: null,
+        queryOutcome: "unavailable",
+        reportedVersion: null,
+        exitCode: null,
+      } satisfies VerificationExecutable;
+    }
+    const result = yield* runRecorded(records, "verification", resolvedExecutable, ["--version"], {
+      timeoutMs: 10_000,
+    });
+    const version = reportedVersion(result);
+    return {
+      role,
+      phase,
+      path: resolvedExecutable,
+      requestedExecutable,
+      resolvedExecutable,
+      queryOutcome:
+        result.executionState !== "exited" || result.exitCode !== 0
+          ? "unavailable"
+          : version === null
+            ? "invalid"
+            : "reported",
+      reportedVersion: version,
+      exitCode: result.exitCode,
+    } satisfies VerificationExecutable;
+  });
+
+const verifyHomebrew = (records: Array<CommandRecord>, phase: HomebrewPhase) =>
+  Effect.gen(function* () {
+    const subprocess = yield* Subprocess;
+    const pathService = yield* Path.Path;
+    const prefix = yield* runRecorded(records, "detection", "brew", ["--prefix"], {
+      env: HOMEBREW_ENV,
+      timeoutMs: 10_000,
+    });
+    const prefixValue =
+      prefix.executionState === "exited" && prefix.exitCode === 0 && prefix.stdout.trim().length > 0
+        ? prefix.stdout.trim()
+        : null;
+    const managerPath =
+      prefixValue === null
+        ? null
+        : pathService.join(prefixValue, "bin", process.platform === "win32" ? "axm.exe" : "axm");
+    const pathResolved = yield* subprocess.resolveExecutable(
+      process.platform === "win32" ? "axm.exe" : "axm",
+    );
+    const manager = yield* queryExecutable(
+      records,
+      "manager-owned",
+      phase,
+      "homebrew:bin/axm",
+      managerPath,
+    );
+    const path = yield* queryExecutable(
+      records,
+      "path-resolved",
+      phase,
+      process.platform === "win32" ? "axm.exe" : "axm",
+      pathResolved,
+    );
+    return {
+      managerPath,
+      managerVersion: manager.reportedVersion,
+      pathVersion: path.reportedVersion,
+      executables: [manager, path],
+    } satisfies HomebrewVerification;
+  });
+
 const persistMetadata = (method: InstallMethodType, executablePath: string | null) =>
   Effect.gen(function* () {
     const installMeta = yield* InstallMeta;
@@ -627,8 +875,333 @@ const persistMetadata = (method: InstallMethodType, executablePath: string | nul
     });
   });
 
+const summarizeHomebrewVerification = (
+  verification: HomebrewVerification,
+  baselineVersion: string | null,
+  targetVersion: string,
+): Pick<UpgradeCoreResult, "verification" | "reportedVersion" | "mutationState"> => {
+  const observed = [verification.managerVersion, verification.pathVersion];
+  if (observed.some((version) => version === null)) {
+    return {
+      verification: "unavailable",
+      reportedVersion: verification.managerVersion ?? verification.pathVersion,
+      mutationState: "unknown",
+    };
+  }
+  if (verification.managerVersion !== verification.pathVersion) {
+    return {
+      verification: "mismatch",
+      reportedVersion: verification.managerVersion,
+      mutationState:
+        verification.managerVersion === targetVersion || verification.pathVersion === targetVersion
+          ? "updated"
+          : "unknown",
+    };
+  }
+  if (verification.managerVersion === targetVersion) {
+    return {
+      verification: "verified",
+      reportedVersion: targetVersion,
+      mutationState: "updated",
+    };
+  }
+  if (verification.managerVersion === baselineVersion) {
+    return {
+      verification: "unchanged",
+      reportedVersion: baselineVersion,
+      mutationState: "unchanged",
+    };
+  }
+  return {
+    verification: "mismatch",
+    reportedVersion: verification.managerVersion,
+    mutationState: "unknown",
+  };
+};
+
+const homebrewVerificationFailure = (
+  verification: HomebrewVerification,
+  baselineVersion: string | null,
+  targetVersion: string,
+  fallbackAttempted: boolean,
+): { readonly failure: HomebrewFailure; readonly details: ReadonlyArray<string> } => {
+  if (verification.managerVersion === null) {
+    return {
+      failure: "manager-version-mismatch",
+      details: ["Homebrew's stable AXM entrypoint did not report a valid version."],
+    };
+  }
+  if (
+    verification.managerVersion === baselineVersion &&
+    verification.managerVersion !== targetVersion
+  ) {
+    return {
+      failure: "manager-version-unchanged",
+      details: [
+        fallbackAttempted
+          ? `Homebrew upgrade and reinstall completed, but its stable AXM entrypoint still reports ${verification.managerVersion}.`
+          : `Homebrew completed, but its stable AXM entrypoint still reports ${verification.managerVersion}.`,
+        "Inspect brew info agentxm/tap/axm and Homebrew's linked keg before retrying.",
+      ],
+    };
+  }
+  if (verification.managerVersion !== targetVersion) {
+    return {
+      failure: "manager-version-mismatch",
+      details: [
+        `Homebrew's stable AXM entrypoint reports ${verification.managerVersion}; expected ${targetVersion}.`,
+      ],
+    };
+  }
+  if (verification.pathVersion === null) {
+    return {
+      failure: "path-version-unavailable",
+      details: [
+        `Homebrew's AXM reports ${targetVersion}, but a fresh PATH lookup could not report an AXM version.`,
+        "Repair the AXM entry on PATH or open a fresh shell; AXM did not rewrite shell configuration.",
+      ],
+    };
+  }
+  if (verification.pathVersion !== verification.managerVersion) {
+    return {
+      failure: "manager-path-disagreement",
+      details: [
+        `Homebrew's AXM reports ${verification.managerVersion}, while PATH resolves AXM ${verification.pathVersion}.`,
+        "Remove or relink the shadowing AXM executable shown in verification evidence.",
+      ],
+    };
+  }
+  return {
+    failure: "path-version-mismatch",
+    details: [`PATH-resolved AXM reports ${verification.pathVersion}; expected ${targetVersion}.`],
+  };
+};
+
+const handleHomebrew = (input: BaseResultInput) =>
+  Effect.gen(function* () {
+    const records: Array<CommandRecord> = [...input.detectionCommands];
+    const tapList = yield* runRecorded(records, "detection", "brew", ["tap"], {
+      env: HOMEBREW_ENV,
+    });
+    if (tapList.executionState !== "exited" || tapList.exitCode !== 0) {
+      return {
+        ...baseResult(input),
+        resultStatus: "upgrade-incomplete",
+        reportedVersion: input.localVersion,
+        verification: "not-attempted",
+        mutationState: "not-attempted",
+        verificationExecutables: [],
+        executedCommands: records,
+        recommendedCommand: null,
+        details: [
+          "Homebrew could not list installed taps, so AXM did not attempt a package mutation.",
+          "Resolve the reported Homebrew failure, then rerun axm upgrade.",
+        ],
+        backupPath: null,
+        homebrewFailure: "tap-query-failed",
+        observedFormulaVersion: null,
+      } satisfies UpgradeCoreResult;
+    }
+
+    const taps = tapList.stdout.split(/\r?\n/u).map((line) => line.trim());
+    if (!taps.includes(HOMEBREW_TAP)) {
+      const tap = yield* runRecorded(records, "preparation", "brew", ["tap", HOMEBREW_TAP], {
+        env: HOMEBREW_ENV,
+      });
+      if (tap.executionState !== "exited" || tap.exitCode !== 0) {
+        return {
+          ...baseResult(input),
+          resultStatus: "upgrade-incomplete",
+          reportedVersion: input.localVersion,
+          verification: "not-attempted",
+          mutationState: "not-attempted",
+          verificationExecutables: [],
+          executedCommands: records,
+          recommendedCommand: null,
+          details: [
+            `Homebrew could not prepare ${HOMEBREW_TAP}, so AXM did not attempt a package mutation.`,
+            "Resolve the reported tap failure, then rerun axm upgrade.",
+          ],
+          backupPath: null,
+          homebrewFailure: "tap-preparation-failed",
+          observedFormulaVersion: null,
+        } satisfies UpgradeCoreResult;
+      }
+    }
+
+    const availability = yield* convergeHomebrewFormula(records, input.targetVersion);
+    if (!availability.ready) {
+      return {
+        ...baseResult(input),
+        resultStatus: "upgrade-incomplete",
+        reportedVersion: input.localVersion,
+        verification: "not-attempted",
+        mutationState: "not-attempted",
+        verificationExecutables: [],
+        executedCommands: records,
+        recommendedCommand: null,
+        details: [...availability.details],
+        backupPath: null,
+        homebrewFailure: availability.failure,
+        observedFormulaVersion: availability.observedVersion,
+      } satisfies UpgradeCoreResult;
+    }
+
+    const preMutation = yield* verifyHomebrew(records, "pre-mutation");
+    const reinstall = input.relation === "current" && input.reinstall;
+    const command = packageManagerCommand(input.method, input.targetVersion, reinstall);
+    if (command === null) {
+      return noMutationResult(
+        input,
+        "manual-action-required",
+        recoveryInstaller(input.targetVersion),
+      );
+    }
+    const primary = yield* runRecorded(records, "delegation", command.executable, command.args, {
+      env: HOMEBREW_ENV,
+    });
+    if (primary.executionState === "not-started") {
+      return {
+        ...baseResult(input),
+        resultStatus: "upgrade-incomplete",
+        reportedVersion: input.localVersion,
+        verification: "not-attempted",
+        mutationState: "not-attempted",
+        verificationExecutables: preMutation.executables,
+        executedCommands: records,
+        recommendedCommand: null,
+        details: [
+          "Homebrew did not start the selected AXM mutation.",
+          "Resolve the executable or permission failure shown in command evidence, then rerun axm upgrade.",
+        ],
+        backupPath: null,
+        homebrewFailure: "delegation-failed",
+        observedFormulaVersion: availability.observedVersion,
+      } satisfies UpgradeCoreResult;
+    }
+
+    let postMutation = yield* verifyHomebrew(records, "post-primary");
+    const verificationExecutables = [...preMutation.executables, ...postMutation.executables];
+    const managerBaselineVersion = preMutation.managerVersion ?? input.localVersion;
+    const primarySucceeded = primary.executionState === "exited" && primary.exitCode === 0;
+    if (!primarySucceeded) {
+      const summary = summarizeHomebrewVerification(
+        postMutation,
+        managerBaselineVersion,
+        input.targetVersion,
+      );
+      return {
+        ...baseResult(input),
+        resultStatus: "upgrade-incomplete",
+        ...summary,
+        verificationExecutables,
+        executedCommands: records,
+        recommendedCommand: null,
+        details: [
+          primary.executionState === "timed-out"
+            ? "Homebrew started but did not finish before the upgrade deadline."
+            : "Homebrew exited without completing the selected AXM mutation.",
+          "Inspect the recorded Homebrew output and verified executable state before retrying.",
+        ],
+        backupPath: null,
+        homebrewFailure: "delegation-failed",
+        observedFormulaVersion: availability.observedVersion,
+      } satisfies UpgradeCoreResult;
+    }
+
+    let fallbackAttempted = false;
+    const fallbackEligible =
+      !reinstall &&
+      preMutation.managerVersion !== null &&
+      postMutation.managerVersion === preMutation.managerVersion &&
+      semver.lt(preMutation.managerVersion, input.targetVersion);
+    if (fallbackEligible) {
+      fallbackAttempted = true;
+      const fallback = yield* runRecorded(
+        records,
+        "delegation",
+        "brew",
+        ["reinstall", HOMEBREW_FORMULA],
+        { env: HOMEBREW_ENV },
+      );
+      if (fallback.executionState !== "not-started") {
+        postMutation = yield* verifyHomebrew(records, "post-fallback");
+        verificationExecutables.push(...postMutation.executables);
+      }
+      if (fallback.executionState !== "exited" || fallback.exitCode !== 0) {
+        const summary = summarizeHomebrewVerification(
+          postMutation,
+          managerBaselineVersion,
+          input.targetVersion,
+        );
+        return {
+          ...baseResult(input),
+          resultStatus: "upgrade-incomplete",
+          ...summary,
+          verificationExecutables,
+          executedCommands: records,
+          recommendedCommand: null,
+          details: [
+            "Homebrew's one-shot reinstall recovery did not complete.",
+            "Inspect the recorded Homebrew output and verified executable state before retrying.",
+          ],
+          backupPath: null,
+          homebrewFailure: "delegation-failed",
+          observedFormulaVersion: availability.observedVersion,
+        } satisfies UpgradeCoreResult;
+      }
+    }
+
+    const summary = summarizeHomebrewVerification(
+      postMutation,
+      managerBaselineVersion,
+      input.targetVersion,
+    );
+    if (summary.verification !== "verified") {
+      const failure = homebrewVerificationFailure(
+        postMutation,
+        managerBaselineVersion,
+        input.targetVersion,
+        fallbackAttempted,
+      );
+      return {
+        ...baseResult(input),
+        resultStatus:
+          summary.verification === "unavailable" ? "upgrade-unverified" : "upgrade-incomplete",
+        ...summary,
+        verificationExecutables,
+        executedCommands: records,
+        recommendedCommand: null,
+        details: [...failure.details],
+        backupPath: null,
+        homebrewFailure: failure.failure,
+        observedFormulaVersion: availability.observedVersion,
+      } satisfies UpgradeCoreResult;
+    }
+
+    const metadata = yield* persistMetadata(input.method, postMutation.managerPath).pipe(
+      Effect.as(true),
+      Effect.catch(() => Effect.succeed(false)),
+    );
+    return {
+      ...baseResult(input),
+      executablePath: postMutation.managerPath,
+      resultStatus: metadata ? (reinstall ? "reinstalled" : "upgraded") : "upgrade-incomplete",
+      ...summary,
+      verificationExecutables,
+      executedCommands: records,
+      recommendedCommand: null,
+      details: metadata ? [] : ["AXM was updated, but install metadata could not be persisted."],
+      backupPath: null,
+      observedFormulaVersion: availability.observedVersion,
+    } satisfies UpgradeCoreResult;
+  });
+
 const handleDelegated = (input: BaseResultInput) =>
   Effect.gen(function* () {
+    if (input.method._tag === "Homebrew") {
+      return yield* handleHomebrew(input);
+    }
     const records: Array<CommandRecord> = [...input.detectionCommands];
     const reinstall = input.relation === "current" && input.reinstall;
     const command = packageManagerCommand(input.method, input.targetVersion, reinstall);
@@ -640,54 +1213,14 @@ const handleDelegated = (input: BaseResultInput) =>
       );
     }
 
-    if (input.method._tag === "Homebrew") {
-      const tapList = yield* runRecorded(records, "detection", "brew", ["tap"], {
-        env: HOMEBREW_ENV,
-      });
-      if (tapList === null || tapList.exitCode !== 0) {
-        return {
-          ...baseResult(input),
-          resultStatus: "upgrade-incomplete",
-          reportedVersion: input.localVersion,
-          verification: "not-attempted",
-          mutationState: "not-attempted",
-          verificationExecutables: [],
-          executedCommands: records,
-          recommendedCommand: command,
-          details: ["Homebrew ownership preparation did not complete."],
-          backupPath: null,
-        } satisfies UpgradeCoreResult;
-      }
-      const taps = tapList.stdout.split(/\r?\n/u).map((line) => line.trim());
-      if (!taps.includes(HOMEBREW_TAP)) {
-        const tap = yield* runRecorded(records, "preparation", "brew", ["tap", HOMEBREW_TAP], {
-          env: HOMEBREW_ENV,
-        });
-        if (tap === null || tap.exitCode !== 0) {
-          return {
-            ...baseResult(input),
-            resultStatus: "upgrade-incomplete",
-            reportedVersion: input.localVersion,
-            verification: "not-attempted",
-            mutationState: "not-attempted",
-            verificationExecutables: [],
-            executedCommands: records,
-            recommendedCommand: command,
-            details: ["Homebrew tap preparation did not complete."],
-            backupPath: null,
-          } satisfies UpgradeCoreResult;
-        }
-      }
-    }
-
     const delegation = yield* runRecorded(
       records,
       "delegation",
       command.executable,
       command.args,
-      input.method._tag === "Homebrew" ? { env: HOMEBREW_ENV } : undefined,
+      undefined,
     );
-    if (delegation === null || delegation.exitCode !== 0) {
+    if (delegation.exitCode !== 0) {
       return {
         ...baseResult(input),
         resultStatus: "upgrade-incomplete",
@@ -1191,6 +1724,29 @@ const handleScript = (
 
 const resultMessage = (result: UpgradeCoreResult): string => {
   const method = methodLabel(result.installMethod);
+  if (result.homebrewFailure !== undefined) {
+    switch (result.homebrewFailure) {
+      case "target-formula-unavailable":
+        return `Homebrew did not make selected AXM ${result.targetVersion ?? ""} available within 90 seconds`;
+      case "formula-ahead-of-target":
+        return `Homebrew formula ${result.observedFormulaVersion ?? ""} is ahead of selected AXM ${result.targetVersion ?? ""}; no changes made`;
+      case "refresh-failed":
+        return "Homebrew metadata refresh failed; no AXM upgrade was attempted";
+      case "formula-query-failed":
+        return "Homebrew formula availability could not be verified; no AXM upgrade was attempted";
+      case "tap-query-failed":
+      case "tap-preparation-failed":
+        return "Homebrew ownership preparation failed; no AXM upgrade was attempted";
+      case "delegation-failed":
+        return `Homebrew did not complete the selected AXM ${result.targetVersion ?? ""} mutation`;
+      case "manager-version-unchanged":
+      case "manager-version-mismatch":
+      case "path-version-unavailable":
+      case "path-version-mismatch":
+      case "manager-path-disagreement":
+        break;
+    }
+  }
   switch (result.resultStatus) {
     case "upgraded":
       return result.localVersion === null
@@ -1301,6 +1857,44 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
       },
     ];
   }
+  switch (result.homebrewFailure) {
+    case "target-formula-unavailable":
+      return [
+        { description: "Retry after Homebrew publishes the selected formula", cmd: "axm upgrade" },
+      ];
+    case "formula-ahead-of-target":
+      return [
+        { description: "Rerun release selection against the current formula", cmd: "axm upgrade" },
+      ];
+    case "formula-query-failed":
+      return [
+        {
+          description: "Inspect the Homebrew formula response",
+          cmd: `brew info ${HOMEBREW_FORMULA}`,
+        },
+      ];
+    case "refresh-failed":
+    case "tap-query-failed":
+    case "tap-preparation-failed":
+    case "delegation-failed":
+      return [{ description: "Resolve the recorded Homebrew failure before retrying" }];
+    case "manager-version-unchanged":
+    case "manager-version-mismatch":
+      return [
+        {
+          description: "Inspect Homebrew's installed and linked AXM state",
+          cmd: `brew info ${HOMEBREW_FORMULA}`,
+        },
+      ];
+    case "path-version-unavailable":
+    case "path-version-mismatch":
+    case "manager-path-disagreement":
+      return [
+        { description: "Reconcile the AXM executable identities shown in verification evidence" },
+      ];
+    case undefined:
+      break;
+  }
   return [{ description: "Verify installed version", cmd: "axm --version" }];
 };
 
@@ -1363,7 +1957,7 @@ const renderHuman = (result: UpgradeCoreResult) =>
         (command) =>
           Effect.gen(function* () {
             yield* renderer.info(
-              `${command.purpose}: ${command.display} · exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? " · output truncated" : ""}`,
+              `${command.purpose}: ${command.display} · ${command.executionState} · exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? " · output truncated" : ""}`,
             );
             if (command.stdout.length > 0) {
               yield* renderer.info(`stdout: ${command.stdout}`);
@@ -1378,12 +1972,18 @@ const renderHuman = (result: UpgradeCoreResult) =>
         result.verificationExecutables,
         (verification) =>
           renderer.info(
-            `Verification (${verification.role}): ${verification.path} → ${verification.reportedVersion ?? "unavailable"}`,
+            `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} → ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
           ),
         { concurrency: 1 },
       );
       if (result.backupPath !== null) {
         yield* renderer.info(`Recoverable backup: ${result.backupPath}`);
+      }
+      if (result.observedFormulaVersion !== undefined) {
+        yield* renderer.info(`Homebrew formula: ${result.observedFormulaVersion ?? "unavailable"}`);
+      }
+      if (result.homebrewFailure !== undefined) {
+        yield* renderer.info(`Homebrew terminal reason: ${result.homebrewFailure}`);
       }
       if (result.resultStatus === "upgraded" || result.resultStatus === "reinstalled") {
         yield* renderer.info("Install metadata: persisted");

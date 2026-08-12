@@ -16,6 +16,12 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient } from "./remote-client.js";
+import {
+  PUBLICATION_SET_CONTRACT,
+  archiveSha256Hex,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+} from "./publication-set.js";
 import type { ArchiveCache } from "./archive-cache.js";
 import type { AppError } from "../app-error/index.js";
 import {
@@ -770,61 +776,63 @@ describe("discoverPackages", () => {
 describe("previewExtensionPublishes", () => {
   it.effect("sends one batch and returns complete authoritative items", () =>
     Effect.gen(function* () {
+      const descriptor = {
+        target: {
+          owner: registryOwner,
+          type: "skill" as const,
+          name: skillName,
+          version: exactVersion("1.0.0"),
+        },
+        participation: "publish" as const,
+        archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
+        initialVisibility: "public" as const,
+      };
       let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
       const httpClient = makeMockHttpClient((request) => {
         capturedRequest = request;
         return new Response(
-          JSON.stringify([
-            {
-              kind: "resolved",
-              target: {
-                owner: "@acme",
-                type: "skill",
-                name: "test-skill",
-                version: "1.0.0",
+          JSON.stringify({
+            contract: PUBLICATION_SET_CONTRACT,
+            publicationSetDigest: publicationSetDigest([descriptor]),
+            status: "admitted",
+            candidates: [
+              {
+                kind: "resolved",
+                target: descriptor.target,
+                participation: "publish",
+                descriptorDigest: publicationDescriptorDigest(descriptor),
+                resolvedVisibility: "public",
+                condition: '"preview-condition"',
               },
-              visibility: {
-                value: "public",
-                disposition: "establish",
-                source: "explicit",
-              },
-              condition: '"preview-condition"',
-            },
-          ]),
+            ],
+            packs: [],
+          }),
           { status: 200 },
         );
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.previewExtensionPublishes({
-        candidates: [
-          {
-            owner: registryOwner,
-            type: "skill",
-            name: skillName,
-            version: exactVersion("1.0.0"),
-          },
-        ],
-        initialVisibility: "public",
+        contract: PUBLICATION_SET_CONTRACT,
+        candidates: [descriptor],
       });
 
-      expect(result).toEqual([
-        {
-          kind: "resolved",
-          target: {
-            owner: "@acme",
-            type: "skill",
-            name: "test-skill",
-            version: "1.0.0",
+      expect(result).toEqual({
+        contract: PUBLICATION_SET_CONTRACT,
+        publicationSetDigest: publicationSetDigest([descriptor]),
+        status: "admitted",
+        candidates: [
+          {
+            kind: "resolved",
+            target: descriptor.target,
+            participation: "publish",
+            descriptorDigest: publicationDescriptorDigest(descriptor),
+            resolvedVisibility: "public",
+            condition: '"preview-condition"',
           },
-          visibility: {
-            value: "public",
-            disposition: "establish",
-            source: "explicit",
-          },
-          condition: '"preview-condition"',
-        },
-      ]);
+        ],
+        packs: [],
+      });
       expect(capturedRequest?.method).toBe("POST");
       expect(capturedRequest?.url).toBe(`${BASE_URL}/v1/publish-previews`);
     }),
@@ -849,7 +857,12 @@ describe("previewExtensionPublishes", () => {
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const error = yield* runFailure(client.previewExtensionPublishes({ candidates: [] }));
+      const error = yield* runFailure(
+        client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [],
+        }),
+      );
 
       expect(error.code).toBe("validation");
       expect(error.detail).toContain("100");
@@ -863,7 +876,12 @@ describe("previewExtensionPublishes", () => {
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const error = yield* runFailure(client.previewExtensionPublishes({ candidates: [] }));
+      const error = yield* runFailure(
+        client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [],
+        }),
+      );
 
       expect(error.code).toBe("internal");
       expect(error.detail).toContain("incompatible");
@@ -886,6 +904,9 @@ const publishArgs = {
     published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
     integrity: "sha512-abc123",
   },
+  condition: '"pv2-test"',
+  publicationSetDigest: archiveSha256Hex(new TextEncoder().encode("publication-set")),
+  publicationDescriptorDigest: archiveSha256Hex(new TextEncoder().encode("publication-descriptor")),
 };
 
 describe("publishExtension", () => {

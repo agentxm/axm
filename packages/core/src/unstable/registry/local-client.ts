@@ -51,6 +51,17 @@ import { purlMatch } from "../packaging/purl-match.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
 import type { PublishVisibility } from "../publish/index.js";
+import {
+  PUBLICATION_SET_CONTRACT,
+  evaluateProspectivePackDependencies,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+  validatePublicationDescriptors,
+  validatePublicationSetResponse,
+  type PublicationCandidateResult,
+  type PublicationPackResult,
+  type PublicationDependencySnapshot,
+} from "./publication-set.js";
 
 const decodeExtensionIndexFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ExtensionIndexSchema),
@@ -374,15 +385,19 @@ export const createLocalRegistryClient = (
 ): RegistryClient => ({
   previewExtensionPublishes: (args: PreviewExtensionPublishesArgs) =>
     Effect.gen(function* () {
-      if (args.candidates.length > 100) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: "Publish preview accepts at most 100 candidates.",
-        });
-      }
-      return yield* Effect.forEach(
-        args.candidates,
-        (target): Effect.Effect<PublishPreviewResult, AppError> => {
+      const descriptors = yield* Effect.try({
+        try: () => validatePublicationDescriptors(args.candidates),
+        catch: (cause) =>
+          makeAppError({
+            code: "validation",
+            detail: "The publication set is invalid.",
+            cause,
+          }),
+      });
+      const candidates = yield* Effect.forEach(
+        descriptors,
+        (descriptor): Effect.Effect<PublicationCandidateResult, AppError> => {
+          const target = descriptor.target;
           const indexPath = path.join(
             extensionDir(registryRoot, target.owner, target.type, target.name, path.join),
             "index.json",
@@ -390,21 +405,112 @@ export const createLocalRegistryClient = (
           return Effect.gen(function* () {
             const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
             const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
-            const visibility = resolveLocalPublishVisibility(index, args.initialVisibility);
+            const visibility = resolveLocalPublishVisibility(index, descriptor.initialVisibility);
             return {
               kind: "resolved",
               target,
-              visibility,
-              condition: makeLocalPublishCondition({
-                target,
-                visibility,
-                targetVersionExists:
-                  index?.versions.some((entry) => entry.version === target.version) ?? false,
-              }),
-            };
+              participation: descriptor.participation,
+              descriptorDigest: publicationDescriptorDigest(descriptor),
+              resolvedVisibility: visibility.value,
+              ...(descriptor.participation === "verified-existing"
+                ? {}
+                : {
+                    condition: makeLocalPublishCondition({
+                      target,
+                      visibility,
+                      targetVersionExists:
+                        index?.versions.some((entry) => entry.version === target.version) ?? false,
+                    }),
+                  }),
+            } satisfies PublicationCandidateResult;
           });
         },
       );
+      const candidateByTarget = new Map(
+        candidates.map((candidate) => [
+          `${candidate.target.owner}\u0000${candidate.target.type}\u0000${candidate.target.name}`,
+          candidate,
+        ]),
+      );
+      const packDescriptors = descriptors.filter(
+        (descriptor) => descriptor.target.type === "pack" && descriptor.participation === "publish",
+      );
+      const dependencyDescriptors = packDescriptors.flatMap(
+        (descriptor) => descriptor.pack?.dependencies ?? [],
+      );
+      const snapshots = yield* Effect.forEach(
+        dependencyDescriptors,
+        (dependency): Effect.Effect<PublicationDependencySnapshot, AppError> =>
+          Effect.gen(function* () {
+            const indexPath = path.join(
+              extensionDir(
+                registryRoot,
+                dependency.owner,
+                dependency.type,
+                dependency.name,
+                path.join,
+              ),
+              "index.json",
+            );
+            const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            return {
+              dependency,
+              exists: index !== undefined,
+              visibility: index?.visibility ?? (index === undefined ? null : "public"),
+              lifecycleState: index === undefined ? null : "active",
+              deprecated: index?.deprecatedAt !== undefined,
+              versions:
+                index?.versions.map((version) => ({
+                  version: version.version,
+                  status: "available",
+                  yanked: false,
+                  purged: false,
+                })) ?? [],
+            };
+          }),
+      );
+      const prospectiveCandidates = descriptors.map((descriptor) => {
+        const result = candidateByTarget.get(
+          `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
+        );
+        return {
+          descriptor,
+          kind: result?.kind ?? "unavailable",
+          ...(result?.kind === "resolved" ? { resolvedVisibility: result.resolvedVisibility } : {}),
+        } as const;
+      });
+      const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
+        const findings = evaluateProspectivePackDependencies({
+          dependencies: descriptor.pack?.dependencies ?? [],
+          snapshots,
+          candidates: prospectiveCandidates,
+        });
+        return {
+          target: descriptor.target,
+          status: findings.some((finding) => finding.severity === "error") ? "blocked" : "admitted",
+          findings,
+        };
+      });
+      const status = packs.some((pack) => pack.status === "blocked") ? "blocked" : "admitted";
+      const boundCandidates = candidates.map((candidate) =>
+        status === "blocked" && candidate.kind === "resolved"
+          ? {
+              kind: candidate.kind,
+              target: candidate.target,
+              participation: candidate.participation,
+              descriptorDigest: candidate.descriptorDigest,
+              resolvedVisibility: candidate.resolvedVisibility,
+            }
+          : candidate,
+      );
+      return validatePublicationSetResponse(descriptors, {
+        contract: PUBLICATION_SET_CONTRACT,
+        publicationSetDigest: publicationSetDigest(descriptors),
+        status,
+        candidates: boundCandidates,
+        packs,
+      } satisfies PublishPreviewResult);
     }),
   getExtensionsByScope: (args) =>
     Effect.gen(function* () {

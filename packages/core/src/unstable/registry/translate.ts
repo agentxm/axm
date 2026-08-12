@@ -13,9 +13,9 @@ import {
 } from "../app-error/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import {
-  ExtensionIdentityMismatchError,
-  ExtensionLintFailedError,
-  ForbiddenError,
+  ExtensionIdentityMismatchErrorEncoded,
+  ExtensionLintFailedErrorEncoded,
+  ForbiddenErrorEncoded,
   ProblemDetails as RegistryProblemDetailsSchema,
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
@@ -33,11 +33,11 @@ const EmptyProblem: ProblemDetails = {};
 const isProblemDetails = (value: unknown): value is ProblemDetails =>
   typeof value === "object" && value !== null;
 
-const decodeForbiddenError = Schema.decodeUnknownSync(ForbiddenError);
+const decodeForbiddenError = Schema.decodeUnknownSync(ForbiddenErrorEncoded);
 const decodeRegistryProblemDetails = Schema.decodeUnknownSync(RegistryProblemDetailsSchema);
-const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedError);
+const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
 const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
-  ExtensionIdentityMismatchError,
+  ExtensionIdentityMismatchErrorEncoded,
 );
 
 const tryDecode = <A>(decode: (input: unknown) => A, input: unknown): A | undefined => {

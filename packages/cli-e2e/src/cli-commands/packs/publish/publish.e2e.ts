@@ -363,7 +363,7 @@ describe("axm packs publish", () => {
   });
 
   describe("without --include-dependencies", () => {
-    it("publishes only the pack (no dependency extensions)", async () => {
+    it("blocks a pack when omitted dependencies are unavailable", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -387,9 +387,9 @@ describe("axm packs publish", () => {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode).toBe(9);
 
-        // Pack should be published
+        // The invalid prospective graph must produce zero writes.
         const packIndex = path.join(
           registryDir.path,
           "extensions",
@@ -398,7 +398,7 @@ describe("axm packs publish", () => {
           "solo-pack",
           "index.json",
         );
-        expect(fs.existsSync(packIndex)).toBe(true);
+        expect(fs.existsSync(packIndex)).toBe(false);
 
         // Dependency skill should NOT be published
         const depIndex = path.join(

@@ -7,22 +7,39 @@ import * as Layer from "effect/Layer";
 import { makeAppError } from "../app-error/index.js";
 import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import {
+  PUBLICATION_SET_CONTRACT,
+  archiveSha256Hex,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+} from "../registry/publication-set.js";
 import type {
   CreatePublishAuthorizationRequestParams,
+  PublishAuthorizationExchangeResponse,
   PublishCapabilityResponse,
 } from "./auth-client.js";
 import { AuthClientTest } from "./auth-client.js";
 import { DeviceLoginInteractionTest } from "./device-login.js";
 import { runPublishAuthorization } from "./publish-authorization.js";
 
+const archive = new TextEncoder().encode("exact archive bytes");
+const descriptor = {
+  target: {
+    owner: handle("@alice"),
+    type: "skill" as const,
+    name: extensionName("review"),
+    version: exactVersion("1.2.3"),
+  },
+  participation: "publish" as const,
+  archiveSha256Hex: archiveSha256Hex(archive),
+  initialVisibility: "private" as const,
+};
 const input = {
   registryUrl: "https://registry.agentxm.ai",
-  owner: handle("@alice"),
-  type: "skill" as const,
-  name: extensionName("review"),
-  version: exactVersion("1.2.3"),
-  archive: new TextEncoder().encode("exact archive bytes"),
-  requestedVisibility: "private" as const,
+  publicationSet: {
+    contract: PUBLICATION_SET_CONTRACT,
+    candidates: [descriptor],
+  },
 };
 
 const scheduleCallback = (url: string) => {
@@ -59,18 +76,25 @@ describe("runPublishAuthorization", () => {
       },
       exchangePublishAuthorizationCode: (params) =>
         Effect.succeed({
-          accessToken: "axm_pub_capability",
-          expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-          scope: "extensions:publish:version",
-          publishRequestId: "pubreq_test",
-          visibilityContract: "v1",
-          visibility: {
-            value: "private",
-            disposition: "establish",
-            source: "explicit",
-          },
-          condition: '"pv1-reviewed"',
-        } satisfies PublishCapabilityResponse).pipe(
+          status: "admitted",
+          grants: [
+            {
+              accessToken: "axm_pub_capability",
+              expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+              scope: "extensions:publish:version",
+              publishRequestId: "pubreq_test",
+              visibilityContract: "v2",
+              visibility: {
+                value: "private",
+                disposition: "establish",
+                source: "explicit",
+              },
+              condition: '"pv2-reviewed"',
+              publicationSetDigest: publicationSetDigest([descriptor]),
+              publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
+            } satisfies PublishCapabilityResponse,
+          ],
+        } satisfies PublishAuthorizationExchangeResponse).pipe(
           Effect.tap(() =>
             Effect.sync(() => {
               expect(params.code).toBe("axm_pubac_code");
@@ -83,26 +107,20 @@ describe("runPublishAuthorization", () => {
 
     return runPublishAuthorization(input).pipe(
       Effect.provide(layer),
-      Effect.map((capability) => {
-        expect(capability).toMatchObject({
-          accessToken: "axm_pub_capability",
-          visibilityContract: "v1",
-          visibility: {
-            value: "private",
-            disposition: "establish",
-            source: "explicit",
-          },
-          condition: '"pv1-reviewed"',
+      Effect.map((exchange) => {
+        expect(exchange).toMatchObject({
+          status: "admitted",
+          grants: [
+            {
+              accessToken: "axm_pub_capability",
+              visibilityContract: "v2",
+              condition: '"pv2-reviewed"',
+            },
+          ],
         });
         expect(created).toMatchObject({
           registryUrl: input.registryUrl,
-          owner: input.owner,
-          type: input.type,
-          name: input.name,
-          version: input.version,
-          archiveSha256: "8b95564a574f626298be86c7b4ee37b52383569e254849ca99308a06da97048e",
-          visibilityContract: "v1",
-          requestedVisibility: "private",
+          publicationSet: input.publicationSet,
         });
         expect(logsByTag(renderer.state).step[0]).toContain("Opening browser to review");
       }),

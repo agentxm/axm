@@ -21,6 +21,12 @@ import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import {
+  PUBLICATION_SET_CONTRACT,
+  archiveSha256Hex,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+} from "../registry/publication-set.js";
 import { AuthClient, AuthClientLive, pollOnce, readStepUpRequest } from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
 
@@ -154,7 +160,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 });
 
 describe("AuthClient exact publish authorization", () => {
-  it.effect("sends the v1 visibility request and decodes the complete bound capability", () => {
+  it.effect("sends one publication set and decodes its complete grant bundle", () => {
     const requests: Array<Readonly<Record<string, unknown>>> = [];
     const layer = makeTestLayer((request) => {
       if (request.url.endsWith("/v1/auth/publish-requests")) {
@@ -178,17 +184,24 @@ describe("AuthClient exact publish authorization", () => {
 
       return new Response(
         JSON.stringify({
-          access_token: "axm_pub_capability",
-          expires_at: "2099-01-01T00:15:00.000Z",
-          scope: "extensions:publish:new",
-          publish_request_id: "pubreq_test",
-          visibility_contract: "v1",
-          visibility: {
-            value: "private",
-            disposition: "establish",
-            source: "explicit",
-          },
-          condition: '"pv1-reviewed"',
+          status: "admitted",
+          grants: [
+            {
+              access_token: "axm_pub_capability",
+              expires_at: "2099-01-01T00:15:00.000Z",
+              scope: "extensions:publish:new",
+              publish_request_id: "pubreq_test",
+              visibility_contract: "v2",
+              visibility: {
+                value: "private",
+                disposition: "establish",
+                source: "explicit",
+              },
+              condition: '"pv2-reviewed"',
+              publication_set_digest: "b".repeat(64),
+              publication_descriptor_digest: "c".repeat(64),
+            },
+          ],
         }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
@@ -196,18 +209,27 @@ describe("AuthClient exact publish authorization", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
+      const archive = new TextEncoder().encode("archive");
+      const descriptor = {
+        target: {
+          owner: handle("@alice"),
+          type: "skill" as const,
+          name: extensionName("review"),
+          version: exactVersion("1.0.0"),
+        },
+        participation: "publish" as const,
+        archiveSha256Hex: archiveSha256Hex(archive),
+        initialVisibility: "private" as const,
+      };
       yield* client.createPublishAuthorizationRequest({
         registryUrl: REGISTRY_URL,
         redirectUri: "http://127.0.0.1:49152/callback",
         state: "state",
         codeChallenge: "challenge",
-        owner: handle("@alice"),
-        type: "skill",
-        name: extensionName("review"),
-        version: exactVersion("1.0.0"),
-        archiveSha256: "a".repeat(64),
-        visibilityContract: "v1",
-        requestedVisibility: "private",
+        publicationSet: {
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [descriptor],
+        },
       });
       const capability = yield* client.exchangePublishAuthorizationCode({
         registryUrl: REGISTRY_URL,
@@ -217,19 +239,23 @@ describe("AuthClient exact publish authorization", () => {
       });
 
       expect(requests[0]).toMatchObject({
-        visibility_contract: "v1",
-        visibility: "private",
+        publication_set: {
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [descriptor],
+        },
       });
       expect(capability).toMatchObject({
-        accessToken: "axm_pub_capability",
-        visibilityContract: "v1",
-        visibility: {
-          value: "private",
-          disposition: "establish",
-          source: "explicit",
-        },
-        condition: '"pv1-reviewed"',
+        status: "admitted",
+        grants: [
+          {
+            accessToken: "axm_pub_capability",
+            visibilityContract: "v2",
+            condition: '"pv2-reviewed"',
+          },
+        ],
       });
+      expect(publicationSetDigest([descriptor])).toHaveLength(64);
+      expect(publicationDescriptorDigest(descriptor)).toHaveLength(64);
     }).pipe(Effect.provide(layer));
   });
 

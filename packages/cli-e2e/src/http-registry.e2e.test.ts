@@ -287,6 +287,8 @@ describe("HTTP registry transport", () => {
       expect(record?.contentType).toBe("application/zip");
       expect(record?.authorization).toBe(`Bearer ${TOKEN}`);
       expect(record?.ifMatch).toMatch(/^"e2e-[a-f0-9]{64}"$/);
+      expect(record?.publicationSetDigest).toMatch(/^[a-f0-9]{64}$/);
+      expect(record?.publicationDescriptorDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(record?.byteLength).toBeGreaterThan(0);
 
       expect(registry.requests).toContainEqual(

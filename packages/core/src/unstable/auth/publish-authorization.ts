@@ -1,14 +1,10 @@
-import { createHash } from "node:crypto";
 import * as Effect from "effect/Effect";
 
 import type { AppError } from "../app-error/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import type { ExtensionName, ExtensionType } from "../extensions/index.js";
-import type { Handle } from "../extensions/handle.js";
-import type { Version } from "../version-constraints/version-constraints.js";
-import type { PublishVisibility } from "../publish/visibility.js";
-import { AuthClient, type PublishCapabilityResponse } from "./auth-client.js";
+import type { PreviewPublicationSetRequest } from "../registry/publication-set.js";
+import { AuthClient, type PublishAuthorizationExchangeResponse } from "./auth-client.js";
 import { DeviceLoginInteraction } from "./device-login.js";
 import {
   LoopbackCallbackRejected,
@@ -21,12 +17,7 @@ const PUBLISH_AUTHORIZATION_TIMEOUT_MS = 10 * 60_000;
 
 export interface PublishAuthorizationInput {
   readonly registryUrl: string;
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-  readonly archive: Uint8Array;
-  readonly requestedVisibility?: PublishVisibility["value"];
+  readonly publicationSet: PreviewPublicationSetRequest;
 }
 
 const loopbackFailureToAppError = (
@@ -72,7 +63,6 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
   const verifier = makePkceVerifier();
   const challenge = makePkceChallenge(verifier);
   const state = makeOAuthState();
-  const archiveSha256 = createHash("sha256").update(input.archive).digest("hex");
   const server = yield* startLoopbackServer().pipe(Effect.mapError(loopbackFailureToAppError));
 
   const request = yield* authClient
@@ -81,22 +71,14 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
       redirectUri: server.redirectUri,
       state,
       codeChallenge: challenge,
-      owner: input.owner,
-      type: input.type,
-      name: input.name,
-      version: input.version,
-      archiveSha256,
-      visibilityContract: "v1",
-      ...(input.requestedVisibility === undefined
-        ? {}
-        : { requestedVisibility: input.requestedVisibility }),
+      publicationSet: input.publicationSet,
     })
     .pipe(Effect.tapError(() => server.close));
 
   const openedBrowser = yield* interaction.openBrowser(request.authorizationUrl);
   yield* renderer.step(
     openedBrowser
-      ? `Opening browser to review ${input.owner}/${input.type}/${input.name}@${input.version}...`
+      ? `Opening browser to review ${input.publicationSet.candidates.length} publish candidate${input.publicationSet.candidates.length === 1 ? "" : "s"}...`
       : `Open this URL to review the exact publish: ${request.authorizationUrl}`,
   );
 
@@ -120,4 +102,4 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
   });
 
   return capability;
-}, Effect.satisfiesSuccessType<PublishCapabilityResponse>());
+}, Effect.satisfiesSuccessType<PublishAuthorizationExchangeResponse>());

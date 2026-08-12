@@ -23,7 +23,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -54,7 +54,7 @@
                 "schema": { "$ref": "#/components/schemas/DeviceCodeOAuthError" }
               },
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -111,10 +111,15 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "OAuth 2.0 token response containing an access/refresh token pair.",
+            "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/SessionTokenResponse" },
+                    { "$ref": "#/components/schemas/PublishAuthorizationExchangeResponse" }
+                  ]
+                }
               }
             }
           },
@@ -125,11 +130,13 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               },
-              "application/json": { "schema": { "$ref": "#/components/schemas/TokenOAuthError" } }
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenOAuthErrorEncoded" }
+              }
             }
           }
         },
@@ -237,7 +244,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -297,7 +304,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -330,7 +337,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -372,7 +379,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -435,7 +442,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -454,13 +461,7 @@
                   "state": { "type": "string", "allOf": [{ "minLength": 1 }] },
                   "code_challenge": { "type": "string", "allOf": [{ "minLength": 1 }] },
                   "code_challenge_method": { "type": "string", "enum": ["S256"] },
-                  "owner": { "$ref": "#/components/schemas/Handle" },
-                  "type": { "$ref": "#/components/schemas/ExtensionType" },
-                  "name": { "$ref": "#/components/schemas/ExtensionName" },
-                  "version": { "$ref": "#/components/schemas/Version" },
-                  "archive_sha256": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "visibility_contract": { "type": "string", "enum": ["v1"] },
-                  "visibility": { "$ref": "#/components/schemas/Visibility" }
+                  "publication_set": { "$ref": "#/components/schemas/PreviewPublicationSetRequest" }
                 },
                 "required": [
                   "client_id",
@@ -468,11 +469,7 @@
                   "state",
                   "code_challenge",
                   "code_challenge_method",
-                  "owner",
-                  "type",
-                  "name",
-                  "version",
-                  "archive_sha256"
+                  "publication_set"
                 ],
                 "additionalProperties": false
               }
@@ -528,7 +525,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -544,7 +541,7 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
               }
             }
           }
@@ -558,9 +555,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -578,7 +573,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -588,12 +583,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -605,8 +600,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -681,7 +676,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -697,7 +692,7 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
               }
             }
           }
@@ -730,7 +725,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -777,19 +772,9 @@
                           "owner": { "$ref": "#/components/schemas/Handle" },
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
-                          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "repository": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/Repository" },
-                              { "type": "null" }
-                            ]
-                          },
-                          "license": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/LicenseExpression" },
-                              { "type": "null" }
-                            ]
-                          },
+                          "description": { "$ref": "#/components/schemas/Union_" },
+                          "repository": { "$ref": "#/components/schemas/Union_2" },
+                          "license": { "$ref": "#/components/schemas/Union_3" },
                           "authors": {
                             "anyOf": [
                               {
@@ -802,12 +787,7 @@
                           "visibility": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           },
-                          "deprecated_at": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString" },
-                              { "type": "null" }
-                            ]
-                          },
+                          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
                           "deprecation_notice": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
@@ -827,7 +807,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -883,19 +863,9 @@
                           "owner": { "$ref": "#/components/schemas/Handle" },
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
-                          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "repository": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/Repository" },
-                              { "type": "null" }
-                            ]
-                          },
-                          "license": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/LicenseExpression" },
-                              { "type": "null" }
-                            ]
-                          },
+                          "description": { "$ref": "#/components/schemas/Union_" },
+                          "repository": { "$ref": "#/components/schemas/Union_2" },
+                          "license": { "$ref": "#/components/schemas/Union_3" },
                           "authors": {
                             "anyOf": [
                               {
@@ -908,12 +878,7 @@
                           "visibility": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           },
-                          "deprecated_at": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString" },
-                              { "type": "null" }
-                            ]
-                          },
+                          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
                           "deprecation_notice": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           }
@@ -922,19 +887,7 @@
                         "additionalProperties": false
                       }
                     },
-                    "total": {
-                      "anyOf": [
-                        {
-                          "anyOf": [
-                            { "type": "number" },
-                            { "type": "string", "enum": ["NaN"] },
-                            { "type": "string", "enum": ["Infinity"] },
-                            { "type": "string", "enum": ["-Infinity"] }
-                          ]
-                        },
-                        { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                      ]
-                    }
+                    "total": { "$ref": "#/components/schemas/Union_5" }
                   },
                   "required": ["extensions", "total"],
                   "additionalProperties": false
@@ -946,7 +899,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -1023,19 +976,10 @@
                     "owner": { "$ref": "#/components/schemas/Handle" },
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "publisher_binding_id": { "type": "string", "readOnly": true },
-                    "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "repository": {
-                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
-                    },
-                    "bugs": {
-                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
-                    },
-                    "license": {
-                      "anyOf": [
-                        { "$ref": "#/components/schemas/LicenseExpression" },
-                        { "type": "null" }
-                      ]
-                    },
+                    "description": { "$ref": "#/components/schemas/Union_" },
+                    "repository": { "$ref": "#/components/schemas/Union_2" },
+                    "bugs": { "$ref": "#/components/schemas/Union_7" },
+                    "license": { "$ref": "#/components/schemas/Union_3" },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1070,14 +1014,9 @@
                               { "type": "null" }
                             ]
                           },
-                          "yanked_at": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/IsoDateTimeString" },
-                              { "type": "null" }
-                            ]
-                          },
-                          "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                          "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                          "yanked_at": { "$ref": "#/components/schemas/Union_4" },
+                          "yank_category": { "$ref": "#/components/schemas/Union_" },
+                          "yank_notice": { "$ref": "#/components/schemas/Union_" }
                         },
                         "required": ["version", "published", "integrity"],
                         "additionalProperties": false
@@ -1089,12 +1028,7 @@
                         { "type": "null" }
                       ]
                     },
-                    "deprecated_at": {
-                      "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString" },
-                        { "type": "null" }
-                      ]
-                    },
+                    "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
                     "deprecation_notice": {
                       "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                     }
@@ -1110,7 +1044,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -1150,9 +1084,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -1186,7 +1118,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -1198,12 +1130,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -1215,8 +1147,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -1288,9 +1220,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -1310,49 +1240,10 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                { "type": "number" },
-                                { "type": "string", "enum": ["NaN"] },
-                                { "type": "string", "enum": ["Infinity"] },
-                                { "type": "string", "enum": ["-Infinity"] }
-                              ]
-                            },
-                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                          ]
-                        },
-                        "libraryMembershipCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                { "type": "number" },
-                                { "type": "string", "enum": ["NaN"] },
-                                { "type": "string", "enum": ["Infinity"] },
-                                { "type": "string", "enum": ["-Infinity"] }
-                              ]
-                            },
-                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                          ]
-                        },
+                        "dependentPackCount": { "$ref": "#/components/schemas/Union_5" },
+                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_5" },
                         "downloadCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    { "type": "number" },
-                                    { "type": "string", "enum": ["NaN"] },
-                                    { "type": "string", "enum": ["Infinity"] },
-                                    { "type": "string", "enum": ["-Infinity"] }
-                                  ]
-                                },
-                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                              ]
-                            },
-                            { "type": "null" }
-                          ]
+                          "anyOf": [{ "$ref": "#/components/schemas/Union_5" }, { "type": "null" }]
                         }
                       },
                       "required": [
@@ -1377,7 +1268,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -1389,12 +1280,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -1406,8 +1297,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -1506,19 +1397,10 @@
                     },
                     "published": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "integrity": { "type": "string", "readOnly": true },
-                    "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "repository": {
-                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
-                    },
-                    "bugs": {
-                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
-                    },
-                    "license": {
-                      "anyOf": [
-                        { "$ref": "#/components/schemas/LicenseExpression" },
-                        { "type": "null" }
-                      ]
-                    },
+                    "description": { "$ref": "#/components/schemas/Union_" },
+                    "repository": { "$ref": "#/components/schemas/Union_2" },
+                    "bugs": { "$ref": "#/components/schemas/Union_7" },
+                    "license": { "$ref": "#/components/schemas/Union_3" },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1543,14 +1425,19 @@
                         { "type": "null" }
                       ]
                     },
-                    "yanked_at": {
+                    "metadata": {
                       "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        {
+                          "type": "object",
+                          "title": "Extension Metadata",
+                          "description": "Opaque consumer-defined JSON metadata. The compact UTF-8 JSON representation is limited to 65,536 bytes and container depth 16."
+                        },
                         { "type": "null" }
                       ]
                     },
-                    "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "yanked_at": { "$ref": "#/components/schemas/Union_4" },
+                    "yank_category": { "$ref": "#/components/schemas/Union_" },
+                    "yank_notice": { "$ref": "#/components/schemas/Union_" }
                   },
                   "required": [
                     "name",
@@ -1571,7 +1458,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -1592,7 +1479,7 @@
             }
           }
         },
-        "summary": "Get extension version metadata"
+        "summary": "Get an exact extension version"
       },
       "put": {
         "tags": ["Extensions"],
@@ -1622,11 +1509,18 @@
             "schema": { "$ref": "#/components/schemas/Version" },
             "required": true
           },
+          { "name": "if-match", "in": "header", "schema": { "type": "string" }, "required": true },
           {
-            "name": "if-match",
+            "name": "x-axm-publication-set-digest",
             "in": "header",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-            "required": false
+            "schema": { "$ref": "#/components/schemas/Sha256Hex" },
+            "required": true
+          },
+          {
+            "name": "x-axm-publication-descriptor-digest",
+            "in": "header",
+            "schema": { "$ref": "#/components/schemas/Sha256Hex" },
+            "required": true
           },
           {
             "name": "visibility",
@@ -1691,7 +1585,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -1711,8 +1605,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -1738,7 +1632,7 @@
             "description": "PreconditionFailedError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/PreconditionFailedError" }
+                "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
               }
             }
           },
@@ -1765,14 +1659,14 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/ExtensionLintFailedError" },
-                    { "$ref": "#/components/schemas/ExtensionIdentityMismatchError" }
+                    { "$ref": "#/components/schemas/ExtensionLintFailedErrorEncoded" },
+                    { "$ref": "#/components/schemas/ExtensionIdentityMismatchErrorEncoded" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
                     "mapping": {
-                      "extension_lint_failed": "#/components/schemas/ExtensionLintFailedError",
-                      "extension_identity_mismatch": "#/components/schemas/ExtensionIdentityMismatchError"
+                      "extension_lint_failed": "#/components/schemas/ExtensionLintFailedErrorEncoded",
+                      "extension_identity_mismatch": "#/components/schemas/ExtensionIdentityMismatchErrorEncoded"
                     }
                   }
                 }
@@ -1877,7 +1771,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -1895,8 +1789,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -1954,7 +1848,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2072,7 +1966,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2088,7 +1982,7 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
               }
             }
           },
@@ -2157,7 +2051,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2173,7 +2067,7 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
               }
             }
           },
@@ -2221,9 +2115,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -2269,7 +2161,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2279,12 +2171,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -2296,8 +2188,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -2375,9 +2267,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -2418,7 +2308,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2428,12 +2318,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -2445,8 +2335,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -2514,9 +2404,7 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": {
-              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
-            },
+            "schema": { "$ref": "#/components/schemas/Union_1" },
             "required": false
           }
         ],
@@ -2546,7 +2434,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2556,12 +2444,12 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/StepUpRequiredErrorEncoded" },
                     { "$ref": "#/components/schemas/ProblemDetails" }
                   ],
                   "discriminator": {
                     "propertyName": "code",
-                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredErrorEncoded" }
                   }
                 }
               }
@@ -2573,8 +2461,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -2662,49 +2550,10 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                { "type": "number" },
-                                { "type": "string", "enum": ["NaN"] },
-                                { "type": "string", "enum": ["Infinity"] },
-                                { "type": "string", "enum": ["-Infinity"] }
-                              ]
-                            },
-                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                          ]
-                        },
-                        "libraryMembershipCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                { "type": "number" },
-                                { "type": "string", "enum": ["NaN"] },
-                                { "type": "string", "enum": ["Infinity"] },
-                                { "type": "string", "enum": ["-Infinity"] }
-                              ]
-                            },
-                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                          ]
-                        },
+                        "dependentPackCount": { "$ref": "#/components/schemas/Union_5" },
+                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_5" },
                         "downloadCount": {
-                          "anyOf": [
-                            {
-                              "anyOf": [
-                                {
-                                  "anyOf": [
-                                    { "type": "number" },
-                                    { "type": "string", "enum": ["NaN"] },
-                                    { "type": "string", "enum": ["Infinity"] },
-                                    { "type": "string", "enum": ["-Infinity"] }
-                                  ]
-                                },
-                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                              ]
-                            },
-                            { "type": "null" }
-                          ]
+                          "anyOf": [{ "$ref": "#/components/schemas/Union_5" }, { "type": "null" }]
                         }
                       },
                       "required": [
@@ -2726,7 +2575,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2744,8 +2593,8 @@
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
                   ]
                 }
               }
@@ -2771,10 +2620,10 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "PublishPreviewResponse",
+            "description": "PreviewPublicationSetResponse",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/PublishPreviewResponse" }
+                "schema": { "$ref": "#/components/schemas/PreviewPublicationSetResponse" }
               }
             }
           },
@@ -2785,7 +2634,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -2803,7 +2652,7 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
               }
             }
           },
@@ -2811,16 +2660,26 @@
             "description": "PublishPreviewBatchTooLargeHttpError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/PublishPreviewBatchTooLargeHttpError" }
+                "schema": {
+                  "$ref": "#/components/schemas/PublishPreviewBatchTooLargeHttpErrorEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
         },
-        "summary": "Preview extension publications",
+        "summary": "Preview a complete publication set",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PublishPreviewRequest" }
+              "schema": { "$ref": "#/components/schemas/PreviewPublicationSetRequest" }
             }
           },
           "required": true
@@ -2853,7 +2712,7 @@
           {
             "name": "q",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": { "$ref": "#/components/schemas/Union_" },
             "required": false
           },
           {
@@ -2893,7 +2752,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2939,7 +2798,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -2995,7 +2854,7 @@
           {
             "name": "q",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": { "$ref": "#/components/schemas/Union_" },
             "required": false
           },
           {
@@ -3021,7 +2880,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
@@ -3126,7 +2985,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -3160,9 +3019,7 @@
                             "type": "object",
                             "properties": {
                               "ref": { "$ref": "#/components/schemas/ExtensionFqn" },
-                              "versionRange": {
-                                "anyOf": [{ "type": "string" }, { "type": "null" }]
-                              }
+                              "versionRange": { "$ref": "#/components/schemas/Union_" }
                             },
                             "required": ["ref"],
                             "additionalProperties": false
@@ -3209,7 +3066,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -3283,19 +3140,19 @@
           {
             "name": "owner",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": { "$ref": "#/components/schemas/Union_" },
             "required": false
           },
           {
             "name": "package",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": { "$ref": "#/components/schemas/Union_" },
             "required": false
           },
           {
             "name": "license",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": { "$ref": "#/components/schemas/Union_" },
             "required": false
           },
           {
@@ -3336,7 +3193,7 @@
                 "schema": {
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
               }
@@ -3389,7 +3246,7 @@
                   "properties": {
                     "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "event": { "type": "string" },
-                    "data": { "$ref": "#/components/schemas/DebugStreamEventJsonString" }
+                    "data": { "$ref": "#/components/schemas/DebugStreamEventEncoded" }
                   },
                   "required": ["id", "event", "data"],
                   "additionalProperties": false
@@ -3408,19 +3265,7 @@
                               "type": "object",
                               "properties": {
                                 "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-                                "after": {
-                                  "anyOf": [
-                                    {
-                                      "anyOf": [
-                                        { "type": "number" },
-                                        { "type": "string", "enum": ["NaN"] },
-                                        { "type": "string", "enum": ["Infinity"] },
-                                        { "type": "string", "enum": ["-Infinity"] }
-                                      ]
-                                    },
-                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                                  ]
-                                }
+                                "after": { "$ref": "#/components/schemas/Union_5" }
                               },
                               "required": ["_tag", "after"],
                               "additionalProperties": false
@@ -3450,7 +3295,7 @@
                       ]
                     }
                   },
-                  "errorSchema": { "$ref": "#/components/schemas/DebugStreamInterrupted" },
+                  "errorSchema": { "$ref": "#/components/schemas/DebugStreamInterruptedEncoded" },
                   "failureEvent": "effect/httpapi/stream/failure"
                 }
               }
@@ -3460,7 +3305,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -3504,7 +3349,7 @@
         "title": "Meta Response",
         "description": "Registry service metadata including health status and documentation entry points."
       },
-      "DecodeErrorResponse": {
+      "DecodeErrorResponseEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["DecodeErrorResponse"] },
@@ -3647,6 +3492,7 @@
         "title": "Publish Visibility",
         "description": "Complete operation-time visibility resolved for a proposed or completed publication."
       },
+      "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
@@ -3685,7 +3531,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["v1"],
+                "enum": ["v1", "v2"],
                 "description": "Visibility binding contract carried by an exact publish capability."
               },
               { "type": "null" }
@@ -3702,14 +3548,235 @@
               },
               { "type": "null" }
             ]
-          }
+          },
+          "publication_set_digest": { "$ref": "#/components/schemas/Union_" },
+          "publication_descriptor_digest": { "$ref": "#/components/schemas/Union_" }
         },
         "required": ["access_token", "token_type", "expires_in", "expires_at"],
         "additionalProperties": false,
         "title": "Session Token Response",
         "description": "OAuth 2.0 token response containing an access/refresh token pair."
       },
-      "TokenOAuthError": {
+      "Sha256Hex": { "type": "string", "allOf": [{ "pattern": "^[a-f0-9]{64}$" }] },
+      "Handle": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+            "title": "Handle",
+            "description": "A unique username or organization name starting with @, like @my-org.",
+            "examples": ["@my-org", "@username"]
+          }
+        ]
+      },
+      "ExtensionType": {
+        "type": "string",
+        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
+      },
+      "ExtensionName": {
+        "type": "string",
+        "allOf": [
+          { "minLength": 1 },
+          {
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+            "title": "Extension Name",
+            "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+            "examples": ["my-skill", "code-review", "prettier"]
+          }
+        ]
+      },
+      "Version": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+            "title": "Version",
+            "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+            "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
+          }
+        ]
+      },
+      "PublicationTarget": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["owner", "type", "name", "version"],
+        "additionalProperties": false
+      },
+      "VersionRange": {
+        "type": "string",
+        "allOf": [
+          { "minLength": 1 },
+          {
+            "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+            "title": "Version Range",
+            "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+            "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+          }
+        ]
+      },
+      "PackDependencyDescriptor": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": {
+            "type": "string",
+            "enum": ["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]
+          },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "range": { "$ref": "#/components/schemas/VersionRange" }
+        },
+        "required": ["owner", "type", "name", "range"],
+        "additionalProperties": false
+      },
+      "PackDependencyFinding": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["advisory"] },
+          "ruleId": {
+            "type": "string",
+            "enum": ["pack/dependency-version-resolvable", "pack/dependency-deprecated"]
+          },
+          "severity": { "type": "string", "enum": ["error", "warning"] },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "selected-new-private",
+              "selected-existing-private",
+              "target-unavailable",
+              "lifecycle-unavailable",
+              "no-installable-version",
+              "range-unsatisfied",
+              "deprecated"
+            ]
+          },
+          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
+          "effectiveVisibility": {
+            "anyOf": [{ "type": "string", "enum": ["public", "private"] }, { "type": "null" }]
+          },
+          "lifecycle": {
+            "anyOf": [{ "type": "string", "enum": ["active", "unavailable"] }, { "type": "null" }]
+          },
+          "location": {
+            "type": "object",
+            "properties": { "file": { "type": "string", "enum": ["pack.json"] } },
+            "required": ["file"],
+            "additionalProperties": false
+          },
+          "path": { "type": "string", "enum": ["./pack.json"] },
+          "message": { "type": "string" },
+          "suggestions": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": [
+          "kind",
+          "ruleId",
+          "severity",
+          "reason",
+          "dependency",
+          "location",
+          "path",
+          "message",
+          "suggestions"
+        ],
+        "additionalProperties": false
+      },
+      "PreviewPublicationSetResponse": {
+        "type": "object",
+        "properties": {
+          "contract": { "type": "string", "enum": ["publication-set-v1"] },
+          "publicationSetDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+          "status": { "type": "string", "enum": ["admitted", "blocked"] },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["resolved"] },
+                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+                    "resolvedVisibility": { "type": "string", "enum": ["public", "private"] },
+                    "condition": { "$ref": "#/components/schemas/Union_" }
+                  },
+                  "required": [
+                    "kind",
+                    "target",
+                    "participation",
+                    "descriptorDigest",
+                    "resolvedVisibility"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["unavailable"] },
+                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+                    "code": { "type": "string", "enum": ["publish/target-unavailable"] }
+                  },
+                  "required": ["kind", "target", "participation", "descriptorDigest", "code"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "packs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                "status": { "type": "string", "enum": ["admitted", "blocked"] },
+                "findings": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PackDependencyFinding" }
+                }
+              },
+              "required": ["target", "status", "findings"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["contract", "publicationSetDigest", "status", "candidates", "packs"],
+        "additionalProperties": false
+      },
+      "PublishAuthorizationExchangeResponse": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["admitted"] },
+              "grants": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/SessionTokenResponse" }
+              }
+            },
+            "required": ["status", "grants"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["blocked"] },
+              "preview": { "$ref": "#/components/schemas/PreviewPublicationSetResponse" },
+              "grants": { "type": "array", "items": false }
+            },
+            "required": ["status", "preview", "grants"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TokenOAuthErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["TokenOAuthError"] },
@@ -3885,47 +3952,49 @@
         "additionalProperties": false,
         "title": "Step-up Request Status Response"
       },
-      "Handle": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-            "title": "Handle",
-            "description": "A unique username or organization name starting with @, like @my-org.",
-            "examples": ["@my-org", "@username"]
+      "PublicationDescriptor": {
+        "type": "object",
+        "properties": {
+          "target": { "$ref": "#/components/schemas/PublicationTarget" },
+          "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+          "archiveSha256Hex": {
+            "anyOf": [{ "$ref": "#/components/schemas/Sha256Hex" }, { "type": "null" }]
+          },
+          "initialVisibility": {
+            "anyOf": [{ "type": "string", "enum": ["public", "private"] }, { "type": "null" }]
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "dependencies": {
+                    "type": "array",
+                    "items": { "$ref": "#/components/schemas/PackDependencyDescriptor" }
+                  }
+                },
+                "required": ["dependencies"],
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
           }
-        ]
+        },
+        "required": ["target", "participation"],
+        "additionalProperties": false
       },
-      "ExtensionType": {
-        "type": "string",
-        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
-        "title": "Extension Type",
-        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
-      },
-      "ExtensionName": {
-        "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-            "title": "Extension Name",
-            "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-            "examples": ["my-skill", "code-review", "prettier"]
+      "PreviewPublicationSetRequest": {
+        "type": "object",
+        "properties": {
+          "contract": { "type": "string", "enum": ["publication-set-v1"] },
+          "candidates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublicationDescriptor" }
           }
-        ]
+        },
+        "required": ["contract", "candidates"],
+        "additionalProperties": false
       },
-      "Version": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-            "title": "Version",
-            "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-            "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-          }
-        ]
-      },
-      "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
       "PublishAuthorizationRequestId": {
         "type": "string",
         "allOf": [
@@ -4055,7 +4124,7 @@
         "title": "Authorization Deny Details",
         "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
       },
-      "ForbiddenError": {
+      "ForbiddenErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["ForbiddenError"] },
@@ -4177,6 +4246,9 @@
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
       },
+      "Union_1": {
+        "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+      },
       "CreateTokenResponse": {
         "type": "object",
         "properties": {
@@ -4197,7 +4269,13 @@
         "title": "Create Token Response",
         "description": "Your new access token. The token value is only shown once — save it now."
       },
-      "StepUpRequiredError": {
+      "IsoDateTimeString_1": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
+      "StepUpRequiredErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["StepUpRequiredError"] },
@@ -4213,7 +4291,7 @@
               "request_id": { "$ref": "#/components/schemas/StepUpRequestId" },
               "verification_url": { "type": "string" },
               "status_url": { "type": "string" },
-              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString_1" },
               "interval": { "type": "integer" },
               "action": { "type": "string" },
               "target": { "type": "string" }
@@ -4273,12 +4351,16 @@
         "title": "Repository",
         "description": "Repository details for an extension manifest."
       },
+      "Union_2": { "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }] },
       "LicenseExpression": {
         "type": "string",
         "title": "License Expression",
         "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
         "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
         "format": "spdx-expression"
+      },
+      "Union_3": {
+        "anyOf": [{ "$ref": "#/components/schemas/LicenseExpression" }, { "type": "null" }]
       },
       "Author": {
         "type": "object",
@@ -4314,12 +4396,17 @@
         "title": "Author",
         "description": "Author details: name, email, and homepage URL."
       },
+      "Union_4": {
+        "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
+      },
       "ExtensionTypePlural": {
         "type": "string",
         "enum": ["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs)."
       },
+      "Union_6": { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
+      "Union_5": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
       "Bugs": {
         "type": "object",
         "properties": {
@@ -4348,18 +4435,7 @@
         "title": "Bugs",
         "description": "Bug reporting details for an extension manifest."
       },
-      "VersionRange": {
-        "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
-            "title": "Version Range",
-            "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-            "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
-          }
-        ]
-      },
+      "Union_7": { "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }] },
       "PackageIdentityPurl": {
         "type": "string",
         "allOf": [
@@ -4463,62 +4539,16 @@
         "title": "Deprecate Body",
         "description": "Request body for deprecating an extension."
       },
+      "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
+      "Union_8": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
           "file": { "type": "string" },
-          "line": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["NaN"] },
-                  { "type": "string", "enum": ["Infinity"] },
-                  { "type": "string", "enum": ["-Infinity"] }
-                ]
-              },
-              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-            ]
-          },
-          "column": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["NaN"] },
-                  { "type": "string", "enum": ["Infinity"] },
-                  { "type": "string", "enum": ["-Infinity"] }
-                ]
-              },
-              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-            ]
-          },
-          "byteOffset": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["NaN"] },
-                  { "type": "string", "enum": ["Infinity"] },
-                  { "type": "string", "enum": ["-Infinity"] }
-                ]
-              },
-              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-            ]
-          },
-          "byteLength": {
-            "anyOf": [
-              {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["NaN"] },
-                  { "type": "string", "enum": ["Infinity"] },
-                  { "type": "string", "enum": ["-Infinity"] }
-                ]
-              },
-              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-            ]
-          }
+          "line": { "$ref": "#/components/schemas/Union_8" },
+          "column": { "$ref": "#/components/schemas/Union_8" },
+          "byteOffset": { "$ref": "#/components/schemas/Union_8" },
+          "byteLength": { "$ref": "#/components/schemas/Union_8" }
         },
         "required": ["file"],
         "additionalProperties": false,
@@ -4541,7 +4571,7 @@
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
       },
-      "PreconditionFailedError": {
+      "PreconditionFailedErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["PreconditionFailedError"] },
@@ -4569,7 +4599,7 @@
         "title": "Publish Identity",
         "description": "URL-path identity of the extension version under publish."
       },
-      "ExtensionLintFailedError": {
+      "ExtensionLintFailedErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["ExtensionLintFailedError"] },
@@ -4613,7 +4643,7 @@
         "title": "Identity Mismatch Entry",
         "description": "Single divergent identity field between URL-path and archive."
       },
-      "ExtensionIdentityMismatchError": {
+      "ExtensionIdentityMismatchErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["ExtensionIdentityMismatchError"] },
@@ -4692,68 +4722,7 @@
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
       },
-      "PublishPreviewTarget": {
-        "type": "object",
-        "properties": {
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": { "$ref": "#/components/schemas/ExtensionType" },
-          "name": { "$ref": "#/components/schemas/ExtensionName" },
-          "version": { "$ref": "#/components/schemas/Version" }
-        },
-        "required": ["owner", "type", "name", "version"],
-        "additionalProperties": false,
-        "title": "Publish Preview Target"
-      },
-      "PublishPreviewRequest": {
-        "type": "object",
-        "properties": {
-          "candidates": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/PublishPreviewTarget" }
-          },
-          "visibility": { "$ref": "#/components/schemas/Visibility" }
-        },
-        "required": ["candidates"],
-        "additionalProperties": false,
-        "title": "Publish Preview Request"
-      },
-      "ResolvedPublishPreview": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["resolved"] },
-          "target": { "$ref": "#/components/schemas/PublishPreviewTarget" },
-          "visibility": { "$ref": "#/components/schemas/PublishVisibility" },
-          "condition": {
-            "type": "string",
-            "description": "Opaque strong ETag to send as If-Match when publishing this candidate."
-          }
-        },
-        "required": ["kind", "target", "visibility", "condition"],
-        "additionalProperties": false,
-        "title": "Resolved Publish Preview"
-      },
-      "UnavailablePublishPreview": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["unavailable"] },
-          "target": { "$ref": "#/components/schemas/PublishPreviewTarget" },
-          "code": { "type": "string", "enum": ["publish/target-unavailable"] }
-        },
-        "required": ["kind", "target", "code"],
-        "additionalProperties": false,
-        "title": "Unavailable Publish Preview"
-      },
-      "PublishPreviewResponse": {
-        "type": "array",
-        "items": {
-          "anyOf": [
-            { "$ref": "#/components/schemas/ResolvedPublishPreview" },
-            { "$ref": "#/components/schemas/UnavailablePublishPreview" }
-          ]
-        },
-        "title": "Publish Preview Response"
-      },
-      "PublishPreviewBatchTooLargeHttpError": {
+      "PublishPreviewBatchTooLargeHttpErrorEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["PublishPreviewBatchTooLargeHttpError"] },
@@ -4891,22 +4860,16 @@
           "owner": { "$ref": "#/components/schemas/Handle" },
           "type": { "$ref": "#/components/schemas/ExtensionType" },
           "latestVersion": { "$ref": "#/components/schemas/Version" },
-          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "repository": {
-            "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
-          },
-          "license": {
-            "anyOf": [{ "$ref": "#/components/schemas/LicenseExpression" }, { "type": "null" }]
-          },
+          "description": { "$ref": "#/components/schemas/Union_" },
+          "repository": { "$ref": "#/components/schemas/Union_2" },
+          "license": { "$ref": "#/components/schemas/Union_3" },
           "authors": {
             "anyOf": [
               { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
               { "type": "null" }
             ]
           },
-          "deprecated_at": {
-            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
-          },
+          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
           "deprecation_notice": {
             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
           },
@@ -4957,39 +4920,12 @@
         "title": "Search Response",
         "description": "A page of extensions matching the search query."
       },
-      "DebugStreamEvent": {
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "anyOf": [
-              { "type": "number" },
-              { "type": "string", "enum": ["NaN"] },
-              { "type": "string", "enum": ["Infinity"] },
-              { "type": "string", "enum": ["-Infinity"] }
-            ]
-          },
-          "message": { "type": "string" }
-        },
-        "required": ["sequence", "message"],
-        "additionalProperties": false
-      },
-      "DebugStreamEventJsonString": {
-        "type": "string",
-        "contentSchema": { "$ref": "#/components/schemas/DebugStreamEvent" },
-        "contentMediaType": "application/json"
-      },
-      "DebugStreamInterrupted": {
+      "DebugStreamEventEncoded": { "type": "string", "contentMediaType": "application/json" },
+      "DebugStreamInterruptedEncoded": {
         "type": "object",
         "properties": {
           "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-          "after": {
-            "anyOf": [
-              { "type": "number" },
-              { "type": "string", "enum": ["NaN"] },
-              { "type": "string", "enum": ["Infinity"] },
-              { "type": "string", "enum": ["-Infinity"] }
-            ]
-          }
+          "after": { "$ref": "#/components/schemas/Union_5" }
         },
         "required": ["_tag", "after"],
         "additionalProperties": false

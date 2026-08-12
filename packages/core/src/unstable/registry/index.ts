@@ -49,6 +49,38 @@ export type {
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
+export {
+  MAX_PUBLICATION_SET_CANDIDATES,
+  PUBLICATION_SET_CONTRACT,
+  PackDependencyFindingSchema,
+  PreviewPublicationSetRequestSchema,
+  PreviewPublicationSetResponseSchema,
+  Sha256HexSchema,
+  archiveSha256Hex,
+  comparePublicationTargets,
+  evaluateProspectivePackDependencies,
+  normalizePublicationDescriptor,
+  normalizePublicationSet,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+  publicationTargetKey,
+  validatePublicationDescriptors,
+  validatePublicationSetResponse,
+} from "./publication-set.js";
+export type {
+  PackDependencyDescriptor,
+  PackDependencyFinding,
+  ProspectivePublicationCandidate,
+  PublicationDependencySnapshot,
+  PublicationDependencyVersionSnapshot,
+  PreviewPublicationSetRequest,
+  PreviewPublicationSetResponse,
+  PublicationCandidateResult,
+  PublicationDescriptor,
+  PublicationPackResult,
+  PublicationTarget,
+  Sha256Hex,
+} from "./publication-set.js";
 
 // Local client
 export { createLocalRegistryClient } from "./local-client.js";

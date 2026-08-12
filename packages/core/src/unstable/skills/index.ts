@@ -29,6 +29,23 @@ export {
   type SkillFrontmatterValidation,
 } from "./skill-content.js";
 export {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  AXM_SKILL_FQN,
+  AxmSkillCompatibilityPolicy,
+  AxmSkillCompatibilityReasonSchema,
+  AxmSkillCompatibilitySchema,
+  evaluateAxmSkillCompatibility,
+  makeAxmSkillCompatibilityPolicyLayer,
+  validateAxmSkillCliVersionRange,
+  type AxmSkillCliVersionRangeValidation,
+  type AxmSkillCompatibility,
+  type AxmSkillCompatibilityCandidate,
+  type AxmSkillCompatibilityInput,
+  type AxmSkillCompatibilityPolicyInput,
+  type AxmSkillCompatibilityReason,
+} from "./axm-skill-compatibility.js";
+export {
   AGENT_SKILLS_COMPATIBILITY_MAX_LENGTH,
   AGENT_SKILLS_DESCRIPTION_MAX_LENGTH,
   AGENT_SKILLS_FRONTMATTER_FIELDS,

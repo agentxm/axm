@@ -32,7 +32,10 @@ import {
   quietFlag,
   verbosityToLogLevel,
 } from "@agentxm/client-core/unstable/cli-flags";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import {
+  makeAxmSkillCompatibilityPolicyLayer,
+  SkillManagerLive,
+} from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
@@ -130,6 +133,7 @@ export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrapped
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   RegistryUrlLayer,
+  makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
   // provided by NodeServices (memoized with the merged instance above).
   Layer.provide(AuthLoginInteractionLive, NodeServices.layer),

@@ -254,6 +254,7 @@ describe("subagents-update.handler", () => {
         };
         const sourcesLayer = Layer.succeed(SourceHostProviders, {
           find: () => Effect.succeed([makeRegistrySubagentRef("researcher", "2.0.0", source)]),
+          resolveNamedRegistry: () => Effect.die("unused"),
           fetch: () => Effect.die("unused"),
           cloneUrl: () => Option.none(),
           origin: () => "test",
@@ -357,9 +358,74 @@ describe("subagents-update.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUpdate(defaultArgs({ preview: true }));
+          yield* handleUpdate(defaultArgs());
 
           expect(logs.success.some((m) => m.includes("No subagents installed"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("reports a held Registry subagent as a zero-step policy outcome", () => {
+      const ctx = makeWorkspaceHandlerTestContext({ machine: true });
+      const sourcesLayer = Layer.succeed(SourceHostProviders, {
+        find: () => Effect.die("unused"),
+        resolveNamedRegistry: (_source, options) =>
+          Effect.succeed({
+            kind: "policy_held" as const,
+            target: `${options.owner}/subagents/${options.name}`,
+            candidate: {
+              version: "2.0.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          }),
+        fetch: () => Effect.die("unused"),
+        cloneUrl: () => Option.none(),
+        origin: () => "test",
+      });
+      const agentRepoLayer = Layer.provide(CodingAgentRepositoryLive, ctx.wsLayer);
+      const subagentManagerLayer = Layer.provide(
+        SubagentManagerLive,
+        Layer.mergeAll(ctx.wsLayer, agentRepoLayer, ctx.baseLayer),
+      );
+      const provide = makeEffectProvide(
+        Layer.mergeAll(
+          ctx.baseLayer,
+          ctx.wsLayer,
+          sourcesLayer,
+          agentRepoLayer,
+          subagentManagerLayer,
+        ),
+      );
+      initWorkspace(path.join(tempDir, ".axm"), {
+        subagents: { researcher: "@acme/subagents/researcher" },
+        sources: [
+          {
+            name: "test",
+            type: "registry",
+            location: "file:///tmp/subagents-registry",
+          },
+        ],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs());
+
+          const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
+            planName: "Update subagents",
+            totalSteps: 0,
+          });
+          expect(result).toMatchObject({
+            holdbackCount: 1,
+            holdbacks: [
+              {
+                target: "@acme/subagents/researcher",
+                candidateVersion: "2.0.0",
+              },
+            ],
+          });
         }),
       );
     });
@@ -384,6 +450,7 @@ describe("subagents-update.handler", () => {
               ? [makeRegistrySubagentRef("researcher", "2.0.0", source)]
               : [],
           ),
+        resolveNamedRegistry: () => Effect.die("unused"),
         fetch: () => Effect.die("unused"),
         cloneUrl: () => Option.none(),
         origin: () => "test",

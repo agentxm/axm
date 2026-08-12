@@ -12,6 +12,11 @@ import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import type * as Duration from "effect/Duration";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 import * as semver from "semver";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeRecord,
+} from "../registry/index.js";
 
 /** Every extension type a pack can depend on — packs cannot nest. */
 type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
@@ -40,6 +45,19 @@ export interface ResolvedPackDependencies {
   readonly resolvedKnowledge: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
+
+export type ReleaseAgeAwarePackDependencyResolution =
+  | {
+      readonly kind: "selected";
+      readonly dependencies: ResolvedPackDependencies;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+    }
+  | {
+      readonly kind: "policy_held";
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+    };
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -146,6 +164,162 @@ const resolveDependencyRef = (
       type: expectedType,
       name: parsed.name,
       ref: matchingRef,
+    };
+  });
+
+type ReleaseAgeAwareDependencyResolution =
+  | {
+      readonly kind: "selected";
+      readonly dependency: ResolvedDependency;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+    }
+  | { readonly kind: "policy_held"; readonly holdback: ReleaseAgeRecord };
+
+const dependencyReleaseAgeRecord = (args: {
+  readonly packTarget: string;
+  readonly dependencyTarget: string;
+  readonly constraint: VersionRange;
+  readonly evidence: ReleaseAgeEvidence;
+  readonly selectedVersion?: string;
+}): ReleaseAgeRecord => ({
+  reason: "minimum-release-age",
+  target: args.dependencyTarget,
+  dependencyPath: [args.packTarget, args.dependencyTarget],
+  requestedRange: args.constraint,
+  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
+  candidateVersion: args.evidence.version,
+  publishedAt: args.evidence.publishedAt,
+  eligibleAt: args.evidence.eligibleAt,
+  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
+});
+
+const resolveDependencyRefWithReleaseAge = (
+  pack: PackRef,
+  expectedType: SupportedPackDependencyType,
+  fqn: string,
+  constraint: VersionRange,
+  sources: SourceHostProvidersService,
+  evaluation: ReleaseAgeEvaluation,
+  sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ReleaseAgeAwareDependencyResolution, AppError> =>
+  Effect.gen(function* () {
+    const parsed = parseFqnOrThrow(fqn);
+    if (parsed.type !== expectedType) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `Pack dependency type mismatch for expected ${expectedType}`,
+      });
+    }
+    if (workspaceResolver !== undefined) {
+      const workspace = yield* workspaceResolver({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+      });
+      if (Option.isSome(workspace)) {
+        const candidate = workspace.value;
+        if (
+          candidate.type !== expectedType ||
+          candidate.refType !== "workspace" ||
+          candidate.owner !== parsed.owner ||
+          candidate.name !== parsed.name
+        ) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Configured workspace authority does not match pack dependency ${fqn}`,
+          });
+        }
+        if (!semver.satisfies(candidate.version, constraint)) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Workspace dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
+          });
+        }
+        return {
+          kind: "selected",
+          dependency: {
+            owner: parsed.owner,
+            type: expectedType,
+            name: parsed.name,
+            ref: candidate,
+          },
+          holdbacks: [],
+          bypasses: [],
+        };
+      }
+    }
+
+    const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
+    const resolution = yield* Effect.scoped(
+      sources.resolveNamedRegistry(source, {
+        name: parsed.name,
+        type: expectedType,
+        owner: parsed.owner,
+        versionRange: Option.some<string>(constraint),
+        releaseAgeEvaluation: evaluation,
+      }),
+    );
+    const packTarget = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
+    const dependencyTarget = formatFqn(parsed);
+    if (resolution.kind === "not_found") {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Pack dependency ${dependencyTarget} was not found`,
+      });
+    }
+    if (resolution.kind === "version_unsatisfied") {
+      return yield* makeAppError({
+        code: "conflict",
+        title: "No compatible version",
+        detail: `Pack dependency ${dependencyTarget} has no visible version satisfying ${constraint}`,
+      });
+    }
+    if (resolution.kind === "policy_held") {
+      return {
+        kind: "policy_held",
+        holdback: dependencyReleaseAgeRecord({
+          packTarget,
+          dependencyTarget,
+          constraint,
+          evidence: resolution.candidate,
+        }),
+      };
+    }
+    const ref = resolution.ref;
+    return {
+      kind: "selected",
+      dependency: {
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+        ref,
+      },
+      holdbacks:
+        resolution.newerHeld === undefined
+          ? []
+          : [
+              dependencyReleaseAgeRecord({
+                packTarget,
+                dependencyTarget,
+                constraint,
+                evidence: resolution.newerHeld,
+                selectedVersion: ref.version,
+              }),
+            ],
+      bypasses:
+        resolution.bypassed === undefined
+          ? []
+          : [
+              dependencyReleaseAgeRecord({
+                packTarget,
+                dependencyTarget,
+                constraint,
+                evidence: resolution.bypassed,
+                selectedVersion: ref.version,
+              }),
+            ],
     };
   });
 
@@ -275,5 +449,103 @@ export const resolvePackDependencies = (
         ...resolvedHooks,
         ...resolvedKnowledge,
       ].map((dependency) => dependency.ref),
+    };
+  });
+
+export const resolvePackDependenciesWithReleaseAge = (
+  pack: PackRef,
+  sources: SourceHostProvidersService,
+  evaluation: ReleaseAgeEvaluation,
+  sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, AppError> =>
+  Effect.gen(function* () {
+    const dependencies = partitionDependencies(pack.pack.dependencies);
+    if (dependencies.unsupported.length > 0) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `Pack declares ${count(dependencies.unsupported.length, "unsupported dependency type")}: ${dependencies.unsupported.join(", ")}`,
+      });
+    }
+    const entries = [
+      ...dependencies.groups.skill.map(([fqn, constraint]) => ({
+        type: "skill" as const,
+        fqn,
+        constraint,
+      })),
+      ...dependencies.groups["mcp-server"].map(([fqn, constraint]) => ({
+        type: "mcp-server" as const,
+        fqn,
+        constraint,
+      })),
+      ...dependencies.groups.subagent.map(([fqn, constraint]) => ({
+        type: "subagent" as const,
+        fqn,
+        constraint,
+      })),
+      ...dependencies.groups.rule.map(([fqn, constraint]) => ({
+        type: "rule" as const,
+        fqn,
+        constraint,
+      })),
+      ...dependencies.groups.hook.map(([fqn, constraint]) => ({
+        type: "hook" as const,
+        fqn,
+        constraint,
+      })),
+      ...dependencies.groups.knowledge.map(([fqn, constraint]) => ({
+        type: "knowledge" as const,
+        fqn,
+        constraint,
+      })),
+    ];
+    const resolutions = yield* Effect.forEach(
+      entries,
+      ({ type, fqn, constraint }) =>
+        resolveDependencyRefWithReleaseAge(
+          pack,
+          type,
+          fqn,
+          constraint,
+          sources,
+          evaluation,
+          sourceOverride,
+          workspaceResolver,
+        ),
+      { concurrency: "unbounded" },
+    );
+    const holdbacks = resolutions.flatMap((resolution) =>
+      resolution.kind === "policy_held" ? [resolution.holdback] : resolution.holdbacks,
+    );
+    const bypasses = resolutions.flatMap((resolution) =>
+      resolution.kind === "selected" ? resolution.bypasses : [],
+    );
+    if (resolutions.some((resolution) => resolution.kind === "policy_held")) {
+      return { kind: "policy_held", holdbacks, bypasses };
+    }
+    const selected = resolutions.flatMap((resolution) =>
+      resolution.kind === "selected" ? [resolution.dependency] : [],
+    );
+    const byType = <T extends SupportedPackDependencyType>(type: T) =>
+      selected.filter((dependency) => dependency.type === type);
+    const resolvedSkills = byType("skill");
+    const resolvedMcpServers = byType("mcp-server");
+    const resolvedSubagents = byType("subagent");
+    const resolvedRules = byType("rule");
+    const resolvedHooks = byType("hook");
+    const resolvedKnowledge = byType("knowledge");
+    return {
+      kind: "selected",
+      holdbacks,
+      bypasses,
+      dependencies: {
+        resolvedSkills: toResolvedMap(resolvedSkills),
+        resolvedMcpServers: toResolvedMap(resolvedMcpServers),
+        resolvedSubagents: toResolvedMap(resolvedSubagents),
+        resolvedRules: toResolvedMap(resolvedRules),
+        resolvedHooks: toResolvedMap(resolvedHooks),
+        resolvedKnowledge: toResolvedMap(resolvedKnowledge),
+        dependencyRefs: selected.map((dependency) => dependency.ref),
+      },
     };
   });

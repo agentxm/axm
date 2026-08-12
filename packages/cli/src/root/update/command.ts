@@ -20,13 +20,21 @@ const updateConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be updated without making changes"),
   ),
+  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
+    Flag.withDescription(
+      "Allow one targeted Registry update to select releases newer than minimumReleaseAge",
+    ),
+  ),
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, yes, force, preview }) =>
-    handleUpdate({ source, yes, force, preview }).pipe(withWorkspace(scope), withRuntime("update")),
+  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
+    handleUpdate({ source, yes, force, preview, ignoreReleaseAge }).pipe(
+      withWorkspace(scope),
+      withRuntime("update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update extensions to newer versions"),
@@ -42,6 +50,10 @@ export const updateCommand = Command.make(
     {
       command: "axm update @acme/hooks/session-audit@^1.2.0",
       description: "Update a hook with a version constraint",
+    },
+    {
+      command: "axm update @acme/skills/code-review --ignore-release-age",
+      description: "Review and bypass minimum release age for one targeted update",
     },
     {
       command: "axm update --preview",

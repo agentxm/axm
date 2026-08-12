@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { getAppError } from "../../test-helpers.js";
@@ -8,10 +9,38 @@ describe("resolveRootUpdateIntent", () => {
   it.effect("parses supported registry FQNs", () =>
     Effect.gen(function* () {
       const cases = [
-        { source: "@acme/skills/code-review", type: "skill" },
-        { source: "@acme/mcps/dev-server", type: "mcp-server" },
-        { source: "@acme/subagents/researcher", type: "subagent" },
-        { source: "@acme/packs/frontend-tools", type: "pack" },
+        {
+          source: "@acme/skills/code-review",
+          type: "skill",
+          owner: "@acme",
+          name: "code-review",
+          versionRange: Option.none(),
+          target: "@acme/skills/code-review",
+        },
+        {
+          source: "@acme/mcps/dev-server",
+          type: "mcp-server",
+          owner: "@acme",
+          name: "dev-server",
+          versionRange: Option.none(),
+          target: "@acme/mcps/dev-server",
+        },
+        {
+          source: "@acme/subagents/researcher",
+          type: "subagent",
+          owner: "@acme",
+          name: "researcher",
+          versionRange: Option.none(),
+          target: "@acme/subagents/researcher",
+        },
+        {
+          source: "@acme/packs/frontend-tools",
+          type: "pack",
+          owner: "@acme",
+          name: "frontend-tools",
+          versionRange: Option.none(),
+          target: "@acme/packs/frontend-tools",
+        },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) => resolveRootUpdateIntent(source));

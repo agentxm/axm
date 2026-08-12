@@ -46,6 +46,7 @@ const mockMcpServerManager = {
 
 const mockSourceHostProviders = {
   find: vi.fn(() => Effect.succeed([])),
+  resolveNamedRegistry: vi.fn(() => Effect.die("unused")),
   fetch: vi.fn(),
   cloneUrl: vi.fn(),
   origin: vi.fn(() => "test"),

@@ -10,6 +10,8 @@ import {
   RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
+  type ExtensionName,
+  type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
@@ -23,6 +25,10 @@ export type RootUpdatableType = InstallableExtensionType;
 export interface RootUpdateIntent {
   readonly source: string;
   readonly type: RootUpdatableType;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly versionRange: Option.Option<string>;
+  readonly target: string;
 }
 
 const rootUpdateFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
@@ -122,5 +128,9 @@ export const resolveRootUpdateIntent = (input: string) =>
     return {
       source,
       type: toInstallableExtensionType(parsed.type),
+      owner: parsed.owner,
+      name: parsed.name,
+      versionRange: Option.fromUndefinedOr(parsed.versionRange),
+      target: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     } satisfies RootUpdateIntent;
   });

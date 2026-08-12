@@ -6,6 +6,7 @@ export {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
+  resolveConfiguredRegistryEntry,
 } from "./resolve.js";
 export { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 export {
@@ -15,6 +16,7 @@ export {
 export {
   toConfiguredEntryFailureReason,
   type ConfiguredEntryFailureReason,
+  type ConfiguredRegistryResolution,
   type ResolvedConfiguredEntry,
   type ResolvedConfiguredHook,
   type ResolvedConfiguredKnowledge,

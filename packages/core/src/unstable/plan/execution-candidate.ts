@@ -109,6 +109,7 @@ const planIdentity = (plan: Plan): string =>
     })),
     preconditions: plan.preconditions,
     riskConditions: plan.riskConditions,
+    releaseAge: plan.releaseAge,
   });
 
 export const makeExecutionCandidate = (

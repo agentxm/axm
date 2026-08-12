@@ -27,6 +27,7 @@ import {
   createRegistryClient,
   extractZip,
   resolveVersionEntryWithReleaseAge,
+  resolveVersionEntryForReleaseAge,
   extensionLifecycleWarnings,
 } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
@@ -34,6 +35,7 @@ import {
   decodeExtensionNameSync,
   installableExtensionTypes,
   isInstallableExtensionType,
+  toExtensionTypePlural,
   toAuthor,
   type Author,
   type ExtensionName,
@@ -43,6 +45,8 @@ import type { ExtensionRef } from "../../../extensions/index.js";
 import type {
   ExtensionFiles,
   FindOptions,
+  NamedRegistryFindOptions,
+  NamedRegistryResolution,
   SourceHostProvider,
   RegistrySource,
   RegistrySourceHost,
@@ -51,6 +55,10 @@ import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
 import type { Version } from "../../../version-constraints/version-constraints.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
+  readonly resolveNamed: (
+    source: RegistrySource,
+    options: NamedRegistryFindOptions,
+  ) => Effect.Effect<NamedRegistryResolution, AppError, R>;
   readonly publishExtension: (
     owner: Handle,
     type: ExtensionType,
@@ -134,6 +142,85 @@ const manifestFromIndex = (
       packages: packagesToPackageUrlParts(version.packages),
       ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
     } satisfies RegistryExtensionManifest);
+  });
+
+const namedTarget = (options: NamedRegistryFindOptions): string =>
+  `${options.owner}/${toExtensionTypePlural(options.type)}/${options.name}`;
+
+const resolveNamedFromClient = (
+  client: RegistryClient,
+  source: RegistrySource,
+  options: NamedRegistryFindOptions,
+): Effect.Effect<NamedRegistryResolution, AppError> =>
+  Effect.gen(function* () {
+    const indexOption = yield* client.getExtensionIndex({
+      owner: options.owner,
+      type: options.type,
+      name: decodeExtensionNameSync(options.name),
+    });
+    const target = namedTarget(options);
+    if (Option.isNone(indexOption)) {
+      return { kind: "not_found", target } as const;
+    }
+
+    const resolution = resolveVersionEntryForReleaseAge(
+      indexOption.value.versions,
+      options.versionRange,
+      options.releaseAgeEvaluation,
+    );
+    if (resolution.kind === "version_unsatisfied") {
+      return {
+        kind: "version_unsatisfied",
+        target,
+        requestedRange: Option.getOrElse(options.versionRange, () => "*"),
+      } as const;
+    }
+    if (resolution.kind === "policy_held") {
+      return {
+        kind: "policy_held",
+        target,
+        ...(Option.isSome(options.versionRange)
+          ? { requestedRange: options.versionRange.value }
+          : {}),
+        candidate: resolution.candidate,
+      } as const;
+    }
+
+    const version = resolution.version;
+    const lifecycleWarnings = extensionLifecycleWarnings(indexOption.value, version);
+    const manifest = {
+      owner: indexOption.value.owner,
+      type: indexOption.value.type,
+      name: indexOption.value.name,
+      publisherBindingId: indexOption.value.publisherBindingId,
+      description: Option.fromUndefinedOr(indexOption.value.description),
+      repository: Option.fromUndefinedOr(indexOption.value.repository),
+      bugs: Option.fromUndefinedOr(indexOption.value.bugs),
+      license: Option.fromUndefinedOr(indexOption.value.license),
+      authors: Option.match(Option.fromUndefinedOr(indexOption.value.authors), {
+        onNone: (): ReadonlyArray<Author> => [],
+        onSome: (authors) => authors.map((author) => toAuthor(author)),
+      }),
+      dependencies: version.dependencies ?? {},
+      version: version.version,
+      integrity: version.integrity,
+      packages: packagesToPackageUrlParts(version.packages),
+      ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
+    } satisfies RegistryExtensionManifest;
+    const ref = toExtensionRef(manifest, source);
+    if (Option.isNone(ref)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Registry returned unsupported extension type for ${target}`,
+      });
+    }
+    return {
+      kind: "selected",
+      target,
+      ref: ref.value,
+      ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
+      ...(resolution.bypassed === undefined ? {} : { bypassed: resolution.bypassed }),
+    } as const;
   });
 
 const findWithVersionRange = (
@@ -229,7 +316,7 @@ const findWithVersionRange = (
 const toExtensionRef = (
   entry: RegistryExtensionManifest,
   source: RegistrySource,
-): Option.Option<ExtensionRef> => {
+): Option.Option<Extract<ExtensionRef, { readonly refType: "registry" }>> => {
   if (!isInstallableExtensionType(entry.type)) {
     return Option.none();
   }
@@ -415,6 +502,8 @@ export const createLocalRegistrySourceHostProvider = (
 
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
 
+  resolveNamed: (source, options) => resolveNamedFromClient(client, source, options),
+
   find: (source, options) =>
     Effect.gen(function* () {
       const fsService = yield* FileSystem.FileSystem;
@@ -480,6 +569,8 @@ export const createRemoteRegistrySourceHostProvider = (
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "https:"),
+
+  resolveNamed: (source, options) => resolveNamedFromClient(client, source, options),
 
   find: (source, options) =>
     Effect.gen(function* () {

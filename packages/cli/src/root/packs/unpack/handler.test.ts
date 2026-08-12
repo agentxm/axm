@@ -202,6 +202,7 @@ describe("packs unpack.handler", () => {
               }))
             : [],
         ),
+      resolveNamedRegistry: () => Effect.die("unused"),
       fetch: () => Effect.die("unused"),
       cloneUrl: () => Option.none(),
       origin: () => "test",

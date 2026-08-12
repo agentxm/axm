@@ -227,6 +227,7 @@ describe("root install handler", () => {
       ctx.fullLayer,
       Layer.succeed(SourceHostProviders, {
         find: () => Effect.succeed([]),
+        resolveNamedRegistry: () => Effect.die("Unexpected named registry resolution"),
         fetch: () => Effect.die("Unexpected source fetch"),
         cloneUrl: () => Option.none(),
         origin: () => "test source",

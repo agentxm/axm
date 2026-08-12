@@ -75,6 +75,7 @@ const makeServices = (
   wsOverrides?: Partial<WorkspaceMutationsService> & Partial<WorkspaceMutationsService["records"]>,
 ) => {
   const sourceProviders: SourceHostProvidersService = {
+    resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: () => Effect.succeed({ directory: packDirectory }),
     cloneUrl: () => Option.none(),

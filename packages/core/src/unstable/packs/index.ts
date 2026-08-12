@@ -26,7 +26,15 @@ export { PackManager, PackManagerLive } from "./manager.js";
 export { computePackPaths, type PackDirPath } from "./paths.js";
 
 // Expansion helpers
-export { expandPackInstallRefs } from "./expansion.js";
+export {
+  expandPackInstallRefs,
+  expandPackInstallRefsWithReleaseAge,
+  type ReleaseAgeAwarePackExpansion,
+} from "./expansion.js";
+export {
+  resolvePackDependenciesWithReleaseAge,
+  type ReleaseAgeAwarePackDependencyResolution,
+} from "./dependency-resolution.js";
 
 // Reconciliation adapter
 export { packReconciliationAdapter } from "./reconciliation-adapter.js";

@@ -17,6 +17,18 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 update commands. It defaults to `"24h"` so brand-new versions are held until
 they have aged for 24 hours; use `"0s"` to disable the holdback.
 
+An update chooses the newest version that both satisfies the configured range
+and has reached the minimum age. If a newer matching version is still too new,
+AXM continues with the eligible version and reports the held release. If every
+matching version is too new, a workspace-wide `axm update` leaves that target
+unchanged and continues with other targets. A targeted update preserves already
+trusted and usable desired state; otherwise it stops without writing.
+
+Use `axm update <registry-fqn> --ignore-release-age` for a reviewed, one-shot
+targeted bypass. The flag does not change settings and is rejected without one
+Registry FQN. JSON and NDJSON results report the evaluation time, holdbacks,
+dependency paths, eligibility times, and explicit bypasses.
+
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
 this array; the commands also reconcile per-agent managed artifacts for

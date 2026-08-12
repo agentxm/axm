@@ -198,6 +198,7 @@ describe("collectSkillSourceFreshness", () => {
       });
 
       const sourceProviders: SourceHostProvidersService = {
+        resolveNamedRegistry: () => Effect.die("not used"),
         find: () =>
           Effect.succeed([
             {
@@ -253,6 +254,7 @@ describe("git-source freshness beyond skills", () => {
   });
 
   const providersReturning = (refs: ReadonlyArray<ExtensionRef>): SourceHostProvidersService => ({
+    resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed(refs),
     fetch: () => Effect.die(new Error("not used")),
     cloneUrl: () => Option.none(),

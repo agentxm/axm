@@ -62,6 +62,7 @@ const makeLocalHookRef = (name: string, packageRoot: string): LocalHookRef => ({
 
 const makeSourceHostProviders = () =>
   Layer.succeed(SourceHostProviders, {
+    resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed([]),
     fetch: () =>
       Effect.fail(

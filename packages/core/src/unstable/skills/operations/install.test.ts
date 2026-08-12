@@ -167,6 +167,7 @@ const makeServices = (
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
   const sourceProviders: SourceHostProvidersService = {
+    resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
       Effect.succeed(

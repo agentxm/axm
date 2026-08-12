@@ -42,7 +42,17 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultSteps,
 } from "../../test-helpers.js";
-import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  writeKnowledgeExtension,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/client-core/unstable/source-resolution";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
 
 import { handleUpdate, type RootUpdateFlags } from "./handler.js";
 
@@ -87,9 +97,110 @@ describe("root update handler", () => {
     ],
   });
 
+  const selectedSourceHostProviders: SourceHostProvidersService = {
+    find: () => Effect.die("unused"),
+    resolveNamedRegistry: (source, options) => {
+      const name = decodeExtensionNameSync(options.name);
+      const details = {
+        source,
+        owner: options.owner,
+        name,
+        publisherBindingId: "publisher-binding",
+        version: decodeVersionSync("1.0.0"),
+        integrity: Option.none<string>(),
+        packages: [],
+      };
+      switch (options.type) {
+        case "skill":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: {
+              type: "skill",
+              refType: "registry",
+              skill: { name, description: Option.none(), metadata: Option.none() },
+              ...details,
+            },
+          });
+        case "mcp-server":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/mcps/${options.name}`,
+            ref: {
+              type: "mcp-server",
+              refType: "registry",
+              server: { name },
+              ...details,
+            },
+          });
+        case "subagent":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/subagents/${options.name}`,
+            ref: {
+              type: "subagent",
+              refType: "registry",
+              subagent: { name, description: Option.none() },
+              ...details,
+            },
+          });
+        case "rule":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/rules/${options.name}`,
+            ref: {
+              type: "rule",
+              refType: "registry",
+              rule: { name },
+              ...details,
+            },
+          });
+        case "hook":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/hooks/${options.name}`,
+            ref: {
+              type: "hook",
+              refType: "registry",
+              hook: { name },
+              ...details,
+            },
+          });
+        case "knowledge":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/knowledge/${options.name}`,
+            ref: {
+              type: "knowledge",
+              refType: "registry",
+              knowledge: { name },
+              ...details,
+            },
+          });
+        case "pack":
+          return Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/packs/${options.name}`,
+            ref: {
+              type: "pack",
+              refType: "registry",
+              pack: { name, dependencies: {} },
+              ...details,
+            },
+          });
+      }
+    },
+    fetch: () => Effect.die("unused"),
+    cloneUrl: () => Option.none(),
+    origin: () => "test registry",
+  };
+
   const makeLayers = (
     calls: Array<UpdateCall>,
-    opts?: { readonly machine?: boolean | undefined },
+    opts?: {
+      readonly machine?: boolean | undefined;
+      readonly sources?: SourceHostProvidersService;
+    },
   ) => {
     const ctx = makeWorkspaceHandlerTestContext({
       flags: { nonInteractive: true },
@@ -275,6 +386,7 @@ describe("root update handler", () => {
           typeof InstallKnowledgeCommandWorkflowActions
         >,
       ),
+      Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
     );
 
     return {
@@ -296,6 +408,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
       });
 
       const sources = [
@@ -313,13 +426,13 @@ describe("root update handler", () => {
       );
 
       expect(calls).toEqual([
-        { type: "skill", source: "@acme/skills/code-review", ...flags },
-        { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
-        { type: "subagent", source: "@acme/subagents/researcher", ...flags },
-        { type: "rule", source: "@acme/rules/workspace-guidance", ...flags },
-        { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
-        { type: "knowledge", source: "@acme/knowledge/handbook", ...flags },
-        { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
+        { type: "skill", source: "@acme/skills/code-review@1.0.0", ...flags },
+        { type: "mcp-server", source: "@acme/mcps/dev-server@1.0.0", ...flags },
+        { type: "subagent", source: "@acme/subagents/researcher@1.0.0", ...flags },
+        { type: "rule", source: "@acme/rules/workspace-guidance@1.0.0", ...flags },
+        { type: "hook", source: "@acme/hooks/tool-audit@1.0.0", ...flags },
+        { type: "knowledge", source: "@acme/knowledge/handbook@1.0.0", ...flags },
+        { type: "pack", source: "@acme/packs/frontend-tools@1.0.0", ...flags },
       ]);
     }),
   );
@@ -345,6 +458,234 @@ describe("root update handler", () => {
 
       expect(appError.code).toBe("usage");
       expect(calls).toHaveLength(0);
+    }),
+  );
+
+  it.effect("rejects release-age bypass for an untargeted root update", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide } = makeLayers(calls);
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      const error = yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: false,
+          force: false,
+          preview: true,
+          ignoreReleaseAge: true,
+        }).pipe(Effect.flip),
+      );
+
+      expect(getAppError(error)).toMatchObject({
+        code: "usage",
+        detail: "--ignore-release-age requires one targeted Registry FQN",
+      });
+      expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("hard-blocks a targeted held release without preservable desired state", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/skills/${options.name}`,
+              candidate: {
+                version: "2.0.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer"),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "failed",
+          reason: "hard-blocked",
+          errorCode: "conflict",
+          totalSteps: 0,
+          holdbackCount: 1,
+          holdbacks: [
+            {
+              target: "@acme/skills/reviewer",
+              candidateVersion: "2.0.0",
+            },
+          ],
+        },
+      });
+      expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("preserves trusted usable desired state for a targeted held release", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/skills/${options.name}`,
+              candidate: {
+                version: "2.0.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+        },
+      });
+      const axmDir = path.join(tempDir, ".axm");
+      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "reviewer");
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "reviewer", version: "1.0.0" }),
+      );
+      fs.writeFileSync(
+        path.join(skillDir, "src", "SKILL.md"),
+        "---\nname: reviewer\ndescription: Review code\n---\n\n# Reviewer\n",
+      );
+      const sourceHash = computePackageContentHashSync(skillDir);
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer@^1.0.0" },
+        lockfileSkills: {
+          reviewer: {
+            type: "registry",
+            owner: "@acme",
+            name: "reviewer",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-reviewer",
+            sourceName: "test",
+            publisherBindingId: "publisher-binding",
+            sourceHash,
+            installedAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+        writeTrustFromLockfile: true,
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer@^1.0.0"),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "no-op",
+          totalSteps: 0,
+          holdbacks: [
+            {
+              target: "@acme/skills/reviewer",
+              requestedRange: "^1.0.0",
+              currentVersion: "1.0.0",
+              selectedVersion: "1.0.0",
+              candidateVersion: "2.0.0",
+            },
+          ],
+        },
+      });
+      expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("records a one-shot targeted release-age bypass", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) =>
+            selectedSourceHostProviders.resolveNamedRegistry(source, options).pipe(
+              Effect.map((resolution) =>
+                resolution.kind === "selected"
+                  ? {
+                      ...resolution,
+                      bypassed: {
+                        version: "1.0.0",
+                        publishedAt: "2026-08-11T12:00:00.000Z",
+                        eligibleAt: "2026-08-12T12:00:00.000Z",
+                        minimumReleaseAgeSeconds: 86_400,
+                      },
+                    }
+                  : resolution,
+              ),
+            ),
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer"),
+          yes: true,
+          force: false,
+          preview: false,
+          ignoreReleaseAge: true,
+        }),
+      );
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          releaseAgeBypassCount: 1,
+          releaseAgeBypasses: [
+            {
+              target: "@acme/skills/reviewer",
+              selectedVersion: "1.0.0",
+              candidateVersion: "1.0.0",
+            },
+          ],
+        },
+      });
+      expect(calls).toEqual([
+        {
+          type: "skill",
+          source: "@acme/skills/reviewer@1.0.0",
+          yes: false,
+          force: false,
+          preview: true,
+        },
+      ]);
     }),
   );
 
@@ -410,6 +751,180 @@ describe("root update handler", () => {
           message: "handbook is workspace-sourced and unchanged",
         },
       ]);
+    }),
+  );
+
+  it.effect("returns a holdback-only root update as a successful zero-step result", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          find: () => Effect.die("unused"),
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/packs/${options.name}`,
+              candidate: {
+                version: "1.0.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+          fetch: () => Effect.die("unused"),
+          cloneUrl: () => Option.none(),
+          origin: () => "test registry",
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        packs: { fresh: "@acme/packs/fresh" },
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(calls).toEqual([]);
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Update configured extensions",
+        totalSteps: 0,
+      });
+      expect(result).toMatchObject({
+        holdbackCount: 1,
+        holdbacks: [
+          {
+            reason: "minimum-release-age",
+            target: "@acme/packs/fresh",
+            dependencyPath: ["@acme/packs/fresh"],
+            candidateVersion: "1.0.0",
+            eligibleAt: "2026-08-12T12:00:00.000Z",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("renders an actionable minimum-release-age section for people", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, logs } = makeLayers(calls, {
+        sources: {
+          find: () => Effect.die("unused"),
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/skills/${options.name}`,
+              candidate: {
+                version: "2.0.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+          fetch: () => Effect.die("unused"),
+          cloneUrl: () => Option.none(),
+          origin: () => "test registry",
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer" },
+      });
+
+      yield* provide(
+        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }),
+      );
+
+      expect(logs.warn).toContain("Held by minimum release age (1 release)");
+      expect(logs.info).toContain(
+        "@acme/skills/reviewer 2.0.0 is eligible at 2026-08-12T12:00:00.000Z",
+      );
+      expect(logs.info.some((message) => message.includes("--ignore-release-age"))).toBe(true);
+    }),
+  );
+
+  it.effect("applies configured holdback handling to every installable extension type", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const plural = {
+        skill: "skills",
+        "mcp-server": "mcps",
+        subagent: "subagents",
+        rule: "rules",
+        hook: "hooks",
+        knowledge: "knowledge",
+        pack: "packs",
+      } as const;
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          find: () => Effect.die("unused"),
+          resolveNamedRegistry: (_source, options) =>
+            Effect.succeed({
+              kind: "policy_held",
+              target: `${options.owner}/${plural[options.type]}/${options.name}`,
+              candidate: {
+                version: "1.0.0",
+                publishedAt: "2026-08-11T12:00:00.000Z",
+                eligibleAt: "2026-08-12T12:00:00.000Z",
+                minimumReleaseAgeSeconds: 86_400,
+              },
+            }),
+          fetch: () => Effect.die("unused"),
+          cloneUrl: () => Option.none(),
+          origin: () => "test registry",
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { skill: "@acme/skills/skill" },
+        mcps: { server: "@acme/mcps/server" },
+        subagents: { subagent: "@acme/subagents/subagent" },
+        rules: { rule: "@acme/rules/rule" },
+        hooks: { hook: "@acme/hooks/hook" },
+        knowledge: { knowledge: "@acme/knowledge/knowledge" },
+        packs: { pack: "@acme/packs/pack" },
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Update configured extensions",
+        totalSteps: 0,
+      });
+      expect(result).toMatchObject({
+        holdbackCount: 7,
+        holdbacks: [
+          { target: "@acme/hooks/hook" },
+          { target: "@acme/knowledge/knowledge" },
+          { target: "@acme/mcps/server" },
+          { target: "@acme/packs/pack" },
+          { target: "@acme/rules/rule" },
+          { target: "@acme/skills/skill" },
+          { target: "@acme/subagents/subagent" },
+        ],
+      });
+      expect(calls).toEqual([]);
     }),
   );
 });

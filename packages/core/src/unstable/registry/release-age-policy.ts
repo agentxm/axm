@@ -5,6 +5,61 @@ import * as Option from "effect/Option";
 
 import type { VersionEntry } from "./schema.js";
 
+export interface ReleaseAgeEvaluation {
+  readonly minimumReleaseAge: Duration.Duration;
+  readonly evaluatedAt: DateTime.Utc;
+  readonly mode: "enforce" | "ignore";
+}
+
+export interface ReleaseAgeEvidence {
+  readonly version: string;
+  readonly publishedAt: string;
+  readonly eligibleAt: string;
+  readonly minimumReleaseAgeSeconds: number;
+}
+
+export interface ReleaseAgeRecord {
+  readonly reason: "minimum-release-age";
+  readonly target: string;
+  readonly dependencyPath: ReadonlyArray<string>;
+  readonly requestedRange?: string;
+  readonly currentVersion?: string;
+  readonly selectedVersion?: string;
+  readonly candidateVersion: string;
+  readonly publishedAt: string;
+  readonly eligibleAt: string;
+  readonly minimumReleaseAgeSeconds: number;
+}
+
+export interface ReleaseAgeOperationEvidence {
+  readonly evaluatedAt: string;
+  readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+}
+
+const releaseAgeRecordKey = (record: ReleaseAgeRecord): string =>
+  [
+    record.target,
+    ...record.dependencyPath,
+    record.candidateVersion,
+    record.selectedVersion ?? "",
+    record.currentVersion ?? "",
+    record.requestedRange ?? "",
+  ].join("\u0000");
+
+/** Deduplicate and order operation evidence independently from concurrent resolution order. */
+export const normalizeReleaseAgeRecords = (
+  records: ReadonlyArray<ReleaseAgeRecord>,
+): ReadonlyArray<ReleaseAgeRecord> => {
+  const byKey = new Map<string, ReleaseAgeRecord>();
+  for (const record of records) {
+    byKey.set(releaseAgeRecordKey(record), record);
+  }
+  return [...byKey.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, record]) => record);
+};
+
 export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
 export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
 
@@ -68,6 +123,28 @@ export const isVersionEntryMature = (
           DateTime.isLessThanOrEqualTo(DateTime.addDuration(entry.published, minimumAge), now),
         ),
       );
+
+export const isVersionEntryEligibleAt = (
+  entry: VersionEntry,
+  evaluation: ReleaseAgeEvaluation,
+): boolean =>
+  Duration.isLessThanOrEqualTo(evaluation.minimumReleaseAge, Duration.zero) ||
+  DateTime.isLessThanOrEqualTo(
+    DateTime.addDuration(entry.published, evaluation.minimumReleaseAge),
+    evaluation.evaluatedAt,
+  );
+
+export const releaseAgeEvidence = (
+  entry: VersionEntry,
+  evaluation: ReleaseAgeEvaluation,
+): ReleaseAgeEvidence => ({
+  version: entry.version,
+  publishedAt: DateTime.formatIso(entry.published),
+  eligibleAt: DateTime.formatIso(
+    DateTime.addDuration(entry.published, evaluation.minimumReleaseAge),
+  ),
+  minimumReleaseAgeSeconds: Math.max(0, Duration.toMillis(evaluation.minimumReleaseAge) / 1_000),
+});
 
 export const filterMatureVersions = (
   versions: ReadonlyArray<VersionEntry>,

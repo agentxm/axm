@@ -31,6 +31,7 @@ import {
   extensionLifecycleWarnings,
   extractZip,
   pluralizeType,
+  resolveVersionEntryForReleaseAge,
   resolveVersionEntry,
   resolveVersionEntryWithReleaseAge,
   selectVersion,
@@ -127,16 +128,15 @@ describe("extensionLifecycleWarnings", () => {
 describe("minimum release age", () => {
   const oneDay = Duration.hours(24);
   const now = DateTime.makeUnsafe("2025-01-03T00:00:00Z");
-  const mixedMaturityVersions = [
-    makeVersionEntry({
-      version: exactVersion("1.3.0"),
-      published: DateTime.makeUnsafe("2025-01-02T23:00:00Z"),
-    }),
-    makeVersionEntry({
-      version: exactVersion("1.2.0"),
-      published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
-    }),
-  ];
+  const heldVersion = makeVersionEntry({
+    version: exactVersion("1.3.0"),
+    published: DateTime.makeUnsafe("2025-01-02T23:00:00Z"),
+  });
+  const matureVersion = makeVersionEntry({
+    version: exactVersion("1.2.0"),
+    published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
+  });
+  const mixedMaturityVersions = [heldVersion, matureVersion];
 
   it("parses duration strings", () => {
     expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("24h")))).toBe(86_400_000);
@@ -190,6 +190,86 @@ describe("minimum release age", () => {
       expect(Option.getOrThrow(result).version).toBe("1.2.0");
     }),
   );
+
+  it("classifies a newer held version while selecting the newest eligible version", () => {
+    const result = resolveVersionEntryForReleaseAge(mixedMaturityVersions, Option.none(), {
+      minimumReleaseAge: oneDay,
+      evaluatedAt: now,
+      mode: "enforce",
+    });
+
+    expect(result).toEqual({
+      kind: "selected",
+      version: matureVersion,
+      newerHeld: {
+        version: "1.3.0",
+        publishedAt: "2025-01-02T23:00:00.000Z",
+        eligibleAt: "2025-01-03T23:00:00.000Z",
+        minimumReleaseAgeSeconds: 86_400,
+      },
+    });
+  });
+
+  it("classifies an otherwise matching version as policy held", () => {
+    const result = resolveVersionEntryForReleaseAge([heldVersion], Option.none(), {
+      minimumReleaseAge: oneDay,
+      evaluatedAt: now,
+      mode: "enforce",
+    });
+
+    expect(result).toEqual({
+      kind: "policy_held",
+      candidate: {
+        version: "1.3.0",
+        publishedAt: "2025-01-02T23:00:00.000Z",
+        eligibleAt: "2025-01-03T23:00:00.000Z",
+        minimumReleaseAgeSeconds: 86_400,
+      },
+    });
+  });
+
+  it("selects and records an under-age version when release age is explicitly ignored", () => {
+    const result = resolveVersionEntryForReleaseAge([heldVersion], Option.none(), {
+      minimumReleaseAge: oneDay,
+      evaluatedAt: now,
+      mode: "ignore",
+    });
+
+    expect(result).toEqual({
+      kind: "selected",
+      version: heldVersion,
+      bypassed: {
+        version: "1.3.0",
+        publishedAt: "2025-01-02T23:00:00.000Z",
+        eligibleAt: "2025-01-03T23:00:00.000Z",
+        minimumReleaseAgeSeconds: 86_400,
+      },
+    });
+  });
+
+  it("distinguishes a visible extension with no matching version", () => {
+    const result = resolveVersionEntryForReleaseAge(mixedMaturityVersions, Option.some("^2.0.0"), {
+      minimumReleaseAge: oneDay,
+      evaluatedAt: now,
+      mode: "enforce",
+    });
+
+    expect(result).toEqual({ kind: "version_unsatisfied" });
+  });
+
+  it("uses the supplied inclusive eligibility timestamp instead of reading the clock", () => {
+    const entry = makeVersionEntry({
+      version: exactVersion("1.4.0"),
+      published: DateTime.makeUnsafe("2025-01-02T00:00:00Z"),
+    });
+    const result = resolveVersionEntryForReleaseAge([entry], Option.none(), {
+      minimumReleaseAge: oneDay,
+      evaluatedAt: now,
+      mode: "enforce",
+    });
+
+    expect(result).toEqual({ kind: "selected", version: entry });
+  });
 });
 
 // -----------------------------------------------------------------------------

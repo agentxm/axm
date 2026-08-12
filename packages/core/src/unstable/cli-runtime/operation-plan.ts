@@ -35,6 +35,19 @@ const OperationPlanStepSchema = Schema.Struct({
   artifact: Schema.optional(OperationPlanStepArtifactSchema),
 });
 
+const OperationReleaseAgeRecordSchema = Schema.Struct({
+  reason: Schema.Literal("minimum-release-age"),
+  target: Schema.String,
+  dependencyPath: Schema.Array(Schema.String),
+  requestedRange: Schema.optional(Schema.String),
+  currentVersion: Schema.optional(Schema.String),
+  selectedVersion: Schema.optional(Schema.String),
+  candidateVersion: Schema.String,
+  publishedAt: Schema.String,
+  eligibleAt: Schema.String,
+  minimumReleaseAgeSeconds: Schema.Number,
+});
+
 export const OperationPlanFields = {
   outcome: Schema.Literals([
     "previewed",
@@ -47,6 +60,11 @@ export const OperationPlanFields = {
   reason: Schema.optional(PlanExecutionReasonSchema),
   errorCode: Schema.optional(Schema.String),
   candidateId: Schema.optional(Schema.String),
+  evaluatedAt: Schema.optional(Schema.String),
+  holdbackCount: Schema.optional(Schema.Number),
+  holdbacks: Schema.optional(Schema.Array(OperationReleaseAgeRecordSchema)),
+  releaseAgeBypassCount: Schema.optional(Schema.Number),
+  releaseAgeBypasses: Schema.optional(Schema.Array(OperationReleaseAgeRecordSchema)),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -77,6 +95,9 @@ export const makeOperationPlan = (args: {
   readonly steps: ReadonlyArray<OperationPlanStep>;
   readonly outcome?: OperationPlan["outcome"];
   readonly preconditions?: OperationPlan["preconditions"];
+  readonly evaluatedAt?: string;
+  readonly holdbacks?: OperationPlan["holdbacks"];
+  readonly releaseAgeBypasses?: OperationPlan["releaseAgeBypasses"];
 }): OperationPlan => {
   const readyCount = args.steps.filter((step) => step.status === "ready").length;
   const warningStatusCount = args.steps.filter((step) => step.status === "warning").length;
@@ -101,6 +122,16 @@ export const makeOperationPlan = (args: {
   return {
     outcome,
     planName: args.planName,
+    ...(args.evaluatedAt === undefined ? {} : { evaluatedAt: args.evaluatedAt }),
+    ...(args.holdbacks === undefined
+      ? {}
+      : { holdbackCount: args.holdbacks.length, holdbacks: [...args.holdbacks] }),
+    ...(args.releaseAgeBypasses === undefined
+      ? {}
+      : {
+          releaseAgeBypassCount: args.releaseAgeBypasses.length,
+          releaseAgeBypasses: [...args.releaseAgeBypasses],
+        }),
     ...(args.planDescription !== undefined ? { planDescription: args.planDescription } : {}),
     ...(args.message !== undefined ? { message: args.message } : {}),
     totalSteps: args.steps.length,

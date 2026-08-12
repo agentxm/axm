@@ -1,4 +1,7 @@
 import type * as Duration from "effect/Duration";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
+import type * as Scope from "effect/Scope";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -8,6 +11,8 @@ import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import { parseMinimumReleaseAge } from "../../registry/index.js";
+import type { ReleaseAgeEvaluation } from "../../registry/index.js";
+import type { ExtensionType } from "../../extensions/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
@@ -16,6 +21,7 @@ import type { VersionRange } from "../../version-constraints/version-constraints
 import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
+import type { ConfiguredRegistryResolution } from "./types.js";
 
 const configuredMinimumReleaseAge = (): Effect.Effect<
   Option.Option<Duration.Duration>,
@@ -34,6 +40,69 @@ const configuredMinimumReleaseAge = (): Effect.Effect<
       });
     }
     return parsed;
+  });
+
+export const resolveConfiguredRegistryEntry = (
+  name: string,
+  source: string,
+  expectedType: ExtensionType,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+): Effect.Effect<
+  Option.Option<ConfiguredRegistryResolution>,
+  AppError,
+  SourceHostProviders | WorkspaceMutations | FileSystem.FileSystem | Path.Path | Scope.Scope
+> =>
+  Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) return Option.none();
+
+    const resolvedSource = yield* resolveSource(source).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid ${expectedType} source for ${name}: ${cause.message}`,
+          cause,
+        }),
+      ),
+    );
+    if (resolvedSource.type !== "registry") return Option.none();
+
+    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const pluralType = parsedPattern?.type;
+    const expectedPlural =
+      expectedType === "mcp-server"
+        ? "mcps"
+        : expectedType === "knowledge"
+          ? "knowledge"
+          : `${expectedType}s`;
+    if (pluralType !== undefined && pluralType !== expectedPlural) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Configured ${expectedType} "${name}" uses a ${pluralType} Registry source`,
+      });
+    }
+    if (parsedPattern?.name !== undefined && parsedPattern.name !== name) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Configured ${expectedType} "${name}" points to Registry extension "${parsedPattern.name}"`,
+      });
+    }
+    const owner = parsedPattern?.owner ?? Option.getOrUndefined(resolvedSource.owner);
+    if (owner === undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Configured Registry source for ${expectedType} "${name}" must include an owner`,
+      });
+    }
+    const versionRange = Option.fromUndefinedOr(parsedPattern?.versionRange);
+    const providers = yield* SourceHostProviders;
+    const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
+      name,
+      type: expectedType,
+      owner,
+      versionRange,
+      releaseAgeEvaluation,
+    });
+    return Option.some({ ...resolution, versionRange });
   });
 
 export const resolveConfiguredSkill = (name: string, source: string) =>

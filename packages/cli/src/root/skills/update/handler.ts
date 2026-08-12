@@ -265,6 +265,87 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     readonly evaluation: ReleaseAgeEvaluation;
   }) =>
     Effect.gen(function* () {
+      const skillFqn = `${owner}/skills/${lookupName}`;
+      if (skillFqn === "@agentxm/skills/axm" && packConstraints.length === 0) {
+        const compatible = yield* sources.resolveNamedRegistry(source, {
+          owner,
+          type: "skill",
+          name: lookupName,
+          versionRange: userConstraint,
+          releaseAgeEvaluation: evaluation,
+        });
+        if (compatible.kind === "not_found") {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `No compatible Registry release of "${skillFqn}" is available`,
+            recover: "Recover with the bundled AXM skill",
+            cmd: "axm skills install @agentxm/skills/axm --bundled",
+          });
+        }
+        if (compatible.kind === "version_unsatisfied") {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `No visible release of "${skillFqn}" satisfies ${compatible.requestedRange}`,
+          });
+        }
+        if (compatible.kind === "policy_held") {
+          return Option.some<RegistrySkillConstraintResolution>({
+            kind: "policy_held",
+            record: {
+              reason: "minimum-release-age",
+              target: skillFqn,
+              dependencyPath: [skillFqn],
+              ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
+              candidateVersion: compatible.candidate.version,
+              publishedAt: compatible.candidate.publishedAt,
+              eligibleAt: compatible.candidate.eligibleAt,
+              minimumReleaseAgeSeconds: compatible.candidate.minimumReleaseAgeSeconds,
+            },
+          });
+        }
+        if (compatible.ref.type !== "skill") {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Registry resolved "${skillFqn}" as a non-skill extension`,
+          });
+        }
+        const holdbacks =
+          compatible.newerHeld === undefined
+            ? []
+            : [
+                {
+                  reason: "minimum-release-age" as const,
+                  target: skillFqn,
+                  dependencyPath: [skillFqn],
+                  ...(Option.isSome(userConstraint)
+                    ? { requestedRange: userConstraint.value }
+                    : {}),
+                  selectedVersion: compatible.ref.version,
+                  candidateVersion: compatible.newerHeld.version,
+                  publishedAt: compatible.newerHeld.publishedAt,
+                  eligibleAt: compatible.newerHeld.eligibleAt,
+                  minimumReleaseAgeSeconds: compatible.newerHeld.minimumReleaseAgeSeconds,
+                },
+              ];
+        return Option.some<RegistrySkillConstraintResolution>({
+          kind: "selected",
+          ref: compatible.ref,
+          versionRange: userConstraint,
+          holdbacks,
+          warnings:
+            compatible.newerHeld === undefined
+              ? []
+              : [
+                  releaseAgeHoldbackWarning({
+                    fqn: skillFqn,
+                    selectedVersion: compatible.ref.version,
+                    heldVersion: compatible.newerHeld.version,
+                    minimumReleaseAge: minimumReleaseAgeText,
+                  }),
+                ],
+        });
+      }
+
       const location =
         source.location.protocol === "file:" ? source.location.pathname : source.location.href;
       const client = yield* createRegistryClient(location);
@@ -277,7 +358,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return Option.none<RegistrySkillConstraintResolution>();
       }
 
-      const skillFqn = `${owner}/skills/${lookupName}`;
       const constraints: SkillConstraints = { userConstraint, packConstraints };
       const [latestEntry] = indexOption.value.versions;
       const latestVersion = latestEntry?.version;

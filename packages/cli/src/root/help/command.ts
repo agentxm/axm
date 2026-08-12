@@ -101,6 +101,24 @@ const HELP_INDEX_SUGGESTIONS = [
   },
 ] as const satisfies ReadonlyArray<SuggestedAction>;
 
+const PUBLISH_HELP_SUGGESTIONS = [
+  {
+    description: "Show publish command help.",
+    cmd: "axm publish --help",
+  },
+  {
+    description: "Read publishing guidance.",
+    cmd: "axm help basic-usage",
+  },
+] as const satisfies ReadonlyArray<SuggestedAction>;
+
+const UNKNOWN_TOPIC_SUGGESTIONS = [
+  {
+    description: "List available help topics.",
+    cmd: "axm help",
+  },
+] as const satisfies ReadonlyArray<SuggestedAction>;
+
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -150,12 +168,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
         makeAppError({
           code: "not_found",
           detail: `Unknown help topic '${rawName}'. Known topics include: ${ORDERED_TOPIC_NAMES.join(", ")}`,
-          suggestions: [
-            {
-              description: "List available help topics.",
-              cmd: "axm help",
-            },
-          ],
+          suggestions: name === "publish" ? PUBLISH_HELP_SUGGESTIONS : UNKNOWN_TOPIC_SUGGESTIONS,
         }),
       );
     },

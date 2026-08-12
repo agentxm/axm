@@ -115,6 +115,45 @@ describe("help topic command", () => {
     }),
   );
 
+  it.effect("recovers a publish-shaped topic with command help and publishing guidance", () =>
+    Effect.gen(function* () {
+      const { layer } = TestRenderer.make();
+      const error = yield* Effect.flip(
+        handleHelpTopic(Option.some("publish")).pipe(Effect.provide(layer)),
+      );
+
+      expect(error.code).toBe("not_found");
+      expect(error.detail).toContain("Unknown help topic 'publish'");
+      expect(error.suggestions).toEqual([
+        {
+          description: "Show publish command help.",
+          cmd: "axm publish --help",
+        },
+        {
+          description: "Read publishing guidance.",
+          cmd: "axm help basic-usage",
+        },
+      ]);
+    }),
+  );
+
+  it.effect("keeps unrelated unknown topics on the generic recovery path", () =>
+    Effect.gen(function* () {
+      const { layer } = TestRenderer.make();
+      const error = yield* Effect.flip(
+        handleHelpTopic(Option.some("bogus")).pipe(Effect.provide(layer)),
+      );
+
+      expect(error.code).toBe("not_found");
+      expect(error.suggestions).toEqual([
+        {
+          description: "List available help topics.",
+          cmd: "axm help",
+        },
+      ]);
+    }),
+  );
+
   it.effect("prints schema topics as raw JSON in interactive mode", () =>
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();

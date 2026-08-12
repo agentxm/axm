@@ -453,17 +453,28 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     previousSourceHash: sourceHashBeforeInstall,
                     sourceHash,
                   });
-                  const configuredAgents = yield* ws.getConfiguredAgents();
+                  const materialization =
+                    subagentMgr.getLastMaterialization === undefined
+                      ? { agents: [], targets: [] }
+                      : yield* subagentMgr.getLastMaterialization({
+                          target: { type: "subagent", name: ref.subagent.name },
+                        });
+                  const targets = materialization.targets.map((target) => ({
+                    path: target.path,
+                    change,
+                    ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
+                  }));
 
                   return {
-                    path: ref.subagent.name,
+                    path: targets[0]?.path ?? ref.subagent.name,
                     scope: ws.scope,
-                    ...(configuredAgents.length > 0 ? { agents: configuredAgents } : {}),
+                    agents: materialization.agents,
                     ...(version !== undefined ? { version } : {}),
                     change,
                     ...(previousVersion !== undefined && previousVersion !== version
                       ? { previousVersion }
                       : {}),
+                    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
                   } satisfies JobStepArtifact;
                 });
 

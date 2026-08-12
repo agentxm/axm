@@ -20,6 +20,7 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
 import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
 export const PlanPolicyIds = [
   "break-dependencies",
@@ -162,6 +163,8 @@ export interface ErrorJobStep {
   readonly errorMessage: string;
   readonly label: string;
   readonly artifact?: JobStepArtifact;
+  /** Semantic blockers already represented in Plan.riskConditions. */
+  readonly blockingConditionIds?: ReadonlyArray<string>;
 }
 
 export type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
@@ -227,6 +230,8 @@ export interface Plan {
   readonly sections?: ReadonlyArray<PlanSection>;
   /** Semantic conditions evaluated by the shared execution-policy boundary. */
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
+  /** Recovery specific to an operation that cannot currently be applied. */
+  readonly failureSuggestions?: ReadonlyArray<SuggestedAction>;
   /** Persisted inputs outside workspace state that materially determine this plan. */
   readonly materialPaths?: ReadonlyArray<string>;
   /** Local plans roll back candidate-wide; remote effects report truthful partial outcomes. */
@@ -294,11 +299,7 @@ export interface FailedPlan {
     readonly status: "rolled-back" | "unapplied" | "failed";
     readonly message: string;
   }>;
-  readonly suggestions?: ReadonlyArray<{
-    readonly description: string;
-    readonly cmd?: string | undefined;
-    readonly url?: string | undefined;
-  }>;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
 
 export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan | FailedPlan;

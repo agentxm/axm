@@ -53,7 +53,11 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
 } from "../workspace/configured-entry-resolution/index.js";
-import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  ExtensionTarget,
+  MaterializationObservation,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
@@ -421,6 +425,7 @@ export const HookManagerLive = Layer.effect(
       {
         readonly ref: HookExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
+        readonly materialization: MaterializationObservation;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
       }
@@ -832,16 +837,54 @@ export const HookManagerLive = Layer.effect(
                 });
               }
 
-              return decodeMaterializedTarget({
-                target: decodeRelativePathSync(workspaceRelative.value),
-                mode: "sync-always",
-                renderHash: computeSourceHash(JSON.stringify(rendered)),
-              });
+              return {
+                agentId: target.agent.id,
+                materializedTarget: decodeMaterializedTarget({
+                  target: decodeRelativePathSync(workspaceRelative.value),
+                  mode: "sync-always",
+                  renderHash: computeSourceHash(JSON.stringify(rendered)),
+                }),
+              };
             }),
           { concurrency: "unbounded" },
         );
         const fallbackTarget = yield* writeHookFallbackRules(fallbackAgents, args);
-        return [...nativeTargets, fallbackTarget];
+        const agentsByTarget = new Map<string, Array<string>>();
+        for (const { agentId, materializedTarget } of nativeTargets) {
+          const agents = agentsByTarget.get(materializedTarget.target) ?? [];
+          if (!agents.includes(agentId)) agents.push(agentId);
+          agentsByTarget.set(materializedTarget.target, agents);
+        }
+        if (fallbackAgents.length > 0) {
+          agentsByTarget.set(
+            fallbackTarget.target,
+            fallbackAgents.map(({ id }) => id),
+          );
+        }
+        const materializedTargets = [
+          ...nativeTargets.map(({ materializedTarget }) => materializedTarget),
+          fallbackTarget,
+        ];
+        return {
+          materializedTargets,
+          materialization: {
+            agents: configuredAgents.filter((agentId) =>
+              Array.from(agentsByTarget.values()).some((agents) => agents.includes(agentId)),
+            ),
+            targets: materializedTargets
+              .filter(
+                (target, index, all) =>
+                  all.findIndex((candidate) => candidate.target === target.target) === index,
+              )
+              .map((target) => {
+                const agentIds = agentsByTarget.get(target.target) ?? [];
+                return {
+                  path: target.target,
+                  ...(agentIds.length === 0 ? {} : { agentIds }),
+                };
+              }),
+          },
+        };
       });
 
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
@@ -861,11 +904,14 @@ export const HookManagerLive = Layer.effect(
         });
       }
 
-      const materializedTargets = yield* writeHooksConfig({ include: { ref, packageRoot } });
+      const { materializedTargets, materialization } = yield* writeHooksConfig({
+        include: { ref, packageRoot },
+      });
       const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.hook.name, {
         ref,
         materializedTargets,
+        materialization,
         workspaceRelativeLocalSourcePath,
         sourceHash,
       });
@@ -938,12 +984,9 @@ export const HookManagerLive = Layer.effect(
 
       materializeInstall,
       getLastMaterialization: ({ target }) =>
-        Effect.succeed({
-          agents: [],
-          targets: (lastInstallState.get(target.name)?.materializedTargets ?? []).map(
-            (materializedTarget) => ({ path: materializedTarget.target }),
-          ),
-        }),
+        Effect.succeed(
+          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
+        ),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredHookEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

@@ -1,7 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { count } from "../cli-renderer/index.js";
-import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
+import type {
+  ExtensionRef,
+  Handle,
+  ExtensionName,
+  ExtensionType,
+  SourceAuthorityBlockedFact,
+} from "../extensions/index.js";
 import { formatFqn, parseFqnOrThrow, toExtensionTypePlural } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
@@ -32,11 +38,18 @@ type ResolvedDependency = {
   readonly ref: PackDependencyRef;
 };
 
+export type WorkspacePackDependencyResolution =
+  | { readonly kind: "absent" }
+  | { readonly kind: "selected"; readonly ref: ExtensionRef }
+  | { readonly kind: "blocked"; readonly fact: SourceAuthorityBlockedFact };
+
 export type WorkspacePackDependencyResolver = (args: {
   readonly owner: Handle;
   readonly type: SupportedPackDependencyType;
   readonly name: ExtensionName;
-}) => Effect.Effect<Option.Option<ExtensionRef>, AppError>;
+  readonly constraint: VersionRange;
+  readonly root: string;
+}) => Effect.Effect<WorkspacePackDependencyResolution, AppError>;
 
 export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
@@ -106,9 +119,18 @@ const resolveDependencyRef = (
         owner: parsed.owner,
         type: expectedType,
         name: parsed.name,
+        constraint,
+        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
       });
-      if (Option.isSome(workspace)) {
-        const candidate = workspace.value;
+      if (workspace.kind === "blocked") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: workspace.fact.detail,
+          suggestions: workspace.fact.recovery,
+        });
+      }
+      if (workspace.kind === "selected") {
+        const candidate = workspace.ref;
         if (
           candidate.type !== expectedType ||
           candidate.refType !== "workspace" ||
@@ -219,9 +241,18 @@ const resolveDependencyRefWithReleaseAge = (
         owner: parsed.owner,
         type: expectedType,
         name: parsed.name,
+        constraint,
+        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
       });
-      if (Option.isSome(workspace)) {
-        const candidate = workspace.value;
+      if (workspace.kind === "blocked") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: workspace.fact.detail,
+          suggestions: workspace.fact.recovery,
+        });
+      }
+      if (workspace.kind === "selected") {
+        const candidate = workspace.ref;
         if (
           candidate.type !== expectedType ||
           candidate.refType !== "workspace" ||

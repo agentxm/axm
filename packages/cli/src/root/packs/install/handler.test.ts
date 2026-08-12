@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import YAML from "yaml";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
@@ -59,6 +59,7 @@ import {
   writeTrustFromWorkspaceLockfile,
 } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
+import { toPlanResolutionResult } from "../../../json-output.js";
 
 const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
 const ACME = normalizeHandle("@acme");
@@ -719,6 +720,159 @@ describe("packs install handler", () => {
       integrity: Option.none(),
       publisherBindingId: "hbnd_test",
       packages: [],
+    });
+
+    const writeWorkspaceSkill = (name: string, version = "1.0.0") => {
+      const root = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);
+      fs.mkdirSync(root, { recursive: true });
+      fs.writeFileSync(
+        path.join(root, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name, version }),
+      );
+      fs.writeFileSync(path.join(root, "SKILL.md"), `# ${name}\n`);
+      return { root, sourceHash: computePackageContentHashSync(root) };
+    };
+
+    it.effect("hard-blocks a Registry reinstall over workspace pack authority", () => {
+      const packRef = makePackRef("test-pack");
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsPacks: { "test-pack": "workspace:@acme/packs/test-pack" },
+      });
+      const { provide } = makeLayersWithMockSources(serviceStubs);
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionRange: Option.none(),
+          });
+          expect(plan.jobs).toHaveLength(1);
+          expect(plan.jobs[0]?.steps).toHaveLength(1);
+          expect(plan.jobs[0]?.steps[0]).toMatchObject({
+            readiness: "error",
+            errorMessage: expect.stringContaining("workspace-sourced pack"),
+          });
+          expect(plan.riskConditions).toHaveLength(1);
+
+          const resolution = yield* previewOrApplyPlan(plan, {
+            execution: preapprovedPlanExecution,
+          });
+          expect(resolution).toMatchObject({
+            _tag: "FailedPlan",
+            reason: "hard-blocked",
+            errorCode: "conflict",
+            suggestions: [expect.objectContaining({ description: expect.any(String) })],
+          });
+          expect(resolution.riskConditions).toHaveLength(1);
+          expect(toPlanResolutionResult(resolution)).toMatchObject({
+            outcome: "failed",
+            reason: "hard-blocked",
+            errorCode: "conflict",
+            candidateId: expect.any(String),
+            totalSteps: 1,
+            readyCount: 0,
+            errorCount: 1,
+            blockedCount: 1,
+            failedCount: 0,
+          });
+        }),
+      );
+    });
+
+    it.effect("reports every unusable workspace member without Registry fallback", () => {
+      const packRef = makePackRef("test-pack", {
+        skills: constraints({
+          "@acme/skills/alpha": "^1.0.0",
+          "@acme/skills/beta": "^1.0.0",
+        }),
+      });
+      const find = vi.fn(() => Effect.succeed([]));
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsSkills: {
+          alpha: "workspace:@acme/skills/alpha",
+          beta: "workspace:@acme/skills/beta",
+        },
+      });
+      const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionRange: Option.none(),
+          });
+          expect(plan.riskConditions).toHaveLength(2);
+          expect(plan.riskConditions?.map((condition) => condition.detail)).toEqual([
+            expect.stringContaining("alpha"),
+            expect.stringContaining("beta"),
+          ]);
+          expect(plan.jobs[0]?.steps).toHaveLength(1);
+          expect(find).not.toHaveBeenCalled();
+        }),
+      );
+    });
+
+    it.effect("reuses a compatible workspace member and revalidates it before apply", () => {
+      const packRef = makePackRef("test-pack", {
+        skills: constraints({ "@acme/skills/review": "^1.0.0" }),
+      });
+      const workspaceSkill = writeWorkspaceSkill("review", "1.4.0");
+      const now = new Date().toISOString();
+      const find = vi.fn(() => Effect.succeed([]));
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsSkills: { review: "workspace:@acme/skills/review" },
+        lockfileSkills: {
+          review: {
+            type: "workspace",
+            owner: "@acme",
+            extensionType: "skill",
+            name: "review",
+            version: "1.4.0",
+            sourceHash: workspaceSkill.sourceHash,
+            installedAt: now,
+            updatedAt: now,
+          },
+        },
+      });
+      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
+      const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionRange: Option.none(),
+          });
+          expect(plan.riskConditions).toBeUndefined();
+          expect(plan.jobs[0]?.steps[0]).toMatchObject({
+            readiness: "ready",
+            artifact: {
+              targets: expect.arrayContaining([
+                expect.objectContaining({
+                  path: workspaceSkill.root,
+                  change: "unchanged",
+                }),
+              ]),
+            },
+          });
+          expect(find).not.toHaveBeenCalled();
+
+          fs.appendFileSync(path.join(workspaceSkill.root, "SKILL.md"), "changed after preview\n");
+          const graphStep = plan.jobs[0]?.steps[0];
+          if (graphStep?.readiness !== "ready") throw new Error("Expected a ready graph step");
+          const error = yield* graphStep.run.pipe(Effect.flip);
+          expect(error).toMatchObject({
+            code: "conflict",
+            detail: expect.stringContaining("authority changed"),
+          });
+          expect(fs.existsSync(path.join(tempDir, ".axm", "extensions", "@acme", "packs"))).toBe(
+            false,
+          );
+        }),
+      );
     });
 
     it.effect(

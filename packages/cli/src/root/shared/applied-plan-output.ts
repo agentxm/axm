@@ -154,29 +154,33 @@ export interface InstallationCoverage {
   readonly scope: "project" | "user";
 }
 
-export const installationCoverage = (plan: ExecutedPlan): InstallationCoverage => {
+export const installationCoverage = (plan: ExecutedPlan): InstallationCoverage | undefined => {
   const agents = new Set<string>();
-  let scope: "project" | "user" = "project";
-  let foundScope = false;
+  let scope: "project" | "user" | undefined;
 
   for (const step of plan.jobs.flatMap((job) => job.steps)) {
     if (step.result.result !== "success" || step.result.artifact === undefined) continue;
     const artifact = step.result.artifact;
-    if (!foundScope) {
+    if (artifact.agents === undefined) continue;
+    if (scope === undefined) {
       scope = artifact.scope;
-      foundScope = true;
+    } else if (scope !== artifact.scope) {
+      throw new Error(`Installation coverage spans ${scope} and ${artifact.scope} scopes`);
     }
-    for (const agent of artifact.agents ?? []) {
-      if (agent !== "universal") agents.add(agent);
-    }
+    const artifactAgents = new Set(artifact.agents);
     for (const target of artifact.targets ?? []) {
       for (const agent of target.agentIds ?? []) {
-        if (agent !== "universal") agents.add(agent);
+        if (!artifactAgents.has(agent)) {
+          throw new Error(`Artifact target agent ${agent} is absent from artifact agents`);
+        }
       }
+    }
+    for (const agent of artifact.agents) {
+      if (agent !== "universal") agents.add(agent);
     }
   }
 
-  return { agents: [...agents], scope };
+  return scope === undefined ? undefined : { agents: [...agents], scope };
 };
 
 const appendSummary = (summary: string | undefined, line: string): string =>
@@ -251,7 +255,12 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
     const emitted = yield* emitPlanResolutionResult(
       args.command,
       args.resolution,
-      args.resolution._tag === "ExecutedPlan" ? resultOptions : undefined,
+      args.resolution._tag === "ExecutedPlan"
+        ? {
+            ...resultOptions,
+            ...(coverage === undefined ? {} : { agentCoverage: coverage }),
+          }
+        : undefined,
     );
 
     if (args.resolution._tag === "ExecutedPlan") {

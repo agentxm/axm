@@ -226,7 +226,10 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       fileCount: promotions.length + 1,
       targets: artifactTargets,
     },
-    steps: [...promotionSteps, uninstallPackStep],
+    children: [...promotionSteps, uninstallPackStep].map((step) => ({
+      step,
+      coverage: "ineligible",
+    })),
     validate: validatePackGraphPostcondition({
       requiredMembers: promotions.flatMap((node) =>
         node.type === "pack"

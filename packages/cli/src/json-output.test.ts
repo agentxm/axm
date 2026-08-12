@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -11,6 +12,7 @@ import type {
 
 import {
   classifyPublishResults,
+  PlanResolutionResultSchema,
   planResolutionToSummary,
   toPlanResolutionResult,
   type PublishResultItem,
@@ -114,6 +116,49 @@ describe("toPlanResolutionResult", () => {
         },
       ],
     });
+  });
+
+  it("publishes schema-backed agent coverage only for successful executed outcomes", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "success",
+                message: "Installed quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "user",
+                  agents: ["codex"],
+                  change: "created",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const agentCoverage = { scope: "user", agents: ["codex"] } as const;
+    const successful = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      toPlanResolutionResult(resolution, { agentCoverage }),
+    );
+    const previewed: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [],
+    };
+
+    expect(successful.agentCoverage).toEqual(agentCoverage);
+    expect(toPlanResolutionResult(previewed, { agentCoverage })).not.toHaveProperty(
+      "agentCoverage",
+    );
   });
 
   it("maps release-age holdback and bypass evidence", () => {

@@ -22,7 +22,10 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  evaluateSourceAuthority,
   parseExtensionFqnParts,
+  toExtensionTypePlural,
+  type SourceAuthorityBlockedFact,
   type ExtensionName,
   type ExtensionRef,
   type ExtensionType,
@@ -32,7 +35,10 @@ import {
   versionSatisfiesRange,
   type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  isWorkspaceSourceLocator,
+  type RegistrySource,
+} from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
   SourceHostProviders,
@@ -46,6 +52,7 @@ import {
   expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
   type PackRef,
+  type WorkspacePackDependencyResolver,
 } from "@agentxm/client-core/unstable/packs";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
@@ -91,9 +98,11 @@ import type {
   DesiredStateGraph,
 } from "@agentxm/client-core/unstable/workspace";
 import {
+  observeCanonicalExtension,
   usableTrustedCanonical,
   validateDesiredPackTrust,
 } from "@agentxm/client-core/unstable/workspace";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
@@ -330,22 +339,63 @@ const registrySourceArtifact = (args: {
   readonly scope: JobStepArtifact["scope"];
   readonly installedBefore: boolean;
 }): JobStepArtifact => {
-  const change = args.installedBefore ? "updated" : "created";
+  const change =
+    args.ref.refType === "workspace" ? "unchanged" : args.installedBefore ? "updated" : "created";
   const target = targetFromRef(args.ref);
   const sourcePath =
     args.ref.refType === "registry"
       ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref.type)}/${
           args.ref.name
         }`
-      : toLabel(target);
+      : args.ref.refType === "workspace"
+        ? args.ref.location
+        : toLabel(target);
   return {
     path: sourcePath,
     scope: args.scope,
-    ...(args.ref.refType === "registry" ? { version: args.ref.version } : {}),
+    ...(args.ref.refType === "registry" || args.ref.refType === "workspace"
+      ? { version: args.ref.version }
+      : {}),
     change,
     fileCount: 1,
     targets: [{ path: sourcePath, change }],
   };
+};
+
+const registrySourceArtifactWithCoverage = (args: {
+  readonly ref: ExtensionRef;
+  readonly scope: JobStepArtifact["scope"];
+  readonly installedBefore: boolean;
+  readonly materialization: Effect.Effect<
+    {
+      readonly agents: ReadonlyArray<string>;
+      readonly targets: ReadonlyArray<{
+        readonly path: string;
+        readonly agentIds?: ReadonlyArray<string>;
+      }>;
+    },
+    never
+  >;
+}) =>
+  Effect.gen(function* () {
+    const artifact = registrySourceArtifact(args);
+    const materialization = yield* args.materialization;
+    return { ...artifact, agents: materialization.agents } satisfies JobStepArtifact;
+  });
+
+const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineligible" => {
+  switch (ref?.type) {
+    case "skill":
+    case "mcp-server":
+    case "subagent":
+    case "rule":
+    case "hook":
+      return "eligible";
+    case "pack":
+    case "knowledge":
+    case undefined:
+      return "ineligible";
+  }
 };
 
 const registrySourcePath = (ref: ExtensionRef): string =>
@@ -434,6 +484,124 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     // PromptCancelled propagates at runtime but is erased here;
     // the top-level `run()` function handles it as a clean exit.
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
+
+    const scanWorkspaceAuthority = (pack: PackRef) =>
+      Effect.gen(function* () {
+        const graph = yield* ws.getDesiredStateGraph();
+        const trust = yield* ws.getTrustState();
+        const packIdentity = `${pack.owner}/packs/${pack.name}`;
+        const blockers: Array<SourceAuthorityBlockedFact> = [];
+        const workspaceRefs = new Map<string, ExtensionRef>();
+
+        const root = graph.nodes.find(
+          (node) =>
+            node.type === "pack" &&
+            node.name === pack.name &&
+            node.origins.some(
+              (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
+            ),
+        );
+        if (root !== undefined) {
+          const decision = evaluateSourceAuthority({
+            target: { type: "pack", name: pack.name, identity: packIdentity },
+            relationship: { kind: "root" },
+            requested: {
+              identity: `${pack.refType}:${packIdentity}`,
+              workspace: pack.refType === "workspace",
+            },
+            configured: {
+              identity: root.identity,
+              workspace: root.identity.startsWith("workspace:"),
+            },
+          });
+          if (decision.kind === "blocked") blockers.push(decision.fact);
+        }
+
+        const dependencies = Object.entries(pack.pack.dependencies).sort(([left], [right]) =>
+          left.localeCompare(right),
+        );
+        for (const [fqn, constraint] of dependencies) {
+          const parsed = parseExtensionFqnParts(fqn);
+          if (parsed === undefined || parsed.type === "pack") continue;
+          const desired = graph.nodes.find(
+            (node) =>
+              node.type === parsed.type &&
+              node.name === parsed.name &&
+              node.origins.some(
+                (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
+              ),
+          );
+          if (desired === undefined) continue;
+
+          const trustRecord = trust.records[trustRecordKey(parsed.type, parsed.name)];
+          const observation = yield* provide(
+            observeCanonicalExtension({ baseDir: ws.baseDir, desired, trust: trustRecord }),
+          );
+          const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
+          const input = {
+            target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
+            relationship: { kind: "member" as const, root: packIdentity },
+            requested: { identity: `registry:${targetIdentity}`, workspace: false },
+            configured: {
+              identity: desired.identity,
+              workspace: desired.identity.startsWith("workspace:"),
+              ...(trustRecord?.resolvedVersion === undefined
+                ? {}
+                : { version: trustRecord.resolvedVersion }),
+              status: observation.status,
+            },
+            requiredVersionRange: constraint,
+          };
+          const decision = evaluateSourceAuthority(input);
+          if (decision.kind === "blocked") {
+            blockers.push(decision.fact);
+            continue;
+          }
+          if (decision.kind !== "workspace-satisfied") continue;
+
+          const canonical = yield* provide(
+            usableTrustedCanonical({ workspace: ws, type: parsed.type, name: parsed.name }),
+          );
+          if (Option.isNone(canonical)) {
+            const unusable = evaluateSourceAuthority({
+              ...input,
+              configured: { ...input.configured, status: "wrong-origin" },
+            });
+            if (unusable.kind === "blocked") blockers.push(unusable.fact);
+            continue;
+          }
+          const ref = canonical.value.ref;
+          if (
+            ref.refType !== "workspace" ||
+            ref.type !== parsed.type ||
+            ref.owner !== parsed.owner ||
+            ref.name !== parsed.name
+          ) {
+            const mismatched = evaluateSourceAuthority({
+              ...input,
+              configured: { ...input.configured, status: "wrong-origin" },
+            });
+            if (mismatched.kind === "blocked") blockers.push(mismatched.fact);
+            continue;
+          }
+          workspaceRefs.set(`${parsed.type}:${parsed.owner}/${parsed.name}`, ref);
+        }
+
+        const workspaceResolver: WorkspacePackDependencyResolver = ({ owner, type, name }) =>
+          Effect.succeed(
+            Option.match(Option.fromUndefinedOr(workspaceRefs.get(`${type}:${owner}/${name}`)), {
+              onNone: () => ({ kind: "absent" as const }),
+              onSome: (ref) => ({ kind: "selected" as const, ref }),
+            }),
+          );
+        const fingerprint = [...workspaceRefs.entries()]
+          .map(([key, ref]) =>
+            ref.refType === "workspace" ? `${key}:${ref.version}:${ref.sourceHash}` : key,
+          )
+          .sort()
+          .join("|");
+        return { graph, blockers, workspaceResolver, fingerprint };
+      });
 
     const parseArgs = (args: InstallPackHandlerArgs) =>
       provide(
@@ -781,6 +949,57 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallPackCommandIntent) =>
       Effect.gen(function* () {
+        const authority = yield* scanWorkspaceAuthority(intent.packToInstall);
+        const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+        if (authority.blockers.length > 0) {
+          const conditionIds = authority.blockers.map((fact) => fact.id);
+          const suggestions = authority.blockers
+            .flatMap((fact) => fact.recovery)
+            .filter(
+              (suggestion, index, all) =>
+                all.findIndex((candidate) => candidate.description === suggestion.description) ===
+                index,
+            );
+          return {
+            _tag: "Plan",
+            name: "Install pack",
+            description: Option.some(
+              "Workspace source authority prevents this pack graph transition.",
+            ),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    readiness: "error",
+                    label: packIdentity,
+                    errorMessage: authority.blockers.map((fact) => fact.detail).join("; "),
+                    blockingConditionIds: conditionIds,
+                    artifact: {
+                      path: "pack graph",
+                      scope: ws.scope,
+                      change: "unchanged",
+                      fileCount: 0,
+                    },
+                  },
+                ],
+              },
+            ],
+            riskConditions: authority.blockers.map((fact) => ({
+              level: "blocked" as const,
+              id: fact.id,
+              detail: fact.detail,
+              errorCode: "conflict" as const,
+            })),
+            failureSuggestions: suggestions,
+            sections: [
+              {
+                title: "Workspace authority conflicts",
+                items: authority.blockers.map((fact) => fact.detail),
+              },
+            ],
+          } satisfies Plan;
+        }
         const minimumReleaseAge = yield* resolveMinimumReleaseAge(ws, intent.unattended ?? false);
         const supportedDependencyTypes = [
           "skill",
@@ -799,6 +1018,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   supportedDependencyTypes,
                   sources,
                   minimumReleaseAge,
+                  workspaceResolver: authority.workspaceResolver,
                 }),
                 holdbacks: [],
                 bypasses: [],
@@ -808,6 +1028,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 supportedDependencyTypes,
                 sources,
                 releaseAgeEvaluation: intent.releaseAgeEvaluation,
+                workspaceResolver: authority.workspaceResolver,
               });
         const releaseAge =
           intent.releaseAgeEvaluation === undefined
@@ -892,7 +1113,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           } satisfies Plan;
         }
         const refs = expansion.refs;
-        const graph = yield* ws.getDesiredStateGraph();
+        const graph = authority.graph;
         // Installing is also the repair path for a configured pack whose
         // canonical manifest or trust baseline is unavailable. Preserve
         // fail-closed cleanup by suppressing dropped-member removal until the
@@ -933,7 +1154,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    skillMgr.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : skillMgr.getLastMaterialization({
+                          target: { type: "skill", name: ref.skill.name },
+                        }),
+                }),
             });
           }
 
@@ -979,7 +1210,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    subagentMgr.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : subagentMgr.getLastMaterialization({
+                          target: { type: "subagent", name: ref.subagent.name },
+                        }),
+                }),
             });
           }
 
@@ -994,7 +1235,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    ruleManager.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : ruleManager.getLastMaterialization({
+                          target: { type: "rule", name: ref.rule.name },
+                        }),
+                }),
             });
           }
 
@@ -1009,7 +1260,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                registrySourceArtifactWithCoverage({
+                  ref,
+                  scope: ws.scope,
+                  installedBefore,
+                  materialization:
+                    hookManager.getLastMaterialization === undefined
+                      ? Effect.succeed({ agents: [], targets: [] })
+                      : hookManager.getLastMaterialization({
+                          target: { type: "hook", name: ref.hook.name },
+                        }),
+                }),
             });
           }
 
@@ -1090,11 +1351,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
-        const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
         const resolvedTargets = refs.map(targetFromRef);
         const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
           ...refs.map((ref): JobStepArtifactTarget => {
             const target = targetFromRef(ref);
+            if (ref.refType === "workspace") {
+              return { path: ref.location, change: "unchanged" };
+            }
             return {
               path: registrySourcePath(ref),
               change: graph.nodes.some(
@@ -1119,7 +1382,26 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             fileCount: refs.length + droppedTargets.length,
             targets: artifactTargets,
           },
-          steps: [...installSteps, ...uninstallSteps],
+          children: [
+            ...installSteps.map((step, index) => ({
+              step,
+              coverage: packInstallCoverage(refs[index]),
+            })),
+            ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
+          ],
+          preTransition: Effect.gen(function* () {
+            const refreshed = yield* scanWorkspaceAuthority(intent.packToInstall);
+            if (refreshed.blockers.length > 0 || refreshed.fingerprint !== authority.fingerprint) {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: "Workspace source authority changed before the pack transition applied",
+                suggestions:
+                  refreshed.blockers.length === 0
+                    ? [{ description: "Rerun the command to resolve a fresh pack candidate." }]
+                    : refreshed.blockers.flatMap((fact) => fact.recovery),
+              });
+            }
+          }),
           validate: validatePackGraphPostcondition({
             requiredPacks: [
               {

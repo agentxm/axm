@@ -67,10 +67,11 @@ const hookInstallArtifactPath = (entry: HookLockEntry): string => {
   return "path" in entry && entry.path !== undefined ? entry.path : ".axm/extensions";
 };
 
-const hookInstallArtifact = (args: {
+export const hookInstallArtifact = (args: {
   readonly lockEntry: HookLockEntry;
   readonly installedBefore: boolean;
   readonly scope: JobStepArtifact["scope"];
+  readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
 }): JobStepArtifact => {
   const version = hookLockEntryVersion(args.lockEntry);
@@ -78,6 +79,7 @@ const hookInstallArtifact = (args: {
   return {
     path: hookInstallArtifactPath(args.lockEntry),
     scope: args.scope,
+    agents: args.agents,
     ...(version === undefined ? {} : { version }),
     change: args.installedBefore ? "updated" : "created",
     ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
@@ -215,6 +217,12 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                 message: `Installed ${ref.hook.name}`,
                 buildArtifact: ({ installedBefore }) =>
                   Effect.gen(function* () {
+                    const materialization =
+                      hookManager.getLastMaterialization === undefined
+                        ? { agents: [], targets: [] }
+                        : yield* hookManager.getLastMaterialization({
+                            target: { type: "hook", name: ref.hook.name },
+                          });
                     const currentLockEntry = yield* ws
                       .getLockedHookEntry(ref.hook.name)
                       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
@@ -230,20 +238,22 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                         ...(ref.refType === "registry" || ref.refType === "workspace"
                           ? { version: ref.version }
                           : {}),
+                        agents: materialization.agents,
                         change,
-                        targets: [{ path, change }],
+                        targets:
+                          materialization.targets.length === 0
+                            ? [{ path, change }]
+                            : materialization.targets.map((target) => ({
+                                ...target,
+                                change,
+                              })),
                       } satisfies JobStepArtifact;
                     }
-                    const materialization =
-                      hookManager.getLastMaterialization === undefined
-                        ? { agents: [], targets: [] }
-                        : yield* hookManager.getLastMaterialization({
-                            target: { type: "hook", name: ref.hook.name },
-                          });
                     return hookInstallArtifact({
                       lockEntry: currentLockEntry.value,
                       installedBefore,
                       scope: ws.scope,
+                      agents: materialization.agents,
                       targets: materialization.targets.map((target) => ({
                         ...target,
                         change: installedBefore ? "updated" : "created",

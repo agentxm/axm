@@ -19,9 +19,9 @@ import { makeAppError } from "../app-error/index.js";
 import {
   REGISTRY_EXTENSIONS_DIR,
   computePackageContentHash,
+  evaluateSourceAuthority,
   shouldReuseCanonicalInstall,
   toExtensionTypePlural,
-  type ExtensionRef,
   type SourceHash,
 } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -53,6 +53,7 @@ import { isWorkspaceSourceLocator, type RegistrySource } from "../sources/index.
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { usableTrustedCanonicalRef } from "../workspace/trusted-canonical-ref.js";
+import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import type { WorkspacePackDependencyResolver } from "./dependency-resolution.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "./manifest-schema.js";
@@ -211,13 +212,28 @@ export const PackManagerLive = Layer.effect(
           (node) =>
             node.type === args.type &&
             node.name === args.name &&
-            node.identity ===
-              `workspace:${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}` &&
             node.origins.some(
               (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
             ),
         );
-        if (desired === undefined) return Option.none<ExtensionRef>();
+        if (desired === undefined) return { kind: "absent" as const };
+        const trust = (yield* ws.getTrustState()).records[trustRecordKey(args.type, args.name)];
+        const observation = yield* provide(observeCanonicalExtension({ baseDir, desired, trust }));
+        const targetIdentity = `${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`;
+        const input = {
+          target: { type: args.type, name: args.name, identity: targetIdentity },
+          relationship: { kind: "member" as const, root: args.root },
+          requested: { identity: `registry:${targetIdentity}`, workspace: false },
+          configured: {
+            identity: desired.identity,
+            workspace: desired.identity.startsWith("workspace:"),
+            ...(trust?.resolvedVersion === undefined ? {} : { version: trust.resolvedVersion }),
+            status: observation.status,
+          },
+          requiredVersionRange: args.constraint,
+        };
+        const decision = evaluateSourceAuthority(input);
+        if (decision.kind === "blocked") return decision;
         const resolved = yield* provide(
           usableTrustedCanonicalRef({
             workspace: ws,
@@ -226,12 +242,17 @@ export const PackManagerLive = Layer.effect(
           }),
         );
         if (Option.isNone(resolved)) {
+          const unusable = evaluateSourceAuthority({
+            ...input,
+            configured: { ...input.configured, status: "wrong-origin" },
+          });
+          if (unusable.kind === "blocked") return unusable;
           return yield* makeAppError({
-            code: "conflict",
-            detail: `Configured workspace dependency ${args.owner}/${args.type === "mcp-server" ? "mcps" : `${args.type}s`}/${args.name} is not usable`,
+            code: "internal",
+            detail: `Workspace authority for ${targetIdentity} resolved inconsistently`,
           });
         }
-        return Option.some(resolved.value);
+        return { kind: "selected" as const, ref: resolved.value };
       });
     const refreshWorkspacePackState = (
       ref: WorkspacePackRef,

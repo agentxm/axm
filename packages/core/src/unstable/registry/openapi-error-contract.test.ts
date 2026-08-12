@@ -36,7 +36,10 @@ const expectedCodeForStatus = (status: number, problemCode: string) => {
 };
 
 const statusForErrorSchema = (schemaName: string): number | undefined => {
-  switch (schemaName) {
+  const normalizedName = schemaName.endsWith("Encoded")
+    ? schemaName.slice(0, -"Encoded".length)
+    : schemaName;
+  switch (normalizedName) {
     case "InvalidRequestError":
       return 400;
     case "UnauthorizedError":

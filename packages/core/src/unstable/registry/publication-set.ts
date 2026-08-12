@@ -1,0 +1,546 @@
+import { createHash } from "node:crypto";
+
+import * as Schema from "effect/Schema";
+import * as semver from "semver";
+
+import {
+  ExtensionNameSchema,
+  ExtensionTypeSchema,
+  type ExtensionName,
+  type ExtensionType,
+} from "../extensions/common.js";
+import { formatFqn } from "../extensions/fqn.js";
+import { HandleSchema, type Handle } from "../extensions/handle.js";
+import {
+  VersionRangeSchema,
+  VersionSchema,
+  type Version,
+  type VersionRange,
+} from "../version-constraints/version-constraints.js";
+
+export const PUBLICATION_SET_CONTRACT = "publication-set-v1" as const;
+export const MAX_PUBLICATION_SET_CANDIDATES = 100;
+
+export const Sha256HexSchema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)).annotate({
+  identifier: "Sha256Hex",
+});
+
+export type Sha256Hex = typeof Sha256HexSchema.Type;
+
+const PublicationTargetSchema = Schema.Struct({
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+  version: VersionSchema,
+}).annotate({ identifier: "PublicationTarget" });
+
+export interface PublicationTarget {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+}
+
+const PackDependencyDescriptorSchema = Schema.Struct({
+  owner: HandleSchema,
+  type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"] as const),
+  name: ExtensionNameSchema,
+  range: VersionRangeSchema,
+}).annotate({ identifier: "PackDependencyDescriptor" });
+
+export interface PackDependencyDescriptor {
+  readonly owner: Handle;
+  readonly type: Exclude<ExtensionType, "pack">;
+  readonly name: ExtensionName;
+  readonly range: VersionRange;
+}
+
+const PublicationDescriptorSchema = Schema.Struct({
+  target: PublicationTargetSchema,
+  participation: Schema.Literals(["publish", "verified-existing"] as const),
+  archiveSha256Hex: Schema.optional(Sha256HexSchema),
+  initialVisibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  pack: Schema.optional(
+    Schema.Struct({
+      dependencies: Schema.Array(PackDependencyDescriptorSchema),
+    }),
+  ),
+}).annotate({ identifier: "PublicationDescriptor" });
+
+export interface PublicationDescriptor {
+  readonly target: PublicationTarget;
+  readonly participation: "publish" | "verified-existing";
+  readonly archiveSha256Hex?: Sha256Hex | undefined;
+  readonly initialVisibility?: "public" | "private" | undefined;
+  readonly pack?:
+    | {
+        readonly dependencies: ReadonlyArray<PackDependencyDescriptor>;
+      }
+    | undefined;
+}
+
+export const PreviewPublicationSetRequestSchema = Schema.Struct({
+  contract: Schema.Literal(PUBLICATION_SET_CONTRACT),
+  candidates: Schema.Array(PublicationDescriptorSchema),
+}).annotate({ identifier: "PreviewPublicationSetRequest" });
+
+export interface PreviewPublicationSetRequest {
+  readonly contract: typeof PUBLICATION_SET_CONTRACT;
+  readonly candidates: ReadonlyArray<PublicationDescriptor>;
+}
+
+export const PackDependencyFindingSchema = Schema.Struct({
+  kind: Schema.Literal("advisory"),
+  ruleId: Schema.Literals([
+    "pack/dependency-version-resolvable",
+    "pack/dependency-deprecated",
+  ] as const),
+  severity: Schema.Literals(["error", "warning"] as const),
+  reason: Schema.Literals([
+    "selected-new-private",
+    "selected-existing-private",
+    "target-unavailable",
+    "lifecycle-unavailable",
+    "no-installable-version",
+    "range-unsatisfied",
+    "deprecated",
+  ] as const),
+  dependency: PackDependencyDescriptorSchema,
+  effectiveVisibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  lifecycle: Schema.optional(Schema.Literals(["active", "unavailable"] as const)),
+  location: Schema.Struct({ file: Schema.Literal("pack.json") }),
+  path: Schema.Literal("./pack.json"),
+  message: Schema.String,
+  suggestions: Schema.Array(Schema.String),
+}).annotate({ identifier: "PackDependencyFinding" });
+
+export type PackDependencyFinding = typeof PackDependencyFindingSchema.Type;
+
+const ResolvedPublicationCandidateSchema = Schema.Struct({
+  kind: Schema.Literal("resolved"),
+  target: PublicationTargetSchema,
+  participation: Schema.Literals(["publish", "verified-existing"] as const),
+  descriptorDigest: Sha256HexSchema,
+  resolvedVisibility: Schema.Literals(["public", "private"] as const),
+  condition: Schema.optional(Schema.String),
+});
+
+const UnavailablePublicationCandidateSchema = Schema.Struct({
+  kind: Schema.Literal("unavailable"),
+  target: PublicationTargetSchema,
+  participation: Schema.Literals(["publish", "verified-existing"] as const),
+  descriptorDigest: Sha256HexSchema,
+  code: Schema.Literal("publish/target-unavailable"),
+});
+
+const PublicationPackResultSchema = Schema.Struct({
+  target: PublicationTargetSchema,
+  status: Schema.Literals(["admitted", "blocked"] as const),
+  findings: Schema.Array(PackDependencyFindingSchema),
+});
+
+export const PreviewPublicationSetResponseSchema = Schema.Struct({
+  contract: Schema.Literal(PUBLICATION_SET_CONTRACT),
+  publicationSetDigest: Sha256HexSchema,
+  status: Schema.Literals(["admitted", "blocked"] as const),
+  candidates: Schema.Array(
+    Schema.Union([ResolvedPublicationCandidateSchema, UnavailablePublicationCandidateSchema]),
+  ),
+  packs: Schema.Array(PublicationPackResultSchema),
+}).annotate({ identifier: "PreviewPublicationSetResponse" });
+
+export type PreviewPublicationSetResponse = typeof PreviewPublicationSetResponseSchema.Type;
+export type PublicationCandidateResult = PreviewPublicationSetResponse["candidates"][number];
+export type PublicationPackResult = PreviewPublicationSetResponse["packs"][number];
+
+export interface PublicationDependencyVersionSnapshot {
+  readonly version: string;
+  readonly status: string;
+  readonly yanked: boolean;
+  readonly purged: boolean;
+}
+
+export interface PublicationDependencySnapshot {
+  readonly dependency: PackDependencyDescriptor;
+  readonly exists: boolean;
+  readonly visibility: string | null;
+  readonly lifecycleState: string | null;
+  readonly deprecated: boolean;
+  readonly versions: ReadonlyArray<PublicationDependencyVersionSnapshot>;
+}
+
+export interface ProspectivePublicationCandidate {
+  readonly descriptor: PublicationDescriptor;
+  readonly kind: "resolved" | "unavailable";
+  readonly resolvedVisibility?: "public" | "private";
+}
+
+const compareText = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0;
+
+export const comparePublicationTargets = (
+  left: PublicationTarget,
+  right: PublicationTarget,
+): number =>
+  compareText(left.owner, right.owner) ||
+  compareText(left.type, right.type) ||
+  compareText(left.name, right.name) ||
+  compareText(left.version, right.version);
+
+const compareDependencies = (
+  left: PackDependencyDescriptor,
+  right: PackDependencyDescriptor,
+): number =>
+  compareText(left.owner, right.owner) ||
+  compareText(left.type, right.type) ||
+  compareText(left.name, right.name) ||
+  compareText(left.range, right.range);
+
+export const normalizePublicationDescriptor = (
+  descriptor: PublicationDescriptor,
+): PublicationDescriptor => ({
+  target: descriptor.target,
+  participation: descriptor.participation,
+  ...(descriptor.archiveSha256Hex === undefined
+    ? {}
+    : { archiveSha256Hex: descriptor.archiveSha256Hex }),
+  ...(descriptor.initialVisibility === undefined
+    ? {}
+    : { initialVisibility: descriptor.initialVisibility }),
+  ...(descriptor.pack === undefined
+    ? {}
+    : {
+        pack: {
+          dependencies: [...descriptor.pack.dependencies].sort(compareDependencies),
+        },
+      }),
+});
+
+export const normalizePublicationSet = (
+  descriptors: ReadonlyArray<PublicationDescriptor>,
+): ReadonlyArray<PublicationDescriptor> =>
+  descriptors
+    .map(normalizePublicationDescriptor)
+    .sort((left, right) => comparePublicationTargets(left.target, right.target));
+
+const canonicalBytes = (value: unknown): Uint8Array =>
+  new TextEncoder().encode(JSON.stringify(value));
+
+const sha256Hex = (bytes: Uint8Array): Sha256Hex =>
+  Schema.decodeUnknownSync(Sha256HexSchema)(createHash("sha256").update(bytes).digest("hex"));
+
+export const publicationDescriptorDigest = (descriptor: PublicationDescriptor): Sha256Hex =>
+  sha256Hex(
+    canonicalBytes({
+      contract: PUBLICATION_SET_CONTRACT,
+      descriptor: normalizePublicationDescriptor(descriptor),
+    }),
+  );
+
+export const publicationSetDigest = (
+  descriptors: ReadonlyArray<PublicationDescriptor>,
+): Sha256Hex =>
+  sha256Hex(
+    canonicalBytes({
+      contract: PUBLICATION_SET_CONTRACT,
+      candidates: normalizePublicationSet(descriptors),
+    }),
+  );
+
+export const archiveSha256Hex = (archive: Uint8Array): Sha256Hex => sha256Hex(archive);
+
+export const publicationTargetKey = (target: PublicationTarget): string =>
+  JSON.stringify([target.owner, target.type, target.name, target.version]);
+
+const publicationIdentityKey = (target: PublicationTarget): string =>
+  `${target.owner}\u0000${target.type}\u0000${target.name}`;
+
+export const validatePublicationDescriptors = (
+  descriptors: ReadonlyArray<PublicationDescriptor>,
+): ReadonlyArray<PublicationDescriptor> => {
+  if (descriptors.length > MAX_PUBLICATION_SET_CANDIDATES) {
+    throw new RangeError(
+      `Publication sets accept at most ${MAX_PUBLICATION_SET_CANDIDATES} candidates.`,
+    );
+  }
+  Schema.decodeUnknownSync(PreviewPublicationSetRequestSchema)({
+    contract: PUBLICATION_SET_CONTRACT,
+    candidates: descriptors,
+  });
+  const identities = new Set<string>();
+  for (const descriptor of descriptors) {
+    const key = publicationIdentityKey(descriptor.target);
+    if (identities.has(key)) {
+      throw new TypeError(`Duplicate publication target ${key}.`);
+    }
+    identities.add(key);
+    if ((descriptor.participation === "publish") !== (descriptor.archiveSha256Hex !== undefined)) {
+      throw new TypeError("archiveSha256Hex is required exactly for publish candidates.");
+    }
+    if ((descriptor.target.type === "pack") !== (descriptor.pack !== undefined)) {
+      throw new TypeError("Pack declarations are required exactly for pack candidates.");
+    }
+  }
+  return normalizePublicationSet(descriptors);
+};
+
+const findingBase = (
+  finding: Omit<PackDependencyFinding, "kind" | "location" | "path">,
+): PackDependencyFinding => ({
+  kind: "advisory",
+  location: { file: "pack.json" },
+  path: "./pack.json",
+  ...finding,
+});
+
+const dependencyError = (input: {
+  readonly snapshot: PublicationDependencySnapshot;
+  readonly reason: PackDependencyFinding["reason"];
+  readonly explanation: string;
+  readonly suggestions: ReadonlyArray<string>;
+  readonly discloseState?: boolean;
+}): PackDependencyFinding => {
+  const fqn = formatFqn(input.snapshot.dependency);
+  return findingBase({
+    ruleId: "pack/dependency-version-resolvable",
+    severity: "error",
+    reason: input.reason,
+    dependency: input.snapshot.dependency,
+    ...(input.discloseState !== true
+      ? {}
+      : {
+          ...(input.snapshot.visibility === "public" || input.snapshot.visibility === "private"
+            ? { effectiveVisibility: input.snapshot.visibility }
+            : {}),
+          ...(input.snapshot.lifecycleState === null
+            ? {}
+            : { lifecycle: input.snapshot.lifecycleState === "active" ? "active" : "unavailable" }),
+        }),
+    message: `Dependency ${fqn} requests range "${input.snapshot.dependency.range}", but ${input.explanation}.`,
+    suggestions: input.suggestions,
+  });
+};
+
+const evaluateDependencySnapshot = (
+  snapshot: PublicationDependencySnapshot,
+): ReadonlyArray<PackDependencyFinding> => {
+  const fqn = formatFqn(snapshot.dependency);
+  if (!snapshot.exists) {
+    return [
+      dependencyError({
+        snapshot,
+        reason: "target-unavailable",
+        explanation: "that extension does not exist in the registry",
+        suggestions: [`Publish ${fqn} or correct the dependency identity.`],
+      }),
+    ];
+  }
+  if (snapshot.visibility !== "public") {
+    return [
+      dependencyError({
+        snapshot,
+        reason: "target-unavailable",
+        explanation: "that extension is not public",
+        suggestions: [`Make ${fqn} public or depend on a public extension.`],
+      }),
+    ];
+  }
+  if (snapshot.lifecycleState !== "active") {
+    return [
+      dependencyError({
+        snapshot,
+        reason: "lifecycle-unavailable",
+        explanation: "that extension is not active",
+        discloseState: true,
+        suggestions: [`Restore ${fqn} to active state or remove it from the pack.`],
+      }),
+    ];
+  }
+  const installable = snapshot.versions.filter(
+    (version) => version.status === "available" && !version.yanked && !version.purged,
+  );
+  if (installable.length === 0) {
+    return [
+      dependencyError({
+        snapshot,
+        reason: "no-installable-version",
+        explanation: "it has no public, installable versions",
+        discloseState: true,
+        suggestions: [`Publish an installable version of ${fqn} or remove it from the pack.`],
+      }),
+    ];
+  }
+  if (
+    !installable.some((candidate) => semver.satisfies(candidate.version, snapshot.dependency.range))
+  ) {
+    return [
+      dependencyError({
+        snapshot,
+        reason: "range-unsatisfied",
+        explanation: "no public, installable version satisfies the requested range",
+        discloseState: true,
+        suggestions: [
+          `Publish a version of ${fqn} satisfying "${snapshot.dependency.range}" or correct the requested range.`,
+        ],
+      }),
+    ];
+  }
+  return snapshot.deprecated
+    ? [
+        findingBase({
+          ruleId: "pack/dependency-deprecated",
+          severity: "warning",
+          reason: "deprecated",
+          dependency: snapshot.dependency,
+          effectiveVisibility: "public",
+          lifecycle: "active",
+          message: `Dependency ${fqn} requests range "${snapshot.dependency.range}" and resolves to a deprecated extension.`,
+          suggestions: [`Prefer a supported replacement for ${fqn} when one is available.`],
+        }),
+      ]
+    : [];
+};
+
+const dependencyIdentityKey = (dependency: PackDependencyDescriptor): string =>
+  `${dependency.owner}\u0000${dependency.type}\u0000${dependency.name}`;
+
+export const evaluateProspectivePackDependencies = (input: {
+  readonly dependencies: ReadonlyArray<PackDependencyDescriptor>;
+  readonly snapshots: ReadonlyArray<PublicationDependencySnapshot>;
+  readonly candidates: ReadonlyArray<ProspectivePublicationCandidate>;
+}): ReadonlyArray<PackDependencyFinding> => {
+  const snapshots = new Map(
+    input.snapshots.map((snapshot) => [dependencyIdentityKey(snapshot.dependency), snapshot]),
+  );
+  const candidates = new Map(
+    input.candidates.map((candidate) => [
+      publicationIdentityKey(candidate.descriptor.target),
+      candidate,
+    ]),
+  );
+  return input.dependencies
+    .flatMap((dependency) => {
+      const current =
+        snapshots.get(dependencyIdentityKey(dependency)) ??
+        ({
+          dependency,
+          exists: false,
+          visibility: null,
+          lifecycleState: null,
+          deprecated: false,
+          versions: [],
+        } satisfies PublicationDependencySnapshot);
+      const selected = candidates.get(dependencyIdentityKey(dependency));
+      if (selected === undefined) return evaluateDependencySnapshot(current);
+      if (selected.kind === "unavailable") {
+        return [
+          dependencyError({
+            snapshot: current,
+            reason: "target-unavailable",
+            explanation: "that selected target is unavailable",
+            suggestions: [
+              `Verify authority and availability for ${formatFqn(dependency)}, then preview the complete set again.`,
+            ],
+          }),
+        ];
+      }
+      if (selected.resolvedVisibility === "private") {
+        return [
+          dependencyError({
+            snapshot: { ...current, exists: true, visibility: "private" },
+            reason: current.exists ? "selected-existing-private" : "selected-new-private",
+            explanation: "the selected dependency will remain private",
+            discloseState: true,
+            suggestions: current.exists
+              ? [
+                  `Make ${formatFqn(dependency)} public explicitly, then preview the complete set again.`,
+                ]
+              : [
+                  `Publish ${formatFqn(dependency)} with --visibility public, then preview the complete set again.`,
+                ],
+          }),
+        ];
+      }
+      return evaluateDependencySnapshot({
+        ...current,
+        exists: true,
+        visibility: selected.resolvedVisibility ?? current.visibility,
+        lifecycleState: current.exists ? current.lifecycleState : "active",
+        versions:
+          selected.descriptor.participation === "publish"
+            ? [
+                ...current.versions,
+                {
+                  version: selected.descriptor.target.version,
+                  status: "available",
+                  yanked: false,
+                  purged: false,
+                },
+              ]
+            : current.versions,
+      });
+    })
+    .sort(
+      (left, right) =>
+        compareText(formatFqn(left.dependency), formatFqn(right.dependency)) ||
+        compareText(left.dependency.range, right.dependency.range),
+    );
+};
+
+export const validatePublicationSetResponse = (
+  descriptors: ReadonlyArray<PublicationDescriptor>,
+  response: PreviewPublicationSetResponse,
+): PreviewPublicationSetResponse => {
+  const normalized = validatePublicationDescriptors(descriptors);
+  const expectedDigest = publicationSetDigest(normalized);
+  if (response.publicationSetDigest !== expectedDigest) {
+    throw new TypeError("The publication-set digest does not match the submitted descriptors.");
+  }
+
+  const expectedCandidates = new Map(
+    normalized.map((descriptor) => [publicationTargetKey(descriptor.target), descriptor]),
+  );
+  if (response.candidates.length !== expectedCandidates.size) {
+    throw new TypeError("The publication-set response does not account for every candidate.");
+  }
+  for (const candidate of response.candidates) {
+    const key = publicationTargetKey(candidate.target);
+    const descriptor = expectedCandidates.get(key);
+    if (
+      descriptor === undefined ||
+      candidate.participation !== descriptor.participation ||
+      candidate.descriptorDigest !== publicationDescriptorDigest(descriptor)
+    ) {
+      throw new TypeError("The publication-set response contains an incompatible candidate.");
+    }
+    if (
+      (response.status === "admitted" &&
+        candidate.kind === "resolved" &&
+        candidate.participation === "publish") !==
+      (candidate.kind === "resolved" && candidate.condition !== undefined)
+    ) {
+      throw new TypeError("Publication conditions are valid only for admitted upload candidates.");
+    }
+  }
+
+  const expectedPacks = normalized.filter(
+    (descriptor) => descriptor.target.type === "pack" && descriptor.participation === "publish",
+  );
+  if (response.packs.length !== expectedPacks.length) {
+    throw new TypeError(
+      "The publication-set response does not account for every publishable pack.",
+    );
+  }
+  const packKeys = new Set<string>();
+  for (const pack of response.packs) {
+    const key = publicationTargetKey(pack.target);
+    if (
+      packKeys.has(key) ||
+      !expectedPacks.some((descriptor) => publicationTargetKey(descriptor.target) === key)
+    ) {
+      throw new TypeError("The publication-set response contains an incompatible pack result.");
+    }
+    packKeys.add(key);
+  }
+  return response;
+};

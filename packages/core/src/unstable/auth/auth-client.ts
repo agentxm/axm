@@ -24,10 +24,14 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { DateTimeUtcSchema } from "../date-time.js";
-import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
 import { PublishVisibilitySchema, type PublishVisibility } from "../publish/visibility.js";
-import type { Version } from "../version-constraints/version-constraints.js";
+import {
+  PreviewPublicationSetResponseSchema,
+  type PreviewPublicationSetRequest,
+  type PreviewPublicationSetResponse,
+  type Sha256Hex,
+} from "../registry/publication-set.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
 import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
@@ -172,13 +176,7 @@ export interface CreatePublishAuthorizationRequestParams {
   readonly redirectUri: string;
   readonly state: string;
   readonly codeChallenge: string;
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-  readonly archiveSha256: string;
-  readonly visibilityContract: "v1";
-  readonly requestedVisibility?: PublishVisibility["value"];
+  readonly publicationSet: PreviewPublicationSetRequest;
 }
 
 export interface PublishAuthorizationRequestResponse {
@@ -199,10 +197,20 @@ export interface PublishCapabilityResponse {
   readonly expiresAt: DateTime.Utc;
   readonly scope: string;
   readonly publishRequestId: string;
-  readonly visibilityContract: "v1";
+  readonly visibilityContract: "v2";
   readonly visibility: PublishVisibility;
   readonly condition: string;
+  readonly publicationSetDigest: Sha256Hex;
+  readonly publicationDescriptorDigest: Sha256Hex;
 }
+
+export type PublishAuthorizationExchangeResponse =
+  | { readonly status: "admitted"; readonly grants: ReadonlyArray<PublishCapabilityResponse> }
+  | {
+      readonly status: "blocked";
+      readonly preview: PreviewPublicationSetResponse;
+      readonly grants: readonly [];
+    };
 
 // -----------------------------------------------------------------------------
 // Polling state (for testability)
@@ -231,7 +239,7 @@ export interface AuthClientService {
   ) => Effect.Effect<PublishAuthorizationRequestResponse, AppError>;
   readonly exchangePublishAuthorizationCode: (
     params: ExchangePublishAuthorizationCodeParams,
-  ) => Effect.Effect<PublishCapabilityResponse, AppError>;
+  ) => Effect.Effect<PublishAuthorizationExchangeResponse, AppError>;
   readonly initiateDeviceFlow: (
     options?: LoginScopeOptions,
   ) => Effect.Effect<DeviceFlowResponse, AppError>;
@@ -312,10 +320,24 @@ const PublishCapabilityResponseSchema = Schema.Struct({
   expires_at: DateTimeUtcSchema,
   scope: Schema.String,
   publish_request_id: Schema.String,
-  visibility_contract: Schema.Literal("v1"),
+  visibility_contract: Schema.Literal("v2"),
   visibility: PublishVisibilitySchema,
   condition: Schema.String.check(Schema.isMinLength(1)),
+  publication_set_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
+  publication_descriptor_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
 });
+
+const PublishAuthorizationExchangeResponseSchema = Schema.Union([
+  Schema.Struct({
+    status: Schema.Literal("admitted"),
+    grants: Schema.Array(PublishCapabilityResponseSchema),
+  }),
+  Schema.Struct({
+    status: Schema.Literal("blocked"),
+    preview: PreviewPublicationSetResponseSchema,
+    grants: Schema.Tuple([]),
+  }),
+]);
 
 const OAuthTokenErrorResponseSchema = Schema.Struct({
   error: Schema.String,
@@ -742,15 +764,7 @@ export const AuthClientLive = Layer.effect(
             state: params.state,
             code_challenge: params.codeChallenge,
             code_challenge_method: "S256",
-            owner: params.owner,
-            type: params.type,
-            name: params.name,
-            version: params.version,
-            archive_sha256: params.archiveSha256,
-            visibility_contract: params.visibilityContract,
-            ...(params.requestedVisibility === undefined
-              ? {}
-              : { visibility: params.requestedVisibility }),
+            publication_set: params.publicationSet,
           }),
           (request) =>
             httpClient
@@ -790,7 +804,7 @@ export const AuthClientLive = Layer.effect(
               .execute(request),
           Effect.flatMap(
             HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(PublishCapabilityResponseSchema),
+              "2xx": HttpClientResponse.schemaBodyJson(PublishAuthorizationExchangeResponseSchema),
               "400": (publishResponse) =>
                 HttpClientResponse.schemaBodyJson(OAuthTokenErrorResponseSchema)(
                   publishResponse,
@@ -827,15 +841,23 @@ export const AuthClientLive = Layer.effect(
           }),
         );
 
+        if (response.status === "blocked") {
+          return response;
+        }
         return {
-          accessToken: response.access_token,
-          expiresAt: response.expires_at,
-          scope: response.scope,
-          publishRequestId: response.publish_request_id,
-          visibilityContract: response.visibility_contract,
-          visibility: response.visibility,
-          condition: response.condition,
-        } satisfies PublishCapabilityResponse;
+          status: "admitted",
+          grants: response.grants.map((grant): PublishCapabilityResponse => ({
+            accessToken: grant.access_token,
+            expiresAt: grant.expires_at,
+            scope: grant.scope,
+            publishRequestId: grant.publish_request_id,
+            visibilityContract: grant.visibility_contract,
+            visibility: grant.visibility,
+            condition: grant.condition,
+            publicationSetDigest: grant.publication_set_digest,
+            publicationDescriptorDigest: grant.publication_descriptor_digest,
+          })),
+        } satisfies PublishAuthorizationExchangeResponse;
       });
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(

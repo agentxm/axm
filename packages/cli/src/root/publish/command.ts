@@ -78,10 +78,17 @@ import {
   validateArchive,
 } from "@agentxm/client-core/unstable/publish";
 import {
+  PUBLICATION_SET_CONTRACT,
+  archiveSha256Hex,
   createRegistryClient,
+  publicationDescriptorDigest,
+  publicationSetDigest,
   type ExtensionVisibility,
-  type PublishPreviewResult,
+  type PackDependencyDescriptor,
   type PublishExtensionArgs,
+  type PreviewPublicationSetRequest,
+  type PublicationCandidateResult,
+  type PublicationDescriptor,
   type RegistryClient,
   type VersionEntry,
 } from "@agentxm/client-core/unstable/registry";
@@ -92,7 +99,11 @@ import {
   expandGlobs,
   isGlobPattern,
 } from "@agentxm/client-core/unstable/utils";
-import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
+import {
+  VersionSchema,
+  decodeVersionRangeSync,
+  type Version,
+} from "@agentxm/client-core/unstable/version-constraints";
 import {
   WorkspaceMutations,
   configuredRowsByName,
@@ -218,12 +229,15 @@ interface PublishCandidate extends SelectedEntry {
   readonly integrity: string;
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
+  readonly extensionExists: boolean;
   readonly publishPreview?: ResolvedPublishPreview;
 }
 
 export interface ResolvedPublishPreview {
   readonly visibility: PublishVisibility;
-  readonly condition: string;
+  readonly condition?: string;
+  readonly publicationSetDigest: string;
+  readonly publicationDescriptorDigest: string;
 }
 
 interface PublishPlanCandidate {
@@ -320,9 +334,18 @@ export const publishAuthenticationPreconditions = (options: {
 
 export const exactPublishUploadBinding = (
   capability: PublishCapabilityResponse,
-): Pick<PublishExtensionArgs, "accessToken" | "condition" | "initialVisibility"> => ({
+): Pick<
+  PublishExtensionArgs,
+  | "accessToken"
+  | "condition"
+  | "initialVisibility"
+  | "publicationSetDigest"
+  | "publicationDescriptorDigest"
+> => ({
   accessToken: capability.accessToken,
   condition: capability.condition,
+  publicationSetDigest: capability.publicationSetDigest,
+  publicationDescriptorDigest: capability.publicationDescriptorDigest,
   ...(capability.visibility.disposition === "establish" &&
   capability.visibility.source === "explicit"
     ? { initialVisibility: capability.visibility.value }
@@ -331,8 +354,13 @@ export const exactPublishUploadBinding = (
 
 export const previewPublishUploadBinding = (
   preview: ResolvedPublishPreview,
-): Pick<PublishExtensionArgs, "condition" | "initialVisibility"> => ({
-  condition: preview.condition,
+): Pick<
+  PublishExtensionArgs,
+  "condition" | "initialVisibility" | "publicationSetDigest" | "publicationDescriptorDigest"
+> => ({
+  ...(preview.condition === undefined ? {} : { condition: preview.condition }),
+  publicationSetDigest: preview.publicationSetDigest,
+  publicationDescriptorDigest: preview.publicationDescriptorDigest,
   ...(preview.visibility.disposition === "establish" && preview.visibility.source === "explicit"
     ? { initialVisibility: preview.visibility.value }
     : {}),
@@ -923,6 +951,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     integrity,
     action,
     backfill,
+    extensionExists: Option.isSome(index),
   } satisfies PublishCandidate;
 });
 
@@ -934,11 +963,96 @@ const publishTargetKey = (target: {
 }): string =>
   `${target.owner}/${extensionTypeToPlural[target.type]}/${target.name}@${target.version}`;
 
+const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")(function* (
+  dependencies: Readonly<Record<string, unknown>>,
+) {
+  return yield* Effect.forEach(Object.entries(dependencies), ([fqn, range]) =>
+    Effect.gen(function* () {
+      const parsed = yield* Effect.fromResult(
+        Result.mapError(parseFqn(fqn), fqnInvalidErrorToAppError),
+      );
+      if (parsed.type === "pack" || typeof range !== "string") {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `Pack dependency ${fqn} is not a valid non-pack dependency.`,
+        });
+      }
+      return {
+        owner: parsed.owner,
+        type: parsed.type,
+        name: parsed.name,
+        range: decodeVersionRangeSync(range),
+      } satisfies PackDependencyDescriptor;
+    }),
+  );
+});
+
+const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescriptor")(function* (
+  candidate: PublishCandidate,
+  visibility: Option.Option<ExtensionVisibility>,
+) {
+  const pack =
+    candidate.type === "pack"
+      ? {
+          dependencies: yield* packDependencyDescriptors(candidate.dependencies ?? {}),
+        }
+      : undefined;
+  return {
+    target: {
+      owner: candidate.owner,
+      type: candidate.type,
+      name: candidate.name,
+      version: candidate.version,
+    },
+    participation: candidate.action === "publish" ? "publish" : "verified-existing",
+    ...(candidate.action === "publish"
+      ? {
+          archiveSha256Hex: archiveSha256Hex(candidate.archive),
+          ...Option.match(visibility, {
+            onNone: () => ({}),
+            onSome: (initialVisibility) => ({ initialVisibility }),
+          }),
+        }
+      : {}),
+    ...(pack === undefined ? {} : { pack }),
+  } satisfies PublicationDescriptor;
+});
+
+const publicationSetForCandidates = Effect.fn("Publish.publicationSet")(function* (
+  candidates: ReadonlyArray<PublishCandidate>,
+  visibility: Option.Option<ExtensionVisibility>,
+) {
+  return {
+    contract: PUBLICATION_SET_CONTRACT,
+    candidates: yield* Effect.forEach(candidates, (candidate) =>
+      publicationDescriptorForCandidate(candidate, visibility),
+    ),
+  } satisfies PreviewPublicationSetRequest;
+});
+
 const resolvedPublishPreview = (
-  result: PublishPreviewResult,
+  candidate: PublishCandidate,
+  result: PublicationCandidateResult,
+  publicationSetDigest: string,
+  visibility: Option.Option<ExtensionVisibility>,
 ): Effect.Effect<ResolvedPublishPreview, AppError> =>
   result.kind === "resolved"
-    ? Effect.succeed({ visibility: result.visibility, condition: result.condition })
+    ? Effect.succeed({
+        visibility: candidate.extensionExists
+          ? {
+              value: result.resolvedVisibility,
+              disposition: "preserve",
+              source: "existing",
+            }
+          : {
+              value: result.resolvedVisibility,
+              disposition: "establish",
+              source: Option.isSome(visibility) ? "explicit" : "platform",
+            },
+        ...(result.condition === undefined ? {} : { condition: result.condition }),
+        publicationSetDigest,
+        publicationDescriptorDigest: result.descriptorDigest,
+      })
     : makeAppError({
         code: "validation",
         detail: `The registry could not authoritatively preview ${publishTargetKey(result.target)}.`,
@@ -949,24 +1063,26 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
   client: Pick<RegistryClient, "previewExtensionPublishes">,
   visibility: Option.Option<ExtensionVisibility>,
 ) {
-  const results = yield* client.previewExtensionPublishes({
-    candidates: candidates.map((candidate) => ({
-      owner: candidate.owner,
-      type: candidate.type,
-      name: candidate.name,
-      version: candidate.version,
-    })),
-    ...(Option.isNone(visibility) ? {} : { initialVisibility: visibility.value }),
-  });
-  if (results.length !== candidates.length) {
+  const publicationSet = yield* publicationSetForCandidates(candidates, visibility);
+  const preview = yield* client.previewExtensionPublishes(publicationSet);
+  if (preview.status === "blocked") {
+    const packErrors = preview.packs.flatMap((pack) =>
+      pack.findings.filter((finding) => finding.severity === "error"),
+    );
     return yield* makeAppError({
-      code: "internal",
-      detail: "The registry returned an incomplete authoritative publish preview.",
+      code: "validation",
+      detail:
+        packErrors[0]?.message ??
+        "The registry blocked the complete publication set before any upload.",
+      suggestions: packErrors.flatMap((finding) =>
+        finding.suggestions.map((description) => ({ description })),
+      ),
+      cause: preview,
     });
   }
 
-  const resultsByTarget = new Map<string, PublishPreviewResult>();
-  for (const result of results) {
+  const resultsByTarget = new Map<string, PublicationCandidateResult>();
+  for (const result of preview.candidates) {
     const key = publishTargetKey(result.target);
     if (resultsByTarget.has(key)) {
       return yield* makeAppError({
@@ -977,7 +1093,7 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
     resultsByTarget.set(key, result);
   }
 
-  const prepared = yield* Effect.forEach(candidates, (candidate) =>
+  const prepared: ReadonlyArray<PublishCandidate> = yield* Effect.forEach(candidates, (candidate) =>
     Effect.gen(function* () {
       const result = resultsByTarget.get(publishTargetKey(candidate));
       if (result === undefined) {
@@ -988,7 +1104,12 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
       }
       return {
         ...candidate,
-        publishPreview: yield* resolvedPublishPreview(result),
+        publishPreview: yield* resolvedPublishPreview(
+          candidate,
+          result,
+          preview.publicationSetDigest,
+          visibility,
+        ),
       } satisfies PublishCandidate;
     }),
   );
@@ -1003,35 +1124,16 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
         "--visibility applies only to extensions created by this publish, but the selection contains no eligible new extension.",
     });
   }
-  return prepared;
+  return { candidates: prepared, publicationSet };
 });
 
 const publishCandidate = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
-  visibility: Option.Option<ExtensionVisibility>,
+  exactCapability: PublishCapabilityResponse | undefined,
 ) =>
   Effect.gen(function* () {
     const client = yield* createRegistryClient(registry.url);
-    const defaultRegistryUrl = yield* RegistryUrl;
-    const storedToken = yield* resolveRequestToken(registry.url, defaultRegistryUrl);
-    const isRemoteRegistry =
-      registry.url.startsWith("https://") || registry.url.startsWith("http://");
-    const exactCapability =
-      isRemoteRegistry && Option.isNone(storedToken)
-        ? yield* runPublishAuthorization({
-            registryUrl: registry.url,
-            owner: candidate.owner,
-            type: candidate.type,
-            name: candidate.name,
-            version: candidate.version,
-            archive: candidate.archive,
-            ...Option.match(visibility, {
-              onNone: () => ({}),
-              onSome: (requestedVisibility) => ({ requestedVisibility }),
-            }),
-          })
-        : undefined;
     const metadata: VersionEntry = {
       version: candidate.version,
       published: yield* DateTime.now,
@@ -1235,7 +1337,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
     decodedCandidates.length > 0 &&
     (!isRemoteRegistry || Option.isSome(storedToken));
   const authoritativePreview: Result.Result<
-    ReadonlyArray<PublishCandidate>,
+    {
+      readonly candidates: ReadonlyArray<PublishCandidate>;
+      readonly publicationSet: PreviewPublicationSetRequest;
+    },
     AppError
   > = shouldPreviewAuthoritatively
     ? yield* Effect.result(
@@ -1244,13 +1349,23 @@ const runPublish = Effect.fn("Publish.run")(function* (
           return yield* previewPublishCandidates(decodedCandidates, client, args.visibility);
         }),
       )
-    : Result.succeed(decodedCandidates);
+    : yield* Effect.result(
+        Effect.gen(function* () {
+          return {
+            candidates: decodedCandidates,
+            publicationSet: yield* publicationSetForCandidates(decodedCandidates, args.visibility),
+          };
+        }),
+      );
   const authoritativePreflightError = Result.isFailure(authoritativePreview)
     ? authoritativePreview.failure
     : undefined;
-  const candidates = Result.isSuccess(authoritativePreview)
-    ? authoritativePreview.success
+  const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
+    ? authoritativePreview.success.candidates
     : decodedCandidates;
+  const publicationSet = Result.isSuccess(authoritativePreview)
+    ? authoritativePreview.success.publicationSet
+    : undefined;
   const candidatesByTarget = new Map(
     candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
   );
@@ -1317,10 +1432,86 @@ const runPublish = Effect.fn("Publish.run")(function* (
     hasPublishCandidates: candidates.some((candidate) => candidate.action === "publish"),
   });
 
+  const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
+  const expectedPublicationSetDigest =
+    publicationSet === undefined ? undefined : publicationSetDigest(publicationSet.candidates);
+  const descriptorDigestsByTarget = new Map(
+    (publicationSet?.candidates ?? []).map((descriptor) => [
+      publishTargetKey(descriptor.target),
+      publicationDescriptorDigest(descriptor),
+    ]),
+  );
   const publishedVisibilities = new Map<string, PublishVisibility>();
+  let issuedCapabilities: ReadonlyArray<PublishCapabilityResponse> = [];
+  const loadExactCapabilities = yield* Effect.cached(
+    isRemoteRegistry && Option.isNone(storedToken)
+      ? Effect.gen(function* () {
+          if (publicationSet === undefined) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: "The publication set was unavailable for exact authorization.",
+            });
+          }
+          const exchange = yield* runPublishAuthorization({
+            registryUrl: registry.url,
+            publicationSet,
+          });
+          if (exchange.status === "blocked") {
+            const firstFinding = exchange.preview.packs
+              .flatMap((pack) => pack.findings)
+              .find((finding) => finding.severity === "error");
+            return yield* makeAppError({
+              code: "validation",
+              detail:
+                firstFinding?.message ??
+                "The reviewed publication set was blocked before any upload.",
+              suggestions: (firstFinding?.suggestions ?? []).map((description) => ({
+                description,
+              })),
+              cause: exchange.preview,
+            });
+          }
+          issuedCapabilities = exchange.grants;
+          const byDescriptor = new Map<string, PublishCapabilityResponse>();
+          for (const capability of exchange.grants) {
+            if (
+              byDescriptor.has(capability.publicationDescriptorDigest) ||
+              capability.publicationSetDigest !== expectedPublicationSetDigest
+            ) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: "The registry returned an incompatible exact publish grant bundle.",
+              });
+            }
+            byDescriptor.set(capability.publicationDescriptorDigest, capability);
+          }
+          if (byDescriptor.size !== uploadCandidates.length) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: "The registry returned an incomplete exact publish grant bundle.",
+            });
+          }
+          return byDescriptor;
+        })
+      : Effect.succeed(new Map<string, PublishCapabilityResponse>()),
+  );
 
   const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
-    const run = publishCandidate(candidate, registry, args.visibility).pipe(
+    const run = Effect.gen(function* () {
+      const exactCapabilities = yield* loadExactCapabilities;
+      const descriptorDigest =
+        candidate.publishPreview?.publicationDescriptorDigest ??
+        descriptorDigestsByTarget.get(publishTargetKey(candidate));
+      const exactCapability =
+        descriptorDigest === undefined ? undefined : exactCapabilities.get(descriptorDigest);
+      if (isRemoteRegistry && Option.isNone(storedToken) && exactCapability === undefined) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `The exact grant bundle omitted ${candidate.fqn}@${candidate.version}.`,
+        });
+      }
+      return yield* publishCandidate(candidate, registry, exactCapability);
+    }).pipe(
       Effect.map(({ stepResult, visibility }) => {
         publishedVisibilities.set(publishTargetKey(candidate), visibility);
         return stepResult;
@@ -1342,7 +1533,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
     };
   };
 
-  const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
   if (uploadCandidates.length === 0) {
     if (!args.preview) {
       yield* Effect.forEach(
@@ -1415,7 +1605,18 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ),
     ]),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false }).pipe(
+    Effect.ensuring(
+      Effect.suspend(() =>
+        Effect.forEach(
+          issuedCapabilities,
+          (capability) =>
+            authClient.revokeToken(capability.accessToken).pipe(Effect.catch(() => Effect.void)),
+          { concurrency: 4, discard: true },
+        ),
+      ),
+    ),
+  );
   const failedStepErrors =
     resolution._tag === "ExecutedPlan"
       ? resolution.jobs

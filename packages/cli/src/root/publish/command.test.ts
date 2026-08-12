@@ -19,6 +19,11 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
+import {
+  archiveSha256Hex,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+} from "@agentxm/client-core/unstable/registry";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
@@ -200,13 +205,19 @@ describe("root publish", () => {
   });
 
   it("maps the browser-reviewed exact binding into the upload request", () => {
+    const publicationSetDigestValue = archiveSha256Hex(new TextEncoder().encode("set"));
+    const publicationDescriptorDigestValue = archiveSha256Hex(
+      new TextEncoder().encode("descriptor"),
+    );
     const baseCapability = {
       accessToken: "axm_pub_capability",
       expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
       scope: "extensions:publish:new",
       publishRequestId: "pubreq_test",
-      visibilityContract: "v1" as const,
-      condition: '"pv1-reviewed"',
+      visibilityContract: "v2" as const,
+      condition: '"pv2-reviewed"',
+      publicationSetDigest: publicationSetDigestValue,
+      publicationDescriptorDigest: publicationDescriptorDigestValue,
     };
 
     expect(
@@ -220,8 +231,10 @@ describe("root publish", () => {
       }),
     ).toEqual({
       accessToken: "axm_pub_capability",
-      condition: '"pv1-reviewed"',
+      condition: '"pv2-reviewed"',
       initialVisibility: "private",
+      publicationSetDigest: publicationSetDigestValue,
+      publicationDescriptorDigest: publicationDescriptorDigestValue,
     });
 
     for (const visibility of [
@@ -230,22 +243,37 @@ describe("root publish", () => {
     ] as const) {
       expect(exactPublishUploadBinding({ ...baseCapability, visibility })).toEqual({
         accessToken: "axm_pub_capability",
-        condition: '"pv1-reviewed"',
+        condition: '"pv2-reviewed"',
+        publicationSetDigest: publicationSetDigestValue,
+        publicationDescriptorDigest: publicationDescriptorDigestValue,
       });
     }
 
     expect(
       previewPublishUploadBinding({
         condition: '"pv1-existing"',
+        publicationSetDigest: publicationSetDigestValue,
+        publicationDescriptorDigest: publicationDescriptorDigestValue,
         visibility: { value: "public", disposition: "preserve", source: "existing" },
       }),
-    ).toEqual({ condition: '"pv1-existing"' });
+    ).toEqual({
+      condition: '"pv1-existing"',
+      publicationSetDigest: publicationSetDigestValue,
+      publicationDescriptorDigest: publicationDescriptorDigestValue,
+    });
     expect(
       previewPublishUploadBinding({
         condition: '"pv1-explicit"',
+        publicationSetDigest: publicationSetDigestValue,
+        publicationDescriptorDigest: publicationDescriptorDigestValue,
         visibility: { value: "private", disposition: "establish", source: "explicit" },
       }),
-    ).toEqual({ condition: '"pv1-explicit"', initialVisibility: "private" });
+    ).toEqual({
+      condition: '"pv1-explicit"',
+      initialVisibility: "private",
+      publicationSetDigest: publicationSetDigestValue,
+      publicationDescriptorDigest: publicationDescriptorDigestValue,
+    });
   });
 
   it.effect("publishes with the browser-reviewed visibility and condition without readback", () => {
@@ -322,18 +350,34 @@ describe("root publish", () => {
         });
       },
       exchangePublishAuthorizationCode: () =>
-        Effect.succeed({
-          accessToken: "axm_pub_capability",
-          expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-          scope: "extensions:publish:new",
-          publishRequestId: "pubreq_exact",
-          visibilityContract: "v1",
-          visibility: {
-            value: "private",
-            disposition: "establish",
-            source: "explicit",
-          },
-          condition: '"pv1-reviewed"',
+        Effect.sync(() => {
+          if (authorizationRequest === undefined) {
+            throw new Error("Expected a publication authorization request");
+          }
+          const descriptor = authorizationRequest.publicationSet.candidates[0];
+          if (descriptor === undefined) throw new Error("Expected a publication descriptor");
+          return {
+            status: "admitted" as const,
+            grants: [
+              {
+                accessToken: "axm_pub_capability",
+                expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+                scope: "extensions:publish:new",
+                publishRequestId: "pubreq_exact",
+                visibilityContract: "v2" as const,
+                visibility: {
+                  value: "private" as const,
+                  disposition: "establish" as const,
+                  source: "explicit" as const,
+                },
+                condition: '"pv2-reviewed"',
+                publicationSetDigest: publicationSetDigest(
+                  authorizationRequest.publicationSet.candidates,
+                ),
+                publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
+              },
+            ],
+          };
         }),
     });
     const interaction = DeviceLoginInteractionTest({
@@ -367,8 +411,10 @@ describe("root publish", () => {
         );
 
         expect(authorizationRequest).toMatchObject({
-          visibilityContract: "v1",
-          requestedVisibility: "private",
+          publicationSet: {
+            contract: "publication-set-v1",
+            candidates: [{ initialVisibility: "private" }],
+          },
         });
         expect(uploadRequest?.headers["authorization"]).toBe("Bearer axm_pub_capability");
         const uploadedUrl =
@@ -376,7 +422,9 @@ describe("root publish", () => {
             ? undefined
             : Option.getOrUndefined(HttpClientRequest.toUrl(uploadRequest));
         expect(uploadedUrl?.searchParams.get("visibility")).toBe("private");
-        expect(uploadRequest?.headers["if-match"]).toBe('"pv1-reviewed"');
+        expect(uploadRequest?.headers["if-match"]).toBe('"pv2-reviewed"');
+        expect(uploadRequest?.headers["x-axm-publication-set-digest"]).toBeDefined();
+        expect(uploadRequest?.headers["x-axm-publication-descriptor-digest"]).toBeDefined();
         expect(extensionReadCount).toBe(1);
 
         const result = expectPublishResult(at(context.rendererState.results, 0).data, {

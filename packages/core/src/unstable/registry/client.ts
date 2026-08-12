@@ -34,6 +34,41 @@ import { makeUserArchiveCache } from "./archive-cache.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
+import type {
+  PreviewPublicationSetRequest,
+  PreviewPublicationSetResponse,
+  Sha256Hex,
+} from "./publication-set.js";
+export {
+  MAX_PUBLICATION_SET_CANDIDATES,
+  PUBLICATION_SET_CONTRACT,
+  PackDependencyFindingSchema,
+  PreviewPublicationSetRequestSchema,
+  PreviewPublicationSetResponseSchema,
+  Sha256HexSchema,
+  archiveSha256Hex,
+  comparePublicationTargets,
+  evaluateProspectivePackDependencies,
+  normalizePublicationDescriptor,
+  normalizePublicationSet,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+  publicationTargetKey,
+  validatePublicationDescriptors,
+  validatePublicationSetResponse,
+  type PackDependencyDescriptor,
+  type PackDependencyFinding,
+  type ProspectivePublicationCandidate,
+  type PublicationDependencySnapshot,
+  type PublicationDependencyVersionSnapshot,
+  type PreviewPublicationSetRequest,
+  type PreviewPublicationSetResponse,
+  type PublicationCandidateResult,
+  type PublicationDescriptor,
+  type PublicationPackResult,
+  type PublicationTarget,
+  type Sha256Hex,
+} from "./publication-set.js";
 
 // -----------------------------------------------------------------------------
 // Search Options
@@ -121,6 +156,10 @@ export interface PublishExtensionArgs {
   readonly accessToken?: string;
   /** Opaque authoritative preview condition, sent as If-Match. */
   readonly condition?: string;
+  /** Digest of the complete publication set authorized by the preview. */
+  readonly publicationSetDigest?: Sha256Hex;
+  /** Digest of this exact publication descriptor. */
+  readonly publicationDescriptorDigest?: Sha256Hex;
 }
 
 export type ExtensionVisibility = "public" | "private";
@@ -132,23 +171,8 @@ export interface PublishPreviewTarget {
   readonly version: Version;
 }
 
-export interface PreviewExtensionPublishesArgs {
-  readonly candidates: ReadonlyArray<PublishPreviewTarget>;
-  readonly initialVisibility?: ExtensionVisibility;
-}
-
-export type PublishPreviewResult =
-  | {
-      readonly kind: "resolved";
-      readonly target: PublishPreviewTarget;
-      readonly visibility: PublishVisibility;
-      readonly condition: string;
-    }
-  | {
-      readonly kind: "unavailable";
-      readonly target: PublishPreviewTarget;
-      readonly code: "publish/target-unavailable";
-    };
+export type PreviewExtensionPublishesArgs = PreviewPublicationSetRequest;
+export type PublishPreviewResult = PreviewPublicationSetResponse;
 
 export interface UpdateExtensionVisibilityArgs {
   readonly owner: Handle;
@@ -320,7 +344,7 @@ export interface RegistryClient {
   ) => Effect.Effect<PublishExtensionResponse, AppError>;
   readonly previewExtensionPublishes: (
     args: PreviewExtensionPublishesArgs,
-  ) => Effect.Effect<ReadonlyArray<PublishPreviewResult>, AppError>;
+  ) => Effect.Effect<PublishPreviewResult, AppError>;
   readonly updateExtensionVisibility?: (
     args: UpdateExtensionVisibilityArgs,
   ) => Effect.Effect<void, AppError>;

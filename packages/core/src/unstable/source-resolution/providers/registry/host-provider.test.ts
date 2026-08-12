@@ -30,6 +30,7 @@ import type {
   VersionEntry,
 } from "../../../registry/index.js";
 import { ReleaseAgeExcludePatternSchema, type ExtensionRef } from "../../../extensions/index.js";
+import { PUBLICATION_SET_CONTRACT, publicationSetDigest } from "../../../registry/index.js";
 import type { RegistrySkillRef } from "../../../skills/index.js";
 import type { RegistryMcpServerRef } from "../../../mcps/index.js";
 import type { RegistryPackRef } from "../../../packs/index.js";
@@ -178,7 +179,14 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
         source: args.initialVisibility === undefined ? "platform" : "explicit",
       },
     } as const),
-  previewExtensionPublishes: () => Effect.succeed([]),
+  previewExtensionPublishes: (args) =>
+    Effect.succeed({
+      contract: PUBLICATION_SET_CONTRACT,
+      publicationSetDigest: publicationSetDigest(args.candidates),
+      status: "admitted",
+      candidates: [],
+      packs: [],
+    }),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverPackages: () => Effect.succeed({ results: [] }),
   ...overrides,

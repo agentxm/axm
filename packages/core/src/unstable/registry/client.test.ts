@@ -27,6 +27,7 @@ import type { GetExtensionsByOwnerArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
+import { PUBLICATION_SET_CONTRACT, archiveSha256Hex } from "./publication-set.js";
 import { CompanionPackageSchema, type CompanionPackage } from "../package-urls/index.js";
 import {
   at,
@@ -142,6 +143,19 @@ const makePublishArgs = (
   version: exactVersion(version),
   archive,
   metadata,
+});
+
+const makeRemotePublishArgs = (
+  archive: Uint8Array,
+  metadata: VersionEntry,
+  version = "1.0.0",
+  name = "my-skill",
+  owner = "@test",
+) => ({
+  ...makePublishArgs(archive, metadata, version, name, owner),
+  condition: '"pv2-test"',
+  publicationSetDigest: archiveSha256Hex(new TextEncoder().encode("publication-set")),
+  publicationDescriptorDigest: archiveSha256Hex(new TextEncoder().encode("publication-descriptor")),
 });
 
 /** Create a minimal zip archive with a single file. */
@@ -607,22 +621,21 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
       const registryRoot = makeRegistryDir();
       return Effect.gen(function* () {
         const client = yield* makeLocalClient(registryRoot);
-        const [result] = yield* client.previewExtensionPublishes({
+        const preview = yield* client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
           candidates: [
             {
-              ...makeIndexArgs(),
-              version: exactVersion("1.0.0"),
+              target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
+              participation: "publish",
+              archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
             },
           ],
         });
+        const result = preview.candidates[0];
 
         expect(result?.kind).toBe("resolved");
         if (result?.kind === "resolved") {
-          expect(result.visibility).toEqual({
-            value: "public",
-            disposition: "establish",
-            source: "platform",
-          });
+          expect(result.resolvedVisibility).toBe("public");
           expect(result.condition).toMatch(/^"pv1-[0-9a-f]{64}"$/);
         }
       }).pipe(
@@ -644,23 +657,22 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         );
         const client = yield* makeLocalClient(registryRoot);
 
-        const [result] = yield* client.previewExtensionPublishes({
+        const preview = yield* client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
           candidates: [
             {
-              ...makeIndexArgs(),
-              version: exactVersion("2.0.0"),
+              target: { ...makeIndexArgs(), version: exactVersion("2.0.0") },
+              participation: "publish",
+              archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
+              initialVisibility: "public",
             },
           ],
-          initialVisibility: "public",
         });
+        const result = preview.candidates[0];
 
         expect(result?.kind).toBe("resolved");
         if (result?.kind === "resolved") {
-          expect(result.visibility).toEqual({
-            value: "private",
-            disposition: "preserve",
-            source: "existing",
-          });
+          expect(result.resolvedVisibility).toBe("private");
         }
       }).pipe(
         Effect.ensuring(
@@ -683,24 +695,29 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         const integrity = yield* computeIntegrity(archive);
         const entry = makeVersionEntry({ integrity });
         const client = yield* makeLocalClient(registryRoot);
-        const [preview] = yield* client.previewExtensionPublishes({
+        const previewResponse = yield* client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
           candidates: [
             {
-              ...makeIndexArgs(),
-              version: exactVersion("1.0.0"),
+              target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
+              participation: "publish",
+              archiveSha256Hex: archiveSha256Hex(archive),
+              initialVisibility: "private",
             },
           ],
-          initialVisibility: "private",
         });
-        if (preview?.kind !== "resolved") return;
+        const preview = previewResponse.candidates[0];
+        if (preview?.kind !== "resolved" || preview.condition === undefined) return;
 
         const result = yield* client.publishExtension({
           ...makePublishArgs(archive, entry),
           initialVisibility: "private",
           condition: preview.condition,
+          publicationSetDigest: previewResponse.publicationSetDigest,
+          publicationDescriptorDigest: preview.descriptorDigest,
         });
 
-        expect(result.visibility).toEqual(preview.visibility);
+        expect(result.visibility.value).toBe(preview.resolvedVisibility);
         expect(result.integrity).toBe(integrity);
         expect(result.status).toBe("available");
       }).pipe(
@@ -720,15 +737,18 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         const integrity = yield* computeIntegrity(archive);
         const entry = makeVersionEntry({ integrity });
         const client = yield* makeLocalClient(registryRoot);
-        const [preview] = yield* client.previewExtensionPublishes({
+        const previewResponse = yield* client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
           candidates: [
             {
-              ...makeIndexArgs(),
-              version: exactVersion("1.0.0"),
+              target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
+              participation: "publish",
+              archiveSha256Hex: archiveSha256Hex(archive),
             },
           ],
         });
-        if (preview?.kind !== "resolved") return;
+        const preview = previewResponse.candidates[0];
+        if (preview?.kind !== "resolved" || preview.condition === undefined) return;
         yield* fs.makeDirectory(skillDir, { recursive: true });
         yield* fs.writeFileString(
           nodePath.join(skillDir, "index.json"),
@@ -739,6 +759,8 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
           .publishExtension({
             ...makePublishArgs(archive, entry),
             condition: preview.condition,
+            publicationSetDigest: previewResponse.publicationSetDigest,
+            publicationDescriptorDigest: preview.descriptorDigest,
           })
           .pipe(Effect.result);
 
@@ -1663,7 +1685,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
           publishHttpClient,
         );
         const result = yield* publishClient.publishExtension(
-          makePublishArgs(new Uint8Array([0x50, 0x4b]), makeVersionEntry()),
+          makeRemotePublishArgs(new Uint8Array([0x50, 0x4b]), makeVersionEntry()),
         );
         expect(result).toEqual({
           published: true,
@@ -1799,7 +1821,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         const integrity = yield* computeIntegrity(archive);
 
         yield* client.publishExtension(
-          makePublishArgs(
+          makeRemotePublishArgs(
             archive,
             makeVersionEntry({
               version: "1.0.0",

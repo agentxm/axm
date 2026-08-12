@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
-import { type AppError, type AppErrorMetadata, makeAppError } from "../app-error/index.js";
+import { AppError, type AppErrorMetadata, makeAppError } from "../app-error/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { parseExtensionFqnParts, toExtensionTypePlural } from "../extensions/common.js";
 import {
@@ -70,6 +70,11 @@ import type {
   ExtensionsListByOwner200,
 } from "./__generated__/registry-client.js";
 import type { ArchiveCache } from "./archive-cache.js";
+import {
+  PreviewPublicationSetResponseSchema,
+  validatePublicationDescriptors,
+  validatePublicationSetResponse,
+} from "./publication-set.js";
 
 // -----------------------------------------------------------------------------
 // Type Mapping Helpers
@@ -87,13 +92,20 @@ const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
  */
 const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType(type);
 
-const mapPublishPreviewTarget = (
-  target: GeneratedRegistryClient.PublishPreviewTarget,
-): import("./client.js").PublishPreviewTarget => ({
-  owner: decodeHandleSync(target.owner),
-  type: narrowExtensionType(target.type),
-  name: decodeExtensionNameSync(target.name),
-  version: decodeVersionSync(target.version),
+const decodePublicationSetResponse = Schema.decodeUnknownSync(PreviewPublicationSetResponseSchema);
+const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
+  contract: args.contract,
+  candidates: args.candidates.map((descriptor) => ({
+    target: descriptor.target,
+    participation: descriptor.participation,
+    ...(descriptor.archiveSha256Hex === undefined
+      ? {}
+      : { archiveSha256Hex: descriptor.archiveSha256Hex }),
+    ...(descriptor.initialVisibility === undefined
+      ? {}
+      : { initialVisibility: descriptor.initialVisibility }),
+    ...(descriptor.pack === undefined ? {} : { pack: descriptor.pack }),
+  })),
 });
 
 /**
@@ -642,6 +654,19 @@ export const createRemoteRegistryClient = (
   const publishExtension = (
     args: PublishExtensionArgs,
   ): Effect.Effect<PublishExtensionResponse, AppError> => {
+    if (
+      args.condition === undefined ||
+      args.publicationSetDigest === undefined ||
+      args.publicationDescriptorDigest === undefined
+    ) {
+      return Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: "Remote publish requires an admitted publication-set preview.",
+          suggestions: [{ description: "Preview the complete publication set before uploading." }],
+        }),
+      );
+    }
     const networkSuggestions = buildNetworkSuggestions(baseUrl);
     const networkDiagnosisDetails = buildNetworkDiagnosis(baseUrl);
     const publishRequest = registryRequestMetadata(
@@ -676,22 +701,14 @@ export const createRemoteRegistryClient = (
     });
 
     return publishClient
-      .ExtensionsPublishVersion(
-        args.owner,
-        pluralizeType(args.type),
-        args.name,
-        args.version,
-        args.initialVisibility === undefined && args.condition === undefined
-          ? undefined
-          : {
-              params: {
-                ...(args.initialVisibility === undefined
-                  ? {}
-                  : { visibility: args.initialVisibility }),
-                ...(args.condition === undefined ? {} : { "if-match": args.condition }),
-              },
-            },
-      )
+      .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
+        params: {
+          "if-match": args.condition,
+          "x-axm-publication-set-digest": args.publicationSetDigest,
+          "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
+          ...(args.initialVisibility === undefined ? {} : { visibility: args.initialVisibility }),
+        },
+      })
       .pipe(
         Effect.map(
           (response) =>
@@ -716,33 +733,30 @@ export const createRemoteRegistryClient = (
 
   const previewExtensionPublishes = (
     args: PreviewExtensionPublishesArgs,
-  ): Effect.Effect<ReadonlyArray<PublishPreviewResult>, AppError> =>
+  ): Effect.Effect<PublishPreviewResult, AppError> =>
     client
       .PublishPreviewsPreviewExtensionPublishes({
-        payload: {
-          candidates: args.candidates,
-          ...(args.initialVisibility === undefined ? {} : { visibility: args.initialVisibility }),
-        },
+        payload: encodePublicationSetRequest(args),
         config: undefined,
       })
       .pipe(
-        Effect.map((response) =>
-          response.map((item): PublishPreviewResult =>
-            item.kind === "unavailable"
-              ? {
-                  kind: "unavailable",
-                  target: mapPublishPreviewTarget(item.target),
-                  code: item.code,
-                }
-              : {
-                  kind: "resolved",
-                  target: mapPublishPreviewTarget(item.target),
-                  visibility: item.visibility,
-                  condition: item.condition,
-                },
-          ),
+        Effect.flatMap((response) =>
+          Effect.try({
+            try: () =>
+              validatePublicationSetResponse(
+                validatePublicationDescriptors(args.candidates),
+                decodePublicationSetResponse(response),
+              ),
+            catch: (cause) =>
+              makeAppError({
+                code: "internal",
+                detail: "The registry returned an incompatible publication-set preview.",
+                cause,
+              }),
+          }),
         ),
         Effect.mapError((error) => {
+          if (error instanceof AppError) return error;
           if (isHttpClientError(error)) {
             if (error.reason._tag === "StatusCodeError") {
               return makeAppError({

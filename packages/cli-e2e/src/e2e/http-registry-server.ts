@@ -46,6 +46,8 @@ export interface PublishRecord {
   readonly authorization: string | undefined;
   readonly contentType: string | undefined;
   readonly ifMatch: string | undefined;
+  readonly publicationSetDigest: string | undefined;
+  readonly publicationDescriptorDigest: string | undefined;
   readonly requestedVisibility: string | undefined;
   readonly byteLength: number;
 }
@@ -141,6 +143,135 @@ const sendProblem = (response: http.ServerResponse, status: number, detail: stri
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+interface PreviewTarget {
+  readonly owner: string;
+  readonly type: string;
+  readonly name: string;
+  readonly version: string;
+}
+
+interface PreviewDependency {
+  readonly owner: string;
+  readonly type: string;
+  readonly name: string;
+  readonly range: string;
+}
+
+interface PreviewDescriptor {
+  readonly target: PreviewTarget;
+  readonly participation: "publish" | "verified-existing";
+  readonly archiveSha256Hex?: string;
+  readonly initialVisibility?: "public" | "private";
+  readonly pack?: { readonly dependencies: ReadonlyArray<PreviewDependency> };
+}
+
+const compareText = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0;
+
+const parsePreviewDescriptor = (value: unknown): PreviewDescriptor | undefined => {
+  if (!isRecord(value) || !isRecord(value["target"])) return undefined;
+  const target = value["target"];
+  if (
+    typeof target["owner"] !== "string" ||
+    typeof target["type"] !== "string" ||
+    typeof target["name"] !== "string" ||
+    typeof target["version"] !== "string" ||
+    (value["participation"] !== "publish" && value["participation"] !== "verified-existing")
+  ) {
+    return undefined;
+  }
+  const archiveSha256Hex = value["archiveSha256Hex"];
+  if (archiveSha256Hex !== undefined && typeof archiveSha256Hex !== "string") return undefined;
+  const initialVisibility = value["initialVisibility"];
+  if (
+    initialVisibility !== undefined &&
+    initialVisibility !== "public" &&
+    initialVisibility !== "private"
+  ) {
+    return undefined;
+  }
+  const packValue = value["pack"];
+  let pack: PreviewDescriptor["pack"];
+  if (packValue !== undefined) {
+    if (!isRecord(packValue) || !Array.isArray(packValue["dependencies"])) return undefined;
+    const dependencies: Array<PreviewDependency> = [];
+    for (const dependency of packValue["dependencies"]) {
+      if (
+        !isRecord(dependency) ||
+        typeof dependency["owner"] !== "string" ||
+        typeof dependency["type"] !== "string" ||
+        typeof dependency["name"] !== "string" ||
+        typeof dependency["range"] !== "string"
+      ) {
+        return undefined;
+      }
+      dependencies.push({
+        owner: dependency["owner"],
+        type: dependency["type"],
+        name: dependency["name"],
+        range: dependency["range"],
+      });
+    }
+    pack = { dependencies };
+  }
+  return {
+    target: {
+      owner: target["owner"],
+      type: target["type"],
+      name: target["name"],
+      version: target["version"],
+    },
+    participation: value["participation"],
+    ...(archiveSha256Hex === undefined ? {} : { archiveSha256Hex }),
+    ...(initialVisibility === undefined ? {} : { initialVisibility }),
+    ...(pack === undefined ? {} : { pack }),
+  };
+};
+
+const normalizeDescriptor = (descriptor: PreviewDescriptor): PreviewDescriptor => ({
+  target: descriptor.target,
+  participation: descriptor.participation,
+  ...(descriptor.archiveSha256Hex === undefined
+    ? {}
+    : { archiveSha256Hex: descriptor.archiveSha256Hex }),
+  ...(descriptor.initialVisibility === undefined
+    ? {}
+    : { initialVisibility: descriptor.initialVisibility }),
+  ...(descriptor.pack === undefined
+    ? {}
+    : {
+        pack: {
+          dependencies: [...descriptor.pack.dependencies].sort(
+            (left, right) =>
+              compareText(left.owner, right.owner) ||
+              compareText(left.type, right.type) ||
+              compareText(left.name, right.name) ||
+              compareText(left.range, right.range),
+          ),
+        },
+      }),
+});
+
+const sha256Json = (value: unknown): string =>
+  crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+const descriptorDigest = (descriptor: PreviewDescriptor): string =>
+  sha256Json({ contract: "publication-set-v1", descriptor: normalizeDescriptor(descriptor) });
+
+const publicationSetDigest = (descriptors: ReadonlyArray<PreviewDescriptor>): string =>
+  sha256Json({
+    contract: "publication-set-v1",
+    candidates: descriptors
+      .map(normalizeDescriptor)
+      .sort(
+        (left, right) =>
+          compareText(left.target.owner, right.target.owner) ||
+          compareText(left.target.type, right.target.type) ||
+          compareText(left.target.name, right.target.name) ||
+          compareText(left.target.version, right.target.version),
+      ),
+  });
+
 const packDependencies = (archive: Buffer): ReadonlyArray<string> => {
   const entries = unzipSync(archive);
   const manifestBytes = entries["pack.json"];
@@ -159,7 +290,10 @@ export const startHttpRegistry = async (
 ): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
   const extensionVisibilities = new Map<string, "public" | "private">();
-  const previewConditions = new Map<string, string>();
+  const previewBindings = new Map<
+    string,
+    { readonly condition: string; readonly setDigest: string; readonly descriptorDigest: string }
+  >();
   const publishes: Array<PublishRecord> = [];
   const requests: Array<RequestRecord> = [];
   const tokenOwners: Readonly<Record<string, string>> = {
@@ -234,24 +368,17 @@ export const startHttpRegistry = async (
           sendProblem(response, 400, "Publish preview candidates are required.");
           return;
         }
-        const requestedVisibility =
-          body["visibility"] === "public" || body["visibility"] === "private"
-            ? body["visibility"]
-            : undefined;
-        const previews = body["candidates"].map((candidate: unknown) => {
-          if (
-            !isRecord(candidate) ||
-            typeof candidate["owner"] !== "string" ||
-            typeof candidate["type"] !== "string" ||
-            typeof candidate["name"] !== "string" ||
-            typeof candidate["version"] !== "string"
-          ) {
-            throw new Error("Invalid publish preview candidate");
-          }
-          const owner = candidate["owner"];
-          const type = candidate["type"];
-          const name = candidate["name"];
-          const version = candidate["version"];
+        const descriptors = body["candidates"].map(parsePreviewDescriptor);
+        if (descriptors.some((descriptor) => descriptor === undefined)) {
+          sendProblem(response, 400, "Invalid publication descriptor.");
+          return;
+        }
+        const completeDescriptors = descriptors.flatMap((descriptor) =>
+          descriptor === undefined ? [] : [descriptor],
+        );
+        const setDigest = publicationSetDigest(completeDescriptors);
+        const previews = completeDescriptors.map((candidate) => {
+          const { owner, type, name, version } = candidate.target;
           const plural = Object.entries(TYPE_BY_PLURAL).find(([, value]) => value === type)?.[0];
           if (plural === undefined) throw new Error(`Unknown extension type ${type}`);
           const extensionKey = key(owner, plural, name);
@@ -259,9 +386,9 @@ export const startHttpRegistry = async (
           const visibility =
             existingVisibility === undefined
               ? {
-                  value: requestedVisibility ?? "public",
+                  value: candidate.initialVisibility ?? "public",
                   disposition: "establish",
-                  source: requestedVisibility === undefined ? "platform" : "explicit",
+                  source: candidate.initialVisibility === undefined ? "platform" : "explicit",
                 }
               : {
                   value: existingVisibility,
@@ -272,31 +399,57 @@ export const startHttpRegistry = async (
             .createHash("sha256")
             .update(`${targetKey(owner, plural, name, version)}:${JSON.stringify(visibility)}`)
             .digest("hex")}"`;
-          previewConditions.set(targetKey(owner, plural, name, version), condition);
+          const candidateDigest = descriptorDigest(candidate);
+          if (candidate.participation === "publish") {
+            previewBindings.set(targetKey(owner, plural, name, version), {
+              condition,
+              setDigest,
+              descriptorDigest: candidateDigest,
+            });
+          }
           return {
             kind: "resolved",
             target: { owner, type, name, version },
-            visibility,
-            condition,
+            participation: candidate.participation,
+            descriptorDigest: candidateDigest,
+            resolvedVisibility: visibility.value,
+            ...(candidate.participation === "publish" ? { condition } : {}),
           };
         });
+        const packs = completeDescriptors
+          .filter(
+            (descriptor) =>
+              descriptor.target.type === "pack" && descriptor.participation === "publish",
+          )
+          .map((descriptor) => ({
+            target: descriptor.target,
+            status: "admitted",
+            findings: [],
+          }));
         if (options.publishPreviewMode === "unavailable") {
-          sendJson(
-            response,
-            200,
-            previews.map((preview) => ({
+          sendJson(response, 200, {
+            contract: "publication-set-v1",
+            publicationSetDigest: setDigest,
+            status: "blocked",
+            candidates: previews.map((preview) => ({
               kind: "unavailable",
               target: preview.target,
+              participation: preview.participation,
+              descriptorDigest: preview.descriptorDigest,
               code: "publish/target-unavailable",
             })),
-          );
+            packs,
+          });
           return;
         }
-        sendJson(
-          response,
-          200,
-          options.publishPreviewMode === "incomplete" ? previews.slice(0, -1) : previews,
-        );
+        sendJson(response, 200, {
+          contract: "publication-set-v1",
+          publicationSetDigest: setDigest,
+          status: "admitted",
+          candidates:
+            options.publishPreviewMode === "incomplete" ? previews.slice(0, -1) : previews,
+          packs,
+        });
         return;
       }
 
@@ -316,8 +469,14 @@ export const startHttpRegistry = async (
           sendProblem(response, 401, "Publishing requires a bearer token.");
           return;
         }
-        const expectedCondition = previewConditions.get(targetKey(owner, plural, name, version));
-        if (expectedCondition === undefined || request.headers["if-match"] !== expectedCondition) {
+        const expectedBinding = previewBindings.get(targetKey(owner, plural, name, version));
+        if (
+          expectedBinding === undefined ||
+          request.headers["if-match"] !== expectedBinding.condition ||
+          request.headers["x-axm-publication-set-digest"] !== expectedBinding.setDigest ||
+          request.headers["x-axm-publication-descriptor-digest"] !==
+            expectedBinding.descriptorDigest
+        ) {
           sendProblem(response, 412, "Publish preview condition is missing or stale.");
           return;
         }
@@ -372,6 +531,8 @@ export const startHttpRegistry = async (
           authorization: request.headers.authorization,
           contentType: request.headers["content-type"],
           ifMatch: request.headers["if-match"],
+          publicationSetDigest: request.headers["x-axm-publication-set-digest"],
+          publicationDescriptorDigest: request.headers["x-axm-publication-descriptor-digest"],
           requestedVisibility: requestedVisibility ?? undefined,
           byteLength: archive.byteLength,
         });

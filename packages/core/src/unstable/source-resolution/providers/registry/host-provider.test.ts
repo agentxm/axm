@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
+import { strToU8, zipSync } from "fflate";
 
 import { makeAppError } from "../../../app-error/index.js";
 import type {
@@ -33,6 +34,7 @@ import type { RegistryMcpServerRef } from "../../../mcps/index.js";
 import type { RegistryPackRef } from "../../../packs/index.js";
 import type { RegistrySubagentRef } from "../../../subagents/index.js";
 import type { RegistrySource, FindOptions } from "../../../sources/index.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "../../../skills/index.js";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,
@@ -57,6 +59,16 @@ const sha512 = (data: Uint8Array): string => {
   const b64 = createHash("sha512").update(data).digest("base64");
   return `sha512-${b64}`;
 };
+
+const makeAxmSkillArchive = (version: string, range = version): Uint8Array =>
+  zipSync({
+    "skill.json": strToU8(
+      JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version }),
+    ),
+    "src/SKILL.md": strToU8(
+      `---\nname: axm\ndescription: AXM guidance\nmetadata:\n  axm.sh/cli-version: "${version}"\n  axm.sh/cli-version-range: "${range}"\n---\n`,
+    ),
+  });
 
 /** Create a temp registry with owner directories and return source + cleanup. */
 const makeTestRegistry = (
@@ -351,6 +363,127 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
         expect(result.ref.version).toBe("1.0.0");
         expect(result.newerHeld?.version).toBe("2.0.0");
       }),
+    );
+  });
+
+  it.effect("selects the newest compatible official AXM skill candidate", () => {
+    const older = makeAxmSkillArchive("1.0.0");
+    const newer = makeAxmSkillArchive("2.0.0");
+    const probes: string[] = [];
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@agentxm"),
+              type: "skill",
+              name: extensionName("axm"),
+              publisherBindingId: "hbnd_agentxm",
+              versions: [
+                makeVersionEntry({ version: "1.0.0", integrity: sha512(older) }),
+                makeVersionEntry({ version: "2.0.0", integrity: sha512(newer) }),
+              ],
+            }),
+          ),
+        getExtensionPackage: (args) => {
+          const version = Option.getOrThrow(args.version);
+          probes.push(`${version}:${args.usagePurpose ?? "install"}`);
+          return Effect.succeed({ archive: version === "2.0.0" ? newer : older });
+        },
+      }),
+    );
+
+    return runEffect(
+      provider
+        .resolveNamed(testSource, {
+          ...options,
+          owner: handle("@agentxm"),
+          name: "axm",
+        })
+        .pipe(
+          Effect.tap((result) =>
+            Effect.sync(() => {
+              expect(result.kind).toBe("selected");
+              if (result.kind === "selected") expect(result.ref.version).toBe("1.0.0");
+              expect(probes).toEqual(["2.0.0:verification", "1.0.0:verification"]);
+            }),
+          ),
+          Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
+        ),
+    );
+  });
+
+  it.effect("rejects an exact incompatible official AXM skill release", () => {
+    const archive = makeAxmSkillArchive("2.0.0");
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@agentxm"),
+              type: "skill",
+              name: extensionName("axm"),
+              publisherBindingId: "hbnd_agentxm",
+              versions: [makeVersionEntry({ version: "2.0.0", integrity: sha512(archive) })],
+            }),
+          ),
+        getExtensionPackage: () => Effect.succeed({ archive }),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          provider.resolveNamed(testSource, {
+            ...options,
+            owner: handle("@agentxm"),
+            name: "axm",
+            versionRange: Option.some("2.0.0"),
+          }),
+        );
+        expect(error.code).toBe("conflict");
+        expect(error.detail).toContain("outside the official AXM skill range");
+      }).pipe(Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0"))),
+    );
+  });
+
+  it.effect("returns not_found when no compatible ranged AXM skill exists", () => {
+    const archive = makeAxmSkillArchive("2.0.0");
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@agentxm"),
+              type: "skill",
+              name: extensionName("axm"),
+              publisherBindingId: "hbnd_agentxm",
+              versions: [makeVersionEntry({ version: "2.0.0", integrity: sha512(archive) })],
+            }),
+          ),
+        getExtensionPackage: () => Effect.succeed({ archive }),
+      }),
+    );
+
+    return runEffect(
+      provider
+        .resolveNamed(testSource, {
+          ...options,
+          owner: handle("@agentxm"),
+          name: "axm",
+          versionRange: Option.some("^2.0.0"),
+        })
+        .pipe(
+          Effect.tap((result) =>
+            Effect.sync(() =>
+              expect(result).toEqual({
+                kind: "not_found",
+                target: "@agentxm/skills/axm",
+              }),
+            ),
+          ),
+          Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
+        ),
     );
   });
 });
@@ -921,6 +1054,47 @@ describe("LocalRegistrySourceHostProvider.match", () => {
 // -----------------------------------------------------------------------------
 
 describe("RemoteRegistrySourceHostProvider", () => {
+  it.effect("routes official AXM skill find through compatibility-aware selection", () => {
+    const archive = makeAxmSkillArchive("1.0.0");
+    let scopeReads = 0;
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionsByScope: () => {
+          scopeReads += 1;
+          return Effect.succeed(toResult([]));
+        },
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@agentxm"),
+              type: "skill",
+              name: extensionName("axm"),
+              publisherBindingId: "hbnd_agentxm",
+              versions: [makeVersionEntry({ version: "1.0.0", integrity: sha512(archive) })],
+            }),
+          ),
+        getExtensionPackage: () => Effect.succeed({ archive }),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(
+          { ...testSource, owner: Option.some(handle("@agentxm")) },
+          {
+            ...defaultFindOptions,
+            names: ["axm"],
+            owner: Option.none(),
+          },
+        );
+        expect(refs.map((ref) => (ref.refType === "registry" ? ref.version : null))).toEqual([
+          "1.0.0",
+        ]);
+        expect(scopeReads).toBe(0);
+      }).pipe(Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0"))),
+    );
+  });
+
   it.effect("find fails when client returns error", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);

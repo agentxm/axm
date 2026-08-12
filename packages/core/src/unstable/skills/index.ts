@@ -51,6 +51,7 @@ export {
   type ReadAxmSkillWorkspaceCompatibilityArgs,
 } from "./axm-skill-workspace-compatibility.js";
 export {
+  evaluateAxmSkillCandidate,
   validateAxmSkillCandidate,
   type ValidateAxmSkillCandidateArgs,
 } from "./axm-skill-candidate.js";

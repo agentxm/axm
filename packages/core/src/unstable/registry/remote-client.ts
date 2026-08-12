@@ -232,6 +232,16 @@ export const createRemoteRegistryClient = (
     HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
   );
   const client = GeneratedRegistryClient.make(remoteHttpClient);
+  const verificationArchiveClient = GeneratedRegistryClient.make(remoteHttpClient, {
+    transformClient: (baseClient) =>
+      Effect.succeed(
+        baseClient.pipe(
+          HttpClient.mapRequest(
+            HttpClientRequest.setHeader("x-agentxm-usage-purpose", "verification"),
+          ),
+        ),
+      ),
+  });
 
   // ---------------------------------------------------------------------------
   // getExtensionIndex
@@ -507,7 +517,9 @@ export const createRemoteRegistryClient = (
       }
 
       // Step 3: Download archive
-      const archive = yield* client
+      const archiveClient =
+        args.usagePurpose === "verification" ? verificationArchiveClient : client;
+      const archive = yield* archiveClient
         .ExtensionsDownloadArchive(
           args.owner,
           pluralizeType(args.type),

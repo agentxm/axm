@@ -73,6 +73,8 @@ export interface GetExtensionPackageArgs {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly version: Option.Option<Version | VersionRange>;
+  /** Marks an archive read used only to verify compatibility before selection. */
+  readonly usagePurpose?: "verification";
 }
 
 // -----------------------------------------------------------------------------

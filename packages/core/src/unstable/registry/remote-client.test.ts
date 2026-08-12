@@ -435,8 +435,10 @@ describe("getExtensionPackage", () => {
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const requestedUrls: Array<string> = [];
+      const usagePurposes: Array<string | undefined> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
+        usagePurposes.push(request.headers["x-agentxm-usage-purpose"]);
         return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
       });
       const cache = {
@@ -448,10 +450,44 @@ describe("getExtensionPackage", () => {
       } satisfies ArchiveCache;
       const client = createRemoteRegistryClient(BASE_URL, httpClient, cache);
 
-      const result = yield* client.getExtensionPackage(makePackageArgs());
+      const result = yield* client.getExtensionPackage({
+        ...makePackageArgs(),
+        usagePurpose: "verification",
+      });
 
       expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
       expect(requestedUrls).toEqual([`${BASE_URL}/v1/extensions/@acme/skills/test-skill`]);
+      expect(usagePurposes).toEqual([undefined]);
+    }),
+  );
+
+  it.effect("marks only verification archive downloads with the usage-purpose header", () =>
+    Effect.gen(function* () {
+      const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requests: Array<{ readonly url: string; readonly purpose: string | undefined }> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requests.push({
+          url: request.url,
+          purpose: request.headers["x-agentxm-usage-purpose"],
+        });
+        return request.url.endsWith("/archive")
+          ? new Response(archiveData, { status: 200 })
+          : new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      yield* client.getExtensionPackage({
+        ...makePackageArgs("test-skill", "1.0.0"),
+        usagePurpose: "verification",
+      });
+      yield* client.getExtensionPackage(makePackageArgs("test-skill", "1.0.0"));
+
+      expect(requests.map((request) => request.purpose)).toEqual([
+        undefined,
+        "verification",
+        undefined,
+        undefined,
+      ]);
     }),
   );
 

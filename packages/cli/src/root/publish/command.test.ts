@@ -18,6 +18,7 @@ import {
   extensionTypes,
 } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
+import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
@@ -865,9 +866,9 @@ describe("root publish", () => {
     );
   });
 
-  it.effect("blocks metadata publication before producing an archive", () => {
+  it.effect("publishes manifest metadata in the archive", () => {
     writeReviewSkill();
-    const { provide } = makeContext(false);
+    const { provide, rendererState } = makeContext(false);
     const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
     const manifestPath = path.join(
       tempDir,
@@ -879,23 +880,37 @@ describe("root publish", () => {
       "skill.json",
     );
     const manifest = expectRecord(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({ ...manifest, metadata: { "com.example/tool": { enabled: true } } }),
-    );
+    const metadata = { "com.example/tool": { enabled: true } };
+    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, metadata }));
 
     return provide(
       Effect.gen(function* () {
-        const error = getAppError(
-          yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(Effect.flip),
-        );
+        yield* handleRootPublish(args(registryUrl, { preview: false }));
 
-        expect(error.code).toBe("validation");
-        expect(error.detail).toContain("metadata publication is not active yet");
-        expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
-          "Remove metadata and retry, or upgrade to the AXM activation release when it is available.",
+        const archive = fs.readFileSync(
+          path.join(tempDir, "registry", "extensions", "@acme", "skills", "review", "1.0.0.zip"),
         );
-        expect(fs.readdirSync(path.join(tempDir, "registry"))).toEqual([]);
+        const normalized = yield* normalizePublishInput({
+          declaredIdentity: {
+            owner: handle("@acme"),
+            type: "skill",
+            name: extensionName("review"),
+            version: exactVersion("1.0.0"),
+          },
+          archive: { archiveBytes: archive, archiveContentType: "application/zip" },
+        });
+        const result = expectPublishResult(at(rendererState.results, 0).data, {
+          mode: "apply",
+          count: 1,
+        });
+        const results = property(result, "results");
+        if (!Array.isArray(results)) throw new Error("Expected publish results");
+
+        expect(property(expectRecord(normalized.manifest.raw), "metadata")).toEqual(metadata);
+        expect(expectRecord(at(results, 0))).toMatchObject({
+          action: "publish",
+          status: "success",
+        });
       }),
     );
   });

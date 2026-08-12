@@ -137,6 +137,9 @@ importers:
 
   .:
     devDependencies:
+      '@agentxm/client-core':
+        specifier: workspace:*
+        version: link:packages/core
       '@agentxm/client-utils':
         specifier: workspace:*
         version: link:packages/utils
@@ -182,6 +185,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107
       eslint:
         specifier: 'catalog:'
         version: 10.3.0(supports-color@7.2.0)

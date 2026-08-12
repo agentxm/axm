@@ -7,8 +7,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   releaseTagFromVersion,
   releaseVersionFromTag,
-  readSkillCliVersion,
-  stampSkillCliVersion,
+  readGeneratedSkillCompatibilityFromContent,
+  readSkillCompatibility,
+  stampSkillCompatibility,
+  transitionSkillCompatibility,
+  validateGeneratedSkillCompatibility,
   validateReleaseTag,
   writeSkillVersion,
 } from "./release-shared.js";
@@ -117,7 +120,7 @@ describe("release tag helpers", () => {
 });
 
 describe("bundled skill release stamps", () => {
-  it("updates the skill manifest and CLI version frontmatter", () => {
+  it("updates the manifest and transitions an exact compatibility range", () => {
     const directory = mkdtempSync(join(tmpdir(), "axm-release-skill-"));
     temporaryDirectories.push(directory);
     const manifestPath = join(directory, "skill.json");
@@ -126,14 +129,74 @@ describe("bundled skill release stamps", () => {
     writeFileSync(manifestPath, '{\n  "name": "axm",\n  "version": "0.2.8"\n}\n', "utf8");
     writeFileSync(
       documentPath,
-      '---\nname: axm\nmetadata:\n  agentxm.ai/cli-version: "0.2.8"\n---\n\n# AXM\n',
+      '---\nname: axm\ndescription: AXM test skill.\nmetadata:\n  axm.sh/cli-version: "0.2.8"\n  axm.sh/cli-version-range: "0.2.8"\n---\n\n# AXM\n',
       "utf8",
     );
 
     writeSkillVersion("0.24.9", manifestPath);
-    stampSkillCliVersion("0.24.9", documentPath);
+    stampSkillCompatibility("0.24.9", documentPath);
 
     expect(readFileSync(manifestPath, "utf8")).toContain('"version": "0.24.9"');
-    expect(readSkillCliVersion(documentPath)).toBe("0.24.9");
+    expect(readSkillCompatibility(documentPath)).toEqual({
+      cliVersion: "0.24.9",
+      cliVersionRange: "0.24.9",
+    });
+  });
+
+  it("preserves an intentional range only when it includes the next release", () => {
+    expect(
+      transitionSkillCompatibility(
+        { cliVersion: "1.2.3", cliVersionRange: ">=1.2.0 <1.3.0" },
+        "1.2.4",
+      ),
+    ).toEqual({ cliVersion: "1.2.4", cliVersionRange: ">=1.2.0 <1.3.0" });
+
+    expect(() =>
+      transitionSkillCompatibility(
+        { cliVersion: "1.2.3", cliVersionRange: ">=1.2.0 <1.3.0" },
+        "1.3.0",
+      ),
+    ).toThrow("skill-release-range-mismatch");
+  });
+
+  it("rejects malformed or mismatched current declarations", () => {
+    expect(() =>
+      transitionSkillCompatibility({ cliVersion: "1.2.3", cliVersionRange: ">=1.2.0" }, "1.2.4"),
+    ).toThrow("compatibility-metadata-malformed");
+
+    expect(() =>
+      transitionSkillCompatibility({ cliVersion: "1.2.3", cliVersionRange: "1.2.2" }, "1.2.4"),
+    ).toThrow("skill-release-range-mismatch");
+  });
+
+  it("reads generated compatibility constants and rejects incomplete output", () => {
+    expect(
+      readGeneratedSkillCompatibilityFromContent(
+        'export const AXM_SKILL_VERSION = "1.2.3";\nexport const AXM_SKILL_CLI_VERSION = "1.2.3";\nexport const AXM_SKILL_CLI_VERSION_RANGE = ">=1.2.0 <1.3.0";\n',
+        "generated.ts",
+      ),
+    ).toEqual({
+      version: "1.2.3",
+      cliVersion: "1.2.3",
+      cliVersionRange: ">=1.2.0 <1.3.0",
+    });
+
+    expect(() =>
+      readGeneratedSkillCompatibilityFromContent(
+        'export const AXM_SKILL_VERSION = "1.2.3";\n',
+        "generated.ts",
+      ),
+    ).toThrow("AXM_SKILL_CLI_VERSION");
+  });
+
+  it("rejects generated constants that drift from the canonical declaration", () => {
+    expect(() =>
+      validateGeneratedSkillCompatibility(
+        "1.2.3",
+        { cliVersion: "1.2.3", cliVersionRange: "1.2.3" },
+        { version: "1.2.3", cliVersion: "1.2.2", cliVersionRange: "1.2.3" },
+        "generated.ts",
+      ),
+    ).toThrow("Generated AXM skill mismatch");
   });
 });

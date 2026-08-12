@@ -22,7 +22,9 @@ import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extension
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/client-core/unstable/skills";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
+import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
 import {
   computePackageContentHashSync,
@@ -266,6 +268,7 @@ describe("update.handler — error recovery", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
@@ -822,6 +825,7 @@ describe("update.handler — preview flag", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);
     // Registry fixtures are published at 2026-01-01; advance the virtual clock

@@ -499,8 +499,13 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
     filteredEntries,
-    ([name, sourceStr]) =>
-      Effect.gen(function* () {
+    ([name, sourceStr]) => {
+      const configuredRegistryPattern = toRegistrySkillPattern(sourceStr);
+      const isOfficialAxmSource = Option.exists(
+        configuredRegistryPattern,
+        (pattern) => pattern.owner === "@agentxm" && pattern.name === "axm",
+      );
+      return Effect.gen(function* () {
         if (isWorkspaceSourceLocator(sourceStr)) {
           return {
             type: "skip",
@@ -578,14 +583,17 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         } satisfies ResolveResult;
       }).pipe(
         Effect.catch((error) =>
-          Effect.succeed({
-            type: "skip",
-            name,
-            source: sourceStr,
-            reason: `Failed to resolve "${name}": ${String(error)}`,
-          } satisfies ResolveResult),
+          isOfficialAxmSource
+            ? Effect.fail(error)
+            : Effect.succeed({
+                type: "skip",
+                name,
+                source: sourceStr,
+                reason: `Failed to resolve "${name}": ${String(error)}`,
+              } satisfies ResolveResult),
         ),
-      ),
+      );
+    },
     { concurrency: "unbounded" },
   );
 

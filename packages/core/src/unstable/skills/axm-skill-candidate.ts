@@ -57,8 +57,8 @@ export interface ValidateAxmSkillCandidateArgs {
   readonly skillSourcePath: string;
 }
 
-/** Validate official AXM skill bytes before any workspace state is changed. */
-export const validateAxmSkillCandidate = (
+/** Inspect candidate bytes and evaluate official AXM skill compatibility. */
+export const evaluateAxmSkillCandidate = (
   args: ValidateAxmSkillCandidateArgs,
 ): Effect.Effect<AxmSkillCompatibility | null, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -91,6 +91,16 @@ export const validateAxmSkillCandidate = (
         detail: "AXM compatibility policy did not evaluate the official AXM skill",
       });
     }
+    return result;
+  });
+
+/** Validate official AXM skill bytes before any workspace state is changed. */
+export const validateAxmSkillCandidate = (
+  args: ValidateAxmSkillCandidateArgs,
+): Effect.Effect<AxmSkillCompatibility | null, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const result = yield* evaluateAxmSkillCandidate(args);
+    if (result === null) return null;
     if (result.status === "incompatible") {
       return yield* makeAppError({
         code: "conflict",

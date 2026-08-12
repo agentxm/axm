@@ -22,7 +22,9 @@ import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extension
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/client-core/unstable/skills";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
+import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
 import {
   computePackageContentHashSync,
@@ -84,14 +86,21 @@ const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerA
   ...overrides,
 });
 
-const createTestZip = (fileName: string, content: string): Uint8Array => {
+const createTestZip = (
+  fileName: string,
+  content: string,
+  rootFiles: Readonly<Record<string, string>> = {},
+): Uint8Array => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-update-zip-"));
   try {
     const sourceDir = path.join(dir, "src");
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.writeFileSync(path.join(sourceDir, fileName), content);
+    for (const [name, rootContent] of Object.entries(rootFiles)) {
+      fs.writeFileSync(path.join(dir, name), rootContent);
+    }
     const opts: ExecSyncOptions = { stdio: "pipe" };
-    execSync(`cd "${dir}" && zip -q archive.zip "src/${fileName}"`, opts);
+    execSync(`cd "${dir}" && zip -qr archive.zip src ${Object.keys(rootFiles).join(" ")}`, opts);
     return fs.readFileSync(path.join(dir, "archive.zip"));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -148,14 +157,28 @@ const writeRegistrySkill = ({
   readonly versions: ReadonlyArray<{
     readonly version: string;
     readonly skillBody: string;
+    readonly officialManifest?: boolean;
   }>;
   readonly publisherBindingId?: string;
 }) => {
   const dir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(dir, { recursive: true });
 
-  const versionEntries = versions.map(({ version, skillBody }) => {
-    const archive = createTestZip("SKILL.md", skillBody);
+  const versionEntries = versions.map(({ version, skillBody, officialManifest }) => {
+    const archive = createTestZip(
+      "SKILL.md",
+      skillBody,
+      officialManifest === true
+        ? {
+            "skill.json": JSON.stringify({
+              owner: "@agentxm",
+              type: "skill",
+              name: "axm",
+              version,
+            }),
+          }
+        : {},
+    );
     fs.writeFileSync(path.join(dir, `${version}.zip`), archive);
     return {
       version,
@@ -245,6 +268,7 @@ describe("update.handler — error recovery", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
@@ -632,6 +656,57 @@ describe("update.handler — error recovery", () => {
     },
   );
 
+  it.effect("updates the official AXM skill to the newest compatible release", () => {
+    const { provide } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    const skillBody = (version: string) =>
+      `---\nname: axm\ndescription: AXM guidance\nmetadata:\n  axm.sh/cli-version: "${version}"\n  axm.sh/cli-version-range: "${version}"\n---\n`;
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@agentxm",
+      name: "axm",
+      versions: [
+        {
+          version: "0.26.4",
+          skillBody: skillBody("0.26.4"),
+          officialManifest: true,
+        },
+        {
+          version: "0.26.3",
+          skillBody: skillBody("0.26.3"),
+          officialManifest: true,
+        },
+      ],
+    });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: { axm: "@agentxm/skills/axm" },
+      skillLocks: {
+        axm: makeRegistryLockEntry("@agentxm", "axm", "0.26.2"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs());
+        const lockfile = expectRecord(
+          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          "Expected lockfile object",
+        );
+        const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
+        const lockedSkill = expectRecord(lockedSkills["axm"], "Expected AXM skill lock entry");
+        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("0.26.3");
+      }),
+    );
+  });
+
   it.effect("surfaces pack constraint holdback as structured update context", () => {
     const { provide, logs, rendererState } = makeLayers({ machine: true });
     const registryRoot = path.join(tempDir, "registry");
@@ -750,6 +825,7 @@ describe("update.handler — preview flag", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);
     // Registry fixtures are published at 2026-01-01; advance the virtual clock

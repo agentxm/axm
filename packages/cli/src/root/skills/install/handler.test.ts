@@ -438,7 +438,7 @@ describe("skills install handler — error propagation", () => {
     );
   });
 
-  it.effect("returns DISCOVER_FAILED with a concrete reason detail", () => {
+  it.effect("preserves source discovery failures with a concrete cause", () => {
     const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
@@ -450,7 +450,7 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("usage");
+        expect(appError.code).toBe("network");
         expect(appError.cause).toBeDefined();
       }),
     );

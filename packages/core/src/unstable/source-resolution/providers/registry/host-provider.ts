@@ -11,9 +11,12 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
+import * as semver from "semver";
 
 import { type AppError, makeAppError } from "../../../app-error/index.js";
 import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
@@ -29,7 +32,10 @@ import {
   resolveVersionEntryWithReleaseAge,
   resolveVersionEntryForReleaseAge,
   extensionLifecycleWarnings,
+  isVersionEntryEligibleAt,
+  releaseAgeEvidence,
 } from "../../../registry/index.js";
+import { evaluateAxmSkillCandidate } from "../../../skills/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
   decodeExtensionNameSync,
@@ -147,11 +153,123 @@ const manifestFromIndex = (
 const namedTarget = (options: NamedRegistryFindOptions): string =>
   `${options.owner}/${toExtensionTypePlural(options.type)}/${options.name}`;
 
+const isOfficialAxmSkill = (options: NamedRegistryFindOptions): boolean =>
+  options.type === "skill" && options.owner === "@agentxm" && options.name === "axm";
+
+const manifestForVersion = (
+  index: ExtensionIndex,
+  version: VersionEntry,
+): RegistryExtensionManifest => {
+  const lifecycleWarnings = extensionLifecycleWarnings(index, version);
+  return {
+    owner: index.owner,
+    type: index.type,
+    name: index.name,
+    publisherBindingId: index.publisherBindingId,
+    description: Option.fromUndefinedOr(index.description),
+    repository: Option.fromUndefinedOr(index.repository),
+    bugs: Option.fromUndefinedOr(index.bugs),
+    license: Option.fromUndefinedOr(index.license),
+    authors: Option.match(Option.fromUndefinedOr(index.authors), {
+      onNone: (): ReadonlyArray<Author> => [],
+      onSome: (authors) => authors.map((author) => toAuthor(author)),
+    }),
+    dependencies: version.dependencies ?? {},
+    version: version.version,
+    integrity: version.integrity,
+    packages: packagesToPackageUrlParts(version.packages),
+    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
+  };
+};
+
+const versionsMatchingNamedOptions = (
+  versions: ReadonlyArray<VersionEntry>,
+  options: NamedRegistryFindOptions,
+): ReadonlyArray<VersionEntry> => {
+  const requested = Option.getOrElse(options.versionRange, () => "*");
+  const exact = semver.valid(requested) === requested;
+  return versions
+    .filter((entry) =>
+      exact
+        ? entry.version === requested
+        : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
+    )
+    .filter(
+      (entry) =>
+        options.releaseAgeEvaluation.mode === "ignore" ||
+        isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation),
+    )
+    .sort((left, right) => semver.compareBuild(right.version, left.version));
+};
+
+const probeAxmSkillCompatibility = (
+  client: RegistryClient,
+  source: RegistrySource,
+  index: ExtensionIndex,
+  version: VersionEntry,
+) =>
+  Effect.gen(function* () {
+    const manifest = manifestForVersion(index, version);
+    const ref = toExtensionRef(manifest, source);
+    if (Option.isNone(ref) || ref.value.type !== "skill") {
+      return yield* makeAppError({
+        code: "internal",
+        detail: "Registry returned an invalid official AXM skill candidate",
+      });
+    }
+    const { archive } = yield* client.getExtensionPackage({
+      owner: index.owner,
+      type: index.type,
+      name: index.name,
+      version: Option.some(version.version),
+      usagePurpose: "verification",
+    });
+    const actualIntegrity = yield* computeIntegrity(archive);
+    if (actualIntegrity !== version.integrity) {
+      return yield* makeAppError({
+        code: "network",
+        detail: `Integrity mismatch for skill:${index.name}@${version.version}`,
+      });
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const tmpDir = yield* Effect.acquireRelease(
+      fs.makeTempDirectory().pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "network",
+            detail: "Temporary compatibility-probe directory could not be created",
+            cause,
+          }),
+        ),
+      ),
+      (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
+    );
+    yield* extractZip(archive, tmpDir);
+    const result = yield* evaluateAxmSkillCandidate({
+      ref: ref.value,
+      packageRoot: tmpDir,
+      skillSourcePath: path.join(tmpDir, "src"),
+    });
+    if (result === null) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: "Official AXM skill compatibility probe returned no result",
+      });
+    }
+    return { result, ref: ref.value } as const;
+  });
+
 const resolveNamedFromClient = (
   client: RegistryClient,
   source: RegistrySource,
   options: NamedRegistryFindOptions,
-): Effect.Effect<NamedRegistryResolution, AppError> =>
+): Effect.Effect<
+  NamedRegistryResolution,
+  AppError,
+  FileSystem.FileSystem | Path.Path | Scope.Scope
+> =>
   Effect.gen(function* () {
     const indexOption = yield* client.getExtensionIndex({
       owner: options.owner,
@@ -186,27 +304,50 @@ const resolveNamedFromClient = (
       } as const;
     }
 
+    if (isOfficialAxmSkill(options)) {
+      const candidates = versionsMatchingNamedOptions(indexOption.value.versions, options);
+      let latestIncompatibility: string | null = null;
+      for (const candidate of candidates) {
+        const probed = yield* probeAxmSkillCompatibility(
+          client,
+          source,
+          indexOption.value,
+          candidate,
+        );
+        if (probed.result.status === "incompatible") {
+          latestIncompatibility = probed.result.detail;
+          continue;
+        }
+        const bypassed =
+          options.releaseAgeEvaluation.mode === "ignore" &&
+          !isVersionEntryEligibleAt(candidate, options.releaseAgeEvaluation)
+            ? releaseAgeEvidence(candidate, options.releaseAgeEvaluation)
+            : undefined;
+        return {
+          kind: "selected",
+          target,
+          ref: probed.ref,
+          ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
+          ...(bypassed === undefined ? {} : { bypassed }),
+        } as const;
+      }
+
+      const requested = Option.getOrUndefined(options.versionRange);
+      if (requested !== undefined && semver.valid(requested) === requested) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail:
+            latestIncompatibility ??
+            `The official AXM skill release ${requested} is incompatible with this AXM CLI.`,
+          recover: "Install a compatible Registry release, or recover with the bundled AXM skill",
+          cmd: "axm skills install @agentxm/skills/axm --bundled",
+        });
+      }
+      return { kind: "not_found", target } as const;
+    }
+
     const version = resolution.version;
-    const lifecycleWarnings = extensionLifecycleWarnings(indexOption.value, version);
-    const manifest = {
-      owner: indexOption.value.owner,
-      type: indexOption.value.type,
-      name: indexOption.value.name,
-      publisherBindingId: indexOption.value.publisherBindingId,
-      description: Option.fromUndefinedOr(indexOption.value.description),
-      repository: Option.fromUndefinedOr(indexOption.value.repository),
-      bugs: Option.fromUndefinedOr(indexOption.value.bugs),
-      license: Option.fromUndefinedOr(indexOption.value.license),
-      authors: Option.match(Option.fromUndefinedOr(indexOption.value.authors), {
-        onNone: (): ReadonlyArray<Author> => [],
-        onSome: (authors) => authors.map((author) => toAuthor(author)),
-      }),
-      dependencies: version.dependencies ?? {},
-      version: version.version,
-      integrity: version.integrity,
-      packages: packagesToPackageUrlParts(version.packages),
-      ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-    } satisfies RegistryExtensionManifest;
+    const manifest = manifestForVersion(indexOption.value, version);
     const ref = toExtensionRef(manifest, source);
     if (Option.isNone(ref)) {
       return yield* makeAppError({
@@ -221,6 +362,39 @@ const resolveNamedFromClient = (
       ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
       ...(resolution.bypassed === undefined ? {} : { bypassed: resolution.bypassed }),
     } as const;
+  });
+
+const findOfficialAxmSkill = (
+  client: RegistryClient,
+  source: RegistrySource,
+  options: FindOptions,
+) =>
+  Effect.gen(function* () {
+    const owner = Option.getOrNull(Option.isSome(options.owner) ? options.owner : source.owner);
+    if (
+      owner !== "@agentxm" ||
+      options.type !== "skill" ||
+      options.names.length !== 1 ||
+      options.names[0] !== "axm"
+    ) {
+      return Option.none<ReadonlyArray<ExtensionRef>>();
+    }
+    const evaluatedAt = yield* DateTime.now;
+    const resolution = yield* resolveNamedFromClient(client, source, {
+      owner,
+      type: "skill",
+      name: "axm",
+      versionRange: options.versionRange,
+      releaseAgeEvaluation: {
+        minimumReleaseAge: Option.getOrElse(
+          options.minimumReleaseAge ?? Option.none(),
+          () => Duration.zero,
+        ),
+        evaluatedAt,
+        mode: "enforce",
+      },
+    });
+    return Option.some(resolution.kind === "selected" ? [resolution.ref] : []);
   });
 
 const findWithVersionRange = (
@@ -506,6 +680,9 @@ export const createLocalRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
+      const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
+      if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
+
       const fsService = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
       const extensionsDir = pathService.join(source.location.pathname, "extensions");
@@ -574,6 +751,9 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
+      const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
+      if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
+
       const owner: Handle | "*" = Option.isSome(options.owner) ? options.owner.value : "*";
       if (needsIndexBackedResolution(options) && owner !== "*") {
         return yield* findWithVersionRange(client, source, [owner], options);

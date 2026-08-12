@@ -103,30 +103,6 @@ export interface SkillSourceRequest {
 // Helpers (pure, no service dependencies)
 // -----------------------------------------------------------------------------
 
-const isAppErrorCheck = (error: unknown): error is AppError =>
-  typeof error === "object" &&
-  error !== null &&
-  "_tag" in error &&
-  error._tag === "AppError" &&
-  "detail" in error &&
-  "code" in error;
-
-const isRemoteReadNotImplemented = (error: unknown): boolean =>
-  isAppErrorCheck(error) && error.detail.includes("not implemented");
-
-const discoverHowToFix = (source: Source, error: unknown): string => {
-  if (source.type === "registry") {
-    if (isRemoteReadNotImplemented(error)) {
-      return "Remote registry discovery is not yet supported for HTTP(S) sources; use a file:// registry source or install from github:owner/repo";
-    }
-    return "Verify the configured registry is reachable and contains the requested owner/skill";
-  }
-  if (source.type === "local") {
-    return "Verify the source path contains directories with SKILL.md files";
-  }
-  return "Verify the source is reachable and contains valid skill directories";
-};
-
 const noSkillsFoundHowToFix = (source: Source): string => {
   if (source.type === "registry") {
     return "Verify the owner and skill name exist in the configured registry";
@@ -557,14 +533,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             })
             .pipe(
               Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-              Effect.mapError((error) => {
-                return makeAppError({
-                  code: "usage",
-                  detail: "Failed to discover skills from source",
-                  recover: discoverHowToFix(req.source, error),
-                  cause: error,
-                });
-              }),
               Effect.flatMap((discoveredSkills) =>
                 !Array.isReadonlyArrayEmpty(discoveredSkills)
                   ? Effect.succeed(discoveredSkills)

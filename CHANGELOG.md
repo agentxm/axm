@@ -1,3 +1,13 @@
+## 0.26.5 (2026-08-12)
+
+### 🩹 Fixes
+
+- Add bounded custom metadata to extension manifests while holding publication behind the Registry activation gate.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.4 (2026-08-12)
 
 ### 🩹 Fixes

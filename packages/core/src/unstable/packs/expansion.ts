@@ -18,6 +18,7 @@ import { resolvePackDependencies } from "./dependency-resolution.js";
 import {
   resolvePackDependenciesWithReleaseAge,
   type ReleaseAgeAwarePackDependencyResolution,
+  type WorkspacePackDependencyResolver,
 } from "./dependency-resolution.js";
 import type { ReleaseAgeEvaluation } from "../registry/index.js";
 
@@ -40,10 +41,17 @@ export const expandPackInstallRefs = (args: {
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
+  readonly workspaceResolver?: WorkspacePackDependencyResolver;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
   Effect.gen(function* () {
-    const { pack, supportedDependencyTypes, sources, minimumReleaseAge } = args;
-    const resolved = yield* resolvePackDependencies(pack, sources, minimumReleaseAge);
+    const { pack, supportedDependencyTypes, sources, minimumReleaseAge, workspaceResolver } = args;
+    const resolved = yield* resolvePackDependencies(
+      pack,
+      sources,
+      minimumReleaseAge,
+      undefined,
+      workspaceResolver,
+    );
 
     const deps = resolved.dependencyRefs.filter((ref) =>
       supportedDependencyTypes.includes(ref.type),
@@ -73,12 +81,15 @@ export const expandPackInstallRefsWithReleaseAge = (args: {
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  readonly workspaceResolver?: WorkspacePackDependencyResolver;
 }): Effect.Effect<ReleaseAgeAwarePackExpansion, AppError> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependenciesWithReleaseAge(
       args.pack,
       args.sources,
       args.releaseAgeEvaluation,
+      undefined,
+      args.workspaceResolver,
     );
     if (resolved.kind === "policy_held") return resolved;
     const dependencies = resolved.dependencies.dependencyRefs.filter((ref) =>

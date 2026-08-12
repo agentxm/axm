@@ -544,6 +544,120 @@ describe("axm packs publish", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs install", () => {
+  it("hard-blocks a Registry reinstall over a workspace-owned pack without writes", async () => {
+    const { temp, registryDir, settingsPath, lockPath, cleanup } = setupWorkspaceWithRegistry();
+    const packName = "workspace-authority-pack";
+    try {
+      await publishRegistryPack(registryDir.path, packName, {});
+      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      const created = await runCli(["packs", "new", packName, "--yes"], { cwd: temp.path });
+      expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+
+      const trustPath = path.join(temp.path, ".axm", "trust.json");
+      const manifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        packName,
+        "pack.json",
+      );
+      const before = {
+        settings: fs.readFileSync(settingsPath, "utf8"),
+        lock: fs.readFileSync(lockPath, "utf8"),
+        trust: fs.readFileSync(trustPath, "utf8"),
+        manifest: fs.readFileSync(manifestPath, "utf8"),
+      };
+
+      const blocked = await runCli(
+        ["packs", "install", `@test/packs/${packName}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(blocked.exitCode, blocked.stdout + blocked.stderr).toBe(6);
+      expect(JSON.parse(blocked.stdout)).toMatchObject({
+        ok: false,
+        result: {
+          outcome: "failed",
+          reason: "hard-blocked",
+          errorCode: "conflict",
+          candidateId: expect.any(String),
+          totalSteps: 1,
+          readyCount: 0,
+          errorCount: 1,
+          blockedCount: 1,
+          failedCount: 0,
+        },
+      });
+      expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
+      expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lock);
+      expect(fs.readFileSync(trustPath, "utf8")).toBe(before.trust);
+      expect(fs.readFileSync(manifestPath, "utf8")).toBe(before.manifest);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("retains a compatible workspace-owned member while installing its Registry pack", async () => {
+    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    const skillName = "workspace-retained-member";
+    const packName = "workspace-compatible-pack";
+    try {
+      await publishRegistrySkill(registryDir.path, skillName);
+      await publishRegistryPack(registryDir.path, packName, {
+        [`@test/skills/${skillName}`]: "0.0.1",
+      });
+      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      const created = await runCli(
+        ["skills", "new", skillName, "--owner", "@test", "--agent", "claude-code", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+      const canonical = path.join(temp.path, ".axm", "extensions", "@test", "skills", skillName);
+      const beforeManifest = fs.readFileSync(path.join(canonical, "skill.json"), "utf8");
+      const beforeSkill = fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8");
+
+      const installed = await runCli(
+        ["packs", "install", `@test/packs/${packName}`, "--yes", "--json"],
+        { cwd: temp.path },
+      );
+      expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
+      expect(JSON.parse(installed.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "applied",
+          agentCoverage: { scope: "project", agents: ["claude-code"] },
+          steps: [
+            {
+              artifact: {
+                agents: ["claude-code"],
+                targets: expect.arrayContaining([expect.objectContaining({ change: "unchanged" })]),
+              },
+            },
+          ],
+        },
+      });
+      expect(readSettings().skills?.[skillName]).toBe(`workspace:@test/skills/${skillName}`);
+      expect(readLock().skills?.[skillName]).toMatchObject({ type: "workspace", version: "0.0.1" });
+      expect(
+        readLock().packs?.[packName]?.resolvedSkills?.[`@test/skills/${skillName}`],
+      ).toMatchObject({ source: "workspace", version: "0.0.1" });
+      expect(fs.readFileSync(path.join(canonical, "skill.json"), "utf8")).toBe(beforeManifest);
+      expect(fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8")).toBe(beforeSkill);
+    } finally {
+      cleanup();
+    }
+  });
+
   it("distinguishes applicable empty coverage from a pack with no applicable members", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     const skill = "empty-coverage-skill";

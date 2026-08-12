@@ -267,3 +267,14 @@ export {
   type AgentOverrides,
   type AllAgentOverrides,
 } from "./agent-overrides.js";
+
+export {
+  evaluateSourceAuthority,
+  type SourceAuthorityBlockedCause,
+  type SourceAuthorityBlockedFact,
+  type SourceAuthorityDecision,
+  type SourceAuthorityInput,
+  type SourceAuthorityRelationship,
+  type SourceAuthorityTarget,
+  type WorkspaceAuthorityStatus,
+} from "./source-authority.js";

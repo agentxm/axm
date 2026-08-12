@@ -153,17 +153,23 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   // Step 2: Scan readiness and construct semantic risk conditions.
   const readiness = scanPlanReadiness(augmentedPlan);
+  const declaredConditionIds = new Set(
+    (augmentedPlan.riskConditions ?? []).map((condition) => condition.id),
+  );
   const readinessBlockers = augmentedPlan.jobs.flatMap((job) =>
     job.steps.flatMap((step) =>
       step.readiness === "error"
-        ? [
-            {
-              level: "blocked" as const,
-              id: step.key ?? step.label,
-              detail: step.errorMessage,
-              errorCode: "conflict" as const,
-            },
-          ]
+        ? (step.blockingConditionIds ?? []).length > 0 &&
+          (step.blockingConditionIds ?? []).every((id) => declaredConditionIds.has(id))
+          ? []
+          : [
+              {
+                level: "blocked" as const,
+                id: step.key ?? step.label,
+                detail: step.errorMessage,
+                errorCode: "conflict" as const,
+              },
+            ]
         : [],
     ),
   );
@@ -243,11 +249,20 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     return failedPlan({
       reason: "hard-blocked",
       errorCode: "conflict",
+      ...(candidatePlan.failureSuggestions === undefined
+        ? {}
+        : { suggestions: candidatePlan.failureSuggestions }),
     });
   }
   const blocked = riskConditions.find((condition) => condition.level === "blocked");
   if (blocked !== undefined) {
-    return failedPlan({ reason: "hard-blocked", errorCode: blocked.errorCode });
+    return failedPlan({
+      reason: "hard-blocked",
+      errorCode: blocked.errorCode,
+      ...(candidatePlan.failureSuggestions === undefined
+        ? {}
+        : { suggestions: candidatePlan.failureSuggestions }),
+    });
   }
 
   // Step 5: Preview is speculative and never grants approval to a later invocation.

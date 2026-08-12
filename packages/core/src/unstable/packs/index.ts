@@ -34,6 +34,8 @@ export {
 export {
   resolvePackDependenciesWithReleaseAge,
   type ReleaseAgeAwarePackDependencyResolution,
+  type WorkspacePackDependencyResolver,
+  type WorkspacePackDependencyResolution,
 } from "./dependency-resolution.js";
 
 // Reconciliation adapter

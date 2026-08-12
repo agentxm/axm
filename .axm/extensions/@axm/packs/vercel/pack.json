@@ -1,8 +1,0 @@
-{
-  "$schema": "https://axm.sh/schemas/pack.schema.json",
-  "owner": "@axm",
-  "type": "pack",
-  "name": "vercel",
-  "version": "0.0.1",
-  "dependencies": {}
-}

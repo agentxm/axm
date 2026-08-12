@@ -1,0 +1,43 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.1.0",
+  "type": "pack",
+  "name": "effect-v4",
+  "dependencies": {
+    "@craigsmitham/skills/effect-v4-branded-types": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-optics": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-services-and-layers": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-error-modeling": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-resource-safety": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-schema-boundaries": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-structured-concurrency": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-async-coordination": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-streams": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-request-batching-and-cache": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-testing": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-observability": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-config": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-collections": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-filesystem": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-iteration": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-option": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-wrapping": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-http-api": "^0.1.0",
+    "@craigsmitham/skills/effect-v4-cloudflare-workers": "^0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/packs/effect-v4"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "description": "Effect v4 patterns for types, services, errors, resources, schemas, concurrency, streams, testing, and observability",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "functional-programming"
+  ]
+}

@@ -6,8 +6,8 @@
       "name": "axm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/axm",
-      "resolvedVersion": "0.26.0",
-      "contentIdentity": "806661c5c682e92ef86b7f96981badcbebdb298ccb09ee3feb16d2ab1d94c546"
+      "resolvedVersion": "0.26.3",
+      "contentIdentity": "e518e26c1e58b9e1b362b01c2890ee44ca5ddfb0c74c24a8c17c98c4513c8582"
     },
     "knowledge:agentxm": {
       "extensionType": "knowledge",
@@ -17,21 +17,13 @@
       "resolvedVersion": "0.2.1",
       "contentIdentity": "66c02f2b04ef030cf4727cc5068df0488fe102b64c5a8c20f4cf201f2f325bd2"
     },
-    "skill:effect-basics": {
-      "extensionType": "skill",
-      "name": "effect-basics",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-basics",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "0f850dff420c3ef8917cf1e4abb725dabb8e46f34054bd7bfd1c71f351345df9"
-    },
     "skill:code-review": {
       "extensionType": "skill",
       "name": "code-review",
       "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/code-review",
+      "sourceIdentity": "workspace:@agentxm/skills/code-review",
       "resolvedVersion": "0.1.0",
-      "contentIdentity": "c98aeff12cd9034725ca1a4d2ff8248d1dd753b648f2735b704fac33c01c5999"
+      "contentIdentity": "492ce886ae7d6aaff154aa8fb3ba1c34efa0bb4ac4c3f28c1d2f148d3653812e"
     },
     "skill:e2e-publish-check": {
       "extensionType": "skill",
@@ -48,113 +40,6 @@
       "sourceIdentity": "workspace:@craigsmitham/skills/okf-author",
       "resolvedVersion": "0.0.1",
       "contentIdentity": "81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b"
-    },
-    "skill:effect-collections": {
-      "extensionType": "skill",
-      "name": "effect-collections",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-collections",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "c82f1df409b76d7c4bd3d6a8591b2a3f2c5e064c17540d2d234c5b8b4841351a"
-    },
-    "skill:effect-concurrency": {
-      "extensionType": "skill",
-      "name": "effect-concurrency",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-concurrency",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "9344a306424be43632e934fd3b461fa82d889342a358ffd6049934efebb68a84"
-    },
-    "skill:effect-filesystem": {
-      "extensionType": "skill",
-      "name": "effect-filesystem",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-filesystem",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "217ae3e151bbfe243ca77a2f84d3a2641453ec092947f5bc9979dce10513495e"
-    },
-    "skill:effect-iteration": {
-      "extensionType": "skill",
-      "name": "effect-iteration",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-iteration",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "f3e1e725dd0d2aa3776cee3d751281a3bbb71890cc329945a8f8ab98aaaae7f0"
-    },
-    "skill:effect-option": {
-      "extensionType": "skill",
-      "name": "effect-option",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-option",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "72059acb264e65d2b6aefa62ad95501b85f7067174d69c4e25a3b37a2c7aae6d"
-    },
-    "skill:effect-schema": {
-      "extensionType": "skill",
-      "name": "effect-schema",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-schema",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "ea592832a16bcc9e298bfccb4ee2355502354e2ae673afd7cbc814a7296c2361"
-    },
-    "skill:effect-service": {
-      "extensionType": "skill",
-      "name": "effect-service",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-service",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "bc8d6222b399eb9e9e3e0eed52719ce043d70eb4dcb74e57afeb44d6ed947722"
-    },
-    "skill:effect-stream": {
-      "extensionType": "skill",
-      "name": "effect-stream",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-stream",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "a8ec06621ef639869a97efcb9a8c45fa6dc3da950d02d9aa09c00083e1cca9ae"
-    },
-    "skill:effect-testing": {
-      "extensionType": "skill",
-      "name": "effect-testing",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-testing",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "ec44ecbdf994dcf1daa0187ba414f128fceba7c1677471ce071dedb0973874c7"
-    },
-    "skill:effect-wrapping": {
-      "extensionType": "skill",
-      "name": "effect-wrapping",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/skills/effect-wrapping",
-      "resolvedVersion": "0.1.0",
-      "contentIdentity": "509898f10a63eeafc21c9613b33115a3a71d9d59d455323ed65e36383ba5e432"
-    },
-    "pack:effect": {
-      "extensionType": "pack",
-      "name": "effect",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@axm/packs/effect",
-      "resolvedVersion": "0.0.1",
-      "contentIdentity": "f3c0b17898a74062f8ba45f4f328dc2fd769c5b88577fc7cd51c672ceae37301",
-      "packManifest": {
-        "owner": "@axm",
-        "name": "effect",
-        "version": "0.0.1",
-        "dependencies": {
-          "@axm/skills/effect-testing": "^0.1.0",
-          "@axm/skills/effect-wrapping": "^0.1.0",
-          "@axm/skills/effect-schema": "^0.1.0",
-          "@axm/skills/effect-service": "^0.1.0",
-          "@axm/skills/effect-collections": "^0.1.0",
-          "@axm/skills/effect-iteration": "^0.1.0",
-          "@axm/skills/effect-basics": "^0.1.0",
-          "@axm/skills/effect-option": "^0.1.0",
-          "@axm/skills/effect-filesystem": "^0.1.0",
-          "@axm/skills/effect-concurrency": "^0.1.0",
-          "@axm/skills/effect-stream": "^0.1.0"
-        },
-        "metadataIdentity": "{\"$schema\":\"https://axm.sh/schemas/pack.schema.json\"}"
-      }
     },
     "pack:field-notes": {
       "extensionType": "pack",
@@ -221,6 +106,237 @@
       "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
       "integrity": "sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==",
       "contentIdentity": "2a7002b455b9ff4ae35d719a12d215fc55da9db5eda3c09b502fab6a3da8989a"
+    },
+    "pack:effect-v4": {
+      "extensionType": "pack",
+      "name": "effect-v4",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/packs/effect-v4",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-p/4NFlnUMJ6Gvvqd1LyRq533EcXCDbyCzs5W6TMD/VMxsSfJ5rCshTDMJ73K04mYEgrrJR06NXDgnl8s5kyrFQ==",
+      "contentIdentity": "883026bd7091dcce3e40821dd25ad81b57dc54845973ca5b0d254b43a1e24f92"
+    },
+    "skill:effect-v4-config": {
+      "extensionType": "skill",
+      "name": "effect-v4-config",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-config",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==",
+      "contentIdentity": "1a41e00740263dd41f584890825b077806c96023a121a7df12738b2263f816b9"
+    },
+    "skill:effect-v4-optics": {
+      "extensionType": "skill",
+      "name": "effect-v4-optics",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-optics",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==",
+      "contentIdentity": "14eb071bd5d61c49ba05189f09933d505195df62c0f10045188d27d1596f2d74"
+    },
+    "skill:effect-v4-option": {
+      "extensionType": "skill",
+      "name": "effect-v4-option",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-option",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==",
+      "contentIdentity": "fab84f8ae1934fa197de0b478a791f7cc86a2f69d489afccd4718df7865064b6"
+    },
+    "skill:effect-v4-streams": {
+      "extensionType": "skill",
+      "name": "effect-v4-streams",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-streams",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==",
+      "contentIdentity": "775abc4ad710429c3685227390c58668627601180ab8dc7190c726dc32459d5c"
+    },
+    "skill:effect-v4-testing": {
+      "extensionType": "skill",
+      "name": "effect-v4-testing",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-testing",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==",
+      "contentIdentity": "2970f1088b2f2795d2d3d137b0e48f3b7f8a3c2da79674a271aea6aa3ea74fc6"
+    },
+    "skill:effect-v4-http-api": {
+      "extensionType": "skill",
+      "name": "effect-v4-http-api",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-http-api",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==",
+      "contentIdentity": "0b5616334caa8ad9b5942a845d467b6d2960f67236d284183dd23b35305fea41"
+    },
+    "skill:effect-v4-wrapping": {
+      "extensionType": "skill",
+      "name": "effect-v4-wrapping",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-wrapping",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==",
+      "contentIdentity": "961ca7050b4f4605c7a7facb348f5af07959f1e2cd4d23727eb3751d3f3b217b"
+    },
+    "skill:effect-v4-iteration": {
+      "extensionType": "skill",
+      "name": "effect-v4-iteration",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-iteration",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==",
+      "contentIdentity": "61bf89492a068ba28b6ed9682222e9eb6ccb5bf550028aa229dfb695462f46a8"
+    },
+    "skill:effect-v4-filesystem": {
+      "extensionType": "skill",
+      "name": "effect-v4-filesystem",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-filesystem",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==",
+      "contentIdentity": "451c8b742ba97355f60ba631da7ed00a228b49da653ad427b24f8def2d6f54d2"
+    },
+    "skill:effect-v4-collections": {
+      "extensionType": "skill",
+      "name": "effect-v4-collections",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-collections",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==",
+      "contentIdentity": "c3743ff80895e4a01b4073e759793b21978063cbc46bac6ca1569c5e340b297c"
+    },
+    "skill:effect-v4-branded-types": {
+      "extensionType": "skill",
+      "name": "effect-v4-branded-types",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-branded-types",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==",
+      "contentIdentity": "2623e93462a0fd9cbd02a4899476c61ff040a71fb88a9946087a0964c17cb2a6"
+    },
+    "skill:effect-v4-observability": {
+      "extensionType": "skill",
+      "name": "effect-v4-observability",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-observability",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==",
+      "contentIdentity": "0052a91c7b53820dc4f4a073766bd854a462876712d5953258849855ff0516c5"
+    },
+    "skill:effect-v4-error-modeling": {
+      "extensionType": "skill",
+      "name": "effect-v4-error-modeling",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-error-modeling",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==",
+      "contentIdentity": "87d8e63616c12d90d2858567a1c0676e759dff59d4e56fefa9c54b079357375e"
+    },
+    "skill:effect-v4-resource-safety": {
+      "extensionType": "skill",
+      "name": "effect-v4-resource-safety",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-resource-safety",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==",
+      "contentIdentity": "04db6c39fd0b73689543c197bf0e57b67f57b13c81f83323eb186169360450ec"
+    },
+    "skill:effect-v4-schema-boundaries": {
+      "extensionType": "skill",
+      "name": "effect-v4-schema-boundaries",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-schema-boundaries",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==",
+      "contentIdentity": "600e3e9e9fae7e68ca4fbc8bb4baa31d087f9db099a60f6c4c962e1b4880afa0"
+    },
+    "skill:effect-v4-async-coordination": {
+      "extensionType": "skill",
+      "name": "effect-v4-async-coordination",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-async-coordination",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==",
+      "contentIdentity": "4495bbae1dd8d64d6371043bc99fd30fb663680ee6d4270c5fe979a5706af8b5"
+    },
+    "skill:effect-v4-cloudflare-workers": {
+      "extensionType": "skill",
+      "name": "effect-v4-cloudflare-workers",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-cloudflare-workers",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==",
+      "contentIdentity": "2895ecc724715ab5ce72dd46a212c6700fed9d750b46566965bf793a69fb73fc"
+    },
+    "skill:effect-v4-services-and-layers": {
+      "extensionType": "skill",
+      "name": "effect-v4-services-and-layers",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-services-and-layers",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==",
+      "contentIdentity": "cbd2a655a5773bb06f66bd04990b2be7ed15a041a695ec8575af9db0cb392c48"
+    },
+    "skill:effect-v4-structured-concurrency": {
+      "extensionType": "skill",
+      "name": "effect-v4-structured-concurrency",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-structured-concurrency",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==",
+      "contentIdentity": "01c3a3dedc5ae6b7aaa64edeb1212b2c487b8686ebdbbea8a839aafa6382d247"
+    },
+    "skill:effect-v4-request-batching-and-cache": {
+      "extensionType": "skill",
+      "name": "effect-v4-request-batching-and-cache",
+      "authority": "registry",
+      "sourceIdentity": "@craigsmitham/skills/effect-v4-request-batching-and-cache",
+      "sourceName": "default",
+      "resolvedVersion": "0.1.0",
+      "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+      "integrity": "sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==",
+      "contentIdentity": "bef31eb745b47e62ba62d7389a81abc0efd6badd78daf6391926780365772627"
     }
   }
 }

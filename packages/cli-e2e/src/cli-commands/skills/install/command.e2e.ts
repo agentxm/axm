@@ -172,6 +172,77 @@ describe("axm skills install", () => {
     });
   });
 
+  describe("bundled AXM skill recovery", () => {
+    it("previews without writes, then replaces a newer incompatible install offline", async () => {
+      const temp = createTempDir();
+      try {
+        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+        });
+        expect(setup.exitCode, setup.stderr).toBe(0);
+
+        const packageRoot = path.join(temp.path, ".axm", "extensions", "@agentxm", "skills", "axm");
+        const manifestPath = path.join(packageRoot, "skill.json");
+        const skillPath = path.join(packageRoot, "src", "SKILL.md");
+        const originalManifest: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        if (
+          typeof originalManifest !== "object" ||
+          originalManifest === null ||
+          !("version" in originalManifest) ||
+          typeof originalManifest.version !== "string"
+        ) {
+          throw new Error("Bundled AXM skill manifest did not contain a version");
+        }
+        const originalVersion = originalManifest.version;
+        fs.writeFileSync(
+          manifestPath,
+          JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "99.0.0" }),
+        );
+        const incompatible = fs
+          .readFileSync(skillPath, "utf8")
+          .replaceAll(originalVersion, "99.0.0");
+        fs.writeFileSync(skillPath, incompatible);
+
+        const offlineEnv = { AXM_REGISTRY_LOCATION: "http://127.0.0.1:1" };
+        const preview = await runCli(
+          ["skills", "install", "@agentxm/skills/axm", "--bundled", "--preview"],
+          { cwd: temp.path, env: offlineEnv },
+        );
+        expect(preview.exitCode, preview.stderr).toBe(0);
+        expect(fs.readFileSync(manifestPath, "utf8")).toContain("99.0.0");
+
+        const applied = await runCli(
+          ["skills", "install", "@agentxm/skills/axm", "--bundled", "--yes"],
+          { cwd: temp.path, env: offlineEnv },
+        );
+        expect(applied.exitCode, applied.stderr).toBe(0);
+        expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
+        expect(fs.readFileSync(skillPath, "utf8")).not.toContain("99.0.0");
+
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(temp.path, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.skills.axm).toBe("workspace:@agentxm/skills/axm");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("rejects invalid bundled selectors with usage exit 2", async () => {
+      const temp = createTempDir();
+      try {
+        const result = await runCli(
+          ["skills", "install", "@acme/skills/axm", "--bundled", "--yes"],
+          { cwd: temp.path },
+        );
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain("restricted to @agentxm/skills/axm");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("file system state verification", () => {
     it("creates expected directory structure", async () => {
       const temp = createTempDir();

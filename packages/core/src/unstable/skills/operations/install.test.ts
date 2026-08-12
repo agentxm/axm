@@ -49,6 +49,7 @@ import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "../axm-skill-compatibility.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (
@@ -1096,6 +1097,35 @@ describe("installSkill", () => {
   });
 
   describe("pre-clean from all locations", () => {
+    it.effect("rejects incompatible reused official bytes before changing canonical state", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonical = setupRegistryCanonical(base, "@agentxm", "axm");
+        const marker = path.join(canonical, "src", "prompt.md");
+        fs.writeFileSync(marker, "preserve me");
+
+        const error = yield* installSkill(
+          makeOp({
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              owner: Option.none(),
+            },
+            owner: "@agentxm",
+            skillName: "axm",
+          }),
+        ).pipe(
+          Effect.provide(
+            Layer.mergeAll(withServices(axmDir), makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
+          ),
+          Effect.flip,
+        );
+
+        expect(error.code).toBe("conflict");
+        expect(fs.readFileSync(marker, "utf8")).toBe("preserve me");
+      }),
+    );
+
     it.effect(
       "synthetic registry ref with existing canonical preserves files without fetching",
       () =>

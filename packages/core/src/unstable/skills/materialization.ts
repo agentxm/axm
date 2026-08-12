@@ -17,6 +17,7 @@ import {
 } from "../utils/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -63,6 +64,13 @@ const materializeGitHosted = (
     );
     yield* validatePathSafety(baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
+    yield* provide(
+      validateAxmSkillCandidate({
+        ref,
+        packageRoot: pathService.dirname(sourcePath),
+        skillSourcePath: sourcePath,
+      }),
+    );
     const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
     if (!isSelfCopy) {
       yield* preCleanAndCopy(
@@ -95,6 +103,13 @@ const materializeLocal = (
     );
     yield* validatePathSafety(baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
+    yield* provide(
+      validateAxmSkillCandidate({
+        ref,
+        packageRoot: pathService.dirname(sourcePath),
+        skillSourcePath: sourcePath,
+      }),
+    );
     const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
     if (!isSelfCopy) {
       yield* preCleanAndCopy(
@@ -189,6 +204,13 @@ const materializeRegistry = (
       );
       yield* Effect.gen(function* () {
         yield* provide(extractZip(archive, tmpDir));
+        yield* provide(
+          validateAxmSkillCandidate({
+            ref,
+            packageRoot: tmpDir,
+            skillSourcePath: pathService.join(tmpDir, "src"),
+          }),
+        );
         yield* preCleanAndCopy(
           fs,
           pathService,
@@ -202,6 +224,14 @@ const materializeRegistry = (
         Effect.tapError(() => cleanup),
         Effect.tap(() => cleanup),
       );
+    } else {
+      yield* provide(
+        validateAxmSkillCandidate({
+          ref,
+          packageRoot: canonicalPath,
+          skillSourcePath: skillSrcPath,
+        }),
+      );
     }
 
     return skillSrcPath;
@@ -211,10 +241,19 @@ const materializeWorkspace = (
   ref: WorkspaceSkillRef,
   pathService: Path.Path,
   baseDir: string,
+  provide: ProvideFs,
 ): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
     yield* validatePathSafety(baseDir, ref.location);
-    return pathService.join(ref.location, "src");
+    const skillSourcePath = pathService.join(ref.location, "src");
+    yield* provide(
+      validateAxmSkillCandidate({
+        ref,
+        packageRoot: ref.location,
+        skillSourcePath,
+      }),
+    );
+    return skillSourcePath;
   });
 
 /** Reuse inputs sourced from the caller's operation context and lockfile. */
@@ -263,7 +302,7 @@ export const materializeSkillCanonical = (args: {
         args.reuse ?? { force: false, lockedVersion: undefined },
       );
     case "workspace":
-      return materializeWorkspace(args.ref, args.pathService, args.baseDir);
+      return materializeWorkspace(args.ref, args.pathService, args.baseDir, args.provide);
   }
 };
 

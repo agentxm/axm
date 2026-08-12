@@ -51,6 +51,10 @@ export {
   type ReadAxmSkillWorkspaceCompatibilityArgs,
 } from "./axm-skill-workspace-compatibility.js";
 export {
+  validateAxmSkillCandidate,
+  type ValidateAxmSkillCandidateArgs,
+} from "./axm-skill-candidate.js";
+export {
   AGENT_SKILLS_COMPATIBILITY_MAX_LENGTH,
   AGENT_SKILLS_DESCRIPTION_MAX_LENGTH,
   AGENT_SKILLS_FRONTMATTER_FIELDS,

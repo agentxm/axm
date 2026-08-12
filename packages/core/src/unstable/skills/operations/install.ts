@@ -68,6 +68,7 @@ import {
 } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
+import { validateAxmSkillCandidate } from "../axm-skill-candidate.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -415,6 +416,7 @@ export const buildRenderedFilesFromResults = (
 
 const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
   Effect.gen(function* () {
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
@@ -423,6 +425,11 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     yield* validatePathSafety(ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot: path.dirname(sourcePath),
+      skillSourcePath: sourcePath,
+    });
     yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
@@ -439,6 +446,11 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     yield* validatePathSafety(ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot: path.dirname(sourcePath),
+      skillSourcePath: sourcePath,
+    });
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
     if (!isSelfCopy) {
       yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
@@ -455,6 +467,7 @@ const installFromRegistry = (
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
@@ -514,10 +527,21 @@ const installFromRegistry = (
       yield* Effect.ensuring(
         Effect.gen(function* () {
           yield* extractZip(archive, tmpDir);
+          yield* validateAxmSkillCandidate({
+            ref,
+            packageRoot: tmpDir,
+            skillSourcePath: path.join(tmpDir, "src"),
+          });
           yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
         }),
         fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
       );
+    } else {
+      yield* validateAxmSkillCandidate({
+        ref,
+        packageRoot: canonicalPath,
+        skillSourcePath: skillSrcPath,
+      });
     }
 
     return { skillSrcPath, versionRange } satisfies MaterializedSkill;
@@ -551,6 +575,11 @@ const installFromWorkspace = (ref: WorkspaceSkillRef) =>
         detail: `Workspace skill source is missing: ${skillSrcPath}`,
       });
     }
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot: ref.location,
+      skillSourcePath: skillSrcPath,
+    });
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
 

@@ -504,6 +504,76 @@ describe("skills install handler — error propagation", () => {
     );
   });
 
+  it.effect("rejects --bundled for any identifier except the official AXM skill", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(defaultArgs("@acme/skills/axm", { bundled: true }), {
+          yes: true,
+          force: false,
+          preview: false,
+        }).pipe(Effect.flip);
+        expect(getAppError(error).code).toBe("usage");
+      }),
+    );
+  });
+
+  it.effect("previews bundled recovery without changing workspace bytes", () => {
+    const { provide } = makeLayers();
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(axmDir);
+    const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
+    const lockBefore = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
+          yes: false,
+          force: false,
+          preview: true,
+        });
+
+        expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+        expect(fs.existsSync(path.join(axmDir, "extensions", "@agentxm", "skills", "axm"))).toBe(
+          false,
+        );
+      }),
+    );
+  });
+
+  it.effect("installs bundled recovery with a workspace source and no Registry request", () => {
+    const { provide } = makeLayers();
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(axmDir, {
+      sources: [{ type: "registry", name: "offline", location: getUnavailableRegistryLocation() }],
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
+          yes: true,
+          force: false,
+          preview: false,
+        });
+
+        const settings: unknown = JSON.parse(
+          fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        );
+        expect(settings).toMatchObject({
+          skills: { axm: "workspace:@agentxm/skills/axm" },
+        });
+        expect(
+          fs.existsSync(
+            path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
+          ),
+        ).toBe(true);
+      }),
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // Readiness gate
   // ---------------------------------------------------------------------------

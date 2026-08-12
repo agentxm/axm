@@ -169,7 +169,7 @@ const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
     cause,
   });
 
-const installBundledAxmSkill = Effect.gen(function* () {
+const materializeBundledAxmSkill = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -260,10 +260,64 @@ const installBundledAxmSkill = Effect.gen(function* () {
     installedAt: now,
     updatedAt: now,
   };
-  yield* ws.setSkillLock({
+  yield* ws.setSkill({
     name: sanitizedName,
     lockEntry,
     versionRange: Option.none(),
+  });
+});
+
+/** Install the embedded official AXM skill as one rollback-safe workspace transition. */
+export const installBundledAxmSkill = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
+  const sanitizedName = sanitizeName("axm");
+  const { canonicalPath } = computeSkillPaths(
+    path.join,
+    ws.baseDir,
+    { refType: "registry", owner: normalizeHandle("@agentxm") },
+    sanitizedName,
+  );
+  const configuredAgents = yield* agentRepo
+    .getConfiguredAgents()
+    .pipe(Effect.provideService(WorkspaceMutations, ws));
+  const targetDirectories = yield* Effect.forEach(
+    configuredAgents,
+    (agent) =>
+      agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.map((outcome) =>
+          outcome._tag === "supported"
+            ? [path.join(path.normalize(outcome.dir), sanitizedName)]
+            : [],
+        ),
+      ),
+    { concurrency: "unbounded" },
+  ).pipe(Effect.map((paths) => paths.flat()));
+  const captured = Layer.mergeAll(
+    Layer.succeed(WorkspaceMutations, ws),
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+    Layer.succeed(CodingAgentRepository, agentRepo),
+  );
+
+  yield* ws.runTransaction({
+    targets: [canonicalPath, ...targetDirectories],
+    transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
+    validate: () =>
+      ws.getConfiguredSkillEntries().pipe(
+        Effect.flatMap((configured) =>
+          configured["axm"]?.source === "workspace:@agentxm/skills/axm"
+            ? Effect.void
+            : makeAppError({
+                code: "internal",
+                detail: "Bundled AXM skill did not retain its workspace source",
+              }),
+        ),
+      ),
   });
 });
 

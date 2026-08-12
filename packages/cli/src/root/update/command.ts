@@ -21,9 +21,7 @@ const updateConfig = {
     Flag.withDescription("Show what would be updated without making changes"),
   ),
   ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
-    Flag.withDescription(
-      "Allow one targeted Registry update to select releases newer than minimumReleaseAge",
-    ),
+    Flag.withDescription("Allow Registry releases newer than minimumReleaseAge for this update"),
   ),
 } as const;
 

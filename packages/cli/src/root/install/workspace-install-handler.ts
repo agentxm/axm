@@ -50,6 +50,7 @@ export interface WorkspaceInstallFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
+  readonly ignoreReleaseAge?: boolean;
 }
 
 export const handleWorkspaceInstall = (args: {
@@ -64,6 +65,7 @@ export const handleWorkspaceInstall = (args: {
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
+      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {
@@ -89,6 +91,7 @@ export const handleWorkspaceInstall = (args: {
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
+        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
       ]),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
@@ -124,6 +127,7 @@ export const runWorkspaceInstall = (args: {
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
+      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {
@@ -134,6 +138,7 @@ export const runWorkspaceInstall = (args: {
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
+        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
       ]),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });

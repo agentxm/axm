@@ -17,6 +17,8 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { platformCanonicalLintConfig } from "../config.js";
 import { evaluateContexts, type Evaluated } from "../evaluate.js";
 import type { LintFinding, LintRule } from "../rule.js";
@@ -32,6 +34,7 @@ import { makeWorkspaceReadModel } from "../../workspace/read-model/service.js";
 import { type FixtureSpec } from "../../workspace/read-model/__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../workspace/read-model/__fixtures__/test-layer.js";
 import { fixtureSpecFromWorkspaceState } from "./workspace-fixtures/fixture-state.js";
+import { HandleSchema } from "../../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // Case shape
@@ -107,6 +110,9 @@ const seedState = (raw: RawCaseState): WorkspaceState => {
 
 const FIXTURE_PROJECT_ROOT = "/tmp/ws";
 const FIXTURE_USER_HOME = "/tmp/ws-user";
+const decodeFixtureOwner = Schema.decodeUnknownOption(
+  Schema.Struct({ owner: Schema.optionalKey(HandleSchema) }),
+);
 
 const fixtureSpecFor = (state: WorkspaceState, scope: "project" | "user"): FixtureSpec => {
   return fixtureSpecFromWorkspaceState(state, scope, {
@@ -128,6 +134,11 @@ const buildContext = (
       subject: { root: FIXTURE_PROJECT_ROOT, scope },
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
+      owner: Effect.succeed(
+        Option.flatMap(decodeFixtureOwner(state.settings), ({ owner }) =>
+          Option.fromUndefinedOr(owner),
+        ),
+      ),
       installedExtensions: { manifests: Effect.succeed(installedExtensions) },
       displayRoot: "",
     };

@@ -97,6 +97,7 @@ export { isObservedInstalled } from "./observed-installed.js";
 
 // Configured entry resolution
 export {
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,

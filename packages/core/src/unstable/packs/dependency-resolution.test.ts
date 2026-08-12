@@ -3,8 +3,9 @@ import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type { ExtensionRef } from "../extensions/index.js";
-import { computeSourceHash } from "../extensions/index.js";
+import { computeSourceHash, ReleaseAgeExcludePatternSchema } from "../extensions/index.js";
 import type { RegistrySkillRef } from "../skills/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
@@ -59,13 +60,15 @@ const workspaceSkill = (version: string): ExtensionRef => {
   };
 };
 
-const registrySkill = (): RegistrySkillRef => {
-  const name = extensionName("release");
+const registrySkill = (
+  owner = handle("@acme"),
+  name = extensionName("release"),
+): RegistrySkillRef => {
   return {
     type: "skill",
     refType: "registry",
     source: registrySource,
-    owner: handle("@acme"),
+    owner,
     publisherBindingId: "hbnd_release",
     name,
     version: exactVersion("2.1.0"),
@@ -230,9 +233,10 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
         packRef({ "@acme/skills/release": "^2.0.0" }),
         namedProviders((_source, options) =>
           Effect.succeed({
-            kind: "selected",
+            kind: "exempted",
             target: `${options.owner}/skills/${options.name}`,
             ref: registrySkill(),
+            exemption: { bypassCause: "ignore-flag" },
             bypassed: {
               version: "2.1.0",
               publishedAt: "2026-08-11T12:00:00.000Z",
@@ -251,6 +255,56 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
             target: "@acme/skills/release",
             dependencyPath: ["@acme/packs/toolkit", "@acme/skills/release"],
             candidateVersion: "2.1.0",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("grants an excluded pack's exemption to its whole dependency graph", () =>
+    Effect.gen(function* () {
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@vendor/skills/release": "^2.0.0" }),
+        namedProviders((_source, options) => {
+          expect(options.releaseAgeEvaluation.grantedExemption).toEqual({
+            bypassCause: "exclude",
+            exemptionScope: "project",
+          });
+          return Effect.succeed({
+            kind: "exempted",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registrySkill(options.owner, extensionName(options.name)),
+            exemption: { bypassCause: "exclude", exemptionScope: "project" },
+            bypassed: {
+              version: "2.1.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          });
+        }),
+        {
+          ...evaluation,
+          exclude: [
+            {
+              pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)(
+                "@acme/packs/toolkit",
+              ),
+              scope: "project",
+            },
+          ],
+        },
+      );
+
+      expect(resolved).toMatchObject({
+        kind: "selected",
+        holdbacks: [],
+        bypasses: [
+          {
+            target: "@vendor/skills/release",
+            dependencyPath: ["@acme/packs/toolkit", "@vendor/skills/release"],
+            bypassCause: "exclude",
+            exemptionScope: "project",
           },
         ],
       });

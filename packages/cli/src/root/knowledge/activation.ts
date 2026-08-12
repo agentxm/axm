@@ -7,6 +7,7 @@ import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions"
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
@@ -51,7 +52,11 @@ export const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
 
   const step: PlannedJobStep = enabled
     ? buildInstallOperation(manager, {
-        ...(yield* resolveConfiguredKnowledge(name, entry.source)),
+        ...(yield* resolveConfiguredKnowledge(
+          name,
+          entry.source,
+          yield* makeConfiguredReleaseAgeEvaluation("enforce"),
+        )),
         message: `Enabled knowledge bundle ${name}`,
         buildArtifact: () =>
           Effect.succeed({

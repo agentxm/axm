@@ -26,6 +26,7 @@ export interface WorkspaceUpdateFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
+  readonly ignoreReleaseAge?: boolean;
 }
 
 const workspaceUpdateCommand = (
@@ -67,6 +68,7 @@ export const handleWorkspaceUpdate = (args: {
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
+      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
       ...(args.names === undefined ? {} : { names: args.names }),
     });
 
@@ -93,6 +95,7 @@ export const handleWorkspaceUpdate = (args: {
       args.flags,
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
         recoverySwitch("--refresh", args.flags.force === true),
+        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
         ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
       ]),
     );

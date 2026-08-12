@@ -31,6 +31,10 @@
         }
       ]
     },
+    "ReleaseAgeExcludePatternEncoded": {
+      "type": "string",
+      "examples": ["@acme/skills/code-review", "@acme/skills/*", "@acme/*"]
+    },
     "ConfigurableAgentId": {
       "type": "string",
       "enum": [
@@ -670,6 +674,13 @@
         "minimumReleaseAge": {
           "anyOf": [{ "$ref": "#/definitions/MinimumReleaseAge" }],
           "description": "Minimum published age for registry versions during unattended sync/update resolution. Defaults to 24h; use 0s to disable."
+        },
+        "minimumReleaseAgeExclude": {
+          "type": "array",
+          "description": "Registry extension identities exempt from minimumReleaseAge, as exact FQNs, owner/type patterns, or owner patterns.",
+          "examples": [["@acme/skills/code-review", "@acme/rules/*", "@acme/*"]],
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/ReleaseAgeExcludePatternEncoded" }
         },
         "agents": {
           "type": "array",

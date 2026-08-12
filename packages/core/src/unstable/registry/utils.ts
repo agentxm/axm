@@ -28,6 +28,7 @@ import {
   releaseAgeEvidence,
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
+  type ReleaseAgeExemption,
 } from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -116,7 +117,12 @@ export type ReleaseAgeVersionResolution =
       readonly kind: "selected";
       readonly version: VersionEntry;
       readonly newerHeld?: ReleaseAgeEvidence;
-      readonly bypassed?: ReleaseAgeEvidence;
+    }
+  | {
+      readonly kind: "exempted";
+      readonly version: VersionEntry;
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
     }
   | { readonly kind: "version_unsatisfied" }
   | { readonly kind: "policy_held"; readonly candidate: ReleaseAgeEvidence };
@@ -129,6 +135,7 @@ export const resolveVersionEntryForReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,
   versionRange: Option.Option<string>,
   evaluation: ReleaseAgeEvaluation,
+  exemption?: ReleaseAgeExemption,
 ): ReleaseAgeVersionResolution => {
   const otherwiseSelected = resolveVersionEntry(versions, versionRange);
   if (Option.isNone(otherwiseSelected)) {
@@ -137,11 +144,12 @@ export const resolveVersionEntryForReleaseAge = (
 
   const candidate = otherwiseSelected.value;
   const candidateEligible = isVersionEntryEligibleAt(candidate, evaluation);
-  if (evaluation.mode === "ignore") {
+  if (!candidateEligible && exemption !== undefined) {
     return {
-      kind: "selected",
+      kind: "exempted",
       version: candidate,
-      ...(candidateEligible ? {} : { bypassed: releaseAgeEvidence(candidate, evaluation) }),
+      bypassed: releaseAgeEvidence(candidate, evaluation),
+      exemption,
     };
   }
 

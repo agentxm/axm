@@ -13,10 +13,12 @@ import type * as Duration from "effect/Duration";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 import * as semver from "semver";
 import type {
+  ReleaseAgeBypassRecord,
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
-  ReleaseAgeRecord,
+  ReleaseAgeHoldbackRecord,
 } from "../registry/index.js";
+import { releaseAgeExemptionForIdentity } from "../registry/index.js";
 
 /** Every extension type a pack can depend on — packs cannot nest. */
 type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
@@ -50,13 +52,13 @@ export type ReleaseAgeAwarePackDependencyResolution =
   | {
       readonly kind: "selected";
       readonly dependencies: ResolvedPackDependencies;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
   | {
       readonly kind: "policy_held";
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     };
 
 const registrySourceForDependency = (
@@ -171,10 +173,10 @@ type ReleaseAgeAwareDependencyResolution =
   | {
       readonly kind: "selected";
       readonly dependency: ResolvedDependency;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
-  | { readonly kind: "policy_held"; readonly holdback: ReleaseAgeRecord };
+  | { readonly kind: "policy_held"; readonly holdback: ReleaseAgeHoldbackRecord };
 
 const dependencyReleaseAgeRecord = (args: {
   readonly packTarget: string;
@@ -182,7 +184,7 @@ const dependencyReleaseAgeRecord = (args: {
   readonly constraint: VersionRange;
   readonly evidence: ReleaseAgeEvidence;
   readonly selectedVersion?: string;
-}): ReleaseAgeRecord => ({
+}): ReleaseAgeHoldbackRecord => ({
   reason: "minimum-release-age",
   target: args.dependencyTarget,
   dependencyPath: [args.packTarget, args.dependencyTarget],
@@ -297,7 +299,7 @@ const resolveDependencyRefWithReleaseAge = (
         ref,
       },
       holdbacks:
-        resolution.newerHeld === undefined
+        resolution.kind === "exempted" || resolution.newerHeld === undefined
           ? []
           : [
               dependencyReleaseAgeRecord({
@@ -309,16 +311,19 @@ const resolveDependencyRefWithReleaseAge = (
               }),
             ],
       bypasses:
-        resolution.bypassed === undefined
+        resolution.kind === "selected"
           ? []
           : [
-              dependencyReleaseAgeRecord({
-                packTarget,
-                dependencyTarget,
-                constraint,
-                evidence: resolution.bypassed,
-                selectedVersion: ref.version,
-              }),
+              {
+                ...dependencyReleaseAgeRecord({
+                  packTarget,
+                  dependencyTarget,
+                  constraint,
+                  evidence: resolution.bypassed,
+                  selectedVersion: ref.version,
+                }),
+                ...resolution.exemption,
+              },
             ],
     };
   });
@@ -460,6 +465,18 @@ export const resolvePackDependenciesWithReleaseAge = (
   workspaceResolver?: WorkspacePackDependencyResolver,
 ): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, AppError> =>
   Effect.gen(function* () {
+    const packExemption =
+      pack.refType === "registry"
+        ? releaseAgeExemptionForIdentity(evaluation, {
+            owner: pack.owner,
+            type: "pack",
+            name: pack.pack.name,
+          })
+        : undefined;
+    const dependencyEvaluation =
+      packExemption?.bypassCause === "exclude"
+        ? { ...evaluation, grantedExemption: packExemption }
+        : evaluation;
     const dependencies = partitionDependencies(pack.pack.dependencies);
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
@@ -508,7 +525,7 @@ export const resolvePackDependenciesWithReleaseAge = (
           fqn,
           constraint,
           sources,
-          evaluation,
+          dependencyEvaluation,
           sourceOverride,
           workspaceResolver,
         ),

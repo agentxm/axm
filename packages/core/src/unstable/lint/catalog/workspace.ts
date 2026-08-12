@@ -70,6 +70,7 @@ import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { authoredContentUnpublishedRule } from "./workspace/authored-content-unpublished.js";
 import { knowledgeConfigCurrentRule } from "./workspace/knowledge-config-current.js";
+import { releaseAgeExcludeOwnerTrustedRule } from "./workspace/release-age-exclude-owner-trusted.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 
@@ -89,6 +90,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
+  releaseAgeExcludeOwnerTrustedRule,
   knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
@@ -133,6 +135,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
+  releaseAgeExcludeOwnerTrustedRule,
   knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,

@@ -13,7 +13,11 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { resolveConfiguredRule, WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredRule,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
@@ -52,7 +56,12 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     return;
   }
 
-  const { ref, versionRange } = yield* resolveConfiguredRule(args.name, entry.source);
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const { ref, versionRange } = yield* resolveConfiguredRule(
+    args.name,
+    entry.source,
+    releaseAgeEvaluation,
+  );
   const installStep = buildInstallOperation(ruleManager, {
     ref,
     versionRange,

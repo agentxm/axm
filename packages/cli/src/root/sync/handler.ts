@@ -5,6 +5,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -22,6 +23,11 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  normalizeReleaseAgeRecords,
+  type ReleaseAgeEvaluation,
+  type ReleaseAgeOperationEvidence,
+} from "@agentxm/client-core/unstable/registry";
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
@@ -75,6 +81,7 @@ import {
 import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
+  makeConfiguredReleaseAgeEvaluation,
   observeCanonicalExtension,
   WorkspaceMutations,
   resolveConfiguredHook,
@@ -87,6 +94,7 @@ import {
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type ResolvedConfiguredEntry,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -95,6 +103,7 @@ export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
   readonly preview: boolean;
+  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface SyncTestHooks {
@@ -199,6 +208,7 @@ const scopedProblems = (
 const resolveDesiredExtensionRef = (
   node: DesiredExtensionNode,
   canonicalStatus: CanonicalObservationStatus,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
 ) => {
   const annotate = <A, R>(effect: Effect.Effect<A, AppError, R>) =>
     effect.pipe(
@@ -212,29 +222,17 @@ const resolveDesiredExtensionRef = (
     );
   switch (node.type) {
     case "skill":
-      return annotate(resolveConfiguredSkill(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredSkill(node.name, node.source, releaseAgeEvaluation));
     case "mcp-server":
-      return annotate(resolveConfiguredMcpServer(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredMcpServer(node.name, node.source, releaseAgeEvaluation));
     case "subagent":
-      return annotate(resolveConfiguredSubagent(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredSubagent(node.name, node.source, releaseAgeEvaluation));
     case "rule":
-      return annotate(resolveConfiguredRule(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredRule(node.name, node.source, releaseAgeEvaluation));
     case "hook":
-      return annotate(resolveConfiguredHook(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredHook(node.name, node.source, releaseAgeEvaluation));
     case "knowledge":
-      return annotate(resolveConfiguredKnowledge(node.name, node.source)).pipe(
-        Effect.map(({ ref }) => ref),
-      );
+      return annotate(resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation));
     case "pack":
       return Effect.fail(
         makeAppError({
@@ -244,6 +242,16 @@ const resolveDesiredExtensionRef = (
       );
   }
 };
+
+const configuredReleaseAge = (
+  resolved:
+    | ResolvedConfiguredEntry<ExtensionRef>
+    | {
+        readonly ref: ExtensionRef;
+        readonly versionRange: Option.Option<never>;
+      },
+): ResolvedConfiguredEntry<ExtensionRef>["releaseAge"] =>
+  "releaseAge" in resolved ? resolved.releaseAge : undefined;
 
 const registryVersion = (ref: SkillExtensionRef | SubagentExtensionRef): string | undefined =>
   ref.refType === "registry" ? ref.version : undefined;
@@ -571,6 +579,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   readonly retainedOnly?: boolean;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
+  readonly ignoreReleaseAge?: boolean;
 }) {
   const skillManager = yield* SkillManager;
   const mcpServerManager = yield* McpServerManager;
@@ -583,6 +592,9 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
+    args?.ignoreReleaseAge === true ? "ignore" : "enforce",
+  );
   const validateMaterializeTrust = (ref: ExtensionRef) => {
     const options = {
       allowSourceTransition: false,
@@ -663,14 +675,15 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         const materialize = observation.status !== "usable" || !materializationCurrent;
         const forceCanonical =
           args?.retainedOnly === true ? false : observation.status !== "usable";
-        const ref = yield* Effect.gen(function* () {
+        const resolved = yield* Effect.gen(function* () {
           if (observation.status === "usable" && trust !== undefined) {
-            return yield* trustedCanonicalRef({
+            const ref = yield* trustedCanonicalRef({
               baseDir: ws.baseDir,
               scope: ws.scope,
               desired: node,
               trust,
             });
+            return { ref, versionRange: Option.none() };
           }
           if (args?.retainedOnly === true) {
             return yield* makeAppError({
@@ -684,8 +697,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
               ],
             });
           }
-          return yield* resolveDesiredExtensionRef(node, observation.status);
+          return yield* resolveDesiredExtensionRef(node, observation.status, releaseAgeEvaluation);
         });
+        const ref = resolved.ref;
+        const releaseAge = configuredReleaseAge(resolved);
         yield* validateMaterializeTrust(ref);
         return {
           ref,
@@ -710,6 +725,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
                 : "no"
             }`,
           ].join("; "),
+          releaseAge,
         };
       }),
     { concurrency: "unbounded" },
@@ -720,6 +736,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     readonly force: boolean;
     readonly materialize: boolean;
     readonly transitionLabel: string;
+    readonly releaseAge?: {
+      readonly holdbacks: ReleaseAgeOperationEvidence["holdbacks"];
+      readonly bypasses: ReleaseAgeOperationEvidence["bypasses"];
+    };
   };
   const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
   const mcpServerRefs: Array<Reconciled<McpServerExtensionRef>> = [];
@@ -735,6 +755,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "mcp-server":
@@ -743,6 +764,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "subagent":
@@ -751,6 +773,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "rule":
@@ -759,6 +782,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "hook":
@@ -767,6 +791,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "knowledge":
@@ -775,6 +800,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           force: item.force,
           materialize: item.materialize,
           transitionLabel: item.transitionLabel,
+          ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
         });
         break;
       case "pack":
@@ -917,6 +943,15 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 
   return {
     expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
+    releaseAge: {
+      evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
+      holdbacks: normalizeReleaseAgeRecords(
+        reconciled.flatMap((item) => item.releaseAge?.holdbacks ?? []),
+      ),
+      bypasses: normalizeReleaseAgeRecords(
+        reconciled.flatMap((item) => item.releaseAge?.bypasses ?? []),
+      ),
+    } satisfies ReleaseAgeOperationEvidence,
     steps: [
       ...skillSteps,
       ...mcpServerRefs
@@ -976,6 +1011,7 @@ const makeSyncPlan = ({
   trustMigrationStep,
   cleanupStep,
   instructionStep,
+  releaseAge,
   name = PLAN_NAME,
   description = PLAN_DESCRIPTION,
 }: {
@@ -984,6 +1020,7 @@ const makeSyncPlan = ({
   readonly trustMigrationStep: Option.Option<PlannedJobStep>;
   readonly cleanupStep: Option.Option<PlannedJobStep>;
   readonly instructionStep: Option.Option<PlannedJobStep>;
+  readonly releaseAge: ReleaseAgeOperationEvidence;
   readonly name?: string;
   readonly description?: string;
 }): Plan => {
@@ -1013,6 +1050,7 @@ const makeSyncPlan = ({
     name,
     description: Option.some(description),
     jobs,
+    releaseAge,
   };
 };
 
@@ -1250,8 +1288,9 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     `Resolving ${scopeLabel} sync`,
     () =>
       Effect.gen(function* () {
-        const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
+        const { steps, expectedSubagentNames, releaseAge } = yield* collectMaterializeSteps({
           selection,
+          ignoreReleaseAge: args.ignoreReleaseAge === true,
         });
         const knowledgeStep: Option.Option<PlannedJobStep> = scoped
           ? Option.none<PlannedJobStep>()
@@ -1271,11 +1310,13 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
           trustMigrationStep,
           cleanupStep,
           instructionStep,
+          releaseAge,
         };
       }),
     { successMessage: `Resolved ${scopeLabel} sync` },
   );
-  const { steps, knowledgeStep, trustMigrationStep, cleanupStep, instructionStep } = preflight;
+  const { steps, knowledgeStep, trustMigrationStep, cleanupStep, instructionStep, releaseAge } =
+    preflight;
   const materializeSteps = steps.map((step, index): PlannedJobStep => {
     if (index !== 0 || hooks.beforeMaterialization === undefined || step.readiness === "error") {
       return step;
@@ -1311,6 +1352,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     trustMigrationStep,
     cleanupStep,
     instructionStep,
+    releaseAge,
     name: planName,
     description: planDescription,
   });

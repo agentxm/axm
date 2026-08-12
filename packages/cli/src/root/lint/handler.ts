@@ -89,6 +89,7 @@ import {
   WorkspaceMutations,
   configuredRowsByName,
   getUserScopeDir,
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -532,13 +533,18 @@ const adaptIntent = (
   args: { readonly workspaceRoot: string },
 ): Effect.Effect<AdapterOutput, AppError, AdapterContext> =>
   Effect.gen(function* () {
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
     switch (op.name) {
       case "install-skill": {
         if (!isIntentWithSource(op.args)) {
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* SkillManager;
-        const resolved = yield* resolveConfiguredSkill(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredSkill(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -562,7 +568,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* PackManager;
-        const resolved = yield* resolveConfiguredPack(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredPack(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -601,7 +611,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* McpServerManager;
-        const resolved = yield* resolveConfiguredMcpServer(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredMcpServer(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -715,7 +729,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* SubagentManager;
-        const resolved = yield* resolveConfiguredSubagent(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredSubagent(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -739,7 +757,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* RuleManager;
-        const resolved = yield* resolveConfiguredRule(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredRule(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -763,7 +785,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* HookManager;
-        const resolved = yield* resolveConfiguredHook(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredHook(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -787,7 +813,11 @@ const adaptIntent = (
           return unmapped(op.name, "missing name/source args");
         }
         const mgr = yield* KnowledgeManager;
-        const resolved = yield* resolveConfiguredKnowledge(op.args.name, op.args.source);
+        const resolved = yield* resolveConfiguredKnowledge(
+          op.args.name,
+          op.args.source,
+          releaseAgeEvaluation,
+        );
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
@@ -1462,6 +1492,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
+  const ws = yield* WorkspaceMutations;
   const workspaceRoot = yield* resolveLintRootEffect({
     pathArg: args.pathArg,
     scope: args.scope,
@@ -1484,6 +1515,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     userHome,
     scope: args.scope,
     axmSkillCompatibilityPolicy,
+    owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
   }).pipe(
     Effect.catchTag("WorkspaceRootEscape", (e) =>
       Effect.fail(
@@ -1496,7 +1528,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   );
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);
-  const ws = yield* WorkspaceMutations;
   const canonicalObservations = Effect.gen(function* () {
     const graph = yield* ws.getDesiredStateGraph();
     const trust = yield* ws.getTrustState();

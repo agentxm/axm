@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { expectRecord, handle } from "../test-helpers.js";
+import { ReleaseAgeExcludePatternSchema } from "../extensions/fqn-pattern.js";
 import { createDefaultSettings, renderExistingSettings, writeSettings } from "./settings.js";
 import { SettingsSchema, type Settings } from "./schema.js";
 
@@ -706,6 +707,31 @@ ${lintBlock}
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const keys = Object.keys(expectRecord(JSON.parse(content)));
           expect(keys).toEqual(["owner", "agents", "skills"]);
+        }),
+      ),
+    );
+
+    it.effect("writes minimumReleaseAgeExclude next to minimumReleaseAge", () =>
+      withContext(
+        Effect.gen(function* () {
+          const decodePattern = Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema);
+          const settings: Settings = {
+            agents: ["claude-code"],
+            minimumReleaseAgeExclude: [decodePattern("@acme/*")],
+            minimumReleaseAge: "24h",
+          };
+
+          yield* writeSettings(axmDir, settings);
+
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const parsed = expectRecord(JSON.parse(content));
+          expect(Object.keys(parsed)).toEqual([
+            "minimumReleaseAge",
+            "minimumReleaseAgeExclude",
+            "agents",
+          ]);
+          expect(parsed["minimumReleaseAgeExclude"]).toEqual(["@acme/*"]);
+          expect(Schema.decodeUnknownSync(SettingsSchema)(parsed)).toEqual(settings);
         }),
       ),
     );

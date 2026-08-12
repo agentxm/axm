@@ -23,13 +23,18 @@ const installConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
+  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
+    Flag.withDescription(
+      "Allow an untargeted configured install to select releases newer than minimumReleaseAge",
+    ),
+  ),
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview }) =>
-    handleInstall({ source, yes, force, preview }).pipe(
+  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
+    handleInstall({ source, yes, force, preview, ignoreReleaseAge }).pipe(
       withWorkspace(scope),
       withRuntime("install"),
     ),

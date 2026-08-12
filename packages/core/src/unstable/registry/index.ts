@@ -117,12 +117,18 @@ export {
   isVersionEntryMature,
   parseMinimumReleaseAge,
   releaseAgeEvidence,
+  releaseAgeExemptionForIdentity,
   normalizeReleaseAgeRecords,
   releaseAgeHoldbackWarning,
 } from "./release-age-policy.js";
 export type {
   ReleaseAgeEvaluation,
+  ReleaseAgeExemption,
+  ReleaseAgeBypassRecord,
   ReleaseAgeEvidence,
+  ReleaseAgeHoldbackRecord,
   ReleaseAgeOperationEvidence,
   ReleaseAgeRecord,
+  ReleaseAgeRecordBase,
+  ScopedReleaseAgeExcludePattern,
 } from "./release-age-policy.js";

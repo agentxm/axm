@@ -34,6 +34,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources"
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
   WorkspaceMutations,
+  makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -136,51 +137,64 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   }
 
   const operation = yield* Effect.gen(function* () {
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
     switch (parsed.type) {
       case "skill": {
-        const resolved = yield* resolveConfiguredSkill(parsed.name, source);
+        const resolved = yield* resolveConfiguredSkill(parsed.name, source, releaseAgeEvaluation);
         return buildInstallOperation(yield* SkillManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "mcp-server": {
-        const resolved = yield* resolveConfiguredMcpServer(parsed.name, source);
+        const resolved = yield* resolveConfiguredMcpServer(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        );
         return buildInstallOperation(yield* McpServerManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "subagent": {
-        const resolved = yield* resolveConfiguredSubagent(parsed.name, source);
+        const resolved = yield* resolveConfiguredSubagent(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        );
         return buildInstallOperation(yield* SubagentManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "rule": {
-        const resolved = yield* resolveConfiguredRule(parsed.name, source);
+        const resolved = yield* resolveConfiguredRule(parsed.name, source, releaseAgeEvaluation);
         return buildInstallOperation(yield* RuleManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "hook": {
-        const resolved = yield* resolveConfiguredHook(parsed.name, source);
+        const resolved = yield* resolveConfiguredHook(parsed.name, source, releaseAgeEvaluation);
         return buildInstallOperation(yield* HookManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "knowledge": {
-        const resolved = yield* resolveConfiguredKnowledge(parsed.name, source);
+        const resolved = yield* resolveConfiguredKnowledge(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        );
         return buildInstallOperation(yield* KnowledgeManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "pack": {
-        const resolved = yield* resolveConfiguredPack(parsed.name, source);
+        const resolved = yield* resolveConfiguredPack(parsed.name, source, releaseAgeEvaluation);
         return buildInstallOperation(yield* PackManager, {
           ...resolved,
           allowWorkspaceReplacement: true,

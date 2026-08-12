@@ -72,6 +72,31 @@ describe("Settings schema", () => {
       expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
     });
 
+    it("accepts exact, type, and owner minimumReleaseAgeExclude patterns", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        minimumReleaseAgeExclude: ["@acme/skills/code-review", "@acme/rules/*", "@acme/*"],
+      });
+
+      expect(result.minimumReleaseAgeExclude).toEqual([
+        { owner: "@acme", type: "skill", name: "code-review" },
+        { owner: "@acme", type: "rule", name: "*" },
+        { owner: "@acme", type: "*", name: "*" },
+      ]);
+    });
+
+    it.each([
+      ["bare wildcard", ["*"]],
+      ["non-registry source", ["https://example.com/skill.md"]],
+      ["malformed FQN", ["acme/skills/code-review"]],
+      ["unknown type", ["@acme/widgets/*"]],
+      ["substring glob", ["@acme/skills/code-*"]],
+      ["duplicate", ["@acme/*", "@acme/*"]],
+    ])("rejects %s minimumReleaseAgeExclude entries", (_name, entries) => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({ minimumReleaseAgeExclude: entries }),
+      ).toThrow();
+    });
+
     it("rejects bare owner values without @", () => {
       const input = { owner: "myorg" };
 

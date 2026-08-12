@@ -24,6 +24,7 @@ export type {
   McpServerEntry,
   McpServersMap,
   MinimumReleaseAge,
+  MinimumReleaseAgeExclude,
   PackEntry,
   PacksMap,
   RegistrySourceHostConfig,

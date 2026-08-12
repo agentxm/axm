@@ -16,7 +16,11 @@ import type { AppError } from "../app-error/index.js";
 import type { ExtensionType, Handle } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { Source } from "./types.js";
-import type { ReleaseAgeEvaluation, ReleaseAgeEvidence } from "../registry/release-age-policy.js";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeExemption,
+} from "../registry/release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -58,7 +62,13 @@ export type NamedRegistryResolution =
       readonly target: string;
       readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
       readonly newerHeld?: ReleaseAgeEvidence;
-      readonly bypassed?: ReleaseAgeEvidence;
+    }
+  | {
+      readonly kind: "exempted";
+      readonly target: string;
+      readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
     }
   | { readonly kind: "not_found"; readonly target: string }
   | {

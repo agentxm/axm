@@ -3,13 +3,48 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import {
+  matchesReleaseAgeExcludePattern,
+  type ReleaseAgeExcludePattern,
+} from "../extensions/fqn-pattern.js";
+import type { ExtensionFqnParts } from "../extensions/common.js";
 import type { VersionEntry } from "./schema.js";
+
+export interface ScopedReleaseAgeExcludePattern {
+  readonly pattern: ReleaseAgeExcludePattern;
+  readonly scope: "project" | "user";
+}
 
 export interface ReleaseAgeEvaluation {
   readonly minimumReleaseAge: Duration.Duration;
   readonly evaluatedAt: DateTime.Utc;
   readonly mode: "enforce" | "ignore";
+  readonly exclude?: ReadonlyArray<ScopedReleaseAgeExcludePattern>;
+  readonly grantedExemption?: ReleaseAgeExemption;
 }
+
+export type ReleaseAgeExemption =
+  | {
+      readonly bypassCause: "exclude";
+      readonly exemptionScope: "project" | "user";
+    }
+  | {
+      readonly bypassCause: "ignore-flag";
+    };
+
+export const releaseAgeExemptionForIdentity = (
+  evaluation: ReleaseAgeEvaluation,
+  identity: ExtensionFqnParts,
+): ReleaseAgeExemption | undefined => {
+  if (evaluation.grantedExemption !== undefined) return evaluation.grantedExemption;
+  const excluded = evaluation.exclude?.find(({ pattern }) =>
+    matchesReleaseAgeExcludePattern(pattern, identity),
+  );
+  if (excluded !== undefined) {
+    return { bypassCause: "exclude", exemptionScope: excluded.scope };
+  }
+  return evaluation.mode === "ignore" ? { bypassCause: "ignore-flag" } : undefined;
+};
 
 export interface ReleaseAgeEvidence {
   readonly version: string;
@@ -18,7 +53,7 @@ export interface ReleaseAgeEvidence {
   readonly minimumReleaseAgeSeconds: number;
 }
 
-export interface ReleaseAgeRecord {
+export interface ReleaseAgeRecordBase {
   readonly reason: "minimum-release-age";
   readonly target: string;
   readonly dependencyPath: ReadonlyArray<string>;
@@ -31,10 +66,25 @@ export interface ReleaseAgeRecord {
   readonly minimumReleaseAgeSeconds: number;
 }
 
+export type ReleaseAgeHoldbackRecord = ReleaseAgeRecordBase;
+
+export type ReleaseAgeBypassRecord = ReleaseAgeRecordBase &
+  (
+    | {
+        readonly bypassCause: "exclude";
+        readonly exemptionScope: "project" | "user";
+      }
+    | {
+        readonly bypassCause: "ignore-flag";
+      }
+  );
+
+export type ReleaseAgeRecord = ReleaseAgeHoldbackRecord | ReleaseAgeBypassRecord;
+
 export interface ReleaseAgeOperationEvidence {
   readonly evaluatedAt: string;
-  readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-  readonly bypasses: ReadonlyArray<ReleaseAgeRecord>;
+  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 const releaseAgeRecordKey = (record: ReleaseAgeRecord): string =>
@@ -45,13 +95,15 @@ const releaseAgeRecordKey = (record: ReleaseAgeRecord): string =>
     record.selectedVersion ?? "",
     record.currentVersion ?? "",
     record.requestedRange ?? "",
+    "bypassCause" in record ? record.bypassCause : "",
+    "exemptionScope" in record ? record.exemptionScope : "",
   ].join("\u0000");
 
 /** Deduplicate and order operation evidence independently from concurrent resolution order. */
-export const normalizeReleaseAgeRecords = (
-  records: ReadonlyArray<ReleaseAgeRecord>,
-): ReadonlyArray<ReleaseAgeRecord> => {
-  const byKey = new Map<string, ReleaseAgeRecord>();
+export const normalizeReleaseAgeRecords = <Record extends ReleaseAgeRecord>(
+  records: ReadonlyArray<Record>,
+): ReadonlyArray<Record> => {
+  const byKey = new Map<string, Record>();
   for (const record of records) {
     byKey.set(releaseAgeRecordKey(record), record);
   }

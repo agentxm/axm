@@ -17,6 +17,7 @@ import {
 import {
   WorkspaceMutations,
   configuredRowsByName,
+  makeConfiguredReleaseAgeEvaluation,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { decodeExtensionNameSync, type Handle } from "@agentxm/client-core/unstable/extensions";
@@ -27,9 +28,8 @@ import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions"
 import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import {
   normalizeReleaseAgeRecords,
-  parseMinimumReleaseAge,
+  type ReleaseAgeBypassRecord,
   type ReleaseAgeEvidence,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
@@ -62,6 +62,7 @@ type ResolveResult =
       readonly type: "match";
       readonly ref: SubagentExtensionRef;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
+      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
   | {
       readonly type: "skip";
@@ -130,20 +131,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
 ) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const minimumReleaseAge = parseMinimumReleaseAge(minimumReleaseAgeText);
-  if (Option.isNone(minimumReleaseAge)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Invalid minimumReleaseAge "${minimumReleaseAgeText}"`,
-      recover: "Use a duration such as 24h, 1440m, or 0s.",
-    });
-  }
-  const releaseAgeEvaluation = {
-    minimumReleaseAge: minimumReleaseAge.value,
-    evaluatedAt: yield* DateTime.now,
-    mode: "enforce",
-  } satisfies ReleaseAgeEvaluation;
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
 
   // Step 1: Load configured subagents and filter to enabled
   const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
@@ -227,7 +215,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               requestedRange === undefined ? Option.none() : Option.some(requestedRange),
             releaseAgeEvaluation,
           });
-          if (registryResolution.kind === "selected") {
+          if (registryResolution.kind === "selected" || registryResolution.kind === "exempted") {
             if (registryResolution.ref.type !== "subagent") {
               return yield* makeAppError({
                 code: "internal",
@@ -238,7 +226,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               type: "match",
               ref: registryResolution.ref,
               holdbacks:
-                registryResolution.newerHeld === undefined
+                registryResolution.kind === "exempted" || registryResolution.newerHeld === undefined
                   ? []
                   : [
                       releaseAgeRecord({
@@ -248,6 +236,21 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
                         evidence: registryResolution.newerHeld,
                       }),
                     ],
+              ...(registryResolution.kind === "selected"
+                ? {}
+                : {
+                    bypasses: [
+                      {
+                        ...releaseAgeRecord({
+                          target: registryResolution.target,
+                          ...(requestedRange === undefined ? {} : { requestedRange }),
+                          selectedVersion: registryResolution.ref.version,
+                          evidence: registryResolution.bypassed,
+                        }),
+                        ...registryResolution.exemption,
+                      },
+                    ],
+                  }),
             } satisfies ResolveResult;
           }
           if (registryResolution.kind === "policy_held") {
@@ -411,7 +414,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
         ...resolved.flatMap((item) => item.holdbacks),
         ...skipped.flatMap((item) => (item.holdback === undefined ? [] : [item.holdback])),
       ]),
-      bypasses: [],
+      bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
     },
   };
   const skippedSteps = skipped

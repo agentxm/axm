@@ -24,6 +24,7 @@ import { computeIntegrity } from "../utils/index.js";
 import {
   filterMatureVersions,
   isVersionEntryMature,
+  normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
 } from "./release-age-policy.js";
 import {
@@ -229,15 +230,21 @@ describe("minimum release age", () => {
   });
 
   it("selects and records an under-age version when release age is explicitly ignored", () => {
-    const result = resolveVersionEntryForReleaseAge([heldVersion], Option.none(), {
-      minimumReleaseAge: oneDay,
-      evaluatedAt: now,
-      mode: "ignore",
-    });
+    const result = resolveVersionEntryForReleaseAge(
+      [heldVersion],
+      Option.none(),
+      {
+        minimumReleaseAge: oneDay,
+        evaluatedAt: now,
+        mode: "ignore",
+      },
+      { bypassCause: "ignore-flag" },
+    );
 
     expect(result).toEqual({
-      kind: "selected",
+      kind: "exempted",
       version: heldVersion,
+      exemption: { bypassCause: "ignore-flag" },
       bypassed: {
         version: "1.3.0",
         publishedAt: "2025-01-02T23:00:00.000Z",
@@ -245,6 +252,25 @@ describe("minimum release age", () => {
         minimumReleaseAgeSeconds: 86_400,
       },
     });
+  });
+
+  it("keeps same-target bypass records with distinct causes", () => {
+    const record = {
+      reason: "minimum-release-age" as const,
+      target: "@acme/skills/review",
+      dependencyPath: ["@acme/skills/review"],
+      candidateVersion: "2.0.0",
+      publishedAt: "2025-01-02T23:00:00.000Z",
+      eligibleAt: "2025-01-03T23:00:00.000Z",
+      minimumReleaseAgeSeconds: 86_400,
+    };
+
+    expect(
+      normalizeReleaseAgeRecords([
+        { ...record, bypassCause: "ignore-flag" },
+        { ...record, bypassCause: "exclude", exemptionScope: "project" },
+      ]),
+    ).toHaveLength(2);
   });
 
   it("distinguishes a visible extension with no matching version", () => {

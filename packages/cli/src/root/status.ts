@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import os from "node:os";
 import { Command, Flag } from "effect/unstable/cli";
@@ -238,6 +239,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     userHome: ws.scope === "user" ? ws.baseDir : os.homedir(),
     scope: ws.scope,
     axmSkillCompatibilityPolicy,
+    owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
   }).pipe(Effect.orDie);
   const compatibilityAccessor = lintWorkspace.rule.axmSkillCompatibility;
   if (compatibilityAccessor === undefined) {

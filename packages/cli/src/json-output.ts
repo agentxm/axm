@@ -159,6 +159,8 @@ const ReleaseAgeRecordSchema = Schema.Struct({
   publishedAt: Schema.String,
   eligibleAt: Schema.String,
   minimumReleaseAgeSeconds: Schema.Number,
+  bypassCause: Schema.optional(Schema.Literals(["exclude", "ignore-flag"] as const)),
+  exemptionScope: Schema.optional(Schema.Literals(["project", "user"] as const)),
 }).annotate({
   identifier: "ReleaseAgeRecord",
   title: "Release Age Record",
@@ -904,8 +906,12 @@ export const emitPlanResolutionResult = <TCommand extends string>(
         `${count(result.releaseAgeBypasses.length, "release")} bypassed minimumReleaseAge`,
       );
       for (const bypass of result.releaseAgeBypasses) {
+        const cause =
+          bypass.bypassCause === "exclude"
+            ? `settings exclude (${bypass.exemptionScope ?? "unknown"} scope)`
+            : "--ignore-release-age";
         yield* renderer.info(
-          `${bypass.target} ${bypass.candidateVersion} was selected before ${bypass.eligibleAt}`,
+          `${bypass.target} ${bypass.candidateVersion} was selected before ${bypass.eligibleAt} via ${cause}`,
         );
       }
     }

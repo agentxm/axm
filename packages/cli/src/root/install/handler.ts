@@ -47,6 +47,7 @@ export interface RootInstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface RootInstallHandlerArgs extends RootInstallFlags {
@@ -208,6 +209,7 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
             ["install"],
             [
               recoverySwitch("--reinstall", args.force),
+              recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
               recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
             ],
           ),

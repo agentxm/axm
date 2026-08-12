@@ -15,6 +15,8 @@ const concept = (args: {
   readonly body?: string;
 }): KnowledgeConcept => ({
   ...args,
+  kind: "concept",
+  authoredLinks: [],
   relativePath: `${args.id}.md`,
   body: args.body ?? "",
 });

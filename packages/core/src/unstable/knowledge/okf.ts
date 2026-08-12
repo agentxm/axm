@@ -24,9 +24,21 @@ export interface KnowledgeActorRecord {
  */
 export type KnowledgeTrustTier = "unverified" | "machine-confirmed" | "human-reviewed";
 
+export type KnowledgeDocumentKind = "concept" | "index" | "log";
+
+/** An authored Markdown link and the bundle-local concept it resolves to, when any. */
+export interface KnowledgeAuthoredLink {
+  readonly target: string;
+  readonly line: number;
+  readonly resolvedConceptId?: string;
+}
+
 export interface KnowledgeConcept {
   readonly id: string;
+  readonly kind: KnowledgeDocumentKind;
   readonly title: string;
+  /** The authored level-one heading, absent when `title` fell back to the concept ID. */
+  readonly authoredTitle?: string;
   readonly frontmatter?: Readonly<Record<string, unknown>>;
   readonly type?: string;
   readonly description?: string;
@@ -37,6 +49,7 @@ export interface KnowledgeConcept {
   readonly generated?: KnowledgeActorRecord;
   readonly verified?: ReadonlyArray<KnowledgeActorRecord>;
   readonly trust?: KnowledgeTrustTier;
+  readonly authoredLinks: ReadonlyArray<KnowledgeAuthoredLink>;
   readonly relativePath: string;
   readonly body: string;
 }
@@ -155,6 +168,12 @@ const bundleEntries = (
     return files;
   });
 
+/** Collect a bundle's normalized entry inventory without following symbolic links. */
+export const collectKnowledgeBundleEntries = (
+  sourceRoot: string,
+): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, unknown, FileSystem.FileSystem | Path.Path> =>
+  bundleEntries(sourceRoot, sourceRoot);
+
 const firstHeading = (body: string): string | undefined => {
   for (const line of body.split(/\r?\n/)) {
     const match = /^#\s+(.+?)\s*$/.exec(line);
@@ -165,13 +184,8 @@ const firstHeading = (body: string): string | undefined => {
 
 const conceptId = (relativePath: string): string => relativePath.replace(/\.md$/i, "");
 
-interface MarkdownLink {
-  readonly target: string;
-  readonly line: number;
-}
-
-const markdownLinks = (body: string): ReadonlyArray<MarkdownLink> => {
-  const links: MarkdownLink[] = [];
+const markdownLinks = (body: string): ReadonlyArray<KnowledgeAuthoredLink> => {
+  const links: KnowledgeAuthoredLink[] = [];
   const pattern = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
   for (const match of body.matchAll(pattern)) {
     const target = match[1];
@@ -548,6 +562,13 @@ const isReserved = (relativePath: string): boolean => {
   return baseName !== undefined && RESERVED_BASENAMES.has(baseName);
 };
 
+const documentKind = (relativePath: string): KnowledgeDocumentKind => {
+  const baseName = relativePath.replace(/\\/g, "/").split("/").at(-1)?.toLowerCase();
+  if (baseName === "index.md") return "index";
+  if (baseName === "log.md") return "log";
+  return "concept";
+};
+
 const resolvedMarkdownTarget = (
   sourcePath: string,
   target: string,
@@ -586,7 +607,7 @@ export const inspectKnowledgeEntries = <E>(
     );
     const diagnostics: KnowledgeDiagnostic[] = [];
     const concepts: KnowledgeConcept[] = [];
-    const linksByPath = new Map<string, ReadonlyArray<MarkdownLink>>();
+    const linksByPath = new Map<string, ReadonlyArray<KnowledgeAuthoredLink>>();
     const resources = new Map<string, string[]>();
     const types = new Map<string, Set<string>>();
     if (entries.length > MAX_BUNDLE_FILES) {
@@ -1058,7 +1079,9 @@ export const inspectKnowledgeEntries = <E>(
       }
       concepts.push({
         id: conceptId(relativePath),
+        kind: documentKind(relativePath),
         title: title ?? conceptId(relativePath),
+        ...(title === undefined ? {} : { authoredTitle: title }),
         ...(isRecord(metadata) ? { frontmatter: metadata } : {}),
         ...(type === undefined ? {} : { type }),
         ...(description === undefined ? {} : { description }),
@@ -1069,19 +1092,26 @@ export const inspectKnowledgeEntries = <E>(
         ...(generated === undefined ? {} : { generated }),
         ...(verified.length === 0 ? {} : { verified }),
         trust,
+        authoredLinks: [],
         relativePath,
         body: parsed.value.body,
       });
     }
 
     const outgoing = new Map<string, Set<string>>();
+    const authoredLinksByPath = new Map<string, ReadonlyArray<KnowledgeAuthoredLink>>();
     const referencedFiles = new Set<string>();
     for (const [sourcePath, links] of linksByPath) {
       const targets = new Set<string>();
+      const authoredLinks: KnowledgeAuthoredLink[] = [];
       for (const link of links) {
         const normalized = normalizedPath(sourcePath, link.target);
-        if (normalized === null) continue;
+        if (normalized === null) {
+          authoredLinks.push(link);
+          continue;
+        }
         if (normalized.escaped) {
+          authoredLinks.push(link);
           diagnostics.push({
             code: "escaping-link",
             severity: "warning",
@@ -1096,7 +1126,9 @@ export const inspectKnowledgeEntries = <E>(
         if (allFilePaths.has(targetPath)) referencedFiles.add(targetPath);
         if (markdownPaths.has(targetPath)) {
           targets.add(targetPath);
+          authoredLinks.push({ ...link, resolvedConceptId: conceptId(targetPath) });
         } else if (!allFilePaths.has(targetPath)) {
+          authoredLinks.push(link);
           diagnostics.push({
             code: sourcePath.toLowerCase().endsWith("index.md")
               ? "stale-index-entry"
@@ -1106,9 +1138,12 @@ export const inspectKnowledgeEntries = <E>(
             line: link.line,
             message: `${sourcePath} links to missing bundle path ${link.target}.`,
           });
+        } else {
+          authoredLinks.push(link);
         }
       }
       outgoing.set(sourcePath, targets);
+      authoredLinksByPath.set(sourcePath, authoredLinks);
     }
 
     const reachable = new Set<string>();
@@ -1193,7 +1228,14 @@ export const inspectKnowledgeEntries = <E>(
         message: "Knowledge bundle contains no concept documents to discover.",
       });
     }
-    return { concepts, diagnostics, okfVersion: OKF_VERSION };
+    return {
+      concepts: concepts.map((concept) => ({
+        ...concept,
+        authoredLinks: authoredLinksByPath.get(concept.relativePath) ?? [],
+      })),
+      diagnostics,
+      okfVersion: OKF_VERSION,
+    };
   });
 
 export const inspectKnowledgeBundle = (
@@ -1202,7 +1244,7 @@ export const inspectKnowledgeBundle = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const entries = yield* bundleEntries(sourceRoot, sourceRoot);
+    const entries = yield* collectKnowledgeBundleEntries(sourceRoot);
     return yield* inspectKnowledgeEntries(entries, (relativePath) =>
       fs.readFileString(path.join(sourceRoot, relativePath)),
     );

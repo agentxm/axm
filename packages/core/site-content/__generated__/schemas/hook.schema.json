@@ -411,6 +411,16 @@
       "properties": {
         "$schema": { "$ref": "#/definitions/Union_" },
         "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "object",
+              "title": "Extension Metadata",
+              "description": "Opaque consumer-defined JSON metadata. The compact UTF-8 JSON representation is limited to 65,536 bytes and container depth 16."
+            },
+            { "type": "null" }
+          ]
+        },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
         "description": {

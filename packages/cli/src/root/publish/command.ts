@@ -36,6 +36,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   ExtensionDependencyConstraintMapSchema,
+  ExtensionMetadataSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   EXTERNAL_EXTENSIONS_DIR,
@@ -186,6 +187,7 @@ const CandidateManifestSchema = Schema.Struct({
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   publish: Schema.optional(PublishOptionsSchema),
+  metadata: Schema.optional(ExtensionMetadataSchema),
 });
 
 interface CatalogEntry {
@@ -817,6 +819,18 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     manifestJson,
     platform: { fs, path },
   });
+  if (manifest.metadata !== undefined) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Manifest metadata publication is not active yet for ${selected.fqn}.`,
+      suggestions: [
+        {
+          description:
+            "Remove metadata and retry, or upgrade to the AXM activation release when it is available.",
+        },
+      ],
+    });
+  }
   const archive = yield* buildZipArchive(
     extensionDir,
     yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),

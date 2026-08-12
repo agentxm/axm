@@ -12,6 +12,7 @@ import { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
+import { ExtensionMetadataSchema } from "./manifest-metadata.js";
 import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
 /**
@@ -892,6 +893,7 @@ export type PublishOptions = Schema.Schema.Type<typeof PublishOptionsSchema>;
  */
 export const CommonManifestBaseFields = {
   publish: Schema.optional(PublishOptionsSchema),
+  metadata: Schema.optional(ExtensionMetadataSchema),
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
   version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
   description: Schema.optional(

@@ -72,6 +72,15 @@ export {
 export { parseLicenseExpression } from "./license.js";
 
 export {
+  EXTENSION_METADATA_MAX_BYTES,
+  EXTENSION_METADATA_MAX_DEPTH,
+  ExtensionMetadataSchema,
+  extensionMetadataCompactByteLength,
+  extensionMetadataContainerDepth,
+  type ExtensionMetadata,
+} from "./manifest-metadata.js";
+
+export {
   decodeDesiredExtensionIdentity,
   type DecodedDesiredExtensionIdentity,
   type DesiredPackageAuthority,

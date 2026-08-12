@@ -46,6 +46,17 @@ describe("pack/manifest-keys-recognized", () => {
     }),
   );
 
+  it.effect("recognizes the metadata field", () =>
+    Effect.gen(function* () {
+      const findings = yield* manifestKeysRecognizedRule.check(
+        makeContext({
+          packJson: { ...validManifest, metadata: { "com.example/tool": { enabled: true } } },
+        }),
+      );
+      expect(findings).toEqual([]);
+    }),
+  );
+
   it.effect("emits one error finding per unknown top-level key", () =>
     Effect.gen(function* () {
       const findings = yield* manifestKeysRecognizedRule.check(

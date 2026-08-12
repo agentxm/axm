@@ -91,6 +91,34 @@ root index. `axm help knowledge` owns that progressive-discovery guidance.
 Run `axm help skill-schema` (or the matching `<type>-schema`) for the full field
 list.
 
+## Custom manifest metadata
+
+Every extension manifest can declare an optional `metadata` object for
+consumer-specific structured data:
+
+```json
+{
+  "metadata": {
+    "com.example/tool": {
+      "enabled": true,
+      "labels": ["review", "typescript"]
+    }
+  }
+}
+```
+
+AXM treats this object as opaque, untrusted JSON. Use a namespace you control to
+avoid collisions. Do not put secrets in metadata: metadata for a public
+extension is public.
+
+The compact UTF-8 JSON representation may contain at most 65,536 bytes and have
+container depth at most 16. The root object is depth 1; each nested object or
+array adds one. Other unrecognized top-level manifest fields remain invalid.
+
+This AXM release validates metadata for authoring, but publication is not active
+yet. Remove the field before publishing. A later activation release will enable
+publication after Registry support is deployed.
+
 ## README.md
 
 A `README.md` at the extension root is published as part of the package and is

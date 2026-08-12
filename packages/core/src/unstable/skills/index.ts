@@ -43,8 +43,13 @@ export {
   type AxmSkillCompatibilityCandidate,
   type AxmSkillCompatibilityInput,
   type AxmSkillCompatibilityPolicyInput,
+  type AxmSkillCompatibilityPolicyService,
   type AxmSkillCompatibilityReason,
 } from "./axm-skill-compatibility.js";
+export {
+  readAxmSkillWorkspaceCompatibility,
+  type ReadAxmSkillWorkspaceCompatibilityArgs,
+} from "./axm-skill-workspace-compatibility.js";
 export {
   AGENT_SKILLS_COMPATIBILITY_MAX_LENGTH,
   AGENT_SKILLS_DESCRIPTION_MAX_LENGTH,

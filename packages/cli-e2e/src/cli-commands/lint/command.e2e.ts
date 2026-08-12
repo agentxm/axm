@@ -429,7 +429,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(uninstallDefault.exitCode).toBe(0);
 
         // Downgrade the error-severity workspace/* rules the declared
-        // skill would trigger, so the run settles at warnings-only.
+        // skill and absent AXM skill would trigger, so the run settles at warnings-only.
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
@@ -441,6 +441,7 @@ describe("axm lint (e2e, Phase 7)", () => {
             "workspace/skills-lockfile-aligned": "warn",
             "workspace/skills-artifacts-correct": "warn",
             "workspace/skills-managed": "warn",
+            "workspace/axm-skill-compatible": "warn",
           },
         };
         writeJson(settingsPath, settings);

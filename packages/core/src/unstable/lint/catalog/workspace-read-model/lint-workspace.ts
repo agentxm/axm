@@ -74,6 +74,8 @@ import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
 import { RULE_MANIFEST_FILENAME } from "../../../rules/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
+import { readAxmSkillWorkspaceCompatibility } from "../../../skills/axm-skill-workspace-compatibility.js";
+import type { AxmSkillCompatibilityPolicyService } from "../../../skills/axm-skill-compatibility.js";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
 import { readManifestJson } from "./manifest-json.js";
 
@@ -125,6 +127,8 @@ export interface BuildLintWorkspaceArgs {
    * to `""` (accessor-relative paths render under the workspace root).
    */
   readonly displayRoot?: string;
+  /** Runtime-pinned evaluator used by status and the compatibility lint rule. */
+  readonly axmSkillCompatibilityPolicy?: AxmSkillCompatibilityPolicyService;
   /** Test seam for proving one package inspection per selected bundle. */
   readonly inspectKnowledge?: (
     packageRoot: string,
@@ -197,6 +201,15 @@ export const buildLintWorkspace = (
       // The projection already read every installed manifest; hand the same
       // values to workspace rules rather than re-reading them per rule.
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
+      ...(args.axmSkillCompatibilityPolicy === undefined
+        ? {}
+        : {
+            axmSkillCompatibility: readAxmSkillWorkspaceCompatibility({
+              platform: args.platform,
+              workspace: readModel,
+              policy: args.axmSkillCompatibilityPolicy,
+            }),
+          }),
       displayRoot: args.displayRoot ?? "",
     };
     return { rule, view: projection.view };

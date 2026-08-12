@@ -47,11 +47,13 @@ export interface AxmSkillCompatibilityPolicyInput {
   readonly candidate: AxmSkillCompatibilityCandidate | null;
 }
 
+export interface AxmSkillCompatibilityPolicyService {
+  readonly evaluate: (input: AxmSkillCompatibilityPolicyInput) => AxmSkillCompatibility | null;
+}
+
 export class AxmSkillCompatibilityPolicy extends ServiceMap.Service<
   AxmSkillCompatibilityPolicy,
-  {
-    readonly evaluate: (input: AxmSkillCompatibilityPolicyInput) => AxmSkillCompatibility | null;
-  }
+  AxmSkillCompatibilityPolicyService
 >()("@agentxm/client-core/unstable/skills/axm-skill-compatibility/AxmSkillCompatibilityPolicy") {}
 
 export type AxmSkillCliVersionRangeValidation =

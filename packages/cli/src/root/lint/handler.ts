@@ -42,7 +42,12 @@ import {
   syncInstructionsGitignore,
   type McpServerSyncOutcome,
 } from "@agentxm/client-core/unstable/agents";
-import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
+import {
+  AxmSkillCompatibilityPolicy,
+  disableSkill,
+  enableSkill,
+  SkillManager,
+} from "@agentxm/client-core/unstable/skills";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
@@ -1456,6 +1461,7 @@ const emitSummary = (
 export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintArgs) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
   const workspaceRoot = yield* resolveLintRootEffect({
     pathArg: args.pathArg,
     scope: args.scope,
@@ -1477,6 +1483,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     workspaceRoot,
     userHome,
     scope: args.scope,
+    axmSkillCompatibilityPolicy,
   }).pipe(
     Effect.catchTag("WorkspaceRootEscape", (e) =>
       Effect.fail(

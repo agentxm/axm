@@ -2,12 +2,19 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
 import { PacksLockMapSchema, SkillsLockMapSchema } from "@agentxm/client-core/unstable/lockfile";
+import type { AxmSkillCompatibility } from "@agentxm/client-core/unstable/skills";
 import type {
   CanonicalObservation,
   DesiredStateGraph,
   DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
-import { canonicalHealthProblem, projectionIsCurrent, receiptOnlySkillProblems } from "./status.js";
+import {
+  axmSkillCompatibilityProblem,
+  canonicalHealthProblem,
+  formatAxmSkillCompatibility,
+  projectionIsCurrent,
+  receiptOnlySkillProblems,
+} from "./status.js";
 
 const observation = {
   type: "skill",
@@ -16,6 +23,42 @@ const observation = {
   path: "/workspace/.axm/extensions/@test/skills/draft-skill",
   contentIdentity: "sha256-working",
 } satisfies CanonicalObservation;
+
+const incompatibleAxmSkill = {
+  status: "incompatible",
+  cliVersion: "1.2.3",
+  skillVersion: "1.1.0",
+  source: "@agentxm/skills/axm@1.1.0",
+  declaredCliVersion: "1.1.0",
+  declaredCliVersionRange: ">=1.1.0 <1.2.0",
+  reasonCode: "cli-version-incompatible",
+  detail: "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0.",
+} satisfies AxmSkillCompatibility;
+
+describe("AXM skill compatibility status", () => {
+  it("turns incompatibility into a blocking workspace problem", () => {
+    expect(axmSkillCompatibilityProblem(incompatibleAxmSkill, "project")).toEqual({
+      code: "cli-version-incompatible",
+      extensionType: "skill",
+      identity: "@agentxm/skills/axm",
+      detail: incompatibleAxmSkill.detail,
+      blocking: true,
+      recoveryAction: "axm skills install @agentxm/skills/axm --bundled --preview",
+    });
+  });
+
+  it("preserves scope on the recovery command", () => {
+    expect(axmSkillCompatibilityProblem(incompatibleAxmSkill, "user")).toMatchObject({
+      recoveryAction: "axm skills install @agentxm/skills/axm --bundled --preview --scope user",
+    });
+  });
+
+  it("formats a compact human summary with every available version fact", () => {
+    expect(formatAxmSkillCompatibility(incompatibleAxmSkill)).toBe(
+      "AXM skill compatibility: incompatible — cli-version-incompatible (CLI 1.2.3, skill 1.1.0, range >=1.1.0 <1.2.0, source @agentxm/skills/axm@1.1.0)",
+    );
+  });
+});
 
 describe("canonicalHealthProblem", () => {
   it("classifies workspace-authored modifications as publishable advisories", () => {

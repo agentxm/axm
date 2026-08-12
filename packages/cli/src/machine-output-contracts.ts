@@ -340,8 +340,13 @@ const workspaceStatusFamily = defineResultFamily({
     "scope",
     "problems",
     "blockedOperations",
+    "axmSkillCompatibility",
   ],
-  scenarios: ["healthy workspace", "blocking local problems"],
+  scenarios: [
+    "healthy workspace with compatible AXM skill",
+    "blocking local problems",
+    "incompatible AXM skill",
+  ],
   rationale: "Workspace status reports local reconciliation health and supported recovery actions.",
   commandCoverage: ["packages/cli/src/root/status.test.ts"],
 });

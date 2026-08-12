@@ -27,6 +27,7 @@ import type { AppError } from "../app-error/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { CanonicalObservation } from "../workspace/canonical-observation.js";
 import type { KnowledgeInspection } from "../knowledge/okf.js";
+import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -322,6 +323,8 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
+  /** One caller-built evaluation over the authoritative installed AXM skill. */
+  readonly axmSkillCompatibility?: Effect.Effect<AxmSkillCompatibility>;
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */
   readonly health?: {
     readonly desiredState: Effect.Effect<DesiredStateGraph, AppError>;

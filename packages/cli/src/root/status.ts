@@ -1,5 +1,8 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import os from "node:os";
 import { Command, Flag } from "effect/unstable/cli";
 import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
@@ -18,6 +21,12 @@ import {
   type DesiredStateGraph,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
+import {
+  AxmSkillCompatibilityPolicy,
+  AxmSkillCompatibilitySchema,
+  type AxmSkillCompatibility,
+} from "@agentxm/client-core/unstable/skills";
+import { buildLintWorkspace } from "@agentxm/client-core/unstable/lint";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { commandForScope } from "./shared/scoped-command.js";
@@ -37,9 +46,42 @@ export const WorkspaceStatusSchema = Schema.Struct({
   scope: Schema.String,
   problems: Schema.Array(WorkspaceHealthProblemSchema),
   blockedOperations: Schema.Array(Schema.String),
+  axmSkillCompatibility: AxmSkillCompatibilitySchema,
 });
 
 type WorkspaceHealthProblem = Schema.Schema.Type<typeof WorkspaceHealthProblemSchema>;
+
+const axmSkillRecovery = (scope: WorkspaceScope): string =>
+  commandForScope("axm skills install @agentxm/skills/axm --bundled --preview", scope);
+
+export const axmSkillCompatibilityProblem = (
+  compatibility: AxmSkillCompatibility,
+  scope: WorkspaceScope,
+): WorkspaceHealthProblem | undefined =>
+  compatibility.status === "compatible"
+    ? undefined
+    : {
+        code: compatibility.reasonCode ?? "axm-skill-incompatible",
+        extensionType: "skill",
+        identity: "@agentxm/skills/axm",
+        detail: compatibility.detail ?? "The official AXM skill is incompatible.",
+        blocking: true,
+        recoveryAction: axmSkillRecovery(scope),
+      };
+
+export const formatAxmSkillCompatibility = (compatibility: AxmSkillCompatibility): string => {
+  const facts = [
+    compatibility.cliVersion === null ? undefined : `CLI ${compatibility.cliVersion}`,
+    compatibility.skillVersion === null ? undefined : `skill ${compatibility.skillVersion}`,
+    compatibility.declaredCliVersionRange === null
+      ? undefined
+      : `range ${compatibility.declaredCliVersionRange}`,
+    compatibility.source === null ? undefined : `source ${compatibility.source}`,
+  ].filter((fact) => fact !== undefined);
+  const reason = compatibility.reasonCode === null ? "" : ` — ${compatibility.reasonCode}`;
+  const details = facts.length === 0 ? "" : ` (${facts.join(", ")})`;
+  return `AXM skill compatibility: ${compatibility.status}${reason}${details}`;
+};
 
 export const receiptOnlySkillProblems = (
   graph: DesiredStateGraph,
@@ -187,6 +229,21 @@ const HealthTable = {
 export const handleStatus = Effect.fn("Status.handle")(function* () {
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
+  const lintWorkspace = yield* buildLintWorkspace({
+    platform: { fs, path },
+    workspaceRoot: ws.baseDir,
+    userHome: ws.scope === "user" ? ws.baseDir : os.homedir(),
+    scope: ws.scope,
+    axmSkillCompatibilityPolicy,
+  }).pipe(Effect.orDie);
+  const compatibilityAccessor = lintWorkspace.rule.axmSkillCompatibility;
+  if (compatibilityAccessor === undefined) {
+    return yield* Effect.die("AXM skill compatibility accessor was not constructed");
+  }
+  const axmSkillCompatibility = yield* compatibilityAccessor;
   const graph = yield* ws.getDesiredStateGraph();
   const graphProblems: ReadonlyArray<WorkspaceHealthProblem> = graph.problems.map((problem) => {
     switch (problem.type) {
@@ -321,11 +378,13 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     ws.getLockedPacks(),
   ]);
   const receiptProblems = receiptOnlySkillProblems(graph, lockedSkills, lockedPacks, ws.scope);
+  const compatibilityProblem = axmSkillCompatibilityProblem(axmSkillCompatibility, ws.scope);
   const problems = [
     ...graphProblems,
     ...canonicalProblems,
     ...projectionProblems,
     ...receiptProblems,
+    ...(compatibilityProblem === undefined ? [] : [compatibilityProblem]),
   ];
   const blockingCount = problems.filter((problem) => problem.blocking).length;
   const advisoryCount = problems.length - blockingCount;
@@ -338,8 +397,10 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     blockedOperations: hasBlockingProblems
       ? ["global sync", "destructive pack reconciliation"]
       : [],
+    axmSkillCompatibility,
   };
   if (!(yield* renderer.result(result, WorkspaceStatusSchema, { ok: !hasBlockingProblems }))) {
+    yield* renderer.message(formatAxmSkillCompatibility(axmSkillCompatibility));
     if (problems.length === 0) {
       yield* renderer.success("Workspace health is current");
     } else {

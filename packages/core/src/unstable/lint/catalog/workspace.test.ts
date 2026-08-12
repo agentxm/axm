@@ -22,6 +22,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/desired-state-reconcilable", severity: "error" },
   { id: "workspace/authored-content-unpublished", severity: "warning" },
+  { id: "workspace/axm-skill-compatible", severity: "error" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },
   // Instruction files.

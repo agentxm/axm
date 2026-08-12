@@ -71,6 +71,7 @@ import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcil
 import { authoredContentUnpublishedRule } from "./workspace/authored-content-unpublished.js";
 import { knowledgeConfigCurrentRule } from "./workspace/knowledge-config-current.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
+import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -92,6 +93,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   lockfileValidRule,
   desiredStateReconcilableRule,
   authoredContentUnpublishedRule,
+  axmSkillCompatibleRule,
   agentsRecognizedRule,
   instructionsSourcePresentRule,
   instructionsAgentSupportedRule,
@@ -135,6 +137,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   lockfileValidRule,
   desiredStateReconcilableRule,
   authoredContentUnpublishedRule,
+  axmSkillCompatibleRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
   instructionsSourcePresentRule,

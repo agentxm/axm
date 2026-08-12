@@ -31,7 +31,10 @@ import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import {
+  AxmSkillCompatibilityPolicy,
+  SkillManagerLive,
+} from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
@@ -82,6 +85,18 @@ describe("axm lint handler", () => {
       NodeServices.layer,
       renderer.layer,
       TestFlagsLayer({ nonInteractive: true, quiet: opts?.quiet ?? false }),
+      Layer.succeed(AxmSkillCompatibilityPolicy, {
+        evaluate: () => ({
+          status: "compatible",
+          cliVersion: "0.0.0-test",
+          skillVersion: null,
+          source: null,
+          declaredCliVersion: null,
+          declaredCliVersionRange: null,
+          reasonCode: null,
+          detail: null,
+        }),
+      }),
     );
     const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);

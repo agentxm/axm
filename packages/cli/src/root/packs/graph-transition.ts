@@ -92,11 +92,15 @@ export const buildAtomicPackGraphStep = (args: {
       step.readiness === "error" ? [step.errorMessage] : [],
     );
     if (readinessErrors.length > 0) {
+      const blockingConditionIds = args.children.flatMap(({ step }) =>
+        step.readiness === "error" ? (step.blockingConditionIds ?? []) : [],
+      );
       return {
         readiness: "error",
         label: args.label,
         errorMessage: readinessErrors.join("; "),
         artifact: args.artifact,
+        ...(blockingConditionIds.length === 0 ? {} : { blockingConditionIds }),
       } satisfies PlannedJobStep;
     }
 

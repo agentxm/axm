@@ -4,7 +4,7 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
 import type { ExtensionRef } from "../extensions/index.js";
-import { computeSourceHash } from "../extensions/index.js";
+import { computeSourceHash, evaluateSourceAuthority } from "../extensions/index.js";
 import type { RegistrySkillRef } from "../skills/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
@@ -100,8 +100,8 @@ describe("resolvePackDependencies", () => {
           ({ type, name }) =>
             Effect.succeed(
               type === "skill" && name === "review"
-                ? Option.some(workspaceSkill("1.4.0"))
-                : Option.none(),
+                ? { kind: "selected", ref: workspaceSkill("1.4.0") }
+                : { kind: "absent" },
             ),
         );
 
@@ -130,13 +130,58 @@ describe("resolvePackDependencies", () => {
           providers(find),
           undefined,
           undefined,
-          () => Effect.succeed(Option.some(workspaceSkill("1.4.0"))),
+          () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
         ).pipe(Effect.flip);
 
         expect(error.detail).toContain("@acme/skills/review@1.4.0");
         expect(error.detail).toContain("^2.0.0");
         expect(find).not.toHaveBeenCalled();
       }),
+  );
+
+  it.effect("propagates a workspace authority blocker without Registry fallback", () =>
+    Effect.gen(function* () {
+      const find = vi.fn(() => Effect.succeed([registrySkill()]));
+      const error = yield* resolvePackDependencies(
+        packRef({ "@acme/skills/review": "^1.0.0" }),
+        providers(find),
+        undefined,
+        undefined,
+        () => {
+          const decision = evaluateSourceAuthority({
+            target: {
+              type: "skill",
+              name: "review",
+              identity: "@acme/skills/review",
+            },
+            relationship: { kind: "member", root: "@acme/packs/toolkit" },
+            requested: {
+              identity: "registry:@acme/skills/review",
+              workspace: false,
+            },
+            configured: {
+              identity: "workspace:@acme/skills/review",
+              workspace: true,
+              version: "1.4.0",
+              status: "locally-modified",
+            },
+            requiredVersionRange: "^1.0.0",
+          });
+          return decision.kind === "blocked"
+            ? Effect.succeed(decision)
+            : Effect.die("expected blocked workspace authority");
+        },
+      ).pipe(Effect.flip);
+
+      expect(error.detail).toContain("locally-modified");
+      expect(error.suggestions).toEqual([
+        {
+          description:
+            "Repair or explicitly remove the locally-modified workspace dependency before installing the pack.",
+        },
+      ]);
+      expect(find).not.toHaveBeenCalled();
+    }),
   );
 });
 

@@ -17,6 +17,7 @@ import type {
   ExtensionTargetFor,
 } from "../workspace/service-interface.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import { evaluateSourceAuthority } from "./source-authority.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -188,17 +189,30 @@ const runInstallOperation = <TRef extends ExtensionRef>(
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target });
-    if (
-      Option.isSome(configuredSource) &&
-      isWorkspaceSourceLocator(configuredSource.value) &&
-      args.ref.refType !== "workspace" &&
-      args.allowWorkspaceReplacement !== true
-    ) {
+    const authority = evaluateSourceAuthority({
+      target: { ...target, identity: toStepKey(target) },
+      relationship: { kind: "root" },
+      requested: {
+        identity: `${args.ref.refType}:${toStepKey(target)}`,
+        workspace: args.ref.refType === "workspace",
+      },
+      ...(Option.isNone(configuredSource)
+        ? {}
+        : {
+            configured: {
+              identity: configuredSource.value,
+              workspace: isWorkspaceSourceLocator(configuredSource.value),
+            },
+          }),
+      ...(args.allowWorkspaceReplacement === undefined
+        ? {}
+        : { allowWorkspaceReplacement: args.allowWorkspaceReplacement }),
+    });
+    if (authority.kind === "blocked") {
       return yield* makeAppError({
         code: "conflict",
-        detail: `Cannot install over workspace-sourced ${target.type} "${target.name}"`,
-        recover:
-          "Demote or remove the workspace source explicitly before installing a different source.",
+        detail: authority.fact.detail,
+        suggestions: authority.fact.recovery,
       });
     }
     const installedBefore =

@@ -229,6 +229,7 @@ describe("buildInstallOperation", () => {
 
     expect(result.error.code).toBe("conflict");
     expect(result.error.detail).toContain("Cannot install over workspace-sourced skill");
+    expect(result.error.suggestions).toHaveLength(1);
     expect(materializeInstall).not.toHaveBeenCalled();
   });
 });

@@ -83,7 +83,7 @@ describe("axm knowledge lifecycle", () => {
     }
   });
 
-  it("publishes source-faithful frontmatter only from machine-readable open", async () => {
+  it("publishes source-faithful frontmatter only from machine-readable concept get", async () => {
     const temp = createTempDir();
     try {
       const sourceRoot = path.join(temp.path, "knowledge-source");
@@ -168,13 +168,15 @@ describe("axm knowledge lifecycle", () => {
       });
       fs.writeFileSync(installedConceptPath, installedConcept);
 
-      const open = await runCli(["knowledge", "open", "platform", "architecture", "--json"], {
-        cwd: temp.path,
-      });
-      expect(open.exitCode, open.stdout + open.stderr).toBe(0);
-      expect(JSON.parse(open.stdout)).toMatchObject({
+      const get = await runCli(
+        ["knowledge", "concepts", "get", "@acme/knowledge/platform#architecture", "--json"],
+        { cwd: temp.path },
+      );
+      expect(get.exitCode, get.stdout + get.stderr).toBe(0);
+      expect(JSON.parse(get.stdout)).toMatchObject({
         ok: true,
         result: {
+          outcome: "found",
           concept: {
             body: "# Architecture\n\nArchitecture body.\n",
             frontmatter: {
@@ -189,7 +191,7 @@ describe("axm knowledge lifecycle", () => {
         },
       });
 
-      const search = await runCli(["knowledge", "search", "Architecture", "--json"], {
+      const search = await runCli(["knowledge", "concepts", "search", "Architecture", "--json"], {
         cwd: temp.path,
       });
       expect(search.exitCode, search.stdout + search.stderr).toBe(0);
@@ -197,17 +199,18 @@ describe("axm knowledge lifecycle", () => {
       expect(searchDocument.result.items).toHaveLength(1);
       expect(searchDocument.result.items[0]).not.toHaveProperty("frontmatter");
 
-      const human = await runCli(["knowledge", "open", "platform", "architecture"], {
-        cwd: temp.path,
-      });
+      const human = await runCli(
+        ["knowledge", "concepts", "get", "@acme/knowledge/platform#architecture"],
+        { cwd: temp.path },
+      );
       expect(human.exitCode, human.stdout + human.stderr).toBe(0);
-      expect(human.stdout).toBe("");
-      expect(human.stderr).toContain("# Architecture\n\nArchitecture body.\n");
-      expect(human.stderr).not.toContain("frontmatter");
+      expect(human.stdout).toContain("# Architecture\n\nArchitecture body.");
+      expect(human.stdout).not.toContain("frontmatter");
 
-      const cyclic = await runCli(["knowledge", "open", "platform", "cyclic", "--json"], {
-        cwd: temp.path,
-      });
+      const cyclic = await runCli(
+        ["knowledge", "concepts", "get", "@acme/knowledge/platform#cyclic", "--json"],
+        { cwd: temp.path },
+      );
       expect(cyclic.exitCode).not.toBe(0);
       expect(JSON.parse(cyclic.stdout)).toMatchObject({ ok: false });
       expect(cyclic.stdout).not.toContain('"concept"');
@@ -267,13 +270,17 @@ describe("axm knowledge lifecycle", () => {
         ["executed-zero-match", 0],
       ] as const;
       for (const [query, count] of cases) {
-        const result = await runCli(["knowledge", "search", query, "--json"], { cwd: temp.path });
+        const result = await runCli(["knowledge", "concepts", "search", query, "--json"], {
+          cwd: temp.path,
+        });
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-        expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, result: { query, count } });
+        expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, result: { count } });
       }
 
       for (const query of ["", " \t ", '""', 'literal:""']) {
-        const result = await runCli(["knowledge", "search", query, "--json"], { cwd: temp.path });
+        const result = await runCli(["knowledge", "concepts", "search", query, "--json"], {
+          cwd: temp.path,
+        });
         expect(result.exitCode, result.stdout + result.stderr).toBe(9);
         expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "validation" });
       }
@@ -284,6 +291,248 @@ describe("axm knowledge lifecycle", () => {
       expect(help.stdout).toContain('literal:"<text>"');
       expect(help.stdout).toContain("never matches by spanning two searchable fields");
       expect(help.stdout).toContain("fail validation instead of enumerating the corpus");
+    } finally {
+      temp.cleanup();
+    }
+  }, 60_000);
+
+  it("discovers versioned concepts through query, pagination, resolution, retrieval, and graph navigation", async () => {
+    const temp = createTempDir();
+    try {
+      const sourceRoot = path.join(temp.path, "knowledge-source");
+      createKnowledgePackage(sourceRoot);
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Platform\n\n[Security](security.md)\n',
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "architecture.md"),
+        [
+          "---",
+          "type: reference",
+          "description: Platform architecture",
+          "tags: [platform]",
+          "status: stable",
+          "audience: agents",
+          "---",
+          "# Architecture",
+          "",
+          "[Security](security.md)",
+          "",
+        ].join("\n"),
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "security.md"),
+        "---\ntype: guide\ndescription: Security controls\ntags: [security]\nstatus: draft\n---\n# Security\n\nSafe \u001b[31mred\u001b[0m \u202etext.\n",
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "deprecated.md"),
+        "---\ntype: reference\ndescription: Retired guidance\nstatus: deprecated\n---\n# Deprecated\n",
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "alpha.md"),
+        "---\ntype: reference\ndescription: First shared concept\n---\n# Shared\n",
+      );
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "beta.md"),
+        "---\ntype: reference\ndescription: Second shared concept\n---\n# Shared\n",
+      );
+
+      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        agents: [],
+        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+      });
+      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
+
+      const status = await runCli(["knowledge", "concepts", "status", "--json"], {
+        cwd: temp.path,
+      });
+      expect(status.exitCode, status.stdout + status.stderr).toBe(0);
+      expect(JSON.parse(status.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          readiness: "ready",
+          health: { status: "healthy" },
+          capabilities: {
+            operations: ["resolve", "search", "query", "get", "related", "status"],
+            strategies: ["lexical"],
+            operators: ["term", "phrase", "literal", "equals", "not-equals", "contains"],
+          },
+        },
+      });
+
+      const firstPage = await runCli(["knowledge", "concepts", "query", "--limit", "1", "--json"], {
+        cwd: temp.path,
+      });
+      expect(firstPage.exitCode, firstPage.stdout + firstPage.stderr).toBe(0);
+      const firstDocument = JSON.parse(firstPage.stdout);
+      expect(firstDocument.result).toMatchObject({ count: 4, hasMore: true });
+      expect(firstDocument.result.items).toHaveLength(1);
+      expect(firstDocument.result.items[0].kind).toBe("concept");
+
+      const secondPage = await runCli(
+        [
+          "knowledge",
+          "concepts",
+          "query",
+          "--limit",
+          "1",
+          "--cursor",
+          firstDocument.result.cursor,
+          "--json",
+        ],
+        { cwd: temp.path },
+      );
+      expect(secondPage.exitCode, secondPage.stdout + secondPage.stderr).toBe(0);
+      const secondDocument = JSON.parse(secondPage.stdout);
+      expect(secondDocument.result.items[0].ref).not.toEqual(firstDocument.result.items[0].ref);
+
+      for (const [filter, count] of [
+        [["--metadata", "tag~=form"], 1],
+        [["--lifecycle", "status!=draft"], 4],
+        [["--property", "/audience=agents"], 1],
+      ] as const) {
+        const query = await runCli(
+          ["knowledge", "concepts", "query", ...filter, "--explain", "--json"],
+          { cwd: temp.path },
+        );
+        expect(query.exitCode, query.stdout + query.stderr).toBe(0);
+        expect(JSON.parse(query.stdout)).toMatchObject({
+          ok: true,
+          result: { count, explanation: { strategy: "lexical" } },
+        });
+      }
+
+      const reserved = await runCli(
+        ["knowledge", "concepts", "query", "--kind", "index", "--json"],
+        { cwd: temp.path },
+      );
+      expect(JSON.parse(reserved.stdout)).toMatchObject({
+        ok: true,
+        result: { count: 1, items: [{ kind: "index" }] },
+      });
+      const deprecated = await runCli(
+        ["knowledge", "concepts", "query", "--status", "deprecated", "--json"],
+        { cwd: temp.path },
+      );
+      expect(JSON.parse(deprecated.stdout)).toMatchObject({ ok: true, result: { count: 1 } });
+
+      for (const reference of [
+        "@acme/knowledge/platform#architecture",
+        "https://agentxm.ai/@acme/knowledge/platform/concepts/architecture",
+      ]) {
+        const resolved = await runCli(["knowledge", "concepts", "resolve", reference, "--json"], {
+          cwd: temp.path,
+        });
+        expect(resolved.exitCode, resolved.stdout + resolved.stderr).toBe(0);
+        expect(JSON.parse(resolved.stdout)).toMatchObject({
+          ok: true,
+          result: { outcome: "resolved", candidate: { ref: { conceptId: "architecture" } } },
+        });
+      }
+      const noImplicitFuzzy = await runCli(
+        ["knowledge", "concepts", "resolve", "Shared", "--json"],
+        { cwd: temp.path },
+      );
+      expect(noImplicitFuzzy.exitCode).toBe(3);
+      const ambiguous = await runCli(
+        ["knowledge", "concepts", "resolve", "Shared", "--fuzzy", "--json"],
+        { cwd: temp.path },
+      );
+      expect(ambiguous.exitCode, ambiguous.stdout + ambiguous.stderr).toBe(6);
+      expect(JSON.parse(ambiguous.stdout)).toMatchObject({
+        ok: false,
+        result: { outcome: "ambiguous", reason: "ambiguous-reference" },
+      });
+
+      const related = await runCli(
+        ["knowledge", "concepts", "related", "@acme/knowledge/platform#security", "--json"],
+        { cwd: temp.path },
+      );
+      expect(related.exitCode, related.stdout + related.stderr).toBe(0);
+      expect(JSON.parse(related.stdout)).toMatchObject({
+        result: {
+          count: 1,
+          includesIndexBacklinks: false,
+          items: [{ relation: "backlink", evidence: { sourceRelativePath: "architecture.md" } }],
+        },
+      });
+      const withIndexBacklinks = await runCli(
+        [
+          "knowledge",
+          "concepts",
+          "related",
+          "@acme/knowledge/platform#security",
+          "--include-index-backlinks",
+          "--json",
+        ],
+        { cwd: temp.path },
+      );
+      expect(JSON.parse(withIndexBacklinks.stdout)).toMatchObject({ result: { count: 2 } });
+
+      const get = await runCli(
+        ["knowledge", "concepts", "get", "@acme/knowledge/platform#architecture", "--json"],
+        { cwd: temp.path },
+      );
+      const revision = JSON.parse(get.stdout).result.concept.ref.contentRevision;
+      const installedArchitecture = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "knowledge",
+        "platform",
+        "src",
+        "architecture.md",
+      );
+      fs.appendFileSync(installedArchitecture, "\nChanged.\n");
+      const guarded = await runCli(
+        [
+          "knowledge",
+          "concepts",
+          "get",
+          "@acme/knowledge/platform#architecture",
+          "--if-revision",
+          revision,
+          "--json",
+        ],
+        { cwd: temp.path },
+      );
+      expect(guarded.exitCode).toBe(6);
+      expect(JSON.parse(guarded.stdout)).toMatchObject({
+        ok: false,
+        result: { outcome: "failed", reason: "revision-changed" },
+      });
+      const expiredCursor = await runCli(
+        [
+          "knowledge",
+          "concepts",
+          "query",
+          "--limit",
+          "1",
+          "--cursor",
+          firstDocument.result.cursor,
+          "--json",
+        ],
+        { cwd: temp.path },
+      );
+      expect(expiredCursor.exitCode).toBe(6);
+      expect(JSON.parse(expiredCursor.stdout)).toMatchObject({
+        ok: false,
+        result: { outcome: "failed", reason: "cursor-expired" },
+      });
+
+      for (const removed of ["search", "open"]) {
+        const invocation = await runCli(["knowledge", removed], { cwd: temp.path });
+        expect(invocation.exitCode).toBe(2);
+      }
     } finally {
       temp.cleanup();
     }
@@ -391,7 +640,7 @@ describe("axm knowledge lifecycle", () => {
         "## Knowledge Base",
       );
       expect(fs.existsSync(canonical)).toBe(true);
-      const searchWhileHidden = await runCli(["knowledge", "search", "architecture"], {
+      const searchWhileHidden = await runCli(["knowledge", "concepts", "search", "architecture"], {
         cwd: temp.path,
       });
       expect(searchWhileHidden.exitCode).toBe(0);

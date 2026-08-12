@@ -39,6 +39,7 @@ const coreAuthorityDirs = [
 const allowedReceiptReaders = [
   // Read-only presentation and maintenance.
   "packages/cli/src/root/hooks/list.ts",
+  "packages/cli/src/root/knowledge/concepts/status.ts",
   "packages/cli/src/root/knowledge/inspect.ts",
   "packages/cli/src/root/mcps/list.ts",
   "packages/cli/src/root/packs/list.ts",
@@ -66,6 +67,7 @@ const mutationReceiptReaders: ReadonlySet<string> = new Set(
     (file) =>
       !file.endsWith("/list.ts") &&
       !file.endsWith("/show.ts") &&
+      !file.endsWith("/status.ts") &&
       !file.endsWith("/prune.ts") &&
       !file.endsWith("/inspect.ts"),
   ),

@@ -41,7 +41,7 @@ describe("Knowledge search query", () => {
     expect(KNOWLEDGE_SEARCH_TOKENIZER_PROFILE).toEqual({
       id: "axm-knowledge-lexical-v1",
       unicodeNormalization: "NFKC",
-      caseNormalization: "unicode-lowercase",
+      caseNormalization: "unicode-case-fold",
       termBoundary: "unicode-whitespace-punctuation-camel-code",
       stemming: false,
     });

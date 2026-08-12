@@ -34,6 +34,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("Knowledge corpus captu
       const result = queryKnowledgeIndex(
         snapshot,
         makeKnowledgeQuery("project", [{ kind: "term", value: "authentication" }]),
+        0,
       );
 
       expect(captured[0]?.sources).toHaveLength(2);

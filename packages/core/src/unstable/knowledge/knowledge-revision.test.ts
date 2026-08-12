@@ -87,6 +87,19 @@ it("derives projection revisions canonically and only from the projected record"
   );
 });
 
+it("derives a stable projection revision when YAML aliases form a cycle", () => {
+  const producer: Record<string, unknown> = {};
+  producer["self"] = producer;
+  const concept = {
+    ...projectedConcept("Cyclic"),
+    frontmatter: { producer },
+  } satisfies KnowledgeProjectedConcept;
+
+  expect(computeKnowledgeProjectionRevision(concept)).toBe(
+    computeKnowledgeProjectionRevision(concept),
+  );
+});
+
 it.effect("retries a changing corpus and returns one stable capture", () =>
   Effect.gen(function* () {
     let reads = 0;

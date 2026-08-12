@@ -68,7 +68,7 @@ export const computeKnowledgeCorpusFingerprint = (
   return revision("axm-knowledge-corpus-fingerprint-v1", parts);
 };
 
-const canonicalValue = (value: unknown): string => {
+const canonicalValue = (value: unknown, seen = new Map<object, number>()): string => {
   if (value === null) return "null";
   switch (typeof value) {
     case "string":
@@ -82,13 +82,17 @@ const canonicalValue = (value: unknown): string => {
     case "bigint":
       return `bigint:${String(value)}`;
     case "object":
-      if (Array.isArray(value)) return `array:[${value.map(canonicalValue).join(",")}]`;
       if (value instanceof Uint8Array) {
         return `bytes:${value.byteLength}:${Buffer.from(value).toString("base64")}`;
       }
+      if (seen.has(value)) return `reference:${seen.get(value)}`;
+      seen.set(value, seen.size);
+      if (Array.isArray(value)) {
+        return `array:[${value.map((entry) => canonicalValue(entry, seen)).join(",")}]`;
+      }
       return `object:{${Object.entries(value)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => `${canonicalValue(key)}=${canonicalValue(entry)}`)
+        .map(([key, entry]) => `${canonicalValue(key, seen)}=${canonicalValue(entry, seen)}`)
         .join(",")}}`;
     default:
       return `${typeof value}:${String(value)}`;

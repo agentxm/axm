@@ -7,7 +7,6 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 
 import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
@@ -26,8 +25,9 @@ import {
 } from "../../test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
-import { handleKnowledgeOpen, KnowledgeOpenQueryResultSchema } from "./open.js";
-import { handleKnowledgeSearch, KnowledgeSearchQueryResultSchema } from "./search.js";
+import { handleKnowledgeConceptGet } from "./concepts/get.js";
+import { handleKnowledgeConceptSearch } from "./concepts/search.js";
+import { handleKnowledgeConceptStatus } from "./concepts/status.js";
 
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
@@ -215,7 +215,7 @@ describe("knowledge JSON output", () => {
     );
   });
 
-  it.effect("search reports liveness before returning machine results", () => {
+  it.effect("concept discovery emits versioned identities and shared status capabilities", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeKnowledgeExtension(axmDir, "platform");
@@ -242,79 +242,44 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleKnowledgeSearch("Authentication");
+        yield* handleKnowledgeConceptSearch("Authentication", "project");
 
         expect(rendererState.spinnerMessages).toEqual([
-          'Searching knowledge for "Authentication"',
-          'Searched knowledge for "Authentication"',
+          "Searching installed knowledge",
+          "Searched installed knowledge",
         ]);
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          query: "Authentication",
+          query: { version: "axm-knowledge-query-v1", scope: "project" },
           count: 1,
+          items: [
+            {
+              ref: {
+                bundle: "@acme/knowledge/platform",
+                conceptId: "auth",
+                bundleVersion: "1.0.0",
+              },
+            },
+          ],
         });
-      }),
-    );
-  });
-
-  it.effect("search applies token, phrase, literal, and field-boundary semantics", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    const axmDir = path.join(tempDir, ".axm");
-    writeKnowledgeExtension(axmDir, "platform");
-    const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
-    fs.writeFileSync(
-      path.join(packageRoot, "src", "spec.md"),
-      [
-        "---",
-        "type: reference",
-        "description: Specification guide",
-        "tags: [source-of-truth]",
-        "---",
-        "# SpecDrivenDevelopment",
-        "",
-        "Treat the spec as authoritative.",
-        "",
-      ].join("\n"),
-    );
-    fs.writeFileSync(
-      path.join(packageRoot, "src", "split.md"),
-      "---\ntype: reference\ndescription: boundary only\n---\n# Cross field\n",
-    );
-    writeWorkspaceFiles(axmDir, {
-      knowledge: { platform: "workspace:@acme/knowledge/platform" },
-      lockfileKnowledge: {
-        platform: {
-          type: "workspace",
-          owner: "@acme",
-          extensionType: "knowledge",
-          name: "platform",
-          version: "1.0.0",
-          sourceHash: computePackageContentHashSync(packageRoot),
-          installedAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        },
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        const cases = [
-          ["source of truth", 1],
-          ["truth specification source", 1],
-          ["  SOURCE\tOF  TRUTH  ", 1],
-          ['"source of truth"', 1],
-          ['literal:"SOURCE-OF-TRUTH"', 1],
-          ['literal:"source of truth"', 0],
-          ["spec driven development", 1],
-          ["specifications", 0],
-          ["field boundary", 1],
-          ['"field boundary"', 0],
-          ["definitely-absent", 0],
-        ] as const;
-        for (const [query, count] of cases) {
-          yield* handleKnowledgeSearch(query);
-          expect(rendererState.results.at(-1)?.data).toMatchObject({ query, count });
-        }
+        yield* handleKnowledgeConceptGet("@acme/knowledge/platform#auth", { raw: true });
+        expect(rendererState.results[1]?.data).toMatchObject({
+          outcome: "found",
+          concept: {
+            ref: { bundle: "@acme/knowledge/platform", conceptId: "auth" },
+            kind: "concept",
+            raw: expect.stringContaining("# Authentication"),
+          },
+        });
+        yield* handleKnowledgeConceptStatus();
+        expect(rendererState.results[2]?.data).toMatchObject({
+          capabilities: {
+            version: "axm-knowledge-discovery-capabilities-v1",
+            operations: ["resolve", "search", "query", "get", "related", "status"],
+          },
+          bundleCount: 1,
+          conceptCount: 2,
+        });
       }),
     );
   });
@@ -324,7 +289,7 @@ describe("knowledge JSON output", () => {
     return provide(
       Effect.gen(function* () {
         for (const query of ["", " \t ", '""', 'literal:""', '"unterminated']) {
-          const exit = yield* handleKnowledgeSearch(query).pipe(Effect.exit);
+          const exit = yield* handleKnowledgeConceptSearch(query, "project").pipe(Effect.exit);
           expect(Exit.isFailure(exit)).toBe(true);
           if (Exit.isFailure(exit)) {
             expect(getAppError(Cause.squash(exit.cause)).code).toBe("validation");
@@ -332,130 +297,6 @@ describe("knowledge JSON output", () => {
         }
       }),
     );
-  });
-
-  it.effect(
-    "open publishes complete parsed frontmatter without changing search or human output",
-    () => {
-      const axmDir = path.join(tempDir, ".axm");
-      writeKnowledgeExtension(axmDir, "platform");
-      const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
-      fs.writeFileSync(
-        path.join(packageRoot, "src", "architecture.md"),
-        [
-          "---",
-          "type: reference",
-          "description: Platform architecture",
-          "tags: [platform, architecture]",
-          "status: stable",
-          "stale_after: 2026-12-31",
-          "generated: { by: process:docs-build, at: 2026-08-11T00:00:00Z }",
-          "verified:",
-          "  - { by: human:reviewer, at: 2026-08-11T01:00:00Z }",
-          "sources:",
-          "  - { resource: ./source.txt, title: Architecture source }",
-          "producer:",
-          "  nested: [one, true, null]",
-          "---",
-          "# Architecture",
-          "",
-          "Architecture body.",
-          "",
-        ].join("\n"),
-      );
-      fs.writeFileSync(path.join(packageRoot, "src", "source.txt"), "source");
-      writeWorkspaceFiles(axmDir, {
-        knowledge: { platform: "workspace:@acme/knowledge/platform" },
-        lockfileKnowledge: {
-          platform: {
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "knowledge",
-            name: "platform",
-            version: "1.0.0",
-            sourceHash: computePackageContentHashSync(packageRoot),
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        },
-      });
-
-      const machine = makeWorkspaceHandlerTestContext({ machine: true });
-      const human = makeWorkspaceHandlerTestContext();
-      return machine.provide(
-        Effect.gen(function* () {
-          yield* handleKnowledgeOpen("platform", "architecture");
-          const openOutput = Schema.encodeUnknownSync(KnowledgeOpenQueryResultSchema)(
-            machine.rendererState.results[0]?.data,
-          );
-          expect(openOutput).toEqual({
-            concept: {
-              bundle: "platform",
-              id: "architecture",
-              title: "Architecture",
-              type: "reference",
-              description: "Platform architecture",
-              tags: ["platform", "architecture"],
-              relativePath: "architecture.md",
-              body: "# Architecture\n\nArchitecture body.\n",
-              frontmatter: {
-                type: "reference",
-                description: "Platform architecture",
-                tags: ["platform", "architecture"],
-                status: "stable",
-                stale_after: "2026-12-31",
-                generated: { by: "process:docs-build", at: "2026-08-11T00:00:00Z" },
-                verified: [{ by: "human:reviewer", at: "2026-08-11T01:00:00Z" }],
-                sources: [{ resource: "./source.txt", title: "Architecture source" }],
-                producer: { nested: ["one", true, null] },
-              },
-            },
-          });
-
-          yield* handleKnowledgeSearch("Architecture");
-          const searchOutput = Schema.encodeUnknownSync(KnowledgeSearchQueryResultSchema)(
-            machine.rendererState.results[1]?.data,
-          );
-          expect(searchOutput.items).toHaveLength(1);
-          expect(searchOutput.items[0]).not.toHaveProperty("frontmatter");
-
-          yield* human.provide(handleKnowledgeOpen("platform", "architecture"));
-          expect(human.rendererState.diagnostics).toEqual([
-            "# Architecture\n\nArchitecture body.\n",
-          ]);
-        }),
-      );
-    },
-  );
-
-  it("open rejects values outside the recursive JSON data model", () => {
-    const cyclic: Record<string, unknown> = {};
-    cyclic["self"] = cyclic;
-    const invalidValues: ReadonlyArray<unknown> = [
-      undefined,
-      Number.NaN,
-      Number.POSITIVE_INFINITY,
-      1n,
-      Symbol("producer"),
-      () => "producer",
-      new Date("2026-08-11T00:00:00Z"),
-      cyclic,
-    ];
-    const concept = {
-      bundle: "platform",
-      id: "architecture",
-      title: "Architecture",
-      relativePath: "architecture.md",
-      body: "# Architecture\n",
-    };
-
-    for (const value of invalidValues) {
-      expect(() =>
-        Schema.encodeUnknownSync(KnowledgeOpenQueryResultSchema)({
-          concept: { ...concept, frontmatter: { producer: value } },
-        }),
-      ).toThrow();
-    }
   });
 
   it.effect("disable emits exactly one JSON document", () => {

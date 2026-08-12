@@ -1,4 +1,12 @@
 export {
+  relatedKnowledgeConcepts,
+  resolveKnowledgeConcept,
+  type KnowledgeRelatedConcept,
+  type KnowledgeRelation,
+  type KnowledgeResolveCandidate,
+  type KnowledgeResolveResult,
+} from "./knowledge-graph.js";
+export {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_MANIFEST_SCHEMA_URL,
@@ -92,11 +100,15 @@ export {
   type KnowledgeTextClause,
 } from "./knowledge-query.js";
 export {
+  getKnowledgeIndexConcept,
+  KnowledgeCursorInvalidError,
   KnowledgeIndex,
   KnowledgeIndexLive,
   makeKnowledgeIndexSnapshot,
   queryKnowledgeIndex,
+  queryKnowledgeIndexResult,
   type KnowledgeConceptResult,
+  type KnowledgeCursorInvalidReason,
   type KnowledgeIndexBundleInput,
   type KnowledgeIndexedConcept,
   type KnowledgeIndexService,
@@ -110,7 +122,7 @@ export {
   KnowledgeCapturedSourceMissingError,
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
-export { inspectKnowledgePackage } from "./package-inspection.js";
+export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";
 export type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,

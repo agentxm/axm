@@ -3,7 +3,7 @@ import type { KnowledgeConcept } from "./okf.js";
 export const KNOWLEDGE_SEARCH_TOKENIZER_PROFILE = {
   id: "axm-knowledge-lexical-v1",
   unicodeNormalization: "NFKC",
-  caseNormalization: "unicode-lowercase",
+  caseNormalization: "unicode-case-fold",
   termBoundary: "unicode-whitespace-punctuation-camel-code",
   stemming: false,
 } as const;
@@ -28,6 +28,10 @@ const normalizeTokenSource = (value: string): string =>
     .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
     .replace(/(\p{L})(\p{N})/gu, "$1 $2")
     .replace(/(\p{N})(\p{L})/gu, "$1 $2")
+    // ECMAScript does not expose Unicode's CaseFolding.txt operation directly.
+    // Upper-then-lower handles multi-character folds such as ß -> ss while
+    // remaining deterministic and locale-independent.
+    .toUpperCase()
     .toLowerCase();
 
 export const tokenizeKnowledgeSearchText = (value: string): ReadonlyArray<string> =>

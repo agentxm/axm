@@ -1,6 +1,10 @@
 import * as Effect from "effect/Effect";
+import * as Clock from "effect/Clock";
 import * as Layer from "effect/Layer";
+import * as Data from "effect/Data";
+import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
+import { createHash } from "node:crypto";
 import {
   type KnowledgeBundleFqn,
   type KnowledgeRevision,
@@ -14,10 +18,11 @@ import {
   type KnowledgeSearchableField,
   type KnowledgeSearchableUnit,
 } from "./knowledge-projection.js";
-import type {
-  KnowledgeQuery,
-  KnowledgeQueryClause,
-  KnowledgeTextClause,
+import {
+  knowledgeQueryIdentity,
+  type KnowledgeQuery,
+  type KnowledgeQueryClause,
+  type KnowledgeTextClause,
 } from "./knowledge-query.js";
 import {
   computeKnowledgeCorpusFingerprint,
@@ -39,6 +44,7 @@ export interface KnowledgeIndexedConcept {
   readonly projectionRevision: KnowledgeRevision;
   readonly projected: KnowledgeProjectedConcept;
   readonly source: KnowledgeConcept;
+  readonly sourceBytes: Uint8Array;
 }
 
 export interface KnowledgeIndexSnapshot {
@@ -80,6 +86,81 @@ export interface KnowledgeQueryPage {
   readonly cursor?: string;
 }
 
+export type KnowledgeCursorInvalidReason =
+  "invalid" | "expired" | "corpus-changed" | "query-changed";
+
+export class KnowledgeCursorInvalidError extends Data.TaggedError("KnowledgeCursorInvalidError")<{
+  readonly reason: KnowledgeCursorInvalidReason;
+}> {}
+
+const CURSOR_VERSION = "axm-knowledge-cursor-v1";
+const CURSOR_MAX_AGE_MS = 86_400_000;
+
+interface KnowledgeCursorPayload {
+  readonly version: typeof CURSOR_VERSION;
+  readonly corpusFingerprint: string;
+  readonly queryDigest: string;
+  readonly offset: number;
+  readonly issuedAt: number;
+}
+
+const queryDigest = (query: KnowledgeQuery): string =>
+  createHash("sha256")
+    .update(JSON.stringify(knowledgeQueryIdentity(query)))
+    .digest("hex");
+
+const encodeCursor = (payload: KnowledgeCursorPayload): string =>
+  Buffer.from(JSON.stringify(payload)).toString("base64url");
+
+const isCursorPayload = (value: unknown): value is KnowledgeCursorPayload => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return (
+    "version" in value &&
+    value.version === CURSOR_VERSION &&
+    "corpusFingerprint" in value &&
+    typeof value.corpusFingerprint === "string" &&
+    "queryDigest" in value &&
+    typeof value.queryDigest === "string" &&
+    "offset" in value &&
+    typeof value.offset === "number" &&
+    Number.isSafeInteger(value.offset) &&
+    value.offset >= 0 &&
+    "issuedAt" in value &&
+    typeof value.issuedAt === "number" &&
+    Number.isSafeInteger(value.issuedAt)
+  );
+};
+
+const decodeCursor = (
+  cursor: string,
+  snapshot: KnowledgeIndexSnapshot,
+  query: KnowledgeQuery,
+  now: number,
+): Result.Result<KnowledgeCursorPayload, KnowledgeCursorInvalidError> => {
+  let decoded: unknown;
+  try {
+    if (!/^[A-Za-z0-9_-]+$/u.test(cursor)) {
+      return Result.fail(new KnowledgeCursorInvalidError({ reason: "invalid" }));
+    }
+    decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+  } catch {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "invalid" }));
+  }
+  if (!isCursorPayload(decoded)) {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "invalid" }));
+  }
+  if (decoded.issuedAt > now || now - decoded.issuedAt > CURSOR_MAX_AGE_MS) {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "expired" }));
+  }
+  if (decoded.corpusFingerprint !== snapshot.fingerprint) {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "corpus-changed" }));
+  }
+  if (decoded.queryDigest !== queryDigest(query)) {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "query-changed" }));
+  }
+  return Result.succeed(decoded);
+};
+
 const sourceForConcept = (
   bundle: KnowledgeIndexBundleInput,
   concept: KnowledgeConcept,
@@ -111,6 +192,7 @@ export const makeKnowledgeIndexSnapshot = (
         projectionRevision: computeKnowledgeProjectionRevision(projection),
         projected: projection,
         source,
+        sourceBytes: captured.bytes,
       });
     }
   }
@@ -124,7 +206,8 @@ export const makeKnowledgeIndexSnapshot = (
   };
 };
 
-const normalizedLiteral = (value: string): string => value.normalize("NFKC").toLowerCase();
+const normalizedLiteral = (value: string): string =>
+  value.normalize("NFKC").toUpperCase().toLowerCase();
 
 const containsPhrase = (
   fieldTokens: ReadonlyArray<string>,
@@ -301,18 +384,58 @@ const fieldWeight = (field: KnowledgeSearchableField): number => {
   }
 };
 
-const approximateSpan = (
+interface LocatedToken {
+  readonly start: number;
+  readonly end: number;
+}
+
+const locateTokenSequence = (
+  text: string,
+  tokens: ReadonlyArray<string>,
+): LocatedToken | undefined => {
+  if (tokens.length === 0) return undefined;
+  const normalized = normalizedLiteral(text);
+
+  const visit = (
+    tokenIndex: number,
+    searchStart: number,
+    firstStart?: number,
+  ): LocatedToken | undefined => {
+    const token = tokens[tokenIndex];
+    if (token === undefined) {
+      return firstStart === undefined ? undefined : { start: firstStart, end: searchStart };
+    }
+    const needle = normalizedLiteral(token);
+    let start = normalized.indexOf(needle, searchStart);
+    while (start >= 0) {
+      const between = text.slice(searchStart, start);
+      if (tokenIndex === 0 || tokenizeKnowledgeSearchText(between).length === 0) {
+        const end = start + needle.length;
+        const found = visit(tokenIndex + 1, end, firstStart ?? start);
+        if (found !== undefined) return found;
+      }
+      start = normalized.indexOf(needle, start + 1);
+    }
+    return undefined;
+  };
+
+  return visit(0, 0);
+};
+
+const exactSpan = (
   text: string,
   clause: KnowledgeTextClause,
   clauseIndex: number,
   field: KnowledgeSearchableField,
 ): KnowledgeMatchSpan | undefined => {
-  const needle =
-    clause.kind === "term" ? tokenizeKnowledgeSearchText(clause.value)[0] : clause.value;
-  if (needle === undefined) return undefined;
-  const start = normalizedLiteral(text).indexOf(normalizedLiteral(needle));
-  if (start < 0) return undefined;
-  return { clauseIndex, field, start, end: Math.min(text.length, start + needle.length) };
+  if (clause.kind === "literal") {
+    const needle = normalizedLiteral(clause.value);
+    const start = normalizedLiteral(text).indexOf(needle);
+    if (start < 0) return undefined;
+    return { clauseIndex, field, start, end: Math.min(text.length, start + needle.length) };
+  }
+  const located = locateTokenSequence(text, tokenizeKnowledgeSearchText(clause.value));
+  return located === undefined ? undefined : { clauseIndex, field, ...located };
 };
 
 interface RankedConcept {
@@ -341,9 +464,11 @@ const rankConcept = (
   const passageSpans = new Map<number, KnowledgeMatchSpan[]>();
   let score = 0;
   for (const [clauseIndex, clause] of query.clauses.entries()) {
-    for (const unit of matchingUnits(concept.projected, clause)) {
+    const units = matchingUnits(concept.projected, clause);
+    const clauseFields = new Set(units.map(({ field }) => field));
+    for (const field of clauseFields) score += fieldWeight(field);
+    for (const unit of units) {
       fields.add(unit.field);
-      score += fieldWeight(unit.field);
       if (unit.passageIndex === undefined) continue;
       const textClause = clause.kind === "field" ? clause.clause : clause;
       if (
@@ -353,7 +478,7 @@ const rankConcept = (
       ) {
         continue;
       }
-      const span = approximateSpan(unit.text, textClause, clauseIndex, unit.field);
+      const span = exactSpan(unit.text, textClause, clauseIndex, unit.field);
       if (span === undefined) continue;
       const spans = passageSpans.get(unit.passageIndex) ?? [];
       spans.push(span);
@@ -392,10 +517,11 @@ const toResult = (ranked: RankedConcept): KnowledgeConceptResult => {
   };
 };
 
-export const queryKnowledgeIndex = (
+export const queryKnowledgeIndexResult = (
   snapshot: KnowledgeIndexSnapshot,
   query: KnowledgeQuery,
-): KnowledgeQueryPage => {
+  now: number,
+): Result.Result<KnowledgeQueryPage, KnowledgeCursorInvalidError> => {
   const ranked = snapshot.concepts.flatMap((concept) => {
     const candidate = rankConcept(concept, query);
     return candidate === undefined ? [] : [candidate];
@@ -408,12 +534,54 @@ export const queryKnowledgeIndex = (
       left.concept.ref.conceptId.localeCompare(right.concept.ref.conceptId)
     );
   });
-  return {
-    items: ranked.slice(0, query.resultLimit).map(toResult),
+  const decoded =
+    query.cursor === undefined
+      ? Result.succeed({ offset: 0 })
+      : decodeCursor(query.cursor, snapshot, query, now);
+  if (!Result.isSuccess(decoded)) return Result.fail(decoded.failure);
+  const offset = decoded.success.offset;
+  if (offset > ranked.length) {
+    return Result.fail(new KnowledgeCursorInvalidError({ reason: "invalid" }));
+  }
+  const items = ranked.slice(offset, offset + query.resultLimit).map(toResult);
+  const nextOffset = offset + items.length;
+  const hasMore = nextOffset < ranked.length;
+  return Result.succeed({
+    items,
     count: ranked.length,
-    hasMore: ranked.length > query.resultLimit,
-  };
+    hasMore,
+    ...(hasMore
+      ? {
+          cursor: encodeCursor({
+            version: CURSOR_VERSION,
+            corpusFingerprint: snapshot.fingerprint,
+            queryDigest: queryDigest(query),
+            offset: nextOffset,
+            issuedAt: now,
+          }),
+        }
+      : {}),
+  });
 };
+
+export const queryKnowledgeIndex = (
+  snapshot: KnowledgeIndexSnapshot,
+  query: KnowledgeQuery,
+  now: number,
+): KnowledgeQueryPage => {
+  const result = queryKnowledgeIndexResult(snapshot, query, now);
+  if (Result.isSuccess(result)) return result.success;
+  throw result.failure;
+};
+
+export const getKnowledgeIndexConcept = (
+  snapshot: KnowledgeIndexSnapshot,
+  bundle: string,
+  conceptId: string,
+): KnowledgeIndexedConcept | undefined =>
+  snapshot.concepts.find(
+    (concept) => concept.ref.bundle === bundle && concept.ref.conceptId === conceptId,
+  );
 
 export interface KnowledgeIndexService {
   readonly makeSnapshot: (
@@ -422,7 +590,7 @@ export interface KnowledgeIndexService {
   readonly query: (
     snapshot: KnowledgeIndexSnapshot,
     query: KnowledgeQuery,
-  ) => Effect.Effect<KnowledgeQueryPage>;
+  ) => Effect.Effect<KnowledgeQueryPage, KnowledgeCursorInvalidError>;
 }
 
 export class KnowledgeIndex extends ServiceMap.Service<KnowledgeIndex, KnowledgeIndexService>()(
@@ -431,5 +599,9 @@ export class KnowledgeIndex extends ServiceMap.Service<KnowledgeIndex, Knowledge
 
 export const KnowledgeIndexLive = Layer.succeed(KnowledgeIndex, {
   makeSnapshot: (bundles) => Effect.sync(() => makeKnowledgeIndexSnapshot(bundles)),
-  query: (snapshot, query) => Effect.sync(() => queryKnowledgeIndex(snapshot, query)),
+  query: (snapshot, query) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      return yield* Effect.fromResult(queryKnowledgeIndexResult(snapshot, query, now));
+    }),
 });

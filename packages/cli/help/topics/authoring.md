@@ -115,9 +115,8 @@ The compact UTF-8 JSON representation may contain at most 65,536 bytes and have
 container depth at most 16. The root object is depth 1; each nested object or
 array adds one. Other unrecognized top-level manifest fields remain invalid.
 
-This AXM release validates metadata for authoring, but publication is not active
-yet. Remove the field before publishing. A later activation release will enable
-publication after Registry support is deployed.
+AXM includes metadata in the published extension archive. Registry consumers
+can read it from the exact-version response; list and search results omit it.
 
 ## README.md
 

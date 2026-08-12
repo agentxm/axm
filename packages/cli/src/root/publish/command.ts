@@ -819,18 +819,6 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     manifestJson,
     platform: { fs, path },
   });
-  if (manifest.metadata !== undefined) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Manifest metadata publication is not active yet for ${selected.fqn}.`,
-      suggestions: [
-        {
-          description:
-            "Remove metadata and retry, or upgrade to the AXM activation release when it is available.",
-        },
-      ],
-    });
-  }
   const archive = yield* buildZipArchive(
     extensionDir,
     yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),

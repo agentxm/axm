@@ -74,6 +74,63 @@ describe("axm (root command)", () => {
       expect(result.exitCode).toBe(3);
       expect(output).toContain("Unknown help topic 'bogus'");
       expect(output).toContain("basic-usage");
+      expect(output).toContain("axm help");
+      expect(output).not.toContain("axm publish --help");
+    });
+
+    it("guides a publish-shaped topic to command help and conceptual guidance", async () => {
+      const result = await runCli(["help", "publish"]);
+      const output = getOutput(result);
+
+      expect(result.exitCode).toBe(3);
+      expect(output).toContain("Unknown help topic 'publish'");
+      expect(output.indexOf("axm publish --help")).toBeGreaterThan(-1);
+      expect(output.indexOf("axm help basic-usage")).toBeGreaterThan(
+        output.indexOf("axm publish --help"),
+      );
+    });
+
+    it("emits ordered publish recovery through the structured error channels", async () => {
+      const result = await runCli(["help", "publish", "--json"]);
+      const envelope: unknown = JSON.parse(result.stdout);
+      const events: ReadonlyArray<unknown> = result.stderr
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+
+      expect(result.exitCode).toBe(3);
+      expect(envelope).toMatchObject({
+        ok: false,
+        code: "not_found",
+        detail: expect.stringContaining("Unknown help topic 'publish'"),
+        suggestions: [
+          {
+            description: "Show publish command help.",
+            cmd: "axm publish --help",
+          },
+          {
+            description: "Read publishing guidance.",
+            cmd: "axm help basic-usage",
+          },
+        ],
+      });
+      expect(events).toEqual([
+        {
+          type: "suggestion",
+          description: "Show publish command help.",
+          cmd: "axm publish --help",
+        },
+        {
+          type: "suggestion",
+          description: "Read publishing guidance.",
+          cmd: "axm help basic-usage",
+        },
+        {
+          type: "error",
+          code: "not_found",
+          message: expect.stringContaining("Unknown help topic 'publish'"),
+        },
+      ]);
     });
   });
 });

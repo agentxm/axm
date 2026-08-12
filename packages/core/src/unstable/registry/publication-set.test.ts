@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as Schema from "effect/Schema";
 
 import { decodeExtensionNameSync, decodeHandleSync } from "../extensions/index.js";
 import {
@@ -7,10 +8,12 @@ import {
 } from "../version-constraints/version-constraints.js";
 import {
   archiveSha256Hex,
+  evaluateProspectivePackDependencyState,
   evaluateProspectivePackDependencies,
   normalizePublicationSet,
   publicationDescriptorDigest,
   publicationSetDigest,
+  PreviewPublicationSetV1RequestSchema,
   validatePublicationDescriptors,
   validatePublicationSetResponse,
   type PublicationDescriptor,
@@ -56,6 +59,15 @@ const pack: PublicationDescriptor = {
 };
 
 describe("publication set contract", () => {
+  it("retains the released v1 request shape while the active contract is v2", () => {
+    expect(
+      Schema.decodeUnknownSync(PreviewPublicationSetV1RequestSchema)({
+        contract: "publication-set-v1",
+        candidates: [skill],
+      }).contract,
+    ).toBe("publication-set-v1");
+  });
+
   it("canonicalizes descriptor and dependency order into stable digests", () => {
     const forward = normalizePublicationSet([pack, skill]);
     const reverse = normalizePublicationSet([skill, pack]);
@@ -63,10 +75,10 @@ describe("publication set contract", () => {
     expect(forward).toEqual(reverse);
     expect(publicationSetDigest(forward)).toBe(publicationSetDigest(reverse));
     expect(publicationDescriptorDigest(pack)).toBe(
-      "59459ef901adb965524da0000b65252e6bf9d5158ce7086de3332524fafa89ea",
+      "9af4f1a9f082bcf1be12f64f1e5afe2e8407b635160a0bb04434eb2eebb54b5c",
     );
     expect(publicationSetDigest(forward)).toBe(
-      "f1bf8d08aecf9438872b11be284cf86a6e4559c06f992d85eba1799dcb074d21",
+      "c248d688a825b5c971abceddb2afe7a1a3fbc65b5cb8c548fabb9f75effb80f0",
     );
   });
 
@@ -89,7 +101,7 @@ describe("publication set contract", () => {
   it("accepts only complete digest-bound admitted responses", () => {
     const descriptors = validatePublicationDescriptors([skill]);
     const response = {
-      contract: "publication-set-v1",
+      contract: "publication-set-v2",
       publicationSetDigest: publicationSetDigest(descriptors),
       status: "admitted",
       candidates: [
@@ -155,5 +167,33 @@ describe("publication set contract", () => {
         path: "./pack.json",
       },
     ]);
+  });
+
+  it("returns the highest effective satisfying version from the admitted snapshot", () => {
+    const dependency = pack.pack?.dependencies[1];
+    if (dependency === undefined) throw new Error("Expected the review dependency");
+
+    expect(
+      evaluateProspectivePackDependencyState({
+        dependencies: [dependency],
+        snapshots: [
+          {
+            dependency,
+            exists: true,
+            visibility: "public",
+            lifecycleState: "active",
+            deprecated: false,
+            versions: [
+              { version: "1.2.0", status: "available", yanked: false, purged: false },
+              { version: "1.4.0", status: "available", yanked: false, purged: false },
+            ],
+          },
+        ],
+        candidates: [],
+      }),
+    ).toMatchObject({
+      findings: [],
+      resolutions: [{ dependency, effectiveVersion: "1.4.0" }],
+    });
   });
 });

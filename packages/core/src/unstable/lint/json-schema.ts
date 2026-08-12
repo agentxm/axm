@@ -14,6 +14,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import { SuggestedActionSchema } from "../cli-runtime/suggested-action.js";
 import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
 
 const LintJsonLocationSchema = Schema.Struct({
@@ -44,6 +45,7 @@ export const LintJsonFindingSchema = Schema.Struct({
   displayRoot: Schema.String,
   path: Schema.String,
   location: Schema.optional(LintJsonLocationSchema),
+  suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
 }).annotate({
   identifier: "LintJsonFinding",
   title: "Lint Finding",

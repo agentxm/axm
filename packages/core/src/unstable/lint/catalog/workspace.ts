@@ -60,6 +60,7 @@ import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct
 import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
+import { packDependencyVersionsCurrentRule } from "./workspace/pack-dependency-versions-current.js";
 import { recommendedPacksRetainedRule } from "./workspace/recommended-packs-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
@@ -117,6 +118,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   skillsManagedRule,
   // Pack dependencies resolved (configured packs).
   packsDependenciesResolvedRule,
+  packDependencyVersionsCurrentRule,
   // Pack recommendation retention.
   recommendedPacksRetainedRule,
 ];
@@ -161,6 +163,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsArtifactsCorrectRule,
   skillsManagedRule,
   packsDependenciesResolvedRule,
+  packDependencyVersionsCurrentRule,
   recommendedPacksRetainedRule,
 ];
 

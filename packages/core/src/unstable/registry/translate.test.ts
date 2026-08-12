@@ -155,6 +155,41 @@ describe("registryErrorToAppError", () => {
     );
   });
 
+  it("reports how many registry lint findings were suppressed", () => {
+    const finding = {
+      kind: "advisory" as const,
+      ruleId: "skill/manifest-schema-valid",
+      severity: "error" as const,
+      message: "Manifest is invalid",
+      path: "skill.json",
+      suggestions: [],
+    };
+    const error = registryErrorToAppError(
+      {
+        kind: "ExtensionLintFailedError",
+        type: "about:blank",
+        title: "Extension lint failed",
+        status: 422,
+        detail: "Lint failed",
+        code: "extension_lint_failed",
+        error: "extension_lint_failed",
+        identity: {
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+        },
+        displayRoot: ".",
+        findings: Array.from({ length: 8 }, () => finding),
+      },
+      responseFor(422),
+    );
+
+    expect(error.suggestions).toContainEqual({
+      description: "3 additional findings were suppressed.",
+    });
+  });
+
   it("adds identity mismatch suggestions for publish identity responses", () => {
     const error = registryErrorToAppError(
       {

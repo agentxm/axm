@@ -12,6 +12,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   computePackPaths,
+  buildPackDependencyReachability,
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/client-core/unstable/packs";
@@ -27,6 +28,7 @@ const PackMemberSchema = Schema.Struct({
   constraint: Schema.NullOr(Schema.String),
   version: Schema.NullOr(Schema.String),
   source: Schema.NullOr(Schema.String),
+  reachability: Schema.NullOr(Schema.Literals(["satisfying", "excluded", "missing"] as const)),
 });
 
 export const PackShowResultSchema = Schema.Struct({
@@ -173,30 +175,56 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
             constraint: null,
             version: member.version,
             source: "source" in member ? member.source : "registry",
+            reachability: null,
           })),
         );
   const resolvedByFqn = new Map(receipt.map((member) => [member.fqn, member]));
+  const packFqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
+  const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
+  const reachability = buildPackDependencyReachability({
+    packs: [
+      {
+        packFqn,
+        packAuthority: sourceAuthority,
+        manifestPath,
+        dependencies: manifest.dependencies,
+      },
+    ],
+    members: receipt.flatMap((member) =>
+      member.version === null || (member.source !== "workspace" && member.source !== "registry")
+        ? []
+        : [{ fqn: member.fqn, version: member.version, authority: member.source }],
+    ),
+  });
+  const reachabilityByFqn = new Map(reachability.map((record) => [record.memberFqn, record]));
   const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, constraint]) => ({
     fqn,
     constraint,
     version: resolvedByFqn.get(fqn)?.version ?? null,
     source: resolvedByFqn.get(fqn)?.source ?? null,
+    reachability: reachabilityByFqn.get(fqn)?.classification ?? "missing",
   }));
   const desiredNames = new Set(desiredDependencies.map((member) => member.fqn));
   const drift = [
     ...desiredDependencies
       .filter((member) => member.version === null)
       .map((member) => `${member.fqn} is desired but unresolved`),
+    ...desiredDependencies
+      .filter((member) => member.reachability === "excluded")
+      .map(
+        (member) =>
+          `${member.fqn}@${member.version ?? "unknown"} is excluded by ${member.constraint ?? "unknown range"}`,
+      ),
     ...receipt
       .filter((member) => !desiredNames.has(member.fqn))
       .map((member) => `${member.fqn} is resolved but no longer desired`),
   ];
   if (trustStatus === "drifted") drift.unshift("canonical content differs from trust baseline");
-  const fqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
+  const fqn = packFqn;
   const result: PackShowResult = {
     scope: ws.scope,
     pack: fqn,
-    sourceAuthority: isWorkspaceSourceLocator(source) ? "workspace" : "registry",
+    sourceAuthority,
     canonicalPath: manifestPath,
     manifestVersion: manifest.version,
     trustStatus,

@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
 import { AppError, type AppErrorMetadata, makeAppError } from "../app-error/index.js";
-import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
+import { sanitizeSuggestedAction, type SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { parseExtensionFqnParts, toExtensionTypePlural } from "../extensions/common.js";
 import {
   decodeExtensionNameSync,
@@ -84,6 +84,17 @@ const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
 const decodeExtensionIndex = Schema.decodeUnknownSync(Schema.toType(ExtensionIndexSchema));
 const decodeCompanionPackages = Schema.decodeUnknownSync(Schema.Array(CompanionPackageSchema));
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
+
+const normalizeRegistrySuggestedAction = (suggestion: {
+  readonly description: string;
+  readonly cmd?: string | null;
+  readonly url?: string | null;
+}): SuggestedAction =>
+  sanitizeSuggestedAction({
+    description: suggestion.description,
+    ...(suggestion.cmd === undefined || suggestion.cmd === null ? {} : { cmd: suggestion.cmd }),
+    ...(suggestion.url === undefined || suggestion.url === null ? {} : { url: suggestion.url }),
+  });
 
 /**
  * Narrow a string to ExtensionType via Schema validation.
@@ -722,6 +733,12 @@ export const createRemoteRegistryClient = (
               status: response.publish_status,
               visibility: response.visibility,
               links: response.links,
+              warnings: response.warnings.map((warning) => ({
+                ruleId: warning.ruleId,
+                severity: "warning" as const,
+                message: warning.message,
+                suggestions: warning.suggestions.map(normalizeRegistrySuggestedAction),
+              })),
             }) satisfies PublishExtensionResponse,
         ),
         // Single mapError handler for all error types to avoid error channel narrowing issues

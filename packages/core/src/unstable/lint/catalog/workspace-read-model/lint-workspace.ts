@@ -24,6 +24,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import {
   getInstructionsGitignoreStatus,
@@ -73,12 +75,21 @@ import type { KnowledgeInspection } from "../../../knowledge/okf.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
 import { RULE_MANIFEST_FILENAME } from "../../../rules/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
+import { PackManifestSchema } from "../../../packs/manifest-schema.js";
+import {
+  buildPackDependencyReachability,
+  type PackDependencyAuthority,
+  type PackDependencyMemberObservation,
+  type PackDependencyReachability,
+} from "../../../packs/dependency-reachability.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
 import { readAxmSkillWorkspaceCompatibility } from "../../../skills/axm-skill-workspace-compatibility.js";
 import type { AxmSkillCompatibilityPolicyService } from "../../../skills/axm-skill-compatibility.js";
 import type { Handle } from "../../../extensions/handle.js";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
 import { readManifestJson } from "./manifest-json.js";
+import type { ExtensionType } from "../../../extensions/common.js";
+import { toExtensionTypePlural } from "../../../extensions/common.js";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView
@@ -204,6 +215,7 @@ export const buildLintWorkspace = (
       // The projection already read every installed manifest; hand the same
       // values to workspace rules rather than re-reading them per rule.
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
+      packDependencyReachability: Effect.succeed(projection.packDependencyReachability),
       ...(args.owner === undefined ? {} : { owner: args.owner }),
       ...(args.axmSkillCompatibilityPolicy === undefined
         ? {}
@@ -319,10 +331,16 @@ interface NamedSkill {
   readonly info: InstalledSkillInfo;
 }
 
+interface NamedPack {
+  readonly installed: InstalledPack;
+  readonly info: InstalledPackInfo;
+}
+
 /** Combined output of the workspace projection. */
 interface LintWorkspaceProjection {
   readonly view: LintWorkspaceView;
   readonly installedManifests: ReadonlyArray<InstalledExtensionManifest>;
+  readonly packDependencyReachability: ReadonlyArray<PackDependencyReachability>;
 }
 
 const joinManifestPath = (root: string, filename: string): string =>
@@ -354,9 +372,9 @@ const buildLintWorkspaceView = (
           info: built.info,
         };
       });
-    const installedPacks = packs.flatMap((pack) => {
+    const installedPacks = packs.flatMap((pack): ReadonlyArray<NamedPack> => {
       const info = installedPackToInfo(args, pack);
-      return info === undefined ? [] : [info];
+      return info === undefined ? [] : [{ installed: pack, info }];
     });
     const namedSubagents = subagents.flatMap((subagent) => {
       const context = installedSubagentToContext(args, subagent);
@@ -413,7 +431,7 @@ const buildLintWorkspaceView = (
     return {
       view: {
         installedSkills: skillsWithJson.map((entry) => entry.info),
-        installedPacks: installedPacksWithJson,
+        installedPacks: installedPacksWithJson.map((entry) => entry.info),
         subagentContexts: subagentsWithJson.map((entry) => entry.context),
         mcpServerContexts: mcpServersWithJson.map((entry) => entry.context),
         hookContexts: hooksWithJson.map((entry) => entry.context),
@@ -433,8 +451,73 @@ const buildLintWorkspaceView = (
         ...toManifests("rule", rulesWithJson, (c) => c.subject.ruleJson),
         ...toManifests("knowledge", knowledgeWithJson, (c) => c.subject.knowledgeJson),
       ],
+      packDependencyReachability: buildPackDependencyReachability({
+        packs: installedPacksWithJson.flatMap(toPackDependencyDeclaration),
+        members: [
+          ...skills.flatMap((entry) => memberObservation("skill", entry.resolved)),
+          ...subagents.flatMap((entry) => memberObservation("subagent", entry.resolved)),
+          ...mcpServers.flatMap((entry) => memberObservation("mcp-server", entry.resolved)),
+          ...hooks.flatMap((entry) => memberObservation("hook", entry.resolved)),
+          ...rules.flatMap((entry) => memberObservation("rule", entry.resolved)),
+          ...knowledge.flatMap((entry) => memberObservation("knowledge", entry.resolved)),
+        ],
+      }),
     };
   });
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const memberObservation = (
+  extensionType: Exclude<ExtensionType, "pack">,
+  resolved: Option.Option<{ readonly lockEntry: unknown }>,
+): ReadonlyArray<PackDependencyMemberObservation> => {
+  if (Option.isNone(resolved) || !isRecord(resolved.value.lockEntry)) return [];
+  const entry = resolved.value.lockEntry;
+  const authority = entry["type"];
+  const owner = entry["owner"];
+  const name = entry["name"];
+  const version = authority === "workspace" ? entry["version"] : entry["resolvedVersion"];
+  if (
+    (authority !== "workspace" && authority !== "registry") ||
+    typeof owner !== "string" ||
+    typeof name !== "string" ||
+    typeof version !== "string"
+  ) {
+    return [];
+  }
+  return [
+    {
+      fqn: `${owner}/${toExtensionTypePlural(extensionType)}/${name}`,
+      version,
+      authority,
+    },
+  ];
+};
+
+const installedPackAuthority = (installed: InstalledPack): PackDependencyAuthority => {
+  if (Option.isSome(installed.resolved)) {
+    return installed.resolved.value.lockEntry.type === "workspace" ? "workspace" : "registry";
+  }
+  if (installed.installationOrigin._tag !== "direct") return "registry";
+  const declared = installed.installationOrigin.declared.entry;
+  const source = typeof declared === "string" ? declared : declared.source;
+  return source.startsWith("workspace:") ? "workspace" : "registry";
+};
+
+const toPackDependencyDeclaration = (entry: NamedPack) => {
+  const decoded = Schema.decodeUnknownResult(PackManifestSchema)(entry.info.packJson);
+  if (Result.isFailure(decoded)) return [];
+  const manifest = decoded.success;
+  return [
+    {
+      packFqn: `${manifest.owner}/packs/${manifest.name}`,
+      packAuthority: installedPackAuthority(entry.installed),
+      manifestPath: joinManifestPath(entry.info.displayRoot, PACK_MANIFEST_FILENAME),
+      dependencies: manifest.dependencies,
+    },
+  ];
+};
 
 const namedContext = <C extends { readonly displayRoot: string }>(
   name: string,
@@ -574,14 +657,14 @@ const populateKnowledgeManifestJson = (
   );
 
 const populatePackManifestJson = (
-  installedPacks: ReadonlyArray<InstalledPackInfo>,
-): Effect.Effect<ReadonlyArray<InstalledPackInfo>> =>
+  installedPacks: ReadonlyArray<NamedPack>,
+): Effect.Effect<ReadonlyArray<NamedPack>> =>
   Effect.forEach(
     installedPacks,
-    (info) =>
+    (entry) =>
       Effect.gen(function* () {
-        const packJson = yield* readManifestJson(info.files, PACK_MANIFEST_FILENAME);
-        return { ...info, packJson };
+        const packJson = yield* readManifestJson(entry.info.files, PACK_MANIFEST_FILENAME);
+        return { ...entry, info: { ...entry.info, packJson } };
       }),
     { concurrency: "unbounded" },
   );

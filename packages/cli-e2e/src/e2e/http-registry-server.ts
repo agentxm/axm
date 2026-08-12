@@ -256,11 +256,11 @@ const sha256Json = (value: unknown): string =>
   crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 const descriptorDigest = (descriptor: PreviewDescriptor): string =>
-  sha256Json({ contract: "publication-set-v1", descriptor: normalizeDescriptor(descriptor) });
+  sha256Json({ contract: "publication-set-v2", descriptor: normalizeDescriptor(descriptor) });
 
 const publicationSetDigest = (descriptors: ReadonlyArray<PreviewDescriptor>): string =>
   sha256Json({
-    contract: "publication-set-v1",
+    contract: "publication-set-v2",
     candidates: descriptors
       .map(normalizeDescriptor)
       .sort(
@@ -425,10 +425,21 @@ export const startHttpRegistry = async (
             target: descriptor.target,
             status: "admitted",
             findings: [],
+            resolutions: (descriptor.pack?.dependencies ?? []).flatMap((dependency) => {
+              const selected = completeDescriptors.find(
+                (candidate) =>
+                  candidate.target.owner === dependency.owner &&
+                  candidate.target.type === dependency.type &&
+                  candidate.target.name === dependency.name,
+              );
+              return selected === undefined
+                ? []
+                : [{ dependency, effectiveVersion: selected.target.version }];
+            }),
           }));
         if (options.publishPreviewMode === "unavailable") {
           sendJson(response, 200, {
-            contract: "publication-set-v1",
+            contract: "publication-set-v2",
             publicationSetDigest: setDigest,
             status: "blocked",
             candidates: previews.map((preview) => ({
@@ -443,7 +454,7 @@ export const startHttpRegistry = async (
           return;
         }
         sendJson(response, 200, {
-          contract: "publication-set-v1",
+          contract: "publication-set-v2",
           publicationSetDigest: setDigest,
           status: "admitted",
           candidates:

@@ -23,6 +23,9 @@ describe("LintJsonDocumentSchema", () => {
               severity: "error",
               message: "skill.json is missing.",
               location: { file: "skill.json", line: 1, column: 2 },
+              suggestions: [
+                { description: "Inspect the skill", cmd: "axm skills show @acme/demo" },
+              ],
             },
           },
           {
@@ -71,6 +74,38 @@ describe("LintJsonDocumentSchema", () => {
       });
       expect(Result.isSuccess(decoded), group).toBe(true);
     }
+  });
+
+  it("accepts findings without suggestions and rejects unsafe commands", () => {
+    const base = {
+      input: { view: "workspace" },
+      summary: { total: 1, errors: 0, warnings: 0, infos: 1, exitCategory: "clean" },
+      driftBanner: [],
+    } as const;
+    const finding = {
+      group: "workspace",
+      kind: "advisory",
+      ruleId: "workspace/example",
+      severity: "info",
+      message: "example",
+      displayRoot: "",
+      path: "",
+    } as const;
+
+    expect(Result.isSuccess(decode({ ...base, findings: [finding] }))).toBe(true);
+    expect(
+      Result.isFailure(
+        decode({
+          ...base,
+          findings: [
+            {
+              ...finding,
+              suggestions: [{ description: "Follow up", cmd: "axm lint; echo unsafe" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("accepts a Git-index input with an opaque fingerprint", () => {

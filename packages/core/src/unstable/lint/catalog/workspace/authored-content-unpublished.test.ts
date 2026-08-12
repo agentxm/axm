@@ -63,12 +63,17 @@ describe("workspace/authored-content-unpublished", () => {
       expect(findings).toHaveLength(1);
       expect(findings[0]).toMatchObject({
         severity: "warning",
-        message: expect.stringContaining("axm publish @test/skills/draft-skill"),
+        suggestions: [
+          {
+            description: "Publish the working version; publishing preserves authored content",
+            cmd: "axm publish @test/skills/draft-skill",
+          },
+        ],
       });
       expect(findings[0]?.message).toContain(
         "modified since its last recorded authoring/publish baseline",
       );
-      expect(findings[0]?.message).toContain("preserves the authored content");
+      expect(findings[0]?.message).not.toContain("axm publish");
       expect(findings[0]?.message).not.toContain("axm sync");
     }),
   );

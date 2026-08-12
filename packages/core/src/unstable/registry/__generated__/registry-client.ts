@@ -603,6 +603,10 @@ export const Visibility = Schema.Literals(["public", "private"]).annotate({
   title: "Visibility",
   identifier: "Visibility",
 });
+export type Union_8 = "error" | "warning" | "info";
+export const Union_8 = Schema.Literals(["error", "warning", "info"]).annotate({
+  identifier: "Union_8",
+});
 export type PublishIdentityMismatchEntry = {
   readonly field: "owner" | "type" | "name" | "version";
   readonly urlPath: string | null;
@@ -877,6 +881,26 @@ export const SessionTokenResponse = Schema.Struct({
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
   identifier: "SessionTokenResponse",
 });
+export type SuggestedAction = {
+  readonly description: string;
+  readonly cmd?: Union_;
+  readonly url?: Union_;
+};
+export const SuggestedAction = Schema.Struct({
+  description: Schema.String,
+  cmd: Schema.optionalKey(Union_),
+  url: Schema.optionalKey(Union_),
+}).annotate({ identifier: "SuggestedAction" });
+export type SuggestedAction_1 = {
+  readonly description: string;
+  readonly cmd?: Union_;
+  readonly url?: Union_;
+};
+export const SuggestedAction_1 = Schema.Struct({
+  description: Schema.String,
+  cmd: Schema.optionalKey(Union_),
+  url: Schema.optionalKey(Union_),
+}).annotate({ identifier: "SuggestedAction_1" });
 export type PublicationTarget = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1065,7 +1089,9 @@ export type ForbiddenErrorEncoded = {
     | "publish/handle-not-owned"
     | "publish/publish-forbidden"
     | "publish/capability-binding-mismatch"
-    | "publish/capability-expired";
+    | "publish/capability-expired"
+    | "publish/capability-revoked"
+    | "publish/capability-consumed";
   readonly details?: ScopeCheckDetails | AuthorizationDenyDetails | PublishDetails;
 };
 export const ForbiddenErrorEncoded = Schema.Struct({
@@ -1106,6 +1132,8 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "publish/publish-forbidden",
     "publish/capability-binding-mismatch",
     "publish/capability-expired",
+    "publish/capability-revoked",
+    "publish/capability-consumed",
   ]),
   details: Schema.optionalKey(
     Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
@@ -1200,11 +1228,11 @@ export const Union_5 = Schema.Union([
   Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
   Union_6,
 ]).annotate({ identifier: "Union_5" });
-export type Union_8 = number | Union_6;
-export const Union_8 = Schema.Union([
+export type Union_9 = number | Union_6;
+export const Union_9 = Schema.Union([
   Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
   Union_6,
-]).annotate({ identifier: "Union_8" });
+]).annotate({ identifier: "Union_9" });
 export type Union_7 = Bugs | null;
 export const Union_7 = Schema.Union([Bugs, Schema.Null]).annotate({ identifier: "Union_7" });
 export type CompanionPackage = {
@@ -1309,7 +1337,7 @@ export type PackDependencyFinding = {
   readonly location: { readonly file: "pack.json" };
   readonly path: "./pack.json";
   readonly message: string;
-  readonly suggestions: ReadonlyArray<string>;
+  readonly suggestions: ReadonlyArray<SuggestedAction>;
 };
 export const PackDependencyFinding = Schema.Struct({
   kind: Schema.Literal("advisory"),
@@ -1334,8 +1362,16 @@ export const PackDependencyFinding = Schema.Struct({
   location: Schema.Struct({ file: Schema.Literal("pack.json") }),
   path: Schema.Literal("./pack.json"),
   message: Schema.String,
-  suggestions: Schema.Array(Schema.String),
+  suggestions: Schema.Array(SuggestedAction),
 }).annotate({ identifier: "PackDependencyFinding" });
+export type PackDependencyResolution = {
+  readonly dependency: PackDependencyDescriptor;
+  readonly effectiveVersion: Version;
+};
+export const PackDependencyResolution = Schema.Struct({
+  dependency: PackDependencyDescriptor,
+  effectiveVersion: Version,
+}).annotate({ identifier: "PackDependencyResolution" });
 export type PublicationDescriptor = {
   readonly target: PublicationTarget;
   readonly participation: "publish" | "verified-existing";
@@ -1430,17 +1466,17 @@ export const SearchHit = Schema.Struct({
 });
 export type PublishFindingLocation = {
   readonly file: string;
-  readonly line?: Union_8;
-  readonly column?: Union_8;
-  readonly byteOffset?: Union_8;
-  readonly byteLength?: Union_8;
+  readonly line?: Union_9;
+  readonly column?: Union_9;
+  readonly byteOffset?: Union_9;
+  readonly byteLength?: Union_9;
 };
 export const PublishFindingLocation = Schema.Struct({
   file: Schema.String,
-  line: Schema.optionalKey(Union_8),
-  column: Schema.optionalKey(Union_8),
-  byteOffset: Schema.optionalKey(Union_8),
-  byteLength: Schema.optionalKey(Union_8),
+  line: Schema.optionalKey(Union_9),
+  column: Schema.optionalKey(Union_9),
+  byteOffset: Schema.optionalKey(Union_9),
+  byteLength: Schema.optionalKey(Union_9),
 }).annotate({
   title: "Finding Location",
   description: "Accessor-relative location of a lint finding.",
@@ -1475,7 +1511,7 @@ export const ListLibraryMembersResponse = Schema.Struct({
   viewerRelative: Schema.Literal(true),
 }).annotate({ title: "List Library Members Response", identifier: "ListLibraryMembersResponse" });
 export type PreviewPublicationSetResponse = {
-  readonly contract: "publication-set-v1";
+  readonly contract: "publication-set-v2";
   readonly publicationSetDigest: Sha256Hex;
   readonly status: "admitted" | "blocked";
   readonly candidates: ReadonlyArray<
@@ -1499,10 +1535,11 @@ export type PreviewPublicationSetResponse = {
     readonly target: PublicationTarget;
     readonly status: "admitted" | "blocked";
     readonly findings: ReadonlyArray<PackDependencyFinding>;
+    readonly resolutions: ReadonlyArray<PackDependencyResolution>;
   }>;
 };
 export const PreviewPublicationSetResponse = Schema.Struct({
-  contract: Schema.Literal("publication-set-v1"),
+  contract: Schema.Literal("publication-set-v2"),
   publicationSetDigest: Sha256Hex,
   status: Schema.Literals(["admitted", "blocked"]),
   candidates: Schema.Array(
@@ -1529,15 +1566,16 @@ export const PreviewPublicationSetResponse = Schema.Struct({
       target: PublicationTarget,
       status: Schema.Literals(["admitted", "blocked"]),
       findings: Schema.Array(PackDependencyFinding),
+      resolutions: Schema.Array(PackDependencyResolution),
     }),
   ),
 }).annotate({ identifier: "PreviewPublicationSetResponse" });
 export type PreviewPublicationSetRequest = {
-  readonly contract: "publication-set-v1";
+  readonly contract: "publication-set-v2";
   readonly candidates: ReadonlyArray<PublicationDescriptor>;
 };
 export const PreviewPublicationSetRequest = Schema.Struct({
-  contract: Schema.Literal("publication-set-v1"),
+  contract: Schema.Literal("publication-set-v2"),
   candidates: Schema.Array(PublicationDescriptor),
 }).annotate({ identifier: "PreviewPublicationSetRequest" });
 export type SearchResponse = {
@@ -1573,34 +1611,64 @@ export const SearchResponse = Schema.Struct({
 export type PublishLintFinding = {
   readonly kind: "advisory" | "autofixable";
   readonly ruleId: string;
-  readonly severity: "error" | "warning" | "info";
+  readonly severity: Union_8;
   readonly message: string;
   readonly location?: PublishFindingLocation;
   readonly path: string;
-  readonly suggestions: ReadonlyArray<string>;
+  readonly suggestions: ReadonlyArray<SuggestedAction>;
 };
 export const PublishLintFinding = Schema.Struct({
   kind: Schema.Literals(["advisory", "autofixable"]),
   ruleId: Schema.String,
-  severity: Schema.Literals(["error", "warning", "info"]),
+  severity: Union_8,
   message: Schema.String,
   location: Schema.optionalKey(PublishFindingLocation),
   path: Schema.String,
-  suggestions: Schema.Array(Schema.String),
+  suggestions: Schema.Array(SuggestedAction),
 }).annotate({
   title: "Publish Lint Finding",
   description: "One lint finding produced against the publish subject.",
   identifier: "PublishLintFinding",
 });
+export type PublishLintFinding_1 = {
+  readonly kind: "advisory" | "autofixable";
+  readonly ruleId: string;
+  readonly severity: Union_8;
+  readonly message: string;
+  readonly location?: PublishFindingLocation;
+  readonly path: string;
+  readonly suggestions: ReadonlyArray<SuggestedAction_1>;
+};
+export const PublishLintFinding_1 = Schema.Struct({
+  kind: Schema.Literals(["advisory", "autofixable"]),
+  ruleId: Schema.String,
+  severity: Union_8,
+  message: Schema.String,
+  location: Schema.optionalKey(PublishFindingLocation),
+  path: Schema.String,
+  suggestions: Schema.Array(SuggestedAction_1),
+}).annotate({
+  title: "Publish Lint Finding",
+  description: "One lint finding produced against the publish subject.",
+  identifier: "PublishLintFinding_1",
+});
 export type PublishAuthorizationExchangeResponse =
-  | { readonly status: "admitted"; readonly grants: ReadonlyArray<SessionTokenResponse> }
+  | {
+      readonly status: "admitted";
+      readonly preview?: PreviewPublicationSetResponse | null;
+      readonly grants: ReadonlyArray<SessionTokenResponse>;
+    }
   | {
       readonly status: "blocked";
       readonly preview: PreviewPublicationSetResponse;
       readonly grants: readonly [];
     };
 export const PublishAuthorizationExchangeResponse = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("admitted"), grants: Schema.Array(SessionTokenResponse) }),
+  Schema.Struct({
+    status: Schema.Literal("admitted"),
+    preview: Schema.optionalKey(Schema.Union([PreviewPublicationSetResponse, Schema.Null])),
+    grants: Schema.Array(SessionTokenResponse),
+  }),
   Schema.Struct({
     status: Schema.Literal("blocked"),
     preview: PreviewPublicationSetResponse,
@@ -1618,7 +1686,7 @@ export type ExtensionLintFailedErrorEncoded = {
   readonly error: "extension_lint_failed";
   readonly identity: PublishIdentity;
   readonly displayRoot: string;
-  readonly findings: ReadonlyArray<PublishLintFinding>;
+  readonly findings: ReadonlyArray<PublishLintFinding_1>;
 };
 export const ExtensionLintFailedErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ExtensionLintFailedError"),
@@ -1631,7 +1699,7 @@ export const ExtensionLintFailedErrorEncoded = Schema.Struct({
   error: Schema.Literal("extension_lint_failed"),
   identity: PublishIdentity,
   displayRoot: Schema.String,
-  findings: Schema.Array(PublishLintFinding),
+  findings: Schema.Array(PublishLintFinding_1),
 }).annotate({ identifier: "ExtensionLintFailedErrorEncoded" });
 // schemas
 export type MetaGet200 = MetaResponse;

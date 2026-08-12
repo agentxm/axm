@@ -193,6 +193,16 @@ export const canonicalHealthProblem = (
           : commandForScope(`axm sync ${identity} --preview`, scope),
     };
   }
+  if (observation.status === "constraint-mismatch") {
+    return {
+      code: "canonical-constraint-mismatch",
+      extensionType: node.type,
+      identity,
+      detail: `Canonical version does not satisfy the desired constraints: ${node.constraints.join(", ")}`,
+      blocking: true,
+      recoveryAction: null,
+    };
+  }
   const recoveryAction =
     observation.status === "missing-trust"
       ? commandForScope(`axm sync ${identity}`, scope)

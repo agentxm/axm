@@ -185,6 +185,27 @@ describe("AuthClient exact publish authorization", () => {
       return new Response(
         JSON.stringify({
           status: "admitted",
+          preview: {
+            contract: PUBLICATION_SET_CONTRACT,
+            publicationSetDigest: "b".repeat(64),
+            status: "admitted",
+            candidates: [
+              {
+                kind: "resolved",
+                target: {
+                  owner: "@alice",
+                  type: "skill",
+                  name: "review",
+                  version: "1.0.0",
+                },
+                participation: "publish",
+                descriptorDigest: "c".repeat(64),
+                resolvedVisibility: "private",
+                condition: '"pv2-reviewed"',
+              },
+            ],
+            packs: [],
+          },
           grants: [
             {
               access_token: "axm_pub_capability",
@@ -246,6 +267,10 @@ describe("AuthClient exact publish authorization", () => {
       });
       expect(capability).toMatchObject({
         status: "admitted",
+        preview: {
+          contract: PUBLICATION_SET_CONTRACT,
+          status: "admitted",
+        },
         grants: [
           {
             accessToken: "axm_pub_capability",

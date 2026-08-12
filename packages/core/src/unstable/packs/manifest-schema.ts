@@ -37,6 +37,10 @@ export const PackManifestSchema = Schema.Struct({
   ),
   dependencies: NonPackExtensionDependencyConstraintMapSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "pack dependencies are required" }),
+    Schema.annotate({
+      description:
+        "Install-time extension constraints. AXM resolves and installs a member version satisfying each range; `axm packs add` writes a caret range rooted at the current resolved version. Caret ranges below 1.0 have narrower compatibility boundaries and require review more often. These constraints select installed extension versions, unlike companion-package recommendation ranges in `packages`, which are metadata only.",
+    }),
   ),
 }).annotate({
   identifier: "PackManifest",

@@ -96,7 +96,13 @@ describe("workspace/recommended-packs-retained", () => {
       expect(findings[0]?.location?.file).toBe(
         ".axm/extensions/@acme/skills/brick-building/skill.json",
       );
-      expect(findings[0]?.message).toContain("axm packs install @acme/packs/bricks");
+      expect(findings[0]?.message).not.toContain("axm packs install");
+      expect(findings[0]?.suggestions).toEqual([
+        {
+          description: "Install recommended pack @acme/packs/bricks",
+          cmd: "axm packs install @acme/packs/bricks",
+        },
+      ]);
     }),
   );
 
@@ -156,8 +162,16 @@ describe("workspace/recommended-packs-retained", () => {
 
       const findings = yield* recommendedPacksRetainedRule.check(makeContext({ manifests }));
       expect(findings).toHaveLength(1);
-      // With more than one candidate the message enumerates each viable install.
-      expect(findings[0]?.message).toContain("@acme/packs/bricks, @acme/packs/mortar");
+      expect(findings[0]?.suggestions).toEqual([
+        {
+          description: "Install recommended pack @acme/packs/bricks",
+          cmd: "axm packs install @acme/packs/bricks",
+        },
+        {
+          description: "Install recommended pack @acme/packs/mortar",
+          cmd: "axm packs install @acme/packs/mortar",
+        },
+      ]);
     }),
   );
 

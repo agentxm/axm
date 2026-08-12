@@ -53,7 +53,7 @@ import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from 
 import type { PublishVisibility } from "../publish/index.js";
 import {
   PUBLICATION_SET_CONTRACT,
-  evaluateProspectivePackDependencies,
+  evaluateProspectivePackDependencyState,
   publicationDescriptorDigest,
   publicationSetDigest,
   validatePublicationDescriptors,
@@ -481,15 +481,17 @@ export const createLocalRegistryClient = (
         } as const;
       });
       const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
-        const findings = evaluateProspectivePackDependencies({
+        const evaluated = evaluateProspectivePackDependencyState({
           dependencies: descriptor.pack?.dependencies ?? [],
           snapshots,
           candidates: prospectiveCandidates,
         });
+        const blocked = evaluated.findings.some((finding) => finding.severity === "error");
         return {
           target: descriptor.target,
-          status: findings.some((finding) => finding.severity === "error") ? "blocked" : "admitted",
-          findings,
+          status: blocked ? "blocked" : "admitted",
+          findings: evaluated.findings,
+          resolutions: blocked ? [] : evaluated.resolutions,
         };
       });
       const status = packs.some((pack) => pack.status === "blocked") ? "blocked" : "admitted";
@@ -808,6 +810,7 @@ export const createLocalRegistryClient = (
             integrity: args.metadata.integrity,
             status: "available",
             visibility: resolvedVisibility,
+            warnings: [],
           } as const;
         }),
       );

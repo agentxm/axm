@@ -41,8 +41,18 @@ Bundle extensions by defining the pack dependencies in `pack.json`. Each key use
 
 `axm packs add` writes a caret range from the member's resolved version. This
 accepts compatible releases while preserving the version intent observed when
-the member was added. A manually authored `"*"` remains valid, but is not the
-generated default.
+the member was added. Caret boundaries follow SemVer: `^0.0.4` stops before
+`0.0.5`, `^0.4.2` stops before `0.5.0`, and `^1.2.3` stops before `2.0.0`.
+That means `0.0.x` members need a constraint review for every patch release and
+other pre-1.0 members need one for every minor release. Review compatibility
+and deliberately replace the range at those points; AXM does not widen it
+automatically. A manually authored `"*"` remains valid, but is not the generated
+default.
+
+Pack `dependencies` are install-time constraints: AXM selects and installs a
+member version satisfying each range. The common manifest `packages` field is
+different. Its Package URL and optional VERS range recommend a companion
+ecosystem package but do not install or select that package.
 
 Replacing an existing dependency constraint requires `--replace-existing`.
 Removing the final dependency requires `--allow-empty`. These are named policy

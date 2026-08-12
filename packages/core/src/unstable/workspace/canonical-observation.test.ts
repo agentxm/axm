@@ -165,7 +165,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         trust,
       });
 
-      expect(observed.status).toBe("wrong-origin");
+      expect(observed.status).toBe("constraint-mismatch");
     }),
   );
 

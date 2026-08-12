@@ -189,6 +189,43 @@ describe("packs-add.handler", () => {
   const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
     makeWorkspaceHandlerTestContext(opts);
 
+  it.effect.each([
+    { family: "0.0.x", version: "0.0.5", range: "^0.0.5" },
+    { family: "0.y.z", version: "0.4.2", range: "^0.4.2" },
+    { family: "1.x", version: "1.7.3", range: "^1.7.3" },
+  ])("generates and replaces the exact caret range for $family members", ({ version, range }) => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      profile: "@acme",
+      packs: { "my-pack": "@acme/packs/my-pack" },
+      skills: { review: "@acme/skills/review" },
+      lockfileSkills: {
+        review: makeRegistrySkillLockEntry({
+          owner: handle("@acme"),
+          name: extensionName("review"),
+          resolvedVersion: exactVersion(version),
+          sourceName: "local",
+          publisherBindingId: "hbnd_test",
+        }),
+      },
+    });
+    createPackManifest(tempDir, "@acme", "my-pack", {
+      dependencies: { "@acme/skills/review": "*" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handlePacksAdd(
+          defaultArgs("my-pack", "review", {
+            force: true,
+          }),
+        );
+
+        expect(readPackDependencies(tempDir, "my-pack")["@acme/skills/review"]).toBe(range);
+      }),
+    );
+  });
+
   describe("add specific extension by name", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {
       const { provide, logs, rendererState } = makeLayers();

@@ -29,6 +29,7 @@ import type { CanonicalObservation } from "../workspace/canonical-observation.js
 import type { KnowledgeInspection } from "../knowledge/okf.js";
 import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
 import type { Handle } from "../extensions/handle.js";
+import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -324,6 +325,8 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
+  /** Pre-joined, offline pack/member version reachability for workspace rules. */
+  readonly packDependencyReachability?: Effect.Effect<ReadonlyArray<PackDependencyReachability>>;
   /** Effective configured owner (project, then user scope), when available. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** One caller-built evaluation over the authoritative installed AXM skill. */

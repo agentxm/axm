@@ -205,7 +205,11 @@ export interface PublishCapabilityResponse {
 }
 
 export type PublishAuthorizationExchangeResponse =
-  | { readonly status: "admitted"; readonly grants: ReadonlyArray<PublishCapabilityResponse> }
+  | {
+      readonly status: "admitted";
+      readonly preview: PreviewPublicationSetResponse;
+      readonly grants: ReadonlyArray<PublishCapabilityResponse>;
+    }
   | {
       readonly status: "blocked";
       readonly preview: PreviewPublicationSetResponse;
@@ -330,6 +334,7 @@ const PublishCapabilityResponseSchema = Schema.Struct({
 const PublishAuthorizationExchangeResponseSchema = Schema.Union([
   Schema.Struct({
     status: Schema.Literal("admitted"),
+    preview: PreviewPublicationSetResponseSchema,
     grants: Schema.Array(PublishCapabilityResponseSchema),
   }),
   Schema.Struct({
@@ -846,6 +851,7 @@ export const AuthClientLive = Layer.effect(
         }
         return {
           status: "admitted",
+          preview: response.preview,
           grants: response.grants.map((grant): PublishCapabilityResponse => ({
             accessToken: grant.access_token,
             expiresAt: grant.expires_at,

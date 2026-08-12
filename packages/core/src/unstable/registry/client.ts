@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
 import type { PublishVisibility } from "../publish/index.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import type {
   Author,
   ExtensionDependencyConstraintMap,
@@ -42,12 +43,16 @@ import type {
 export {
   MAX_PUBLICATION_SET_CANDIDATES,
   PUBLICATION_SET_CONTRACT,
+  PUBLICATION_SET_V1_CONTRACT,
   PackDependencyFindingSchema,
   PreviewPublicationSetRequestSchema,
   PreviewPublicationSetResponseSchema,
+  PreviewPublicationSetV1RequestSchema,
+  PreviewPublicationSetV1ResponseSchema,
   Sha256HexSchema,
   archiveSha256Hex,
   comparePublicationTargets,
+  evaluateProspectivePackDependencyState,
   evaluateProspectivePackDependencies,
   normalizePublicationDescriptor,
   normalizePublicationSet,
@@ -59,6 +64,7 @@ export {
   type PackDependencyDescriptor,
   type PackDependencyFinding,
   type ProspectivePublicationCandidate,
+  type ProspectivePackDependencyState,
   type PublicationDependencySnapshot,
   type PublicationDependencyVersionSnapshot,
   type PreviewPublicationSetRequest,
@@ -243,6 +249,14 @@ export interface PublishExtensionResponse {
   readonly status: "pending" | "available" | "failed";
   readonly visibility: PublishVisibility;
   readonly links?: ExtensionLinks;
+  readonly warnings: ReadonlyArray<RegistryPublishWarning>;
+}
+
+export interface RegistryPublishWarning {
+  readonly ruleId: string;
+  readonly severity: "warning";
+  readonly message: string;
+  readonly suggestions: ReadonlyArray<SuggestedAction>;
 }
 
 // -----------------------------------------------------------------------------

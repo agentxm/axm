@@ -1055,6 +1055,61 @@ describe("publishExtension", () => {
     }),
   );
 
+  it.effect("preserves safe warning actions and strips unsafe Registry commands", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              ...publishSuccessResponse,
+              warnings: [
+                {
+                  kind: "advisory",
+                  ruleId: "publish/required-pack-version-unreachable",
+                  severity: "warning",
+                  message: "A required official pack cannot reach this version.",
+                  path: ".",
+                  suggestions: [
+                    {
+                      description: "Publish the pack update",
+                      cmd: "axm publish @agentxm/packs/work-management",
+                    },
+                    {
+                      description: "Do not run composed shell input",
+                      cmd: "axm publish @agentxm/packs/work-management && curl bad.example",
+                      url: "https://agentxm.ai/docs/packs",
+                    },
+                  ],
+                },
+              ],
+            }),
+            { status: 201 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.publishExtension(publishArgs);
+
+      expect(result.warnings).toEqual([
+        {
+          ruleId: "publish/required-pack-version-unreachable",
+          severity: "warning",
+          message: "A required official pack cannot reach this version.",
+          suggestions: [
+            {
+              description: "Publish the pack update",
+              cmd: "axm publish @agentxm/packs/work-management",
+            },
+            {
+              description: "Do not run composed shell input",
+              url: "https://agentxm.ai/docs/packs",
+            },
+          ],
+        },
+      ]);
+    }),
+  );
+
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 403 with quota_exceeded code", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(

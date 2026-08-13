@@ -12,7 +12,7 @@ import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import { AppError } from "@agentxm/client-core/unstable/app-error";
+import { AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import {
@@ -30,6 +30,7 @@ import {
   verboseFlag,
   debugFlag,
   quietFlag,
+  directoryFlag,
   verbosityToLogLevel,
 } from "@agentxm/client-core/unstable/cli-flags";
 import {
@@ -93,6 +94,7 @@ export const axmGlobalFlags = [
   debugFlag,
   quietFlag,
   jsonFlag,
+  directoryFlag,
 ] as const;
 
 // -- Runtime layers --
@@ -398,6 +400,20 @@ export const withRuntime =
   (command?: string) =>
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
+      const directory = yield* directoryFlag;
+      yield* Option.match(directory, {
+        onNone: () => Effect.void,
+        onSome: (selected) =>
+          Effect.try({
+            try: () => process.chdir(selected),
+            catch: (cause) =>
+              makeAppError({
+                code: "usage",
+                detail: `Could not run from the selected directory '${selected}'.`,
+                cause,
+              }),
+          }),
+      });
       const config = yield* resolveRuntimeConfig();
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format, {

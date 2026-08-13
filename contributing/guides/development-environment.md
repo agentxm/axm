@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-04
-version: 0.2.1
+last-reviewed: 2026-08-13
+version: 0.2.2
 description: Choosing and using AXM's native, development-container, and repository-owned
   Linux CI environments.
 depends-on:
@@ -73,6 +73,31 @@ substrate-specific override.
 - [ ] **Identity external** -- GitHub and agent credentials remain runtime state
 - [ ] **Native tests retained** -- macOS, Windows, and binary architecture jobs
       remain native
+
+---
+
+## Run the source CLI against another workspace
+
+Use a location-independent source entrypoint with AXM's directory selector when
+the CLI checkout and target workspace differ:
+
+```bash
+/path/to/axm/scripts/axm-local -C /path/to/workspace setup --yes
+bun /path/to/axm/packages/cli/src/main.ts -C /path/to/workspace status
+```
+
+Both entrypoints preserve the caller's working directory. `-C` / `--directory`
+then selects the workspace before runtime initialization, and relative command
+arguments resolve from that directory.
+
+Do not rely on `pnpm --dir /path/to/axm exec|run` to preserve the target: pnpm
+changes into the AXM checkout before starting the command. If that invocation
+form is necessary, pass `-C /path/to/workspace` explicitly.
+
+If a mistaken invocation modifies the AXM source checkout, inspect and recover
+that checkout with Git (`git -C /path/to/axm status` and a path-scoped
+`git restore`). Do not run `axm adopt`; adoption changes extension authority and
+does not restore repository files.
 
 ---
 

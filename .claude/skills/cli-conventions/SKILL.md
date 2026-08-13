@@ -242,10 +242,10 @@ Command.withExamples([
 
 ## Global and Per-Command Flags
 
-Global flags (`--non-interactive`, `--json`/`-j`, `--verbose`/`-v`, `--debug`,
-`--quiet`/`-q`) apply to every command. `--yes`, `--force`, `--preview` are
-per-command flags — import and include in `Command.make()` only for commands
-that need them.
+Global flags (`--directory`/`-C`, `--non-interactive`, `--json`/`-j`,
+`--verbose`/`-v`, `--debug`, `--quiet`/`-q`) apply to every command. `--yes`,
+`--force`, `--preview` are per-command flags — import and include in
+`Command.make()` only for commands that need them.
 
 ```typescript
 import { Command, Flag, GlobalFlag } from "effect/unstable/cli";
@@ -319,6 +319,11 @@ Output format must be resolved _before_ Effect runs (raw argv scan) because CLI
 parse failures (`CliError.UnrecognizedOption`, `CliError.MissingOption`, etc.)
 happen before any handler or `GlobalFlag.setting` executes. Without pre-Effect
 format detection, those errors cannot route to the correct output channel.
+
+Only boolean presentation flags may use this pre-Effect scan. Valued global
+flags such as `--directory` / `-C` remain parser-owned: do not duplicate
+Effect's valued-flag lexer in an argv scanner or accepted spellings can silently
+diverge from runtime behavior.
 
 ```typescript
 import * as Effect from "effect/Effect";

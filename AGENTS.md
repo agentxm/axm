@@ -56,36 +56,36 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
-| Command                      | Purpose                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| `pnpm axm`                   | Run the main CLI from source                                              |
-| `./scripts/axm-local`        | Run the in-flight CLI from any working directory against a local registry |
-| `pnpm spike`                 | Run the CLI spike from source                                             |
-| `pnpm watch`                 | Rebuild `cli` on changes                                                  |
-| `pnpm build`                 | Build all packages                                                        |
-| `pnpm build:affected`        | Build only packages changed since `main`                                  |
-| `pnpm test`                  | Run package test targets                                                  |
-| `pnpm test:affected`         | Run tests only for packages changed since `main`                          |
-| `pnpm test:e2e`              | Run E2E targets only                                                      |
-| `pnpm typecheck`             | Type check all packages                                                   |
-| `pnpm typecheck:affected`    | Type check only packages changed since `main`                             |
-| `pnpm format`                | Format the whole repo with Prettier                                       |
-| `pnpm format:check`          | Check whole-repo formatting with Prettier                                 |
-| `pnpm format:affected`       | Format only Nx-selected changed files                                     |
-| `pnpm format:check:affected` | Check only Nx-selected changed files                                      |
-| `pnpm lint`                  | Lint all packages                                                         |
-| `pnpm lint:affected`         | Lint only packages changed since `main`                                   |
-| `pnpm lint:fix`              | Lint and auto-fix                                                         |
-| `pnpm run ci`                | Run full CI pipeline (lint, typecheck, build, test, e2e)                  |
-| `pnpm run ci:affected`       | Run CI pipeline for affected packages only                                |
-| `pnpm run container:ci`      | Run full CI in the shared Linux image                                     |
-| `pnpm run container:dev`     | Open the shared Linux development image                                   |
-| `pnpm generate`              | Generate registry and telemetry clients                                   |
+| Command                              | Purpose                                                               |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `pnpm axm`                           | Run the main CLI from source                                          |
+| `./scripts/axm-local -C <workspace>` | Run the in-flight CLI against a selected workspace and local registry |
+| `pnpm spike`                         | Run the CLI spike from source                                         |
+| `pnpm watch`                         | Rebuild `cli` on changes                                              |
+| `pnpm build`                         | Build all packages                                                    |
+| `pnpm build:affected`                | Build only packages changed since `main`                              |
+| `pnpm test`                          | Run package test targets                                              |
+| `pnpm test:affected`                 | Run tests only for packages changed since `main`                      |
+| `pnpm test:e2e`                      | Run E2E targets only                                                  |
+| `pnpm typecheck`                     | Type check all packages                                               |
+| `pnpm typecheck:affected`            | Type check only packages changed since `main`                         |
+| `pnpm format`                        | Format the whole repo with Prettier                                   |
+| `pnpm format:check`                  | Check whole-repo formatting with Prettier                             |
+| `pnpm format:affected`               | Format only Nx-selected changed files                                 |
+| `pnpm format:check:affected`         | Check only Nx-selected changed files                                  |
+| `pnpm lint`                          | Lint all packages                                                     |
+| `pnpm lint:affected`                 | Lint only packages changed since `main`                               |
+| `pnpm lint:fix`                      | Lint and auto-fix                                                     |
+| `pnpm run ci`                        | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
+| `pnpm run ci:affected`               | Run CI pipeline for affected packages only                            |
+| `pnpm run container:ci`              | Run full CI in the shared Linux image                                 |
+| `pnpm run container:dev`             | Open the shared Linux development image                               |
+| `pnpm generate`                      | Generate registry and telemetry clients                               |
 
-`./scripts/axm-local` preserves your current working directory and only sets
-`AXM_REGISTRY_LOCATION=http://localhost:4300` and `AXM_TELEMETRY=0` when they
-are unset. When that location is HTTP(S), it also sets `AXM_REGISTRY_URL` to
-the same value for auth/API flows.
+`./scripts/axm-local` preserves your current working directory; pass `-C <dir>`
+to select another workspace. It only sets
+`AXM_REGISTRY_LOCATION=http://localhost:4300` and `AXM_TELEMETRY=0` when unset.
+For HTTP(S), it also sets `AXM_REGISTRY_URL` for auth/API flows.
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead

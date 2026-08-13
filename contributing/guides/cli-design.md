@@ -271,11 +271,11 @@ Effect v4 offers two mechanisms for cross-command flags:
   on the root command.
 
 The axm CLI uses `GlobalFlag.setting()` for all cross-cutting flags
-(`--json`, `--non-interactive`, `--verbose`, `--debug`, `--quiet`). This is a
-deliberate choice: global flag settings compose with Effect's service model,
-work at any depth in the command tree without yielding a parent, and integrate
-naturally with layer-based testing. `withSharedFlags` is not used in the axm
-CLI.
+(`--directory` / `-C`, `--json`, `--non-interactive`, `--verbose`, `--debug`,
+`--quiet`). This is a deliberate choice: global flag settings compose with
+Effect's service model, work at any depth in the command tree without yielding
+a parent, and integrate naturally with layer-based testing. `withSharedFlags`
+is not used in the axm CLI.
 
 ### Help & Error Formatting
 
@@ -479,6 +479,7 @@ of global and per-command flags.
 
 Registered once at the root:
 
+- `--directory` / `-C`
 - `--non-interactive`
 - `--json` / `-j`
 - `--verbose` / `-v`
@@ -491,6 +492,11 @@ CLI enables every built-in by default; AXM opts into help plus its custom
 `packages/cli/src/app.ts`). The custom version action intentionally has no
 `-v` alias because `-v` means `--verbose`. Logger severity is driven by the
 verbosity flags instead of `--log-level`; `--debug` is the only debug spelling.
+
+`--directory` uses uppercase `-C`, matching `git -C`, `go -C`, and `pnpm -C`:
+AXM changes its working directory before command runtime initialization, so
+relative arguments resolve from the selected directory. Lowercase `-c` is not
+an alias.
 
 ### Per-Command Flag Semantics
 

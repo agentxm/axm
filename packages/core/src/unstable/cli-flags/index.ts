@@ -42,6 +42,16 @@ export const quietFlag = GlobalFlag.setting("axm-quiet")({
   ),
 });
 
+export const directoryFlag = GlobalFlag.setting("axm-directory")({
+  flag: Flag.directory("directory", { mustExist: true }).pipe(
+    Flag.withAlias("C"),
+    Flag.withDescription(
+      "Run as if AXM was started in this directory (relative paths resolve from there)",
+    ),
+    Flag.optional,
+  ),
+});
+
 export { resolveVerbosityFromArgv } from "./resolve-verbosity.js";
 
 // ---------------------------------------------------------------------------

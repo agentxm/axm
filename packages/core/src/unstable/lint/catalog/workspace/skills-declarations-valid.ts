@@ -2,7 +2,7 @@
  * `workspace/skills-declarations-valid` — declared skills name a resolvable,
  * owner-qualified, unique source.
  *
- * Cascade per `agentxm-internal/docs/design/lint-engine.md §10.workspace.Skills` (reports the
+ * Cascade per the lint design (reports the
  * first failing arm per affected entity):
  *
  * 1. Source resolvability — the source string is shaped like a ref we can

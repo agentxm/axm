@@ -3,7 +3,7 @@
  *
  * Maps accessor-relative posix paths to on-disk absolute paths rooted at
  * the caller-supplied pack-root directory. Layout conventions per
- * `agentxm-internal/docs/design/lint-engine.md §3` "Pack accessor root":
+ * the lint design "Pack accessor root":
  *
  * - **Registry-installed:**
  *   `<workspaceRoot>/.axm/extensions/<@owner>/packs/<sanitized-name>/`

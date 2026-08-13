@@ -1,7 +1,7 @@
 /**
  * `skill/*` rule catalog.
  *
- * Per `agentxm-internal/docs/design/lint-engine.md §10.skill`, registry publish and `axm lint`
+ * Per the lint design, registry publish and `axm lint`
  * run exactly these rules against each skill context:
  *
  * | ID                                     | Severity | Autofix |

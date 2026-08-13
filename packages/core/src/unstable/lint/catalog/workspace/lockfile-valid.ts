@@ -2,7 +2,7 @@
  * `workspace/lockfile-valid` — `.axm/axm-lock.yaml` parses and conforms to
  * `LockfileSchema`.
  *
- * Cascade per `agentxm-internal/docs/design/lint-engine.md §10.workspace`:
+ * Cascade per the lint design:
  *
  * 1. `.axm/axm-lock.yaml` exists when settings declares any extension covered
  *    by this rule (skills, packs, subagents, MCP servers). **Missing arm is

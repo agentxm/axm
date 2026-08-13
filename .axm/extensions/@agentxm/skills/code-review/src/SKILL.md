@@ -75,9 +75,8 @@ Read ALL relevant guidance sources — do not skip any:
 **Load from guides:**
 
 - `contributing/guides/effect.md` — if any Effect code
-- `contributing/guides/testing.md` — if test files
-- `contributing/guides/cli-design.md` — if CLI commands
-- `contributing/guides/spec-driven-development.md` — if spec/design files
+- `docs/architecture/index.md` — if product behavior or command responsibilities change
+- `docs/architecture/index.md` — if package ownership or dependency direction changes
 
 ### 4. Analyze code
 

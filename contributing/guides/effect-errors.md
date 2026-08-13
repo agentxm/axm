@@ -36,8 +36,10 @@ pure mapping owned by
   `internal` means the command failed unexpectedly.
 - `auth` means credentials are missing or expired; `forbidden` means the
   authenticated identity lacks permission.
-- Put recovery steps in `suggestions`, or use the `recover` and optional `cmd`
-  convenience fields.
+- Operational errors may use `suggestions`, or the `recover` and optional `cmd`
+  convenience fields, for a direct prerequisite such as authentication. Lint
+  findings follow the fact-only contract in [Lint](../../docs/architecture/lint.md)
+  and never carry recovery suggestions.
 
 ## Registry failures
 

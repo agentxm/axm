@@ -7,7 +7,7 @@
  * split — the rule applies to every pack context unconditionally.
  *
  * Advisory-only — scaffolding a manifest is `axm packs new` (a user-authored
- * action) per `agentxm-internal/docs/design/lint-engine.md §10.pack (Notes)`.
+ * action) per the lint design.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

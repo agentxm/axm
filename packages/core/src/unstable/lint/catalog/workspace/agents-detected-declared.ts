@@ -2,7 +2,7 @@
  * `workspace/agents-detected-declared` — every agent footprint detected on
  * disk appears in `settings.agents[]`.
  *
- * Per `agentxm-internal/docs/design/lint-engine.md §10.workspace`:
+ * Per the lint design:
  *
  *   Project scope only (early-returns at user scope). For each detected
  *   agent whose id is missing from settings.agents[], emit one finding.

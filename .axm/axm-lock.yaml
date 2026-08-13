@@ -5,10 +5,10 @@ skills:
     owner: "@agentxm"
     extensionType: skill
     name: axm
-    version: 0.26.3
+    version: 0.26.7
     installedAt: 2026-07-29T00:51:41.963Z
-    updatedAt: 2026-08-12T05:48:31.253Z
-    sourceHash: e518e26c1e58b9e1b362b01c2890ee44ca5ddfb0c74c24a8c17c98c4513c8582
+    updatedAt: 2026-08-13T19:52:32.376Z
+    sourceHash: b27b3e58f448ad52c4c0cebc321109363334def2c87f0b106e6fbf817afb497a
   code-review:
     type: workspace
     owner: "@agentxm"
@@ -16,8 +16,8 @@ skills:
     name: code-review
     version: 0.1.0
     installedAt: 2026-08-07T16:50:04.524Z
-    updatedAt: 2026-08-12T05:44:27.524Z
-    sourceHash: 492ce886ae7d6aaff154aa8fb3ba1c34efa0bb4ac4c3f28c1d2f148d3653812e
+    updatedAt: 2026-08-13T19:52:32.402Z
+    sourceHash: 28efded53d558d1088b62189c11a4497b2841ada3e9f8d1e88cbff81824b4cef
   e2e-publish-check:
     type: workspace
     owner: "@local-dev"
@@ -292,14 +292,16 @@ rules:
     sourceHash: f5f954014efa2f65ecf21abab703c5bfd855793225e34edb59ee81b9f2c67f5c
 knowledge:
   agentxm:
-    type: workspace
+    type: registry
     owner: "@agentxm"
-    extensionType: knowledge
     name: agentxm
-    version: 0.2.0
+    resolvedVersion: 0.2.1
+    integrity: sha512-zugFWNON1a6BDXd/Ro/+2QG9h4/tNuJMCq/hkCjn4Tf94ZZGziNzReOQZfZbyzIN66KjYQUFZR+WyfORV9gjSA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
     installedAt: 2026-08-06T14:50:18.696Z
-    updatedAt: 2026-08-08T19:51:11.390Z
-    sourceHash: de7cc9393cedac5b8c83b9066fc2873560806db8d09e32d217b08c2bc42b1d9a
+    updatedAt: 2026-08-13T21:42:23.609Z
+    sourceHash: 66c02f2b04ef030cf4727cc5068df0488fe102b64c5a8c20f4cf201f2f325bd2
   field-notes:
     type: registry
     owner: "@craigsmitham"

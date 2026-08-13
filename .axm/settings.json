@@ -14,7 +14,7 @@
     "improve-whatever": "@craigsmitham/skills/improve-whatever"
   },
   "knowledge": {
-    "agentxm": "workspace:@agentxm/knowledge/agentxm",
+    "agentxm": "@agentxm/knowledge/agentxm",
     "workflow-automation": "@craigsmitham/knowledge/workflow-automation"
   },
   "packs": {

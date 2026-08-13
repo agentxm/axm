@@ -24,8 +24,8 @@ axm install @agentxm/knowledge/agentxm
 Then discover concepts on demand:
 
 ```bash
-axm knowledge concepts search "identifier"
-axm knowledge concepts get '@agentxm/knowledge/agentxm#domain/identifier-grammar'
+axm knowledge search "identifier"
+axm knowledge open agentxm domain/identifier-grammar
 ```
 
 ## Relationship to other documentation

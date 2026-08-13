@@ -1,7 +1,7 @@
 /**
  * `pack/*` rule catalog — the v1 three-rule set.
  *
- * Per `agentxm-internal/docs/design/lint-engine.md §10.pack`, registry publish and `axm lint`
+ * Per the lint design, registry publish and `axm lint`
  * run exactly these rules against each pack context:
  *
  * | ID                              | Severity | Autofix |

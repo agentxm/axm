@@ -56,7 +56,7 @@ const helpFamily = {
     "packages/cli/src/formatter.test.ts",
   ],
   commandCoverage: [],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/output.md"],
 } satisfies MachineOutputFamily;
 
 const planFamily = {
@@ -79,7 +79,7 @@ const planFamily = {
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["command-specific tests cover branches not represented by the shared plan"],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/output.md"],
 } satisfies MachineOutputFamily;
 
 const publishFamily = {
@@ -103,7 +103,7 @@ const publishFamily = {
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["packages/cli/src/root/publish/command.test.ts"],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/output.md"],
 } satisfies MachineOutputFamily;
 
 const defineResultFamily = (input: {
@@ -134,7 +134,7 @@ const defineResultFamily = (input: {
     "packages/core/src/unstable/cli-renderer/cli-renderer-machine.test.ts",
   ],
   commandCoverage: input.commandCoverage,
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/output.md"],
 });
 
 const agentsListFamily = defineResultFamily({
@@ -723,7 +723,7 @@ export const FORMATTER_VERSION_CONTRACT = {
       "packages/cli/src/formatter.test.ts",
     ],
     commandCoverage: [],
-    documentation: ["contributing/guides/cli-renderer.md"],
+    documentation: ["docs/architecture/output.md"],
   },
   helpSchemaName: "JsonHelpDocSchema",
 } satisfies MachineOutputContractRow;

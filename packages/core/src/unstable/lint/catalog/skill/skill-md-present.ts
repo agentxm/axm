@@ -5,8 +5,8 @@
  * by the agentskills specification; also the precondition for the
  * `skill/frontmatter-parseable` cascade.
  *
- * Advisory-only (no autofix). Scaffolding `SKILL.md` is a user-authored action
- * per `contributing/guides/lint-rule-authoring.md` ("Choose Advisory vs Autofixing").
+ * Advisory-only (no autofix). Scaffolding `SKILL.md` requires user-authored
+ * content and is not a meaning-preserving normalization.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

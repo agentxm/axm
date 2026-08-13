@@ -1,8 +1,7 @@
 /**
  * Shared schema-delegation plumbing for `-schema-valid` rules.
  *
- * Per `contributing/guides/lint-rule-authoring.md` ("Schema-Valid vs
- * Keys-Recognized Split"), every rule whose id ends in `-schema-valid` implements `check` by
+ * Every rule whose id ends in `-schema-valid` implements `check` by
  * running the canonical schema through `Schema.decodeUnknownResult` with
  * `onExcessProperty: "ignore"` and `errors: "all"`, then mapping the issues
  * through `issuesToFindings`.

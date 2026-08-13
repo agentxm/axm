@@ -457,9 +457,8 @@ export interface ResolvePlanArgs {
  * augmentation {@link previewOrApplyPlan} performs for install/uninstall flows.
  *
  * Consumers that need lockfile reconciliation (install, uninstall, pack) keep
- * calling `previewOrApplyPlan`; lint-fix composes the narrower pipeline
- * described in `contributing/guides/lint-rule-authoring.md` ("Writing `fix`"):
- * `collectFixOperations → resolvePlan → applyPlan`.
+ * calling `previewOrApplyPlan`; lint-fix composes the narrower
+ * `collectFixOperations → resolvePlan → applyPlan` pipeline.
  *
  * @experimental This API is unstable and may change without notice.
  */

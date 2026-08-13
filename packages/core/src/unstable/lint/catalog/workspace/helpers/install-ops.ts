@@ -2,8 +2,7 @@
  * Helpers for emitting the per-extension Operation values used by the
  * workspace autofix rules.
  *
- * Autofix `fix` methods MUST compose from the Operation vocabulary per
- * `contributing/guides/lint-rule-authoring.md` ("Writing `fix`"). Wiring to the canonical `OperationHandler`
+ * Autofix `fix` methods compose from the Operation vocabulary. Wiring to the canonical `OperationHandler`
  * registry (which expects fully-resolved `SkillExtensionRef` / `PackRef`
  * values) happens at the CLI layer (Phase 5); at the lint layer we emit the
  * Operation **intent** — minimal args capturing what reinstall / uninstall /

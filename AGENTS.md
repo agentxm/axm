@@ -5,34 +5,10 @@ and more.
 
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
-## Naming
-
-**AXM** is the official name of this CLI component — all caps, an acronym for
-**A**gent e**X**tension **M**anager. Use "AXM" in prose and headings. Use
-`axm` only in CLI command references (e.g., `axm install`), package names
-(`@agentxm/*`), filesystem paths, repo names, hostnames (`axm.sh`), and other
-code identifiers. This naming is distinct from the AgentXM.ai registry and
-other product surfaces.
-
-## Values
-
-1. **Simplicity** - Clear, minimal, obvious.
-2. **Reliability** - Trustworthy, resilient.
-3. **Delight** - Intuitive, helpful, honest, responsive.
-4. **Friendliness** - Welcoming, collaborative, open.
-
-## Tech Stack
-
-- **Runtime**: Bun
-- **Language**: TypeScript (strict mode)
-- **Standard library**: Effect v4 (concurrency, type safety, error handling, async, observability)
-- **Monorepo**: Nx (task orchestration, caching, affected commands)
-- **Package manager**: pnpm (workspaces)
-- **CLI parsing**: `effect/unstable/cli`
-- **CLI UI**: Repo-local prompt adapters plus a custom stderr renderer built on Effect ANSI primitives
-- **Testing**: Vitest
-- **Linting**: ESLint with @effect/eslint-plugin
-- **Formatting**: Prettier
+Shared product language and naming live in the
+[AgentXM Knowledge bundle](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md).
+The repository tree, package manifests, and configuration own the current tool
+and package inventory.
 
 ## Commands
 
@@ -90,45 +66,37 @@ For HTTP(S), it also sets `AXM_REGISTRY_URL` for auth/API flows.
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
 of checking custom registry sources into `.axm/settings.json`. `axm lint`
-reports workspace findings read-only; `axm lint --fix` reconciles the
-workspace non-interactively via the plan pipeline.
+reports workspace findings read-only; `axm lint --fix` performs only
+deterministic, meaning-preserving source or configuration normalization.
 
 ### Releasing
 
 For a new version release, follow `contributing/guides/releasing.md` exactly. Do not invent or restate a separate release flow here.
 
+## Architecture
+
+Read the [AXM architecture index](docs/architecture/index.md) before changing
+product responsibilities, command boundaries, workspace state, package
+responsibilities, dependency direction, output contracts, or workspace
+execution boundaries.
+
 ## Guides Index
 
-Use `contributing/guides` for topic-level guidance. If a guide goes deeper than
-the summary here, follow the guide.
+Use `contributing/guides` for implementation and contributor guidance. If a
+guide goes deeper than the summary here, follow the guide.
 
-| Guide                                                                                 | When to consult                                                                                 |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Docs & process**                                                                    |                                                                                                 |
-| [Guides README](contributing/guides/README.md)                                        | Before adding a guide, read for template and local conventions                                  |
-| [Documentation Guidelines](contributing/guides/documentation-guidelines.md)           | Before writing or editing docs, read for audience, flow, and source-of-truth rules              |
-| [Guide Authoring](contributing/guides/guide-authoring.md)                             | Before deciding a topic needs a guide, read for scope and structure                             |
-| [Instructions Guide](contributing/guides/instructions.md)                             | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs install vs SKILL, read it            |
-| **Delivery**                                                                          |                                                                                                 |
-| [Releasing Guide](contributing/guides/releasing.md)                                   | Before planning or publishing a release, read the release flow                                  |
-| [Feature Delivery Guide](contributing/guides/feature-delivery.md)                     | Before proposing, designing, implementing, or verifying a feature, read for checks              |
-| [Development Environment](contributing/guides/development-environment.md)             | Before changing or using shared container development or CI                                     |
-| [Automated Pull Request Review](contributing/guides/automated-pull-request-review.md) | Before configuring, operating, or interpreting automated PR review                              |
-| **Implementation**                                                                    |                                                                                                 |
-| [CLI Design Guide](contributing/guides/cli-design.md)                                 | Before designing a CLI command, read for shape, flags, prompts, and handlers                    |
-| [CLI Renderer Guide](contributing/guides/cli-renderer.md)                             | Before changing JSON output or renderer boundaries, read for contracts and diagnostics          |
-| [Testing Guide](contributing/guides/testing.md)                                       | Before writing or reviewing tests, read for levels, E2E scope, and Effect testing               |
-| [Effect Guide](contributing/guides/effect.md)                                         | Before writing Effect code, route portable topics to installed skills and apply AXM policy      |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                           | Before handling CLI failures, read for AppError, Registry translation, and cancellation policy  |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                           | Before wiring the CLI runtime, read for AXM entry-point and command-provision policy            |
-| [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)             | Before migrating workspace reads or using context test fixtures                                 |
-| [Workspace State Guide](contributing/guides/workspace-state.md)                       | Before changing reconciliation, lifecycle, trust, receipts, sync, packs, or workspace mutations |
-| [Workspace Schema Evolution Guide](contributing/guides/workspace-schema-evolution.md) | Before changing settings/lockfile schemas or decode strictness on workspace paths               |
-| [Logging Guide](contributing/guides/logging.md)                                       | Before adding structured logs, read for logging conventions                                     |
-| [TypeScript Style Guide](contributing/guides/typescript-style.md)                     | Before writing or revising TypeScript, read for narrowing and immutability rules                |
-| [Agent Capability Model](contributing/guides/agent-capabilities.md)                   | Before adding an agent or changing a capability claim, read for the standard/bridged rule       |
-| [Extension Type Parity Guide](contributing/guides/extension-type-parity.md)           | Before adding an extension type, adding a per-type surface, or changing a parity obligation     |
-| [Lint Rule Authoring Guide](contributing/guides/lint-rule-authoring.md)               | Before adding or changing a lint rule for skills, packs, or workspaces                          |
+| Guide                                                                                 | When to consult                                                                                |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Docs & process**                                                                    |                                                                                                |
+| [Guides README](contributing/guides/README.md)                                        | Before adding a guide, read the repository-specific inclusion threshold                        |
+| **Delivery**                                                                          |                                                                                                |
+| [Releasing Guide](contributing/guides/releasing.md)                                   | Before planning or publishing a release, read the release flow                                 |
+| [Development Environment](contributing/guides/development-environment.md)             | Before changing or using shared container development or CI                                    |
+| [Automated Pull Request Review](contributing/guides/automated-pull-request-review.md) | Before configuring, operating, or interpreting automated PR review                             |
+| **Implementation**                                                                    |                                                                                                |
+| [Effect Guide](contributing/guides/effect.md)                                         | Before writing Effect code, route portable topics to installed skills and apply AXM policy     |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                           | Before handling CLI failures, read for AppError, Registry translation, and cancellation policy |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                           | Before wiring the CLI runtime, read for AXM entry-point and command-provision policy           |
 
 ## Code Organization
 
@@ -144,9 +112,6 @@ errors, and tests with the feature that owns them.
 code directly under `src/`.
 
 ## TypeScript
-
-See [TypeScript Style Guide](contributing/guides/typescript-style.md) for
-examples, narrowing patterns, and rationale.
 
 ### Two TypeScript Versions
 
@@ -186,22 +151,10 @@ Do not use `as` type assertions or non-null assertions (`!`).
 - Rare escape hatch: `as unknown as T` with `// Assertion needed:` comment
 - Validate parsed data with Schema instead of asserting it
 
-## External Dependency Sources
+## External dependency sources
 
-Local source checkouts of key dependencies live at
-`../external/{org}/{repo}` (relative to this repo root). Read these sources to
-understand internal behavior beyond public API docs, learn idiomatic patterns
-from reference implementations, and research bugs or breaking changes via
-upstream issues and discussions. Each checkout should be on the tag matching the
-dependency version so the source you read matches the code you run. For Effect,
-use `../external/Effect-TS/effect`, not `../../Effect-TS/effect`.
-
-| Package                  | Version          | Local path                     | Upstream                                                | Tag                     |
-| ------------------------ | ---------------- | ------------------------------ | ------------------------------------------------------- | ----------------------- |
-| `effect` (+ `@effect/*`) | `4.0.0-beta.107` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.107` |
-
-Setup and sync instructions are in the
-[agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).
+Local source checkouts live under `../external/<org>/<repo>`. Match them to the
+version in package manifests and lockfiles, which own the current inventory.
 
 ## Effect
 
@@ -217,11 +170,10 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ## Testing
 
-See [Testing Guide](contributing/guides/testing.md) and
-[Feature Delivery Guide](contributing/guides/feature-delivery.md).
-
 - Write tests first to define behavior
 - Bug fix means regression test first
+- Follow the affected feature's design-level verification obligations
+- Use `@effect/vitest` for Effect tests and the installed Effect testing skill
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
 
 ## Review guidelines
@@ -264,24 +216,24 @@ Wait for the user to review changes and decide when to commit.
 | axm-cli-interactions | survey | Sessions that directly run `axm` to complete work in this workspace or manually validate AXM behavior; automated test invocations excluded | —                | Recurring notes support a specific target condition, or two triage reviews find no pattern                 |
 | ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                                  | —                | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
 
+<!-- prettier-ignore-start -->
 <!-- axm:start region=knowledge-base -->
-
 ## Knowledge Base
 
 ### @agentxm
 
-| Bundle                                                             | Description                                                                                                                                                |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bundle | Description |
+| --- | --- |
 | [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows |
 
 ### @craigsmitham
 
-| Bundle                                                                                          | Description                                                                                                                                                                      |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                 | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
-
+| Bundle | Description |
+| --- | --- |
+| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
+| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 <!-- axm:end region=knowledge-base -->
+<!-- prettier-ignore-end -->
 <!-- axm:start region=rules -->
 <!-- axm:rule @craigsmitham/rules/field-notes@0.1.0 -->
 

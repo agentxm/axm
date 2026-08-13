@@ -12,8 +12,8 @@
  *    and re-runs `rule.check`.
  * 5. Asserts `rule.check` returns **zero findings** post-apply.
  *
- * The assertion is the "apply(fix) + re-run(rule) === [] from that rule"
- * contract from `contributing/guides/lint-rule-authoring.md` ("Writing `fix`").
+ * This pins the core autofix invariant: applying a rule's fix eliminates that
+ * rule's finding when the rule is checked again.
  */
 
 import { describe, expect, it } from "@effect/vitest";

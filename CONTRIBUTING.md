@@ -62,6 +62,11 @@ ranges.
 
 ## Making Changes
 
+Before changing AXM product behavior, read the relevant
+[architecture documents](docs/architecture/index.md). They define command responsibilities,
+workspace invariants, and the behavior tests must prove; code and tests show how
+the design is implemented.
+
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
    first file edit.

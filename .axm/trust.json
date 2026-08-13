@@ -6,15 +6,18 @@
       "name": "axm",
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/axm",
-      "resolvedVersion": "0.26.3",
-      "contentIdentity": "e518e26c1e58b9e1b362b01c2890ee44ca5ddfb0c74c24a8c17c98c4513c8582"
+      "resolvedVersion": "0.26.7",
+      "contentIdentity": "b27b3e58f448ad52c4c0cebc321109363334def2c87f0b106e6fbf817afb497a"
     },
     "knowledge:agentxm": {
       "extensionType": "knowledge",
       "name": "agentxm",
-      "authority": "workspace",
-      "sourceIdentity": "workspace:@agentxm/knowledge/agentxm",
+      "authority": "registry",
+      "sourceIdentity": "@agentxm/knowledge/agentxm",
+      "sourceName": "default",
       "resolvedVersion": "0.2.1",
+      "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+      "integrity": "sha512-zugFWNON1a6BDXd/Ro/+2QG9h4/tNuJMCq/hkCjn4Tf94ZZGziNzReOQZfZbyzIN66KjYQUFZR+WyfORV9gjSA==",
       "contentIdentity": "66c02f2b04ef030cf4727cc5068df0488fe102b64c5a8c20f4cf201f2f325bd2"
     },
     "skill:code-review": {
@@ -23,7 +26,7 @@
       "authority": "workspace",
       "sourceIdentity": "workspace:@agentxm/skills/code-review",
       "resolvedVersion": "0.1.0",
-      "contentIdentity": "492ce886ae7d6aaff154aa8fb3ba1c34efa0bb4ac4c3f28c1d2f148d3653812e"
+      "contentIdentity": "28efded53d558d1088b62189c11a4497b2841ada3e9f8d1e88cbff81824b4cef"
     },
     "skill:e2e-publish-check": {
       "extensionType": "skill",

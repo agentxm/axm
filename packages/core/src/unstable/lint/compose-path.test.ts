@@ -1,7 +1,7 @@
 /**
  * Unit tests for `composePath`.
  *
- * Covers the four `displayRoot` cases from `agentxm-internal/docs/design/lint-engine.md`
+ * Covers the four `displayRoot` cases from the lint design
  * "Diagnostic path rendering":
  *
  * | Caller                      | `displayRoot`                                  |

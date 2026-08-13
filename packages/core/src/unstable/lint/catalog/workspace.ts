@@ -1,7 +1,7 @@
 /**
  * `workspace/*` rule catalog — the v1 rule set.
  *
- * Per `agentxm-internal/docs/design/lint-engine.md §10.workspace`, `axm lint` (locally only —
+ * Per the lint design, `axm lint` (locally only —
  * never publish) runs exactly these rules against each workspace read model.
  * Rules are grouped by classification invariant — foundation first, then
  * one group per invariant that install-family rules enforce:

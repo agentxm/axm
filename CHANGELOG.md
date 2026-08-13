@@ -1,3 +1,30 @@
+## 0.26.7 (2026-08-13)
+
+### 🚀 Features
+
+- Add a global directory selector for targeting workspaces from any invocation directory.
+- Authenticate Registry reads by default and attribute discovery submissions when local credentials are available.
+
+  This removes the published unstable `withAuthRuntime` helper; consumers should use `withRuntime`, which now includes Registry authentication.
+
+- Replace the flat Knowledge search and open commands with a versioned concept-discovery API supporting structured queries, stable identities, bounded evidence, pagination, graph navigation, revision guards, and runtime capabilities.
+
+  The removed commands have no compatibility aliases. Use `axm knowledge concepts search` and `axm knowledge concepts get` instead.
+
+### 🩹 Fixes
+
+- Guide axm help publish to command help and publishing guidance.
+- Report truthful agent coverage for retained pack members.
+- Preflight complete publication sets before upload and bind browser-issued publish grants to exact candidates.
+- Make Knowledge search token-aware, order-independent, and explicit about phrase and literal matching.
+- Preserve workspace source authority during pack reinstalls.
+- Keep pack dependency ranges current across authoring, linting, status, publish, and Registry diagnostics, with structured safe remediation actions.
+- Preserve existing settings key order and untouched formatting during AXM-managed updates.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.26.6 (2026-08-12)
 
 ### 🩹 Fixes

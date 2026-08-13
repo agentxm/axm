@@ -3635,6 +3635,16 @@
         "required": ["owner", "type", "name", "range"],
         "additionalProperties": false
       },
+      "SuggestedAction": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "cmd": { "$ref": "#/components/schemas/Union_" },
+          "url": { "$ref": "#/components/schemas/Union_" }
+        },
+        "required": ["description"],
+        "additionalProperties": false
+      },
       "PackDependencyFinding": {
         "type": "object",
         "properties": {
@@ -3671,7 +3681,10 @@
           },
           "path": { "type": "string", "enum": ["./pack.json"] },
           "message": { "type": "string" },
-          "suggestions": { "type": "array", "items": { "type": "string" } }
+          "suggestions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SuggestedAction" }
+          }
         },
         "required": [
           "kind",
@@ -3686,10 +3699,19 @@
         ],
         "additionalProperties": false
       },
+      "PackDependencyResolution": {
+        "type": "object",
+        "properties": {
+          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
+          "effectiveVersion": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["dependency", "effectiveVersion"],
+        "additionalProperties": false
+      },
       "PreviewPublicationSetResponse": {
         "type": "object",
         "properties": {
-          "contract": { "type": "string", "enum": ["publication-set-v1"] },
+          "contract": { "type": "string", "enum": ["publication-set-v2"] },
           "publicationSetDigest": { "$ref": "#/components/schemas/Sha256Hex" },
           "status": { "type": "string", "enum": ["admitted", "blocked"] },
           "candidates": {
@@ -3740,9 +3762,13 @@
                 "findings": {
                   "type": "array",
                   "items": { "$ref": "#/components/schemas/PackDependencyFinding" }
+                },
+                "resolutions": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PackDependencyResolution" }
                 }
               },
-              "required": ["target", "status", "findings"],
+              "required": ["target", "status", "findings", "resolutions"],
               "additionalProperties": false
             }
           }
@@ -3756,6 +3782,12 @@
             "type": "object",
             "properties": {
               "status": { "type": "string", "enum": ["admitted"] },
+              "preview": {
+                "anyOf": [
+                  { "$ref": "#/components/schemas/PreviewPublicationSetResponse" },
+                  { "type": "null" }
+                ]
+              },
               "grants": {
                 "type": "array",
                 "items": { "$ref": "#/components/schemas/SessionTokenResponse" }
@@ -3986,7 +4018,7 @@
       "PreviewPublicationSetRequest": {
         "type": "object",
         "properties": {
-          "contract": { "type": "string", "enum": ["publication-set-v1"] },
+          "contract": { "type": "string", "enum": ["publication-set-v2"] },
           "candidates": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/PublicationDescriptor" }
@@ -4165,7 +4197,9 @@
               "publish/handle-not-owned",
               "publish/publish-forbidden",
               "publish/capability-binding-mismatch",
-              "publish/capability-expired"
+              "publish/capability-expired",
+              "publish/capability-revoked",
+              "publish/capability-consumed"
             ]
           },
           "details": {
@@ -4540,15 +4574,16 @@
         "description": "Request body for deprecating an extension."
       },
       "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
-      "Union_8": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
+      "Union_8": { "type": "string", "enum": ["error", "warning", "info"] },
+      "Union_9": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
           "file": { "type": "string" },
-          "line": { "$ref": "#/components/schemas/Union_8" },
-          "column": { "$ref": "#/components/schemas/Union_8" },
-          "byteOffset": { "$ref": "#/components/schemas/Union_8" },
-          "byteLength": { "$ref": "#/components/schemas/Union_8" }
+          "line": { "$ref": "#/components/schemas/Union_9" },
+          "column": { "$ref": "#/components/schemas/Union_9" },
+          "byteOffset": { "$ref": "#/components/schemas/Union_9" },
+          "byteLength": { "$ref": "#/components/schemas/Union_9" }
         },
         "required": ["file"],
         "additionalProperties": false,
@@ -4560,11 +4595,14 @@
         "properties": {
           "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
           "ruleId": { "type": "string" },
-          "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+          "severity": { "$ref": "#/components/schemas/Union_8" },
           "message": { "type": "string" },
           "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
           "path": { "type": "string" },
-          "suggestions": { "type": "array", "items": { "type": "string" } }
+          "suggestions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SuggestedAction" }
+          }
         },
         "required": ["kind", "ruleId", "severity", "message", "path", "suggestions"],
         "additionalProperties": false,
@@ -4599,6 +4637,35 @@
         "title": "Publish Identity",
         "description": "URL-path identity of the extension version under publish."
       },
+      "SuggestedAction_1": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "cmd": { "$ref": "#/components/schemas/Union_" },
+          "url": { "$ref": "#/components/schemas/Union_" }
+        },
+        "required": ["description"],
+        "additionalProperties": false
+      },
+      "PublishLintFinding_1": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
+          "ruleId": { "type": "string" },
+          "severity": { "$ref": "#/components/schemas/Union_8" },
+          "message": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
+          "path": { "type": "string" },
+          "suggestions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SuggestedAction_1" }
+          }
+        },
+        "required": ["kind", "ruleId", "severity", "message", "path", "suggestions"],
+        "additionalProperties": false,
+        "title": "Publish Lint Finding",
+        "description": "One lint finding produced against the publish subject."
+      },
       "ExtensionLintFailedErrorEncoded": {
         "type": "object",
         "properties": {
@@ -4614,7 +4681,7 @@
           "displayRoot": { "type": "string" },
           "findings": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/PublishLintFinding" }
+            "items": { "$ref": "#/components/schemas/PublishLintFinding_1" }
           }
         },
         "required": [

@@ -32,6 +32,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { sanitizeSuggestedAction } from "../cli-runtime/suggested-action.js";
 import { composePath } from "./compose-path.js";
 import type { LintConfig } from "./config.js";
 import { platformCanonicalLintConfig } from "./config.js";
@@ -1482,6 +1483,9 @@ const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
     message: entry.finding.message,
     displayRoot: entry.displayRoot,
     path: entry.path,
+    ...(entry.finding.suggestions === undefined
+      ? {}
+      : { suggestions: entry.finding.suggestions.map(sanitizeSuggestedAction) }),
   } as const;
   if (entry.finding.location === undefined) {
     return base;

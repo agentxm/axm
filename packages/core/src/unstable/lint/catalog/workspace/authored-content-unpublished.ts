@@ -30,8 +30,14 @@ export const authoredContentUnpublishedRule: AdvisoryRule<WorkspaceRuleContext> 
               kind: "advisory",
               ruleId: RULE_ID,
               severity: "warning",
-              message: `${observation.type} '${identity}' was modified since its last recorded authoring/publish baseline. Run \`axm publish ${identity}\` to publish the working version; publishing preserves the authored content.`,
+              message: `${observation.type} '${identity}' was modified since its last recorded authoring/publish baseline.`,
               location: { file: observation.path ?? ".axm/settings.json" },
+              suggestions: [
+                {
+                  description: "Publish the working version; publishing preserves authored content",
+                  cmd: `axm publish ${identity}`,
+                },
+              ],
             },
           ];
         },

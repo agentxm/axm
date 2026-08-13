@@ -31,7 +31,11 @@ import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { effectCliExit, type SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  effectCliExit,
+  sanitizeSuggestedAction,
+  type SuggestedAction,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   CodingAgentRepository,
@@ -1393,6 +1397,12 @@ const lintSuggestions = (args: {
     pushSuggestion(LINT_DETAILS_SUGGESTION);
   }
   pushSuggestion(LINT_JSON_SUGGESTION);
+
+  for (const entry of args.summary.findings) {
+    for (const suggestion of entry.finding.suggestions ?? []) {
+      pushSuggestion(sanitizeSuggestedAction(suggestion));
+    }
+  }
 
   for (const command of collectLintBlockCommands(args.blocks)) {
     const suggestion = lintCommandSuggestion(command);

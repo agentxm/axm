@@ -293,12 +293,13 @@ decides whether the rule applies.
 
 ## Message Content
 
-The `message` field carries both the violation statement and the remediation
-prose. It is best-effort stable public contract — surfaces include the
-`axm lint` renderer, the registry 422 publish response, and `--json` output.
-A structured `suggestions` field may return later when an IDE or agent
-integration demands it; for v1, prose in `message` is the only remediation
-surface.
+The `message` field carries the violation statement and any explanatory
+remediation prose. It is best-effort stable public contract — surfaces include
+the `axm lint` renderer, the registry 422 publish response, and `--json` output.
+Use optional `suggestions: SuggestedAction[]` for discrete follow-up tasks,
+especially runnable AXM commands. Human output renders those actions and
+`--json` preserves their structured `{ description, cmd?, url? }` shape, so
+callers never need to parse commands out of prose.
 
 Severity changes the message's urgency, not its structure. `error`,
 `warning`, and `info` findings should all still say what is wrong and what to

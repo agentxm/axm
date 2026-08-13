@@ -353,6 +353,13 @@ period, backtick literal commands and paths, and one task per suggestion. Set
 browser destination; do not encode URLs as shell commands. `cmd` replaces the
 older `command: string[]` form; do not emit both.
 
+Commands carried by Registry responses are untrusted advisory data. The remote
+client retains `cmd` only when it is one `axm` invocation with no control
+characters, shell operators, redirects, backticks, or substitution syntax. AXM
+may render or emit that string, but it never executes it, passes it to a shell,
+or treats it as authorization. Invalid commands are dropped while the action's
+description and URL remain available.
+
 ---
 
 ## Field Rules

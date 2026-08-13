@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as os from "node:os";
 import * as semver from "semver";
 
 import {
@@ -77,6 +78,8 @@ import {
   runPublishLintGate,
   validateArchive,
 } from "@agentxm/client-core/unstable/publish";
+import { buildLintWorkspace } from "@agentxm/client-core/unstable/lint";
+import type { PackDependencyReachability } from "@agentxm/client-core/unstable/packs";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -87,8 +90,10 @@ import {
   type PackDependencyDescriptor,
   type PublishExtensionArgs,
   type PreviewPublicationSetRequest,
+  type PreviewPublicationSetResponse,
   type PublicationCandidateResult,
   type PublicationDescriptor,
+  type PublicationPackResult,
   type RegistryClient,
   type VersionEntry,
 } from "@agentxm/client-core/unstable/registry";
@@ -110,7 +115,11 @@ import {
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
+import {
+  emitPublishResult,
+  type PublishAdvisoryFinding,
+  type PublishResultItem,
+} from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   backfillFlag,
@@ -232,6 +241,174 @@ interface PublishCandidate extends SelectedEntry {
   readonly extensionExists: boolean;
   readonly publishPreview?: ResolvedPublishPreview;
 }
+
+export interface LocalPackConstraintConflict {
+  readonly memberFqn: string;
+  readonly memberVersion: string;
+  readonly packFqn: string;
+  readonly packAuthority: "workspace" | "registry";
+  readonly manifestPath: string;
+  readonly constraint: string;
+}
+
+interface LocalPackConstraintCandidate {
+  readonly fqn: string;
+  readonly type: PublishableType;
+  readonly authored: boolean;
+  readonly version: Version;
+  readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
+}
+
+/**
+ * Evaluate selected authored leaves against only the packs represented by the
+ * current workspace. A selected pack manifest takes precedence because it is
+ * the prospective local state for the same publish attempt.
+ */
+export const findLocalPackConstraintConflicts = (args: {
+  readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
+  readonly reachability: ReadonlyArray<PackDependencyReachability>;
+}): ReadonlyArray<LocalPackConstraintConflict> => {
+  const selectedPacks = new Map(
+    args.candidates
+      .filter((candidate) => candidate.type === "pack")
+      .map((candidate) => [candidate.fqn, candidate]),
+  );
+  const recordsByMember = new Map<string, Array<PackDependencyReachability>>();
+  for (const record of args.reachability) {
+    const current = recordsByMember.get(record.memberFqn);
+    if (current === undefined) recordsByMember.set(record.memberFqn, [record]);
+    else current.push(record);
+  }
+
+  return args.candidates
+    .filter((candidate) => candidate.authored && candidate.type !== "pack")
+    .flatMap((candidate) =>
+      (recordsByMember.get(candidate.fqn) ?? []).flatMap((record) => {
+        const selectedPack = selectedPacks.get(record.packFqn);
+        const constraint =
+          selectedPack === undefined
+            ? record.constraint
+            : selectedPack.dependencies?.[candidate.fqn];
+        if (constraint === undefined || semver.satisfies(candidate.version, constraint)) return [];
+        return [
+          {
+            memberFqn: candidate.fqn,
+            memberVersion: candidate.version,
+            packFqn: record.packFqn,
+            packAuthority: record.packAuthority,
+            manifestPath: record.manifestPath,
+            constraint,
+          },
+        ];
+      }),
+    )
+    .sort(
+      (left, right) =>
+        left.packFqn.localeCompare(right.packFqn) || left.memberFqn.localeCompare(right.memberFqn),
+    );
+};
+
+export const findPackPublishDivergenceFindings = (args: {
+  readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
+  readonly reachability: ReadonlyArray<PackDependencyReachability>;
+  readonly packs: ReadonlyArray<PublicationPackResult>;
+}): ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>> => {
+  const authoredPacks = new Set(
+    args.candidates
+      .filter((candidate) => candidate.authored && candidate.type === "pack")
+      .map((candidate) => candidate.fqn),
+  );
+  const localByPair = new Map(
+    args.reachability.map((record) => [`${record.packFqn}\u0000${record.memberFqn}`, record]),
+  );
+  const findings = new Map<string, Array<PublishAdvisoryFinding>>();
+  for (const pack of args.packs) {
+    if (pack.status !== "admitted") continue;
+    const packFqn = formatFqn(pack.target);
+    if (!authoredPacks.has(packFqn)) continue;
+    for (const resolution of pack.resolutions) {
+      const memberFqn = formatFqn(resolution.dependency);
+      const local = localByPair.get(`${packFqn}\u0000${memberFqn}`);
+      if (
+        local?.classification !== "satisfying" ||
+        local.memberVersion === undefined ||
+        local.memberVersion === resolution.effectiveVersion
+      ) {
+        continue;
+      }
+      const finding: PublishAdvisoryFinding = {
+        ruleId: "pack/publish-resolution-divergence",
+        severity: "warning",
+        message: `${packFqn} resolves ${memberFqn}@${local.memberVersion} in this workspace, while Registry consumers resolve ${memberFqn}@${resolution.effectiveVersion} within ${resolution.dependency.range}.`,
+        suggestions: [
+          local.memberAuthority === "workspace"
+            ? {
+                description: `Publish ${memberFqn} before publishing the pack if consumers should receive the workspace version`,
+                cmd: `axm publish ${memberFqn}`,
+              }
+            : {
+                description: `Update ${memberFqn} if this workspace should match Registry consumers`,
+                cmd: `axm update ${memberFqn}`,
+              },
+        ],
+      };
+      const current = findings.get(packFqn);
+      if (current === undefined) findings.set(packFqn, [finding]);
+      else current.push(finding);
+    }
+  }
+  return new Map(
+    [...findings.entries()].map(([packFqn, values]) => [
+      packFqn,
+      [...values].sort((left, right) => left.message.localeCompare(right.message)),
+    ]),
+  );
+};
+
+const localPackConstraintErrors = (
+  conflicts: ReadonlyArray<LocalPackConstraintConflict>,
+): ReadonlyMap<string, AppError> => {
+  const byMember = new Map<string, Array<LocalPackConstraintConflict>>();
+  for (const conflict of conflicts) {
+    const current = byMember.get(conflict.memberFqn);
+    if (current === undefined) byMember.set(conflict.memberFqn, [conflict]);
+    else current.push(conflict);
+  }
+  return new Map(
+    [...byMember.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([memberFqn, memberConflicts]) => {
+        const memberVersion = memberConflicts[0]?.memberVersion ?? "unknown";
+        return [
+          memberFqn,
+          makeAppError({
+            code: "validation",
+            detail: `${memberFqn}@${memberVersion} is excluded by the current workspace pack constraints: ${memberConflicts
+              .map((conflict) => `${conflict.packFqn} declares ${conflict.constraint}`)
+              .join("; ")}`,
+            suggestions: memberConflicts.flatMap((conflict) =>
+              conflict.packAuthority === "workspace"
+                ? [
+                    {
+                      description: `Replace ${conflict.packFqn}'s constraint with the selected version, then publish the member and pack together`,
+                      cmd: `axm packs add ${conflict.packFqn} ${conflict.memberFqn} --replace-existing`,
+                    },
+                  ]
+                : [
+                    {
+                      description: `Update ${conflict.packFqn} if its owner has published a compatible constraint`,
+                      cmd: `axm packs update ${conflict.packFqn}`,
+                    },
+                    {
+                      description: `Otherwise stop workspace authority from shadowing ${conflict.memberFqn}`,
+                    },
+                  ],
+            ),
+          }),
+        ];
+      }),
+  );
+};
 
 export interface ResolvedPublishPreview {
   readonly visibility: PublishVisibility;
@@ -1074,9 +1251,7 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
       detail:
         packErrors[0]?.message ??
         "The registry blocked the complete publication set before any upload.",
-      suggestions: packErrors.flatMap((finding) =>
-        finding.suggestions.map((description) => ({ description })),
-      ),
+      suggestions: packErrors.flatMap((finding) => finding.suggestions),
       cause: preview,
     });
   }
@@ -1124,7 +1299,7 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
         "--visibility applies only to extensions created by this publish, but the selection contains no eligible new extension.",
     });
   }
-  return { candidates: prepared, publicationSet };
+  return { candidates: prepared, publicationSet, preview };
 });
 
 const publishCandidate = (
@@ -1161,6 +1336,7 @@ const publishCandidate = (
         ...(response.links === undefined ? {} : { links: response.links }),
       } satisfies JobStepResult,
       visibility: response.visibility,
+      warnings: response.warnings,
     };
   });
 
@@ -1257,6 +1433,21 @@ const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishRes
   };
 };
 
+const failedCandidateResult = (
+  candidate: PublishCandidate,
+  error: AppError,
+): PublishResultItem => ({
+  owner: candidate.owner,
+  type: candidate.type,
+  name: candidate.name,
+  version: candidate.version,
+  sourceType: candidate.sourceType,
+  authored: candidate.authored,
+  action: "error",
+  status: "failed",
+  message: error.detail,
+});
+
 const runPublish = Effect.fn("Publish.run")(function* (
   args: RootPublishHandlerArgs,
   registry: TargetRegistry,
@@ -1310,9 +1501,29 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const decodedCandidates = decoded.flatMap((result) =>
     Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
   );
-  const preflightErrors = decoded.flatMap((result) =>
+  const decodedPreflightErrors = decoded.flatMap((result) =>
     Result.isFailure(result) ? [result.failure] : [],
   );
+  const shouldCheckLocalPackConstraints = decodedCandidates.some(
+    (candidate) => candidate.authored && candidate.type !== "pack",
+  );
+  const packDependencyReachability = shouldCheckLocalPackConstraints
+    ? yield* Effect.gen(function* () {
+        const lintWorkspace = yield* buildLintWorkspace({
+          platform: { fs, path },
+          workspaceRoot: workspaceMutations.baseDir,
+          userHome: workspaceMutations.scope === "user" ? workspaceMutations.baseDir : os.homedir(),
+          scope: workspaceMutations.scope,
+        }).pipe(Effect.orDie);
+        return yield* lintWorkspace.rule.packDependencyReachability ?? Effect.succeed([]);
+      })
+    : [];
+  const localConflicts = findLocalPackConstraintConflicts({
+    candidates: decodedCandidates,
+    reachability: packDependencyReachability,
+  });
+  const localErrorsByMember = localPackConstraintErrors(localConflicts);
+  const preflightErrors = [...decodedPreflightErrors, ...localErrorsByMember.values()];
   const selectionOutput = {
     mode: selection.mode,
     scope: args.scope,
@@ -1340,6 +1551,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     {
       readonly candidates: ReadonlyArray<PublishCandidate>;
       readonly publicationSet: PreviewPublicationSetRequest;
+      readonly preview?: PreviewPublicationSetResponse;
     },
     AppError
   > = shouldPreviewAuthoritatively
@@ -1366,6 +1578,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const publicationSet = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.publicationSet
     : undefined;
+  const packDivergenceFindings = findPackPublishDivergenceFindings({
+    candidates,
+    reachability: packDependencyReachability,
+    packs:
+      Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
+        ? authoritativePreview.success.preview.packs
+        : [],
+  });
   const candidatesByTarget = new Map(
     candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
   );
@@ -1375,12 +1595,19 @@ const runPublish = Effect.fn("Publish.run")(function* (
     if (decodedResult === undefined) return selectedResult(entry, undefined);
     if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
     const candidate = decodedResult.success;
-    return selectedResult(
+    if (candidate !== undefined) {
+      const localError = localErrorsByMember.get(candidate.fqn);
+      if (localError !== undefined) return failedCandidateResult(candidate, localError);
+    }
+    const selected = selectedResult(
       entry,
       candidate === undefined
         ? undefined
         : (candidatesByTarget.get(publishTargetKey(candidate)) ?? candidate),
     );
+    const findings =
+      candidate === undefined ? undefined : packDivergenceFindings.get(candidate.fqn);
+    return findings === undefined ? selected : { ...selected, findings };
   });
   let assignedAuthoritativeFailure = false;
   const preflightResults = initialPreflightResults.map((result): PublishResultItem => {
@@ -1442,6 +1669,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
     ]),
   );
   const publishedVisibilities = new Map<string, PublishVisibility>();
+  const publishedWarnings = new Map<string, ReadonlyArray<PublishAdvisoryFinding>>();
+  let authorizedPackDivergenceFindings: ReadonlyMap<
+    string,
+    ReadonlyArray<PublishAdvisoryFinding>
+  > = new Map();
   let issuedCapabilities: ReadonlyArray<PublishCapabilityResponse> = [];
   const loadExactCapabilities = yield* Effect.cached(
     isRemoteRegistry && Option.isNone(storedToken)
@@ -1465,12 +1697,15 @@ const runPublish = Effect.fn("Publish.run")(function* (
               detail:
                 firstFinding?.message ??
                 "The reviewed publication set was blocked before any upload.",
-              suggestions: (firstFinding?.suggestions ?? []).map((description) => ({
-                description,
-              })),
+              suggestions: firstFinding?.suggestions ?? [],
               cause: exchange.preview,
             });
           }
+          authorizedPackDivergenceFindings = findPackPublishDivergenceFindings({
+            candidates,
+            reachability: packDependencyReachability,
+            packs: exchange.preview.packs,
+          });
           issuedCapabilities = exchange.grants;
           const byDescriptor = new Map<string, PublishCapabilityResponse>();
           for (const capability of exchange.grants) {
@@ -1512,8 +1747,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       }
       return yield* publishCandidate(candidate, registry, exactCapability);
     }).pipe(
-      Effect.map(({ stepResult, visibility }) => {
+      Effect.map(({ stepResult, visibility, warnings }) => {
         publishedVisibilities.set(publishTargetKey(candidate), visibility);
+        publishedWarnings.set(publishTargetKey(candidate), warnings);
         return stepResult;
       }),
       Effect.tap(() => refreshAuthoredPublishBaseline(candidate)),
@@ -1663,12 +1899,27 @@ const runPublish = Effect.fn("Publish.run")(function* (
         candidate === undefined
           ? undefined
           : publishedVisibilities.get(publishTargetKey(candidate));
+      const findings = [
+        ...(result.findings ?? []),
+        ...(candidate === undefined
+          ? []
+          : (authorizedPackDivergenceFindings.get(candidate.fqn) ?? [])),
+        ...(candidate === undefined
+          ? []
+          : (publishedWarnings.get(publishTargetKey(candidate)) ?? [])),
+      ].sort(
+        (left, right) =>
+          Number(right.ruleId === "publish/required-pack-version-unreachable") -
+            Number(left.ruleId === "publish/required-pack-version-unreachable") ||
+          left.message.localeCompare(right.message),
+      );
       return {
         ...result,
         status: "success",
         message: step.result.message,
         ...(authoritativeVisibility === undefined ? {} : { visibility: authoritativeVisibility }),
         ...(step.result.links === undefined ? {} : { links: step.result.links }),
+        ...(findings.length === 0 ? {} : { findings }),
       };
     });
   } else {

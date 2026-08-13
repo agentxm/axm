@@ -41,6 +41,22 @@ const input = {
     candidates: [descriptor],
   },
 };
+const admittedPreview = {
+  contract: PUBLICATION_SET_CONTRACT,
+  publicationSetDigest: publicationSetDigest([descriptor]),
+  status: "admitted" as const,
+  candidates: [
+    {
+      kind: "resolved" as const,
+      target: descriptor.target,
+      participation: descriptor.participation,
+      descriptorDigest: publicationDescriptorDigest(descriptor),
+      resolvedVisibility: "private" as const,
+      condition: '"pv2-reviewed"',
+    },
+  ],
+  packs: [],
+};
 
 const scheduleCallback = (url: string) => {
   setTimeout(() => {
@@ -77,6 +93,7 @@ describe("runPublishAuthorization", () => {
       exchangePublishAuthorizationCode: (params) =>
         Effect.succeed({
           status: "admitted",
+          preview: admittedPreview,
           grants: [
             {
               accessToken: "axm_pub_capability",

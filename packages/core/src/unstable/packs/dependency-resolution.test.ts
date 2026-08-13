@@ -13,7 +13,7 @@ import {
 import type { RegistrySkillRef } from "../skills/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
-import type { RegistryPackRef } from "./refs.js";
+import type { RegistryPackRef, WorkspacePackRef } from "./refs.js";
 import {
   resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
@@ -42,6 +42,32 @@ const packRef = (dependencies: Readonly<Record<string, string>>): RegistryPackRe
   integrity: Option.some("sha512-pack"),
   packages: [],
 });
+
+const workspacePackRef = (dependencies: Readonly<Record<string, string>>): WorkspacePackRef => {
+  const name = extensionName("toolkit");
+  return {
+    type: "pack",
+    refType: "workspace",
+    pack: {
+      name,
+      dependencies: Object.fromEntries(
+        Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+      ),
+    },
+    source: {
+      type: "workspace",
+      owner: handle("@acme"),
+      extensionType: "pack",
+      name,
+    },
+    owner: handle("@acme"),
+    name,
+    version: exactVersion("1.0.0"),
+    scope: "project",
+    location: "file:///workspace/.axm/extensions/@acme/packs/toolkit",
+    sourceHash: computeSourceHash("workspace-toolkit"),
+  };
+};
 
 const workspaceSkill = (version: string): ExtensionRef => {
   const name = extensionName("review");
@@ -142,8 +168,40 @@ describe("resolvePackDependencies", () => {
 
         expect(error.detail).toContain("@acme/skills/review@1.4.0");
         expect(error.detail).toContain("^2.0.0");
+        expect(error.suggestions).toEqual([
+          {
+            description:
+              "Update the pack if its owner has published a constraint that includes the workspace version",
+            cmd: "axm packs update @acme/packs/toolkit",
+          },
+          {
+            description: "Otherwise stop workspace authority from shadowing @acme/skills/review",
+          },
+        ]);
         expect(find).not.toHaveBeenCalled();
       }),
+  );
+
+  it.effect("points an authored pack at its runnable constraint repair", () =>
+    Effect.gen(function* () {
+      const error = yield* resolvePackDependencies(
+        workspacePackRef({ "@acme/skills/review": "^2.0.0" }),
+        providers(() => Effect.die("Registry fallback must not run")),
+        undefined,
+        undefined,
+        () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
+      ).pipe(Effect.flip);
+
+      expect(error.detail).toContain(
+        "Workspace-authored pack @acme/packs/toolkit requires @acme/skills/review@^2.0.0",
+      );
+      expect(error.suggestions).toEqual([
+        {
+          description: "Replace the authored pack constraint with the current workspace version",
+          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review --replace-existing",
+        },
+      ]);
+    }),
   );
 
   it.effect("propagates a workspace authority blocker without Registry fallback", () =>
@@ -240,6 +298,25 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
           },
         ],
       });
+    }),
+  );
+
+  it.effect("preserves the same authority-correct conflict in the release-age path", () =>
+    Effect.gen(function* () {
+      const error = yield* resolvePackDependenciesWithReleaseAge(
+        workspacePackRef({ "@acme/skills/review": "^2.0.0" }),
+        namedProviders(() => Effect.die("Registry fallback must not run")),
+        evaluation,
+        undefined,
+        () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
+      ).pipe(Effect.flip);
+
+      expect(error.suggestions).toEqual([
+        {
+          description: "Replace the authored pack constraint with the current workspace version",
+          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review --replace-existing",
+        },
+      ]);
     }),
   );
 

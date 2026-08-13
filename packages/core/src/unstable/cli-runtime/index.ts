@@ -13,7 +13,12 @@ export {
   SuggestionEventSchema,
   emitEvent,
 } from "./output-mode.js";
-export { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
+export {
+  SuggestedActionSchema,
+  isSafeSuggestedAxmCommand,
+  sanitizeSuggestedAction,
+  type SuggestedAction,
+} from "./suggested-action.js";
 export {
   JsonEnvelopeSchema,
   JsonSuccessEnvelopeSchema,

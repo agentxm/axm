@@ -178,6 +178,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
         disposition: "establish",
         source: args.initialVisibility === undefined ? "platform" : "explicit",
       },
+      warnings: [],
     } as const),
   previewExtensionPublishes: (args) =>
     Effect.succeed({
@@ -1106,6 +1107,7 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
             disposition: "establish",
             source: "platform",
           },
+          warnings: [],
         } as const);
       },
     });

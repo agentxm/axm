@@ -146,8 +146,17 @@ const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> =>
   const findings = decoded.findings.slice(0, 5).map((finding) => ({
     description: `${finding.severity}: ${finding.ruleId} - ${finding.message} (${finding.path})`,
   }));
+  const suppressedCount = findingCount - findings.length;
+  const suppressed =
+    suppressedCount === 0
+      ? []
+      : [
+          {
+            description: `${String(suppressedCount)} additional ${suppressedCount === 1 ? "finding was" : "findings were"} suppressed.`,
+          },
+        ];
 
-  return [summary, ...findings];
+  return [summary, ...findings, ...suppressed];
 };
 
 const identityMismatchSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {

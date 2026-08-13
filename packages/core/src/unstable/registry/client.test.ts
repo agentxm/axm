@@ -1700,6 +1700,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
             disposition: "establish",
             source: "platform",
           },
+          warnings: [],
           links: { html: "https://agentxm.ai/test/skills/my-skill" },
         });
       }),

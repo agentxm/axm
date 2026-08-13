@@ -8,6 +8,7 @@ export type WorkspaceAuthorityStatus =
   | "usable"
   | "missing"
   | "missing-trust"
+  | "constraint-mismatch"
   | "wrong-origin"
   | "corrupt"
   | "incomplete"
@@ -135,7 +136,11 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
     );
   }
 
-  if (configured.status !== undefined && configured.status !== "usable") {
+  if (
+    configured.status !== undefined &&
+    configured.status !== "usable" &&
+    configured.status !== "constraint-mismatch"
+  ) {
     return blocked(
       input,
       configured,

@@ -25,6 +25,7 @@ export type CanonicalObservationStatus =
   | "not-applicable"
   | "missing"
   | "missing-trust"
+  | "constraint-mismatch"
   | "wrong-origin"
   | "corrupt"
   | "incomplete"
@@ -197,7 +198,7 @@ export const observeCanonicalExtension = ({
       return {
         type: desired.type,
         name: desired.name,
-        status: "wrong-origin",
+        status: "constraint-mismatch",
       };
     }
 

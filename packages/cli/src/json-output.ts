@@ -6,6 +6,7 @@ import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
+  SuggestedActionSchema,
   type SuggestedAction,
   type CommandOutcomeSummary,
   type SourceKind,
@@ -310,6 +311,18 @@ const PublishReasonSchema = Schema.Literals([
   description: "Reason a publish item was skipped or errored.",
 });
 
+export const PublishAdvisoryFindingSchema = Schema.Struct({
+  ruleId: Schema.String,
+  severity: Schema.Literal("warning"),
+  message: Schema.String,
+  suggestions: Schema.Array(SuggestedActionSchema),
+}).annotate({
+  identifier: "PublishAdvisoryFinding",
+  title: "Publish Advisory Finding",
+  description: "A non-gating structured warning observed during publication.",
+});
+export type PublishAdvisoryFinding = typeof PublishAdvisoryFindingSchema.Type;
+
 const PublishResultItemSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
@@ -323,6 +336,7 @@ const PublishResultItemSchema = Schema.Struct({
   reason: Schema.optional(PublishReasonSchema),
   status: Schema.optional(PublishStatusSchema),
   message: Schema.optional(Schema.String),
+  findings: Schema.optional(Schema.Array(PublishAdvisoryFindingSchema)),
   visibility: Schema.optional(PublishVisibilitySchema),
   links: Schema.optional(
     Schema.Struct({
@@ -439,6 +453,14 @@ const renderHumanPublishResult = (
           `${precondition.label}: ${precondition.detail ?? "Required before apply"}`,
         );
       }
+    }
+
+    for (const finding of result.results.flatMap((item) => item.findings ?? [])) {
+      yield* renderer.warn(
+        finding.ruleId === "publish/required-pack-version-unreachable"
+          ? `Required pack compatibility review: ${finding.message}`
+          : finding.message,
+      );
     }
 
     const published = result.results.filter(
@@ -948,7 +970,14 @@ export const emitPublishResult = <TCommand extends string>(
     const result = normalizePublishResult(input);
     const renderer = yield* CliRenderer;
     const browserSuggestions = publishBrowserSuggestions(result);
-    const suggestions = [...(options?.suggestions ?? []), ...browserSuggestions];
+    const findingSuggestions = result.results.flatMap((item) =>
+      (item.findings ?? []).flatMap((finding) => finding.suggestions),
+    );
+    const suggestions = [
+      ...(options?.suggestions ?? []),
+      ...findingSuggestions,
+      ...browserSuggestions,
+    ];
     const summary = publishResultToSummary(result);
     const renderOptions = {
       ...(options?.summary === undefined ? {} : { summary: options.summary }),

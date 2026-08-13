@@ -72,19 +72,18 @@ const missingPackFinding = (
   candidates: ReadonlyArray<string>,
 ): AdvisoryFinding => {
   const label = typeLabel(manifest.extensionType);
-  const installPaths =
-    candidates.length === 1
-      ? `run \`axm packs install ${candidates[0]}\``
-      : `run \`axm packs install\` with one of: ${candidates.join(", ")}`;
   return {
     kind: "advisory",
     ruleId: RULE_ID,
     severity: "warning",
     message:
       `${label} '${manifest.name}' is marked as not standalone, so it only works alongside one of its recommended packs, but none of those packs are installed. ` +
-      `To complete the setup, ${installPaths}. ` +
       `If this ${label} does work on its own, remove the \`standalone\` key from its manifest.`,
     location: { file: manifest.manifestPath },
+    suggestions: candidates.map((candidate) => ({
+      description: `Install recommended pack ${candidate}`,
+      cmd: `axm packs install ${candidate}`,
+    })),
   };
 };
 

@@ -34,6 +34,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 import {
@@ -45,12 +46,21 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-helpers.js";
-import { exactVersion, extensionName, handle } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  exactVersion,
+  extensionName,
+  handle,
+  versionRange,
+  writeTrustFromWorkspaceLockfile,
+} from "../../test-stubs.js";
 import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
   buildPublishJobs,
   exactPublishUploadBinding,
+  findLocalPackConstraintConflicts,
+  findPackPublishDivergenceFindings,
   handleRootPublish,
   previewPublishUploadBinding,
   publishAuthenticationPreconditions,
@@ -59,6 +69,246 @@ import {
   PUBLISHABLE_TYPES,
   isPublishableType,
 } from "./command.js";
+
+describe("local publish pack-constraint preflight", () => {
+  const currentReachability = [
+    {
+      packFqn: "@acme/packs/reviewers",
+      packAuthority: "workspace",
+      manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+      memberFqn: "@acme/skills/review",
+      constraint: "^0.0.4",
+      memberVersion: "0.0.5",
+      memberAuthority: "workspace",
+      classification: "excluded",
+    },
+  ] as const;
+
+  it("reports every current workspace pack that excludes a selected authored leaf", () => {
+    expect(
+      findLocalPackConstraintConflicts({
+        candidates: [
+          {
+            fqn: "@acme/skills/review",
+            type: "skill",
+            authored: true,
+            version: exactVersion("0.0.5"),
+          },
+        ],
+        reachability: [
+          ...currentReachability,
+          {
+            ...currentReachability[0],
+            packFqn: "@acme/packs/quality",
+            constraint: "^0.0.3",
+          },
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        packFqn: "@acme/packs/quality",
+        memberFqn: "@acme/skills/review",
+        memberVersion: "0.0.5",
+        constraint: "^0.0.3",
+      }),
+      expect.objectContaining({
+        packFqn: "@acme/packs/reviewers",
+        memberFqn: "@acme/skills/review",
+        memberVersion: "0.0.5",
+        constraint: "^0.0.4",
+      }),
+    ]);
+  });
+
+  it("uses a coordinated selected pack manifest as the prospective constraint", () => {
+    const leaf = {
+      fqn: "@acme/skills/review",
+      type: "skill" as const,
+      authored: true,
+      version: exactVersion("0.0.5"),
+    };
+    expect(
+      findLocalPackConstraintConflicts({
+        candidates: [
+          leaf,
+          {
+            fqn: "@acme/packs/reviewers",
+            type: "pack",
+            authored: true,
+            version: exactVersion("0.1.1"),
+            dependencies: { "@acme/skills/review": versionRange("^0.0.5") },
+          },
+        ],
+        reachability: currentReachability,
+      }),
+    ).toEqual([]);
+
+    expect(
+      findLocalPackConstraintConflicts({
+        candidates: [
+          leaf,
+          {
+            fqn: "@acme/packs/reviewers",
+            type: "pack",
+            authored: true,
+            version: exactVersion("0.1.1"),
+            dependencies: { "@acme/skills/review": versionRange("^0.0.4") },
+          },
+        ],
+        reachability: currentReachability,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("ignores unselected, non-authored, unrelated, and satisfying leaves", () => {
+    expect(
+      findLocalPackConstraintConflicts({
+        candidates: [
+          {
+            fqn: "@acme/skills/review",
+            type: "skill",
+            authored: false,
+            version: exactVersion("0.0.5"),
+          },
+          {
+            fqn: "@acme/skills/other",
+            type: "skill",
+            authored: true,
+            version: exactVersion("2.0.0"),
+          },
+          {
+            fqn: "@acme/skills/review",
+            type: "skill",
+            authored: true,
+            version: exactVersion("0.0.4"),
+          },
+        ],
+        reachability: currentReachability,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("pack publish resolution divergence", () => {
+  const packCandidate = {
+    fqn: "@acme/packs/reviewers",
+    type: "pack" as const,
+    authored: true,
+    version: exactVersion("0.1.1"),
+    dependencies: { "@acme/skills/review": versionRange("^0.0.4") },
+  };
+  const reachability = [
+    {
+      packFqn: "@acme/packs/reviewers",
+      packAuthority: "workspace" as const,
+      manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+      memberFqn: "@acme/skills/review",
+      constraint: "^0.0.4",
+      memberVersion: "0.0.5",
+      memberAuthority: "workspace" as const,
+      classification: "satisfying" as const,
+    },
+  ];
+
+  it("warns on an admitted pack when Registry consumers resolve a different version", () => {
+    const findings = findPackPublishDivergenceFindings({
+      candidates: [packCandidate],
+      reachability,
+      packs: [
+        {
+          target: {
+            owner: handle("@acme"),
+            type: "pack",
+            name: extensionName("reviewers"),
+            version: exactVersion("0.1.1"),
+          },
+          status: "admitted",
+          findings: [],
+          resolutions: [
+            {
+              dependency: {
+                owner: handle("@acme"),
+                type: "skill",
+                name: extensionName("review"),
+                range: versionRange("^0.0.4"),
+              },
+              effectiveVersion: exactVersion("0.0.4"),
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(findings.get("@acme/packs/reviewers")).toEqual([
+      {
+        ruleId: "pack/publish-resolution-divergence",
+        severity: "warning",
+        message:
+          "@acme/packs/reviewers resolves @acme/skills/review@0.0.5 in this workspace, while Registry consumers resolve @acme/skills/review@0.0.4 within ^0.0.4.",
+        suggestions: [
+          {
+            description:
+              "Publish @acme/skills/review before publishing the pack if consumers should receive the workspace version",
+            cmd: "axm publish @acme/skills/review",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("does not warn when effective versions agree or the pack is not authored here", () => {
+    const admittedPack = {
+      target: {
+        owner: handle("@acme"),
+        type: "pack" as const,
+        name: extensionName("reviewers"),
+        version: exactVersion("0.1.1"),
+      },
+      status: "admitted" as const,
+      findings: [],
+      resolutions: [
+        {
+          dependency: {
+            owner: handle("@acme"),
+            type: "skill" as const,
+            name: extensionName("review"),
+            range: versionRange("^0.0.4"),
+          },
+          effectiveVersion: exactVersion("0.0.5"),
+        },
+      ],
+    };
+    expect(
+      findPackPublishDivergenceFindings({
+        candidates: [packCandidate],
+        reachability,
+        packs: [admittedPack],
+      }).size,
+    ).toBe(0);
+    expect(
+      findPackPublishDivergenceFindings({
+        candidates: [{ ...packCandidate, authored: false }],
+        reachability,
+        packs: [
+          {
+            ...admittedPack,
+            resolutions: [
+              {
+                dependency: {
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  range: versionRange("^0.0.4"),
+                },
+                effectiveVersion: exactVersion("0.0.4"),
+              },
+            ],
+          },
+        ],
+      }).size,
+    ).toBe(0);
+  });
+});
 
 const args = (
   registryUrl: string,
@@ -157,6 +407,206 @@ describe("root publish", () => {
       }),
     );
   };
+
+  const writeAuthoredReviewPackWorkspace = (args: {
+    readonly skillVersion: string;
+    readonly constraint: string;
+    readonly packVersion?: string;
+  }) => {
+    writeReviewSkill();
+    const axmDir = path.join(tempDir, ".axm");
+    const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
+    fs.writeFileSync(
+      path.join(skillDir, "skill.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "skill",
+        name: "review",
+        version: args.skillVersion,
+      }),
+    );
+    const packDir = path.join(axmDir, "extensions", "@acme", "packs", "reviewers");
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(packDir, "pack.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "pack",
+        name: "reviewers",
+        version: args.packVersion ?? "0.1.0",
+        dependencies: { "@acme/skills/review": args.constraint },
+      }),
+    );
+    fs.writeFileSync(
+      path.join(axmDir, "settings.json"),
+      JSON.stringify({
+        owner: "@acme",
+        agents: [],
+        skills: { review: "workspace:@acme/skills/review" },
+        packs: { reviewers: "workspace:@acme/packs/reviewers" },
+      }),
+    );
+    const timestamp = "2026-08-12T00:00:00.000Z";
+    fs.writeFileSync(
+      path.join(axmDir, "axm-lock.yaml"),
+      YAML.stringify({
+        lockfileVersion: 3,
+        skills: {
+          review: {
+            type: "workspace",
+            owner: "@acme",
+            extensionType: "skill",
+            name: "review",
+            version: args.skillVersion,
+            sourceHash: computePackageContentHashSync(skillDir),
+            installedAt: timestamp,
+            updatedAt: timestamp,
+          },
+        },
+        packs: {
+          reviewers: {
+            type: "workspace",
+            owner: "@acme",
+            extensionType: "pack",
+            name: "reviewers",
+            version: args.packVersion ?? "0.1.0",
+            sourceHash: computePackageContentHashSync(packDir),
+            installedAt: timestamp,
+            updatedAt: timestamp,
+            resolvedSkills: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+            resolvedRules: {},
+            resolvedHooks: {},
+            resolvedKnowledge: {},
+          },
+        },
+      }),
+    );
+    writeTrustFromWorkspaceLockfile(axmDir);
+    return { packDir };
+  };
+
+  describe("local pack-constraint publish gate", () => {
+    it.effect("blocks an explicit authored leaf apply before upload", () => {
+      writeAuthoredReviewPackWorkspace({ skillVersion: "0.0.5", constraint: "^0.0.4" });
+      const { provide } = makeContext(false);
+      const registryRoot = path.join(tempDir, "registry");
+      const registryUrl = pathToFileURL(registryRoot).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const error = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, {
+                selectors: ["@acme/skills/review"],
+                preview: false,
+              }),
+            ).pipe(Effect.flip),
+          );
+
+          expect(error.code).toBe("validation");
+          expect(error.detail).toContain("@acme/skills/review@0.0.5");
+          expect(error.detail).toContain("@acme/packs/reviewers declares ^0.0.4");
+          expect(error.suggestions).toContainEqual({
+            description:
+              "Replace @acme/packs/reviewers's constraint with the selected version, then publish the member and pack together",
+            cmd: "axm packs add @acme/packs/reviewers @acme/skills/review --replace-existing",
+          });
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@acme", "skills", "review", "0.0.5.zip"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("admits a repaired coordinated member and pack selection", () => {
+      writeAuthoredReviewPackWorkspace({
+        skillVersion: "0.0.5",
+        constraint: "^0.0.5",
+        packVersion: "0.1.1",
+      });
+      const { provide, rendererState } = makeContext();
+      const registryRoot = path.join(tempDir, "registry");
+      const registryUrl = pathToFileURL(registryRoot).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/review", "@acme/packs/reviewers"],
+              preview: false,
+            }),
+          );
+
+          const result = expectPublishResult(at(rendererState.results, 0).data, {
+            mode: "apply",
+            count: 2,
+          });
+          const results = property(result, "results");
+          if (!Array.isArray(results)) throw new Error("Expected publish results");
+          expect(results.map((item) => property(expectRecord(item), "status"))).toEqual([
+            "success",
+            "success",
+          ]);
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@acme", "skills", "review", "0.0.5.zip"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@acme", "packs", "reviewers", "0.1.1.zip"),
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("does not let an already-published verified skip bypass local exclusion", () => {
+      const { packDir } = writeAuthoredReviewPackWorkspace({
+        skillVersion: "0.0.5",
+        constraint: "^0.0.5",
+      });
+      const { provide } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/review"],
+              preview: false,
+            }),
+          );
+          const packManifestPath = path.join(packDir, "pack.json");
+          const packManifest = expectRecord(JSON.parse(fs.readFileSync(packManifestPath, "utf8")));
+          fs.writeFileSync(
+            packManifestPath,
+            JSON.stringify({
+              ...packManifest,
+              dependencies: { "@acme/skills/review": "^0.0.4" },
+            }),
+          );
+
+          const error = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, {
+                selectors: ["@acme/skills/review"],
+                preview: false,
+                onExisting: Option.some("verify"),
+              }),
+            ).pipe(Effect.flip),
+          );
+
+          expect(error.code).toBe("validation");
+          expect(error.detail).toContain("@acme/packs/reviewers declares ^0.0.4");
+        }),
+      );
+    });
+  });
 
   const scheduleCallback = (url: string) => {
     setTimeout(() => {
@@ -356,8 +806,23 @@ describe("root publish", () => {
           }
           const descriptor = authorizationRequest.publicationSet.candidates[0];
           if (descriptor === undefined) throw new Error("Expected a publication descriptor");
+          const setDigest = publicationSetDigest(authorizationRequest.publicationSet.candidates);
           return {
             status: "admitted" as const,
+            preview: {
+              contract: "publication-set-v2" as const,
+              publicationSetDigest: setDigest,
+              status: "admitted" as const,
+              candidates: authorizationRequest.publicationSet.candidates.map((candidate) => ({
+                kind: "resolved" as const,
+                target: candidate.target,
+                participation: candidate.participation,
+                descriptorDigest: publicationDescriptorDigest(candidate),
+                resolvedVisibility: candidate.initialVisibility ?? "private",
+                condition: '"pv2-reviewed"',
+              })),
+              packs: [],
+            },
             grants: [
               {
                 accessToken: "axm_pub_capability",
@@ -371,9 +836,7 @@ describe("root publish", () => {
                   source: "explicit" as const,
                 },
                 condition: '"pv2-reviewed"',
-                publicationSetDigest: publicationSetDigest(
-                  authorizationRequest.publicationSet.candidates,
-                ),
+                publicationSetDigest: setDigest,
                 publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
               },
             ],
@@ -412,7 +875,7 @@ describe("root publish", () => {
 
         expect(authorizationRequest).toMatchObject({
           publicationSet: {
-            contract: "publication-set-v1",
+            contract: "publication-set-v2",
             candidates: [{ initialVisibility: "private" }],
           },
         });

@@ -72,7 +72,7 @@
       "ruleId": "workspace/recommended-packs-retained",
       "severity": "warning",
       "file": ".axm/extensions/@acme/skills/reviewer/skill.json",
-      "messageIncludes": "axm packs install @acme/packs/review-tools"
+      "messageIncludes": "none of those packs are installed"
     }
   ]
 }

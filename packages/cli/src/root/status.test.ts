@@ -150,6 +150,32 @@ describe("canonicalHealthProblem", () => {
     });
   });
 
+  it("does not recommend adoption for a workspace constraint mismatch", () => {
+    const node = {
+      type: "skill",
+      name: "draft-skill",
+      identity: "workspace:@test/skills/draft-skill",
+      source: "workspace:@test/skills/draft-skill",
+      enabled: true,
+      constraints: ["^0.0.4"],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+
+    expect(
+      canonicalHealthProblem(node, {
+        ...observation,
+        status: "constraint-mismatch",
+      }),
+    ).toEqual({
+      code: "canonical-constraint-mismatch",
+      extensionType: "skill",
+      identity: "@test/skills/draft-skill",
+      detail: "Canonical version does not satisfy the desired constraints: ^0.0.4",
+      blocking: true,
+      recoveryAction: null,
+    });
+  });
+
   it("provides a distinct recovery command when trust is missing", () => {
     const node = {
       type: "skill",

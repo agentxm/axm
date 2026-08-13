@@ -166,10 +166,14 @@ describe("axm lint (e2e, Phase 7)", () => {
             message: expect.stringContaining(
               "modified since its last recorded authoring/publish baseline",
             ),
+            suggestions: [
+              expect.objectContaining({
+                description: expect.stringContaining("preserves authored content"),
+                cmd: "axm publish @test/skills/draft-skill",
+              }),
+            ],
           }),
         );
-        expect(lintFinding.message).toContain("axm publish @test/skills/draft-skill");
-        expect(lintFinding.message).toContain("preserves the authored content");
         expect(lintFinding.message).not.toContain("axm sync");
       } finally {
         temp.cleanup();

@@ -23,6 +23,7 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import type { Operation } from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
@@ -79,6 +80,7 @@ export interface FindingBase {
   readonly severity: Severity;
   readonly message: string;
   readonly location?: FindingLocation;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
 
 /**

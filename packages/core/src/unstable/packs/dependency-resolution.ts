@@ -95,6 +95,41 @@ const registrySourceForDependency = (
   });
 };
 
+const workspaceConstraintConflict = (
+  pack: PackRef,
+  memberFqn: string,
+  workspaceVersion: string,
+  constraint: VersionRange,
+): AppError => {
+  const packFqn = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
+  if (pack.source.type === "workspace") {
+    return makeAppError({
+      code: "conflict",
+      detail: `Workspace-authored pack ${packFqn} requires ${memberFqn}@${constraint}, but workspace authority provides ${memberFqn}@${workspaceVersion}.`,
+      suggestions: [
+        {
+          description: "Replace the authored pack constraint with the current workspace version",
+          cmd: `axm packs add ${packFqn} ${memberFqn} --replace-existing`,
+        },
+      ],
+    });
+  }
+  return makeAppError({
+    code: "conflict",
+    detail: `Registry pack ${packFqn} requires ${memberFqn}@${constraint}, but workspace authority shadows that member with ${memberFqn}@${workspaceVersion}.`,
+    suggestions: [
+      {
+        description:
+          "Update the pack if its owner has published a constraint that includes the workspace version",
+        cmd: `axm packs update ${packFqn}`,
+      },
+      {
+        description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
+      },
+    ],
+  });
+};
+
 const resolveDependencyRef = (
   pack: PackRef,
   expectedType: SupportedPackDependencyType,
@@ -143,10 +178,7 @@ const resolveDependencyRef = (
           });
         }
         if (!semver.satisfies(candidate.version, constraint)) {
-          return yield* makeAppError({
-            code: "conflict",
-            detail: `Workspace dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
-          });
+          return yield* workspaceConstraintConflict(pack, fqn, candidate.version, constraint);
         }
         return {
           owner: parsed.owner,
@@ -265,10 +297,7 @@ const resolveDependencyRefWithReleaseAge = (
           });
         }
         if (!semver.satisfies(candidate.version, constraint)) {
-          return yield* makeAppError({
-            code: "conflict",
-            detail: `Workspace dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
-          });
+          return yield* workspaceConstraintConflict(pack, fqn, candidate.version, constraint);
         }
         return {
           kind: "selected",

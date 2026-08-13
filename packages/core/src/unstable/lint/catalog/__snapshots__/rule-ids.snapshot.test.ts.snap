@@ -110,6 +110,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/skills-artifacts-correct",
   "workspace/skills-managed",
   "workspace/packs-dependencies-resolved",
+  "workspace/pack-dependency-versions-current",
   "workspace/recommended-packs-retained",
 ]
 `;

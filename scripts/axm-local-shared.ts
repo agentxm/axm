@@ -6,6 +6,7 @@ export const AXM_LOCAL_DEFAULT_TELEMETRY = "0";
 export interface AxmLocalInvocation {
   readonly command: string;
   readonly args: ReadonlyArray<string>;
+  readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
 }
 
@@ -27,6 +28,7 @@ export const resolveAxmLocalRepoRoot = (scriptPath: string): string =>
 export const createAxmLocalInvocation = (input: {
   readonly scriptPath: string;
   readonly argv: ReadonlyArray<string>;
+  readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
 }): AxmLocalInvocation => {
   const repoRoot = resolveAxmLocalRepoRoot(input.scriptPath);
@@ -43,6 +45,7 @@ export const createAxmLocalInvocation = (input: {
   return {
     command: "bun",
     args: [cliEntrypoint, ...input.argv],
+    cwd: input.cwd,
     env: {
       ...input.env,
       AXM_REGISTRY_LOCATION: registryLocation,

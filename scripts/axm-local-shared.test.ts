@@ -20,6 +20,7 @@ describe("axm-local shared helpers", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["whoami", "--json"],
+      cwd: path.join("/tmp", "workspace"),
       env: { PATH: "/bin" },
     });
 
@@ -29,6 +30,7 @@ describe("axm-local shared helpers", () => {
       "whoami",
       "--json",
     ]);
+    expect(invocation.cwd).toBe(path.join("/tmp", "workspace"));
     expect(invocation.env["AXM_REGISTRY_LOCATION"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
     expect(invocation.env["AXM_REGISTRY_URL"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
     expect(invocation.env["AXM_TELEMETRY"]).toBe(AXM_LOCAL_DEFAULT_TELEMETRY);
@@ -39,6 +41,7 @@ describe("axm-local shared helpers", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["skills", "install", "@acme/skills/demo"],
+      cwd: path.join("/tmp", "workspace"),
       env: {
         AXM_REGISTRY_LOCATION: "file:///tmp/registry",
         AXM_REGISTRY_URL: "https://registry.example.test",
@@ -55,6 +58,7 @@ describe("axm-local shared helpers", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["login"],
+      cwd: path.join("/tmp", "workspace"),
       env: {
         AXM_REGISTRY_LOCATION: "",
         AXM_REGISTRY_URL: "",
@@ -71,6 +75,7 @@ describe("axm-local shared helpers", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["doctor"],
+      cwd: path.join("/tmp", "workspace"),
       env: {
         AXM_REGISTRY_LOCATION: "/tmp/registry",
       },

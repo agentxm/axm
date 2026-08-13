@@ -10,11 +10,12 @@ const scriptPath = fileURLToPath(import.meta.url);
 const invocation = createAxmLocalInvocation({
   scriptPath,
   argv: process.argv.slice(2),
+  cwd: process.cwd(),
   env: process.env,
 });
 
 const result = spawnSync(invocation.command, invocation.args, {
-  cwd: process.cwd(),
+  cwd: invocation.cwd,
   env: invocation.env,
   stdio: "inherit",
 });

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 
 import { KNOWLEDGE_DIAGNOSTIC_CODES } from "../../knowledge/index.js";
 import { knowledgeRules } from "./knowledge.js";
@@ -32,4 +33,54 @@ describe("Knowledge diagnostic lint rules", () => {
       knowledgeDiagnosticRules,
     );
   });
+
+  it.effect("maps Knowledge diagnostic line and column into the finding location", () =>
+    Effect.gen(function* () {
+      const rule = knowledgeDiagnosticRules.find(
+        ({ id }) => id === "knowledge/invalid-frontmatter",
+      );
+      expect(rule).toBeDefined();
+      if (rule === undefined) return;
+
+      const findings = yield* rule.check({
+        subject: {
+          knowledgeJson: {},
+          inspection: {
+            concepts: [],
+            diagnostics: [
+              {
+                code: "invalid-frontmatter",
+                severity: "error",
+                relativePath: "broken.md",
+                line: 3,
+                column: 14,
+                message:
+                  "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+                details: {
+                  kind: "frontmatter-parse",
+                  reason: "Nested mappings are not allowed in compact mappings",
+                },
+              },
+            ],
+            okfVersion: "0.2",
+          },
+        },
+        files: {
+          exists: () => Effect.succeed(false),
+          readBytes: () => Effect.die("not used"),
+        },
+        displayRoot: ".axm/extensions/@acme/knowledge/platform",
+      });
+
+      expect(findings).toEqual([
+        {
+          kind: "advisory",
+          ruleId: "knowledge/invalid-frontmatter",
+          severity: "error",
+          message: "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+          location: { file: "src/broken.md", line: 3, column: 14 },
+        },
+      ]);
+    }),
+  );
 });

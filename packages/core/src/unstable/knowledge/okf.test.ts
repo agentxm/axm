@@ -3,8 +3,10 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { FrontmatterParseFailure } from "../extensions/frontmatter.js";
 import { parseKnowledgeSearchQuery } from "./knowledge-search.js";
 import {
+  frontmatterParseDiagnostic,
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
   openKnowledgeConcept,
@@ -65,6 +67,88 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       ]);
     }).pipe(Effect.scoped),
   );
+
+  it.effect("preserves malformed YAML reasons and original-document coordinates", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Invalid YAML\n'],
+        ["mapping.md", "---\ntype: reference\ndescription: value: extra\n---\n# Mapping\n"],
+        [
+          "quote.md",
+          '---\ntype: reference\ndescription: "unterminated\ntags: [fixture]\n---\n# Quote\n',
+        ],
+        ["collection.md", "---\ntype: reference\ntags:\n  - one\n - two\n---\n# Collection\n"],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+
+      expect(
+        inspected.diagnostics.filter(
+          (diagnostic) => diagnostic.details?.kind === "frontmatter-parse",
+        ),
+      ).toEqual([
+        {
+          code: "invalid-frontmatter",
+          severity: "error",
+          relativePath: "collection.md",
+          line: 5,
+          column: 1,
+          message:
+            "Invalid YAML frontmatter: A block sequence may not be used as an implicit map key",
+          details: {
+            kind: "frontmatter-parse",
+            reason: "A block sequence may not be used as an implicit map key",
+          },
+        },
+        {
+          code: "invalid-frontmatter",
+          severity: "error",
+          relativePath: "mapping.md",
+          line: 3,
+          column: 14,
+          message: "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+          details: {
+            kind: "frontmatter-parse",
+            reason: "Nested mappings are not allowed in compact mappings",
+          },
+        },
+        {
+          code: "invalid-frontmatter",
+          severity: "error",
+          relativePath: "quote.md",
+          line: 5,
+          column: 1,
+          message: "Invalid YAML frontmatter: Missing closing quote",
+          details: { kind: "frontmatter-parse", reason: "Missing closing quote" },
+        },
+      ]);
+      expect(inspected.concepts.map(({ id }) => id)).toEqual(["index"]);
+    }),
+  );
+
+  it("creates a file-scoped diagnostic when parser coordinates are unavailable", () => {
+    expect(
+      frontmatterParseDiagnostic(
+        "broken.md",
+        new FrontmatterParseFailure({ reason: "YAML frontmatter could not be parsed" }),
+      ),
+    ).toEqual({
+      code: "invalid-frontmatter",
+      severity: "error",
+      relativePath: "broken.md",
+      message: "Invalid YAML frontmatter: YAML frontmatter could not be parsed",
+      details: {
+        kind: "frontmatter-parse",
+        reason: "YAML frontmatter could not be parsed",
+      },
+    });
+  });
 
   it.effect("warns when a bundle has no concept documents", () =>
     Effect.gen(function* () {
@@ -488,6 +572,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
           .map(({ code }) => code),
       );
       expect(errors.has("invalid-frontmatter")).toBe(true);
+      expect(
+        inspected.diagnostics
+          .filter(({ code }) => code === "invalid-frontmatter")
+          .every(({ details }) => details === undefined),
+      ).toBe(true);
     }),
   );
 

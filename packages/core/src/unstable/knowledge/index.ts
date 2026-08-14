@@ -28,6 +28,7 @@ export {
   type KnowledgeDiagnostic,
   type KnowledgeDiagnosticCode,
   type KnowledgeDocumentKind,
+  type KnowledgeFrontmatterParseDetails,
   type KnowledgeInspection,
   type KnowledgeTrustTier,
 } from "./okf.js";

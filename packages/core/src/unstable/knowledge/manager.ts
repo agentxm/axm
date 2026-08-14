@@ -260,7 +260,13 @@ export const KnowledgeManagerLive = Layer.effect(
         if (errors.length > 0) {
           return yield* makeAppError({
             code: "validation",
-            detail: errors.map((item) => item.message).join(" "),
+            detail: errors
+              .map((item) =>
+                item.details?.kind === "frontmatter-parse"
+                  ? `${item.relativePath}: ${item.message}`
+                  : item.message,
+              )
+              .join(" "),
           });
         }
         return { manifest, inspection };

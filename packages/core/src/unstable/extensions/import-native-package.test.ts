@@ -139,4 +139,34 @@ describe("importNativeExtensionPackage", () => {
       if (Result.isFailure(result)) expect(result.failure.detail).toContain("escapes");
     }),
   );
+
+  it.effect("retains the malformed concept path in Knowledge import validation", () =>
+    Effect.gen(function* () {
+      const source = path.join(root, "malformed-knowledge");
+      fs.mkdirSync(source, { recursive: true });
+      fs.writeFileSync(
+        path.join(source, "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
+      );
+      fs.writeFileSync(
+        path.join(source, "concept.md"),
+        "---\ntype: reference\ndescription: value: extra\n---\n# Concept\n",
+      );
+
+      const result = yield* Effect.result(
+        importNativeExtensionPackage({
+          sourcePath: source,
+          targetDir: path.join(root, "rejected-knowledge"),
+          target: { owner: handle("@acme"), type: "knowledge", name: extensionName("rejected") },
+        }),
+      ).pipe(Effect.provide(NodeServices.layer));
+
+      expect(Result.isFailure(result)).toBe(true);
+      if (Result.isFailure(result)) {
+        expect(result.failure.detail).toContain(
+          "concept.md: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        );
+      }
+    }),
+  );
 });

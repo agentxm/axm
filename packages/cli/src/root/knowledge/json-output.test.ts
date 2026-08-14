@@ -114,6 +114,80 @@ describe("knowledge JSON output", () => {
     );
   });
 
+  it.effect(
+    "lint emits structured malformed-frontmatter details and clears after correction",
+    () => {
+      const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      const packageRoot = path.join(tempDir, "pkg");
+      writeAuthoredBundle(packageRoot, { valid: true });
+      fs.writeFileSync(
+        path.join(packageRoot, "src", "auth.md"),
+        "---\ntype: policy\ndescription: value: extra\n---\n# Auth\n",
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          const malformed = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+          expect(Exit.isFailure(malformed)).toBe(true);
+          expect(rendererState.results[0]?.data).toMatchObject({ valid: false });
+          expect(rendererState.results[0]?.data).toMatchObject({
+            diagnostics: expect.arrayContaining([
+              {
+                bundle: "platform",
+                code: "invalid-frontmatter",
+                severity: "error",
+                relativePath: "auth.md",
+                line: 3,
+                column: 14,
+                message:
+                  "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+                details: {
+                  kind: "frontmatter-parse",
+                  reason: "Nested mappings are not allowed in compact mappings",
+                },
+              },
+            ]),
+          });
+          expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain(
+            "BLOCK_AS_IMPLICIT_KEY",
+          );
+
+          writeAuthoredBundle(packageRoot, { valid: true });
+          const corrected = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+          const unchanged = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+
+          expect(Exit.isSuccess(corrected)).toBe(true);
+          expect(Exit.isSuccess(unchanged)).toBe(true);
+          expect(rendererState.results[1]?.data).toMatchObject({ valid: true, diagnostics: [] });
+          expect(rendererState.results[2]?.data).toMatchObject({ valid: true, diagnostics: [] });
+        }),
+      );
+    },
+  );
+
+  it.effect("lint human output renders malformed-frontmatter coordinates once", () => {
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const packageRoot = path.join(tempDir, "pkg");
+    writeAuthoredBundle(packageRoot, { valid: true });
+    fs.writeFileSync(
+      path.join(packageRoot, "src", "auth.md"),
+      '---\ntype: policy\ndescription: "unterminated\ntags: [auth]\n---\n# Auth\n',
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
+
+        expect(logs.error).toContain(
+          "platform/auth.md:5:1: Invalid YAML frontmatter: Missing closing quote",
+        );
+        expect(logs.error.join("\n")).not.toContain("auth.md: auth.md");
+      }),
+    );
+  });
+
   it.effect("lint emits exactly one JSON document and succeeds for a clean bundle", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"));

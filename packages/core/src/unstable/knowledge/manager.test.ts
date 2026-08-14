@@ -288,6 +288,31 @@ describe("KnowledgeManager", () => {
     }),
   );
 
+  it.effect("retains the malformed concept path in package validation", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      try {
+        const sourceRoot = nodePath.join(workspaceRoot, "source");
+        writeKnowledgePackage(sourceRoot, "malformed-handbook", true);
+        writeFileSync(
+          nodePath.join(sourceRoot, "src", "concept.md"),
+          "---\ntype: concept\ndescription: value: extra\n---\n# Concept\n",
+        );
+
+        const error = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.materializeInstall({ ref: localRef("malformed-handbook", sourceRoot) });
+        }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
+
+        expect(error.detail).toContain(
+          "concept.md: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        );
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect("materializes a missing resource warning and rejects an escaping resource", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));

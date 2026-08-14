@@ -8,8 +8,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
+import YAML, { YAMLParseError } from "yaml";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 /**
@@ -24,7 +25,65 @@ export interface FrontmatterResult {
   readonly body: string;
 }
 
+/** Bounded, document-relative failure from parsing a YAML frontmatter block. */
+export class FrontmatterParseFailure extends Data.TaggedError("FrontmatterParseFailure")<{
+  readonly reason: string;
+  readonly line?: number;
+  readonly column?: number;
+}> {}
+
 const FRONTMATTER_DELIMITER = "---";
+const FRONTMATTER_PARSE_FALLBACK_REASON = "YAML frontmatter could not be parsed";
+const FRONTMATTER_PARSE_REASON_MAX_CODE_POINTS = 256;
+
+const boundedReason = (reason: string): string => {
+  const codePoints = Array.from(reason);
+  if (codePoints.length <= FRONTMATTER_PARSE_REASON_MAX_CODE_POINTS) return reason;
+  return `${codePoints.slice(0, FRONTMATTER_PARSE_REASON_MAX_CODE_POINTS - 1).join("")}…`;
+};
+
+const parserReason = (error: YAMLParseError): string => {
+  const firstLine = error.message.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  const withoutLocation = firstLine
+    .replace(/\s+at line \d+, column \d+:?$/, "")
+    .replace(/^Missing closing ["']quote$/, "Missing closing quote")
+    .trim();
+  return boundedReason(withoutLocation || FRONTMATTER_PARSE_FALLBACK_REASON);
+};
+
+/** Normalize a foreign YAML failure without retaining its raw cause or parser code. */
+export const normalizeFrontmatterParseFailure = (
+  error: unknown,
+  documentLineOffset: number,
+): FrontmatterParseFailure => {
+  if (!(error instanceof YAMLParseError)) {
+    return new FrontmatterParseFailure({ reason: FRONTMATTER_PARSE_FALLBACK_REASON });
+  }
+  const position = error.linePos?.[0];
+  if (position === undefined || !Number.isSafeInteger(position.line) || position.line < 1) {
+    return new FrontmatterParseFailure({ reason: parserReason(error) });
+  }
+  const line = position.line + documentLineOffset;
+  const column = Number.isSafeInteger(position.col) && position.col > 0 ? position.col : undefined;
+  return new FrontmatterParseFailure({
+    reason: parserReason(error),
+    line,
+    ...(column === undefined ? {} : { column }),
+  });
+};
+
+/** Preserve the former CLI-facing validation error at higher-level boundaries. */
+export const frontmatterParseFailureToAppError = (cause: FrontmatterParseFailure): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: FRONTMATTER_PARSE_FALLBACK_REASON,
+    suggestions: [
+      {
+        description: "Ensure the frontmatter block contains valid YAML between --- delimiters.",
+      },
+    ],
+    cause,
+  });
 
 /**
  * Find the frontmatter boundaries in content.
@@ -70,7 +129,14 @@ export const parseFrontmatterSync = (content: string): FrontmatterResult => {
   }
 
   const yamlContent = content.slice(boundaries.yamlStart, boundaries.bodyStart).split("---")[0];
-  const frontmatter: unknown = YAML.parse(yamlContent ?? "");
+  const frontmatter: unknown = (() => {
+    try {
+      return YAML.parse(yamlContent ?? "");
+    } catch (error) {
+      const documentLineOffset = content.slice(0, boundaries.yamlStart).split("\n").length - 1;
+      throw normalizeFrontmatterParseFailure(error, documentLineOffset);
+    }
+  })();
   const body = content.slice(boundaries.bodyStart);
 
   return { frontmatter: frontmatter ?? undefined, body };
@@ -79,24 +145,17 @@ export const parseFrontmatterSync = (content: string): FrontmatterResult => {
 /**
  * Parse frontmatter from content as an Effect.
  *
- * Returns `AppError` in the error channel for malformed YAML.
+ * Returns `FrontmatterParseFailure` in the error channel for malformed YAML.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const parseFrontmatterEffect = (
   content: string,
-): Effect.Effect<FrontmatterResult, AppError> =>
+): Effect.Effect<FrontmatterResult, FrontmatterParseFailure> =>
   Effect.try({
     try: () => parseFrontmatterSync(content),
     catch: (error) =>
-      makeAppError({
-        code: "validation",
-        detail: "YAML frontmatter could not be parsed",
-        suggestions: [
-          {
-            description: "Ensure the frontmatter block contains valid YAML between --- delimiters.",
-          },
-        ],
-        cause: error,
-      }),
+      error instanceof FrontmatterParseFailure
+        ? error
+        : new FrontmatterParseFailure({ reason: FRONTMATTER_PARSE_FALLBACK_REASON }),
   });

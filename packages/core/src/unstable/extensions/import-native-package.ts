@@ -8,7 +8,7 @@ import { AppError, makeAppError } from "../app-error/index.js";
 import { inspectKnowledgeBundle } from "../knowledge/okf.js";
 import { manifestFilenameForType, manifestSchemaForType } from "../publish/manifest-policy.js";
 import type { ExtensionFqnParts } from "./common.js";
-import { parseFrontmatterEffect } from "./frontmatter.js";
+import { frontmatterParseFailureToAppError, parseFrontmatterEffect } from "./frontmatter.js";
 import { copyExtensionDirectory } from "./utils.js";
 
 const NATIVE_IMPORT_VERSION = "0.1.0";
@@ -47,7 +47,9 @@ const rewriteFrontmatterName = (
     const content = yield* fs
       .readFileString(filePath)
       .pipe(Effect.mapError(mapWriteError(`Native content could not be read: ${filePath}`)));
-    const parsed = yield* parseFrontmatterEffect(content);
+    const parsed = yield* parseFrontmatterEffect(content).pipe(
+      Effect.mapError(frontmatterParseFailureToAppError),
+    );
     if (typeof parsed.frontmatter !== "object" || parsed.frontmatter === null) {
       return yield* makeAppError({
         code: "validation",
@@ -197,9 +199,16 @@ export const importNativeExtensionPackage = (
           (diagnostic) => diagnostic.severity === "error",
         );
         if (errors.length > 0) {
+          const firstError = errors[0];
+          const firstErrorMessage =
+            firstError === undefined
+              ? "invalid OKF bundle"
+              : firstError.details?.kind === "frontmatter-parse"
+                ? `${firstError.relativePath}: ${firstError.message}`
+                : firstError.message;
           return yield* makeAppError({
             code: "validation",
-            detail: `Knowledge bundle is not losslessly importable: ${errors[0]?.message ?? "invalid OKF bundle"}`,
+            detail: `Knowledge bundle is not losslessly importable: ${firstErrorMessage}`,
           });
         }
         yield* copyExtensionDirectory(args.sourcePath, path.join(args.targetDir, "src")).pipe(

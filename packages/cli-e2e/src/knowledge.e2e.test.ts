@@ -83,6 +83,114 @@ describe("axm knowledge lifecycle", () => {
     }
   });
 
+  it("renders malformed frontmatter locations and clears corrected findings", async () => {
+    const temp = createTempDir();
+    try {
+      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+
+      const sourceRoot = path.join(temp.path, "knowledge-source");
+      createKnowledgePackage(sourceRoot);
+      fs.writeFileSync(
+        path.join(sourceRoot, "src", "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Platform knowledge\n\n- [Architecture](architecture.md)\n',
+      );
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        agents: [],
+        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+      });
+      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
+
+      const installedRoot = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "knowledge",
+        "platform",
+      );
+      const conceptPath = path.join(installedRoot, "src", "architecture.md");
+      fs.writeFileSync(
+        conceptPath,
+        "---\ntype: reference\ndescription: value: extra\n---\n# Architecture\n",
+      );
+
+      const directHuman = await runCli(["knowledge", "lint", "--path", installedRoot], {
+        cwd: temp.path,
+      });
+      expect(directHuman.exitCode).toBe(1);
+      expect(directHuman.stdout + directHuman.stderr).toContain(
+        "platform/architecture.md:3:14: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+      );
+
+      const directJson = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
+        cwd: temp.path,
+      });
+      expect(directJson.exitCode).toBe(1);
+      const directDiagnostic = JSON.parse(directJson.stdout).result.diagnostics.find(
+        (diagnostic: { code: string }) => diagnostic.code === "invalid-frontmatter",
+      );
+      expect(directDiagnostic).toMatchObject({
+        relativePath: "architecture.md",
+        line: 3,
+        column: 14,
+        message: "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        details: {
+          kind: "frontmatter-parse",
+          reason: "Nested mappings are not allowed in compact mappings",
+        },
+      });
+
+      const workspaceHuman = await runCli(["lint"], { cwd: temp.path });
+      expect(workspaceHuman.exitCode).toBe(1);
+      expect(workspaceHuman.stdout + workspaceHuman.stderr).toContain("src/architecture.md:3:14");
+      expect(workspaceHuman.stdout + workspaceHuman.stderr).toContain(
+        "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+      );
+
+      const workspaceJson = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(workspaceJson.exitCode).toBe(1);
+      const workspaceFinding = JSON.parse(workspaceJson.stdout).result.findings.find(
+        (finding: { ruleId: string }) => finding.ruleId === "knowledge/invalid-frontmatter",
+      );
+      expect(workspaceFinding).toMatchObject({
+        ruleId: "knowledge/invalid-frontmatter",
+        message: "Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        location: { file: "src/architecture.md", line: 3, column: 14 },
+      });
+
+      fs.writeFileSync(
+        conceptPath,
+        "---\ntype: reference\ndescription: Platform architecture\ntags: [platform]\n---\n# Architecture\n",
+      );
+      for (let run = 0; run < 2; run += 1) {
+        const directClean = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
+          cwd: temp.path,
+        });
+        expect(directClean.exitCode, directClean.stdout + directClean.stderr).toBe(0);
+        expect(JSON.parse(directClean.stdout)).toMatchObject({
+          ok: true,
+          result: { valid: true, diagnostics: [] },
+        });
+
+        const workspaceClean = await runCli(["lint", "--json"], { cwd: temp.path });
+        expect(workspaceClean.exitCode, workspaceClean.stdout + workspaceClean.stderr).toBe(0);
+        expect(
+          JSON.parse(workspaceClean.stdout).result.findings.some(
+            (finding: { ruleId: string }) => finding.ruleId === "knowledge/invalid-frontmatter",
+          ),
+        ).toBe(false);
+      }
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("publishes source-faithful frontmatter only from machine-readable concept get", async () => {
     const temp = createTempDir();
     try {

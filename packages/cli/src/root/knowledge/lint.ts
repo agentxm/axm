@@ -14,12 +14,20 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
 import { inspectInstalledKnowledge, inspectKnowledgePackage } from "./inspect.js";
 
+const FrontmatterParseDetailsSchema = Schema.Struct({
+  kind: Schema.Literal("frontmatter-parse"),
+  reason: Schema.String,
+});
+
 const DiagnosticSchema = Schema.Struct({
   bundle: Schema.String,
   code: Schema.String,
   severity: Schema.String,
   relativePath: Schema.String,
+  line: Schema.optional(Schema.Number),
+  column: Schema.optional(Schema.Number),
   message: Schema.String,
+  details: Schema.optional(FrontmatterParseDetailsSchema),
 });
 
 export const KnowledgeLintQueryResultSchema = Schema.Struct({
@@ -81,7 +89,11 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
       );
     } else {
       for (const diagnostic of diagnostics) {
-        const message = `${diagnostic.bundle}/${diagnostic.relativePath}: ${diagnostic.message}`;
+        const coordinate =
+          diagnostic.line === undefined
+            ? ""
+            : `:${diagnostic.line}${diagnostic.column === undefined ? "" : `:${diagnostic.column}`}`;
+        const message = `${diagnostic.bundle}/${diagnostic.relativePath}${coordinate}: ${diagnostic.message}`;
         if (diagnostic.severity === "error") yield* renderer.error(message);
         else yield* renderer.warn(message);
       }

@@ -13,7 +13,7 @@ import {
   type ManifestIdentity,
 } from "../publish/manifest-policy.js";
 import { copyExtensionDirectory } from "./utils.js";
-import { parseFrontmatterEffect } from "./frontmatter.js";
+import { frontmatterParseFailureToAppError, parseFrontmatterEffect } from "./frontmatter.js";
 import type { ExtensionFqnParts, ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
 
@@ -139,7 +139,9 @@ const rewriteFrontmatterName = (
         }),
       ),
     );
-    const parsed = yield* parseFrontmatterEffect(content);
+    const parsed = yield* parseFrontmatterEffect(content).pipe(
+      Effect.mapError(frontmatterParseFailureToAppError),
+    );
     if (!isRecord(parsed.frontmatter)) {
       return yield* makeAppError({
         code: "validation",

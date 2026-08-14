@@ -39,6 +39,7 @@ const makeDiagnosticRule = (
                   ? KNOWLEDGE_SOURCE_DIR
                   : `${KNOWLEDGE_SOURCE_DIR}/${diagnostic.relativePath}`,
             ...(diagnostic.line === undefined ? {} : { line: diagnostic.line }),
+            ...(diagnostic.column === undefined ? {} : { column: diagnostic.column }),
           },
         }));
       return Effect.succeed(findings);

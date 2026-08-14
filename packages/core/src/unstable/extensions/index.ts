@@ -241,6 +241,7 @@ export { computePackageContentHash } from "./package-hash.js";
 
 // Frontmatter parsing
 export {
+  FrontmatterParseFailure,
   parseFrontmatterEffect,
   parseFrontmatterSync,
   type FrontmatterResult,

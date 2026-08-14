@@ -12,7 +12,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { parseFrontmatterEffect, type FrontmatterResult } from "../extensions/frontmatter.js";
+import {
+  frontmatterParseFailureToAppError,
+  parseFrontmatterEffect,
+  type FrontmatterResult,
+} from "../extensions/frontmatter.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 /**
@@ -77,7 +81,9 @@ export const parseSubagentMd = (
   expectedName: string,
 ): Effect.Effect<SubagentContentResult, AppError> =>
   Effect.gen(function* () {
-    const parsed: FrontmatterResult = yield* parseFrontmatterEffect(content);
+    const parsed: FrontmatterResult = yield* parseFrontmatterEffect(content).pipe(
+      Effect.mapError(frontmatterParseFailureToAppError),
+    );
 
     if (parsed.frontmatter === undefined) {
       return yield* makeAppError({

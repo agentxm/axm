@@ -4,7 +4,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
+import * as Result from "effect/Result";
+import { FrontmatterParseFailure, parseFrontmatterEffect } from "../extensions/frontmatter.js";
 import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
 /** OKF dialect versions this inspector understands. */
@@ -100,13 +101,34 @@ export const KNOWLEDGE_DIAGNOSTIC_CODES = [
 
 export type KnowledgeDiagnosticCode = (typeof KNOWLEDGE_DIAGNOSTIC_CODES)[number];
 
+export interface KnowledgeFrontmatterParseDetails {
+  readonly kind: "frontmatter-parse";
+  readonly reason: string;
+}
+
 export interface KnowledgeDiagnostic {
   readonly code: KnowledgeDiagnosticCode;
   readonly severity: "error" | "warning";
   readonly relativePath: string;
   readonly line?: number;
+  readonly column?: number;
   readonly message: string;
+  readonly details?: KnowledgeFrontmatterParseDetails;
 }
+
+/** Convert a typed frontmatter failure into the stable Knowledge diagnostic contract. */
+export const frontmatterParseDiagnostic = (
+  relativePath: string,
+  failure: FrontmatterParseFailure,
+): KnowledgeDiagnostic => ({
+  code: "invalid-frontmatter",
+  severity: "error",
+  relativePath,
+  ...(failure.line === undefined ? {} : { line: failure.line }),
+  ...(failure.column === undefined ? {} : { column: failure.column }),
+  message: `Invalid YAML frontmatter: ${failure.reason}`,
+  details: { kind: "frontmatter-parse", reason: failure.reason },
+});
 
 export interface KnowledgeInspection {
   readonly concepts: ReadonlyArray<KnowledgeConcept>;
@@ -756,20 +778,16 @@ export const inspectKnowledgeEntries = <E>(
           message: `${relativePath} contains embedded HTML; consumers must sanitize it.`,
         });
       }
-      const parsed = yield* parseFrontmatterEffect(raw).pipe(Effect.option);
-      if (Option.isNone(parsed)) {
-        diagnostics.push({
-          code: "invalid-frontmatter",
-          severity: "error",
-          relativePath,
-          message: `${relativePath} contains invalid YAML frontmatter.`,
-        });
+      const parsed = yield* parseFrontmatterEffect(raw).pipe(Effect.result);
+      if (Result.isFailure(parsed)) {
+        diagnostics.push(frontmatterParseDiagnostic(relativePath, parsed.failure));
         continue;
       }
+      const parsedValue = parsed.success;
       const baseName = (
         relativePath.replace(/\\/g, "/").split("/").at(-1) ?? relativePath
       ).toLowerCase();
-      const metadata = parsed.value.frontmatter;
+      const metadata = parsedValue.frontmatter;
       const isMetadata = typeof metadata === "object" && metadata !== null;
       if (baseName === "index.md") {
         if (relativePath !== "index.md" && metadata !== undefined) {
@@ -780,7 +798,7 @@ export const inspectKnowledgeEntries = <E>(
             message: `${relativePath} is a reserved index and must not contain frontmatter.`,
           });
         }
-        if (firstHeading(parsed.value.body) === undefined) {
+        if (firstHeading(parsedValue.body) === undefined) {
           diagnostics.push({
             code: "invalid-index",
             severity: "error",
@@ -798,7 +816,7 @@ export const inspectKnowledgeEntries = <E>(
             message: `${relativePath} is a reserved log and must not contain frontmatter.`,
           });
         }
-        const dateHeadings = parsed.value.body
+        const dateHeadings = parsedValue.body
           .split(/\r?\n/)
           .map((line, index) => ({ line, number: index + 1 }))
           .filter(({ line }) => /^##\s+/.test(line));
@@ -1008,7 +1026,7 @@ export const inspectKnowledgeEntries = <E>(
           }
         }
         if (type !== undefined && type.toLocaleLowerCase() === ATTESTED_COMPUTATION_TYPE) {
-          for (const issue of attestationIssues(metadata, parsed.value.body)) {
+          for (const issue of attestationIssues(metadata, parsedValue.body)) {
             diagnostics.push({
               code: "invalid-attestation",
               severity: "error",
@@ -1026,7 +1044,7 @@ export const inspectKnowledgeEntries = <E>(
           message: `${relativePath} is an OKF concept and requires a non-empty frontmatter type.`,
         });
       }
-      const title = firstHeading(parsed.value.body);
+      const title = firstHeading(parsedValue.body);
       if (title === undefined) {
         diagnostics.push({
           code: "missing-title",
@@ -1067,13 +1085,13 @@ export const inspectKnowledgeEntries = <E>(
         spellings.add(type);
         types.set(type.toLocaleLowerCase(), spellings);
       }
-      const citationHeading = parsed.value.body.search(/^#\s+Citations\s*$/im);
+      const citationHeading = parsedValue.body.search(/^#\s+Citations\s*$/im);
       if (citationHeading >= 0 && !RESERVED_BASENAMES.has(baseName)) {
         diagnostics.push({
           code: "invalid-frontmatter",
           severity: "error",
           relativePath,
-          line: parsed.value.body.slice(0, citationHeading).split(/\r?\n/).length,
+          line: parsedValue.body.slice(0, citationHeading).split(/\r?\n/).length,
           message: `${relativePath} # Citations is not part of OKF 0.2; use sources frontmatter.`,
         });
       }
@@ -1094,7 +1112,7 @@ export const inspectKnowledgeEntries = <E>(
         trust,
         authoredLinks: [],
         relativePath,
-        body: parsed.value.body,
+        body: parsedValue.body,
       });
     }
 

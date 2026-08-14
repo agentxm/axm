@@ -27,7 +27,10 @@ import {
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
-import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
+import {
+  frontmatterParseFailureToAppError,
+  parseFrontmatterEffect,
+} from "../extensions/frontmatter.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
 import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import type { RuleLockEntry } from "../lockfile/index.js";
@@ -321,7 +324,9 @@ export const RuleManagerLive = Layer.effect(
 
     const readRuleBody = (packageRoot: string) =>
       fs.readFileString(path.join(packageRoot, "src", RULE_BODY_FILENAME)).pipe(
-        Effect.flatMap(parseFrontmatterEffect),
+        Effect.flatMap((content) =>
+          parseFrontmatterEffect(content).pipe(Effect.mapError(frontmatterParseFailureToAppError)),
+        ),
         Effect.map((parsed) => normalizeMarkdown(parsed.body)),
         Effect.mapError((error) =>
           makeAppError({

@@ -1230,6 +1230,20 @@ describe("root publish", () => {
         expect(JSON.stringify(at(rendererState.results, 1).data)).toContain(
           "escapes the Knowledge bundle",
         );
+
+        fs.writeFileSync(
+          path.join(knowledgeDir, "src", "architecture.md"),
+          "---\ntype: reference\ndescription: value: extra\n---\n# Architecture\n",
+        );
+        const malformedExit = yield* handleRootPublish(
+          args(pathToFileURL(path.join(tempDir, "registry")).href, {
+            types: ["knowledge"],
+          }),
+        ).pipe(Effect.exit);
+        expect(Exit.isFailure(malformedExit)).toBe(true);
+        expect(JSON.stringify(at(rendererState.results, 2).data)).toContain(
+          "architecture.md: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        );
       }),
     );
   });

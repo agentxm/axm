@@ -18,6 +18,11 @@ its source when that source matters.
 ## Evaluate
 
 1. Identify the subject's kind, purpose, audience, constraints, and stakes.
+   Name the subject explicitly and the nearest thing it is not — especially
+   when it describes, prescribes, or governs something else. Evaluating what
+   it governs is legitimate as an additional, explicitly named object of
+   evaluation, never a silent substitute; fix the scope and carry it through
+   the evaluation.
    Establish what excellence means for this kind of thing, and locate where
    that knowledge already lives — a standard, tradition, exemplar, or the
    tooling that produces and checks the kind — then consult what is within
@@ -26,7 +31,14 @@ its source when that source matters.
 2. Gather domain-appropriate evidence before judging. Inspect, test, measure,
    or research when the claims require it. When tools can run the subject's
    own checks — tests, validators, builds, previews — run them and cite their
-   output rather than predicting what they would say. Probe without altering
+   output rather than predicting what they would say. When the subject has no
+   checks of itself, the evidence is close reading, comparison with exemplars
+   of its kind, and tracing the decisions it would actually produce. Evidence
+   about artifacts the subject governs is evidence of adoption, not of the
+   subject's quality; unless the governed state is itself a named object of
+   evaluation, admit it only where it exposes a defect in the subject itself —
+   a rule that is unfollowable, self-contradictory, or impossible to satisfy —
+   and label it as such. Probe without altering
    the subject: keep experiments in scratch space, avoid side effects the
    owner has not sanctioned, and note any state the probing did change.
    Separate observation, inference, and unknowns, noting the source of each:
@@ -66,6 +78,9 @@ its source when that source matters.
   prestigious, or pure with bland, sanitized, or culturally familiar.
 - Allow difficult truth, lament, warning, and faithful depictions of evil to be
   fitting and worthy. Unpleasantness is not itself a defect.
+- For a normative subject — a proposal, standard, policy, or design — the
+  world's failure to conform to it is not a defect in it. Ask whether the norm
+  is correct, decidable, and adoptable, not whether reality already matches it.
 - Let specialized standards supply evidence without allowing them to exhaust
   quality. Passing tests can establish correctness without establishing
   justice, fittingness, or excellence.
@@ -81,9 +96,14 @@ Scale the response to the request. Usually provide:
 3. **Discernment** — criterion-by-criterion evidence, emphasizing material
    strengths, weaknesses, tensions, and unknowns.
 4. **Basis** — what was examined and what was not, and which standards or
-   authorities supplied the bar, or evaluator judgment where none did.
+   authorities supplied the bar, or evaluator judgment where none did. Write
+   this before Improvements and use it as a checkpoint: if it shows the
+   subject itself was barely examined, return to Evaluate before proceeding.
 5. **Improvements** — one numbered item per finding from Discernment,
-   citing it, ordered by priority.
+   citing it, ordered by priority. Every finding must imply a change to a
+   named object of evaluation, and each remedy states which object it edits;
+   a remedy aimed outside the declared scope belongs in a closing note, not
+   in Improvements.
 
    - Open by noting that items are independent, not sequential, and that
      letters are alternative remedies.

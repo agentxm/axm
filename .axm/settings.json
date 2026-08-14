@@ -1,5 +1,6 @@
 {
   "agents": ["claude-code"],
+  "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",
@@ -19,7 +20,7 @@
   },
   "packs": {
     "field-notes": "@craigsmitham/packs/field-notes",
-    "effect-v4": "@craigsmitham/packs/effect-v4@0.1.0"
+    "effect-v4": "@craigsmitham/packs/effect-v4@^0.2.0"
   },
   "lint": {
     "rules": {

@@ -8,172 +8,20 @@ skills:
     integrity: sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-config:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-config
-    resolvedVersion: 0.1.0
-    integrity: sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-optics:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-optics
-    resolvedVersion: 0.1.0
-    integrity: sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-option:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-option
-    resolvedVersion: 0.1.0
-    integrity: sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-streams:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-streams
-    resolvedVersion: 0.1.0
-    integrity: sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-testing:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-testing
-    resolvedVersion: 0.1.0
-    integrity: sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-http-api:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-http-api
-    resolvedVersion: 0.1.0
-    integrity: sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-wrapping:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-wrapping
-    resolvedVersion: 0.1.0
-    integrity: sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-iteration:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-iteration
-    resolvedVersion: 0.1.0
-    integrity: sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-filesystem:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-filesystem
-    resolvedVersion: 0.1.0
-    integrity: sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-collections:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-collections
-    resolvedVersion: 0.1.0
-    integrity: sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-branded-types:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-branded-types
-    resolvedVersion: 0.1.0
-    integrity: sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-observability:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-observability
-    resolvedVersion: 0.1.0
-    integrity: sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-error-modeling:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-error-modeling
-    resolvedVersion: 0.1.0
-    integrity: sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-resource-safety:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-resource-safety
-    resolvedVersion: 0.1.0
-    integrity: sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-schema-boundaries:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-schema-boundaries
-    resolvedVersion: 0.1.0
-    integrity: sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-async-coordination:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-async-coordination
-    resolvedVersion: 0.1.0
-    integrity: sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-cloudflare-workers:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-cloudflare-workers
-    resolvedVersion: 0.1.0
-    integrity: sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-services-and-layers:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-services-and-layers
-    resolvedVersion: 0.1.0
-    integrity: sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-structured-concurrency:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-structured-concurrency
-    resolvedVersion: 0.1.0
-    integrity: sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  effect-v4-request-batching-and-cache:
-    type: registry
-    owner: "@craigsmitham"
-    name: effect-v4-request-batching-and-cache
-    resolvedVersion: 0.1.0
-    integrity: sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   improve-whatever:
     type: registry
     owner: "@craigsmitham"
     name: improve-whatever
-    resolvedVersion: 0.0.5
-    integrity: sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==
+    resolvedVersion: 0.0.6
+    integrity: sha512-u+i1Zw2zOUgCE9AV/ZScg/eiphCqtVmQUQviIWohg5JK5D1ODG7WFIa8ocGxD4tUxUi4Yxf14Jsw47vb25FDxg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  craft-effect-v4:
+    type: registry
+    owner: "@craigsmitham"
+    name: craft-effect-v4
+    resolvedVersion: 0.0.2
+    integrity: sha512-iyYMCrJeqFiFk2sQvd+qp2kKSCthIuNascIlflxWTIQbTBpoyAxPqY5I3K/zrGajQ+aBf4u21UrIDqqdKtyvRw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
@@ -210,6 +58,14 @@ knowledge:
     integrity: sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  effect-v4:
+    type: registry
+    owner: "@craigsmitham"
+    name: effect-v4
+    resolvedVersion: 0.1.0
+    integrity: sha512-5nGrMmI43YG4hxNHDIkHCYyBALSIJSKK2ZiCXqP+rzswYMeLHOC2BxLSQ5A6crSwUaFw26HG/YrbKl9A+4tc7w==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 packs:
   field-notes:
     type: registry
@@ -224,8 +80,8 @@ packs:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 0.1.0
-    integrity: sha512-p/4NFlnUMJ6Gvvqd1LyRq533EcXCDbyCzs5W6TMD/VMxsSfJ5rCshTDMJ73K04mYEgrrJR06NXDgnl8s5kyrFQ==
-    manifestContentIdentity: 893040a4a5d38381b9a6bfb7b1a37423f1c3376bfe2add14fc560ea3e0f1ed79
+    resolvedVersion: 0.2.1
+    integrity: sha512-UCD1GRHAAVGnLfnOaKBajB4lOn1CLvsbsp0W5zeuDa7JUCOSYjSN/Ubqt/i6grkSgaS/s8JSdN021SOoBW2kEA==
+    manifestContentIdentity: 35589e6c038923755ddafff929f4128324125a64f88f156d21a52084c2e10f9f
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7

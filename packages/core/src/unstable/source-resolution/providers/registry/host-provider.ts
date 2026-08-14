@@ -313,6 +313,16 @@ const resolveNamedFromClient = (
     }
 
     if (isOfficialAxmSkill(options)) {
+      const requested = Option.getOrElse(options.versionRange, () => "*");
+      const exactRequest = semver.valid(requested) === requested;
+      const probeCandidate = (candidate: VersionEntry) =>
+        probeAxmSkillCompatibility(client, source, indexOption.value, candidate).pipe(
+          Effect.map(Option.some),
+          Effect.catchIf(
+            (error) => !exactRequest && error.code === "not_found",
+            () => Effect.succeed(Option.none()),
+          ),
+        );
       const candidates = versionsMatchingNamedOptions(
         indexOption.value.versions,
         options,
@@ -320,12 +330,9 @@ const resolveNamedFromClient = (
       );
       let latestIncompatibility: string | null = null;
       for (const candidate of candidates) {
-        const probed = yield* probeAxmSkillCompatibility(
-          client,
-          source,
-          indexOption.value,
-          candidate,
-        );
+        const probe = yield* probeCandidate(candidate);
+        if (Option.isNone(probe)) continue;
+        const probed = probe.value;
         if (probed.result.status === "incompatible") {
           latestIncompatibility = probed.result.detail;
           continue;
@@ -352,8 +359,27 @@ const resolveNamedFromClient = (
         } as const;
       }
 
-      const requested = Option.getOrUndefined(options.versionRange);
-      if (requested !== undefined && semver.valid(requested) === requested) {
+      if (exemption === undefined) {
+        const heldCandidates = versionsMatchingNamedOptions(
+          indexOption.value.versions,
+          options,
+          true,
+        ).filter((candidate) => !isVersionEntryEligibleAt(candidate, options.releaseAgeEvaluation));
+        for (const candidate of heldCandidates) {
+          const probe = yield* probeCandidate(candidate);
+          if (Option.isNone(probe) || probe.value.result.status === "incompatible") continue;
+          return {
+            kind: "policy_held",
+            target,
+            ...(Option.isSome(options.versionRange)
+              ? { requestedRange: options.versionRange.value }
+              : {}),
+            candidate: releaseAgeEvidence(candidate, options.releaseAgeEvaluation),
+          } as const;
+        }
+      }
+
+      if (exactRequest) {
         return yield* makeAppError({
           code: "conflict",
           detail:

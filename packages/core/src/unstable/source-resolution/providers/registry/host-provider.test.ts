@@ -531,6 +531,78 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
   });
 
+  it.effect(
+    "reports a compatible held AXM skill when mature history is incompatible or unavailable",
+    () => {
+      const unavailable = makeAxmSkillArchive("0.5.0");
+      const mature = makeAxmSkillArchive("1.0.0");
+      const held = makeAxmSkillArchive("2.0.0");
+      const probes: string[] = [];
+      const provider = createRemoteRegistrySourceHostProvider(
+        createMockClient({
+          getExtensionIndex: () =>
+            Effect.succeed(
+              Option.some({
+                owner: handle("@agentxm"),
+                type: "skill",
+                name: extensionName("axm"),
+                publisherBindingId: "hbnd_agentxm",
+                versions: [
+                  makeVersionEntry({ version: "0.5.0", integrity: sha512(unavailable) }),
+                  makeVersionEntry({ version: "1.0.0", integrity: sha512(mature) }),
+                  makeVersionEntry({
+                    version: "2.0.0",
+                    published: "2025-01-02T12:00:00Z",
+                    integrity: sha512(held),
+                  }),
+                ],
+              }),
+            ),
+          getExtensionPackage: (args) => {
+            const version = Option.getOrThrow(args.version);
+            probes.push(`${version}:${args.usagePurpose ?? "install"}`);
+            return version === "0.5.0"
+              ? Effect.fail(
+                  makeAppError({ code: "not_found", detail: "Historical archive is unavailable" }),
+                )
+              : Effect.succeed({ archive: version === "2.0.0" ? held : mature });
+          },
+        }),
+      );
+
+      return runEffect(
+        provider
+          .resolveNamed(testSource, {
+            ...options,
+            owner: handle("@agentxm"),
+            name: "axm",
+          })
+          .pipe(
+            Effect.tap((result) =>
+              Effect.sync(() => {
+                expect(result).toEqual({
+                  kind: "policy_held",
+                  target: "@agentxm/skills/axm",
+                  candidate: {
+                    version: "2.0.0",
+                    publishedAt: "2025-01-02T12:00:00.000Z",
+                    eligibleAt: "2025-01-03T12:00:00.000Z",
+                    minimumReleaseAgeSeconds: 86_400,
+                  },
+                });
+                expect(probes).toEqual([
+                  "1.0.0:verification",
+                  "0.5.0:verification",
+                  "2.0.0:verification",
+                ]);
+              }),
+            ),
+            Effect.provide(makeAxmSkillCompatibilityPolicyLayer("2.0.0")),
+          ),
+      );
+    },
+  );
+
   it.effect("rejects an exact incompatible official AXM skill release", () => {
     const archive = makeAxmSkillArchive("2.0.0");
     const provider = createRemoteRegistrySourceHostProvider(

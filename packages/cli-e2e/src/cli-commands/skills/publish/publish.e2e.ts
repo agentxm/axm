@@ -230,7 +230,7 @@ describe("axm skills publish", () => {
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(publishResult.exitCode).toBe(0);
-        expect(JSON.parse(publishResult.stdout).result.results).toEqual([]);
+        expect(JSON.parse(publishResult.stdout).result.execution.outcomes).toEqual([]);
         expect(publishResult.stderr).toContain('"type":"progress"');
         expect(publishResult.stderr).toContain('"message":"Resolving publish registry"');
       } finally {
@@ -414,7 +414,7 @@ describe("axm skills publish", () => {
         // Should exit cleanly (not an error)
         expect(result.exitCode).toBe(0);
 
-        expect(JSON.parse(result.stdout).result.results).toEqual([]);
+        expect(JSON.parse(result.stdout).result.execution.outcomes).toEqual([]);
       } finally {
         temp.cleanup();
         registryDir.cleanup();

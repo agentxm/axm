@@ -135,6 +135,7 @@ export type JobStepResult =
 
 export interface ReadyJobStep {
   readonly key?: string;
+  readonly dependsOn?: ReadonlyArray<string>;
   readonly readiness: "ready";
   readonly label: string;
   readonly message?: string;
@@ -144,6 +145,7 @@ export interface ReadyJobStep {
 
 export interface WarnJobStep {
   readonly key?: string;
+  readonly dependsOn?: ReadonlyArray<string>;
   readonly readiness: "warn";
   readonly warnMessage: string;
   readonly label: string;
@@ -153,6 +155,7 @@ export interface WarnJobStep {
 
 export interface ErrorJobStep {
   readonly key?: string;
+  readonly dependsOn?: ReadonlyArray<string>;
   readonly readiness: "error";
   readonly errorMessage: string;
   readonly label: string;
@@ -168,7 +171,9 @@ export type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
 // -----------------------------------------------------------------------------
 
 export interface CompletedJobStep {
+  readonly key?: string;
   readonly label: string;
+  readonly blockedBy?: ReadonlyArray<string>;
   readonly result: JobStepResult;
 }
 
@@ -285,6 +290,7 @@ export interface FailedPlan {
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly reason: PlanExecutionReason;
   readonly errorCode: AppErrorCode;
+  readonly failure?: AppError;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;

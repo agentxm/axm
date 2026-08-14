@@ -259,7 +259,7 @@ describe("axm packs publish", () => {
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(retryResult.exitCode, retryResult.stderr).toBe(0);
-        expect(JSON.parse(retryResult.stdout).result.results).toMatchObject([
+        expect(JSON.parse(retryResult.stdout).result.execution.outcomes).toMatchObject([
           {
             name: "published-dep",
             action: "skip",
@@ -351,7 +351,7 @@ describe("axm packs publish", () => {
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode, result.stderr).toBe(0);
-        expect(JSON.parse(result.stdout).result.results).toMatchObject([
+        expect(JSON.parse(result.stdout).result.execution.outcomes).toMatchObject([
           { name: "json-dep", status: "pending" },
           { name: "json-pack", status: "pending" },
         ]);

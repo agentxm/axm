@@ -21,11 +21,18 @@ rows.
 
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
-When publishing an authored pack, AXM publishes any included workspace-authored
-dependencies first, then publishes the pack. Inferred dependencies that are
-already published are integrity-verified and skipped; a mismatch blocks the full
-selection before any upload. An explicitly selected already-published pack stays
-strict unless `--on-existing verify` is supplied.
+Pack publication keeps the requested selection narrow by default. Use
+`--include-dependencies` with either `axm publish` or `axm packs publish` to add
+workspace-authored dependencies of selected packs. A dependency that is not
+workspace-authored is never added implicitly; pair `--include-dependencies`
+with a repeatable `--include-dependency <fqn>` to select one deliberately.
+
+Included dependencies publish before packs that reference them. Included
+versions that are already published are integrity-verified and skipped; a
+mismatch blocks the full selection before any upload. An explicitly selected
+already-published pack stays strict unless `--on-existing verify` is supplied.
+The Registry validates every declared pack dependency whether or not it is
+included in the local publication selection.
 
 ## Pack dependencies
 

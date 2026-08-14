@@ -79,6 +79,8 @@ export interface HttpRegistry {
 export interface HttpRegistryOptions {
   /** Test-only delay used to make an unordered pack upload fail deterministically. */
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
+  /** Fail the first upload for each plural/name key, then allow recovery. */
+  readonly failPublishOnce?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
   /** Require and complete the durable step-up flow for POST /v1/tokens. */
@@ -295,6 +297,7 @@ export const startHttpRegistry = async (
     { readonly condition: string; readonly setDigest: string; readonly descriptorDigest: string }
   >();
   const publishes: Array<PublishRecord> = [];
+  const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
   const requests: Array<RequestRecord> = [];
   const tokenOwners: Readonly<Record<string, string>> = {
     "e2e-test-token": TEST_OWNER,
@@ -494,6 +497,11 @@ export const startHttpRegistry = async (
 
         const archive = await readBody(request);
         const integrity = sha512Integrity(archive);
+        const failureKey = `${plural}/${name}`;
+        if (pendingPublishFailures.delete(failureKey)) {
+          sendProblem(response, 500, `Injected one-time publish failure for ${failureKey}.`);
+          return;
+        }
         if (plural === "packs" && options.enforcePackDependencies === true) {
           const missing = packDependencies(archive).filter((dependency) => {
             const dependencyVersions = extensions.get(dependency);

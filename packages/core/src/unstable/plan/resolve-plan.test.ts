@@ -492,6 +492,58 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("revalidates material after a delayed pre-apply gate", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-post-auth-" });
+      const material = `${directory}/manifest.json`;
+      yield* fs.writeFileString(material, "authorized");
+      let appliedCount = 0;
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        makeBaseWorkspaceMock(`${directory}/.axm`),
+      );
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Publish package",
+        description: Option.none(),
+        materialPaths: [material],
+        executionCapabilities: { rollback: "non-rollbackable" },
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "publish",
+                run: Effect.sync(() => {
+                  appliedCount += 1;
+                  return { result: "success" as const, message: "published" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: preapprovedPlanExecution,
+        beforeApply: () =>
+          fs
+            .writeFileString(material, "changed-after-authorization")
+            .pipe(
+              Effect.mapError((cause) =>
+                makeAppError({ code: "internal", detail: "Failed to mutate test material", cause }),
+              ),
+            ),
+      }).pipe(Effect.provide(context.layer));
+
+      expect(result).toMatchObject({ _tag: "FailedPlan", reason: "stale-candidate" });
+      expect(appliedCount).toBe(0);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("rolls back the complete local candidate when a later step fails", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

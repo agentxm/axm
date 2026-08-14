@@ -465,7 +465,9 @@ describe("HTTP registry transport", () => {
       if (!isRecord(output) || !isRecord(output["result"])) {
         throw new Error("Expected structured publish output");
       }
-      const results = output["result"]["results"];
+      const execution = output["result"]["execution"];
+      if (!isRecord(execution)) throw new Error("Expected publish execution result");
+      const results = execution["outcomes"];
       if (!Array.isArray(results)) throw new Error("Expected publish result items");
       expect(results).toEqual(
         expect.arrayContaining([
@@ -529,11 +531,18 @@ describe("HTTP registry transport", () => {
         if (!isRecord(output) || !isRecord(output["result"])) {
           throw new Error("Expected structured failed publish output");
         }
-        const results = output["result"]["results"];
+        expect(output["ok"]).toBe(false);
+        const execution = output["result"]["execution"];
+        if (!isRecord(execution)) throw new Error("Expected publish execution result");
+        const failure = execution["failure"];
+        if (!isRecord(failure) || typeof failure["code"] !== "string") {
+          throw new Error("Expected a typed publication-set failure");
+        }
+        const results = execution["outcomes"];
         if (!Array.isArray(results) || !isRecord(results[0])) {
           throw new Error("Expected one failed publish result item");
         }
-        expect(results[0]["status"]).toBe("failed");
+        expect(results[0]["status"]).toBe("blocked");
         expect(results[0]).not.toHaveProperty("visibility");
       } finally {
         await registry.close();
@@ -580,10 +589,145 @@ describe("HTTP registry transport", () => {
         "skills/pack-member",
         "packs/ordered-pack",
       ]);
-      expect(JSON.parse(published.stdout).result.results).toMatchObject([
+      expect(JSON.parse(published.stdout).result.execution.outcomes).toMatchObject([
         { type: "skill", name: "pack-member", status: "success" },
         { type: "pack", name: "ordered-pack", status: "success" },
       ]);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  it("recovers an immutable partial publish and converges on the repeated command", async () => {
+    const registry = await startHttpRegistry({ failPublishOnce: ["skills/retry-second"] });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      for (const name of ["retry-first", "retry-second"]) {
+        const created = await runCli(
+          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(created.exitCode, created.stderr).toBe(0);
+      }
+
+      const initial = await runCli(
+        [
+          "publish",
+          `${OWNER}/skills/retry-first`,
+          `${OWNER}/skills/retry-second`,
+          "--yes",
+          "--json",
+        ],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(initial.exitCode).not.toBe(0);
+      expect(registry.publishes).toHaveLength(1);
+      const initialOutput: unknown = JSON.parse(initial.stdout);
+      if (!isRecord(initialOutput) || !isRecord(initialOutput["result"])) {
+        throw new Error("Expected partial publish result");
+      }
+      const recovery = initialOutput["result"]["recovery"];
+      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
+        throw new Error("Expected executable recovery command");
+      }
+      expect(recovery["cmd"]).toContain("axm publish --on-existing verify");
+      expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-first`);
+      expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-second`);
+
+      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
+      const firstRecovery = await runCli(recoveryArgs, {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(firstRecovery.exitCode, firstRecovery.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(2);
+      expect(JSON.parse(firstRecovery.stdout).result.execution.outcomes).toMatchObject([
+        { name: "retry-first", reason: "version_already_published", status: "success" },
+        { name: "retry-second", status: "success" },
+      ]);
+
+      const secondRecovery = await runCli(recoveryArgs, {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(secondRecovery.exitCode, secondRecovery.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(2);
+      expect(JSON.parse(secondRecovery.stdout).result.counts).toMatchObject({
+        published: 0,
+        alreadyPublished: 2,
+        failed: 0,
+        blocked: 0,
+      });
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  it("blocks only a pack whose included dependency upload fails", async () => {
+    const registry = await startHttpRegistry({ failPublishOnce: ["skills/failing-member"] });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      for (const name of ["failing-member", "independent-member"]) {
+        const created = await runCli(
+          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(created.exitCode, created.stderr).toBe(0);
+      }
+      const createdPack = await runCli(
+        ["packs", "new", "blocked-pack", "--owner", OWNER, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(createdPack.exitCode, createdPack.stderr).toBe(0);
+      const added = await runCli(
+        ["packs", "add", "blocked-pack", `${OWNER}/skills/failing-member`, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(added.exitCode, added.stderr).toBe(0);
+
+      const published = await runCli(
+        [
+          "publish",
+          `${OWNER}/packs/blocked-pack`,
+          `${OWNER}/skills/independent-member`,
+          "--include-dependencies",
+          "--yes",
+          "--json",
+        ],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode).not.toBe(0);
+      expect(registry.publishes.map((entry) => `${entry.plural}/${entry.name}`)).toEqual([
+        "skills/independent-member",
+      ]);
+      const outcomes = JSON.parse(published.stdout).result.execution.outcomes;
+      expect(outcomes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "failing-member",
+            status: "failed",
+            reason: "upload_failed",
+          }),
+          expect.objectContaining({
+            name: "blocked-pack",
+            status: "blocked",
+            reason: "blocked_by_dependency",
+            blockedBy: [`${OWNER}/skills/failing-member`],
+          }),
+          expect.objectContaining({ name: "independent-member", status: "success" }),
+        ]),
+      );
+      expect(JSON.parse(published.stdout).result.counts).toMatchObject({
+        published: 1,
+        failed: 1,
+        blocked: 1,
+      });
     } finally {
       await registry.close();
       workspace.cleanup();

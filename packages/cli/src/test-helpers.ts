@@ -188,12 +188,16 @@ export const expectPublishResult = (
   },
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
+  if (property(payload, "contract") !== "publish-result-v2") {
+    throw new Error("Expected publish-result-v2 contract");
+  }
   const mode = property(payload, "mode");
   if (mode !== options.mode) {
     throw new Error(`Expected publish result mode to be ${options.mode}`);
   }
 
-  const results = property(payload, "results");
+  const execution = expectRecord(property(payload, "execution"));
+  const results = property(execution, "outcomes");
   if (!Array.isArray(results)) {
     throw new Error("Expected publish result results array");
   }
@@ -202,7 +206,7 @@ export const expectPublishResult = (
     throw new Error(`Expected publish result to contain ${String(options.count)} results`);
   }
 
-  return payload;
+  return { ...payload, results };
 };
 
 export const expectNoOpPlanResult = (

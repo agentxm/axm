@@ -21,13 +21,15 @@ import { extensionName, handle } from "./test-stubs.js";
 
 describe("classifyPublishResults", () => {
   it("derives every aggregate count from the item classifications", () => {
-    const base: Pick<PublishResultItem, "owner" | "type" | "name"> = {
+    const base: Pick<PublishResultItem, "id" | "owner" | "type" | "name" | "phase"> = {
+      id: "@acme/skills/review",
       owner: handle("@acme"),
       type: "skill",
       name: extensionName("review"),
+      phase: "upload_execution",
     };
     const results: ReadonlyArray<PublishResultItem> = [
-      { ...base, action: "publish", status: "success" },
+      { ...base, action: "publish", status: "success", reason: "selected" },
       {
         ...base,
         name: extensionName("existing"),
@@ -49,8 +51,20 @@ describe("classifyPublishResults", () => {
         status: "blocked",
         reason: "blocked_by_preflight",
       },
-      { ...base, name: extensionName("failed"), action: "error", status: "failed" },
-      { ...base, name: extensionName("pending"), action: "publish", status: "pending" },
+      {
+        ...base,
+        name: extensionName("failed"),
+        action: "error",
+        status: "failed",
+        reason: "upload_failed",
+      },
+      {
+        ...base,
+        name: extensionName("pending"),
+        action: "publish",
+        status: "pending",
+        reason: "selected",
+      },
     ];
 
     expect(classifyPublishResults(results)).toEqual({

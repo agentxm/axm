@@ -17,6 +17,8 @@ and from workspace reconciliation.
 Publish:
 
 - selects explicitly requested authored extensions;
+- expands a pack selection only when the caller explicitly requests dependency
+  inclusion;
 - validates the complete selection before starting immutable uploads;
 - applies the registry's fixed archive and distribution requirements; and
 - reports the outcome of each selected extension without overstating remote
@@ -38,6 +40,27 @@ the caller is authenticated or authorized to publish under that handle.
 Remote registry effects are outside AXM's local rollback guarantee. Once an
 immutable remote effect succeeds, a later local or remote failure cannot make
 that effect unoccur.
+
+Pack dependency inclusion is opt-in on both the root and pack-specific publish
+surfaces. Registry dependency validation is unconditional: leaving a dependency
+out of the local upload set never relaxes the pack's publication requirements.
+
+Preview and apply report three separate layers: local selection decisions, the
+Registry-admitted publication set, and execution outcomes. Preview is
+speculative; apply reconstructs and validates its own set. Once admitted, packs
+wait only for included dependencies they reference. A failed dependency blocks
+those packs while independent candidates continue.
+
+Delayed exact authorization is followed by one final material-fingerprint check
+before the first upload. Drift abandons the authorized attempt without a remote
+write. After the first upload, the captured archives execute without rereading
+workspace content.
+
+When execution partially succeeds, recovery uses the exact admitted identities
+with existing-version integrity verification. It does not replay broad filters
+or store archive bytes. Repeating recovery against unchanged content converges
+to verified-existing no-ops. Publish writes no local receipt, lockfile,
+baseline, or manifest after a successful upload.
 
 ## Testing strategy
 

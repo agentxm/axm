@@ -82,10 +82,10 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     const config = {
       ...commonConfig,
       includeDependencies: Flag.boolean("include-dependencies").pipe(
-        Flag.withDescription("Include workspace-sourced dependencies"),
+        Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
       ),
       includeDependency: Flag.string("include-dependency").pipe(
-        Flag.withDescription("Explicitly include a non-workspace dependency"),
+        Flag.withDescription("Explicitly include a non-workspace pack dependency"),
         Flag.atLeast(0),
       ),
     } as const;

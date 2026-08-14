@@ -537,7 +537,7 @@ describe("axm packs publish", () => {
         },
       );
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout).result.results).toEqual([]);
+      expect(JSON.parse(result.stdout).result.execution.outcomes).toEqual([]);
     } finally {
       cleanup();
     }

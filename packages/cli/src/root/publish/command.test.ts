@@ -12,6 +12,7 @@ import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
   isEffectCliExit,
+  renderConfirmationRecoveryCommand,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
@@ -52,6 +53,7 @@ import {
   findLocalPackConstraintConflicts,
   findPackPublishDivergenceFindings,
   handleRootPublish,
+  makeExactPublishRecovery,
   previewPublishUploadBinding,
   publishAuthenticationPreconditions,
   validatePublishOwners,
@@ -899,12 +901,175 @@ describe("root publish", () => {
           mode: "preview",
           count: 1,
         });
-        const preconditions = property(result, "preconditions");
+        const preconditions = property(
+          expectRecord(property(result, "execution")),
+          "preconditions",
+        );
         if (!Array.isArray(preconditions)) throw new Error("Expected preview preconditions");
         expect(expectRecord(at(preconditions, 0))).toMatchObject({
           id: "authentication",
           status: "unmet",
         });
+      }),
+    );
+  });
+
+  it.effect("aborts before upload when material changes during exact authorization", () => {
+    writeReviewSkill();
+    const context = makeWorkspaceHandlerTestContext({
+      machine: true,
+      wsOptions: { projectRoot: tempDir },
+    });
+    const registryUrl = "https://registry.example.com";
+    let authorizationRequest: CreatePublishAuthorizationRequestParams | undefined;
+    let uploadCount = 0;
+    let revokeCount = 0;
+    const httpClient = HttpClient.make((request) =>
+      Effect.sync(() => {
+        const url = new URL(request.url);
+        if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ displayName: "Acme" }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        if (request.method === "PUT") uploadCount += 1;
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              type: "about:blank",
+              title: "Not Found",
+              status: 404,
+              detail: "Extension not found",
+              code: "not_found",
+            }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }),
+    );
+    const authClient = AuthClientTest({
+      createPublishAuthorizationRequest: (request) => {
+        authorizationRequest = request;
+        return Effect.succeed({
+          requestId: "pubreq_stale",
+          authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_stale",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
+        });
+      },
+      exchangePublishAuthorizationCode: () =>
+        Effect.gen(function* () {
+          const request = authorizationRequest;
+          if (request === undefined) {
+            return yield* makeAppError({ code: "internal", detail: "Missing auth request" });
+          }
+          const descriptor = request.publicationSet.candidates[0];
+          if (descriptor === undefined) {
+            return yield* makeAppError({ code: "internal", detail: "Missing descriptor" });
+          }
+          const setDigest = publicationSetDigest(request.publicationSet.candidates);
+          return {
+            status: "admitted" as const,
+            preview: {
+              contract: "publication-set-v2" as const,
+              publicationSetDigest: setDigest,
+              status: "admitted" as const,
+              candidates: [
+                {
+                  kind: "resolved" as const,
+                  target: descriptor.target,
+                  participation: descriptor.participation,
+                  descriptorDigest: publicationDescriptorDigest(descriptor),
+                  resolvedVisibility: "public" as const,
+                  condition: '"pv2-stale"',
+                },
+              ],
+              packs: [],
+            },
+            grants: [
+              {
+                accessToken: "axm_pub_stale",
+                expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+                scope: "extensions:publish:new",
+                publishRequestId: "pubreq_stale",
+                visibilityContract: "v2" as const,
+                visibility: {
+                  value: "public" as const,
+                  disposition: "establish" as const,
+                  source: "platform" as const,
+                },
+                condition: '"pv2-stale"',
+                publicationSetDigest: setDigest,
+                publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
+              },
+            ],
+          };
+        }),
+      revokeToken: () =>
+        Effect.sync(() => {
+          revokeCount += 1;
+        }),
+    });
+    const interaction = DeviceLoginInteractionTest({
+      openBrowser: () =>
+        Effect.sync(() => {
+          const request = authorizationRequest;
+          if (request === undefined) return false;
+          fs.appendFileSync(
+            path.join(
+              tempDir,
+              ".axm",
+              "extensions",
+              "@acme",
+              "skills",
+              "review",
+              "src",
+              "SKILL.md",
+            ),
+            "\nChanged during authorization.\n",
+          );
+          const callback = new URL(request.redirectUri);
+          callback.searchParams.set("code", "axm_pubac_code");
+          callback.searchParams.set("state", request.state);
+          callback.searchParams.set("iss", "https://agentxm.ai");
+          scheduleCallback(callback.href);
+          return true;
+        }),
+    });
+    const provide = makeEffectProvide(
+      Layer.mergeAll(
+        context.fullLayer,
+        authClient,
+        interaction.layer,
+        Layer.succeed(HttpClient.HttpClient, httpClient),
+      ),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        const exit = yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
+          Effect.exit,
+        );
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(uploadCount).toBe(0);
+        expect(revokeCount).toBe(1);
+
+        const result = expectPublishResult(at(context.rendererState.results, 0).data, {
+          mode: "apply",
+          count: 1,
+        });
+        const execution = expectRecord(property(result, "execution"));
+        expect(expectRecord(property(execution, "failure"))).toMatchObject({
+          code: "conflict",
+          message: expect.stringContaining("changed after authorization"),
+        });
+        const outcomes = property(execution, "outcomes");
+        if (!Array.isArray(outcomes)) throw new Error("Expected publish outcomes");
+        expect(property(expectRecord(at(outcomes, 0)), "status")).toBe("pending");
       }),
     );
   });
@@ -1002,12 +1167,15 @@ describe("root publish", () => {
             mode: "apply",
             results: [
               {
+                id: "@acme/skills/review",
                 owner: handle("@acme"),
                 type: "skill",
                 name: extensionName("review"),
                 version: exactVersion("1.0.0"),
                 action: "publish",
+                phase: "upload_execution",
                 status: "success",
+                reason: "selected",
                 links: { html: "https://agentxm.ai/acme/skills/review" },
               },
             ],
@@ -1486,39 +1654,43 @@ describe("root publish", () => {
       );
     });
 
-    it.effect(
-      "blocks every upload when a visibility override has no eligible new extension",
-      () => {
-        writeSkillSettings(["review"]);
-        const { provide, rendererState } = makeContext();
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+    it.effect("treats visibility as establishment-only when publishing a new version", () => {
+      writeSkillSettings(["review"]);
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
-        return provide(
-          Effect.gen(function* () {
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
-            writeSkill("review", "1.1.0");
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          writeSkill("review", "1.1.0");
 
-            const exit = yield* handleRootPublish(
-              args(registryUrl, {
-                preview: false,
-                visibility: Option.some("private"),
-              }),
-            ).pipe(Effect.exit);
-            expect(Exit.isFailure(exit)).toBe(true);
+          yield* handleRootPublish(
+            args(registryUrl, {
+              preview: false,
+              visibility: Option.some("private"),
+            }),
+          );
 
-            const failedItems = resultItems(at(rendererState.results, 1).data, "apply", 1);
-            const failed = itemNamed(failedItems, "review");
-            expect(property(failed, "status")).toBe("failed");
-            expect(property(failed, "message")).toContain("no eligible new extension");
-            expect(Object.keys(failed)).not.toContain("visibility");
+          const publishedItems = resultItems(at(rendererState.results, 1).data, "apply", 1);
+          const published = itemNamed(publishedItems, "review");
+          expect(property(published, "status")).toBe("success");
+          expectVisibility(published, {
+            value: "public",
+            disposition: "preserve",
+            source: "existing",
+          });
 
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
-            const retriedItems = resultItems(at(rendererState.results, 2).data, "apply", 1);
-            expect(property(itemNamed(retriedItems, "review"), "status")).toBe("success");
-          }),
-        );
-      },
-    );
+          yield* handleRootPublish(
+            args(registryUrl, {
+              preview: false,
+              visibility: Option.some("private"),
+            }),
+          );
+          const retriedItems = resultItems(at(rendererState.results, 2).data, "apply", 1);
+          expect(property(itemNamed(retriedItems, "review"), "status")).toBe("success");
+        }),
+      );
+    });
 
     it.effect("bulk publish verifies existing versions and uploads only new candidates", () => {
       writeTwoSkillSettings();
@@ -1636,6 +1808,7 @@ describe("root publish", () => {
           const deploy = itemNamed(items, "deploy");
           expect(property(deploy, "status")).toBe("blocked");
           expect(property(deploy, "reason")).toBe("blocked_by_preflight");
+          expect(property(deploy, "blockedBy")).toEqual(["@acme/skills/review"]);
 
           yield* handleRootPublish(
             args(registryUrl, {
@@ -2025,6 +2198,24 @@ describe("aggregatePublishFailure", () => {
   });
 });
 
+describe("publish recovery", () => {
+  it("replays the exact admitted identities through the generic root command", () => {
+    const recovery = makeExactPublishRecovery(
+      {
+        registry: Option.some("private"),
+        registryUrl: Option.none(),
+        backfill: false,
+        visibility: Option.some("private"),
+      },
+      ["@acme/skills/review", "@acme/packs/toolkit"],
+    );
+
+    expect(renderConfirmationRecoveryCommand(recovery)).toBe(
+      "axm publish --registry private --on-existing verify --visibility private --yes @acme/skills/review @acme/packs/toolkit",
+    );
+  });
+});
+
 describe("root publish dependency planning", () => {
   const success: JobStepResult = { result: "success", message: "Published" };
   const stepFor = (candidate: { readonly fqn: string }) => ({
@@ -2033,7 +2224,7 @@ describe("root publish dependency planning", () => {
     run: Effect.succeed(success),
   });
 
-  it("places selected pack dependencies behind a concurrent dependency barrier", () => {
+  it("records selected pack dependencies as causal execution edges", () => {
     const dependency = {
       fqn: "@acme/skills/review",
       type: "skill",
@@ -2046,13 +2237,16 @@ describe("root publish dependency planning", () => {
 
     const jobs = buildPublishJobs([dependency, pack], stepFor);
 
-    expect(jobs).toHaveLength(2);
+    expect(jobs).toHaveLength(1);
     expect(at(jobs, 0)).toMatchObject({
       concurrency: 4,
       executionPolicy: "best-effort",
     });
-    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual(["Publish @acme/skills/review"]);
-    expect(at(jobs, 1).steps.map((step) => step.label)).toEqual(["Publish @acme/packs/toolkit"]);
+    expect(at(jobs, 0).steps.map((step) => step.label)).toEqual([
+      "Publish @acme/skills/review",
+      "Publish @acme/packs/toolkit",
+    ]);
+    expect(at(at(jobs, 0).steps, 1).dependsOn).toEqual(["@acme/skills/review"]);
   });
 
   it("does not broaden a pack-only selection", () => {
@@ -2096,10 +2290,43 @@ describe("root publish dependency planning", () => {
       });
 
       expect(at(at(executed.jobs, 0).steps, 0).result.result).toBe("error");
-      expect(at(at(executed.jobs, 1).steps, 0).result).toMatchObject({
-        result: "error",
-        message: "blocked by earlier job failure",
+      expect(at(at(executed.jobs, 0).steps, 1)).toMatchObject({
+        blockedBy: ["@acme/skills/review"],
+        result: {
+          result: "error",
+          message: "blocked by failed dependency: @acme/skills/review",
+        },
       });
+    }),
+  );
+
+  it.effect("continues independent candidates after a dependency failure", () =>
+    Effect.gen(function* () {
+      const dependency = { fqn: "@acme/skills/review", type: "skill" } as const;
+      const independent = { fqn: "@acme/skills/format", type: "skill" } as const;
+      const pack = {
+        fqn: "@acme/packs/toolkit",
+        type: "pack",
+        dependencies: { "@acme/skills/review": "^1.0.0" },
+      } as const;
+      const jobs = buildPublishJobs([dependency, pack, independent], (candidate) => ({
+        readiness: "ready",
+        label: `Publish ${candidate.fqn}`,
+        run:
+          candidate.fqn === dependency.fqn
+            ? Effect.fail(makeAppError({ code: "conflict", detail: "Dependency failed" }))
+            : Effect.succeed(success),
+      }));
+
+      const executed = yield* applyPlan({
+        _tag: "Plan",
+        name: "Publish extensions",
+        description: Option.none(),
+        jobs,
+      });
+
+      expect(at(at(executed.jobs, 0).steps, 1).blockedBy).toEqual([dependency.fqn]);
+      expect(at(at(executed.jobs, 0).steps, 2).result.result).toBe("success");
     }),
   );
 });

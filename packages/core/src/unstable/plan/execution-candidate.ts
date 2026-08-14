@@ -100,6 +100,7 @@ const planIdentity = (plan: Plan): string =>
       executionPolicy: job.executionPolicy,
       steps: job.steps.map((step) => ({
         key: step.key,
+        dependsOn: step.dependsOn,
         label: step.label,
         readiness: step.readiness,
         artifact: step.artifact,

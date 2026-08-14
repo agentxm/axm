@@ -1,3 +1,13 @@
+## 0.27.1 (2026-08-14)
+
+### 🩹 Fixes
+
+- Report canonical manifest versions for lock-free workspace extensions. ([1ccbb359](https://github.com/agentxm/axm/commit/1ccbb359))
+
+### ❤️ Thank You
+
+- Test @osintorg
+
 ## 0.27.0 (2026-08-14)
 
 ### ⚠️ Breaking Changes

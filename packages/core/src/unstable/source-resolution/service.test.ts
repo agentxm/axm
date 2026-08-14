@@ -7,7 +7,7 @@
 
 import { createHash } from "node:crypto";
 import { execSync, type ExecSyncOptions } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
@@ -81,8 +81,9 @@ const computeIntegrity = (data: Uint8Array): string => {
  */
 const makeTestWorkspace = (
   sources: ReadonlyArray<SourceHostConfig>,
+  axmDir = "/tmp/test-workspace",
 ): WorkspaceMutationsService => ({
-  ...makeBaseWorkspaceMock("/tmp/test-workspace"),
+  ...makeBaseWorkspaceMock(axmDir),
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromUndefinedOr(sources.find((s) => s.name === name))),
@@ -103,8 +104,9 @@ const runWithService = <A, E>(
     E,
     SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
   >,
+  axmDir?: string,
 ) => {
-  const wsLayer = Layer.succeed(WorkspaceMutations, makeTestWorkspace(sources));
+  const wsLayer = Layer.succeed(WorkspaceMutations, makeTestWorkspace(sources, axmDir));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
     Layer.provide(NodeServices.layer),
@@ -112,6 +114,38 @@ const runWithService = <A, E>(
   const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer);
   return effect.pipe(Effect.provide(fullLayer), Effect.scoped);
 };
+
+describe("local source workspace resolution", () => {
+  it.effect("resolves a relative configured source from the selected workspace", () => {
+    const root = mkdtempSync(nodePath.join(tmpdir(), "axm-local-source-workspace-"));
+    const workspaceRoot = nodePath.join(root, "workspace");
+    const sourceRoot = nodePath.join(root, "sources", "review");
+    mkdirSync(nodePath.join(workspaceRoot, ".axm"), { recursive: true });
+    mkdirSync(sourceRoot, { recursive: true });
+    writeFileSync(
+      nodePath.join(sourceRoot, "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n# Review\n",
+    );
+
+    return runWithService(
+      [],
+      Effect.gen(function* () {
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
+          { type: "local", path: "../sources/review" },
+          { ...defaultFindOptions, names: ["review"] },
+        );
+        expect(refs).toHaveLength(1);
+        const ref = refs[0];
+        expect(ref?.refType).toBe("local");
+        if (ref?.refType === "local") expect(ref.source.path).toBe(sourceRoot);
+      }).pipe(
+        Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true })).pipe(Effect.ignore)),
+      ),
+      nodePath.join(workspaceRoot, ".axm"),
+    );
+  });
+});
 
 // -----------------------------------------------------------------------------
 // Registry meta-provider: owner routing

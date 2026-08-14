@@ -38,6 +38,82 @@ describe("global directory flag", () => {
     }
   });
 
+  it("resolves configured relative sources from the selected workspace and converges", async () => {
+    const invoking = createTempDir("axm-directory-source-invoking-");
+    const workspace = createTempDir("axm-directory-source-workspace-");
+    const source = createTempDir("axm-directory-source-package-");
+    try {
+      const sourcePackage = path.join(source.path, "review");
+      fs.mkdirSync(path.join(sourcePackage, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(sourcePackage, "skill.json"),
+        `${JSON.stringify(
+          {
+            $schema: "https://axm.sh/schemas/skill.schema.json",
+            owner: "@acme",
+            type: "skill",
+            name: "review",
+            version: "1.0.0",
+            description: "Review code",
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      const skillBody = "---\nname: review\ndescription: Review code\n---\n# Review\n";
+      fs.writeFileSync(path.join(sourcePackage, "SKILL.md"), skillBody);
+      fs.writeFileSync(path.join(sourcePackage, "src", "SKILL.md"), skillBody);
+
+      const setup = await runCli(["-C", workspace.path, "setup", "--yes", "--non-interactive"], {
+        cwd: invoking.path,
+      });
+      expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+
+      const settings = JSON.parse(fs.readFileSync(settingsPath(workspace.path), "utf8"));
+      fs.writeFileSync(
+        settingsPath(workspace.path),
+        `${JSON.stringify(
+          {
+            ...settings,
+            agents: [],
+            skills: { review: path.relative(workspace.path, sourcePackage) },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+
+      const applied = await runCli(["-C", workspace.path, "sync", "--non-interactive", "--json"], {
+        cwd: invoking.path,
+      });
+      expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      expect(
+        fs.existsSync(
+          path.join(
+            workspace.path,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "review",
+            "src",
+            "SKILL.md",
+          ),
+        ),
+      ).toBe(true);
+
+      const second = await runCli(["-C", workspace.path, "sync", "--non-interactive", "--json"], {
+        cwd: invoking.path,
+      });
+      expect(second.exitCode, second.stdout + second.stderr).toBe(0);
+      expect(JSON.parse(second.stdout).result).toMatchObject({ totalSteps: 0 });
+    } finally {
+      invoking.cleanup();
+      workspace.cleanup();
+      source.cleanup();
+    }
+  });
+
   it("uses the first duplicate directory and leaves cwd unchanged when the flag is absent", async () => {
     const invoking = createTempDir("axm-directory-default-");
     const first = createTempDir("axm-directory-first-");

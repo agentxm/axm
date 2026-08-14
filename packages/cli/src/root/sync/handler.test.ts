@@ -477,6 +477,13 @@ describe("root sync handler", () => {
       );
 
       rendererState.results.length = 0;
+      yield* provide(handleSync({ preview: false }));
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+
+      rendererState.results.length = 0;
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code", "cursor", "codex"],
         mcps: {
@@ -936,6 +943,26 @@ describe("root sync handler", () => {
         true,
       );
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "release.md"))).toBe(false);
+    }),
+  );
+
+  it.effect("treats canonical per-agent extensions as current when no agents are configured", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+        subagents: {
+          release: "workspace:@acme/subagents/release",
+        },
+      });
+      writeSubagentExtension(tempDir, "release");
+
+      yield* provide(handleSync({ preview: false }));
+
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
     }),
   );
 

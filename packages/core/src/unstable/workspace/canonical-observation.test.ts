@@ -123,4 +123,50 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       expect(observed.status).toBe("usable");
     }),
   );
+
+  it.effect("evaluates pack constraints against an authored workspace manifest", () =>
+    Effect.gen(function* () {
+      const source = "workspace:@acme/rules/release";
+      const desired: DesiredExtensionNode = {
+        type: "rule",
+        name: "release",
+        identity: source,
+        source,
+        enabled: true,
+        constraints: ["^2.0.0"],
+        origins: [
+          { type: "settings", source, enabled: true },
+          {
+            type: "pack",
+            pack: "@acme/packs/release",
+            source: "@acme/rules/release",
+            constraint: "^2.0.0",
+            enabled: true,
+          },
+        ],
+      };
+      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
+      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "rule.json"),
+        JSON.stringify({
+          $schema: "https://axm.sh/schemas/rule.schema.json",
+          type: "rule",
+          name: "release",
+          owner: "@acme",
+          version: "2.1.0",
+          description: "Release policy",
+        }),
+      );
+      nodeFs.writeFileSync(nodePath.join(canonical, "src", "RULE.md"), "# Release\n");
+
+      const observed = yield* observeCanonicalExtension({
+        baseDir: root,
+        desired,
+        accepted: undefined,
+      });
+
+      expect(observed.status).toBe("usable");
+    }),
+  );
 });

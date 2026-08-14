@@ -173,6 +173,7 @@ export const observeCanonicalExtension = ({
       };
     }
     if (
+      !workspaceAuthored &&
       desired.constraints.length > 0 &&
       (accepted?.type !== "registry" ||
         desired.constraints.some(
@@ -202,6 +203,7 @@ export const observeCanonicalExtension = ({
     const contract = MANIFEST_CONTRACTS[desired.type];
     const manifestPath = path.join(root, contract.filename);
     const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
+    let manifestVersion: string | undefined;
     if (!(desired.type === "skill" && !manifestExists)) {
       if (!manifestExists) {
         return { type: desired.type, name: desired.name, status: "incomplete", path: root };
@@ -218,6 +220,28 @@ export const observeCanonicalExtension = ({
       if (Result.isFailure(decoded)) {
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "version" in parsed &&
+        typeof parsed.version === "string"
+      ) {
+        manifestVersion = parsed.version;
+      }
+    }
+
+    if (
+      workspaceAuthored &&
+      desired.constraints.length > 0 &&
+      (manifestVersion === undefined ||
+        desired.constraints.some((constraint) => !semver.satisfies(manifestVersion, constraint)))
+    ) {
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: "constraint-mismatch",
+        path: root,
+      };
     }
 
     const payloadComplete = yield* hasRequiredPayload(

@@ -49,7 +49,11 @@ import {
   skillArtifactFromTargets,
   type SkillExtensionRef,
 } from "@agentxm/client-core/unstable/skills";
-import { inspectMcpServerAcrossAgents, installMcpServer } from "@agentxm/client-core/unstable/mcps";
+import {
+  collectManagedAgentMcpServers,
+  inspectMcpServerAcrossAgents,
+  installMcpServer,
+} from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
@@ -555,6 +559,7 @@ const isObservedMaterializationCurrent = (
         if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
           return Effect.succeed(true);
         }
+        if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
         const hasProjectionOrigin = (() => {
           switch (node.type) {
             case "skill":
@@ -572,6 +577,25 @@ const isObservedMaterializationCurrent = (
         })();
         if (!hasProjectionOrigin) return Effect.succeed(false);
         if (node.type !== "skill") {
+          if (node.type === "mcp-server") {
+            return collectManagedAgentMcpServers({
+              workspaceRoot: ws.baseDir,
+              scope: ws.scope,
+              agentIds: configuredAgents,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.map((managed) =>
+                configuredAgents.every(
+                  (agentId) =>
+                    observed.agents.includes(agentId) ||
+                    managed.some(
+                      (entry) => entry.agentId === agentId && entry.serverName === node.name,
+                    ),
+                ),
+              ),
+            );
+          }
           return Effect.succeed(
             configuredAgents.every((agentId) => observed.agents.includes(agentId)),
           );

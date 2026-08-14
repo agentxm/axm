@@ -226,6 +226,11 @@ export const SourceHostProvidersLive: Layer.Layer<
       return provider.fetch(source, ref).pipe(Effect.provide(depLayer));
     };
 
+    const localSourceForWorkspace = (source: Extract<Source, { readonly type: "local" }>) => ({
+      ...source,
+      path: path.isAbsolute(source.path) ? source.path : path.resolve(ws.baseDir, source.path),
+    });
+
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
         case "github":
@@ -234,7 +239,9 @@ export const SourceHostProvidersLive: Layer.Layer<
         case "azurerepos":
           return findGitHosting(source, options);
         case "local":
-          return localProvider.find(source, options).pipe(Effect.provide(depLayer));
+          return localProvider
+            .find(localSourceForWorkspace(source), options)
+            .pipe(Effect.provide(depLayer));
         case "git":
           return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "registry":

@@ -32,6 +32,7 @@ import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   WorkspaceMutations,
   configuredRowsByName,
+  resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
 } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -210,16 +211,25 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const candidates: Array<PackAddCandidate> = [];
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
-    const canonical = yield* usableAcceptedCanonical({
-      workspace: ws,
-      type: node.type,
-      name: node.name,
-    });
+    const ref = node.identity.startsWith("workspace:")
+      ? yield* resolveWorkspaceExtensionRef({
+          settingsName: node.name,
+          source: node.source,
+          expectedType: node.type,
+          baseDir: ws.baseDir,
+          scope: ws.scope,
+        }).pipe(Effect.map(Option.some))
+      : yield* usableAcceptedCanonical({
+          workspace: ws,
+          type: node.type,
+          name: node.name,
+        }).pipe(Effect.map(Option.map((canonical) => canonical.ref)));
     if (
-      Option.isNone(canonical) ||
-      (canonical.value.ref.refType !== "registry" && canonical.value.ref.refType !== "workspace")
+      Option.isNone(ref) ||
+      (ref.value.refType !== "registry" && ref.value.refType !== "workspace")
     )
       continue;
+    const resolvedRef = ref.value;
     const acceptedIdentity = node.identity.startsWith("workspace:")
       ? node.identity.slice("workspace:".length)
       : node.identity;
@@ -232,7 +242,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       owner: parsed.owner,
       packageName,
       fqn: formatFqn({ owner: parsed.owner, type: node.type, name: packageName }),
-      versionRange: toVersionRange(canonical.value.ref.version),
+      versionRange: toVersionRange(resolvedRef.version),
     });
   }
 

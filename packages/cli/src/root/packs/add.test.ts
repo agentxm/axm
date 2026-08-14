@@ -340,6 +340,39 @@ describe("packs-add.handler", () => {
       );
     });
 
+    it.effect("replaces an incompatible Pack constraint from authored manifest authority", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { docs: "@acme/packs/docs" },
+        knowledge: { docs: "workspace:@acme/knowledge/docs" },
+      });
+      const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "docs");
+      fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(knowledgeDir, "knowledge.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "knowledge",
+          name: "docs",
+          version: "0.6.0",
+          format: { name: "okf", version: "0.2" },
+          bundleRoot: "src",
+        }),
+      );
+      createPackManifest(tempDir, "@acme", "docs", {
+        dependencies: { "@acme/knowledge/docs": "^0.4.0" },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("docs", "@acme/knowledge/docs"));
+
+          expect(readPackDependencies(tempDir, "docs")["@acme/knowledge/docs"]).toBe("^0.6.0");
+        }),
+      );
+    });
+
     it.effect("adds a registry-sourced rule to the pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {

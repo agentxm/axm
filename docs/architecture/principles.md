@@ -45,9 +45,10 @@ of commands.
 
 A finding does not need to contain its recovery procedure. Taken together, the
 finding and AXM's stable introspection surfaces—schemas, machine-readable
-output, command `--help`, help topics, and inspection commands—must provide
-enough context for a capable person or agent to identify the admissible choices
-and express intent through an ordinary command or direct editing.
+output, [command `--help` and help topics](commands/help.md), and inspection
+commands—must provide enough context for a capable person or agent to identify
+the admissible choices and express intent through an ordinary command or direct
+editing.
 
 This diagnostic-context completeness does not make findings a second workflow
 engine. Ordinary operation results may explain what happened or offer a

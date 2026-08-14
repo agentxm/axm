@@ -13,5 +13,7 @@ Navigation for the durable responsibilities and boundaries of AXM commands.
 - [Sync](sync.md) — reconciliation of managed current state with desired state
 - [Publish](publish.md) — validation and distribution of authored extensions
 - [Packs](packs.md) — commands that edit authored pack membership
+- [CLI help](help.md) — help surfaces, resolution, authority, discoverability,
+  and verification
 - [CLI output](output.md) — human and machine surfaces, channel boundaries, and
   contract authority

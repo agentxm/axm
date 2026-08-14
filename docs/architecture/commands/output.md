@@ -21,6 +21,10 @@ It does not inventory commands, fields, schemas, event variants, or renderer
 APIs. Effect schemas, the machine-output contract register, command help, and
 behavior tests own those exact contracts.
 
+[CLI help](help.md) owns discovery and the relationship among root help,
+command help, topics, and contextual navigation. This document owns how those
+surfaces use human and machine output channels, not how help requests resolve.
+
 ## Channel boundaries
 
 - Human stdout presents the command's primary result.

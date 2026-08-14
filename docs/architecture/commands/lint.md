@@ -34,6 +34,11 @@ Messages should be understandable without knowing AXM internals. They state the
 problem and its context, not a command to run. Structured output preserves the
 same facts and does not add suggested actions or recovery instructions.
 
+The finding is the entry point into recovery, not the complete recovery guide.
+It carries enough identity, authority, observed-state, expected-state, and
+location information to select the relevant AXM introspection surfaces. Those
+surfaces provide the surrounding schema, state model, and available operations.
+
 ## Non-responsibilities
 
 Lint does not report general inventory, available updates, unpublished authored
@@ -94,8 +99,11 @@ target set causes no writes.
 
 Lint tests own the rule catalog, views, and exact findings. The shared
 [workspace invariant design](../workspace/invariants.md) owns exhaustive
-recovery coverage. Cross-type tests prevent mere unowned presence from becoming
-a generic error while proving type-specific collision and ambiguity findings.
-Autofix tests additionally prove decoded-domain equivalence, complete
-fingerprinting, all-or-nothing application, no lock/canonical/ownership/output
-change, post-fix reevaluation, and stale-target safety.
+recovery coverage. Completeness coverage proves that every lint rule emits the
+required diagnostic facts and that the schemas, help, or inspection surfaces
+needed to understand its admissible recovery choices remain available.
+Cross-type tests prevent mere unowned presence from becoming a generic error
+while proving type-specific collision and ambiguity findings. Autofix tests
+additionally prove decoded-domain equivalence, complete fingerprinting,
+all-or-nothing application, no lock/canonical/ownership/output change, post-fix
+reevaluation, and stale-target safety.

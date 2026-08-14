@@ -36,22 +36,24 @@ names and in each type command group. Both forms express the same user intent
 and follow the same behavior. Type command groups may add capabilities that
 genuinely apply only to that type.
 
-## Report invariant facts without choosing intent
+## Provide sufficient context without choosing intent
 
 Invariant and recovery diagnostics should say what AXM observed, which
 invariant is violated, which state is authoritative, and where the relevant
 state lives. They should not guess what the user meant or prescribe a sequence
 of commands.
 
-This boundary does not prevent an ordinary operation result from explaining
-what happened or offering a contextual next step. It prevents invariant
-findings from becoming a second workflow engine whose instructions can
-contradict the commands that own the work.
+A finding does not need to contain its recovery procedure. Taken together, the
+finding and AXM's stable introspection surfaces—schemas, machine-readable
+output, command `--help`, help topics, and inspection commands—must provide
+enough context for a capable person or agent to identify the admissible choices
+and express intent through an ordinary command or direct editing.
 
-AXM may fix a problem automatically only when the correction is unambiguous,
-preserves meaning, and requires no user choice. Otherwise it provides enough
-context for a person or agent to decide what intent to express through ordinary
-commands or direct editing.
+This diagnostic-context completeness does not make findings a second workflow
+engine. Ordinary operation results may explain what happened or offer a
+contextual next step, but invariant findings do not carry recovery instructions
+that can contradict the commands that own the work. AXM may choose a correction
+only when it is unambiguous, preserves meaning, and requires no user choice.
 
 ## Keep user intent, desired state, and current state distinct
 

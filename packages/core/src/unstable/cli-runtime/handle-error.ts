@@ -15,9 +15,27 @@ import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import { makeErrorEvent, makeSuggestionEvent } from "./output-mode.js";
 
-const writeStderr = (message: string): void => {
-  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
-};
+type WriteCallback = (error?: Error | null) => void;
+
+const writeStream = (
+  write: (chunk: string, callback: WriteCallback) => boolean,
+  message: string,
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    write(message, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+
+const writeStderr = (message: string): Promise<void> =>
+  writeStream(
+    process.stderr.write.bind(process.stderr),
+    message.endsWith("\n") ? message : `${message}\n`,
+  );
 
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
   errors.map((error) => error.message ?? String(error)).join("; ");
@@ -173,14 +191,14 @@ export const classifyError = (
  * Classifies the error, writes its stderr lines and optional stdout document,
  * and exits.
  */
-export const handleError = (error: unknown, format: OutputFormat): never => {
+export const handleError = async (error: unknown, format: OutputFormat): Promise<never> => {
   const { exitCode, stderr, stdout } = classifyError(error, format);
 
   for (const line of stderr ?? []) {
-    writeStderr(line);
+    await writeStderr(line);
   }
   if (stdout !== undefined) {
-    process.stdout.write(stdout);
+    await writeStream(process.stdout.write.bind(process.stdout), stdout);
   }
 
   process.exit(exitCode);

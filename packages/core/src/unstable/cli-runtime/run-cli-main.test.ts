@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import { CliError } from "effect/unstable/cli";
 
 import { ExitCode } from "../app-error/index.js";
+import { effectCliExit } from "./effect-cli-exit.js";
 import { makeErrorEvent } from "./output-mode.js";
 import { runCliMain } from "./run-cli-main.js";
 
@@ -24,10 +25,18 @@ describe("runCliMain", () => {
     stderrWrites = [];
     vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
       stdoutWrites.push(String(args[0]));
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
       return true;
     });
     vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
       stderrWrites.push(String(args[0]));
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
       return true;
     });
     vi.spyOn(process, "exit").mockImplementation((code) => {
@@ -89,6 +98,34 @@ describe("runCliMain", () => {
 
     expect(stdoutWrites).toEqual([`${JSON.stringify(document)}\n`]);
     expect(stderrWrites).toEqual([]);
+  });
+
+  it("waits for a large machine document to drain before a semantic exit", async () => {
+    const document = { ok: true, result: { findings: "x".repeat(200_000) } };
+    let releaseWrite: (() => void) | undefined;
+    vi.mocked(process.stdout.write).mockImplementation((...args: Array<unknown>) => {
+      stdoutWrites.push(String(args[0]));
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      releaseWrite = () => callback?.();
+      return false;
+    });
+
+    const execute = () =>
+      Effect.sync(() => {
+        process.stdout.write(`${JSON.stringify(document)}\n`);
+      }).pipe(Effect.andThen(Effect.die(effectCliExit(ExitCode.Issues))));
+
+    const running = runCliMain(execute, { args: ["lint", "--json"] });
+    await vi.waitFor(() => expect(stdoutWrites).toHaveLength(1));
+
+    expect(process.exit).not.toHaveBeenCalled();
+    releaseWrite?.();
+
+    await expect(running).rejects.toMatchObject({ code: ExitCode.Issues });
+    expect(process.exit).toHaveBeenCalledWith(ExitCode.Issues);
+    expect(JSON.parse(stdoutWrites.join(""))).toEqual(document);
   });
 
   it("replaces concatenated machine documents with one internal-error envelope", async () => {

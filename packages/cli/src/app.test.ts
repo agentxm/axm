@@ -241,10 +241,18 @@ describe("root command parser output", () => {
     consoleErrorWrites = [];
     vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
       stdoutWrites.push(String(args[0]));
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
       return true;
     });
     vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
       stderrWrites.push(String(args[0]));
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
       return true;
     });
     vi.spyOn(console, "error").mockImplementation((...args: ReadonlyArray<unknown>) => {

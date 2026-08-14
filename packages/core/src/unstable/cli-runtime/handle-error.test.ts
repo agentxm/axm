@@ -285,7 +285,20 @@ describe("handleError — integration", () => {
     vi.spyOn(process, "exit").mockImplementation((code) => {
       throw new ExitCalled(typeof code === "number" ? code : 0);
     });
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
+      return true;
+    });
+    vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
+      const callback = args.find(
+        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+      );
+      callback?.();
+      return true;
+    });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -293,9 +306,9 @@ describe("handleError — integration", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls process.exit with the classified exit code", () => {
+  it("calls process.exit with the classified exit code", async () => {
     try {
-      handleError(new Error("boom"), "text");
+      await handleError(new Error("boom"), "text");
     } catch (e) {
       if (e instanceof ExitCalled) {
         expect(e.code).toBe(ExitCode.Internal);

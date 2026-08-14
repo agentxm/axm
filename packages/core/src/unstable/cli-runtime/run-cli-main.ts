@@ -38,11 +38,35 @@ const invokeWriteCallback = (
   callback?.();
 };
 
+const writeChunk = (
+  write: (chunk: string, callback: WriteCallback) => boolean,
+  chunk: string,
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    write(chunk, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+
+const flushChunks = async (
+  write: (chunk: string, callback: WriteCallback) => boolean,
+  chunks: Array<string>,
+): Promise<void> => {
+  const pending = chunks.splice(0);
+  for (const chunk of pending) {
+    await writeChunk(write, chunk);
+  }
+};
+
 const bufferStdout = (): {
   readonly contents: () => string;
   readonly discard: () => void;
-  readonly flushToStderr: () => void;
-  readonly flushToStdout: () => void;
+  readonly flushToStderr: () => Promise<void>;
+  readonly flushToStdout: () => Promise<void>;
   readonly restore: () => void;
 } => {
   const originalWrite = process.stdout.write.bind(process.stdout);
@@ -72,18 +96,8 @@ const bufferStdout = (): {
     discard: () => {
       chunks.length = 0;
     },
-    flushToStderr: () => {
-      for (const chunk of chunks) {
-        originalStderrWrite(chunk);
-      }
-      chunks.length = 0;
-    },
-    flushToStdout: () => {
-      for (const chunk of chunks) {
-        originalWrite(chunk);
-      }
-      chunks.length = 0;
-    },
+    flushToStderr: () => flushChunks(originalStderrWrite, chunks),
+    flushToStdout: () => flushChunks(originalWrite, chunks),
     restore: () => {
       process.stdout.write = originalWrite;
       console.log = originalConsoleLog;
@@ -114,7 +128,7 @@ const validateMachineStdout = (stdout: string): void => {
 
 const bufferStderr = (): {
   readonly discard: () => void;
-  readonly flushToStderr: () => void;
+  readonly flushToStderr: () => Promise<void>;
   readonly restore: () => void;
 } => {
   const originalWrite = process.stderr.write.bind(process.stderr);
@@ -137,12 +151,7 @@ const bufferStderr = (): {
     discard: () => {
       chunks.length = 0;
     },
-    flushToStderr: () => {
-      for (const chunk of chunks) {
-        originalWrite(chunk);
-      }
-      chunks.length = 0;
-    },
+    flushToStderr: () => flushChunks(originalWrite, chunks),
     restore: () => {
       process.stderr.write = originalWrite;
     },
@@ -197,24 +206,24 @@ export const runCliMain = async (
         throw error;
       }
     }
-    stdoutBuffer?.flushToStdout();
-    stderrBuffer?.flushToStderr();
+    await stdoutBuffer?.flushToStdout();
+    await stderrBuffer?.flushToStderr();
   } catch (error) {
     const isUsageHelp = isUsageHelpError(error);
     if (isUsageHelp) {
       if (format === "text") {
         stderrBuffer?.discard();
-        stdoutBuffer?.flushToStderr();
+        await stdoutBuffer?.flushToStderr();
       } else {
         stdoutBuffer?.discard();
       }
     } else {
-      stdoutBuffer?.flushToStdout();
-      stderrBuffer?.flushToStderr();
+      await stdoutBuffer?.flushToStdout();
+      await stderrBuffer?.flushToStderr();
     }
     stdoutBuffer?.restore();
     stderrBuffer?.restore();
-    handleError(error, format);
+    await handleError(error, format);
   } finally {
     stdoutBuffer?.restore();
     stderrBuffer?.restore();

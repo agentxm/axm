@@ -1,3 +1,14 @@
+## 0.27.2 (2026-08-14)
+
+### 🩹 Fixes
+
+- Preserve official AXM skill release-age holdbacks when historical compatibility probes are unavailable. ([ac2315e9](https://github.com/agentxm/axm/commit/ac2315e9))
+- Use restricted credential storage for source-mode Bun runs so registry operations do not block on macOS Keychain authorization. ([8cd51f76](https://github.com/agentxm/axm/commit/8cd51f76))
+
+### ❤️ Thank You
+
+- Test @osintorg
+
 ## 0.27.1 (2026-08-14)
 
 ### 🩹 Fixes

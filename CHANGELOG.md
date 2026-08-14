@@ -1,3 +1,13 @@
+## 0.27.4 (2026-08-14)
+
+### 🩹 Fixes
+
+- Preserve each workspace's authored version constraint when a targeted update advances its accepted Registry resolution. ([2b9429cb](https://github.com/agentxm/axm/commit/2b9429cb))
+
+### ❤️ Thank You
+
+- Test @osintorg
+
 ## 0.27.3 (2026-08-14)
 
 ### 🩹 Fixes

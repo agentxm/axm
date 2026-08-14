@@ -199,6 +199,35 @@ describe("packs-add.handler", () => {
   const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
     makeWorkspaceHandlerTestContext(opts);
 
+  it.effect("accepts the unique configured pack FQN as the pack selector", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      profile: "@acme",
+      packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+      skills: { review: "@acme/skills/review" },
+      lockfileSkills: {
+        review: makeRegistrySkillLockEntry({
+          owner: handle("@acme"),
+          name: extensionName("review"),
+          resolvedVersion: exactVersion("1.2.3"),
+          sourceName: "local",
+          publisherBindingId: "hbnd_test",
+        }),
+      },
+    });
+    createPackManifest(tempDir, "@acme", "frontend-tools");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handlePacksAdd(defaultArgs("@acme/packs/frontend-tools", "@acme/skills/review"));
+
+        expect(readPackDependencies(tempDir, "frontend-tools")).toEqual({
+          "@acme/skills/review": "^1.2.3",
+        });
+      }),
+    );
+  });
+
   it.effect.each([
     { family: "0.0.x", version: "0.0.5", range: "^0.0.5" },
     { family: "0.y.z", version: "0.4.2", range: "^0.4.2" },

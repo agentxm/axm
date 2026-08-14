@@ -83,6 +83,7 @@ export const buildAtomicPackGraphStep = (args: {
   readonly message: string;
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<AtomicPackGraphChild>;
+  readonly reportUnchangedWhenChildrenUnchanged?: boolean;
   readonly preTransition?: Effect.Effect<void, AppError, WorkspaceMutations>;
   readonly validate: Effect.Effect<void, AppError, WorkspaceMutations>;
 }): Effect.Effect<PlannedJobStep, never, WorkspaceMutations> =>
@@ -137,12 +138,22 @@ export const buildAtomicPackGraphStep = (args: {
       .pipe(
         Effect.map((results) => {
           const warnings = results.flatMap(({ result }) => result.warnings ?? []);
+          const allChildrenUnchanged =
+            args.reportUnchangedWhenChildrenUnchanged === true &&
+            results.length > 0 &&
+            results.every(
+              ({ result }) =>
+                result.result === "success" && result.artifact?.change === "unchanged",
+            );
+          const artifact = allChildrenUnchanged
+            ? { ...args.artifact, change: "unchanged" as const }
+            : args.artifact;
           return {
             result: "success",
             message: args.message,
             artifact: !validatedCoverage.applicable
-              ? args.artifact
-              : { ...args.artifact, agents: validatedCoverage.agents },
+              ? artifact
+              : { ...artifact, agents: validatedCoverage.agents },
             ...(warnings.length === 0 ? {} : { warnings }),
           } satisfies JobStepResult;
         }),

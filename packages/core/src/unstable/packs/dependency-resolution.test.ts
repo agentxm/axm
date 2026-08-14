@@ -172,7 +172,7 @@ describe("resolvePackDependencies", () => {
           {
             description:
               "Update the pack if its owner has published a constraint that includes the workspace version",
-            cmd: "axm packs update @acme/packs/toolkit",
+            cmd: "axm update @acme/packs/toolkit",
           },
           {
             description: "Otherwise stop workspace authority from shadowing @acme/skills/review",

@@ -118,6 +118,48 @@ describe("toPlanResolutionResult", () => {
     });
   });
 
+  it("preserves the complete targeted update context in schema-backed output", () => {
+    const resolution: PreviewedPlan = {
+      _tag: "PreviewedPlan",
+      name: "Update @acme/skills/review",
+      description: Option.some("Update one pack-derived member"),
+      jobs: [],
+    };
+    const targetedUpdate = {
+      target: { type: "skill" as const, name: "review", fqn: "@acme/skills/review" },
+      ownership: "pack-only" as const,
+      activation: "enabled" as const,
+      authority: "pack-aware" as const,
+      packs: [
+        {
+          fqn: "@acme/packs/toolkit",
+          configuredName: "toolkit",
+          source: "workspace" as const,
+          memberSource: "registry" as const,
+          constraint: "^1.0.0",
+          enabled: true,
+        },
+      ],
+      effectiveConstraint: ">=1.0.0 <2.0.0-0",
+      memberClosure: [{ type: "skill" as const, name: "review", fqn: "@acme/skills/review" }],
+      effects: {
+        settings: "unchanged" as const,
+        acceptedResolution: "may-update" as const,
+        canonical: "may-update" as const,
+        projection: "may-update" as const,
+        packRoot: "unchanged" as const,
+        packManifest: "unchanged" as const,
+      },
+      relevantProblems: [],
+    };
+
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      toPlanResolutionResult(resolution, { targetedUpdate }),
+    );
+
+    expect(result.targetedUpdate).toEqual(targetedUpdate);
+  });
+
   it("publishes schema-backed agent coverage only for successful executed outcomes", () => {
     const resolution: ExecutedPlan = {
       _tag: "ExecutedPlan",

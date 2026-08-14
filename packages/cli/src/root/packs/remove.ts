@@ -20,7 +20,7 @@ import {
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
@@ -34,6 +34,7 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
 export interface PacksRemoveHandlerArgs {
   readonly pack: string;
@@ -52,28 +53,25 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const path = yield* Path.Path;
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.getConfiguredPackEntries();
-  const packEntry = configuredPacks[args.pack];
-
-  if (packEntry === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Pack '${args.pack}' not found`,
-      suggestions: [
-        {
-          description: "Create a pack first",
-          cmd: "axm packs new <name>",
-        },
-      ],
-    });
-  }
+  const configuredPacks = yield* ws.records
+    .rows("pack")
+    .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
+  const configuredOwner = yield* ws.getConfiguredOwner();
+  const selection = yield* resolveConfiguredPackSelector({
+    configured: configuredPacks,
+    ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
+    selector: args.pack,
+    recovery: { command: "remove", extension: args.extension },
+  });
+  const packName = selection.configuredName;
+  const packEntry = selection.entry;
 
   // Resolve pack owner
-  const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
+  const packSource = packEntry.source;
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",
-      detail: `Cannot edit non-workspace pack "${args.pack}"`,
+      detail: `Cannot edit non-workspace pack "${packName}"`,
       recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
     });
   }
@@ -83,31 +81,26 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const packOwner =
     packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)
-      : yield* ws.getConfiguredOwner().pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  makeAppError({
-                    code: "internal",
-                    detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    suggestions: [
-                      {
-                        description:
-                          "Set `owner` in `.axm/settings.json` before modifying this pack.",
-                        cmd: "axm setup",
-                      },
-                    ],
-                  }),
-                ),
-              onSome: Effect.succeed,
-            }),
-          ),
-        );
+      : yield* Option.match(configuredOwner, {
+          onNone: () =>
+            Effect.fail(
+              makeAppError({
+                code: "internal",
+                detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
+                suggestions: [
+                  {
+                    description: "Set `owner` in `.axm/settings.json` before modifying this pack.",
+                    cmd: "axm setup",
+                  },
+                ],
+              }),
+            ),
+          onSome: Effect.succeed,
+        });
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
+  const packDir = computePackPaths(path.join, base, packOwner, packName);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -181,7 +174,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const op = {
     name: "remove-from-pack",
     args: {
-      packName: args.pack,
+      packName,
       packOwner,
       removals: matchedNames,
       manifestHash,
@@ -200,14 +193,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.pack,
+    label: packName,
     run: provideServices(removeFromPack(op)),
   };
 
   const plan: Plan = {
     _tag: "Plan",
     name: "Remove from pack",
-    description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${args.pack}`),
+    description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${packName}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -227,10 +220,10 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     { description: "Inspect installed packs", cmd: "axm packs list" },
     {
       description: "Add to pack",
-      cmd: `axm packs add ${args.pack} <extension>`,
+      cmd: `axm packs add ${packName} <extension>`,
     },
   ];
-  const summary = `-> ${packManifestPath(packOwner, args.pack)}   1 file`;
+  const summary = `-> ${packManifestPath(packOwner, packName)}   1 file`;
   const emitted = yield* emitPlanResolutionResult(
     "packs.remove",
     resolution,
@@ -241,7 +234,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     const renderer = yield* CliRenderer;
     const verbosity = yield* Verbosity;
     yield* renderer.success(
-      `Removed ${count(matchedNames.length, "extension")} from pack ${args.pack}`,
+      `Removed ${count(matchedNames.length, "extension")} from pack ${packName}`,
       verbosity.level === "quiet"
         ? undefined
         : {
@@ -254,7 +247,9 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 });
 
 const removeConfig = {
-  pack: Argument.string("pack").pipe(Argument.withDescription("Name of the pack")),
+  pack: Argument.string("pack").pipe(
+    Argument.withDescription("Configured pack name or unique configured pack FQN"),
+  ),
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),

@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
+import { CatalogExtensionTypeSchema } from "@agentxm/client-core/unstable/extension-types";
 
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
@@ -45,11 +46,13 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
+import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
 
 export interface PlanResolutionResultOptions {
   readonly verbose?: boolean;
   readonly debug?: boolean;
   readonly agentCoverage?: AgentCoverage;
+  readonly targetedUpdate?: TargetedUpdatePublicContext;
 }
 
 export const AgentCoverageSchema = Schema.Struct({
@@ -179,6 +182,67 @@ const ReleaseAgeRecordSchema = Schema.Struct({
   description: "One deterministic minimum-release-age holdback or bypass record.",
 });
 
+const TargetedUpdateEffectSchema = Schema.Literals(["unchanged", "may-update"] as const);
+const TargetedUpdateContextSchema = Schema.Struct({
+  target: Schema.Struct({
+    type: CatalogExtensionTypeSchema,
+    name: Schema.String,
+    fqn: Schema.String,
+  }),
+  ownership: Schema.Literals(["absent", "direct-only", "pack-only", "combined"] as const),
+  activation: Schema.Literals(["enabled", "disabled"] as const),
+  authority: Schema.Literals(["direct", "pack-aware", "blocked"] as const),
+  direct: Schema.optional(
+    Schema.Struct({
+      source: Schema.Literals(["registry", "workspace"] as const),
+      enabled: Schema.Boolean,
+      constraint: Schema.optional(Schema.String),
+    }),
+  ),
+  packs: Schema.Array(
+    Schema.Struct({
+      fqn: Schema.String,
+      configuredName: Schema.optional(Schema.String),
+      source: Schema.optional(Schema.Literals(["registry", "workspace"] as const)),
+      memberSource: Schema.Literals(["registry", "workspace"] as const),
+      constraint: Schema.String,
+      enabled: Schema.Boolean,
+    }),
+  ),
+  effectiveConstraint: Schema.optional(Schema.String),
+  memberClosure: Schema.Array(
+    Schema.Struct({
+      type: CatalogExtensionTypeSchema,
+      name: Schema.String,
+      fqn: Schema.String,
+    }),
+  ),
+  effects: Schema.Struct({
+    settings: TargetedUpdateEffectSchema,
+    acceptedResolution: TargetedUpdateEffectSchema,
+    canonical: TargetedUpdateEffectSchema,
+    projection: TargetedUpdateEffectSchema,
+    packRoot: TargetedUpdateEffectSchema,
+    packManifest: TargetedUpdateEffectSchema,
+  }),
+  relevantProblems: Schema.Array(Schema.String),
+  blocker: Schema.optional(
+    Schema.Literals([
+      "not-desired",
+      "disabled",
+      "pack-owned-constraint",
+      "incomplete-graph",
+      "constraint-conflict",
+      "source-authority",
+      "stale-plan",
+    ] as const),
+  ),
+}).annotate({
+  identifier: "TargetedUpdateContext",
+  title: "Targeted Update Context",
+  description: "Sanitized ownership, authority, constraint, closure, and state-effect facts.",
+});
+
 const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
@@ -253,6 +317,7 @@ export const PlanResolutionResultSchema = Schema.Struct({
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   riskConditions: Schema.optional(Schema.Array(PlanRiskConditionSchema)),
   agentCoverage: Schema.optional(AgentCoverageSchema),
+  targetedUpdate: Schema.optional(TargetedUpdateContextSchema),
   steps: Schema.Array(StepSchema),
 }).annotate({
   identifier: "PlanResolutionResult",
@@ -707,6 +772,9 @@ const releaseAgeResultFields = (resolution: PlanResolution) =>
         releaseAgeBypasses: resolution.releaseAge.bypasses,
       };
 
+const targetedUpdateResultFields = (options: PlanResolutionResultOptions) =>
+  options.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate };
+
 export const toPlanResolutionResult = (
   resolution: PlanResolution,
   options: PlanResolutionResultOptions = {},
@@ -724,6 +792,7 @@ export const toPlanResolutionResult = (
 
       return {
         outcome: resolution._tag === "PreviewedPlan" ? "previewed" : "cancelled",
+        ...targetedUpdateResultFields(options),
         planName: resolution.name,
         ...releaseAgeResultFields(resolution),
         ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
@@ -760,6 +829,7 @@ export const toPlanResolutionResult = (
       const description = planDescription(resolution);
       return {
         outcome: "failed",
+        ...targetedUpdateResultFields(options),
         reason: resolution.reason,
         errorCode: resolution.errorCode,
         ...(resolution.candidateId === undefined ? {} : { candidateId: resolution.candidateId }),
@@ -808,6 +878,7 @@ export const toPlanResolutionResult = (
 
       return {
         outcome,
+        ...targetedUpdateResultFields(options),
         planName: resolution.name,
         ...releaseAgeResultFields(resolution),
         ...(description !== undefined ? { planDescription: description } : {}),
@@ -847,6 +918,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       readonly conflictingCount: number;
     };
     readonly agentCoverage?: AgentCoverage;
+    readonly targetedUpdate?: TargetedUpdatePublicContext;
   },
 ) =>
   Effect.gen(function* () {
@@ -864,6 +936,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       verbose: verbosity.isAtLeast("verbose"),
       debug: verbosity.level === "debug",
       ...(options?.agentCoverage === undefined ? {} : { agentCoverage: options.agentCoverage }),
+      ...(options?.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate }),
     });
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
@@ -890,6 +963,32 @@ export const emitPlanResolutionResult = <TCommand extends string>(
     );
     if (!emitted && result.outcome === "cancelled") {
       yield* renderer.info("Cancelled — no changes applied");
+    }
+    if (!emitted && result.targetedUpdate !== undefined) {
+      const context = result.targetedUpdate;
+      yield* renderer.info(
+        `${context.target.fqn}: ${context.ownership}, ${context.activation}, ${context.authority} authority`,
+      );
+      if (context.packs.length > 0) {
+        yield* renderer.info(
+          `Owning packs: ${context.packs
+            .map((pack) =>
+              pack.configuredName === undefined
+                ? `${pack.fqn} (${pack.constraint}; member ${pack.memberSource})`
+                : `${pack.fqn} as ${pack.configuredName} (${pack.constraint}; member ${pack.memberSource})`,
+            )
+            .join(", ")}`,
+        );
+      }
+      if (context.effectiveConstraint !== undefined) {
+        yield* renderer.info(`Effective constraint: ${context.effectiveConstraint}`);
+      }
+      yield* renderer.info(
+        `State effects: settings ${context.effects.settings}; accepted resolution ${context.effects.acceptedResolution}; canonical ${context.effects.canonical}; projection ${context.effects.projection}; pack root ${context.effects.packRoot}; pack manifest ${context.effects.packManifest}`,
+      );
+      if (context.blocker !== undefined) {
+        yield* renderer.info(`Blocker: ${context.blocker}`);
+      }
     }
     if (!emitted && result.outcome === "failed") {
       const detail =

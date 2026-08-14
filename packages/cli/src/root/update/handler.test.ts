@@ -53,6 +53,12 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 
 import { handleUpdate, type RootUpdateFlags } from "./handler.js";
 
@@ -333,8 +339,9 @@ describe("root update handler", () => {
       buildPlan: () => Effect.succeed(makePlan("knowledge")),
     };
 
-    const fullLayer = Layer.mergeAll(
+    const coreLayer = Layer.mergeAll(
       ctx.fullLayer,
+      CodingAgentRepositoryLive,
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         InstallSkillCommandWorkflowActions,
@@ -388,6 +395,17 @@ describe("root update handler", () => {
       ),
       Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
     );
+    const managerLayer = Layer.provide(
+      Layer.mergeAll(
+        SkillManagerLive,
+        SubagentManagerLive,
+        RuleManagerLive,
+        HookManagerLive,
+        KnowledgeManagerLive,
+      ),
+      coreLayer,
+    );
+    const fullLayer = Layer.merge(coreLayer, managerLayer);
 
     return {
       provide: makeEffectProvide(fullLayer),
@@ -409,6 +427,12 @@ describe("root update handler", () => {
         agents: ["claude-code"],
         owner: "@axm",
         sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { "code-review": "@acme/skills/code-review" },
+        mcps: { "dev-server": "@acme/mcps/dev-server" },
+        subagents: { researcher: "@acme/subagents/researcher" },
+        rules: { "workspace-guidance": "@acme/rules/workspace-guidance" },
+        hooks: { "tool-audit": "@acme/hooks/tool-audit" },
+        knowledge: { handbook: "@acme/knowledge/handbook" },
       });
 
       const sources = [
@@ -484,23 +508,27 @@ describe("root update handler", () => {
     }),
   );
 
-  it.effect("hard-blocks a targeted held release without preservable desired state", () =>
+  it.effect("blocks a non-desired target before Registry resolution", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
+      let registryCalls = 0;
       const { provide, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
           resolveNamedRegistry: (_source, options) =>
-            Effect.succeed({
-              kind: "policy_held",
-              target: `${options.owner}/skills/${options.name}`,
-              candidate: {
-                version: "2.0.0",
-                publishedAt: "2026-08-11T12:00:00.000Z",
-                eligibleAt: "2026-08-12T12:00:00.000Z",
-                minimumReleaseAgeSeconds: 86_400,
-              },
+            Effect.sync(() => {
+              registryCalls += 1;
+              return {
+                kind: "policy_held" as const,
+                target: `${options.owner}/skills/${options.name}`,
+                candidate: {
+                  version: "2.0.0",
+                  publishedAt: "2026-08-11T12:00:00.000Z",
+                  eligibleAt: "2026-08-12T12:00:00.000Z",
+                  minimumReleaseAgeSeconds: 86_400,
+                },
+              };
             }),
         },
       });
@@ -525,16 +553,87 @@ describe("root update handler", () => {
           reason: "hard-blocked",
           errorCode: "conflict",
           totalSteps: 0,
-          holdbackCount: 1,
-          holdbacks: [
-            {
-              target: "@acme/skills/reviewer",
-              candidateVersion: "2.0.0",
-            },
-          ],
+          targetedUpdate: {
+            ownership: "absent",
+            authority: "blocked",
+            blocker: "not-desired",
+          },
         },
       });
+      expect(registryCalls).toBe(0);
       expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("previews a pack-only member update without creating direct intent", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      let requestedRange: string | undefined;
+      const { provide, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) => {
+            requestedRange = Option.getOrUndefined(options.versionRange);
+            return selectedSourceHostProviders.resolveNamedRegistry(source, options);
+          },
+        },
+      });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@acme",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        packs: { toolkit: "workspace:@acme/packs/toolkit" },
+      });
+      const packDir = path.join(axmDir, "extensions", "@acme", "packs", "toolkit");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "1.0.0",
+          dependencies: { "@acme/skills/reviewer": "^1.0.0" },
+        }),
+      );
+      const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer"),
+          yes: false,
+          force: false,
+          preview: true,
+        }),
+      );
+
+      expect(requestedRange).toBe(">=1.0.0 <2.0.0-0");
+      expect(calls).toEqual([]);
+      expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "previewed",
+          totalSteps: 1,
+          targetedUpdate: {
+            ownership: "pack-only",
+            authority: "pack-aware",
+            packs: [
+              {
+                fqn: "@acme/packs/toolkit",
+                configuredName: "toolkit",
+                constraint: "^1.0.0",
+              },
+            ],
+            effects: {
+              settings: "unchanged",
+              packRoot: "unchanged",
+              packManifest: "unchanged",
+            },
+          },
+        },
+      });
     }),
   );
 
@@ -651,6 +750,7 @@ describe("root update handler", () => {
         agents: ["claude-code"],
         owner: "@axm",
         sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer" },
       });
 
       yield* provide(

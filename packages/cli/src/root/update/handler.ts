@@ -9,9 +9,10 @@ import {
   summarizeCommandOutcome,
   type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
+import type { Plan, PlanResolution } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
@@ -32,6 +33,7 @@ import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
 } from "@agentxm/client-core/unstable/version-constraints";
+import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import {
@@ -59,6 +61,13 @@ import { InstallSubagentCommandWorkflowActions } from "../subagents/install/comm
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { buildPackMemberInstallStep } from "../packs/member-install-step.js";
+import {
+  resolveTargetedUpdateContext,
+  type TargetedUpdateContext,
+  type TargetedUpdatePublicContext,
+} from "./targeted-update-context.js";
+import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-update-plan.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -76,6 +85,7 @@ const runUpdateIntent = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
   releaseAgeEvaluation?: ReleaseAgeEvaluation,
+  transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, WorkspaceMutations>,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
@@ -86,6 +96,7 @@ const runUpdateIntent = (
           actions,
           {
             execution,
+            ...(transformPlan === undefined ? {} : { transformPlan }),
             transformIntent: (resolved) => ({
               ...resolved,
               skillsToInstall: resolved.skillsToInstall.map((entry) => ({
@@ -101,6 +112,7 @@ const runUpdateIntent = (
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(mcpArgs, actions, {
           execution,
+          ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
         });
       }
@@ -109,6 +121,7 @@ const runUpdateIntent = (
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(ruleArgs, actions, {
           execution,
+          ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
             ...resolved,
             refs: resolved.refs.map((entry) => ({
@@ -123,6 +136,7 @@ const runUpdateIntent = (
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(hookArgs, actions, {
           execution,
+          ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
             ...resolved,
             refs: resolved.refs.map((entry) => ({
@@ -137,6 +151,7 @@ const runUpdateIntent = (
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
           execution,
+          ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
             ...resolved,
             refs: resolved.refs.map((entry) => ({
@@ -153,6 +168,7 @@ const runUpdateIntent = (
           actions,
           {
             execution,
+            ...(transformPlan === undefined ? {} : { transformPlan }),
             transformIntent: (resolved) => ({
               ...resolved,
               subagentsToInstall: resolved.subagentsToInstall.map((entry) => ({
@@ -309,12 +325,151 @@ const heldTargetResolution = (args: {
     } satisfies PlanResolution;
   });
 
+interface TargetedUpdateResolution {
+  readonly resolution: PlanResolution;
+  readonly context?: TargetedUpdatePublicContext;
+}
+
+const blockerDetail = (context: TargetedUpdatePublicContext): string => {
+  switch (context.blocker) {
+    case "not-desired":
+      return `${context.target.fqn} is not desired by this workspace`;
+    case "disabled":
+      return `${context.target.fqn} is effectively disabled`;
+    case "pack-owned-constraint":
+      return `${context.target.fqn} is pack-owned; a targeted version range would create direct intent`;
+    case "incomplete-graph":
+      return `Pack membership is incomplete, so ownership of ${context.target.fqn} cannot be proven`;
+    case "constraint-conflict":
+      return `The desired constraints for ${context.target.fqn} have no compatible intersection`;
+    case "source-authority":
+      return `${context.target.fqn} is workspace-authored and cannot be replaced from the Registry`;
+    case "stale-plan":
+      return TARGETED_UPDATE_STALE_DETAIL;
+    case undefined:
+      return `Update ${context.target.fqn} is blocked`;
+    default:
+      return `Update ${context.target.fqn} is blocked`;
+  }
+};
+
+const blockerSuggestions = (
+  context: TargetedUpdatePublicContext,
+): ReadonlyArray<{ readonly description: string; readonly cmd?: string }> => {
+  switch (context.blocker) {
+    case "not-desired":
+      return [
+        {
+          description: "Install the extension to create direct workspace intent",
+          cmd: `axm install ${context.target.fqn}`,
+        },
+      ];
+    case "disabled":
+      return [
+        {
+          description: "Enable the desired extension before updating it",
+          cmd: `axm ${toExtensionTypePlural(context.target.type)} enable ${context.target.name}`,
+        },
+      ];
+    case "pack-owned-constraint":
+      return [
+        {
+          description: "Rerun without a version range to preserve pack ownership",
+          cmd: `axm update ${context.target.fqn}`,
+        },
+      ];
+    case "incomplete-graph":
+      return [{ description: "Preview workspace reconciliation", cmd: "axm sync --preview" }];
+    case "constraint-conflict":
+      return context.packs.map((pack) =>
+        pack.source === "workspace"
+          ? {
+              description: `Replace ${pack.fqn}'s authored member constraint`,
+              cmd: `axm packs add ${pack.fqn} ${context.target.fqn}`,
+            }
+          : {
+              description: `Update ${pack.fqn} if its owner published a compatible constraint`,
+              cmd: `axm update ${pack.fqn}`,
+            },
+      );
+    case "source-authority":
+      return [
+        {
+          description: "Update the workspace-authored source, then reconcile it",
+          cmd: `axm sync ${context.target.fqn} --preview`,
+        },
+      ];
+    case "stale-plan":
+      return [
+        {
+          description: "Rerun the command to classify a fresh ownership context",
+          cmd: `axm update ${context.target.fqn}`,
+        },
+      ];
+    case undefined:
+      return [];
+    default:
+      return [];
+  }
+};
+
+const blockedTargetedUpdate = (context: TargetedUpdatePublicContext): PlanResolution => ({
+  _tag: "FailedPlan",
+  name: `Update ${context.target.fqn}`,
+  description: Option.some(blockerDetail(context)),
+  jobs: [],
+  reason: "hard-blocked",
+  errorCode: "conflict",
+  suggestions: blockerSuggestions(context),
+});
+
+const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdatePublicContext => ({
+  ...context,
+  authority: "blocked",
+  blocker: "stale-plan",
+  effects: {
+    settings: "unchanged",
+    acceptedResolution: "unchanged",
+    canonical: "unchanged",
+    projection: "unchanged",
+    packRoot: "unchanged",
+    packManifest: "unchanged",
+  },
+});
+
+const contextForResolution = (
+  context: TargetedUpdatePublicContext,
+  resolution: PlanResolution,
+): TargetedUpdatePublicContext => {
+  const targetedStale =
+    resolution._tag === "FailedPlan" &&
+    (resolution.reason === "stale-candidate" ||
+      resolution.executionSteps?.some((step) =>
+        step.message.includes(TARGETED_UPDATE_STALE_DETAIL),
+      ) === true);
+  return targetedStale ? staleOutputContext(context) : context;
+};
+
 const resolveTargetedUpdate = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
   ignoreReleaseAge: boolean,
 ) =>
   Effect.gen(function* () {
+    let targetedContext: TargetedUpdateContext | undefined;
+    if (intent.type !== "pack") {
+      targetedContext = yield* resolveTargetedUpdateContext({
+        target: { type: intent.type, name: intent.name, fqn: intent.target },
+        ...(Option.isNone(intent.versionRange) ? {} : { explicitRange: intent.versionRange.value }),
+      });
+      if (targetedContext.public.blocker !== undefined) {
+        return {
+          resolution: blockedTargetedUpdate(targetedContext.public),
+          context: targetedContext.public,
+        } satisfies TargetedUpdateResolution;
+      }
+    }
+
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
       ignoreReleaseAge ? "ignore" : "enforce",
     );
@@ -327,7 +482,10 @@ const resolveTargetedUpdate = (
       name: intent.name,
       type: intent.type,
       owner: intent.owner,
-      versionRange: intent.versionRange,
+      versionRange:
+        targetedContext?.public.effectiveConstraint === undefined
+          ? intent.versionRange
+          : Option.some(decodeVersionRangeSync(targetedContext.public.effectiveConstraint)),
       releaseAgeEvaluation,
     });
     if (selected.kind === "not_found") {
@@ -345,15 +503,74 @@ const resolveTargetedUpdate = (
     }
     const evaluatedAtText = DateTime.formatIso(releaseAgeEvaluation.evaluatedAt);
     if (selected.kind === "policy_held") {
-      return yield* heldTargetResolution({
+      const resolution = yield* heldTargetResolution({
         intent,
         evidence: selected.candidate,
         evaluatedAt: evaluatedAtText,
       });
+      return {
+        resolution,
+        ...(targetedContext === undefined ? {} : { context: targetedContext.public }),
+      } satisfies TargetedUpdateResolution;
     }
 
-    const exactIntent = { ...intent, source: `${intent.target}@${selected.ref.version}` };
-    const resolution = yield* runUpdateIntent(exactIntent, execution, releaseAgeEvaluation);
+    let resolution: PlanResolution;
+    if (targetedContext?.public.authority === "pack-aware") {
+      if (selected.ref.type === "pack") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Registry resolved ${intent.target} as an unexpected pack`,
+        });
+      }
+      if (selected.ref.type !== intent.type) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Registry resolved ${intent.target} as ${selected.ref.type}, expected ${intent.type}`,
+        });
+      }
+      const memberStep = yield* buildPackMemberInstallStep({
+        ref: selected.ref,
+        graphComplete: true,
+      });
+      const plan = yield* wrapTargetedUpdatePlan({
+        plan: {
+          _tag: "Plan",
+          name: `Update ${intent.target}`,
+          description: Option.some(`Update pack-derived member ${intent.target}`),
+          jobs: [{ concurrency: 1, steps: [memberStep] }],
+        },
+        context: targetedContext,
+      });
+      resolution = yield* previewOrApplyPlan(plan, { execution });
+    } else {
+      const durableRange =
+        intent.type === "pack"
+          ? intent.versionRange
+          : Option.fromUndefinedOr(
+              Option.getOrUndefined(intent.versionRange) ??
+                targetedContext?.public.direct?.constraint,
+            ).pipe(Option.map(decodeVersionRangeSync));
+      const exactIntent = {
+        ...intent,
+        source: `${intent.target}@${selected.ref.version}`,
+        versionRange: durableRange,
+      };
+      resolution = yield* runUpdateIntent(
+        exactIntent,
+        execution,
+        releaseAgeEvaluation,
+        targetedContext === undefined
+          ? undefined
+          : (plan) =>
+              wrapTargetedUpdatePlan({
+                plan,
+                context: targetedContext,
+                ...(Option.isNone(intent.versionRange)
+                  ? {}
+                  : { explicitRange: intent.versionRange.value }),
+              }),
+      );
+    }
     const holdbacks =
       selected.kind === "exempted" || selected.newerHeld === undefined
         ? []
@@ -377,7 +594,7 @@ const resolveTargetedUpdate = (
               ...selected.exemption,
             },
           ];
-    return withReleaseAge(resolution, {
+    const withEvidence = withReleaseAge(resolution, {
       evaluatedAt: evaluatedAtText,
       holdbacks: normalizeReleaseAgeRecords([
         ...holdbacks,
@@ -388,6 +605,12 @@ const resolveTargetedUpdate = (
         ...(resolution.releaseAge?.bypasses ?? []),
       ]),
     });
+    return {
+      resolution: withEvidence,
+      ...(targetedContext === undefined
+        ? {}
+        : { context: contextForResolution(targetedContext.public, withEvidence) }),
+    } satisfies TargetedUpdateResolution;
   });
 
 export const handleUpdate = (args: RootUpdateHandlerArgs) =>
@@ -411,12 +634,12 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
           ]),
         );
         const intent = yield* resolveRootUpdateIntent(source);
-        const resolution = yield* resolveTargetedUpdate(
+        const resolved = yield* resolveTargetedUpdate(
           intent,
           execution,
           args.ignoreReleaseAge === true,
         );
-        const outputResolution: PlanResolution = resolution;
+        const outputResolution = resolved.resolution;
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             planResolutionToSummary(outputResolution, {
@@ -425,6 +648,8 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
             }),
           ),
         );
-        yield* emitPlanResolutionResult("update", outputResolution);
+        yield* emitPlanResolutionResult("update", outputResolution, {
+          ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
+        });
       }),
   });

@@ -57,10 +57,20 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
  * Executes phases in order: parse -> resolveSource -> discover ->
  * finalizeIntent -> buildPlan -> previewOrApplyPlan.
  */
-export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
+export const buildInstallCommandPlan = <
+  Args,
+  Parsed,
+  Req,
+  Ref,
+  Intent,
+  TransformRequirements = never,
+>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  options?: { readonly transformIntent?: (intent: Intent) => Intent },
+  options?: {
+    readonly transformIntent?: (intent: Intent) => Intent;
+    readonly transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, TransformRequirements>;
+  },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
@@ -68,7 +78,8 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
     const refs = yield* actions.discoverRefs(sourceRequests);
     const finalizedIntent = yield* actions.finalizeIntent(parsed, refs);
     const intent = options?.transformIntent?.(finalizedIntent) ?? finalizedIntent;
-    return yield* actions.buildPlan(intent);
+    const plan = yield* actions.buildPlan(intent);
+    return options?.transformPlan === undefined ? plan : yield* options.transformPlan(plan);
   });
 
 /**
@@ -77,13 +88,21 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
  * Executes phases in order: parse -> resolveSource -> discover ->
  * finalizeIntent -> buildPlan -> previewOrApplyPlan.
  */
-export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
+export const runInstallCommandWorkflow = <
+  Args,
+  Parsed,
+  Req,
+  Ref,
+  Intent,
+  TransformRequirements = never,
+>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
   options: {
     readonly execution: PlanExecution;
     readonly displayApplied?: boolean;
     readonly transformIntent?: (intent: Intent) => Intent;
+    readonly transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, TransformRequirements>;
   },
 ) =>
   Effect.gen(function* () {

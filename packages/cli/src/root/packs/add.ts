@@ -49,6 +49,7 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
 export interface PacksAddHandlerArgs {
   readonly pack: string;
@@ -86,28 +87,25 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const path = yield* Path.Path;
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
-  const packEntry = configuredPacks[args.pack];
-
-  if (packEntry === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Pack '${args.pack}' not found`,
-      suggestions: [
-        {
-          description: "Create a pack first",
-          cmd: "axm packs new <name>",
-        },
-      ],
-    });
-  }
+  const configuredPacks = yield* ws.records
+    .rows("pack")
+    .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
+  const configuredOwner = yield* ws.getConfiguredOwner();
+  const selection = yield* resolveConfiguredPackSelector({
+    configured: configuredPacks,
+    ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
+    selector: args.pack,
+    recovery: { command: "add", extension: args.extension },
+  });
+  const packName = selection.configuredName;
+  const packEntry = selection.entry;
 
   // Resolve pack owner from the entry (format: "@owner/packs/name" or { source: "@owner/packs/name" })
-  const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
+  const packSource = packEntry.source;
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",
-      detail: `Cannot edit non-workspace pack "${args.pack}"`,
+      detail: `Cannot edit non-workspace pack "${packName}"`,
       recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
     });
   }
@@ -117,31 +115,26 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const packOwner =
     packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)
-      : yield* ws.getConfiguredOwner().pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  makeAppError({
-                    code: "internal",
-                    detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    suggestions: [
-                      {
-                        description:
-                          "Set `owner` in `.axm/settings.json` before modifying this pack.",
-                        cmd: "axm setup",
-                      },
-                    ],
-                  }),
-                ),
-              onSome: Effect.succeed,
-            }),
-          ),
-        );
+      : yield* Option.match(configuredOwner, {
+          onNone: () =>
+            Effect.fail(
+              makeAppError({
+                code: "internal",
+                detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
+                suggestions: [
+                  {
+                    description: "Set `owner` in `.axm/settings.json` before modifying this pack.",
+                    cmd: "axm setup",
+                  },
+                ],
+              }),
+            ),
+          onSome: Effect.succeed,
+        });
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
+  const packDir = computePackPaths(path.join, base, packOwner, packName);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -186,7 +179,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const packFqn = formatFqn({
     owner: packOwner,
     type: "pack",
-    name: decodeExtensionNameSync(args.pack),
+    name: decodeExtensionNameSync(packName),
   });
   const targetPackProblems = graph.problems.filter(
     (problem) =>
@@ -273,7 +266,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         recover: "Pass the fully qualified name to choose one.",
         suggestions: matched.map((candidate) => ({
           description: `Add the ${candidate.type}`,
-          cmd: `axm packs add ${args.pack} ${candidate.fqn}`,
+          cmd: `axm packs add ${packName} ${candidate.fqn}`,
         })),
       });
     }
@@ -324,7 +317,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (Object.keys(additions).length === 0) {
     yield* emitNoOpOutcome("packs.add", {
       planName: "Add to pack",
-      planDescription: `Add extensions to ${args.pack}`,
+      planDescription: `Add extensions to ${packName}`,
       message: "No extensions added to pack.",
     });
     return;
@@ -334,7 +327,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const op = {
     name: "add-to-pack",
     args: {
-      packName: args.pack,
+      packName,
       packOwner,
       additions,
       manifestHash,
@@ -353,7 +346,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.pack,
+    label: packName,
     run: provideServices(addToPack(op)),
   };
 
@@ -361,7 +354,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     _tag: "Plan",
     name: "Add to pack",
     description: Option.some(
-      `Add ${count(Object.keys(additions).length, "extension")} to ${args.pack}`,
+      `Add ${count(Object.keys(additions).length, "extension")} to ${packName}`,
     ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
@@ -381,10 +374,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     { description: "Inspect installed packs", cmd: "axm packs list" },
     {
       description: "Remove from pack",
-      cmd: `axm packs remove ${args.pack} ${args.extension}`,
+      cmd: `axm packs remove ${packName} ${args.extension}`,
     },
   ];
-  const summary = `-> ${packManifestPath(packOwner, args.pack)}   1 file`;
+  const summary = `-> ${packManifestPath(packOwner, packName)}   1 file`;
   const emitted = yield* emitPlanResolutionResult(
     "packs.add",
     resolution,
@@ -395,7 +388,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     const renderer = yield* CliRenderer;
     const verbosity = yield* Verbosity;
     yield* renderer.success(
-      `Added ${count(Object.keys(additions).length, "extension")} to pack ${args.pack}`,
+      `Added ${count(Object.keys(additions).length, "extension")} to pack ${packName}`,
       verbosity.level === "quiet"
         ? undefined
         : {
@@ -408,7 +401,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 });
 
 const addConfig = {
-  pack: Argument.string("pack").pipe(Argument.withDescription("Name of the pack")),
+  pack: Argument.string("pack").pipe(
+    Argument.withDescription("Configured pack name or unique configured pack FQN"),
+  ),
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),

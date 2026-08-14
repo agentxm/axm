@@ -121,7 +121,7 @@ const workspaceConstraintConflict = (
       {
         description:
           "Update the pack if its owner has published a constraint that includes the workspace version",
-        cmd: `axm packs update ${packFqn}`,
+        cmd: `axm update ${packFqn}`,
       },
       {
         description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,

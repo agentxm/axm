@@ -10,7 +10,7 @@ Run `axm help pack-schema` to print the raw JSON Schema.
 
 ## Authoring and editing packs
 
-Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <pack> <extension>` and `axm packs remove <pack> <extension>` to edit dependencies when possible.
+Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <pack> <extension>` and `axm packs remove <pack> <extension>` to edit dependencies when possible. `<pack>` accepts the configured local name or a unique configured pack FQN; ambiguous FQNs must be replaced with the local name AXM reports.
 
 Use `axm packs show <name-or-fqn>` to compare desired membership, accepted
 external resolution, canonical observation, and graph problems. A
@@ -70,6 +70,13 @@ preserves the complete accepted, usable graph or stops without writing. A
 targeted `axm update @owner/packs/name --ignore-release-age` bypasses the policy
 for the pack and all of its Registry dependencies for that invocation, and the
 result identifies each bypass by dependency path.
+
+A targeted update of a pack-only member preserves pack ownership: AXM resolves
+within the intersection of every owning pack constraint, updates only that
+member's accepted and materialized state, and leaves settings and owner pack
+content unchanged. Supplying a version range for a pack-only member is blocked;
+edit the authored pack constraint with `axm packs add`, or update a published
+owner pack with `axm update @owner/packs/name`.
 
 Configured pack manifests expand desired state across skills, MCP servers,
 subagents, rules, hooks, and knowledge bundles. AXM

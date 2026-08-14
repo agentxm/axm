@@ -396,7 +396,7 @@ const localPackConstraintErrors = (
                 : [
                     {
                       description: `Update ${conflict.packFqn} if its owner has published a compatible constraint`,
-                      cmd: `axm packs update ${conflict.packFqn}`,
+                      cmd: `axm update ${conflict.packFqn}`,
                     },
                     {
                       description: `Otherwise stop workspace authority from shadowing ${conflict.memberFqn}`,

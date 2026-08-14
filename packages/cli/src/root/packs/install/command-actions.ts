@@ -61,11 +61,7 @@ import {
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import {
-  installMcpServer,
-  McpServerManager,
-  type McpServerExtensionRef,
-} from "@agentxm/client-core/unstable/mcps";
+import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
   SubagentManager,
   type SubagentExtensionRef,
@@ -75,7 +71,6 @@ import {
   buildInstallOperation,
   targetFromRef,
   toLabel,
-  toLabelWithCompanions,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type {
@@ -104,6 +99,7 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+import { buildPackMemberInstallStep } from "../member-install-step.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -358,27 +354,6 @@ const registrySourceArtifact = (args: {
   };
 };
 
-const registrySourceArtifactWithCoverage = (args: {
-  readonly ref: ExtensionRef;
-  readonly scope: JobStepArtifact["scope"];
-  readonly installedBefore: boolean;
-  readonly materialization: Effect.Effect<
-    {
-      readonly agents: ReadonlyArray<string>;
-      readonly targets: ReadonlyArray<{
-        readonly path: string;
-        readonly agentIds?: ReadonlyArray<string>;
-      }>;
-    },
-    never
-  >;
-}) =>
-  Effect.gen(function* () {
-    const artifact = registrySourceArtifact(args);
-    const materialization = yield* args.materialization;
-    return { ...artifact, agents: materialization.agents } satisfies JobStepArtifact;
-  });
-
 const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineligible" => {
   switch (ref?.type) {
     case "skill":
@@ -474,6 +449,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fsSvc),
       Layer.succeed(Path.Path, pathSvc),
       Layer.succeed(CodingAgentRepository, agentRepo),
+      Layer.succeed(PackManager, packMgr),
+      Layer.succeed(SkillManager, skillMgr),
+      Layer.succeed(McpServerManager, mcpServerMgr),
+      Layer.succeed(SubagentManager, subagentMgr),
+      Layer.succeed(RuleManager, ruleManager),
+      Layer.succeed(HookManager, hookManager),
+      Layer.succeed(KnowledgeManager, knowledgeManager),
     );
 
     // Assertion needed: strips service requirements (R) from inner effects.
@@ -1114,175 +1096,28 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
         const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
-        const installSteps = refs.map((ref: ExtensionRef): PlannedJobStep => {
-          const target = targetFromRef(ref);
-
-          if (ref.type === "pack") {
-            return buildInstallOperation<PackRef>(packMgr, {
-              ref,
-              versionRange: intent.versionRange,
-              installedBefore: graph.complete
-                ? packMgr.isInstalled({
-                    target: { type: "pack", name: ref.pack.name, owner: ref.owner },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
-            });
-          }
-
-          if (ref.type === "skill") {
-            return buildInstallOperation<SkillExtensionRef>(skillMgr, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? skillMgr.isInstalled({
-                    target: { type: "skill", name: ref.skill.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                registrySourceArtifactWithCoverage({
-                  ref,
-                  scope: ws.scope,
-                  installedBefore,
-                  materialization:
-                    skillMgr.getLastMaterialization === undefined
-                      ? Effect.succeed({ agents: [], targets: [] })
-                      : skillMgr.getLastMaterialization({
-                          target: { type: "skill", name: ref.skill.name },
-                        }),
-                }),
-            });
-          }
-
-          if (ref.type === "mcp-server") {
-            const base = {
-              key: `mcp-server:${ref.server.name}`,
-              label: toLabelWithCompanions(
-                { type: "mcp-server", name: ref.server.name },
-                ref.refType === "registry" ? ref.packages : [],
-              ),
-              run: provide(
-                installMcpServer({
-                  name: "install-mcp-server",
-                  args: {
+        const installSteps = yield* Effect.forEach(
+          refs,
+          (ref): Effect.Effect<PlannedJobStep, never> =>
+            ref.type === "pack"
+              ? Effect.succeed(
+                  buildInstallOperation<PackRef>(packMgr, {
                     ref,
-                    force: false,
-                    versionRange: Option.none(),
-                    skipSettings: Option.some(true),
-                    strictAgentSync: Option.some(true),
-                    env: Option.none(),
-                  },
-                }),
-              ),
-            };
-            const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
-            return warnings.length === 0
-              ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)
-              : ({
-                  ...base,
-                  readiness: "warn",
-                  warnMessage: warnings.join("; "),
-                } satisfies PlannedJobStep);
-          }
-
-          if (ref.type === "subagent") {
-            return buildInstallOperation<SubagentExtensionRef>(subagentMgr, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? subagentMgr.isInstalled({
-                    target: { type: "subagent", name: ref.subagent.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                registrySourceArtifactWithCoverage({
-                  ref,
-                  scope: ws.scope,
-                  installedBefore,
-                  materialization:
-                    subagentMgr.getLastMaterialization === undefined
-                      ? Effect.succeed({ agents: [], targets: [] })
-                      : subagentMgr.getLastMaterialization({
-                          target: { type: "subagent", name: ref.subagent.name },
-                        }),
-                }),
-            });
-          }
-
-          if (ref.type === "rule") {
-            return buildInstallOperation<RuleExtensionRef>(ruleManager, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? ruleManager.isInstalled({
-                    target: { type: "rule", name: ref.rule.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                registrySourceArtifactWithCoverage({
-                  ref,
-                  scope: ws.scope,
-                  installedBefore,
-                  materialization:
-                    ruleManager.getLastMaterialization === undefined
-                      ? Effect.succeed({ agents: [], targets: [] })
-                      : ruleManager.getLastMaterialization({
-                          target: { type: "rule", name: ref.rule.name },
-                        }),
-                }),
-            });
-          }
-
-          if (ref.type === "hook") {
-            return buildInstallOperation<HookExtensionRef>(hookManager, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? hookManager.isInstalled({
-                    target: { type: "hook", name: ref.hook.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                registrySourceArtifactWithCoverage({
-                  ref,
-                  scope: ws.scope,
-                  installedBefore,
-                  materialization:
-                    hookManager.getLastMaterialization === undefined
-                      ? Effect.succeed({ agents: [], targets: [] })
-                      : hookManager.getLastMaterialization({
-                          target: { type: "hook", name: ref.hook.name },
-                        }),
-                }),
-            });
-          }
-
-          if (ref.type === "knowledge") {
-            return buildInstallOperation<KnowledgeExtensionRef>(knowledgeManager, {
-              ref,
-              versionRange: Option.none(),
-              skipSettings: true,
-              installedBefore: graph.complete
-                ? knowledgeManager.isInstalled({
-                    target: { type: "knowledge", name: ref.knowledge.name },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
-            });
-          }
-
-          return {
-            label: toLabel(target),
-            readiness: "error",
-            errorMessage: "Unsupported dependency type",
-          };
-        });
+                    versionRange: intent.versionRange,
+                    installedBefore: graph.complete
+                      ? packMgr.isInstalled({
+                          target: { type: "pack", name: ref.pack.name, owner: ref.owner },
+                        })
+                      : Effect.succeed(false),
+                    buildArtifact: ({ installedBefore }) =>
+                      Effect.succeed(
+                        registrySourceArtifact({ ref, scope: ws.scope, installedBefore }),
+                      ),
+                  }),
+                )
+              : buildPackMemberInstallStep({ ref, graphComplete: graph.complete }).pipe(provide),
+          { concurrency: 1 },
+        );
 
         const nextDependencies = collectResolvedDependencyNames(refs);
         const droppedTargets =

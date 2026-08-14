@@ -24,6 +24,11 @@ declaration.
 authored intent only. Direct editing of an authored pack manifest remains a
 supported equivalent way to express that intent.
 
+The pack selector may be its configured local name or a unique configured pack
+FQN. AXM resolves either form back to the configured local row before editing.
+Unknown FQNs, non-pack FQNs, and FQNs shared by multiple configured rows fail
+with recovery through the local selector.
+
 Empty authored packs are valid workspace content. The publish gate separately
 decides whether a pack is eligible for distribution.
 
@@ -41,6 +46,7 @@ requirements.
 ## Testing strategy
 
 Behavior tests prove add, explicit constraint update, remove, direct-edit
-equivalence, empty local packs, and preservation of authored content after
-failures. Pack architecture tests separately prove dependency authority,
-reachability, and graph reconciliation.
+equivalence, local-name and unique-FQN selection, ambiguity recovery, empty
+local packs, and preservation of authored content after failures. Pack
+architecture tests separately prove dependency authority, reachability, and
+graph reconciliation.

@@ -133,6 +133,41 @@ describe("packs-remove.handler", () => {
     nonInteractive?: boolean;
   }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
 
+  it.effect("accepts the unique configured pack FQN as the pack selector", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      profile: "@acme",
+      packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+    });
+    createPackManifest(tempDir, "@acme", "frontend-tools", {
+      dependencies: { "@acme/skills/review": "^1.2.3" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handlePacksRemove(defaultArgs("@acme/packs/frontend-tools", "@acme/skills/review"));
+
+        const manifest = expectRecord(
+          JSON.parse(
+            fs.readFileSync(
+              path.join(
+                tempDir,
+                ".axm",
+                "extensions",
+                "@acme",
+                "packs",
+                "frontend-tools",
+                "pack.json",
+              ),
+              "utf8",
+            ),
+          ),
+        );
+        expect(expectRecord(manifest["dependencies"])["@acme/skills/review"]).toBeUndefined();
+      }),
+    );
+  });
+
   describe("remove specific extension", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
       const { provide, logs, rendererState } = makeLayers();

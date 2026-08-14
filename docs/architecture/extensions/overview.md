@@ -98,9 +98,10 @@ ownership from an entry or region to the containing file merely because it must
 use read-modify-write.
 
 Every type document states how its unit is identified, what can coexist, what
-collides, and what AXM may remove. AXM does not adopt native content, including
-semantically equivalent content. A person or agent manually preserves,
-relocates, or removes an unowned collision.
+collides, and what AXM may remove. Observation and reconciliation never adopt
+native content, including semantically equivalent content. A person or agent
+manually preserves, relocates, or removes an unowned collision. Any separately
+invoked type-specific import contract is outside this recovery boundary.
 
 ## Invariants
 

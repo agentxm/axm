@@ -18,8 +18,9 @@ merges an owned server entry into each supported native configuration. It
 supports both published extension content and explicit inline workspace
 configuration because local server connections are a routine MCP use case.
 
-The MCP command group may add or inspect server definitions. Observation never
-adopts an existing native entry.
+The MCP command group may add, import, or inspect server definitions. Import is
+a separately invoked authoring capability outside the workspace-recovery
+contract; observation and reconciliation never invoke it or infer its intent.
 
 ## Non-responsibilities
 
@@ -48,8 +49,9 @@ must realize is a collision, even when its connection details happen to match.
 AXM-managed entries carry type-appropriate provenance that survives ordinary
 serialization changes. AXM may update or remove only that entry. A native
 format that cannot preserve unrelated entries or identify AXM's entry safely is
-unsupported. Even an equivalent unowned entry remains unowned; manual
-preservation, relocation, or removal owns collision recovery.
+unsupported. Even an equivalent unowned entry remains unowned during ordinary
+observation and reconciliation; manual preservation, relocation, or removal
+owns collision recovery.
 
 ## Invariants
 
@@ -66,6 +68,6 @@ preservation, relocation, or removal owns collision recovery.
 
 Behavior tests prove canonical-content and inline authority, input binding,
 secret-safe output, unrelated-entry preservation, same-name collisions,
-provenance drift, manual unowned-collision recovery, target-dialect rendering, shared-target
-concurrency, unsupported transports, activation, safe removal, and repeated
-reconciliation.
+provenance drift, explicit import boundaries, manual unowned-collision
+recovery, target-dialect rendering, shared-target concurrency, unsupported
+transports, activation, safe removal, and repeated reconciliation.

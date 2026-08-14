@@ -33,7 +33,7 @@ workspaces easier to recover.
 | Inspect extensions                | `list`, `list --outdated`, and `view`              | Inventory, update availability, or extension information; no state change.       |
 | Discover extensions               | `discover`                                         | Project packages produce recommendations without changing intent.                |
 | Use type-specific capabilities    | Type command groups                                | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
-| Author extensions                 | `new`, copy, and type authoring commands           | Workspace-authored canonical content or explicit inline configuration changes.   |
+| Author extensions                 | `new`, copy, import, and type authoring commands   | Workspace-authored canonical content or explicit inline configuration changes.   |
 | Distribute authored extensions    | [`publish`](publish.md)                            | Eligible authored content is validated and sent to the registry.                 |
 
 ## Non-responsibilities

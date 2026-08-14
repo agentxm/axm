@@ -20,17 +20,16 @@ import semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  computePackManifestContentIdentity,
+} from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/client-core/unstable/skills";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-} from "../../../test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -68,7 +67,7 @@ const initWorkspace = (
   if (opts?.sources) settings["sources"] = opts.sources;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 3,
+    lockfileVersion: 4,
     skills: opts?.skillLocks ?? {},
   };
   if (opts?.packLocks) {
@@ -125,11 +124,13 @@ const makeRegistryLockEntry = (
   integrity: `sha512-${resolvedVersion}`,
   sourceName: "local-reg",
   publisherBindingId: publisherBindingId ?? "hbnd_test",
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
 });
 
-const makePackLockEntry = (owner: string, name: string, sourceHash?: string) => ({
+const makePackLockEntry = (
+  owner: string,
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+) => ({
   type: "registry",
   owner,
   name,
@@ -137,12 +138,13 @@ const makePackLockEntry = (owner: string, name: string, sourceHash?: string) => 
   integrity: "sha512-pack",
   sourceName: "local-reg",
   publisherBindingId: "hbnd_test",
-  ...(sourceHash === undefined ? {} : { sourceHash }),
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  resolvedSkills: {},
-  resolvedMcpServers: {},
-  resolvedSubagents: {},
+  manifestContentIdentity: computePackManifestContentIdentity({
+    owner,
+    type: "pack",
+    name,
+    version: "1.0.0",
+    dependencies,
+  }),
 });
 
 const writeRegistrySkill = ({
@@ -412,8 +414,7 @@ describe("update.handler — error recovery", () => {
         "broken-skill": {
           type: "local",
           path: "nonexistent-source-dir-that-does-not-exist",
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          contentIdentity: "missing-local-content",
         },
       },
     });
@@ -730,7 +731,7 @@ describe("update.handler — error recovery", () => {
         "@acme/skills/code-review": "^1.0.0",
       },
     });
-    const packDir = path.join(tempDir, REGISTRY_EXTENSIONS_DIR, "@acme", "packs", "frontend-pack");
+    const packDependencies = { "@acme/skills/code-review": "^1.0.0" };
 
     initWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
@@ -751,14 +752,9 @@ describe("update.handler — error recovery", () => {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
       },
       packLocks: {
-        "frontend-pack": makePackLockEntry(
-          "@acme",
-          "frontend-pack",
-          computePackageContentHashSync(packDir),
-        ),
+        "frontend-pack": makePackLockEntry("@acme", "frontend-pack", packDependencies),
       },
     });
-    writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {

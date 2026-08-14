@@ -86,7 +86,7 @@ describe("instruction workspace rules", () => {
     }),
   );
 
-  it.effect("reports target drift and emits a per-target operation", () =>
+  it.effect("reports target drift as a fact without a mutation capability", () =>
     Effect.gen(function* () {
       const context = contextFor({
         status: Option.some({
@@ -109,23 +109,13 @@ describe("instruction workspace rules", () => {
       const findings = yield* instructionsTargetCurrentRule.check(context);
       expect(findings).toMatchObject([
         {
-          kind: "autofixable",
+          kind: "advisory",
           ruleId: "workspace/instructions-target-current",
           severity: "warning",
           location: { file: "CLAUDE.md" },
         },
       ]);
-      const first = findings[0];
-      if (first === undefined || first.kind !== "autofixable") {
-        throw new Error("expected autofixable finding");
-      }
-      const operations = yield* instructionsTargetCurrentRule.fix(context, first);
-      expect(operations).toEqual([
-        {
-          name: "sync-instruction-target",
-          args: { root, agentId: "claude-code", force: true },
-        },
-      ]);
+      expect("fix" in instructionsTargetCurrentRule).toBe(false);
     }),
   );
 
@@ -161,7 +151,7 @@ describe("instruction workspace rules", () => {
     }),
   );
 
-  it.effect("reports stale gitignore state and emits a gitignore operation", () =>
+  it.effect("reports stale gitignore state without a mutation capability", () =>
     Effect.gen(function* () {
       const context = contextFor({
         gitignore: Option.some({
@@ -174,23 +164,13 @@ describe("instruction workspace rules", () => {
       const findings = yield* instructionsGitignoreCurrentRule.check(context);
       expect(findings).toMatchObject([
         {
-          kind: "autofixable",
+          kind: "advisory",
           ruleId: "workspace/instructions-gitignore-current",
           severity: "info",
           location: { file: ".gitignore" },
         },
       ]);
-      const first = findings[0];
-      if (first === undefined || first.kind !== "autofixable") {
-        throw new Error("expected autofixable finding");
-      }
-      const operations = yield* instructionsGitignoreCurrentRule.fix(context, first);
-      expect(operations).toEqual([
-        {
-          name: "sync-instructions-gitignore",
-          args: { desired: false },
-        },
-      ]);
+      expect("fix" in instructionsGitignoreCurrentRule).toBe(false);
     }),
   );
 });

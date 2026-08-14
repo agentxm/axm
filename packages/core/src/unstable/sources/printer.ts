@@ -120,28 +120,13 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
         type: "registry",
         owner: Option.none(),
       };
-    case "inline":
-      return {
-        type: "inline",
-        command: Option.fromUndefinedOr(entry.command),
-        args: entry.args ?? [],
-        url: Option.fromUndefinedOr(entry.url),
-        headers: entry.headers ?? {},
-      };
-    case "workspace":
-      return {
-        type: "workspace",
-        owner: entry.owner,
-        extensionType: entry.extensionType,
-        name: entry.name,
-      };
   }
 };
 
 /**
- * Print the exact source locator represented by an installed skill receipt.
- * Registry receipts include their immutable identity and resolved version;
- * other receipts round-trip through their source-specific shorthand.
+ * Print the exact source locator represented by an accepted Skill resolution.
+ * Registry rows include their immutable identity and resolved version; other
+ * rows round-trip through their source-specific shorthand.
  *
  * @experimental This API is unstable and may change without notice.
  */

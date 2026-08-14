@@ -6,7 +6,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
-import YAML from "yaml";
 import {
   AgentExecutableResolver,
   CodingAgentRepositoryLive,
@@ -291,11 +290,11 @@ describe("agents add.handler", () => {
     );
   });
 
-  it.effect("recovers an unreadable lockfile instead of skipping materialization", () => {
+  it.effect("blocks without replacing an unreadable authoritative lockfile", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, { agents: [] });
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
     // Mirrors the CLI's `withWorkspace` boundary, which degrades lockfile reads
     // so a corrupt file cannot abort the command before recovery runs.
@@ -310,21 +309,18 @@ describe("agents add.handler", () => {
             preview: false,
           });
 
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Add coding agents",
-            totalSteps: 3,
-            warningCount: 2,
-          });
+          const payload = expectRecord(rendererState.results[0]?.data);
+          const result = expectRecord(property(payload, "result"));
           expect(result).toMatchObject({
-            steps: [
-              { label: "Recover lockfile (invalid)", status: "applied" },
-              { label: "Reconcile lockfile (invalid)", status: "applied" },
-              { label: "Add cursor", status: "applied", message: "Configured cursor" },
-            ],
+            outcome: "failed",
+            reason: "hard-blocked",
+            planName: "Add coding agents",
+            steps: [{ label: "Read accepted external resolutions", status: "error" }],
           });
 
-          const rewritten = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
-          expect(rewritten.lockfileVersion).toBe(3);
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(
+            "lockfileVersion: 4\nskills: []\n",
+          );
         }),
       ),
     );

@@ -484,16 +484,16 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 3,
+  lockfileVersion: 4,
   skills: {
     "managed-tool": {
       type: "github",
       owner: "owner",
       repo: "repo",
       ref: "main",
-      installedAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      agents: [],
+      resolvedCommit: "commit-1",
+      resolvedTree: "tree-1",
+      contentIdentity: "content-1",
     },
   },
 };

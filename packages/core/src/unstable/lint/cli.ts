@@ -32,15 +32,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import { sanitizeSuggestedAction } from "../cli-runtime/suggested-action.js";
 import { composePath } from "./compose-path.js";
 import type { LintConfig } from "./config.js";
 import { platformCanonicalLintConfig } from "./config.js";
 import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
-import type { WorkspaceRuleContext } from "./context.js";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
-import type { AutofixingRule, LintFinding, Severity } from "./rule.js";
+import type { LintFinding, Severity } from "./rule.js";
 import {
   CATALOG_GROUP_ORDER,
   lintCatalogsForView,
@@ -49,15 +47,6 @@ import {
   type CatalogRuleContexts,
   type LintView,
 } from "./catalog-contexts.js";
-import {
-  hookRules as publishHookRules,
-  knowledgeRules as publishKnowledgeRules,
-  mcpServerRules as publishMcpServerRules,
-  packRules as publishPackRules,
-  ruleRules as publishRuleRules,
-  skillRules as publishSkillRules,
-  subagentRules as publishSubagentRules,
-} from "./publish.js";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -74,6 +63,7 @@ import {
  */
 export interface RenderedFinding {
   readonly group: CatalogGroup;
+  readonly ruleDescription: string;
   readonly displayRoot: string;
   readonly path: string;
   readonly finding: LintFinding;
@@ -187,6 +177,7 @@ const severityOrder = (s: Severity): number => {
  */
 interface RenderableEvaluated {
   readonly context: { readonly displayRoot: string };
+  readonly rule: { readonly description: string };
   readonly findings: ReadonlyArray<LintFinding>;
 }
 
@@ -200,6 +191,7 @@ const flattenEvaluated = (
     for (const finding of entry.findings) {
       out.push({
         group,
+        ruleDescription: entry.rule.description,
         displayRoot,
         path: composePath(displayRoot, finding.location),
         finding,
@@ -344,37 +336,8 @@ export const resolveLintExitCategory = (args: {
  * @experimental This API is unstable and may change without notice.
  */
 export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string> => {
-  const overrides = config.rules ?? {};
-  if (Object.keys(overrides).length === 0) {
-    return [];
-  }
-
-  // Only the `id` and `severity` fields of each rule matter for drift
-  // detection — rule-id snapshotting is public API, and severity is the
-  // platform canonical default the workspace override weakens. The helper
-  // is called against each catalog's concrete rule type so no assertion
-  // is needed to widen the generic parameter.
-  const weakened: Array<string> = [];
-  const publishSharedRules = [
-    ...publishSkillRules,
-    ...publishPackRules,
-    ...publishSubagentRules,
-    ...publishMcpServerRules,
-    ...publishHookRules,
-    ...publishRuleRules,
-    ...publishKnowledgeRules,
-  ];
-  for (const rule of publishSharedRules) {
-    if (rule.severity !== "error") {
-      continue;
-    }
-    const override = overrides[rule.id];
-    if (override === "off" || override === "info" || override === "warn") {
-      weakened.push(rule.id);
-    }
-  }
-
-  return weakened;
+  void config;
+  return [];
 };
 
 // -----------------------------------------------------------------------------
@@ -624,7 +587,7 @@ const parseHumanFinding = (entry: RenderedFinding): ParsedLintHumanFinding => {
     title: parsed.title,
     details: parsed.details,
     helps: parsed.helps,
-    fixable: entry.finding.kind === "autofixable",
+    fixable: false,
   };
 };
 
@@ -774,8 +737,8 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not managed by this workspace.`,
         details: compressDetails(names),
         helps: [
-          "Choose adopt, copy, or ownership-safe prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm adopt @owner/skills/<name>` or review the ownership evidence from `axm prune`.",
+          "Review ownership before changing each unowned skill.",
+          "Use `axm adopt @owner/skills/<name>` to transfer an existing canonical package into AXM ownership.",
         ],
         fixable: false,
         paths,
@@ -792,7 +755,7 @@ const coalesceFullDiagnostic = (
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(
           findings,
-          "Run `axm lint --fix` to reconcile the declared agent artifacts.",
+          "Run `axm sync` to reconcile the declared agent artifacts.",
         ),
         fixable: findings.some((finding) => finding.fixable),
         paths,
@@ -806,7 +769,7 @@ const coalesceFullDiagnostic = (
         ruleId: first.ruleId,
         title: "Skill declarations and lockfile entries are out of sync.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reconcile settings.skills with the lockfile."],
+        helps: ["Run `axm sync` to reconcile desired skills with accepted resolutions."],
         fixable: true,
         paths,
       };
@@ -816,7 +779,7 @@ const coalesceFullDiagnostic = (
         ruleId: first.ruleId,
         title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
+        helps: mergedRuleHelps(findings, "Run `axm sync` to restore the affected skills."),
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
@@ -909,8 +872,8 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
-          "Choose adopt, copy, or ownership-safe prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm adopt @owner/skills/<name>` or review the ownership evidence from `axm prune`.",
+          "Review ownership before changing each unowned skill.",
+          "Use `axm adopt @owner/skills/<name>` to transfer an existing canonical package into AXM ownership.",
         ],
         fixable: false,
         paths,
@@ -927,7 +890,7 @@ const coalesceGroupedDiagnostic = (
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(
           findings,
-          "Run `axm lint --fix` to reconcile the declared agent artifacts.",
+          "Run `axm sync` to reconcile the declared agent artifacts.",
         ),
         fixable: findings.some((finding) => finding.fixable),
         paths,
@@ -941,7 +904,7 @@ const coalesceGroupedDiagnostic = (
         ruleId: first.ruleId,
         title: "`settings.skills` and the lockfile are out of sync.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: ["Run `axm lint --fix` to reconcile `settings.skills` with the lockfile."],
+        helps: ["Run `axm sync` to reconcile desired skills with accepted resolutions."],
         fixable: true,
         paths,
       };
@@ -951,7 +914,7 @@ const coalesceGroupedDiagnostic = (
         ruleId: first.ruleId,
         title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
+        helps: mergedRuleHelps(findings, "Run `axm sync` to restore the affected skills."),
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
@@ -978,6 +941,12 @@ const coalesceGroupedDiagnostic = (
       };
   }
 };
+
+const factOnlyDiagnostic = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => ({
+  ...diagnostic,
+  helps: [],
+  fixable: false,
+});
 
 const joinList = (values: ReadonlyArray<string>): string => {
   if (values.length === 0) {
@@ -1078,7 +1047,7 @@ const buildFullDiagnostics = (
       path,
       diagnostics: groupOrder.flatMap((key) => {
         const grouped = groups.get(key);
-        return grouped === undefined ? [] : [coalesceFullDiagnostic(grouped)];
+        return grouped === undefined ? [] : [factOnlyDiagnostic(coalesceFullDiagnostic(grouped))];
       }),
     });
 
@@ -1118,7 +1087,7 @@ const buildGroupedDiagnostics = (
 
   return order.flatMap((key) => {
     const grouped = groups.get(key);
-    return grouped === undefined ? [] : [coalesceGroupedDiagnostic(grouped)];
+    return grouped === undefined ? [] : [factOnlyDiagnostic(coalesceGroupedDiagnostic(grouped))];
   });
 };
 
@@ -1196,9 +1165,7 @@ const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHuma
   } else {
     const parsed = [...summary.findings].sort(compareRenderedFindings).map(parseHumanFinding);
     const locationCount = uniqueStrings(parsed.map((finding) => finding.path)).length;
-    const fixableCount = summary.findings.filter(
-      (finding) => finding.finding.kind === "autofixable",
-    ).length;
+    const fixableCount = 0;
     blocks.push({
       kind: "overview",
       message: formatFullOverviewSentence({
@@ -1465,7 +1432,7 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
 };
 
 const formatFixSummary = (fix: FixSummary): string => {
-  const appliedLabel = pluralize(fix.applied, "fix", "fixes");
+  const appliedLabel = pluralize(fix.applied, "normalization", "normalizations");
   const warningsLabel = pluralize(fix.warnings.length, "warning", "warnings");
   return `Applied ${fix.applied} ${appliedLabel}; ${fix.warnings.length} ${warningsLabel}, ${fix.failed} failed.`;
 };
@@ -1483,9 +1450,10 @@ const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
     message: entry.finding.message,
     displayRoot: entry.displayRoot,
     path: entry.path,
-    ...(entry.finding.suggestions === undefined
-      ? {}
-      : { suggestions: entry.finding.suggestions.map(sanitizeSuggestedAction) }),
+    subject: entry.path,
+    authority: entry.finding.location?.file ?? entry.displayRoot,
+    observed: entry.finding.message,
+    expected: entry.ruleDescription,
   } as const;
   if (entry.finding.location === undefined) {
     return base;
@@ -1536,45 +1504,6 @@ export const toLintJsonDocument = (args: {
       warnings: fixSummary.warnings,
     },
   };
-};
-
-// -----------------------------------------------------------------------------
-// Autofix rule surface (helper for the CLI handler)
-// -----------------------------------------------------------------------------
-
-/**
- * Walk workspace evaluations (the only v1 namespace that ships
- * `AutofixingRule`s) and return the set of `(rule, finding, context)` triples
- * the CLI handler can dispatch on to produce canonical Operations.
- *
- * The returned triples point at the already-evaluated `AutofixableFinding`
- * values so the renderer and the fix pipeline share a single source of truth.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const collectAutofixableEntries = (
-  evaluations: GroupEvaluations,
-): ReadonlyArray<{
-  readonly rule: AutofixingRule<WorkspaceRuleContext>;
-  readonly context: WorkspaceRuleContext;
-  readonly finding: LintFinding & { readonly kind: "autofixable" };
-}> => {
-  const out: Array<{
-    readonly rule: AutofixingRule<WorkspaceRuleContext>;
-    readonly context: WorkspaceRuleContext;
-    readonly finding: LintFinding & { readonly kind: "autofixable" };
-  }> = [];
-  for (const entry of evaluations.workspace) {
-    if (entry.rule.kind !== "autofixing") {
-      continue;
-    }
-    for (const finding of entry.findings) {
-      if (finding.kind === "autofixable") {
-        out.push({ rule: entry.rule, context: entry.context, finding });
-      }
-    }
-  }
-  return out;
 };
 
 // -----------------------------------------------------------------------------

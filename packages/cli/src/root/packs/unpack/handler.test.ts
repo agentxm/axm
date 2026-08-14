@@ -20,7 +20,10 @@ import { SkillManagerLive, type RegistrySkillRef } from "@agentxm/client-core/un
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import {
+  computePackManifestContentIdentity,
+  PackManagerLive,
+} from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import {
@@ -35,13 +38,7 @@ import {
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import {
-  computePackageContentHashSync,
-  exactVersion,
-  extensionName,
-  handle,
-  writeTrustFromWorkspaceLockfile,
-} from "../../../test-stubs.js";
+import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -59,6 +56,24 @@ const initWorkspace = (
     lockPacks?: Record<string, unknown>;
   } = {},
 ) => {
+  const acceptedEntries = (entries: Record<string, unknown> | undefined) =>
+    Object.fromEntries(
+      Object.entries(entries ?? {}).map(([name, value]) => {
+        const entry = expectRecord(value);
+        return [
+          name,
+          {
+            type: "registry",
+            owner: entry["owner"],
+            name: entry["name"],
+            resolvedVersion: entry["resolvedVersion"],
+            integrity: entry["integrity"],
+            sourceName: entry["sourceName"],
+            publisherBindingId: entry["publisherBindingId"],
+          },
+        ];
+      }),
+    );
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
@@ -74,9 +89,9 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 3,
-      skills: options.lockSkills ?? {},
-      ...(options.lockMcpServers ? { mcpServers: options.lockMcpServers } : {}),
+      lockfileVersion: 4,
+      skills: acceptedEntries(options.lockSkills),
+      ...(options.lockMcpServers ? { mcpServers: acceptedEntries(options.lockMcpServers) } : {}),
       ...(options.lockPacks ? { packs: options.lockPacks } : {}),
     }),
   );
@@ -117,16 +132,14 @@ const createPackManifest = (
 ) => {
   const packDir = path.join(baseDir, ".axm", "extensions", "@test", "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(packDir, "pack.json"),
-    JSON.stringify({
-      owner: "@test",
-      type: "pack",
-      name,
-      version: "1.0.0",
-      dependencies,
-    }),
-  );
+  const manifest = {
+    owner: "@test",
+    type: "pack" as const,
+    name,
+    version: "1.0.0",
+    dependencies,
+  };
+  fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
   const lockfilePath = path.join(baseDir, ".axm", "axm-lock.yaml");
   const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
   const packs = expectRecord(lockfile["packs"] ?? {});
@@ -134,12 +147,17 @@ const createPackManifest = (
   const updatedPacks = {
     ...packs,
     [name]: {
-      ...lockedPack,
-      sourceHash: computePackageContentHashSync(packDir),
+      type: "registry",
+      owner: "@test",
+      name,
+      resolvedVersion: "1.0.0",
+      integrity: lockedPack["integrity"],
+      manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      sourceName: lockedPack["sourceName"],
+      publisherBindingId: lockedPack["publisherBindingId"],
     },
   };
   fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
-  writeTrustFromWorkspaceLockfile(path.join(baseDir, ".axm"));
 };
 
 const defaultArgs = (
@@ -316,6 +334,12 @@ describe("packs unpack.handler", () => {
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "Unpack pack",
+            totalSteps: 1,
+          });
+
           // Check settings: pack should be removed, skills should be added
           const settingsContent = JSON.parse(
             fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
@@ -335,11 +359,6 @@ describe("packs unpack.handler", () => {
           const lockPacks = lockContent.packs ?? {};
           expect(Object.keys(lockPacks)).not.toContain("frontend-tools");
 
-          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
-          const result = expectAppliedPlanResult(renderedResult.data, {
-            planName: "Unpack pack",
-            totalSteps: 1,
-          });
           const steps = planResultSteps(result);
           const graphStep = expectRecord(expectDefined(steps[0], "Expected graph step"));
           expect(property(graphStep, "status")).toBe("applied");
@@ -364,7 +383,7 @@ describe("packs unpack.handler", () => {
             type: "registry",
             owner: "@test",
             name: "code-review",
-            resolvedVersion: "0.9.0",
+            resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "local",
             publisherBindingId: "hbnd_test",
@@ -476,8 +495,8 @@ describe("packs unpack.handler", () => {
     });
   });
 
-  describe("untrusted members", () => {
-    it.effect("refuses to unpack a member without authoritative trust", () => {
+  describe("members without accepted resolution", () => {
+    it.effect("refuses to unpack a member without accepted resolution", () => {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
@@ -519,7 +538,7 @@ describe("packs unpack.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.message).toContain("Trusted subagent identity");
+          expect(errorResult.message).toContain('Accepted subagent identity for "reviewer"');
 
           // The pack must NOT be removed when unpack refuses.
           const lockContent = YAML.parse(

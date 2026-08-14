@@ -66,7 +66,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("includes folderHash in lockfile entries", async () => {
+    it("includes immutable content identity in lockfile entries", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--non-interactive"], {
@@ -81,7 +81,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(3);
+        expect(lock.lockfileVersion).toBe(4);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should have required fields per flat schema
@@ -91,9 +91,10 @@ describe("axm skills install", () => {
           // Flat schema: type is a string discriminator, not nested object
           expect(entry.type).toBe("local");
           expect(entry.path).toBeDefined();
+          expect(entry.contentIdentity).toMatch(/^[a-f0-9]{64}$/);
           expect(entry).not.toHaveProperty("agents");
-          expect(entry).toHaveProperty("installedAt");
-          expect(entry).toHaveProperty("updatedAt");
+          expect(entry).not.toHaveProperty("installedAt");
+          expect(entry).not.toHaveProperty("updatedAt");
         }
       } finally {
         temp.cleanup();
@@ -335,7 +336,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(3);
+        expect(lock.lockfileVersion).toBe(4);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -343,13 +344,10 @@ describe("axm skills install", () => {
         // Flat schema: source is a string discriminator, path is at top level
         expect(entry.type).toBe("local");
         expect(entry.path).toBeDefined();
+        expect(entry.contentIdentity).toMatch(/^[a-f0-9]{64}$/);
         expect(entry.agents).toBeUndefined();
-        expect(entry.installedAt).toBeDefined();
-        expect(entry.updatedAt).toBeDefined();
-
-        // Timestamps should be valid ISO 8601
-        expect(new Date(entry.installedAt).toISOString()).toBe(entry.installedAt);
-        expect(new Date(entry.updatedAt).toISOString()).toBe(entry.updatedAt);
+        expect(entry.installedAt).toBeUndefined();
+        expect(entry.updatedAt).toBeUndefined();
       } finally {
         temp.cleanup();
       }

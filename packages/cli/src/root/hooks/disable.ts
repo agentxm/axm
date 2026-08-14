@@ -24,7 +24,7 @@ import { makePublicPositionalPlanExecution } from "../shared/confirmation-recove
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const hookPackagePath = (entry: HookLockEntry, name: string): string =>
-  entry.type === "registry" || entry.type === "workspace"
+  entry.type === "registry"
     ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`
     : `${EXTERNAL_EXTENSIONS_DIR}/${HOOK_EXTENSION_DIR}/${name}`;
 
@@ -36,7 +36,7 @@ const hookDisableArtifactTargets = (args: {
     { path: ".axm/settings.json", change: "updated" as const },
     {
       path: hookPackagePath(args.lockEntry, args.name),
-      change: args.lockEntry.type === "workspace" ? ("unchanged" as const) : ("removed" as const),
+      change: "removed" as const,
     },
   ].sort((left, right) => left.path.localeCompare(right.path));
 

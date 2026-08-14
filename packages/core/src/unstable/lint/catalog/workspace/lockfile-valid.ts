@@ -1,132 +1,77 @@
-/**
- * `workspace/lockfile-valid` — `.axm/axm-lock.yaml` parses and conforms to
- * `LockfileSchema`.
- *
- * Cascade per the lint design:
- *
- * 1. `.axm/axm-lock.yaml` exists when settings declares any extension covered
- *    by this rule (skills, packs, subagents, MCP servers). **Missing arm is
- *    autofixing** — `fix` returns `install-{type}` Operations for every
- *    declared extension; each handler writes its lockfile entry as a side
- *    effect, recreating the lockfile.
- * 2. Lockfile bytes parse as YAML (the accessor surfaces parse failures via
- *    `LockfileReadError`; we emit one advisory finding per read failure).
- * 3. `Schema.decodeUnknownResult(LockfileSchema)` succeeds; `ParseResult`
- *    issues map 1:1 to advisory findings via `schemaDecodeFindings`.
- *
- * Arms 2 and 3 are advisory (no autofix) because repairing them requires
- * editing a file that axm does not own through the per-extension Operation
- * vocabulary. Arm 1 is autofixing because every install handler writes a
- * fresh lockfile entry as a side effect, and chained install-Operations
- * recreate the file deterministically.
- *
- * Early-return: workspaces with no covered declarations don't require a
- * lockfile — this rule emits zero findings.
- *
- * @experimental This API is unstable and may change without notice.
- * @packageDocumentation
- */
+/** Reports whether accepted external-resolution state is readable and present when required. */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import { isWorkspaceSourceLocator } from "../../../sources/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type {
-  AdvisoryFinding,
-  AutofixableFinding,
-  AutofixingRule,
-  LintFinding,
-} from "../../rule.js";
-import { type Settings } from "../../../settings/schema.js";
-import { collectMissingLockfileInstallOps } from "./helpers/install-ops.js";
-import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 
 const RULE_ID = "workspace/lockfile-valid";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
-const SETTINGS_REL = ".axm/settings.json";
 
-const hasAnyDeclaration = (settings: Settings): boolean => {
-  const skills = Object.keys(settings.skills ?? {}).length;
-  const packs = Object.keys(settings.packs ?? {}).length;
-  const subagents = Object.keys(settings.subagents ?? {}).length;
-  const mcpServers = Object.keys(settings.mcpServers ?? {}).length;
-  return skills + packs + subagents + mcpServers > 0;
-};
+const isExternalSource = (source: string): boolean =>
+  source !== "inline" && !isWorkspaceSourceLocator(source);
 
-const makeMissingFinding = (): AutofixableFinding => ({
-  kind: "autofixable",
+const finding = (message: string): AdvisoryFinding => ({
+  kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    "The lockfile is missing even though workspace settings declare installed extensions. Run `axm lint --fix` to reinstall the declared extensions and regenerate it.",
+  message,
   location: { file: LOCKFILE_REL },
 });
 
-export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
+export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "The lockfile exists when declarations require it and stays structurally valid.",
-  kind: "autofixing",
+  description:
+    "Accepted external-resolution state is current, readable, and present when required.",
+  kind: "advisory",
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace;
-      // Cascade arm 1: lockfile presence when declarations exist.
-      const settingsResult = yield* Effect.result(scoped.state.settings);
-      if (Result.isFailure(settingsResult)) {
-        return EMPTY_LINT_FINDINGS;
-      }
-      if (Option.isNone(settingsResult.success)) {
-        // workspace/settings-schema-valid owns the decode arm; nothing to
-        // do here until settings decode.
-        return EMPTY_LINT_FINDINGS;
-      }
-      const declared = hasAnyDeclaration(settingsResult.success.value);
-
-      const lockfileResult = yield* Effect.result(scoped.state.lockfile);
+      const lockfileResult = yield* Effect.result(context.workspace.state.lockfile);
       if (Result.isFailure(lockfileResult)) {
         if (lockfileResult.failure._tag === "LockfileDecodeError") {
-          return lockfileResult.failure.issues.map((issue): AdvisoryFinding => ({
-            kind: "advisory",
-            ruleId: RULE_ID,
-            severity: "error",
-            message: `The lockfile does not match the expected schema. Detail: ${issue}. Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
-            location: { file: LOCKFILE_REL },
-          }));
+          return lockfileResult.failure.issues.map((issue) =>
+            finding(
+              `The accepted external-resolution lockfile does not match the current schema: ${issue}`,
+            ),
+          );
         }
-        // Read failure surfaces as advisory finding naming the IO problem.
-        const advisory: AdvisoryFinding = {
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            `The lockfile is not valid YAML. Detail: ${lockfileResult.failure._tag}. ` +
-            `Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
-          location: { file: LOCKFILE_REL },
-        };
-        const readFailure: ReadonlyArray<LintFinding> = [advisory];
-        return readFailure;
+        return [
+          finding(
+            `The accepted external-resolution lockfile is unreadable: ${lockfileResult.failure._tag}`,
+          ),
+        ];
+      }
+      if (Option.isSome(lockfileResult.success)) return [];
+
+      if (context.health !== undefined) {
+        const graph = yield* Effect.result(context.health.desiredState);
+        if (
+          Result.isSuccess(graph) &&
+          graph.success.nodes.some((node) => isExternalSource(node.source))
+        ) {
+          return [
+            finding("Accepted external-resolution state is missing for desired external content."),
+          ];
+        }
+        return [];
       }
 
-      const option = lockfileResult.success;
-      if (Option.isNone(option)) {
-        if (!declared) {
-          return EMPTY_LINT_FINDINGS;
-        }
-        return [makeMissingFinding()];
-      }
-
-      return EMPTY_LINT_FINDINGS;
-    }),
-  fix: (context, _finding) =>
-    Effect.gen(function* () {
-      const scoped = context.workspace;
-      const settingsResult = yield* Effect.result(scoped.state.settings);
-      if (Result.isFailure(settingsResult)) {
-        return EMPTY_OPERATIONS;
-      }
-      if (Option.isNone(settingsResult.success)) {
-        return EMPTY_OPERATIONS;
-      }
-      return collectMissingLockfileInstallOps(settingsResult.success.value);
+      const settings = yield* Effect.result(context.workspace.state.settings);
+      if (Result.isFailure(settings) || Option.isNone(settings.success)) return [];
+      const declarations = [
+        ...Object.values(settings.success.value.skills ?? {}),
+        ...Object.values(settings.success.value.packs ?? {}),
+        ...Object.values(settings.success.value.subagents ?? {}),
+        ...Object.values(settings.success.value.mcpServers ?? {}),
+        ...Object.values(settings.success.value.rules ?? {}),
+        ...Object.values(settings.success.value.hooks ?? {}),
+        ...Object.values(settings.success.value.knowledge ?? {}),
+      ];
+      return declarations.some((entry) => isExternalSource(entry.source))
+        ? [finding("Accepted external-resolution state is missing for desired external content.")]
+        : [];
     }),
 };

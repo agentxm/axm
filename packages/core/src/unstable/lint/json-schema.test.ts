@@ -1,152 +1,43 @@
 import { describe, expect, it } from "@effect/vitest";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
-import { toLintJsonDocument } from "./cli.js";
 import { LintJsonDocumentSchema } from "./json-schema.js";
 
-const decode = Schema.decodeUnknownResult(LintJsonDocumentSchema);
-
-describe("LintJsonDocumentSchema", () => {
-  it("round-trips a document built by toLintJsonDocument", () => {
-    const document = toLintJsonDocument({
-      input: { view: "workspace" },
-      summary: {
-        findings: [
-          {
-            group: "skill",
-            displayRoot: ".axm/extensions/@acme/skills/demo/src",
-            path: ".axm/extensions/@acme/skills/demo/src/skill.json",
-            finding: {
-              kind: "advisory",
-              ruleId: "skill/manifest-present",
-              severity: "error",
-              message: "skill.json is missing.",
-              location: { file: "skill.json", line: 1, column: 2 },
-              suggestions: [
-                { description: "Inspect the skill", cmd: "axm skills show @acme/demo" },
-              ],
-            },
-          },
-          {
-            group: "knowledge",
-            displayRoot: ".axm/extensions/@acme/knowledge/domain",
-            path: ".axm/extensions/@acme/knowledge/domain",
-            finding: {
-              kind: "advisory",
-              ruleId: "knowledge/recommended-packs-valid",
-              severity: "warning",
-              message: "recommendedPacks entry pins a version range.",
-            },
-          },
-        ],
-        counts: { total: 2, errors: 1, warnings: 1, infos: 0 },
-        exitCategory: "errors",
-        driftBanner: ["skill/manifest-schema-valid"],
+describe("lint JSON contract", () => {
+  const document = {
+    input: { view: "workspace" as const },
+    findings: [
+      {
+        group: "workspace" as const,
+        kind: "advisory" as const,
+        ruleId: "workspace/example-valid",
+        severity: "error" as const,
+        message: "Observed state differs.",
+        displayRoot: ".",
+        path: ".axm/settings.json",
+        subject: ".axm/settings.json",
+        authority: ".axm/settings.json",
+        observed: "Observed state differs.",
+        expected: "Example state is valid.",
       },
-      fixSummary: { attempted: 1, applied: 1, failed: 0, warnings: [] },
+    ],
+    summary: { total: 1, errors: 1, warnings: 0, infos: 0, exitCategory: "errors" as const },
+    driftBanner: [],
+  };
+
+  it("accepts fact fields and contains no recovery metadata", () => {
+    const decoded = Schema.decodeUnknownSync(LintJsonDocumentSchema)(document, {
+      onExcessProperty: "error",
     });
-
-    const decoded = decode(document);
-    expect(Result.isSuccess(decoded)).toBe(true);
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success).toStrictEqual(document);
-    }
+    expect(decoded.findings[0]?.observed).toBe("Observed state differs.");
+    expect("suggestions" in (decoded.findings[0] ?? {})).toBe(false);
   });
 
-  it("accepts every catalog group as a finding group", () => {
-    for (const group of CATALOG_GROUP_ORDER) {
-      const decoded = decode({
-        input: { view: "workspace" },
-        findings: [
-          {
-            group,
-            kind: "advisory",
-            ruleId: `${group}/example`,
-            severity: "info",
-            message: "example",
-            displayRoot: "",
-            path: "",
-          },
-        ],
-        summary: { total: 1, errors: 0, warnings: 0, infos: 1, exitCategory: "clean" },
-        driftBanner: [],
-      });
-      expect(Result.isSuccess(decoded), group).toBe(true);
-    }
-  });
-
-  it("accepts findings without suggestions and rejects unsafe commands", () => {
-    const base = {
-      input: { view: "workspace" },
-      summary: { total: 1, errors: 0, warnings: 0, infos: 1, exitCategory: "clean" },
-      driftBanner: [],
-    } as const;
-    const finding = {
-      group: "workspace",
-      kind: "advisory",
-      ruleId: "workspace/example",
-      severity: "info",
-      message: "example",
-      displayRoot: "",
-      path: "",
-    } as const;
-
-    expect(Result.isSuccess(decode({ ...base, findings: [finding] }))).toBe(true);
-    expect(
-      Result.isFailure(
-        decode({
-          ...base,
-          findings: [
-            {
-              ...finding,
-              suggestions: [{ description: "Follow up", cmd: "axm lint; echo unsafe" }],
-            },
-          ],
-        }),
+  it("rejects suggested-action metadata", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(LintJsonDocumentSchema)(
+        { ...document, findings: [{ ...document.findings[0], suggestions: [] }] },
+        { onExcessProperty: "error" },
       ),
-    ).toBe(true);
-  });
-
-  it("accepts a Git-index input with an opaque fingerprint", () => {
-    const decoded = decode({
-      input: { view: "git-index", fingerprint: `sha256:${"a".repeat(64)}` },
-      findings: [],
-      summary: { total: 0, errors: 0, warnings: 0, infos: 0, exitCategory: "clean" },
-      driftBanner: [],
-    });
-    expect(Result.isSuccess(decoded)).toBe(true);
-  });
-
-  it("rejects a Git-index input without a valid fingerprint", () => {
-    for (const input of [{ view: "git-index" }, { view: "git-index", fingerprint: "/tmp/repo" }]) {
-      const decoded = decode({
-        input,
-        findings: [],
-        summary: { total: 0, errors: 0, warnings: 0, infos: 0, exitCategory: "clean" },
-        driftBanner: [],
-      });
-      expect(Result.isFailure(decoded)).toBe(true);
-    }
-  });
-
-  it("rejects a finding group that is not a catalog", () => {
-    const decoded = decode({
-      input: { view: "workspace" },
-      findings: [
-        {
-          group: "not-a-catalog",
-          kind: "advisory",
-          ruleId: "x/y",
-          severity: "info",
-          message: "example",
-          displayRoot: "",
-          path: "",
-        },
-      ],
-      summary: { total: 1, errors: 0, warnings: 0, infos: 1, exitCategory: "clean" },
-      driftBanner: [],
-    });
-    expect(Result.isFailure(decoded)).toBe(true);
+    ).toThrow();
   });
 });

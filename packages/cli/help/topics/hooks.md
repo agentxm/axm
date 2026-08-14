@@ -153,7 +153,7 @@ All commands live under `axm hooks` and accept `--scope project` (default) or
   settings entry, keeping the package.
 - `axm hooks enable <name>` — re-serialize a disabled hook.
 - `axm hooks update <name>` — move a configured hook to a newer version.
-- `axm prune` — preview stale hook state and remove it only when AXM ownership
+- `axm sync --preview` — preview stale hook state and remove it only when AXM ownership
   is proven.
 - `axm hooks publish @owner/hooks/<name>` — validate and release a new version;
   add `--preview` to dry-run manifest and publish lint.

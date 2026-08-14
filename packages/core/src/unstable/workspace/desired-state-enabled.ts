@@ -9,14 +9,13 @@
  */
 
 export type DesiredStateEnabledOrigin =
-  { readonly type: "settings"; readonly enabled: boolean } | { readonly type: "pack" };
+  | { readonly type: "settings"; readonly enabled: boolean }
+  | { readonly type: "pack"; readonly enabled: boolean };
 
 export const isDesiredExtensionActive = (
   origins: ReadonlyArray<DesiredStateEnabledOrigin>,
 ): boolean => {
   const settingsOrigin = origins.find((origin) => origin.type === "settings");
   if (settingsOrigin?.enabled === false) return false;
-  return origins.some(
-    (origin) => origin.type === "pack" || (origin.type === "settings" && origin.enabled),
-  );
+  return origins.some((origin) => origin.enabled);
 };

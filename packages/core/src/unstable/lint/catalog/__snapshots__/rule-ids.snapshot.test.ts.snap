@@ -88,7 +88,6 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/knowledge-config-current",
   "workspace/lockfile-valid",
   "workspace/desired-state-reconcilable",
-  "workspace/authored-content-unpublished",
   "workspace/axm-skill-compatible",
   "workspace/agents-recognized",
   "workspace/agents-detected-declared",
@@ -108,9 +107,6 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/skills-lockfile-aligned",
   "workspace/skills-integrity-valid",
   "workspace/skills-artifacts-correct",
-  "workspace/skills-managed",
   "workspace/packs-dependencies-resolved",
-  "workspace/pack-dependency-versions-current",
-  "workspace/recommended-packs-retained",
 ]
 `;

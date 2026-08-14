@@ -4,7 +4,7 @@ import type { InstallableExtensionType } from "../extensions/index.js";
 import type { WorkspaceMutationsService } from "./service-interface.js";
 
 /**
- * Determine installation from the observable workspace inventory. Receipt
+ * Determine installation from the observable workspace inventory. Lock
  * presence is intentionally irrelevant.
  */
 export const isObservedInstalled = (

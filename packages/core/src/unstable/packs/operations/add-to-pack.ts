@@ -12,15 +12,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import { count } from "../../cli-renderer/index.js";
-import { computePackageContentHash, type Handle } from "../../extensions/index.js";
+import type { Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { trustRecordKey } from "../../trust/index.js";
+import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
-import { packTrustManifest } from "../trust-manifest.js";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
@@ -71,9 +70,8 @@ export const addToPack: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const { packName, packOwner, additions, manifestHash } = op.args;
-    const trust = yield* ws.getTrustState();
-    const trustRecord = trust.records[trustRecordKey("pack", packName)];
-    if (trustRecord?.authority !== "workspace") {
+    const configured = (yield* ws.getConfiguredPackEntries())[packName];
+    if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
       return yield* makeAppError({
         code: "conflict",
         detail: `Pack "${packName}" is not an authored workspace pack`,
@@ -87,120 +85,128 @@ export const addToPack: OperationHandler<
       return { result: "success", message: "No pack entries added" } satisfies JobStepResult;
     }
 
-    // 2. Read current manifest
     const packDir = computePackPaths(path.join, base, packOwner, packName);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-    const manifestContent = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "not_found",
-          detail: `Pack manifest not found at ${manifestPath}`,
-          suggestions: [{ description: "Ensure the pack exists on disk" }],
-          cause: e,
-        }),
-      ),
-    );
-
-    // 3. Stale-check: compare content hash
-    const currentHash = hashContent(manifestContent);
-    if (currentHash !== manifestHash) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Pack manifest is stale — it was modified since the plan was created`,
-        suggestions: [{ description: "Re-run the command to create a fresh plan" }],
-      });
-    }
-    const trustedCurrentHash = yield* computePackageContentHash(packDir.canonicalPath);
-    if (trustRecord.contentIdentity !== trustedCurrentHash) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Pack "${packName}" differs from its trusted baseline`,
-        recover: "Inspect and resolve the pack drift before editing membership.",
-        suggestions: [
-          {
-            description: "Preview pack repair",
-            cmd: `axm packs repair ${packName} --preview`,
-          },
-        ],
-      });
-    }
-
-    // 4. Parse and apply additions
-    const json = yield* Effect.try({
-      try: () => {
-        const parsed: unknown = JSON.parse(manifestContent);
-        return parsed;
-      },
-      catch: (e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to parse pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
-    });
-
-    const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Invalid pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    const dependencies: Record<string, string> = { ...manifest.dependencies };
-    for (const [fqn, version] of Object.entries(additions)) {
-      dependencies[fqn] = version;
-    }
-
-    const updatedManifest = {
-      ...manifest,
-      owner: manifest.owner,
-      type: manifest.type,
-      name: manifest.name,
-      version: manifest.version,
-      dependencies,
-    };
-    const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
-      updatedManifest,
-    ).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Updated pack manifest is invalid: ${manifestPath}`,
-          cause,
-        }),
-      ),
-    );
-
-    // 5. Write updated manifest
-    yield* Effect.gen(function* () {
-      yield* fs
-        .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
-        .pipe(
+    yield* ws.runTransaction({
+      targets: [manifestPath],
+      transition: Effect.gen(function* () {
+        // Read and stale-check under the workspace lock.
+        const manifestContent = yield* fs.readFileString(manifestPath).pipe(
           Effect.mapError((e) =>
             makeAppError({
-              code: "internal",
-              detail: `Failed to write pack manifest: ${manifestPath}`,
+              code: "not_found",
+              detail: `Pack manifest not found at ${manifestPath}`,
+              suggestions: [{ description: "Ensure the pack exists on disk" }],
               cause: e,
             }),
           ),
         );
-      const sourceHash = yield* computePackageContentHash(packDir.canonicalPath);
-      yield* ws.refreshPackContentIdentity(
-        packName,
-        sourceHash,
-        packTrustManifest(validatedUpdatedManifest),
-      );
-    }).pipe(
-      Effect.catch((error) =>
-        fs.writeFileString(manifestPath, manifestContent).pipe(
-          Effect.catch(() => Effect.void),
-          Effect.andThen(Effect.fail(error)),
+
+        // 3. Stale-check: compare content hash
+        const currentHash = hashContent(manifestContent);
+        if (currentHash !== manifestHash) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Pack manifest is stale — it was modified since the plan was created`,
+            suggestions: [{ description: "Re-run the command to create a fresh plan" }],
+          });
+        }
+
+        // 4. Parse and apply additions
+        const json = yield* Effect.try({
+          try: () => {
+            const parsed: unknown = JSON.parse(manifestContent);
+            return parsed;
+          },
+          catch: (e) =>
+            makeAppError({
+              code: "validation",
+              detail: `Failed to parse pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+        });
+
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "validation",
+              detail: `Invalid pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+          ),
+        );
+
+        const dependencies: Record<string, string> = { ...manifest.dependencies };
+        for (const [fqn, version] of Object.entries(additions)) {
+          dependencies[fqn] = version;
+        }
+
+        const updatedManifest = {
+          ...manifest,
+          owner: manifest.owner,
+          type: manifest.type,
+          name: manifest.name,
+          version: manifest.version,
+          dependencies,
+        };
+        const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+          updatedManifest,
+        ).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Updated pack manifest is invalid: ${manifestPath}`,
+              cause,
+            }),
+          ),
+        );
+
+        // 5. Write updated manifest
+        yield* fs
+          .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
+          .pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to write pack manifest: ${manifestPath}`,
+                cause: e,
+              }),
+            ),
+          );
+      }),
+      validate: () =>
+        fs.readFileString(manifestPath).pipe(
+          Effect.flatMap((content) =>
+            Effect.try({
+              try: (): unknown => JSON.parse(content),
+              catch: (cause) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Updated pack manifest could not be parsed: ${manifestPath}`,
+                  cause,
+                }),
+            }),
+          ),
+          Effect.flatMap(Schema.decodeUnknownEffect(PackManifestSchema)),
+          Effect.flatMap((manifest) =>
+            Object.entries(additions).every(
+              ([fqn, constraint]) => manifest.dependencies[fqn] === constraint,
+            )
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Updated pack manifest did not retain the requested dependencies`,
+                }),
+          ),
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Updated pack manifest failed postcondition validation`,
+              cause,
+            }),
+          ),
         ),
-      ),
-    );
+    });
 
     return {
       result: "success",

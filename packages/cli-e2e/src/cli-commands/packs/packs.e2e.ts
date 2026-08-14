@@ -298,7 +298,7 @@ describe("axm packs new", () => {
     }
   });
 
-  it("requires explicit repair for authored pack drift even with --reinstall", async () => {
+  it("treats authored pack edits as authoritative during reinstall", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -308,8 +308,6 @@ describe("axm packs new", () => {
       });
       expect(create.exitCode, create.stderr).toBe(0);
 
-      const trustPath = path.join(temp.path, ".axm", "trust.json");
-      const trustBefore = fs.readFileSync(trustPath, "utf8");
       const manifestPath = path.join(
         temp.path,
         ".axm",
@@ -327,9 +325,10 @@ describe("axm packs new", () => {
 
       const install = await runCli(["install", "--reinstall", "--yes"], { cwd: temp.path });
 
-      expect(install.exitCode).not.toBe(0);
-      expect(install.stderr).toContain("packs repair @test/packs/drifted-pack --preview");
-      expect(fs.readFileSync(trustPath, "utf8")).toBe(trustBefore);
+      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
+      expect(JSON.parse(fs.readFileSync(manifestPath, "utf8")).description).toBe(
+        "Unreviewed change",
+      );
     } finally {
       cleanup();
     }
@@ -357,7 +356,7 @@ describe("axm packs add/remove", () => {
     }
   });
 
-  it("records workspace and Registry dependencies in one pack receipt", async () => {
+  it("records Pack membership in the manifest and only external resolutions in the lockfile", async () => {
     const { temp, registryDir, settingsPath, readLock, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -403,16 +402,22 @@ describe("axm packs add/remove", () => {
       );
       expect(addRegistry.exitCode, addRegistry.stderr).toBe(0);
 
-      const receipt = readLock().packs["mixed-pack"].resolvedSkills;
-      expect(receipt["@test/skills/workspace-member"]).toMatchObject({
-        source: "workspace",
-        version: "0.0.1",
-        sourceIdentity: "workspace:@test/skills/workspace-member",
+      const manifest = JSON.parse(
+        fs.readFileSync(
+          path.join(temp.path, ".axm", "extensions", "@test", "packs", "mixed-pack", "pack.json"),
+          "utf8",
+        ),
+      );
+      expect(manifest.dependencies).toEqual({
+        "@test/skills/registry-member": "^0.0.1",
+        "@test/skills/workspace-member": "^0.0.1",
       });
-      expect(receipt["@test/skills/workspace-member"].contentIdentity).toMatch(/^[a-f0-9]{64}$/);
-      expect(receipt["@test/skills/registry-member"]).toMatchObject({
-        source: "registry",
-        version: "0.0.1",
+      const lock = readLock();
+      expect(lock.packs?.["mixed-pack"]).toBeUndefined();
+      expect(lock.skills?.["workspace-member"]).toBeUndefined();
+      expect(lock.skills?.["registry-member"]).toMatchObject({
+        type: "registry",
+        resolvedVersion: "0.0.1",
         publisherBindingId: expect.stringMatching(/^hbnd_/),
         integrity: expect.stringMatching(/^sha512-/),
       });
@@ -441,7 +446,7 @@ describe("axm packs add/remove", () => {
       const shown = JSON.parse(show.stdout);
       expect(shown.result.pack).toBe("@test/packs/mixed-pack");
       expect(shown.result.desiredDependencies).toHaveLength(2);
-      expect(shown.result.resolvedDependencies).toHaveLength(2);
+      expect(shown.result).not.toHaveProperty("resolvedDependencies");
     } finally {
       cleanup();
     }
@@ -557,7 +562,6 @@ describe("axm packs install", () => {
       const created = await runCli(["packs", "new", packName, "--yes"], { cwd: temp.path });
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
 
-      const trustPath = path.join(temp.path, ".axm", "trust.json");
       const manifestPath = path.join(
         temp.path,
         ".axm",
@@ -570,7 +574,6 @@ describe("axm packs install", () => {
       const before = {
         settings: fs.readFileSync(settingsPath, "utf8"),
         lock: fs.readFileSync(lockPath, "utf8"),
-        trust: fs.readFileSync(trustPath, "utf8"),
         manifest: fs.readFileSync(manifestPath, "utf8"),
       };
 
@@ -595,7 +598,6 @@ describe("axm packs install", () => {
       });
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lock);
-      expect(fs.readFileSync(trustPath, "utf8")).toBe(before.trust);
       expect(fs.readFileSync(manifestPath, "utf8")).toBe(before.manifest);
     } finally {
       cleanup();
@@ -647,10 +649,11 @@ describe("axm packs install", () => {
         },
       });
       expect(readSettings().skills?.[skillName]).toBe(`workspace:@test/skills/${skillName}`);
-      expect(readLock().skills?.[skillName]).toMatchObject({ type: "workspace", version: "0.0.1" });
-      expect(
-        readLock().packs?.[packName]?.resolvedSkills?.[`@test/skills/${skillName}`],
-      ).toMatchObject({ source: "workspace", version: "0.0.1" });
+      expect(readLock().skills?.[skillName]).toBeUndefined();
+      expect(readLock().packs?.[packName]).toMatchObject({
+        type: "registry",
+        resolvedVersion: "0.0.1",
+      });
       expect(fs.readFileSync(path.join(canonical, "skill.json"), "utf8")).toBe(beforeManifest);
       expect(fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8")).toBe(beforeSkill);
     } finally {
@@ -784,11 +787,6 @@ describe("axm packs install", () => {
       );
       const directProjection = path.join(temp.path, ".claude", "skills", directSkill);
       expect(readLock().skills?.[directSkill]).toBeDefined();
-      expect(
-        JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "trust.json"), "utf8")).records?.[
-          `skill:${directSkill}`
-        ],
-      ).toBeDefined();
       expect(fs.existsSync(directCanonical)).toBe(true);
       expect(fs.lstatSync(directProjection).isSymbolicLink()).toBe(true);
       expect(fs.realpathSync(directProjection)).toBe(
@@ -864,31 +862,8 @@ describe("axm packs install", () => {
       for (const skill of [directSkill, firstMember, secondMember]) {
         expect(lock.skills?.[skill]).toBeDefined();
       }
-      expect(Object.keys(lock.packs?.[firstPack]?.resolvedSkills ?? {}).sort()).toEqual(
-        [`@test/skills/${directSkill}`, `@test/skills/${firstMember}`].sort(),
-      );
-      expect(Object.keys(lock.packs?.[secondPack]?.resolvedSkills ?? {}).sort()).toEqual(
-        [`@test/skills/${directSkill}`, `@test/skills/${secondMember}`].sort(),
-      );
-
-      const trust = JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "trust.json"), "utf8"));
-      expect(Object.keys(trust.records ?? {})).toEqual(
-        expect.arrayContaining([
-          `skill:${directSkill}`,
-          `skill:${firstMember}`,
-          `skill:${secondMember}`,
-          `pack:${firstPack}`,
-          `pack:${secondPack}`,
-        ]),
-      );
-      expect(
-        Object.values(trust.records ?? {}).filter(
-          (record) =>
-            typeof record === "object" &&
-            record !== null &&
-            Reflect.get(record, "sourceIdentity") === `@test/skills/${directSkill}`,
-        ),
-      ).toHaveLength(1);
+      expect(lock.packs?.[firstPack]).toMatchObject({ type: "registry" });
+      expect(lock.packs?.[secondPack]).toMatchObject({ type: "registry" });
 
       for (const skill of [directSkill, firstMember, secondMember]) {
         const canonical = path.join(temp.path, ".axm", "extensions", "@test", "skills", skill);
@@ -980,6 +955,73 @@ describe("axm packs install", () => {
     }
   });
 
+  it("sync recovers a desired external pack when accepted resolution is missing", async () => {
+    const { temp, registryDir, settingsPath, lockPath, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      await runCli(["packs", "new", "recoverable-pack", "--yes"], { cwd: temp.path });
+      await publishRegistrySkill(registryDir.path, "recoverable-member");
+      updatePackManifest(temp.path, "recoverable-pack", {
+        version: "0.0.1",
+        dependencies: { "@test/skills/recoverable-member": "*" },
+      });
+      const published = await runCli(["packs", "publish", "recoverable-pack", "--yes"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(published.exitCode, published.stdout + published.stderr).toBe(0);
+
+      detachWorkspacePack(temp.path, settingsPath, lockPath, "recoverable-pack");
+      const desired = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      desired.packs = { "recoverable-pack": "@test/packs/recoverable-pack" };
+      fs.writeFileSync(settingsPath, JSON.stringify(desired, null, 2));
+
+      const preview = await runCli(["sync", "--preview", "--ignore-release-age", "--json"], {
+        cwd: temp.path,
+      });
+      expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+      expect(JSON.parse(preview.stdout)).toMatchObject({
+        ok: true,
+        result: { outcome: "previewed", readyCount: 1, errorCount: 0 },
+      });
+      expect(readLock().packs?.["recoverable-pack"]).toBeUndefined();
+
+      const applied = await runCli(["sync", "--ignore-release-age", "--json"], {
+        cwd: temp.path,
+      });
+      expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      expect(JSON.parse(applied.stdout)).toMatchObject({
+        ok: true,
+        result: { outcome: "applied", appliedCount: 1, errorCount: 0 },
+      });
+      expect(readLock().packs?.["recoverable-pack"]).toMatchObject({ type: "registry" });
+      expect(readLock().skills?.["recoverable-member"]).toMatchObject({ type: "registry" });
+      expect(
+        fs.existsSync(
+          path.join(temp.path, ".axm", "extensions", "@test", "skills", "recoverable-member"),
+        ),
+      ).toBe(true);
+      expect(
+        fs
+          .lstatSync(path.join(temp.path, ".claude", "skills", "recoverable-member"))
+          .isSymbolicLink(),
+      ).toBe(true);
+
+      const second = await runCli(["sync", "--json"], { cwd: temp.path });
+      expect(second.exitCode, second.stdout + second.stderr).toBe(0);
+      expect(JSON.parse(second.stdout)).toMatchObject({
+        ok: true,
+        result: { outcome: "no-op", appliedCount: 0 },
+      });
+      const lint = await runCli(["lint", "--json"], { cwd: temp.path });
+      expect(lint.exitCode, lint.stdout + lint.stderr).toBe(0);
+    } finally {
+      cleanup();
+    }
+  });
+
   it("re-installs idempotently when pack already exists", async () => {
     const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
@@ -1026,7 +1068,7 @@ describe("axm packs install", () => {
     }
   });
 
-  it("installs pack with skill dependencies, records them in lockfile resolvedSkills", async () => {
+  it("installs pack with skill dependencies as independent lockfile rows", async () => {
     const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
@@ -1115,7 +1157,7 @@ describe("axm packs install", () => {
       });
       expect(installResult.exitCode).toBe(0);
 
-      // Verify pack in lockfile with resolvedSkills populated
+      // Verify the Pack and its external dependency have independent rows.
       const lock = readLock();
       expect(lock.packs).toBeDefined();
       expect(lock.packs["deps-pack"]).toBeDefined();
@@ -1124,14 +1166,9 @@ describe("axm packs install", () => {
       expect(packEntry.resolvedVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
       expect(packEntry.resolvedVersion.startsWith("^")).toBe(false);
       expect(packEntry.resolvedVersion.startsWith("~")).toBe(false);
-      expect(packEntry.resolvedSkills).toBeDefined();
-      const resolvedKeys = Object.keys(packEntry.resolvedSkills);
-      expect(resolvedKeys.length).toBeGreaterThan(0);
-      expect(resolvedKeys.some((k: string) => k.includes("dep-skill"))).toBe(true);
-      const resolvedSkill = packEntry.resolvedSkills["@test/skills/dep-skill"];
-      expect(resolvedSkill.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
-      expect(resolvedSkill.version.startsWith("^")).toBe(false);
-      expect(resolvedSkill.version.startsWith("~")).toBe(false);
+      expect(packEntry).not.toHaveProperty("resolvedSkills");
+      const resolvedSkill = lock.skills["dep-skill"];
+      expect(resolvedSkill.resolvedVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
       expect(resolvedSkill.publisherBindingId).toMatch(/^hbnd_/);
 
       // Verify pack in settings
@@ -1145,7 +1182,7 @@ describe("axm packs install", () => {
     }
   });
 
-  it("installs pack with subagent dependencies, records them in lockfile resolvedSubagents", async () => {
+  it("installs pack with subagent dependencies as independent lockfile rows", async () => {
     const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
@@ -1213,15 +1250,13 @@ describe("axm packs install", () => {
 
       const lock = readLock();
       const packEntry = lock.packs["subagent-pack"];
-      expect(packEntry.resolvedSubagents).toEqual({
-        "@test/subagents/dep-subagent": {
-          source: "registry",
-          version: "1.0.0",
-          publisherBindingId: expect.stringMatching(/^hbnd_/),
-          integrity: expect.stringMatching(/^sha512-/),
-        },
+      expect(packEntry).not.toHaveProperty("resolvedSubagents");
+      expect(lock.subagents["dep-subagent"]).toMatchObject({
+        type: "registry",
+        resolvedVersion: "1.0.0",
+        publisherBindingId: expect.stringMatching(/^hbnd_/),
+        integrity: expect.stringMatching(/^sha512-/),
       });
-      expect(lock.subagents["dep-subagent"]).toBeDefined();
 
       const settings = readSettings();
       expect(settings.packs?.["subagent-pack"]).toBeDefined();
@@ -1443,12 +1478,10 @@ describe("axm packs uninstall", () => {
         const axmDir = path.join(temp.path, ".axm");
         const settingsPath = path.join(axmDir, "settings.json");
         const lockPath = path.join(axmDir, "axm-lock.yaml");
-        const trustPath = path.join(axmDir, "trust.json");
         const packageDir = path.join(axmDir, "extensions", "@test", "packs", "workspace-pack");
         const before = {
           settings: fs.readFileSync(settingsPath, "utf8"),
           lockfile: fs.readFileSync(lockPath, "utf8"),
-          trust: fs.readFileSync(trustPath, "utf8"),
           manifest: fs.readFileSync(path.join(packageDir, "pack.json"), "utf8"),
         };
 
@@ -1462,7 +1495,6 @@ describe("axm packs uninstall", () => {
         });
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
         expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lockfile);
-        expect(fs.readFileSync(trustPath, "utf8")).toBe(before.trust);
         expect(fs.readFileSync(path.join(packageDir, "pack.json"), "utf8")).toBe(before.manifest);
 
         const applied = await runCli(
@@ -1477,9 +1509,6 @@ describe("axm packs uninstall", () => {
         expect(YAML.parse(fs.readFileSync(lockPath, "utf8")).packs?.["workspace-pack"]).toBe(
           undefined,
         );
-        expect(
-          JSON.parse(fs.readFileSync(trustPath, "utf8")).records?.["pack:workspace-pack"],
-        ).toBe(undefined);
         expect(fs.existsSync(packageDir)).toBe(false);
       } finally {
         temp.cleanup();

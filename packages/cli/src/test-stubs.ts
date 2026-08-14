@@ -5,7 +5,6 @@
  * @internal Test-only. Not exported from the barrel.
  */
 
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -20,6 +19,7 @@ import type {
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
+  SourceHashSchema,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
@@ -29,16 +29,12 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
-  LockfileSchema,
   type HookLockEntry,
   type RegistryPackLockEntry,
-  ResolvedExtensionMapSchema,
-  type ResolvedExtensionMap,
   type RuleLockEntry,
   type SkillLockEntry,
 } from "@agentxm/client-core/unstable/lockfile";
 import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
-import { trustStateFromLockfile } from "@agentxm/client-core/unstable/trust";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,
@@ -54,9 +50,6 @@ export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
   Effect.gen(function* () {
     const value = yield* args.transition;
     yield* args.validate(value);
-    if (args.receipt !== undefined) {
-      yield* args.receipt(value);
-    }
     return value;
   });
 
@@ -216,11 +209,6 @@ export const makeBaseWorkspaceMock = (
         nodes: [],
         problems: [],
       }),
-    getTrustState: () =>
-      Effect.succeed({
-        trustStateVersion: 1,
-        records: {},
-      }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -283,8 +271,6 @@ export const makeBaseWorkspaceMock = (
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
     setPackLock: () => Effect.void,
-    refreshAuthoredContentIdentity: () => Effect.void,
-    refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
@@ -311,14 +297,12 @@ export const makeBaseWorkspaceMock = (
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
     removePackLock: () => Effect.void,
-    removeTrustRecord: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   } satisfies WorkspaceMutationsService;
   return { ...base, ...serviceOverrides };
 };
 
-const TEST_DATE = DateTime.makeUnsafe("2025-01-01T00:00:00.000Z");
-const decodeResolvedExtensionMapSync = Schema.decodeUnknownSync(ResolvedExtensionMapSchema);
+const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
   ExtensionDependencyConstraintMapSchema,
 );
@@ -327,6 +311,95 @@ const hasEntries = (
   value: Readonly<Record<string, unknown>> | undefined,
 ): value is Record<string, unknown> => value !== undefined && Object.keys(value).length > 0;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * Accept the concise pre-v4 fixture shapes still useful to command tests, but
+ * publish only valid v4 accepted resolutions to the workspace under test.
+ * Authored workspace packages deliberately have no lock row.
+ */
+const normalizeTestLockMap = (
+  entries: Record<string, unknown> | undefined,
+  feature: "extension" | "pack" = "extension",
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(entries ?? {}).flatMap(([name, value]) => {
+      if (!isRecord(value) || value["type"] === "workspace") return [];
+      const type = value["type"];
+      if (type === "registry") {
+        return [
+          [
+            name,
+            {
+              type,
+              owner: value["owner"],
+              name: value["name"],
+              resolvedVersion: value["resolvedVersion"],
+              integrity: value["integrity"],
+              sourceName: value["sourceName"],
+              publisherBindingId: value["publisherBindingId"],
+              ...(feature === "pack"
+                ? {
+                    manifestContentIdentity:
+                      value["manifestContentIdentity"] ??
+                      value["sourceHash"] ??
+                      TEST_CONTENT_IDENTITY,
+                  }
+                : {}),
+            },
+          ],
+        ];
+      }
+      if (type === "local") {
+        return [
+          [
+            name,
+            {
+              type,
+              path: value["path"],
+              contentIdentity:
+                value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+            },
+          ],
+        ];
+      }
+      if (
+        type === "github" ||
+        type === "gitlab" ||
+        type === "bitbucket" ||
+        type === "azurerepos" ||
+        type === "git"
+      ) {
+        const immutableRevision = value["gitTreeHash"] ?? "test-revision";
+        return [
+          [
+            name,
+            {
+              type,
+              ...(type === "azurerepos"
+                ? {
+                    organization: value["organization"],
+                    project: value["project"],
+                    repo: value["repo"],
+                  }
+                : type === "git"
+                  ? { url: value["url"] }
+                  : { owner: value["owner"], repo: value["repo"] }),
+              ...(value["ref"] === undefined ? {} : { ref: value["ref"] }),
+              ...(value["path"] === undefined ? {} : { path: value["path"] }),
+              resolvedCommit: value["resolvedCommit"] ?? immutableRevision,
+              resolvedTree: value["resolvedTree"] ?? immutableRevision,
+              contentIdentity:
+                value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+            },
+          ],
+        ];
+      }
+      return [[name, value]];
+    }),
+  );
+
 export const exactVersion = (value: string): Version => decodeVersionSync(value);
 
 export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
@@ -334,23 +407,6 @@ export const extensionName = (value: string): ExtensionName => decodeExtensionNa
 export const handle = (value: string): Handle => normalizeHandle(value);
 
 export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);
-
-export const resolvedExtensionMap = (
-  entries: Readonly<Record<string, string>>,
-): ResolvedExtensionMap =>
-  decodeResolvedExtensionMapSync(
-    Object.fromEntries(
-      Object.entries(entries).map(([name, version]) => [
-        name,
-        {
-          source: "registry",
-          version,
-          publisherBindingId: "hbnd_test",
-          integrity: "sha512-member",
-        },
-      ]),
-    ),
-  );
 
 export const dependencyConstraintMap = (
   entries: Readonly<Record<string, string>>,
@@ -380,6 +436,32 @@ export interface WriteWorkspaceFilesOptions {
 }
 
 export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+  const registrySourceNames = new Set(
+    [
+      opts.lockfileSkills,
+      opts.lockfileRules,
+      opts.lockfileHooks,
+      opts.lockfileKnowledge,
+      opts.lockfileSubagents,
+      opts.lockfileMcpServers,
+      opts.lockfilePacks,
+    ].flatMap((entries) =>
+      Object.values(entries ?? {}).flatMap((entry) =>
+        isRecord(entry) && entry["type"] === "registry" && typeof entry["sourceName"] === "string"
+          ? [entry["sourceName"]]
+          : [],
+      ),
+    ),
+  );
+  const sources =
+    opts.sources ??
+    (registrySourceNames.size > 0
+      ? [...registrySourceNames].map((name) => ({
+          type: "registry",
+          name,
+          location: "file:///tmp/test-registry",
+        }))
+      : undefined);
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
@@ -390,7 +472,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
-    ...(opts.sources && { sources: opts.sources }),
+    ...(sources && { sources }),
     ...(opts.minimumReleaseAge && { minimumReleaseAge: opts.minimumReleaseAge }),
     ...(opts.minimumReleaseAgeExclude && {
       minimumReleaseAgeExclude: opts.minimumReleaseAgeExclude,
@@ -398,26 +480,27 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 3,
-    skills: opts.lockfileSkills ?? {},
-    ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
-    ...(hasEntries(opts.lockfileHooks) && { hooks: opts.lockfileHooks }),
-    ...(hasEntries(opts.lockfileKnowledge) && { knowledge: opts.lockfileKnowledge }),
-    ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
-    ...(hasEntries(opts.lockfileMcpServers) && { mcpServers: opts.lockfileMcpServers }),
-    ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
+    lockfileVersion: 4,
+    skills: normalizeTestLockMap(opts.lockfileSkills),
+    ...(hasEntries(opts.lockfileRules) && { rules: normalizeTestLockMap(opts.lockfileRules) }),
+    ...(hasEntries(opts.lockfileHooks) && { hooks: normalizeTestLockMap(opts.lockfileHooks) }),
+    ...(hasEntries(opts.lockfileKnowledge) && {
+      knowledge: normalizeTestLockMap(opts.lockfileKnowledge),
+    }),
+    ...(hasEntries(opts.lockfileSubagents) && {
+      subagents: normalizeTestLockMap(opts.lockfileSubagents),
+    }),
+    ...(hasEntries(opts.lockfileMcpServers) && {
+      mcpServers: normalizeTestLockMap(opts.lockfileMcpServers),
+    }),
+    ...(hasEntries(opts.lockfilePacks) && {
+      packs: normalizeTestLockMap(opts.lockfilePacks, "pack"),
+    }),
   };
 
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
-  if (opts.writeTrustFromLockfile === true) {
-    const decoded = Schema.decodeUnknownSync(LockfileSchema)(lockfile);
-    fs.writeFileSync(
-      path.join(axmDir, "trust.json"),
-      JSON.stringify(trustStateFromLockfile(decoded), null, 2),
-    );
-  }
 };
 
 export const computePackageContentHashSync = (packageDir: string): string => {
@@ -449,15 +532,8 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   return computeSourceHash(hash.digest("hex"));
 };
 
-export const writeTrustFromWorkspaceLockfile = (axmDir: string): void => {
-  const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-    YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")),
-  );
-  fs.writeFileSync(
-    path.join(axmDir, "trust.json"),
-    JSON.stringify(trustStateFromLockfile(lockfile), null, 2),
-  );
-};
+/** @deprecated Lockfile v4 is authoritative; retained temporarily for test migration. */
+export const writeTrustFromWorkspaceLockfile = (_axmDir: string): void => undefined;
 
 /**
  * Write a workspace-sourced OKF knowledge package under `<axmDir>/extensions`,
@@ -492,13 +568,12 @@ export const ensureWorkspaceFiles = (axmDir: string): void => {
 export const makeLocalSkillLockEntry = (opts?: {
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
   path: decodeRelativePathSync(opts?.path ?? "installed"),
-  installedAt: opts?.installedAt ?? TEST_DATE,
-  updatedAt: opts?.updatedAt ?? TEST_DATE,
+  contentIdentity: TEST_CONTENT_IDENTITY,
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
@@ -509,8 +584,8 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "registry",
   owner: normalizeHandle(opts.owner),
@@ -519,8 +594,6 @@ export const makeRegistrySkillLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-  installedAt: opts.installedAt ?? TEST_DATE,
-  updatedAt: opts.updatedAt ?? TEST_DATE,
 });
 
 export const makeRegistryPackLockEntry = (opts: {
@@ -530,11 +603,12 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
-  readonly resolvedSkills?: ResolvedExtensionMap;
-  readonly resolvedMcpServers?: ResolvedExtensionMap;
-  readonly resolvedSubagents?: ResolvedExtensionMap;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly sourceHash?: string;
+  readonly resolvedSkills?: Readonly<Record<string, unknown>>;
+  readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
+  readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     owner: normalizeHandle(opts.owner),
@@ -543,9 +617,8 @@ export const makeRegistryPackLockEntry = (opts: {
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-    installedAt: opts.installedAt ?? TEST_DATE,
-    updatedAt: opts.updatedAt ?? TEST_DATE,
-    resolvedSkills: opts.resolvedSkills ?? {},
-    resolvedMcpServers: opts.resolvedMcpServers ?? {},
-    resolvedSubagents: opts.resolvedSubagents ?? {},
+    manifestContentIdentity:
+      opts.sourceHash === undefined
+        ? TEST_CONTENT_IDENTITY
+        : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
   });

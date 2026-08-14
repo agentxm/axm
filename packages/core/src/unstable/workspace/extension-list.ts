@@ -15,8 +15,9 @@ import {
 } from "../extensions/index.js";
 import { createRegistryClient } from "../registry/index.js";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
+import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
-import { trustRecordKey, type ExtensionTrustRecord } from "../trust/index.js";
+import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import { WorkspaceMutations } from "./service-interface.js";
@@ -60,6 +61,8 @@ export interface ExtensionListItem {
   readonly assessment: ExtensionAssessment;
 }
 
+type AcceptedEntry = SkillLockEntry | PackLockEntry;
+
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
   if (row === undefined) return undefined;
   return typeof row.source === "string" ? row.source : Option.getOrUndefined(row.source);
@@ -98,13 +101,47 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
     for (const row of rowsByType.flat()) {
       rowsByKey.set(inventoryKey(row.type, row.name), row);
     }
-    const trust = yield* ws.getTrustState();
+    const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all([
+      ws.getLockedSkills(),
+      ws.getLockedMcpServers(),
+      ws.getLockedSubagents(),
+      ws.getLockedRules(),
+      ws.getLockedHooks(),
+      ws.getLockedKnowledge(),
+      ws.getLockedPacks(),
+    ]);
+    const accepted = (
+      itemType: InstallableExtensionType,
+      name: string,
+    ): AcceptedEntry | undefined => {
+      switch (itemType) {
+        case "skill":
+          return skills[name];
+        case "mcp-server":
+          return mcps[name];
+        case "subagent":
+          return subagents[name];
+        case "rule":
+          return rules[name];
+        case "hook":
+          return hooks[name];
+        case "knowledge":
+          return knowledge[name];
+        case "pack":
+          return packs[name];
+      }
+    };
 
     return inventory.items.map((row): ExtensionListItem => {
-      const trusted = trust.records[trustRecordKey(row.type, row.name)];
+      const locked = accepted(row.type, row.name);
       const configuredSource = recordSource(rowsByKey.get(inventoryKey(row.type, row.name)));
-      const source = configuredSource ?? trusted?.sourceIdentity;
-      const identitySource = trusted?.sourceIdentity ?? configuredSource;
+      const lockedSource =
+        locked === undefined ? undefined : printSourceParams(lockEntryToSourceParams(locked));
+      const source = configuredSource ?? lockedSource;
+      const identitySource =
+        locked?.type === "registry"
+          ? `${locked.owner}/${extensionTypeToPlural[row.type]}/${locked.name}`
+          : (configuredSource ?? lockedSource);
       const fqnSource =
         identitySource !== undefined && isWorkspaceSourceLocator(identitySource)
           ? identitySource.slice("workspace:".length)
@@ -121,9 +158,9 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
         management: row.classification.lifecycle,
         installed: row.installed,
         enabled: row.enabled,
-        ...(trusted?.resolvedVersion === undefined ? {} : { version: trusted.resolvedVersion }),
+        ...(locked?.type === "registry" ? { version: locked.resolvedVersion } : {}),
         ...(source === undefined ? {} : { source }),
-        ...(trusted?.sourceName === undefined ? {} : { sourceName: trusted.sourceName }),
+        ...(locked?.type === "registry" ? { sourceName: locked.sourceName } : {}),
         assessment: { state: "not-checked" },
       };
     });
@@ -133,7 +170,7 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
 const decodeInstalledVersion = (value: string, ref: string) =>
   Schema.decodeUnknownEffect(VersionSchema)(value).pipe(
     Effect.mapError(() =>
-      makeAppError({ code: "validation", detail: `Trusted version for ${ref} is invalid` }),
+      makeAppError({ code: "validation", detail: `Accepted version for ${ref} is invalid` }),
     ),
   );
 
@@ -146,23 +183,17 @@ const constraintFromSource = (source: string | undefined) => {
 const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(function* (
   item: ExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
-  record: ExtensionTrustRecord,
+  record: AcceptedEntry,
 ) {
   const ws = yield* WorkspaceMutations;
-  if (record.authority !== "registry") {
+  if (record.type !== "registry") {
     return {
       state: "unknown",
-      reason: "Missing trusted Registry identity",
+      reason: "Missing accepted Registry identity",
     } satisfies ExtensionAssessment;
   }
-  const identity = parseExtensionFqnParts(record.sourceIdentity);
-  if (identity === undefined || identity.type !== item.type) {
-    return {
-      state: "unknown",
-      reason: "Trusted Registry identity is invalid",
-    } satisfies ExtensionAssessment;
-  }
-  const sourceName = record.sourceName ?? "default";
+  const identity = { owner: record.owner, type: item.type, name: record.name };
+  const sourceName = record.sourceName;
   const source = yield* ws.getConfiguredSourceByName(sourceName);
   if (Option.isNone(source) || source.value.type !== "registry") {
     return {
@@ -193,12 +224,6 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
             : { deprecationNotice: index.value.deprecationNotice }),
         } satisfies ExtensionAssessment);
   }
-  if (record.resolvedVersion === undefined) {
-    return {
-      state: "unknown",
-      reason: "Trusted installed version is missing",
-    } satisfies ExtensionAssessment;
-  }
   const installedVersion = yield* decodeInstalledVersion(record.resolvedVersion, item.ref);
   const constraint = constraintFromSource(item.source);
   const currency = checkCurrency(installedVersion, constraint, index.value);
@@ -222,16 +247,18 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
 
 const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   item: ExtensionListItem,
-  record: ExtensionTrustRecord,
+  record: AcceptedEntry,
 ) {
   const providers = yield* SourceHostProviders;
-  if (record.immutableRevision === undefined) {
+  if (record.type === "registry" || record.type === "local") {
     return {
       state: "unknown",
-      reason: "Trusted immutable revision is missing",
+      reason: "Accepted immutable resolution is missing",
     } satisfies ExtensionAssessment;
   }
-  const source = yield* resolveSource(record.sourceIdentity).pipe(Effect.result);
+  const source = yield* resolveSource(printSourceParams(lockEntryToSourceParams(record))).pipe(
+    Effect.result,
+  );
   if (source._tag === "Failure") {
     return { state: "unknown", reason: source.failure.detail } satisfies ExtensionAssessment;
   }
@@ -247,16 +274,19 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
     return { state: "unknown", reason: refs.failure.detail } satisfies ExtensionAssessment;
   }
   const match = refs.success.find((ref) => ref.type === item.type && refName(ref) === item.name);
-  if (match === undefined || match.refType !== "git-hosted" || Option.isNone(match.gitTreeSha)) {
+  if (match === undefined || match.refType !== "git-hosted") {
     return {
       state: "unknown",
       reason: "Source revision could not be compared",
     } satisfies ExtensionAssessment;
   }
   return {
-    state: match.gitTreeSha.value === record.immutableRevision ? "current" : "changed",
-    installedRevision: record.immutableRevision,
-    currentRevision: match.gitTreeSha.value,
+    state:
+      match.gitTreeSha === record.resolvedTree && match.gitCommitSha === record.resolvedCommit
+        ? "current"
+        : "changed",
+    installedRevision: `${record.resolvedCommit}:${record.resolvedTree}`,
+    currentRevision: `${match.gitCommitSha}:${match.gitTreeSha}`,
   } satisfies ExtensionAssessment;
 });
 
@@ -265,18 +295,18 @@ const gitAuthorities = new Set(["github", "gitlab", "bitbucket", "azurerepos", "
 const assessItem = (
   item: ExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
-  record: ExtensionTrustRecord | undefined,
+  record: AcceptedEntry | undefined,
 ) =>
   Effect.gen(function* () {
     if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
     if (record === undefined) {
       return {
         state: "unknown",
-        reason: "Installed extension has no trust record",
+        reason: "Installed extension has no accepted external resolution",
       } satisfies ExtensionAssessment;
     }
-    if (record.authority === "registry") return yield* registryAssessment(item, filter, record);
-    if (filter === "outdated" && gitAuthorities.has(record.authority)) {
+    if (record.type === "registry") return yield* registryAssessment(item, filter, record);
+    if (filter === "outdated" && gitAuthorities.has(record.type)) {
       return yield* gitAssessment(item, record);
     }
     return { state: "not-applicable" } satisfies ExtensionAssessment;
@@ -287,13 +317,32 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
   filter: Exclude<ExtensionListFilter, "all">,
 ) {
   const ws = yield* WorkspaceMutations;
-  const trust = yield* ws.getTrustState();
   return yield* Effect.forEach(
     items,
-    (item) =>
-      assessItem(item, filter, trust.records[trustRecordKey(item.type, item.name)]).pipe(
+    (item) => {
+      const entry = (() => {
+        switch (item.type) {
+          case "skill":
+            return ws.getLockedSkill(item.name);
+          case "mcp-server":
+            return ws.getLockedMcpServer(item.name);
+          case "subagent":
+            return ws.getLockedSubagent(item.name);
+          case "rule":
+            return ws.getLockedRuleEntry(item.name);
+          case "hook":
+            return ws.getLockedHookEntry(item.name);
+          case "knowledge":
+            return ws.getLockedKnowledgeEntry(item.name);
+          case "pack":
+            return ws.getLockedPack(item.name);
+        }
+      })();
+      return entry.pipe(
+        Effect.flatMap((accepted) => assessItem(item, filter, Option.getOrUndefined(accepted))),
         Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
-      ),
+      );
+    },
     { concurrency: 6 },
   );
 });

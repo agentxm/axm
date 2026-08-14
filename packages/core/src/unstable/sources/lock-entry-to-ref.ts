@@ -13,8 +13,10 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "../extensions/index.js";
 import type {
   KnowledgeLockEntry,
+  HookLockEntry,
   PackLockEntry,
   McpServerLockEntry,
+  RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
@@ -24,11 +26,19 @@ import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
+import type { RuleExtensionRef } from "../rules/refs.js";
+import type { HookExtensionRef } from "../hooks/refs.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
-type SourceLockEntry = SkillLockEntry | KnowledgeLockEntry | McpServerLockEntry | SubagentLockEntry;
+type SourceLockEntry =
+  | SkillLockEntry
+  | KnowledgeLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry;
 
 interface LockEntryToRefDeps {
   readonly baseDir: string;
@@ -183,13 +193,6 @@ const gitBasedSourceFromEntry = (
 const lockEntryLocation = (baseDir: string, pluralType: string, name: string): string =>
   fileHref(`${baseDir}/${AXM_DIR_NAME}/extensions/external/${pluralType}/${name}`);
 
-const workspacePackageLocation = (
-  deps: Pick<LockEntryToRefDeps, "baseDir" | "path">,
-  owner: string,
-  pluralType: string,
-  name: string,
-): string => deps.path.join(deps.baseDir, AXM_DIR_NAME, "extensions", owner, pluralType, name);
-
 export const skillLockEntryToRef = (
   name: string,
   entry: SkillLockEntry,
@@ -215,24 +218,6 @@ export const skillLockEntryToRef = (
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
             }),
           );
-        case "workspace":
-          return Effect.succeed({
-            type: "skill" as const,
-            refType: "workspace" as const,
-            source: {
-              type: "workspace" as const,
-              owner: entry.owner,
-              extensionType: "skill" as const,
-              name: entry.name,
-            },
-            owner: entry.owner,
-            name: entry.name,
-            version: entry.version,
-            sourceHash: entry.sourceHash,
-            scope: deps.scope,
-            location: workspacePackageLocation(deps, entry.owner, "skills", entry.name),
-            skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
-          });
         case "local": {
           const skillSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -255,7 +240,8 @@ export const skillLockEntryToRef = (
               refType: "git-hosted" as const,
               source,
               location: lockEntryLocation(deps.baseDir, "skills", extensionName),
-              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
             }),
           );
@@ -288,24 +274,6 @@ export const mcpServerLockEntryToRef = (
               server: { name: extensionName },
             }),
           );
-        case "workspace":
-          return Effect.succeed({
-            type: "mcp-server" as const,
-            refType: "workspace" as const,
-            source: {
-              type: "workspace" as const,
-              owner: entry.owner,
-              extensionType: "mcp-server" as const,
-              name: entry.name,
-            },
-            owner: entry.owner,
-            name: entry.name,
-            version: entry.version,
-            sourceHash: entry.sourceHash,
-            scope: deps.scope,
-            location: workspacePackageLocation(deps, entry.owner, "mcps", entry.name),
-            server: { name: extensionName },
-          });
         case "local": {
           const mcpServerSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -328,15 +296,9 @@ export const mcpServerLockEntryToRef = (
               refType: "git-hosted" as const,
               source,
               location: lockEntryLocation(deps.baseDir, "mcps", extensionName),
-              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
               server: { name: extensionName },
-            }),
-          );
-        case "inline":
-          return Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: `Inline MCP server "${extensionName}" does not resolve to a package ref`,
             }),
           );
       }
@@ -368,24 +330,6 @@ export const subagentLockEntryToRef = (
               subagent: { name: extensionName, description: Option.none() },
             }),
           );
-        case "workspace":
-          return Effect.succeed({
-            type: "subagent" as const,
-            refType: "workspace" as const,
-            source: {
-              type: "workspace" as const,
-              owner: entry.owner,
-              extensionType: "subagent" as const,
-              name: entry.name,
-            },
-            owner: entry.owner,
-            name: entry.name,
-            version: entry.version,
-            sourceHash: entry.sourceHash,
-            scope: deps.scope,
-            location: workspacePackageLocation(deps, entry.owner, "subagents", entry.name),
-            subagent: { name: extensionName, description: Option.none() },
-          });
         case "local": {
           const subagentSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -408,8 +352,121 @@ export const subagentLockEntryToRef = (
               refType: "git-hosted" as const,
               source,
               location: lockEntryLocation(deps.baseDir, "subagents", extensionName),
-              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
               subagent: { name: extensionName, description: Option.none() },
+            }),
+          );
+      }
+    },
+  );
+
+export const ruleLockEntryToRef = (
+  name: string,
+  entry: RuleLockEntry,
+  deps: LockEntryToRefDeps,
+): Effect.Effect<RuleExtensionRef, AppError> =>
+  Effect.flatMap(
+    decodeLockEntryName(name),
+    (extensionName): Effect.Effect<RuleExtensionRef, AppError> => {
+      switch (entry.type) {
+        case "registry":
+          return Effect.map(
+            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
+            (source) => ({
+              type: "rule" as const,
+              refType: "registry" as const,
+              source,
+              owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
+              name: entry.name,
+              version: entry.resolvedVersion,
+              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
+              packages: [],
+              rule: { name: extensionName },
+            }),
+          );
+        case "local": {
+          const sourcePath = localLockEntryPath(deps, entry.path);
+          return Effect.succeed({
+            type: "rule" as const,
+            refType: "local" as const,
+            source: { type: "local" as const, path: sourcePath },
+            location: fileHref(sourcePath),
+            rule: { name: extensionName },
+          });
+        }
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+        case "git":
+          return Effect.map(
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            (source) => ({
+              type: "rule" as const,
+              refType: "git-hosted" as const,
+              source,
+              location: lockEntryLocation(deps.baseDir, "rules", extensionName),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
+              rule: { name: extensionName },
+            }),
+          );
+      }
+    },
+  );
+
+export const hookLockEntryToRef = (
+  name: string,
+  entry: HookLockEntry,
+  deps: LockEntryToRefDeps,
+): Effect.Effect<HookExtensionRef, AppError> =>
+  Effect.flatMap(
+    decodeLockEntryName(name),
+    (extensionName): Effect.Effect<HookExtensionRef, AppError> => {
+      switch (entry.type) {
+        case "registry":
+          return Effect.map(
+            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
+            (source) => ({
+              type: "hook" as const,
+              refType: "registry" as const,
+              source,
+              owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
+              name: entry.name,
+              version: entry.resolvedVersion,
+              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
+              packages: [],
+              hook: { name: extensionName },
+            }),
+          );
+        case "local": {
+          const sourcePath = localLockEntryPath(deps, entry.path);
+          return Effect.succeed({
+            type: "hook" as const,
+            refType: "local" as const,
+            source: { type: "local" as const, path: sourcePath },
+            location: fileHref(sourcePath),
+            hook: { name: extensionName },
+          });
+        }
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+        case "git":
+          return Effect.map(
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            (source) => ({
+              type: "hook" as const,
+              refType: "git-hosted" as const,
+              source,
+              location: lockEntryLocation(deps.baseDir, "hooks", extensionName),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
+              hook: { name: extensionName },
             }),
           );
       }
@@ -441,24 +498,6 @@ export const knowledgeLockEntryToRef = (
               knowledge: { name: extensionName },
             }),
           );
-        case "workspace":
-          return Effect.succeed({
-            type: "knowledge" as const,
-            refType: "workspace" as const,
-            source: {
-              type: "workspace" as const,
-              owner: entry.owner,
-              extensionType: "knowledge" as const,
-              name: entry.name,
-            },
-            owner: entry.owner,
-            name: entry.name,
-            version: entry.version,
-            sourceHash: entry.sourceHash,
-            scope: deps.scope,
-            location: workspacePackageLocation(deps, entry.owner, "knowledge", entry.name),
-            knowledge: { name: extensionName },
-          });
         case "local": {
           const sourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -481,7 +520,8 @@ export const knowledgeLockEntryToRef = (
               refType: "git-hosted" as const,
               source,
               location: lockEntryLocation(deps.baseDir, "knowledge", extensionName),
-              gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
               knowledge: { name: extensionName },
             }),
           );
@@ -495,26 +535,6 @@ export const packLockEntryToRef = (
   deps: LockEntryToRefDeps,
 ): Effect.Effect<PackRef, AppError> =>
   Effect.flatMap(decodeLockEntryName(name), (extensionName) => {
-    if (entry.type === "workspace") {
-      const ref: PackRef = {
-        type: "pack" as const,
-        refType: "workspace" as const,
-        source: {
-          type: "workspace" as const,
-          owner: entry.owner,
-          extensionType: "pack" as const,
-          name: entry.name,
-        },
-        owner: entry.owner,
-        name: entry.name,
-        version: entry.version,
-        sourceHash: entry.sourceHash,
-        scope: deps.scope,
-        location: workspacePackageLocation(deps, entry.owner, "packs", entry.name),
-        pack: { name: extensionName, dependencies: {} },
-      };
-      return Effect.succeed(ref);
-    }
     return Effect.map(
       registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
       (source): PackRef => ({

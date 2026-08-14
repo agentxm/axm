@@ -1,41 +1,5 @@
-lockfileVersion: 3
+lockfileVersion: 4
 skills:
-  axm:
-    type: workspace
-    owner: "@agentxm"
-    extensionType: skill
-    name: axm
-    version: 0.26.7
-    installedAt: 2026-07-29T00:51:41.963Z
-    updatedAt: 2026-08-13T19:52:32.376Z
-    sourceHash: b27b3e58f448ad52c4c0cebc321109363334def2c87f0b106e6fbf817afb497a
-  code-review:
-    type: workspace
-    owner: "@agentxm"
-    extensionType: skill
-    name: code-review
-    version: 0.1.0
-    installedAt: 2026-08-07T16:50:04.524Z
-    updatedAt: 2026-08-13T19:52:32.402Z
-    sourceHash: 28efded53d558d1088b62189c11a4497b2841ada3e9f8d1e88cbff81824b4cef
-  e2e-publish-check:
-    type: workspace
-    owner: "@local-dev"
-    extensionType: skill
-    name: e2e-publish-check
-    version: 0.0.1
-    installedAt: 2026-08-07T16:50:04.577Z
-    updatedAt: 2026-08-07T16:50:04.581Z
-    sourceHash: 96d7cd88e742b7497a424ce35ac5a0c12363cee209cb77bd13c568befc492b82
-  okf-author:
-    type: workspace
-    owner: "@craigsmitham"
-    extensionType: skill
-    name: okf-author
-    version: 0.0.1
-    installedAt: 2026-08-07T16:50:04.860Z
-    updatedAt: 2026-08-07T20:58:25.083Z
-    sourceHash: 81d5d2352d0839539bdaee068e13375f1169d857b5fa2b34c92804faf54fbe8b
   field-notes:
     type: registry
     owner: "@craigsmitham"
@@ -44,20 +8,6 @@ skills:
     integrity: sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-08T17:50:28.343Z
-    updatedAt: 2026-08-08T17:50:28.351Z
-    sourceHash: eb50354a2e85c435817d41df03036166a957ef9350d6b622b62f931e4771367d
-  improve-whatever:
-    type: registry
-    owner: "@craigsmitham"
-    name: improve-whatever
-    resolvedVersion: 0.0.5
-    integrity: sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-08T19:49:53.070Z
-    updatedAt: 2026-08-08T19:49:53.075Z
-    sourceHash: 2a7002b455b9ff4ae35d719a12d215fc55da9db5eda3c09b502fab6a3da8989a
   effect-v4-config:
     type: registry
     owner: "@craigsmitham"
@@ -66,9 +16,6 @@ skills:
     integrity: sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.833Z
-    updatedAt: 2026-08-12T05:39:00.842Z
-    sourceHash: 1a41e00740263dd41f584890825b077806c96023a121a7df12738b2263f816b9
   effect-v4-optics:
     type: registry
     owner: "@craigsmitham"
@@ -77,9 +24,6 @@ skills:
     integrity: sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.858Z
-    updatedAt: 2026-08-12T05:39:00.869Z
-    sourceHash: 14eb071bd5d61c49ba05189f09933d505195df62c0f10045188d27d1596f2d74
   effect-v4-option:
     type: registry
     owner: "@craigsmitham"
@@ -88,9 +32,6 @@ skills:
     integrity: sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.885Z
-    updatedAt: 2026-08-12T05:39:00.891Z
-    sourceHash: fab84f8ae1934fa197de0b478a791f7cc86a2f69d489afccd4718df7865064b6
   effect-v4-streams:
     type: registry
     owner: "@craigsmitham"
@@ -99,9 +40,6 @@ skills:
     integrity: sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.906Z
-    updatedAt: 2026-08-12T05:39:00.912Z
-    sourceHash: 775abc4ad710429c3685227390c58668627601180ab8dc7190c726dc32459d5c
   effect-v4-testing:
     type: registry
     owner: "@craigsmitham"
@@ -110,9 +48,6 @@ skills:
     integrity: sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.926Z
-    updatedAt: 2026-08-12T05:39:00.932Z
-    sourceHash: 2970f1088b2f2795d2d3d137b0e48f3b7f8a3c2da79674a271aea6aa3ea74fc6
   effect-v4-http-api:
     type: registry
     owner: "@craigsmitham"
@@ -121,9 +56,6 @@ skills:
     integrity: sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.950Z
-    updatedAt: 2026-08-12T05:39:00.955Z
-    sourceHash: 0b5616334caa8ad9b5942a845d467b6d2960f67236d284183dd23b35305fea41
   effect-v4-wrapping:
     type: registry
     owner: "@craigsmitham"
@@ -132,9 +64,6 @@ skills:
     integrity: sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:00.978Z
-    updatedAt: 2026-08-12T05:39:00.993Z
-    sourceHash: 961ca7050b4f4605c7a7facb348f5af07959f1e2cd4d23727eb3751d3f3b217b
   effect-v4-iteration:
     type: registry
     owner: "@craigsmitham"
@@ -143,9 +72,6 @@ skills:
     integrity: sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.034Z
-    updatedAt: 2026-08-12T05:39:01.046Z
-    sourceHash: 61bf89492a068ba28b6ed9682222e9eb6ccb5bf550028aa229dfb695462f46a8
   effect-v4-filesystem:
     type: registry
     owner: "@craigsmitham"
@@ -154,9 +80,6 @@ skills:
     integrity: sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.074Z
-    updatedAt: 2026-08-12T05:39:01.083Z
-    sourceHash: 451c8b742ba97355f60ba631da7ed00a228b49da653ad427b24f8def2d6f54d2
   effect-v4-collections:
     type: registry
     owner: "@craigsmitham"
@@ -165,9 +88,6 @@ skills:
     integrity: sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.099Z
-    updatedAt: 2026-08-12T05:39:01.105Z
-    sourceHash: c3743ff80895e4a01b4073e759793b21978063cbc46bac6ca1569c5e340b297c
   effect-v4-branded-types:
     type: registry
     owner: "@craigsmitham"
@@ -176,9 +96,6 @@ skills:
     integrity: sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.118Z
-    updatedAt: 2026-08-12T05:39:01.124Z
-    sourceHash: 2623e93462a0fd9cbd02a4899476c61ff040a71fb88a9946087a0964c17cb2a6
   effect-v4-observability:
     type: registry
     owner: "@craigsmitham"
@@ -187,9 +104,6 @@ skills:
     integrity: sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.137Z
-    updatedAt: 2026-08-12T05:39:01.143Z
-    sourceHash: 0052a91c7b53820dc4f4a073766bd854a462876712d5953258849855ff0516c5
   effect-v4-error-modeling:
     type: registry
     owner: "@craigsmitham"
@@ -198,9 +112,6 @@ skills:
     integrity: sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.157Z
-    updatedAt: 2026-08-12T05:39:01.163Z
-    sourceHash: 87d8e63616c12d90d2858567a1c0676e759dff59d4e56fefa9c54b079357375e
   effect-v4-resource-safety:
     type: registry
     owner: "@craigsmitham"
@@ -209,9 +120,6 @@ skills:
     integrity: sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.181Z
-    updatedAt: 2026-08-12T05:39:01.187Z
-    sourceHash: 04db6c39fd0b73689543c197bf0e57b67f57b13c81f83323eb186169360450ec
   effect-v4-schema-boundaries:
     type: registry
     owner: "@craigsmitham"
@@ -220,9 +128,6 @@ skills:
     integrity: sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.202Z
-    updatedAt: 2026-08-12T05:39:01.208Z
-    sourceHash: 600e3e9e9fae7e68ca4fbc8bb4baa31d087f9db099a60f6c4c962e1b4880afa0
   effect-v4-async-coordination:
     type: registry
     owner: "@craigsmitham"
@@ -231,9 +136,6 @@ skills:
     integrity: sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.221Z
-    updatedAt: 2026-08-12T05:39:01.227Z
-    sourceHash: 4495bbae1dd8d64d6371043bc99fd30fb663680ee6d4270c5fe979a5706af8b5
   effect-v4-cloudflare-workers:
     type: registry
     owner: "@craigsmitham"
@@ -242,9 +144,6 @@ skills:
     integrity: sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.242Z
-    updatedAt: 2026-08-12T05:39:01.248Z
-    sourceHash: 2895ecc724715ab5ce72dd46a212c6700fed9d750b46566965bf793a69fb73fc
   effect-v4-services-and-layers:
     type: registry
     owner: "@craigsmitham"
@@ -253,9 +152,6 @@ skills:
     integrity: sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.262Z
-    updatedAt: 2026-08-12T05:39:01.268Z
-    sourceHash: cbd2a655a5773bb06f66bd04990b2be7ed15a041a695ec8575af9db0cb392c48
   effect-v4-structured-concurrency:
     type: registry
     owner: "@craigsmitham"
@@ -264,9 +160,6 @@ skills:
     integrity: sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.283Z
-    updatedAt: 2026-08-12T05:39:01.290Z
-    sourceHash: 01c3a3dedc5ae6b7aaa64edeb1212b2c487b8686ebdbbea8a839aafa6382d247
   effect-v4-request-batching-and-cache:
     type: registry
     owner: "@craigsmitham"
@@ -275,21 +168,23 @@ skills:
     integrity: sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-12T05:39:01.304Z
-    updatedAt: 2026-08-12T05:39:01.311Z
-    sourceHash: bef31eb745b47e62ba62d7389a81abc0efd6badd78daf6391926780365772627
+  improve-whatever:
+    type: registry
+    owner: "@craigsmitham"
+    name: improve-whatever
+    resolvedVersion: 0.0.5
+    integrity: sha512-PFRfBojYWywGCLt+EitQy96QFJSTVdNfQEyL9v57BHOEFXdQ7JmIYFFhbgp/7oHzY32QDNNvdpRZbPuaotsdKw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
   field-notes:
     type: registry
     owner: "@craigsmitham"
     name: field-notes
-    resolvedVersion: 0.1.0
-    integrity: sha512-Ytu3QlBHMJlND8VAiMdNtKs5jdtWr9Y5W9IierRrHwoX1fSE2zu7hypn32CtRwIWTQMAqhb5GumrKp+GeCpX3w==
+    resolvedVersion: 0.1.4
+    integrity: sha512-fn1A6qJ5cbWsl5rGSujkmhmtfPOWJ4EUWvAwZ0dsqNCdG1CushUSWIyYX4QotRxZPbr4H97UMdEr3lV4m0eqBA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-08T17:50:28.379Z
-    updatedAt: 2026-08-08T17:50:28.386Z
-    sourceHash: f5f954014efa2f65ecf21abab703c5bfd855793225e34edb59ee81b9f2c67f5c
 knowledge:
   agentxm:
     type: registry
@@ -299,9 +194,6 @@ knowledge:
     integrity: sha512-zugFWNON1a6BDXd/Ro/+2QG9h4/tNuJMCq/hkCjn4Tf94ZZGziNzReOQZfZbyzIN66KjYQUFZR+WyfORV9gjSA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    installedAt: 2026-08-06T14:50:18.696Z
-    updatedAt: 2026-08-13T21:42:23.609Z
-    sourceHash: 66c02f2b04ef030cf4727cc5068df0488fe102b64c5a8c20f4cf201f2f325bd2
   field-notes:
     type: registry
     owner: "@craigsmitham"
@@ -310,9 +202,6 @@ knowledge:
     integrity: sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-08T17:50:28.408Z
-    updatedAt: 2026-08-08T17:50:28.413Z
-    sourceHash: a2ce7a9156f72eac0e074c00e4831277f6bd62960cdf03c5040578d3dd59fe60
   workflow-automation:
     type: registry
     owner: "@craigsmitham"
@@ -321,9 +210,6 @@ knowledge:
     integrity: sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    installedAt: 2026-08-08T17:50:30.432Z
-    updatedAt: 2026-08-08T17:50:30.597Z
-    sourceHash: 8355be6f86b4fa052c68f3964f261e4f87392ad3ef03c88775d5b8ecd8d7285f
 packs:
   field-notes:
     type: registry
@@ -331,148 +217,15 @@ packs:
     name: field-notes
     resolvedVersion: 0.1.0
     integrity: sha512-ZmjqaQPwhKi8MXon/yqthQqnAbS+jR50LGut1U+abVFQfmcrYt+eJSYmb0RyVDoUS2lnxbdyyy0c+Vc0A3tP5g==
+    manifestContentIdentity: 11861319eb1f5a0bb3cdeecc6bfc568406c72e71651c1071a3bcbb52f7f21651
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    sourceHash: 86a93c5efe1de48b1c472c47f829d72a69b98811e15393949c83614048d32d2b
-    installedAt: 2026-08-08T17:50:28.285Z
-    updatedAt: 2026-08-08T17:50:28.296Z
-    resolvedSkills:
-      "@craigsmitham/skills/field-notes":
-        source: registry
-        version: 0.1.1
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-t1ycgY5vXgTRHfhz1cwYUa2lbZlTGvZEUTrL0L8qkIVdSvRxk05fbfrk09hAbQ7qjQvjA+7CxXbCpJGmI5xnsg==
-    resolvedMcpServers: {}
-    resolvedSubagents: {}
-    resolvedRules:
-      "@craigsmitham/rules/field-notes":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-Ytu3QlBHMJlND8VAiMdNtKs5jdtWr9Y5W9IierRrHwoX1fSE2zu7hypn32CtRwIWTQMAqhb5GumrKp+GeCpX3w==
-    resolvedHooks: {}
-    resolvedKnowledge:
-      "@craigsmitham/knowledge/field-notes":
-        source: registry
-        version: 0.1.1
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-Z6NRiZ0Zk+gwGylE5vC4buMarBc360CngcNWVNmWrNuldbu0CH0LHqXmTlB7Qz7NLltcJue093qOL+MAfG/evw==
   effect-v4:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
     resolvedVersion: 0.1.0
     integrity: sha512-p/4NFlnUMJ6Gvvqd1LyRq533EcXCDbyCzs5W6TMD/VMxsSfJ5rCshTDMJ73K04mYEgrrJR06NXDgnl8s5kyrFQ==
+    manifestContentIdentity: 893040a4a5d38381b9a6bfb7b1a37423f1c3376bfe2add14fc560ea3e0f1ed79
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    sourceHash: 883026bd7091dcce3e40821dd25ad81b57dc54845973ca5b0d254b43a1e24f92
-    installedAt: 2026-08-12T05:39:00.774Z
-    updatedAt: 2026-08-12T05:39:00.783Z
-    resolvedSkills:
-      "@craigsmitham/skills/effect-v4-config":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-TurzOwa6Wqfs3ZQE0P+ox01qOHi9+UeO4C4uXNQewryCzzfkhMCUnZlrkqiskswpugVH1UpMu5S8R1rcHETzQw==
-      "@craigsmitham/skills/effect-v4-optics":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-YAP7+Mv9Af8ZMmeORM68Snk2pId9Tr4n+9rRLAOtIQajvMCRMjFcG+Hm7ol6UHCrcebVjD5exLpODjv0c1Qw3g==
-      "@craigsmitham/skills/effect-v4-option":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-Wy3LgqeEsNrgZfInKpMnAR/VNqdNfmERB0uLtQ4AKme2aWr8Bv9epI73EmLHBVjNM+WY5CWAczHjj/hNfK+3cA==
-      "@craigsmitham/skills/effect-v4-streams":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-xvTItgklN+0oJ9ZCGuqhv7aImFhLw+s2JeGi50MkBkljEQyGfVCI/ReeXfp5wx4cZo4xV8PZarnqwigbg2IVFQ==
-      "@craigsmitham/skills/effect-v4-testing":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-ZMOnKBVdW+2y6LlIXHa4a/CAtQTUxR7AGHXDkUgQgoZlGXlDXhBanhpBj5MX/rZAg3IsHJjLFvUnX5qBF6BhKQ==
-      "@craigsmitham/skills/effect-v4-http-api":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-AjNg2N7HJSGaePWkmA5whmivoSXG8b4p3yU32Jo+zV4iwb6Y2h528RTBR3frTgUYDs1265mIt3VuayCEKv2EcA==
-      "@craigsmitham/skills/effect-v4-wrapping":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-+BXpm//0zfyrC+Z1CdHDIqNwe95vfnRx1izvpq/DRZgV1K4/W6WyXiUkK+AE0HX4zoUNeHdCx0RyPl1Z9f4xXA==
-      "@craigsmitham/skills/effect-v4-iteration":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-Aem3GZ6YGtqVSJ03ryz+aTTTgvAweiUYNUCvdJ9iyx+Vhzj0HeduOBtG3t8J1lmHiJyspN5Q51HaXN5TzMIPew==
-      "@craigsmitham/skills/effect-v4-filesystem":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-A/klPs1XsllxsWIrdpYcvQMWmr1igqjzAWMZXkK6sevcuKVO53VbdpwsN7Uef91x9UXAtnRfegKxmcwzA5TEbg==
-      "@craigsmitham/skills/effect-v4-collections":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-J/yjuOKsEHdnl+PzEFHwonwKxIYwSM8d6X32sY+qKfP97VhjEWhn2xjnpXjl6AB5aRa997TBdqGpxls31bYfyw==
-      "@craigsmitham/skills/effect-v4-branded-types":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-pKUvD6XExR+6ilFT9oLn+ooL9eZ/jAR1aFWG14/vaf0g6ZyUdKpMcjtKq+wC7bfZVImQzIiq6ZsNryhwpEG0kA==
-      "@craigsmitham/skills/effect-v4-observability":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-eXTm4wEbrsd+XZHxONm9dUlcxALX8yzVgoVAzNbv3PXfM5hUEBf02c/70k84egyma7paTpBBNLzGVQMJddlfew==
-      "@craigsmitham/skills/effect-v4-error-modeling":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-noKv7N1fsEgbnER1ltnoJM/FBw2DoyWLLF3u9/3odqNxvc2JIhcbdjZOtbeqi1rAZ/+kgMlzybL7fc/Ibl+YYA==
-      "@craigsmitham/skills/effect-v4-resource-safety":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-n3yfS/uv9OLqDRsTTLgZcsP8YTwpKAVUR4+8uknsu9/U7N6kCod1A+bw+7W+bnztAokouFbgP3C5TocUjQHQKA==
-      "@craigsmitham/skills/effect-v4-schema-boundaries":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-3v/TAZrTEzn02q9EdufbB9w1ye3bOrIztD03pKwYlses6SE8rzoiG3Bfukqi4dJEjWFnMmdT52DQd6t4jiNKHw==
-      "@craigsmitham/skills/effect-v4-async-coordination":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-0EcuXliVucAfw1oKHYv4vBiUesTE20F5UYeylJXgJcIA9FN2EdOdTyNoepUSomGfzIuUzPdv+1COeKjY69wIGw==
-      "@craigsmitham/skills/effect-v4-cloudflare-workers":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-AkVpzcsHhjUs+Fegark2QbHJ9Sr9gz7Me89GADCTQGc8ZXcfVEr+2Gm5jYJd+5Mg43D1Ru/sbZw+uwrnYj8/RA==
-      "@craigsmitham/skills/effect-v4-services-and-layers":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-VJCZeXhRsMUnPzWHqfNOPtYrszC5jGLwAN7ZLmz7QdHLDFhE1vR2U3uTsy+ANN59swJXUKliAtaMzKAUv9tnhg==
-      "@craigsmitham/skills/effect-v4-structured-concurrency":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-0bvmqRr4aEdeglxlCO7j4dPLWgFMfYD70kSb6M4UPpQLz5E6Ng6dHrWIvWMqFtZEuJmYW19691R6WKQ58MzpDQ==
-      "@craigsmitham/skills/effect-v4-request-batching-and-cache":
-        source: registry
-        version: 0.1.0
-        publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-        integrity: sha512-wBgd6SLzNoh48T8JyrwPUVXJGJvfTPMEVwUNJ0sOyrYFjkRc2A2K4Smo5Y610CbHhe+RhlesZk32Ie8lfbUltA==
-    resolvedMcpServers: {}
-    resolvedSubagents: {}
-    resolvedRules: {}
-    resolvedHooks: {}
-    resolvedKnowledge: {}
-commands: {}
-files: {}

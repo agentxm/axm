@@ -7,6 +7,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  parseExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   KNOWLEDGE_EXTENSION_DIR,
@@ -28,7 +29,7 @@ export const bundleRoot = (
   entry: KnowledgeLockEntry,
   path: Path.Path,
 ): string =>
-  entry.type === "registry" || entry.type === "workspace"
+  entry.type === "registry"
     ? path.join(
         baseDir,
         REGISTRY_EXTENSIONS_DIR,
@@ -44,6 +45,28 @@ export const bundleRoot = (
         name,
         KNOWLEDGE_SOURCE_DIR,
       );
+
+const desiredBundleRoot = (
+  baseDir: string,
+  node: { readonly name: string; readonly identity: string },
+  entry: KnowledgeLockEntry | undefined,
+  path: Path.Path,
+): string | undefined => {
+  if (node.identity.startsWith("workspace:")) {
+    const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
+    return identity === undefined || identity.type !== "knowledge"
+      ? undefined
+      : path.join(
+          baseDir,
+          REGISTRY_EXTENSIONS_DIR,
+          identity.owner,
+          KNOWLEDGE_EXTENSION_DIR,
+          identity.name,
+          KNOWLEDGE_SOURCE_DIR,
+        );
+  }
+  return entry === undefined ? undefined : bundleRoot(baseDir, node.name, entry, path);
+};
 
 const isCorpusChanging = (
   cause: unknown,
@@ -75,11 +98,11 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
         (selectedName === undefined || node.name === selectedName),
     )
     .sort((left, right) => left.name.localeCompare(right.name))
-    .map((node): readonly [string, KnowledgeLockEntry] | undefined => {
-      const entry = locked[node.name];
-      return entry === undefined ? undefined : [node.name, entry];
+    .map((node): readonly [string, string] | undefined => {
+      const sourceRoot = desiredBundleRoot(ws.baseDir, node, locked[node.name], path);
+      return sourceRoot === undefined ? undefined : [node.name, sourceRoot];
     })
-    .filter((entry): entry is readonly [string, KnowledgeLockEntry] => entry !== undefined);
+    .filter((entry): entry is readonly [string, string] => entry !== undefined);
   if (selectedName !== undefined && entries.length === 0) {
     return yield* makeAppError({
       code: "not_found",
@@ -88,8 +111,7 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
   }
   return yield* Effect.forEach(
     entries,
-    ([name, entry]) => {
-      const sourceRoot = bundleRoot(ws.baseDir, name, entry, path);
+    ([name, sourceRoot]) => {
       return inspectKnowledgePackage(path.dirname(sourceRoot)).pipe(
         Effect.map(({ inspection }) => ({ name, sourceRoot, inspection })),
         Effect.mapError((cause) =>
@@ -129,8 +151,8 @@ export const captureInstalledKnowledgeIndex = Effect.fn("Knowledge.captureInstal
       )
       .sort((left, right) => left.name.localeCompare(right.name))
       .flatMap((node) => {
-        const entry = locked[node.name];
-        return entry === undefined ? [] : [{ name: node.name, entry }];
+        const sourceRoot = desiredBundleRoot(ws.baseDir, node, locked[node.name], path);
+        return sourceRoot === undefined ? [] : [{ name: node.name, sourceRoot }];
       });
     if (selectedName !== undefined && entries.length === 0) {
       return yield* makeAppError({
@@ -140,8 +162,7 @@ export const captureInstalledKnowledgeIndex = Effect.fn("Knowledge.captureInstal
     }
     const prepared = yield* Effect.forEach(
       entries,
-      ({ name, entry }) => {
-        const sourceRoot = bundleRoot(ws.baseDir, name, entry, path);
+      ({ name, sourceRoot }) => {
         return readKnowledgePackageManifest(path.dirname(sourceRoot)).pipe(
           Effect.flatMap(({ manifest }) =>
             Schema.decodeUnknownEffect(KnowledgeBundleFqnSchema)(

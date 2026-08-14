@@ -1,8 +1,7 @@
 /**
  * Lockfile module for managing `.axm/axm-lock.yaml` (YAML format).
  *
- * Provides functions to read, write, and update optional operation receipt
- * history. Desired, observed, and trust state are authoritative elsewhere.
+ * Provides functions to read, write, and update accepted external resolutions.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -10,22 +9,14 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import type { PlatformError } from "effect/PlatformError";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import {
-  readWorkspaceTrustState,
-  trustStateFromLockfile,
-  writeWorkspaceTrustState,
-} from "../trust/index.js";
 import { writeFileAtomic, type AtomicWriteFailure } from "../utils/index.js";
-import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } from "./schema.js";
+import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -38,14 +29,10 @@ import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } 
  */
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
-const LOCKFILE_LOCK_NAME = `${LOCKFILE_NAME}.lock`;
 // Matches temp files produced by `writeFileAtomic` for the lockfile target
 // (`<target>.tmp.<unique>`), so the stale-temp sweep stays in sync with the
 // shared helper's naming scheme.
 const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
-const STALE_LOCK_TIMEOUT = Duration.seconds(30);
-const LOCK_RETRY_DELAY = "25 millis";
-
 const lockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 /**
@@ -62,9 +49,6 @@ export type LockfileUpdate = (lockfile: Lockfile) => Lockfile;
 
 const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
   path.join(axmDir, LOCKFILE_NAME);
-
-const lockfileLockPathFor = (path: Path.Path, axmDir: string): string =>
-  path.join(axmDir, LOCKFILE_LOCK_NAME);
 
 const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
   const existing = lockSemaphores.get(key);
@@ -86,12 +70,6 @@ const ensureAxmDir = (axmDir: string) =>
         }),
       ),
     );
-  });
-
-const removeFileBestEffort = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    yield* fs.remove(filePath, { force: true }).pipe(Effect.ignore);
   });
 
 const sweepStaleLockfileTemps = (axmDir: string) =>
@@ -174,10 +152,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
 
-  // Unknown top-level keys follow the on-disk state: a concurrent writer's
-  // extras win, and a base→next patch can neither modify nor delete them.
   return {
-    ...lockfileRestEntries(fresh),
     lockfileVersion: LOCKFILE_VERSION,
     skills: patchRequiredMap(fresh.skills, base.skills, next.skills),
     ...(subagents !== undefined ? { subagents } : {}),
@@ -188,33 +163,6 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(packs !== undefined ? { packs } : {}),
   } satisfies Lockfile;
 };
-
-const EMPTY_LOCKFILE: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
-
-/**
- * Apply only trust-relevant additions and changes from a lockfile patch.
- * Deleting optional receipt history never deletes an authoritative trust
- * baseline; a later install for the same key replaces it explicitly.
- */
-const persistTrustPatch = (axmDir: string, seed: Lockfile, base: Lockfile, next: Lockfile) =>
-  Effect.gen(function* () {
-    const existing = yield* readWorkspaceTrustState(axmDir);
-    const current = existing._tag === "Some" ? existing.value : trustStateFromLockfile(seed);
-    const baseRecords = trustStateFromLockfile(base).records;
-    const nextRecords = trustStateFromLockfile(next).records;
-    const changedRecords = Object.fromEntries(
-      Object.entries(nextRecords)
-        .filter(([key, record]) => JSON.stringify(baseRecords[key]) !== JSON.stringify(record))
-        .map(([key, record]) => {
-          const packManifest = current.records[key]?.packManifest;
-          return [key, packManifest === undefined ? record : { ...record, packManifest }];
-        }),
-    );
-    yield* writeWorkspaceTrustState(axmDir, {
-      ...current,
-      records: { ...current.records, ...changedRecords },
-    });
-  });
 
 const readLockfileIfPresent = (
   axmDir: string,
@@ -272,59 +220,6 @@ const readLockfileIfPresent = (
     return decoded;
   });
 
-const lockIsStale = (lockPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const info = yield* fs.stat(lockPath).pipe(Effect.option);
-    if (info._tag === "None" || info.value.mtime._tag === "None") return false;
-    const writtenAt = DateTime.makeUnsafe(info.value.mtime.value);
-    return yield* DateTime.isPast(DateTime.addDuration(writtenAt, STALE_LOCK_TIMEOUT));
-  });
-
-const createLockFile = (lockPath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const createdAt = DateTime.formatIso(yield* DateTime.now);
-    const content = `pid=${typeof process === "object" ? process.pid : "unknown"}\ncreatedAt=${createdAt}\n`;
-    yield* fs.writeFileString(lockPath, content, { flag: "wx" });
-  });
-
-const acquireFileLock = (
-  lockPath: string,
-): Effect.Effect<void, PlatformError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const result = yield* createLockFile(lockPath).pipe(Effect.result);
-    if (result._tag === "Success") return;
-    if (result.failure.reason._tag !== "AlreadyExists") {
-      return yield* result.failure;
-    }
-
-    const stale = yield* lockIsStale(lockPath);
-    if (stale) {
-      const fs = yield* FileSystem.FileSystem;
-      // Atomically claim the stale lock by renaming it: only one racer can move
-      // a given file, so two processes can't both delete the lock and re-acquire
-      // it. After winning the claim, re-verify the claimed file was actually
-      // stale — if a racer had already replaced it with a fresh lock, restore it
-      // instead of stealing a live lock.
-      const claimPath = `${lockPath}.stale.${typeof process === "object" ? process.pid : "x"}`;
-      const claim = yield* fs.rename(lockPath, claimPath).pipe(Effect.result);
-      if (claim._tag === "Success") {
-        const claimedStale = yield* lockIsStale(claimPath);
-        if (claimedStale) {
-          yield* removeFileBestEffort(claimPath);
-        } else {
-          yield* fs.rename(claimPath, lockPath).pipe(Effect.ignore);
-          yield* Effect.sleep(LOCK_RETRY_DELAY);
-        }
-      }
-      return yield* acquireFileLock(lockPath);
-    }
-
-    yield* Effect.sleep(LOCK_RETRY_DELAY);
-    return yield* acquireFileLock(lockPath);
-  });
-
 const withLockfileLock = <A, E, R>(
   axmDir: string,
   effect: Effect.Effect<A, E, R>,
@@ -332,28 +227,11 @@ const withLockfileLock = <A, E, R>(
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const key = path.resolve(axmDir);
-    const lockPath = lockfileLockPathFor(path, axmDir);
     const semaphore = inProcessSemaphoreFor(key);
-
-    return yield* semaphore.withPermits(1)(
-      Effect.scoped(
-        Effect.gen(function* () {
-          yield* Effect.acquireRelease(
-            acquireFileLock(lockPath).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to acquire lockfile lock at ${lockPath}`,
-                  cause: error,
-                }),
-              ),
-            ),
-            () => removeFileBestEffort(lockPath),
-          );
-          return yield* effect;
-        }),
-      ),
-    );
+    // Cross-process exclusion belongs to the workspace transaction. This
+    // semaphore only serializes multiple updates in one runtime so the
+    // read/patch/write helper cannot race with itself.
+    return yield* semaphore.withPermits(1)(effect);
   });
 
 const lockfileWriteErrorDetail = (lockfilePath: string, failure: AtomicWriteFailure): string => {
@@ -405,34 +283,19 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
  * `commitLockfileUpdates` when applying deltas that must reread the latest
  * lockfile state under the advisory lock.
  *
- * Encodes Date fields to ISO strings for YAML serialization.
- *
  * @param axmDir - Path to the `.axm` directory
  * @param lockfile - The lockfile object to write
  * @returns Effect yielding void on success
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfile = (
-  axmDir: string,
-  lockfile: Lockfile,
-  options?: { readonly preserveTrust?: boolean },
-) =>
+export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     yield* ensureAxmDir(axmDir);
     yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
         yield* sweepStaleLockfileTemps(axmDir);
-        const current = yield* readLockfileIfPresent(axmDir);
-        if (options?.preserveTrust !== true) {
-          yield* persistTrustPatch(
-            axmDir,
-            current ?? lockfile,
-            current ?? EMPTY_LOCKFILE,
-            lockfile,
-          );
-        }
         yield* writeLockfileUnlocked(axmDir, lockfile);
       }),
     );
@@ -469,7 +332,6 @@ export const commitLockfileUpdates = (
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
-        yield* persistTrustPatch(axmDir, current ?? lockfile, current ?? lockfile, updated);
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),
@@ -488,12 +350,7 @@ export const commitLockfileUpdates = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const commitLockfileSnapshotUpdate = (
-  axmDir: string,
-  base: Lockfile,
-  next: Lockfile,
-  options?: { readonly preserveTrust?: boolean },
-) =>
+export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
   Effect.gen(function* () {
     yield* ensureAxmDir(axmDir);
     const updated = yield* withLockfileLock(
@@ -502,25 +359,9 @@ export const commitLockfileSnapshotUpdate = (
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
-        if (options?.preserveTrust !== true) {
-          yield* persistTrustPatch(axmDir, current ?? base, base, next);
-        }
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),
     );
     return updated;
-  });
-
-/** Commit only the authoritative trust delta represented by a receipt snapshot patch. */
-export const commitTrustSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
-  Effect.gen(function* () {
-    yield* ensureAxmDir(axmDir);
-    yield* withLockfileLock(
-      axmDir,
-      Effect.gen(function* () {
-        const current = yield* readLockfileIfPresent(axmDir);
-        yield* persistTrustPatch(axmDir, current ?? base, base, next);
-      }),
-    );
   });

@@ -231,8 +231,8 @@ describe("generated schemas", () => {
     const lockfileVersion = getProperty(getDefinition(lockSchema, "Lockfile"), "lockfileVersion");
 
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([3]);
-    expect(lockfileVersion["default"]).toBe(3);
+    expect(lockfileVersion["enum"]).toEqual([4]);
+    expect(lockfileVersion["default"]).toBe(4);
   });
 
   it("publishes common manifest field annotations", () => {
@@ -353,13 +353,8 @@ describe("generated schemas", () => {
     expect(propertyNames["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    for (const definitionName of ["RegistryPackLockEntry", "WorkspacePackLockEntry"]) {
-      const resolvedSkills = getProperty(
-        getDefinition(lockSchema, definitionName),
-        "resolvedSkills",
-      );
-      const lockPropertyNames = getPropertyNamesSchema(resolvedSkills, lockSchema);
-      expect(lockPropertyNames["$ref"]).toBe("#/definitions/ExtensionFqn");
-    }
+    const packLockEntry = getDefinition(lockSchema, "PackLockEntry");
+    expect(getRecord(packLockEntry, "properties")).toHaveProperty("manifestContentIdentity");
+    expect(getRecord(packLockEntry, "properties")).not.toHaveProperty("resolvedSkills");
   });
 });

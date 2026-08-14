@@ -9,15 +9,11 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import type * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import {
-  trustRecordKey,
-  type ExtensionTrustRecord,
-  type WorkspaceTrustState,
-} from "@agentxm/client-core/unstable/trust";
+import type { SubagentLockEntry, SubagentsLockMap } from "@agentxm/client-core/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -44,25 +40,19 @@ export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResul
  *
  * Returns `true` when the subagent has changed and should be updated.
  */
-const hasChanged = (op: UpdateOperation, trust: ExtensionTrustRecord): boolean => {
+const hasChanged = (op: UpdateOperation, accepted: SubagentLockEntry): boolean => {
   const { ref } = op;
 
   if (ref.refType === "git-hosted") {
-    const trustedRevision = Option.fromUndefinedOr(trust.immutableRevision);
-    const opHash = ref.gitTreeSha;
-
-    // If either hash is missing, treat as needing update
-    if (Option.isNone(trustedRevision) || Option.isNone(opHash)) return true;
-
-    return trustedRevision.value !== opHash.value;
+    return !(
+      accepted.type !== "registry" &&
+      accepted.type !== "local" &&
+      accepted.resolvedTree === ref.gitTreeSha
+    );
   }
 
   if (ref.refType === "registry") {
-    return (
-      trust.authority !== "registry" ||
-      trust.resolvedVersion === undefined ||
-      ref.version !== trust.resolvedVersion
-    );
+    return accepted.type !== "registry" || ref.version !== accepted.resolvedVersion;
   }
 
   // Local sources: always update (no version tracking)
@@ -83,7 +73,7 @@ const hasChanged = (op: UpdateOperation, trust: ExtensionTrustRecord): boolean =
  */
 export const buildUpdatePlan = (
   ops: ReadonlyArray<UpdateOperation>,
-  trustState: WorkspaceTrustState,
+  acceptedResolutions: SubagentsLockMap,
   name: string,
   description: Option.Option<string>,
   makeRunClosure: MakeRunClosure,
@@ -95,8 +85,8 @@ export const buildUpdatePlan = (
     {
       concurrency: "unbounded",
       steps: ops.map((op): PlannedJobStep => {
-        const trust = trustState.records[trustRecordKey("subagent", op.ref.subagent.name)];
-        const needsUpdate = trust === undefined || op.force || hasChanged(op, trust);
+        const accepted = acceptedResolutions[op.ref.subagent.name];
+        const needsUpdate = accepted === undefined || op.force || hasChanged(op, accepted);
 
         if (!needsUpdate) {
           return {

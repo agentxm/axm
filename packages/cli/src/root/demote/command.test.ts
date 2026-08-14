@@ -43,7 +43,7 @@ describe("demote command", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 3\nskills: {}\n",
+      "lockfileVersion: 4\nskills: {}\n",
     );
     writeSkill(
       path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review"),

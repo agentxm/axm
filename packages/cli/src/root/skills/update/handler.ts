@@ -55,7 +55,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
@@ -162,7 +161,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const lockedSkills = yield* ws
     .getLockedSkills()
     .pipe(Effect.catch(() => Effect.succeed<SkillsLockMap>({})));
-  const trustState = yield* ws.getTrustState();
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
     Object.entries(allSkills).flatMap(([name, entry]) =>
@@ -644,11 +642,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const warningsBySkill = new Map<string, ReadonlyArray<string>>();
   for (const item of resolved) {
-    const trusted = trustState.records[trustRecordKey("skill", item.ref.skill.name)];
-    const lockedEpoch = trusted?.authority === "registry" ? trusted.publisherBindingId : undefined;
+    const accepted = lockedSkills[item.ref.skill.name];
+    const lockedEpoch = accepted?.type === "registry" ? accepted.publisherBindingId : undefined;
     const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
     const publisherEpochChanged =
-      trusted?.authority === "registry" &&
+      accepted?.type === "registry" &&
       item.ref.refType === "registry" &&
       lockedEpoch !== resolvedEpoch;
     if (publisherEpochChanged && args.yes) {
@@ -671,22 +669,20 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   }
 
   // Step 8: Build operations
-  const ops = resolved.map((item) => {
-    const existingLock = lockedSkills[item.ref.skill.name];
-    const existingInstalledAt = Option.fromUndefinedOr(existingLock?.installedAt);
-    return {
-      name: "install-skill",
-      args: {
-        ref: item.ref,
-        force: args.force,
-        versionRange: item.versionRange,
-        skipSettings: Option.none(),
-        strictUnknownAgents: Option.none(),
-        existingInstalledAt,
-        sourceName: Option.none(),
-      },
-    } satisfies InstallSkillOperation;
-  });
+  const ops = resolved.map(
+    (item) =>
+      ({
+        name: "install-skill",
+        args: {
+          ref: item.ref,
+          force: args.force,
+          versionRange: item.versionRange,
+          skipSettings: Option.none(),
+          strictUnknownAgents: Option.none(),
+          sourceName: Option.none(),
+        },
+      }) satisfies InstallSkillOperation,
+  );
 
   // Step 9: Capture services for run closures
   const fs = yield* FileSystem.FileSystem;
@@ -717,7 +713,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   // Step 10: Build plan
   const rawPlan = buildUpdatePlan(
     ops,
-    trustState,
+    lockedSkills,
     "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,

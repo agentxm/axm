@@ -59,26 +59,6 @@ const remainsActiveWithoutPack = (node: DesiredExtensionNode, packIdentity: stri
     ),
   );
 
-const retainedPackMembers = Effect.fn("PacksActivation.retainedPackMembers")(function* (
-  name: string,
-) {
-  const ws = yield* WorkspaceMutations;
-  const locked = yield* ws
-    .getLockedPack(name)
-    .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-  return Option.match(locked, {
-    onNone: () => [],
-    onSome: (entry) => [
-      ...Object.keys(entry.resolvedSkills).map((member) => `skill: ${member}`),
-      ...Object.keys(entry.resolvedMcpServers).map((member) => `mcp-server: ${member}`),
-      ...Object.keys(entry.resolvedSubagents).map((member) => `subagent: ${member}`),
-      ...Object.keys(entry.resolvedRules ?? {}).map((member) => `rule: ${member}`),
-      ...Object.keys(entry.resolvedHooks ?? {}).map((member) => `hook: ${member}`),
-      ...Object.keys(entry.resolvedKnowledge ?? {}).map((member) => `knowledge: ${member}`),
-    ],
-  });
-});
-
 const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(function* (
   node: DesiredExtensionNode,
 ) {
@@ -271,7 +251,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     return yield* makeAppError({
       code: "conflict",
       detail: `Cannot ${verb} the pack while desired state is unresolved`,
-      suggestions: [{ description: "Inspect workspace blockers", cmd: "axm status" }],
+      suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
     });
   }
   const packNode = graph.nodes.find((node) => node.type === "pack" && node.name === args.name);
@@ -287,7 +267,9 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
       !remainsActiveWithoutPack(node, packIdentity),
   );
   const previewItems = args.enabled
-    ? yield* retainedPackMembers(args.name)
+    ? graph.nodes
+        .filter((node) => node.type !== "pack" && packContributesTo(node, packIdentity))
+        .map((node) => `${node.type}: ${node.name}`)
     : affected.map((node) => `${node.type}: ${node.name}`);
   const memberTargets: ReadonlyArray<JobStepArtifactTarget> = args.enabled
     ? previewItems.map((item) => ({
@@ -348,7 +330,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
                     ...(args.enabled
                       ? {}
                       : {
-                          absent: affected.map((node) => ({
+                          inactive: affected.map((node) => ({
                             type: node.type,
                             name: node.name,
                           })),

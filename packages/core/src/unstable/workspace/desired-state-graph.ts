@@ -30,6 +30,7 @@ export type DesiredExtensionOrigin =
       readonly pack: string;
       readonly source: string;
       readonly constraint: string;
+      readonly enabled: boolean;
     };
 
 export interface DesiredExtensionNode {
@@ -60,12 +61,12 @@ export type DesiredStateProblem =
       readonly detail: string;
     }
   | {
-      readonly type: "pack-trust-unavailable";
+      readonly type: "pack-resolution-unavailable";
       readonly pack: string;
       readonly detail: string;
     }
   | {
-      readonly type: "pack-canonical-unusable";
+      readonly type: "pack-manifest-content-mismatch";
       readonly pack: string;
       readonly path?: string;
       readonly status: string;
@@ -283,8 +284,6 @@ export const buildDesiredStateGraph = ({
         },
       });
 
-      if (entry.enabled === false) continue;
-
       const manifestPath = path.join(
         computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath,
         PACK_MANIFEST_FILENAME,
@@ -333,13 +332,14 @@ export const buildDesiredStateGraph = ({
           name: parsed.name,
           identity: `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`,
           source: `${fqn}@${constraint}`,
-          enabled: true,
+          enabled: entry.enabled !== false,
           constraint,
           origin: {
             type: "pack",
             pack: identity.fqn,
             source: fqn,
             constraint,
+            enabled: entry.enabled !== false,
           },
         });
       }

@@ -69,7 +69,7 @@ const makeWorkspaceMock = (
   };
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, skills: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 4, skills: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -267,7 +267,8 @@ const makeOp = (
     version?: Option.Option<string>;
     integrity?: Option.Option<string>;
     versionRange?: Option.Option<string>;
-    gitTreeSha?: Option.Option<string>;
+    gitTreeSha?: string;
+    gitCommitSha?: string;
     refSourcePath?: string;
     skipSettings?: boolean;
     strictUnknownAgents?: boolean;
@@ -290,7 +291,8 @@ const makeOp = (
       ? { ...sourceInput, location: new URL(overrides.location) }
       : sourceInput;
   const version = overrides.version ?? Option.some("1.0.0");
-  const gitTreeSha = overrides.gitTreeSha ?? Option.none();
+  const gitTreeSha = overrides.gitTreeSha ?? "test-tree";
+  const gitCommitSha = overrides.gitCommitSha ?? "test-commit";
 
   // Construct SkillExtensionRef directly based on source type
   const ref: SkillExtensionRef = (() => {
@@ -335,6 +337,7 @@ const makeOp = (
           location,
           ...(overrides.refSourcePath !== undefined ? { sourcePath: overrides.refSourcePath } : {}),
           gitTreeSha,
+          gitCommitSha,
         } satisfies GitHostedSkillRef;
     }
   })();
@@ -347,7 +350,6 @@ const makeOp = (
       versionRange: overrides.versionRange ?? Option.none(),
       skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
       strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
-      existingInstalledAt: Option.none(),
       sourceName: Option.none(),
     },
   };
@@ -631,7 +633,6 @@ describe("installSkill", () => {
             versionRange: Option.none(),
             skipSettings: Option.none(),
             strictUnknownAgents: Option.none(),
-            existingInstalledAt: Option.none(),
             sourceName: Option.none(),
           },
         };
@@ -824,7 +825,7 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir)),
@@ -969,7 +970,7 @@ describe("installSkill", () => {
         setupRegistryCanonical(base, "@community");
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 
         const result = yield* installSkill(
           makeOp({
@@ -1009,7 +1010,7 @@ describe("installSkill", () => {
       fs.writeFileSync(
         path.join(axmDir, "axm-lock.yaml"),
         YAML.stringify({
-          lockfileVersion: 3,
+          lockfileVersion: 4,
           skills: {
             "my-skill": {
               type: "registry",
@@ -1019,8 +1020,6 @@ describe("installSkill", () => {
               integrity: "sha512-abc",
               sourceName: "default",
               publisherBindingId: "hbnd_test",
-              installedAt: "2026-01-01T00:00:00.000Z",
-              updatedAt: "2026-01-01T00:00:00.000Z",
             },
           },
         }),
@@ -1342,7 +1341,7 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
-        expect(lockEntry["sourceHash"]).toEqual(expect.any(String));
+        expect(lockEntry["contentIdentity"]).toEqual(expect.any(String));
         expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),
@@ -1467,7 +1466,8 @@ describe("installSkill", () => {
             },
             sourcePath: src,
             refSourcePath: "skills/quality",
-            gitTreeSha: Option.some("2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb"),
+            gitTreeSha: "2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb",
+            gitCommitSha: "7f4a7c95d3f54f55a2e9306fc66f830f9ea219e1",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 

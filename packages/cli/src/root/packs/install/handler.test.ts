@@ -26,7 +26,10 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
-import type { PackRef } from "@agentxm/client-core/unstable/packs";
+import {
+  computePackManifestContentIdentity,
+  type PackRef,
+} from "@agentxm/client-core/unstable/packs";
 import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
 import {
   SourceHostProvidersLive,
@@ -93,6 +96,55 @@ const initWorkspace = (
     owner?: string;
   },
 ) => {
+  const acceptedEntries = (entries: Record<string, unknown> | undefined) =>
+    Object.fromEntries(
+      Object.entries(entries ?? {}).flatMap(([name, value]) => {
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          Reflect.get(value, "type") === "workspace"
+        ) {
+          return [];
+        }
+        return [
+          [
+            name,
+            {
+              type: Reflect.get(value, "type"),
+              owner: Reflect.get(value, "owner"),
+              name: Reflect.get(value, "name"),
+              resolvedVersion: Reflect.get(value, "resolvedVersion"),
+              integrity: Reflect.get(value, "integrity"),
+              sourceName: Reflect.get(value, "sourceName"),
+              publisherBindingId: Reflect.get(value, "publisherBindingId"),
+            },
+          ],
+        ];
+      }),
+    );
+  const acceptedPacks = Object.fromEntries(
+    Object.entries(opts?.lockfilePacks ?? {}).flatMap(([name, value]) => {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        Reflect.get(value, "type") === "workspace"
+      ) {
+        return [];
+      }
+      return [
+        [
+          name,
+          {
+            ...acceptedEntries({ [name]: value })[name],
+            manifestContentIdentity:
+              Reflect.get(value, "manifestContentIdentity") ??
+              Reflect.get(value, "sourceHash") ??
+              "test-pack-manifest",
+          },
+        ],
+      ];
+    }),
+  );
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
@@ -103,9 +155,9 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 3,
-      skills: opts?.lockfileSkills ?? {},
-      ...(opts?.lockfilePacks ? { packs: opts.lockfilePacks } : {}),
+      lockfileVersion: 4,
+      skills: acceptedEntries(opts?.lockfileSkills),
+      ...(Object.keys(acceptedPacks).length > 0 ? { packs: acceptedPacks } : {}),
     }),
   );
 };
@@ -730,7 +782,7 @@ describe("packs install handler", () => {
         JSON.stringify({ owner: "@acme", type: "skill", name, version }),
       );
       fs.writeFileSync(path.join(root, "SKILL.md"), `# ${name}\n`);
-      return { root, sourceHash: computePackageContentHashSync(root) };
+      return { root: fs.realpathSync(root), sourceHash: computePackageContentHashSync(root) };
     };
 
     it.effect("hard-blocks a Registry reinstall over workspace pack authority", () => {
@@ -819,22 +871,9 @@ describe("packs install handler", () => {
         skills: constraints({ "@acme/skills/review": "^1.0.0" }),
       });
       const workspaceSkill = writeWorkspaceSkill("review", "1.4.0");
-      const now = new Date().toISOString();
       const find = vi.fn(() => Effect.succeed([]));
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: { review: "workspace:@acme/skills/review" },
-        lockfileSkills: {
-          review: {
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "skill",
-            name: "review",
-            version: "1.4.0",
-            sourceHash: workspaceSkill.sourceHash,
-            installedAt: now,
-            updatedAt: now,
-          },
-        },
       });
       writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
       const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
@@ -1565,19 +1604,17 @@ describe("packs install handler", () => {
 
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "prune-pack");
       fs.mkdirSync(packDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(packDir, "pack.json"),
-        JSON.stringify({
-          owner: "@acme",
-          type: "pack",
-          name: "prune-pack",
-          version: "1.0.0",
-          dependencies: {
-            "@acme/skills/kept-skill": "1.0.0",
-            "@acme/skills/dropped-skill": "1.0.0",
-          },
-        }),
-      );
+      const currentManifest = {
+        owner: "@acme",
+        type: "pack" as const,
+        name: "prune-pack",
+        version: "1.0.0",
+        dependencies: {
+          "@acme/skills/kept-skill": "1.0.0",
+          "@acme/skills/dropped-skill": "1.0.0",
+        },
+      };
+      fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(currentManifest));
 
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -1591,7 +1628,7 @@ describe("packs install handler", () => {
             integrity: "",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            sourceHash: computePackageContentHashSync(packDir),
+            manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
@@ -1654,8 +1691,20 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
+      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "prune-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      const currentManifest = {
+        owner: "@acme",
+        type: "pack" as const,
+        name: "prune-pack",
+        version: "1.0.0",
+        dependencies: { "@acme/skills/dropped-skill": "1.0.0" },
+      };
+      fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(currentManifest));
+
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        settingsPacks: { "prune-pack": "@acme/packs/prune-pack" },
         settingsSkills: {
           "dropped-skill": "@acme/skills/dropped-skill",
         },
@@ -1668,6 +1717,7 @@ describe("packs install handler", () => {
             integrity: "",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {

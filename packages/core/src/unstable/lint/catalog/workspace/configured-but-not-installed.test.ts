@@ -69,7 +69,9 @@ describe("workspace/configured-but-not-installed", () => {
       );
 
       expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toContain("axm install reviewer");
+      expect(findings[0]?.message).toBe(
+        "subagent 'reviewer' is desired, but its canonical content is missing from .axm/extensions.",
+      );
     }),
   );
 
@@ -83,7 +85,9 @@ describe("workspace/configured-but-not-installed", () => {
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/configured-but-not-installed");
-      expect(findings[0]?.message).toContain("axm packs install starter-pack");
+      expect(findings[0]?.message).toBe(
+        "hook 'deploy' is desired, but its canonical content is missing from .axm/extensions.",
+      );
     }),
   );
 
@@ -118,9 +122,9 @@ describe("workspace/configured-but-not-installed", () => {
       );
 
       expect(findings.map((finding) => finding.message)).toEqual([
-        expect.stringContaining("rule 'conventions' is configured"),
-        expect.stringContaining("hook 'pre-commit' is configured"),
-        expect.stringContaining("knowledge bundle 'domain' is configured"),
+        expect.stringContaining("rule 'conventions' is desired"),
+        expect.stringContaining("hook 'pre-commit' is desired"),
+        expect.stringContaining("knowledge bundle 'domain' is desired"),
       ]);
     }),
   );

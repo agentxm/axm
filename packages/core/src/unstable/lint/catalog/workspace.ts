@@ -57,11 +57,8 @@ import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-val
 import { skillsLockfileAlignedRule } from "./workspace/skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js";
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
-import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
-import { packDependencyVersionsCurrentRule } from "./workspace/pack-dependency-versions-current.js";
-import { recommendedPacksRetainedRule } from "./workspace/recommended-packs-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
@@ -69,7 +66,6 @@ import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
 import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-target-compatible.js";
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
-import { authoredContentUnpublishedRule } from "./workspace/authored-content-unpublished.js";
 import { knowledgeConfigCurrentRule } from "./workspace/knowledge-config-current.js";
 import { releaseAgeExcludeOwnerTrustedRule } from "./workspace/release-age-exclude-owner-trusted.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
@@ -95,7 +91,6 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
-  authoredContentUnpublishedRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,
   instructionsSourcePresentRule,
@@ -115,12 +110,8 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   skillsIntegrityValidRule,
   // Artifacts correct (configured + implicit).
   // Managed — unmanaged class must be empty.
-  skillsManagedRule,
   // Pack dependencies resolved (configured packs).
   packsDependenciesResolvedRule,
-  packDependencyVersionsCurrentRule,
-  // Pack recommendation retention.
-  recommendedPacksRetainedRule,
 ];
 
 /** Rules whose evidence exists only in the live managed workspace. */
@@ -141,7 +132,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
-  authoredContentUnpublishedRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
@@ -161,10 +151,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsLockfileAlignedRule,
   skillsIntegrityValidRule,
   skillsArtifactsCorrectRule,
-  skillsManagedRule,
   packsDependenciesResolvedRule,
-  packDependencyVersionsCurrentRule,
-  recommendedPacksRetainedRule,
 ];
 
 // Register ids into the `LintConfig.rules` allowlist. Module-load side effect:

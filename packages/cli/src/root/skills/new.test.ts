@@ -151,18 +151,10 @@ describe("skills-new.handler", () => {
           expect(settings.skills).toBeDefined();
           expect(settings.skills["my-skill"]).toBe("workspace:@acme/skills/my-skill");
 
-          // Verify lockfile registration
+          // Authored workspace content is desired authority and has no lock row.
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
-          expect(lockfile.skills["my-skill"]).toMatchObject({
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "skill",
-            name: "my-skill",
-            version: "0.0.1",
-            sourceHash: expect.any(String),
-          });
-          expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
+          expect(lockfile.skills?.["my-skill"]).toBeUndefined();
 
           // Verify symlink
           const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");
@@ -486,7 +478,7 @@ describe("skills-new.handler", () => {
           const lockfile = YAML.parse(
             fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
           );
-          expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
+          expect(lockfile.skills?.["my-skill"]).toBeUndefined();
         }),
       );
     });

@@ -21,8 +21,6 @@
 export type {
   AdvisoryFinding,
   AdvisoryRule,
-  AutofixableFinding,
-  AutofixingRule,
   FindingBase,
   FindingLocation,
   LintFinding,
@@ -32,7 +30,7 @@ export type {
 } from "./rule.js";
 
 // Evaluator and fix-operation collection
-export { collectFixOperations, evaluateContexts, type Evaluated } from "./evaluate.js";
+export { evaluateContexts, type Evaluated } from "./evaluate.js";
 
 // Rule-context types and narrow file accessor interfaces
 export type {
@@ -108,7 +106,6 @@ export {
 // over. Keeps the CLI command file a thin surface over flag parsing and
 // rendering per task 5.11.
 export {
-  collectAutofixableEntries,
   collectRenderedFindings,
   countFindings,
   detectPublishGateDrift,

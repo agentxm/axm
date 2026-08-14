@@ -12,13 +12,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as ServiceMap from "effect/Context";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import { makeAppError } from "../app-error/index.js";
-import { sourceToLockEntry } from "../sources/index.js";
+import { printSourceParams, sourceToLockEntry } from "../sources/index.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "./refs.js";
@@ -39,7 +37,7 @@ import {
   removeFromAllCanonicalLocations,
 } from "../utils/index.js";
 import { CodingAgentRepository, type AgentId } from "../agents/index.js";
-import { validateExactResolvedVersion } from "../lockfile/index.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { computeSkillSourceHash } from "./operations/source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -48,7 +46,7 @@ import {
   type ProvideFs,
 } from "./materialization.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
-import { usableTrustedCanonicalRef } from "../workspace/trusted-canonical-ref.js";
+import { usableAcceptedCanonicalRef } from "../workspace/accepted-canonical-ref.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 
 // -----------------------------------------------------------------------------
@@ -68,13 +66,12 @@ export class SkillManager extends ServiceMap.Service<
 const buildSkillLockEntry = (
   ref: SkillExtensionRef,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
-  now: DateTime.Utc,
+  contentIdentity: SourceHash,
 ) =>
   sourceToLockEntry({
     ref,
-    now,
     sourceName: Option.none(),
-    existingInstalledAt: Option.none(),
+    contentIdentity,
     workspaceRelativeLocalSourcePath,
   });
 
@@ -108,7 +105,10 @@ export const SkillManagerLive = Layer.effect(
     )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
 
-      const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+      const lockedVersion =
+        ref.refType === "registry"
+          ? acceptedRegistryVersionForRef(yield* ws.getLockedSkill(ref.skill.name), ref)
+          : undefined;
 
       const skillSrcPath = yield* materializeSkillCanonical({
         ref,
@@ -249,10 +249,6 @@ export const SkillManagerLive = Layer.effect(
     return {
       type: "skill",
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {
@@ -287,7 +283,7 @@ export const SkillManagerLive = Layer.effect(
           enabledConfiguredEntries(configured),
           ([name]) =>
             provide(
-              usableTrustedCanonicalRef({ workspace: ws, type: "skill", name }).pipe(
+              usableAcceptedCanonicalRef({ workspace: ws, type: "skill", name }).pipe(
                 Effect.map(Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
               ),
             ),
@@ -319,12 +315,26 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const now = yield* DateTime.now;
         const sourceHash = lastSourceHashes.get(ref.skill.name);
-        const lockEntry = {
-          ...buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now),
-          ...(sourceHash === undefined ? {} : { sourceHash }),
-        };
+        if (ref.refType === "workspace") {
+          return yield* ws.setSkillEntry(ref.skill.name, {
+            source: printSourceParams(ref.source),
+            enabled: true,
+          });
+        }
+        if (sourceHash === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Skill ${ref.skill.name} has no materialized content identity`,
+          });
+        }
+        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, sourceHash);
+        if (lockEntry === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Skill ${ref.skill.name} did not produce an external resolution`,
+          });
+        }
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
@@ -335,32 +345,6 @@ export const SkillManagerLive = Layer.effect(
           name: ref.skill.name,
           lockEntry,
           versionRange,
-          commit: "authoritative",
-        });
-      }),
-
-      upsertTrustEntry: Effect.fn("SkillManager.upsertTrustEntry")(function* ({ ref }) {
-        const workspaceRelativeLocalSourcePath =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
-            : Option.none();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
-        const now = yield* DateTime.now;
-        const sourceHash = lastSourceHashes.get(ref.skill.name);
-        const lockEntry = {
-          ...buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now),
-          ...(sourceHash === undefined ? {} : { sourceHash }),
-        };
-        return yield* ws.setSkillLock({
-          name: ref.skill.name,
-          lockEntry,
-          versionRange: Option.none(),
-          commit: "authoritative",
         });
       }),
 
@@ -384,12 +368,24 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const now = yield* DateTime.now;
+        if (ref.refType === "workspace") {
+          yield* ws.removeSkillLock(ref.skill.name);
+          return;
+        }
         const sourceHash = lastSourceHashes.get(ref.skill.name);
-        const lockEntry = {
-          ...buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now),
-          ...(sourceHash === undefined ? {} : { sourceHash }),
-        };
+        if (sourceHash === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Skill ${ref.skill.name} has no materialized content identity`,
+          });
+        }
+        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, sourceHash);
+        if (lockEntry === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Skill ${ref.skill.name} did not produce an external resolution`,
+          });
+        }
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
@@ -400,14 +396,11 @@ export const SkillManagerLive = Layer.effect(
           name: ref.skill.name,
           lockEntry,
           versionRange: Option.none(),
-          commit: "receipt",
         });
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
         ws.removeSkillLock(target.name).pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),
-      removeTrustEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeTrustRecord("skill", target.name),
     } satisfies ExtensionManager<SkillExtensionRef>;
   }),
 );

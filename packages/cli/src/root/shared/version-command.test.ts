@@ -30,7 +30,7 @@ const initWorkspace = (root: string) => {
       sources: [],
     }),
   );
-  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 };
 
 const MANIFEST_FILES = {

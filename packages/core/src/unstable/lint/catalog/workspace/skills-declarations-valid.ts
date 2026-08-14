@@ -37,9 +37,7 @@ const findingForBareName = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry skill you mean. ` +
-    "Run `axm skills install @owner/skills/<name>` with the owner-qualified source you intend.",
+  message: `Skill '${entry.name}' uses ambiguous bare source '${entry.source}'.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -47,9 +45,7 @@ const findingForMissingOwner = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${entry.name}' source '${entry.source}' looks like a registry skill reference but is missing the \`@owner\` prefix. ` +
-    "Run `axm skills install @owner/skills/<name>` with the owner-qualified source you intend.",
+  message: `Skill '${entry.name}' source '${entry.source}' is missing its owner-qualified identity.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -60,10 +56,7 @@ const findingForDuplicate = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${entry.name}' points to the same registry skill as these entries: ${duplicates.join(", ")}. ` +
-    "Run `axm skills uninstall <name>` for each duplicate entry you do not want to keep. " +
-    "If needed, run `axm skills install <source>` for the declaration you do want to keep.",
+  message: `Skill '${entry.name}' duplicates the same Skill identity as: ${duplicates.join(", ")}.`,
   location: { file: SETTINGS_REL },
 });
 

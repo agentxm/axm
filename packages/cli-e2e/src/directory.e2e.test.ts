@@ -75,7 +75,7 @@ describe("global directory flag", () => {
 
     try {
       for (const directory of [missing, file, restricted.path]) {
-        const result = await runCli(["-C", directory, "status", "--json"], {
+        const result = await runCli(["-C", directory, "lint", "--json"], {
           cwd: invoking.path,
         });
 

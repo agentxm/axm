@@ -163,13 +163,6 @@ export const publishPack: OperationHandler<
 
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
-    if (Object.keys(manifest.dependencies).length === 0) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Pack manifest must declare at least one dependency before publishing`,
-      });
-    }
-
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,

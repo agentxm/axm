@@ -62,7 +62,7 @@ export const getLockedEntries = (
   type: CatalogExtensionType,
 ): Effect.Effect<AnyLockMap, AppError> => lockedEntryReaders[type](ws);
 
-/** Read the Knowledge lock map through the workspace receipt boundary. */
+/** Read accepted external Knowledge resolutions from the workspace lockfile. */
 export const getKnowledgeLockEntries = (
   ws: WorkspaceMutationsService,
 ): Effect.Effect<KnowledgeLockMap, AppError> => ws.getLockedKnowledge();
@@ -70,6 +70,5 @@ export const getKnowledgeLockEntries = (
 /** Resolved version for a lock entry, when its source arm carries one. */
 export const lockEntryVersion = (entry: AnyLockEntry): string | null => {
   if (entry.type === "registry") return entry.resolvedVersion;
-  if (entry.type === "workspace") return entry.version;
   return null;
 };

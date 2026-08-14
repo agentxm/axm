@@ -8,9 +8,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
+import type { SourceHash } from "../extensions/rendered-files.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 
@@ -20,11 +20,10 @@ import type { SkillExtensionRef } from "../skills/refs.js";
 
 export interface SourceToLockEntryInput {
   readonly ref: SkillExtensionRef;
-  readonly now: DateTime.Utc;
   /** Required for registry sources — which named registry config was used. */
   readonly sourceName: Option.Option<string>;
-  /** When updating, preserve the original install timestamp instead of using `now`. */
-  readonly existingInstalledAt: Option.Option<DateTime.Utc>;
+  /** Canonical package identity required by Git and local-path resolutions. */
+  readonly contentIdentity: SourceHash;
   /** Workspace-root-relative local source path for lockfile persistence. */
   readonly workspaceRelativeLocalSourcePath?: Option.Option<string>;
 }
@@ -32,11 +31,6 @@ export interface SourceToLockEntryInput {
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-
-const commonFields = (input: SourceToLockEntryInput) => ({
-  installedAt: Option.getOrElse(input.existingInstalledAt, () => input.now),
-  updatedAt: input.now,
-});
 
 const localSourceLockPath = (input: SourceToLockEntryInput, sourcePath: string): string =>
   Option.getOrElse(input.workspaceRelativeLocalSourcePath ?? Option.none(), () => sourcePath);
@@ -51,22 +45,20 @@ const localSourceLockPath = (input: SourceToLockEntryInput, sourcePath: string):
  * Outer switch on `ref.refType` for ref-detail access; inner switch on `ref.source.type`
  * within `git-hosted` for per-source lock entry granularity.
  */
-export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry => {
-  const common = commonFields(input);
+export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry | undefined => {
   const { ref } = input;
 
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-        ...common,
+        ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, input.contentIdentity),
       };
 
     case "local":
       return {
         type: "local",
         path: localSourceLockPath(input, ref.source.path),
-        ...common,
+        contentIdentity: input.contentIdentity,
       };
 
     case "registry":
@@ -78,17 +70,8 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
         publisherBindingId: ref.publisherBindingId,
-        ...common,
       };
     case "workspace":
-      return {
-        type: "workspace",
-        owner: ref.owner,
-        extensionType: "skill",
-        name: ref.name,
-        version: ref.version,
-        sourceHash: ref.sourceHash,
-        ...common,
-      };
+      return undefined;
   }
 };

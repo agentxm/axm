@@ -273,9 +273,7 @@ describe("main CLI help", () => {
       expect(JSON.parse(secondAdd.stdout)).toMatchObject({ result: { outcome: "no-op" } });
 
       const lint = await runCli(["lint", "--json"], { cwd: workspace.path });
-      const status = await runCli(["status", "--json"], { cwd: workspace.path });
       expect(lint.exitCode).toBe(0);
-      expect(status.exitCode).toBe(0);
 
       const nativeConfigPath = path.join(workspace.path, ".mcp.json");
       const nativeConfig = JSON.parse(fs.readFileSync(nativeConfigPath, "utf8"));

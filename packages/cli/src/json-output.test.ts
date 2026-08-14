@@ -807,9 +807,9 @@ describe("toPlanResolutionResult", () => {
           {
             level: "override-required",
             id: "installed-dependent",
-            policy: "break-dependencies",
-            requiredFlag: "--break-dependencies",
-            detail: "An installed pack still requires the skill.",
+            policy: "accept-warnings",
+            requiredFlag: "--accept-warnings",
+            detail: "The plan has unresolved warnings.",
           },
         ],
         jobs: [{ concurrency: 1, steps: [] }],

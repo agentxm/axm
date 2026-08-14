@@ -1,17 +1,17 @@
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
-import { computeSkillSourceHash } from "../skills/index.js";
-import { computeLegacySkillSourceHash } from "../skills/operations/source-hash.js";
-import { computePackageContentHash } from "../extensions/index.js";
-import type { ExtensionTrustRecord } from "../trust/index.js";
+import { SourceHashSchema } from "../extensions/rendered-files.js";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { observeCanonicalExtension } from "./canonical-observation.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 
+const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const desiredSkill = (source = "github:acme/tools//skills/review@main"): DesiredExtensionNode => ({
   type: "skill",
   name: "review",
@@ -21,16 +21,16 @@ const desiredSkill = (source = "github:acme/tools//skills/review@main"): Desired
   constraints: [],
   origins: [{ type: "settings", source, enabled: true }],
 });
-
-const skillTrust = (
-  sourceIdentity = "github:acme/tools//skills/review@main",
-): ExtensionTrustRecord => ({
-  extensionType: "skill",
-  name: "review",
-  authority: "github",
-  sourceIdentity,
-  immutableRevision: "tree-abc",
-});
+const acceptedGit = {
+  type: "github" as const,
+  owner: "acme",
+  repo: "tools",
+  ref: "main",
+  path: "skills/review",
+  resolvedCommit: "commit-1",
+  resolvedTree: "tree-1",
+  contentIdentity,
+};
 
 layer(NodeServices.layer, { excludeTestServices: true })("canonical observation", (it) => {
   let root: string;
@@ -38,270 +38,89 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   beforeEach(() => {
     root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-canonical-observation-"));
   });
+  afterEach(() => nodeFs.rmSync(root, { recursive: true, force: true }));
 
-  afterEach(() => {
-    nodeFs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it.effect("accepts a usable Git skill when trust matches its configured source", () =>
+  it.effect("requires accepted resolution for external desired content", () =>
     Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
-      const contentIdentity = yield* computeSkillSourceHash(canonical);
-
       const observed = yield* observeCanonicalExtension({
         baseDir: root,
         desired: desiredSkill(),
-        trust: { ...skillTrust(), contentIdentity },
+        accepted: undefined,
       });
-
-      expect(observed.status).toBe("usable");
-      expect(observed.path).toBe(canonical);
+      expect(observed.status).toBe("missing-resolution");
     }),
   );
 
-  it.effect("accepts a legacy skill hash and reports the canonical replacement", () =>
-    Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
-      const legacyIdentity = yield* computeLegacySkillSourceHash(canonical);
-      const canonicalIdentity = yield* computeSkillSourceHash(canonical);
-
-      const observed = yield* observeCanonicalExtension({
-        baseDir: root,
-        desired: desiredSkill(),
-        trust: { ...skillTrust(), contentIdentity: legacyIdentity },
-      });
-
-      expect(observed).toMatchObject({
-        status: "usable",
-        path: canonical,
-        contentIdentity: canonicalIdentity,
-      });
-      expect(canonicalIdentity).not.toBe(legacyIdentity);
-    }),
+  it.effect(
+    "accepts present external canonical bytes without treating local drift as authority",
+    () =>
+      Effect.gen(function* () {
+        const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
+        nodeFs.mkdirSync(canonical, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Locally formatted\n");
+        const observed = yield* observeCanonicalExtension({
+          baseDir: root,
+          desired: desiredSkill(),
+          accepted: acceptedGit,
+        });
+        expect(observed.status).toBe("usable");
+        expect(observed.path).toBe(canonical);
+      }),
   );
 
-  it.effect("does not reuse canonical content without a trusted content identity", () =>
+  it.effect("detects accepted source identity mismatch", () =>
     Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
-
-      const observed = yield* observeCanonicalExtension({
-        baseDir: root,
-        desired: desiredSkill(),
-        trust: skillTrust(),
-      });
-
-      expect(observed).toMatchObject({
-        status: "wrong-origin",
-        path: canonical,
-      });
-      expect(observed.contentIdentity).toBeDefined();
-    }),
-  );
-
-  it.effect("rejects same-name canonical content after the configured locator changes", () =>
-    Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
-
       const observed = yield* observeCanonicalExtension({
         baseDir: root,
         desired: desiredSkill("github:other/tools//skills/review@main"),
-        trust: skillTrust(),
+        accepted: acceptedGit,
       });
-
       expect(observed.status).toBe("wrong-origin");
     }),
   );
 
-  it.effect("distinguishes missing trust from a mismatched trusted origin", () =>
+  it.effect("enforces Registry constraints from accepted resolution state", () =>
     Effect.gen(function* () {
-      const observed = yield* observeCanonicalExtension({
-        baseDir: root,
-        desired: desiredSkill(),
-        trust: undefined,
-      });
-
-      expect(observed.status).toBe("missing-trust");
-    }),
-  );
-
-  it.effect("does not reuse a trusted Registry version outside desired constraints", () =>
-    Effect.gen(function* () {
+      const source = "@acme/rules/release@^2.0.0";
       const desired: DesiredExtensionNode = {
         type: "rule",
         name: "release",
         identity: "@acme/rules/release",
-        source: "@acme/rules/release@^2.0.0",
+        source,
         enabled: true,
         constraints: ["^2.0.0"],
-        origins: [
-          {
-            type: "settings",
-            source: "@acme/rules/release@^2.0.0",
-            enabled: true,
-          },
-        ],
+        origins: [{ type: "settings", source, enabled: true }],
       };
-      const trust: ExtensionTrustRecord = {
-        extensionType: "rule",
-        name: "release",
-        authority: "registry",
-        sourceIdentity: "@acme/rules/release",
-        resolvedVersion: "1.9.0",
-        publisherBindingId: "hbnd_one",
-        contentIdentity: "unreached",
-      };
-
       const observed = yield* observeCanonicalExtension({
         baseDir: root,
         desired,
-        trust,
+        accepted: {
+          type: "registry",
+          owner: handle("@acme"),
+          name: extensionName("release"),
+          resolvedVersion: exactVersion("1.9.0"),
+          integrity: "sha512-archive",
+          sourceName: "default",
+          publisherBindingId: "binding-1",
+        },
       });
-
       expect(observed.status).toBe("constraint-mismatch");
     }),
   );
 
-  it.effect("distinguishes corrupt and incomplete packages", () =>
+  it.effect("observes authored workspace content without a lock row", () =>
     Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
+      const source = "workspace:@acme/skills/review";
+      const desired = desiredSkill(source);
+      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "skills", "review");
       nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "rule.json"), "{");
-      const desired: DesiredExtensionNode = {
-        type: "rule",
-        name: "release",
-        identity: "@acme/rules/release",
-        source: "@acme/rules/release@^1.0.0",
-        enabled: true,
-        constraints: ["^1.0.0"],
-        origins: [
-          {
-            type: "settings",
-            source: "@acme/rules/release@^1.0.0",
-            enabled: true,
-          },
-        ],
-      };
-      const trust: ExtensionTrustRecord = {
-        extensionType: "rule",
-        name: "release",
-        authority: "registry",
-        sourceIdentity: "@acme/rules/release",
-        resolvedVersion: "1.2.0",
-        publisherBindingId: "hbnd_one",
-        integrity: "sha512-one",
-      };
-
-      expect(
-        (yield* observeCanonicalExtension({
-          baseDir: root,
-          desired,
-          trust,
-        })).status,
-      ).toBe("corrupt");
-
-      nodeFs.writeFileSync(
-        nodePath.join(canonical, "rule.json"),
-        JSON.stringify({
-          owner: "@acme",
-          type: "rule",
-          name: "release",
-          version: "1.2.0",
-        }),
-      );
-      expect(
-        (yield* observeCanonicalExtension({
-          baseDir: root,
-          desired,
-          trust,
-        })).status,
-      ).toBe("incomplete");
-    }),
-  );
-
-  it.effect("reports local edits against the trusted content identity", () =>
-    Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Review\n");
-      const contentIdentity = yield* computeSkillSourceHash(canonical);
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Locally edited\n");
-
+      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Authored\n");
       const observed = yield* observeCanonicalExtension({
         baseDir: root,
-        desired: desiredSkill(),
-        trust: { ...skillTrust(), contentIdentity },
+        desired,
+        accepted: undefined,
       });
-
-      expect(observed.status).toBe("locally-modified");
-    }),
-  );
-
-  it.effect("includes behavior-bearing rule content in content identity", () =>
-    Effect.gen(function* () {
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
-      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
-      nodeFs.writeFileSync(
-        nodePath.join(canonical, "rule.json"),
-        JSON.stringify({
-          owner: "@acme",
-          type: "rule",
-          name: "release",
-          version: "1.2.0",
-        }),
-      );
-      const contentPath = nodePath.join(canonical, "src", "release.md");
-      nodeFs.writeFileSync(contentPath, "---\ndescription: Safe\n---\n\nRun release\n");
-      const contentIdentity = yield* computePackageContentHash(canonical);
-      const desired: DesiredExtensionNode = {
-        type: "rule",
-        name: "release",
-        identity: "@acme/rules/release",
-        source: "@acme/rules/release@^1.0.0",
-        enabled: true,
-        constraints: ["^1.0.0"],
-        origins: [
-          {
-            type: "settings",
-            source: "@acme/rules/release@^1.0.0",
-            enabled: true,
-          },
-        ],
-      };
-      const trust: ExtensionTrustRecord = {
-        extensionType: "rule",
-        name: "release",
-        authority: "registry",
-        sourceIdentity: "@acme/rules/release",
-        resolvedVersion: "1.2.0",
-        publisherBindingId: "hbnd_one",
-        contentIdentity,
-      };
-
-      expect(
-        (yield* observeCanonicalExtension({
-          baseDir: root,
-          desired,
-          trust,
-        })).status,
-      ).toBe("usable");
-
-      nodeFs.writeFileSync(contentPath, "---\ndescription: Hijacked\n---\n\nRun release\n");
-
-      expect(
-        (yield* observeCanonicalExtension({
-          baseDir: root,
-          desired,
-          trust,
-        })).status,
-      ).toBe("locally-modified");
+      expect(observed.status).toBe("usable");
     }),
   );
 });

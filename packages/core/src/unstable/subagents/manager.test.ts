@@ -10,7 +10,6 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it, vi } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -19,7 +18,7 @@ import type { LocalSubagentRef } from "./refs.js";
 import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
@@ -127,7 +126,7 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(makeTestLayer())),
     );
 
-    it.effect("returns false when only an optional receipt names the subagent", () =>
+    it.effect("returns false when only an accepted-resolution row names the subagent", () =>
       Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const result = yield* manager.isInstalled({
@@ -143,8 +142,7 @@ describe("SubagentManager", () => {
                   planner: {
                     type: "local",
                     path: decodeRelativePathSync("test"),
-                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+                    contentIdentity: TEST_CONTENT_IDENTITY,
                   },
                 }),
             },
@@ -155,16 +153,19 @@ describe("SubagentManager", () => {
   });
 
   describe("upsertSettingsEntry", () => {
-    it.effect("calls ws.setSubagent for local ref", () => {
+    it.effect("fails closed when local content was not materialized first", () => {
       const setSubagentSpy = vi.fn(() => Effect.void);
 
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
-        yield* manager.upsertSettingsEntry({
-          ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
-          versionRange: Option.none(),
-        });
-        expect(setSubagentSpy).toHaveBeenCalledOnce();
+        const error = yield* manager
+          .upsertSettingsEntry({
+            ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
+            versionRange: Option.none(),
+          })
+          .pipe(Effect.flip);
+        expect(error.detail).toContain("no materialized content identity");
+        expect(setSubagentSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -198,15 +199,18 @@ describe("SubagentManager", () => {
   });
 
   describe("upsertLockfileEntry", () => {
-    it.effect("calls ws.setSubagentLock for local ref", () => {
+    it.effect("fails closed when lock persistence has no materialized identity", () => {
       const setLockSpy = vi.fn(() => Effect.void);
 
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
-        yield* manager.upsertLockfileEntry({
-          ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
-        });
-        expect(setLockSpy).toHaveBeenCalledOnce();
+        const error = yield* manager
+          .upsertLockfileEntry({
+            ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
+          })
+          .pipe(Effect.flip);
+        expect(error.detail).toContain("no materialized content identity");
+        expect(setLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -363,9 +367,7 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("source/planner"),
-                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-                    sourceHash: "stale-hash",
+                    contentIdentity: TEST_CONTENT_IDENTITY,
                   } satisfies SubagentLockEntry),
                 ),
             },
@@ -422,7 +424,7 @@ describe("SubagentManager", () => {
         const content = nodeFs.readFileSync(skillPath, "utf8");
         expect(content).toContain("AXM managed file");
         expect(content).toContain("advisory role-skill fallback");
-        expect(captured?.sourceHash).toBeDefined();
+        expect(captured).toHaveProperty("contentIdentity");
         expect(captured).not.toHaveProperty("renderedFiles");
         yield* manager.materializeDeactivate({
           target: { type: "subagent", name: "planner" },
@@ -530,8 +532,7 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("tmp/source/planner"),
-                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+                    contentIdentity: TEST_CONTENT_IDENTITY,
                   } satisfies SubagentLockEntry),
                 ),
             },

@@ -139,7 +139,8 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
             metadata: Option.none(),
           },
           location: "file:///tmp/cloned",
-          gitTreeSha: Option.some("abc123"),
+          gitTreeSha: "tree-1",
+          gitCommitSha: "commit-1",
         };
         const { service, findCalls } = makeMockProviders([mockRef]);
         const providers = Layer.succeed(SourceHostProviders, service);

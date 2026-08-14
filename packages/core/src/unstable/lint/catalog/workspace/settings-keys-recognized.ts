@@ -93,7 +93,7 @@ export const settingsKeysRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
             message:
               `Workspace settings has unrecognized top-level key '${key}'.` +
               (hint === undefined ? "" : ` Did you mean '${hint}'?`) +
-              ` Edit \`${SETTINGS_REL}\` to remove it or rename it to the intended key.`,
+              ` The current settings schema does not recognize this key.`,
             location: { file: SETTINGS_REL },
           };
         });

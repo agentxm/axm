@@ -4,7 +4,6 @@ import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -13,7 +12,7 @@ import { decodeExtensionNameSync } from "../extensions/index.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 import type { LocalKnowledgeRef } from "./refs.js";
 
@@ -120,6 +119,142 @@ describe("KnowledgeManager", () => {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
     }),
+  );
+
+  it.effect(
+    "materializes a recovery target without rewriting discovery while desired state is incomplete",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        try {
+          const sourceRoot = nodePath.join(workspaceRoot, "source");
+          writeKnowledgePackage(sourceRoot, "handbook", true);
+          const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+          const existingInstructions =
+            "# Existing\n\n<!-- unresolved Knowledge remains represented here -->\n";
+          writeFileSync(instructionsPath, existingInstructions);
+
+          yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
+          }).pipe(
+            Effect.provide(
+              managerLayer(workspaceRoot, {
+                getDesiredStateGraph: () =>
+                  Effect.succeed({
+                    complete: false,
+                    nodes: [],
+                    problems: [
+                      {
+                        type: "pack-resolution-unavailable",
+                        pack: "still-unresolved",
+                        detail: "accepted resolution is missing",
+                      },
+                    ],
+                  }),
+              }),
+            ),
+          );
+
+          expect(
+            existsSync(
+              nodePath.join(
+                workspaceRoot,
+                ".axm",
+                "extensions",
+                "external",
+                "knowledge",
+                "handbook",
+                "src",
+                "concept.md",
+              ),
+            ),
+          ).toBe(true);
+          expect(readFileSync(instructionsPath, "utf8")).toBe(existingInstructions);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+  );
+
+  it.effect(
+    "materializes one Knowledge closure without rewriting discovery while a sibling is unresolved",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        try {
+          const sourceRoot = nodePath.join(workspaceRoot, "source");
+          writeKnowledgePackage(sourceRoot, "handbook", true);
+          const instructionsPath = nodePath.join(workspaceRoot, "AGENTS.md");
+          const existingInstructions = "# Existing\n\n<!-- sibling discovery row -->\n";
+          writeFileSync(instructionsPath, existingInstructions);
+
+          yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
+          }).pipe(
+            Effect.provide(
+              managerLayer(workspaceRoot, {
+                getDesiredStateGraph: () =>
+                  Effect.succeed({
+                    complete: true,
+                    nodes: [
+                      {
+                        type: "knowledge",
+                        name: "handbook",
+                        identity: "./source",
+                        source: "./source",
+                        enabled: true,
+                        constraints: [],
+                        origins: [
+                          {
+                            type: "settings",
+                            source: "./source",
+                            enabled: true,
+                          },
+                        ],
+                      },
+                      {
+                        type: "knowledge",
+                        name: "unresolved",
+                        identity: "@acme/knowledge/unresolved",
+                        source: "@acme/knowledge/unresolved",
+                        enabled: true,
+                        constraints: [],
+                        origins: [
+                          {
+                            type: "settings",
+                            source: "@acme/knowledge/unresolved",
+                            enabled: true,
+                          },
+                        ],
+                      },
+                    ],
+                    problems: [],
+                  }),
+              }),
+            ),
+          );
+
+          expect(
+            existsSync(
+              nodePath.join(
+                workspaceRoot,
+                ".axm",
+                "extensions",
+                "external",
+                "knowledge",
+                "handbook",
+                "src",
+                "concept.md",
+              ),
+            ),
+          ).toBe(true);
+          expect(readFileSync(instructionsPath, "utf8")).toBe(existingInstructions);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
   );
 
   it.effect("rejects an invalid concept and removes the partial isolated copy", () =>
@@ -261,19 +396,16 @@ describe("KnowledgeManager", () => {
           writeKnowledgePackage(healthyCanonical, "healthy", true);
           writeKnowledgePackage(unavailableCanonical, "unavailable", true);
 
-          const now = DateTime.makeUnsafe("2026-08-04T00:00:00.000Z");
           const locked = {
             healthy: {
               type: "local",
               path: "sources/healthy",
-              installedAt: now,
-              updatedAt: now,
+              contentIdentity: TEST_CONTENT_IDENTITY,
             },
             unavailable: {
               type: "local",
               path: "sources/unavailable",
-              installedAt: now,
-              updatedAt: now,
+              contentIdentity: TEST_CONTENT_IDENTITY,
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
           const layer = managerLayer(workspaceRoot, {

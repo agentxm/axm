@@ -115,7 +115,7 @@ export const enumerateUnknownTopLevelKeys = (
       severity,
       message:
         `${describeSchemaDocument(file)} has unrecognized top-level field '${key}'. ` +
-        `Edit \`${file}\` to remove it or rename it to the intended field name.`,
+        `The current schema does not recognize this field.`,
       location: { file },
     });
   }

@@ -54,7 +54,7 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
         }
         return { targets: [target] };
       }),
-    buildUninstallPlan: (intent, flags) =>
+    buildUninstallPlan: (intent) =>
       Effect.succeed({
         _tag: "Plan",
         name: "Uninstall knowledge",
@@ -65,7 +65,7 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             steps: intent.targets.map((target) =>
               buildUninstallOperation<KnowledgeExtensionRef>(
                 manager,
-                makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true),
+                makeWorkspaceRetentionPolicy(ws),
                 { target },
               ),
             ),

@@ -1,8 +1,8 @@
 /**
  * Disable skill executor — removes agent symlinks but preserves canonical files.
  *
- * Materialized artifacts are observed directly. Receipts are not consulted:
- * they are optional post-success history, not lifecycle authority.
+ * Materialized artifacts are observed directly. Accepted-resolution rows identify
+ * source content but do not prove that canonical or projected files exist.
  *
  * @experimental This API is unstable and may change without notice.
  */

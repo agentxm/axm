@@ -2,18 +2,19 @@ import * as Cause from "effect/Cause";
 import * as ServiceMap from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
+import * as lockfile from "proper-lockfile";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 const TRANSACTION_LOCK_FILENAME = "workspace-transition.lock";
 const LOCK_RETRY_DELAY = Duration.millis(25);
-const LOCK_RETRY_LIMIT = 200;
+const LOCK_STALE_MILLIS = 2_000;
+const LOCK_UPDATE_MILLIS = 1_000;
 
 const transactionSemaphores = new Map<string, Semaphore.Semaphore>();
 
@@ -34,7 +35,6 @@ interface WorkspaceTransactionContext {
   readonly backupDir: string;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
-  readonly pendingReceipts: Array<Effect.Effect<void, AppError>>;
   readonly protectedTargets: Set<string>;
   readonly snapshots: Array<Snapshot>;
   readonly snapshotSemaphore: Semaphore.Semaphore;
@@ -50,12 +50,10 @@ export interface WorkspaceTransactionArgs<A, E, R> {
   readonly workspaceDir: string;
   /** Authoritative files or directories that the transition may mutate. */
   readonly targets: ReadonlyArray<string>;
-  /** Desired, trust, canonical, projection, and native-configuration mutation. */
+  /** Desired, lock, canonical, projection, and native-configuration mutation. */
   readonly transition: Effect.Effect<A, E, R>;
-  /** Confirms the complete durable postcondition before receipt history is written. */
+  /** Confirms the complete durable postcondition before the transaction commits. */
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
-  /** Optional non-authoritative receipt write, performed after the postcondition is valid. */
-  readonly receipt?: (value: A) => Effect.Effect<void, AppError, R>;
 }
 
 const transactionError = (detail: string, cause: unknown): AppError =>
@@ -78,29 +76,57 @@ const normalizedTargets = (
   return retained;
 };
 
-const acquireFileLock = (
-  fs: FileSystem.FileSystem,
-  lockPath: string,
-  attempts = 0,
-): Effect.Effect<void, AppError> =>
-  fs.writeFileString(lockPath, "locked\n", { flag: "wx" }).pipe(
-    Effect.catch((error) => {
-      if (error.reason._tag !== "AlreadyExists") {
-        return Effect.fail(
-          transactionError(`Failed to acquire workspace transaction lock at ${lockPath}`, error),
-        );
+const finalizeLockResource = (effect: Effect.Effect<void, AppError>): Effect.Effect<void> =>
+  effect.pipe(
+    Effect.tapError((error) => Effect.logError(error.detail)),
+    Effect.ignore,
+  );
+
+const errorCode = (cause: unknown): string | undefined =>
+  typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
+    ? cause.code
+    : undefined;
+
+const acquireWorkspaceLock = (workspaceDir: string, lockPath: string) =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      let release: (() => Promise<void>) | undefined;
+      while (release === undefined) {
+        const attempt = yield* Effect.tryPromise({
+          try: () =>
+            lockfile.lock(workspaceDir, {
+              lockfilePath: lockPath,
+              realpath: false,
+              retries: 0,
+              stale: LOCK_STALE_MILLIS,
+              update: LOCK_UPDATE_MILLIS,
+            }),
+          catch: (cause) => ({ cause, code: errorCode(cause) }),
+        }).pipe(Effect.result);
+        if (attempt._tag === "Success") {
+          release = attempt.success;
+          break;
+        }
+        if (attempt.failure.code !== "ELOCKED") {
+          return yield* transactionError(
+            `Failed to acquire workspace transaction lock at ${lockPath}`,
+            attempt.failure.cause,
+          );
+        }
+        yield* restore(Effect.sleep(LOCK_RETRY_DELAY));
       }
-      if (attempts >= LOCK_RETRY_LIMIT) {
-        return Effect.fail(
-          makeAppError({
-            code: "conflict",
-            detail: `Another workspace mutation holds the transaction lock at ${lockPath}`,
-            cause: error,
+      const releaseLock = release;
+      yield* Effect.addFinalizer(() =>
+        finalizeLockResource(
+          Effect.tryPromise({
+            try: () => releaseLock(),
+            catch: (cause) =>
+              transactionError(
+                `Failed to release workspace transaction lock at ${lockPath}`,
+                cause,
+              ),
           }),
-        );
-      }
-      return Effect.sleep(LOCK_RETRY_DELAY).pipe(
-        Effect.andThen(acquireFileLock(fs, lockPath, attempts + 1)),
+        ),
       );
     }),
   );
@@ -200,22 +226,13 @@ const restoreAll = (
     discard: true,
   });
 
-const receiptFailure = (error: AppError): AppError =>
-  makeAppError({
-    code: error.code,
-    title: error.title,
-    detail: `Workspace transition completed, but receipt history could not be written: ${error.detail}`,
-    ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-    cause: error,
-  });
-
 /**
  * Run one coupled workspace mutation under a scope-local lock.
  *
  * Every authoritative target is snapshotted before the transition begins. A
  * failed transition or postcondition check restores the exact pre-operation
- * paths. Receipt history is deliberately outside that rollback boundary.
+ * paths. The lock is held by the operating system and released on descriptor
+ * close or process death.
  */
 export const runWorkspaceTransaction = <A, E, R>(
   args: WorkspaceTransactionArgs<A, E, R>,
@@ -230,10 +247,6 @@ export const runWorkspaceTransaction = <A, E, R>(
       );
       const value = yield* args.transition;
       yield* args.validate(value);
-      if (args.receipt !== undefined) {
-        const services = yield* Effect.context<R>();
-        current.value.pendingReceipts.push(args.receipt(value).pipe(Effect.provide(services)));
-      }
       return value;
     }
 
@@ -244,16 +257,6 @@ export const runWorkspaceTransaction = <A, E, R>(
 
     return yield* semaphore.withPermits(1)(
       Effect.gen(function* () {
-        const workspaceDirExisted = yield* fs
-          .exists(workspaceDir)
-          .pipe(
-            Effect.mapError((error) =>
-              transactionError(
-                `Failed to inspect workspace state directory ${workspaceDir}`,
-                error,
-              ),
-            ),
-          );
         yield* fs
           .makeDirectory(workspaceDir, { recursive: true })
           .pipe(
@@ -262,110 +265,68 @@ export const runWorkspaceTransaction = <A, E, R>(
             ),
           );
         const lockPath = path.join(workspaceDir, TRANSACTION_LOCK_FILENAME);
-        return yield* Effect.acquireUseRelease(
-          acquireFileLock(fs, lockPath),
-          () =>
-            Effect.gen(function* () {
-              const backupDir = yield* fs
-                .makeTempDirectory({ prefix: "axm-workspace-recovery-" })
-                .pipe(
-                  Effect.mapError((error) =>
-                    transactionError("Failed to create workspace recovery backup", error),
-                  ),
-                );
-              const context: WorkspaceTransactionContext = {
-                backupDir,
-                fs,
-                path,
-                pendingReceipts: [],
-                protectedTargets: new Set(),
-                snapshots: [],
-                snapshotSemaphore: Semaphore.makeUnsafe(1),
-              };
-              const cleanup = fs
-                .remove(backupDir, { recursive: true })
-                .pipe(
-                  Effect.mapError((error) =>
-                    transactionError(
-                      `Failed to remove workspace recovery backup ${backupDir}`,
-                      error,
-                    ),
-                  ),
-                );
-              const business = Effect.gen(function* () {
-                yield* Effect.forEach(
-                  normalizedTargets(path, args.targets),
-                  (target) => protectInContext(context, target),
-                  { discard: true },
-                );
-                const value = yield* args.transition;
-                yield* args.validate(value);
-                return value;
-              }).pipe(
-                Effect.provideService(CurrentWorkspaceTransaction, Option.some(context)),
-                Effect.interruptible,
+        return yield* Effect.scoped(
+          Effect.gen(function* () {
+            yield* acquireWorkspaceLock(workspaceDir, lockPath);
+            const backupDir = yield* fs
+              .makeTempDirectory({ prefix: "axm-workspace-recovery-" })
+              .pipe(
+                Effect.mapError((error) =>
+                  transactionError("Failed to create workspace recovery backup", error),
+                ),
               );
-
-              return yield* business.pipe(
-                Effect.matchCauseEffect({
-                  onFailure: (cause) =>
-                    restoreAll(fs, path, context.snapshots).pipe(
-                      Effect.matchEffect({
-                        onFailure: (rollbackCause) =>
-                          Effect.fail(
-                            transactionError(
-                              `Workspace recovery is required after rollback failed. Recovery backup retained at: ${backupDir}`,
-                              { transition: Cause.pretty(cause), rollback: rollbackCause },
-                            ),
-                          ),
-                        onSuccess: () => cleanup.pipe(Effect.andThen(Effect.failCause(cause))),
-                      }),
-                    ),
-                  onSuccess: (value) =>
-                    cleanup.pipe(
-                      Effect.andThen(
-                        Effect.forEach(
-                          args.receipt === undefined
-                            ? context.pendingReceipts
-                            : [...context.pendingReceipts, args.receipt(value)],
-                          (receipt) => receipt,
-                          { discard: true },
-                        ).pipe(
-                          Effect.mapError(receiptFailure),
-                          Effect.as(value),
-                          Effect.interruptible,
-                        ),
-                      ),
-                    ),
-                }),
-                Effect.uninterruptible,
-              );
-            }),
-          (_, exit) => {
-            const releaseTarget =
-              Exit.isFailure(exit) && !workspaceDirExisted ? workspaceDir : lockPath;
-            const release = fs
-              .remove(releaseTarget, {
-                force: true,
-                ...(releaseTarget === workspaceDir ? { recursive: true } : {}),
-              })
+            const context: WorkspaceTransactionContext = {
+              backupDir,
+              fs,
+              path,
+              protectedTargets: new Set(),
+              snapshots: [],
+              snapshotSemaphore: Semaphore.makeUnsafe(1),
+            };
+            const cleanup = fs
+              .remove(backupDir, { recursive: true })
               .pipe(
                 Effect.mapError((error) =>
                   transactionError(
-                    releaseTarget === workspaceDir
-                      ? `Failed to remove workspace state directory after rollback ${workspaceDir}`
-                      : `Failed to release workspace transaction lock ${lockPath}`,
+                    `Failed to remove workspace recovery backup ${backupDir}`,
                     error,
                   ),
                 ),
               );
-            return Exit.isFailure(exit)
-              ? release.pipe(
-                  Effect.tapError((error) => Effect.logError(error.detail)),
-                  Effect.ignore,
-                )
-              : release;
-          },
+            const business = Effect.gen(function* () {
+              yield* Effect.forEach(
+                normalizedTargets(path, args.targets),
+                (target) => protectInContext(context, target),
+                { discard: true },
+              );
+              const value = yield* args.transition;
+              yield* args.validate(value);
+              return value;
+            }).pipe(
+              Effect.provideService(CurrentWorkspaceTransaction, Option.some(context)),
+              Effect.interruptible,
+            );
+
+            return yield* business.pipe(
+              Effect.matchCauseEffect({
+                onFailure: (cause) =>
+                  restoreAll(fs, path, context.snapshots).pipe(
+                    Effect.matchEffect({
+                      onFailure: (rollbackCause) =>
+                        Effect.fail(
+                          transactionError(
+                            `Workspace recovery is required after rollback failed. Recovery backup retained at: ${backupDir}`,
+                            { transition: Cause.pretty(cause), rollback: rollbackCause },
+                          ),
+                        ),
+                      onSuccess: () => cleanup.pipe(Effect.andThen(Effect.failCause(cause))),
+                    }),
+                  ),
+                onSuccess: (value) => cleanup.pipe(Effect.as(value)),
+              }),
+              Effect.uninterruptible,
+            );
+          }),
         );
       }),
     );

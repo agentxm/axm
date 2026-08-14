@@ -84,7 +84,6 @@ const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(f
                 }),
           ),
         ),
-      receipt: () => Effect.void,
     }),
   } satisfies PlannedJobStep;
 });

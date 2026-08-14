@@ -1,28 +1,17 @@
 /**
- * Augment a plan with lockfile reconciliation steps.
+ * Gate a plan on authoritative lockfile health.
  *
- * Pure business logic: detects lockfile state and prepends recovery steps
- * when the lockfile is missing or invalid. Returns an augmented result
- * with reconciliation metadata, leaving CLI rendering to the caller.
+ * A missing lockfile is an absent accepted-resolution set: the already-resolved
+ * lifecycle plan may establish needed rows atomically. An invalid lockfile is
+ * authoritative but unreadable, so execution blocks without reconstructing it
+ * from canonical content, manifests, or observation.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { type AppError } from "../app-error/index.js";
-import type { Settings } from "../settings/index.js";
-import type { Plan, PlannedJobStep } from "../plan/plan.js";
-import type { ReconciliationContext } from "./reconciliation-types.js";
-import {
-  ReconciliationAdapters,
-  runReadRecoverOperation,
-  runReconcileMaterializeOperation,
-} from "./reconciliation.js";
+import type { Plan } from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -44,81 +33,45 @@ export interface AugmentedPlanResult {
 // -----------------------------------------------------------------------------
 
 /**
- * Augment a plan with lockfile reconciliation steps when the lockfile is
- * missing or invalid. Returns the plan unchanged when lockfile is ok.
- *
- * The caller is responsible for CLI-specific behavior (e.g., warning
- * the user when lockfile is invalid).
+ * Return the plan unchanged when authority is readable or absent. Replace it
+ * with one explicit blocker when the authoritative file is unreadable.
  */
 export const augmentPlanWithReconciliation = (
   plan: Plan,
   getLockfileState: () => Effect.Effect<LockfileState, AppError>,
-  baseDir: string,
-  workspaceDir: string,
-  readSettingsSafe: (dir: string) => Effect.Effect<Settings, AppError>,
-  fsLayer: Layer.Layer<FileSystem.FileSystem | Path.Path>,
-): Effect.Effect<AugmentedPlanResult, AppError, ReconciliationAdapters> =>
+): Effect.Effect<AugmentedPlanResult, AppError> =>
   Effect.gen(function* () {
-    const adapters = yield* ReconciliationAdapters;
-    const adaptersLayer = Layer.succeed(ReconciliationAdapters, adapters);
-    const runLayer = Layer.mergeAll(fsLayer, adaptersLayer);
     const lockfileState = yield* getLockfileState();
 
-    if (lockfileState === "ok") {
+    if (lockfileState !== "invalid") {
       return {
         plan,
-        reconciliationTriggered: false,
+        reconciliationTriggered: lockfileState === "missing",
+        ...(lockfileState === "missing" ? { reason: "missing" as const } : {}),
       };
     }
 
-    const reason: DegradedLockfileState = lockfileState;
-    const settings = yield* readSettingsSafe(workspaceDir);
-    const reconciliationContext: ReconciliationContext = {
-      baseDir,
-      now: yield* DateTime.now,
-      configuredOwner: Option.fromUndefinedOr(settings.owner),
-      agents: settings.agents ?? [],
-      settings,
-    };
-
-    const readRecoverRun = runReadRecoverOperation(reconciliationContext).pipe(
-      Effect.provide(runLayer),
-    );
-    const readRecoverStep: PlannedJobStep =
-      reason === "invalid"
-        ? {
-            readiness: "warn",
-            warnMessage:
-              "Existing lockfile is invalid; AXM will recover installed extensions before applying this plan.",
-            label: `Recover lockfile (${reason})`,
-            run: readRecoverRun,
-          }
-        : {
-            readiness: "ready",
-            label: `Recover lockfile (${reason})`,
-            run: readRecoverRun,
-          };
-
-    const materializeStep: PlannedJobStep = {
-      readiness: "ready",
-      label: `Reconcile lockfile (${reason})`,
-      run: runReconcileMaterializeOperation(reconciliationContext, workspaceDir, reason, {
-        allowMissingDeclarations: true,
-      }).pipe(Effect.provide(runLayer)),
-    };
-
     return {
       plan: {
-        ...plan,
+        _tag: "Plan",
+        name: plan.name,
+        description: plan.description,
         jobs: [
           {
-            concurrency: 1 as const,
-            steps: [readRecoverStep, materializeStep],
+            concurrency: 1,
+            steps: [
+              {
+                key: "workspace:lockfile-invalid",
+                readiness: "error",
+                label: "Read accepted external resolutions",
+                errorMessage:
+                  "The authoritative lockfile is invalid and cannot be reconstructed from workspace observation.",
+              },
+            ],
           },
-          ...plan.jobs,
         ],
       },
       reconciliationTriggered: true,
-      reason,
+      reason: "invalid",
     };
   });

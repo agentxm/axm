@@ -26,8 +26,7 @@ import {
 import {
   WorkspaceMutations,
   makeConfiguredReleaseAgeEvaluation,
-  usableTrustedCanonical,
-  validateDesiredPackTrust,
+  usableAcceptedCanonical,
 } from "@agentxm/client-core/unstable/workspace";
 import {
   decodeVersionRangeSync,
@@ -165,16 +164,7 @@ const normalizedPackIdentity = (identity: string): string =>
 const preservableRegistryVersion = (intent: RootUpdateIntent) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
-    const initialGraph = yield* workspace.getDesiredStateGraph();
-    const trust = yield* workspace.getTrustState();
-    const graph =
-      intent.type === "pack"
-        ? yield* validateDesiredPackTrust({
-            baseDir: workspace.baseDir,
-            graph: initialGraph,
-            trust,
-          })
-        : initialGraph;
+    const graph = yield* workspace.getDesiredStateGraph();
     if (!graph.complete) return Option.none<string>();
 
     const desired = graph.nodes.find(
@@ -185,7 +175,7 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
     );
     if (desired === undefined) return Option.none<string>();
 
-    const canonical = yield* usableTrustedCanonical({
+    const canonical = yield* usableAcceptedCanonical({
       workspace,
       type: intent.type,
       name: intent.name,
@@ -212,7 +202,7 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
           ),
       );
       const usable = yield* Effect.forEach(graphNodes, (node) =>
-        usableTrustedCanonical({ workspace, type: node.type, name: node.name }).pipe(
+        usableAcceptedCanonical({ workspace, type: node.type, name: node.name }).pipe(
           Effect.map(Option.isSome),
         ),
       );

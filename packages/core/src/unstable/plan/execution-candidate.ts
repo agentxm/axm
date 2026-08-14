@@ -7,7 +7,6 @@ import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { LOCKFILE_NAME } from "../lockfile/index.js";
 import { SETTINGS_FILENAME } from "../settings/index.js";
-import { TRUST_STATE_FILENAME } from "../trust/index.js";
 import type { Plan } from "./plan.js";
 
 export interface ExecutionCandidate {
@@ -35,7 +34,6 @@ const resolveMaterialPaths = (
     new Set(
       [
         path.join(workspaceDir, SETTINGS_FILENAME),
-        path.join(workspaceDir, TRUST_STATE_FILENAME),
         path.join(workspaceDir, LOCKFILE_NAME),
         ...(plan.materialPaths ?? []),
         ...collectArtifactPaths(plan),

@@ -10,26 +10,14 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import {
-  REGISTRY_EXTENSIONS_DIR,
-  computePackageContentHash,
-  evaluateSourceAuthority,
-  shouldReuseCanonicalInstall,
-  toExtensionTypePlural,
-  type SourceHash,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { PackRef, RegistryPackRef, WorkspacePackRef } from "./refs.js";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-} from "../source-resolution/index.js";
+import type { PackRef, RegistryPackRef } from "./refs.js";
+import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -40,24 +28,13 @@ import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../extensions/utils.js";
 import { computePackPaths } from "./paths.js";
 import { removeIfExists } from "../utils/index.js";
-import { validateExactResolvedVersion } from "../lockfile/index.js";
-import type { AppError } from "../app-error/index.js";
-import { resolvePackDependencies } from "./dependency-resolution.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import {
-  trustedRegistryVersionForRef,
-  trustRecordKey,
-  validateRefTrustTransition,
-} from "../trust/index.js";
-import { isWorkspaceSourceLocator, type RegistrySource } from "../sources/index.js";
+import { printSourceParams } from "../sources/index.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { usableTrustedCanonicalRef } from "../workspace/trusted-canonical-ref.js";
-import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
-import type { WorkspacePackDependencyResolver } from "./dependency-resolution.js";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "./manifest-schema.js";
-import { packTrustManifest } from "./trust-manifest.js";
+import { computePackManifestContentIdentity } from "./manifest-content-identity.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -71,75 +48,23 @@ export class PackManager extends ServiceMap.Service<PackManager, ExtensionManage
 const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionRange: Option.Option<string>,
-  sources: SourceHostProvidersService,
-  sourceHash: SourceHash,
-  workspaceResolver: WorkspacePackDependencyResolver,
-): Effect.Effect<SetPackArgs, AppError> =>
-  Effect.gen(function* () {
-    const resolved = yield* resolvePackDependencies(
-      ref,
-      sources,
-      undefined,
-      undefined,
-      workspaceResolver,
-    );
-    const now = yield* DateTime.now;
-
-    return {
-      type: "registry",
-      owner: ref.owner,
-      name: ref.pack.name,
-      resolvedVersion: decodeVersionSync(ref.version),
-      integrity: Option.getOrElse(ref.integrity, () => ""),
-      sourceName: "default",
-      publisherBindingId: ref.publisherBindingId,
-      sourceHash,
-      installedAt: now,
-      updatedAt: now,
-      resolvedSkills: resolved.resolvedSkills,
-      resolvedMcpServers: resolved.resolvedMcpServers,
-      resolvedSubagents: resolved.resolvedSubagents,
-      resolvedRules: resolved.resolvedRules,
-      resolvedHooks: resolved.resolvedHooks,
-      resolvedKnowledge: resolved.resolvedKnowledge,
-      versionRange,
-    } satisfies SetPackArgs;
-  });
-
-const buildWorkspaceSetPackArgs = (
-  ref: WorkspacePackRef,
-  versionRange: Option.Option<string>,
-  sources: SourceHostProvidersService,
-  registrySource: RegistrySource | undefined,
-  workspaceResolver: WorkspacePackDependencyResolver,
-) =>
-  Effect.gen(function* () {
-    const resolved = yield* resolvePackDependencies(
-      ref,
-      sources,
-      undefined,
-      registrySource,
-      workspaceResolver,
-    );
-    const now = yield* DateTime.now;
-    return {
-      type: "workspace",
-      owner: ref.owner,
-      extensionType: "pack",
-      name: ref.name,
-      version: ref.version,
-      sourceHash: ref.sourceHash,
-      installedAt: now,
-      updatedAt: now,
-      resolvedSkills: resolved.resolvedSkills,
-      resolvedMcpServers: resolved.resolvedMcpServers,
-      resolvedSubagents: resolved.resolvedSubagents,
-      resolvedRules: resolved.resolvedRules,
-      resolvedHooks: resolved.resolvedHooks,
-      resolvedKnowledge: resolved.resolvedKnowledge,
-      versionRange,
-    } satisfies SetPackArgs;
-  });
+): SetPackArgs => ({
+  type: "registry",
+  owner: ref.owner,
+  name: ref.pack.name,
+  resolvedVersion: decodeVersionSync(ref.version),
+  integrity: Option.getOrElse(ref.integrity, () => ""),
+  sourceName: "default",
+  publisherBindingId: ref.publisherBindingId,
+  manifestContentIdentity: computePackManifestContentIdentity({
+    owner: ref.owner,
+    type: "pack",
+    name: ref.pack.name,
+    version: ref.version,
+    dependencies: ref.pack.dependencies,
+  }),
+  versionRange,
+});
 
 const checkInstalledOnDisk = (
   fsService: FileSystem.FileSystem,
@@ -205,95 +130,6 @@ export const PackManagerLive = Layer.effect(
     const provide = <A, E>(
       effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
-    const resolveWorkspaceDependency: WorkspacePackDependencyResolver = (args) =>
-      Effect.gen(function* () {
-        const graph = yield* ws.getDesiredStateGraph();
-        const desired = graph.nodes.find(
-          (node) =>
-            node.type === args.type &&
-            node.name === args.name &&
-            node.origins.some(
-              (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
-            ),
-        );
-        if (desired === undefined) return { kind: "absent" as const };
-        const trust = (yield* ws.getTrustState()).records[trustRecordKey(args.type, args.name)];
-        const observation = yield* provide(observeCanonicalExtension({ baseDir, desired, trust }));
-        const targetIdentity = `${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`;
-        const input = {
-          target: { type: args.type, name: args.name, identity: targetIdentity },
-          relationship: { kind: "member" as const, root: args.root },
-          requested: { identity: `registry:${targetIdentity}`, workspace: false },
-          configured: {
-            identity: desired.identity,
-            workspace: desired.identity.startsWith("workspace:"),
-            ...(trust?.resolvedVersion === undefined ? {} : { version: trust.resolvedVersion }),
-            status: observation.status,
-          },
-          requiredVersionRange: args.constraint,
-        };
-        const decision = evaluateSourceAuthority(input);
-        if (decision.kind === "blocked") return decision;
-        const resolved = yield* provide(
-          usableTrustedCanonicalRef({
-            workspace: ws,
-            type: args.type,
-            name: args.name,
-          }),
-        );
-        if (Option.isNone(resolved)) {
-          const unusable = evaluateSourceAuthority({
-            ...input,
-            configured: { ...input.configured, status: "wrong-origin" },
-          });
-          if (unusable.kind === "blocked") return unusable;
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Workspace authority for ${targetIdentity} resolved inconsistently`,
-          });
-        }
-        return { kind: "selected" as const, ref: resolved.value };
-      });
-    const refreshWorkspacePackState = (
-      ref: WorkspacePackRef,
-      commit: "authoritative" | "receipt" | "both" = "both",
-    ) =>
-      Effect.gen(function* () {
-        const manifestPath = path.join(ref.location, PACK_MANIFEST_FILENAME);
-        const raw = yield* fs.readFileString(manifestPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "validation",
-              detail: `Failed to read workspace pack manifest at ${manifestPath}`,
-              cause,
-            }),
-          ),
-        );
-        const json = yield* Effect.try({
-          try: (): unknown => JSON.parse(raw),
-          catch: (cause) =>
-            makeAppError({
-              code: "validation",
-              detail: `Failed to parse workspace pack manifest at ${manifestPath}`,
-              cause,
-            }),
-        });
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "validation",
-              detail: `Invalid workspace pack manifest at ${manifestPath}`,
-              cause,
-            }),
-          ),
-        );
-        yield* ws.refreshPackContentIdentity(
-          ref.name,
-          ref.sourceHash,
-          packTrustManifest(manifest),
-          commit,
-        );
-      });
     const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
     )(function* ({ ref, force }: { readonly ref: PackRef; readonly force?: boolean }) {
@@ -316,23 +152,12 @@ export const PackManagerLive = Layer.effect(
             detail: `Workspace pack package is missing: ${packDir}`,
           });
         }
-        const trust = yield* ws.getTrustState();
-        const record = trust.records[trustRecordKey("pack", ref.name)];
-        if (record?.authority === "workspace" && record.contentIdentity !== ref.sourceHash) {
-          return yield* makeAppError({
-            code: "conflict",
-            detail: `Workspace pack ${ref.owner}/packs/${ref.name} differs from its trusted baseline`,
-            suggestions: [
-              {
-                description: "Inspect the authored changes before accepting a new baseline.",
-                cmd: `axm packs repair ${ref.owner}/packs/${ref.name} --preview`,
-              },
-            ],
-          });
-        }
         return;
       }
-      const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+      const lockedVersion = acceptedRegistryVersionForRef(
+        yield* ws.getLockedPack(ref.pack.name),
+        ref,
+      );
       if (
         shouldReuseCanonicalInstall({
           canonicalExists,
@@ -380,69 +205,15 @@ export const PackManagerLive = Layer.effect(
     const materializeDeactivate: ExtensionManager<PackRef>["materializeDeactivate"] = () =>
       Effect.void;
 
-    const buildCurrentPackArgs = (ref: PackRef, versionRange: Option.Option<string>) =>
-      Effect.gen(function* () {
-        if (ref.refType !== "workspace") {
-          const packDir = computePackPaths(
-            path.join,
-            baseDir,
-            ref.owner,
-            ref.pack.name,
-          ).canonicalPath;
-          const sourceHash = yield* provide(computePackageContentHash(packDir));
-          return yield* buildSetPackArgs(
-            ref,
-            versionRange,
-            sources,
-            sourceHash,
-            resolveWorkspaceDependency,
-          );
-        }
-        if (Object.keys(ref.pack.dependencies).length === 0) {
-          const now = yield* DateTime.now;
-          return {
-            type: "workspace" as const,
-            owner: ref.owner,
-            extensionType: "pack" as const,
-            name: ref.name,
-            version: ref.version,
-            sourceHash: ref.sourceHash,
-            installedAt: now,
-            updatedAt: now,
-            resolvedSkills: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-            resolvedKnowledge: {},
-            versionRange,
-          };
-        }
-        const configured = yield* ws.getConfiguredSourceByName("default");
-        const registrySource =
-          Option.isSome(configured) && configured.value.type === "registry"
-            ? {
-                type: "registry" as const,
-                location: configured.value.location,
-                owner: Option.none(),
-              }
-            : undefined;
-        return yield* buildWorkspaceSetPackArgs(
-          ref,
-          versionRange,
-          sources,
-          registrySource,
-          resolveWorkspaceDependency,
-        );
-      });
+    const buildCurrentPackArgs = (
+      ref: PackRef,
+      versionRange: Option.Option<string>,
+    ): Option.Option<SetPackArgs> =>
+      ref.refType === "registry" ? Option.some(buildSetPackArgs(ref, versionRange)) : Option.none();
 
     return {
       type: "pack",
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {
@@ -473,18 +244,14 @@ export const PackManagerLive = Layer.effect(
         readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
       }) {
-        const args = yield* buildCurrentPackArgs(ref, versionRange);
-        yield* ws.setPack({ ...args, commit: "authoritative" });
-        if (ref.refType === "workspace") {
-          yield* refreshWorkspacePackState(ref, "authoritative");
-        }
-      }),
-
-      upsertTrustEntry: Effect.fn("PackManager.upsertTrustEntry")(function* ({ ref }) {
-        const args = yield* buildCurrentPackArgs(ref, Option.none());
-        yield* ws.setPackLock({ ...args, commit: "authoritative" });
-        if (ref.refType === "workspace") {
-          yield* refreshWorkspacePackState(ref, "authoritative");
+        const args = buildCurrentPackArgs(ref, versionRange);
+        if (Option.isSome(args)) {
+          yield* ws.setPack(args.value);
+        } else {
+          yield* ws.setPackEntry(ref.pack.name, {
+            source: printSourceParams(ref.source),
+            enabled: true,
+          });
         }
       }),
 
@@ -492,17 +259,16 @@ export const PackManagerLive = Layer.effect(
         ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({ ref }) {
-        const args = yield* buildCurrentPackArgs(ref, Option.none());
-        yield* ws.setPackLock({ ...args, commit: "receipt" });
-        if (ref.refType === "workspace") {
-          yield* refreshWorkspacePackState(ref, "receipt");
+        const args = buildCurrentPackArgs(ref, Option.none());
+        if (Option.isSome(args)) {
+          yield* ws.setPackLock(args.value);
+        } else {
+          yield* ws.removePackLock(ref.pack.name);
         }
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
-      removeTrustEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removeTrustRecord("pack", target.name),
     } satisfies ExtensionManager<PackRef>;
   }),
 );

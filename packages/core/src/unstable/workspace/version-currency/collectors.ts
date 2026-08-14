@@ -18,11 +18,7 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionRef, ExtensionType } from "../../extensions/index.js";
-import {
-  parseExtensionFqnParts,
-  parseRegistrySourcePatternParts,
-  toExtensionTypePlural,
-} from "../../extensions/index.js";
+import { parseRegistrySourcePatternParts, toExtensionTypePlural } from "../../extensions/index.js";
 import type { RegistryClient } from "../../registry/client.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import {
@@ -31,8 +27,17 @@ import {
   type VersionRange,
 } from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../../extensions/handle.js";
-import { trustRecordKey } from "../../trust/index.js";
+import type {
+  HookLockEntry,
+  KnowledgeLockEntry,
+  McpServerLockEntry,
+  PackLockEntry,
+  RuleLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "../../lockfile/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
+import type { WorkspaceMutationsService } from "../service-interface.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 
 // ---------------------------------------------------------------------------
@@ -89,14 +94,53 @@ const parseConstraintFromSource = (source: string): Option.Option<VersionRange> 
 const buildFqn = (ownerHandle: Handle, type: ExtensionType, name: ExtensionName): string =>
   `${ownerHandle}/${toExtensionTypePlural(type)}/${name}`;
 
+type AcceptedResolution =
+  | SkillLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry
+  | PackLockEntry;
+
+const getAcceptedResolution = (
+  ws: WorkspaceMutationsService,
+  type: ExtensionType,
+  name: string,
+): Effect.Effect<Option.Option<AcceptedResolution>, AppError> => {
+  switch (type) {
+    case "skill":
+      return ws.getLockedSkill(name);
+    case "mcp-server":
+      return ws.getLockedMcpServer(name);
+    case "subagent":
+      return ws.getLockedSubagent(name);
+    case "rule":
+      return ws.getLockedRuleEntry(name);
+    case "hook":
+      return ws.getLockedHookEntry(name);
+    case "knowledge":
+      return ws.getLockedKnowledgeEntry(name);
+    case "pack":
+      return ws.getLockedPack(name);
+  }
+};
+
+type GitAcceptedResolution = Exclude<AcceptedResolution, { readonly type: "registry" | "local" }>;
+
+const isGitAcceptedResolution = (entry: AcceptedResolution): entry is GitAcceptedResolution =>
+  entry.type === "github" ||
+  entry.type === "gitlab" ||
+  entry.type === "bitbucket" ||
+  entry.type === "azurerepos" ||
+  entry.type === "git";
+
 // ---------------------------------------------------------------------------
 // Generic collector
 // ---------------------------------------------------------------------------
 
 /**
- * Collect currency from desired state and the security trust baseline. Receipts
- * are deliberately excluded: update eligibility and currentness must be stable
- * when optional history is missing, stale, or corrupt.
+ * Collect currency from desired state and accepted Registry resolutions.
  */
 const collectCurrency = (
   extensionType: ExtensionType,
@@ -111,47 +155,44 @@ const collectCurrency = (
         detail: "Cannot assess extension currency while the desired pack graph is incomplete",
       });
     }
-    const trust = yield* ws.getTrustState();
-    const eligible = graph.nodes.flatMap((node) => {
-      if (node.type !== extensionType || !node.enabled) return [];
-      const record = trust.records[trustRecordKey(node.type, node.name)];
-      if (
-        record === undefined ||
-        record.authority !== "registry" ||
-        record.resolvedVersion === undefined
-      ) {
-        return [];
-      }
-      const identity = parseExtensionFqnParts(record.sourceIdentity);
-      if (identity === undefined || identity.type !== extensionType) return [];
-      return [{ node, record, identity }];
-    });
+    const accepted = yield* Effect.forEach(
+      graph.nodes.filter((node) => node.type === extensionType && node.enabled),
+      (node) =>
+        getAcceptedResolution(ws, node.type, node.name).pipe(
+          Effect.map((resolution) => ({ node, resolution })),
+        ),
+    );
+    const eligible = accepted.flatMap(({ node, resolution }) =>
+      Option.isSome(resolution) && resolution.value.type === "registry"
+        ? [{ node, resolution: resolution.value }]
+        : [],
+    );
 
     return yield* Effect.forEach(
       eligible,
-      ({ node, record, identity }) =>
+      ({ node, resolution }) =>
         Effect.gen(function* () {
           const installedVersion = yield* Schema.decodeUnknownEffect(VersionSchema)(
-            record.resolvedVersion,
+            resolution.resolvedVersion,
           ).pipe(
             Effect.mapError(() =>
               makeAppError({
                 code: "validation",
-                detail: `Trusted version for ${node.type} "${node.name}" is invalid`,
+                detail: `Accepted version for ${node.type} "${node.name}" is invalid`,
               }),
             ),
           );
           const constraint = parseConstraintFromSource(node.source);
           const indexOption = yield* client.getExtensionIndex({
-            owner: identity.owner,
+            owner: resolution.owner,
             type: extensionType,
-            name: identity.name,
+            name: resolution.name,
           });
           if (Option.isNone(indexOption)) return Option.none();
           const currency = checkCurrency(installedVersion, constraint, indexOption.value);
           return Option.some({
             kind: "registry-version",
-            ref: buildFqn(identity.owner, extensionType, identity.name),
+            ref: buildFqn(resolution.owner, extensionType, resolution.name),
             type: extensionType,
             installedVersion,
             constraint,
@@ -165,8 +206,6 @@ const collectCurrency = (
 // ---------------------------------------------------------------------------
 // Git-hosted freshness collectors
 // ---------------------------------------------------------------------------
-
-const gitAuthorities = new Set(["github", "gitlab", "bitbucket", "azurerepos", "git"]);
 
 const sourceFreshnessStatus = (
   installedTreeHash: Option.Option<string>,
@@ -239,12 +278,11 @@ const matchingRefTreeSha = (
       ref.type === extensionType &&
       refExtensionName(ref) === localName,
   );
-  return match === undefined ? Option.none() : match.gitTreeSha;
+  return match === undefined ? Option.none() : Option.some(match.gitTreeSha);
 };
 
 /**
- * Compare desired Git-hosted entries against their trusted immutable revision.
- * Receipt history is deliberately excluded from eligibility and currentness.
+ * Compare desired Git-hosted entries against their accepted immutable revision.
  */
 const collectSourceFreshness = (args: {
   readonly extensionType: ExtensionType;
@@ -264,19 +302,24 @@ const collectSourceFreshness = (args: {
         detail: "Cannot assess source freshness while the desired pack graph is incomplete",
       });
     }
-    const trust = yield* ws.getTrustState();
-    const eligible = graph.nodes.flatMap((node) => {
-      if (node.type !== extensionType || !node.enabled) return [];
-      const record = trust.records[trustRecordKey(node.type, node.name)];
-      if (record === undefined || !gitAuthorities.has(record.authority)) return [];
-      return [{ node, record }];
-    });
+    const accepted = yield* Effect.forEach(
+      graph.nodes.filter((node) => node.type === extensionType && node.enabled),
+      (node) =>
+        getAcceptedResolution(ws, node.type, node.name).pipe(
+          Effect.map((resolution) => ({ node, resolution })),
+        ),
+    );
+    const eligible = accepted.flatMap(({ node, resolution }) =>
+      Option.isSome(resolution) && isGitAcceptedResolution(resolution.value)
+        ? [{ node, resolution: resolution.value }]
+        : [],
+    );
 
     return yield* Effect.forEach(
       eligible,
-      ({ node, record }) =>
+      ({ node, resolution }) =>
         Effect.gen(function* () {
-          const installedTreeHash = Option.fromUndefinedOr(record.immutableRevision);
+          const installedTreeHash = Option.some(resolution.resolvedTree);
           const unresolved = (reason: string): ExtensionSourceFreshnessEntry =>
             freshnessEntry({
               localName: node.name,

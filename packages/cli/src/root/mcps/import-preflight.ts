@@ -1,9 +1,17 @@
 import * as DateTime from "effect/DateTime";
 
 import { isAxmManagedMcpEntry } from "@agentxm/client-core/unstable/mcps";
-import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
-
-type InlineMcpServerLockEntry = Extract<McpServerLockEntry, { readonly type: "inline" }>;
+export type InlineMcpDefinition =
+  | {
+      readonly type: "stdio";
+      readonly command: string;
+      readonly args: ReadonlyArray<string>;
+    }
+  | {
+      readonly type: "http";
+      readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+    };
 
 export interface McpImportSource {
   readonly filePath: string;
@@ -19,7 +27,7 @@ export interface McpImportAdoption {
 
 export interface McpImportCandidate {
   readonly name: string;
-  readonly lockEntry: InlineMcpServerLockEntry;
+  readonly definition: InlineMcpDefinition;
   readonly env: Readonly<Record<string, string>>;
   readonly adoptions: ReadonlyArray<McpImportAdoption>;
 }
@@ -212,12 +220,10 @@ const normalizeServer = (args: {
       _tag: "candidate",
       candidate: {
         name: args.name,
-        lockEntry: {
-          type: "inline",
+        definition: {
+          type: "http",
           url,
           headers: sortedRecord(headers),
-          installedAt: args.now,
-          updatedAt: args.now,
         },
         env,
         adoptions: [args.adoption],
@@ -259,12 +265,10 @@ const normalizeServer = (args: {
     _tag: "candidate",
     candidate: {
       name: args.name,
-      lockEntry: {
-        type: "inline",
+      definition: {
+        type: "stdio",
         command: command.executable,
         args: command.args,
-        installedAt: args.now,
-        updatedAt: args.now,
       },
       env,
       adoptions: [args.adoption],
@@ -273,13 +277,13 @@ const normalizeServer = (args: {
 };
 
 const candidateIdentity = (candidate: McpImportCandidate): string => {
-  const entry = candidate.lockEntry;
+  const entry = candidate.definition;
   return JSON.stringify({
     type: entry.type,
-    command: entry.type === "inline" ? entry.command : undefined,
-    args: entry.type === "inline" ? entry.args : undefined,
-    url: entry.type === "inline" ? entry.url : undefined,
-    headers: entry.type === "inline" ? entry.headers : undefined,
+    command: entry.type === "stdio" ? entry.command : undefined,
+    args: entry.type === "stdio" ? entry.args : undefined,
+    url: entry.type === "http" ? entry.url : undefined,
+    headers: entry.type === "http" ? entry.headers : undefined,
     env: sortedRecord(candidate.env),
   });
 };

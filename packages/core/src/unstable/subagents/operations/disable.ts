@@ -1,8 +1,8 @@
 /**
  * Disable subagent executor — removes rendered files but preserves canonical source.
  *
- * Materialized artifacts are observed directly. Receipts are not consulted:
- * they are optional post-success history, not lifecycle authority.
+ * Materialized artifacts are observed directly. Accepted-resolution rows identify
+ * source content but do not prove that canonical or projected files exist.
  *
  * @experimental This API is unstable and may change without notice.
  */

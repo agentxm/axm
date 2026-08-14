@@ -26,7 +26,6 @@ import { KnowledgeManifestSchema } from "../../core/src/unstable/knowledge/index
 import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
 import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
-import { WorkspaceTrustStateSchema } from "../../core/src/unstable/trust/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const CORE_ROOT = path.join(import.meta.dirname, "../../core");
@@ -47,11 +46,6 @@ const schemas: SchemaConfig[] = [
   {
     name: "settings.schema.json",
     schema: SettingsSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
-    name: "trust.schema.json",
-    schema: WorkspaceTrustStateSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {

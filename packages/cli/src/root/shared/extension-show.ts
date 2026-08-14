@@ -9,7 +9,6 @@ import {
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
 import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
@@ -57,8 +56,6 @@ const ShowItemSchema = Schema.Struct({
   version: Schema.NullOr(Schema.String),
   scope: Schema.Literals(["project", "user"]),
   locked: Schema.Boolean,
-  installedAt: Schema.NullOr(DateTimeUtcSchema),
-  updatedAt: Schema.NullOr(DateTimeUtcSchema),
 });
 
 export const ExtensionShowResultSchema = Schema.Struct({
@@ -192,8 +189,6 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       version: lockEntry === undefined ? null : lockEntryVersion(lockEntry),
       scope: ws.scope,
       locked: lockEntry !== undefined,
-      installedAt: lockEntry?.installedAt ?? null,
-      updatedAt: lockEntry?.updatedAt ?? null,
     },
     agents,
   };

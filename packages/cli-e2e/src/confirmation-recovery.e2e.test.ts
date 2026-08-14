@@ -49,7 +49,7 @@ describe("confirmation recovery", () => {
     }
   });
 
-  it("returns a runnable named-policy retry without letting --yes substitute", async () => {
+  it("allows a pack to become empty without an override flag", async () => {
     const workspace = createTempDir();
     try {
       const setup = await runCli(["setup", "--yes", "--non-interactive"], {
@@ -73,7 +73,7 @@ describe("confirmation recovery", () => {
       expect(added.exitCode, added.stdout + added.stderr).toBe(0);
       const before = snapshotWorkspace(workspace.path);
 
-      const blocked = await runCli(
+      const removed = await runCli(
         [
           "packs",
           "remove",
@@ -85,26 +85,7 @@ describe("confirmation recovery", () => {
         ],
         { cwd: workspace.path },
       );
-      const blockedOutput = `${blocked.stdout}\n${blocked.stderr}`;
-      expect(blocked.exitCode).toBe(2);
-      expect(blockedOutput).toContain('"reason": "override-required"');
-      expect(blockedOutput).toContain(
-        "axm packs remove --json --non-interactive --allow-empty recovery-pack @test/skills/pack-member",
-      );
-      expect(snapshotWorkspace(workspace.path)).toEqual(before);
-
-      const retried = await runCli(
-        [
-          "packs",
-          "remove",
-          "recovery-pack",
-          "@test/skills/pack-member",
-          "--allow-empty",
-          "--non-interactive",
-        ],
-        { cwd: workspace.path },
-      );
-      expect(retried.exitCode, retried.stdout + retried.stderr).toBe(0);
+      expect(removed.exitCode, removed.stdout + removed.stderr).toBe(0);
       expect(snapshotWorkspace(workspace.path)).not.toEqual(before);
     } finally {
       workspace.cleanup();

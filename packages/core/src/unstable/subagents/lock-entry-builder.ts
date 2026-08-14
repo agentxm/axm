@@ -7,17 +7,15 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import type { SourceHash } from "../extensions/rendered-files.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
-import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
+import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SubagentExtensionRef } from "./refs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-
-const commonFields = (now: DateTime.Utc) => commonLockFields(now);
 
 const localSourceLockPath = (
   sourcePath: string,
@@ -35,23 +33,20 @@ const localSourceLockPath = (
  */
 export const buildSubagentLockEntry = (
   ref: SubagentExtensionRef,
-  now: DateTime.Utc,
+  contentIdentity: SourceHash,
   workspaceRelativeLocalSourcePath: Option.Option<string> = Option.none(),
-): SubagentLockEntry => {
-  const common = commonFields(now);
-
+): SubagentLockEntry | undefined => {
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-        ...common,
+        ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
       };
 
     case "local":
       return {
         type: "local",
         path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
-        ...common,
+        contentIdentity,
       };
 
     case "registry":
@@ -63,17 +58,8 @@ export const buildSubagentLockEntry = (
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
         publisherBindingId: ref.publisherBindingId,
-        ...common,
       };
     case "workspace":
-      return {
-        type: "workspace",
-        owner: ref.owner,
-        extensionType: "subagent",
-        name: ref.name,
-        version: ref.version,
-        sourceHash: ref.sourceHash,
-        ...common,
-      };
+      return undefined;
   }
 };

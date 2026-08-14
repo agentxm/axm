@@ -400,15 +400,15 @@ describe("previewOrApplyPlan", () => {
     const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
-      name: "Break dependents",
+      name: "Accept warnings",
       description: Option.none(),
       riskConditions: [
         {
           level: "override-required",
           id: "installed-dependents",
-          policy: "break-dependencies",
-          requiredFlag: "--break-dependencies",
-          detail: "Installed dependents will break",
+          policy: "accept-warnings",
+          requiredFlag: "--accept-warnings",
+          detail: "The plan has unresolved warnings",
         },
       ],
       jobs: [
@@ -438,7 +438,7 @@ describe("previewOrApplyPlan", () => {
       const accepted = yield* previewOrApplyPlan(plan, {
         execution: applyPlanExecution({
           approval: "prompt-if-interactive",
-          acceptedPolicies: new Set(["break-dependencies"]),
+          acceptedPolicies: new Set(["accept-warnings"]),
           recovery: testRecovery,
         }),
       });
@@ -509,7 +509,6 @@ describe("previewOrApplyPlan", () => {
             targets: args.targets ?? [],
             transition: args.transition,
             validate: args.validate,
-            ...(args.receipt === undefined ? {} : { receipt: args.receipt }),
           }).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),

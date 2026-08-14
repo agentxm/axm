@@ -27,10 +27,8 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "hook-schema": "JSON Schema for a hook extension manifest.",
   "knowledge-schema": "JSON Schema for an Open Knowledge Format bundle manifest.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
-  "workspace-state":
-    "How desired, observed, trust, and receipt state drive workspace reconciliation.",
+  "workspace-state": "How desired, accepted-resolution, and observed state drive reconciliation.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
-  "trust-schema": "JSON Schema for the authoritative .axm/trust.json trust baseline.",
   mcps: "How MCP server extensions work and how AXM installs and manages them.",
   "mcp-schema": "JSON Schema for an MCP server manifest.",
   "axm-lock-schema": "JSON Schema for the AXM lockfile.",

@@ -14,10 +14,9 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import {
   WorkspaceMutations,
-  trustedCanonicalRef,
+  usableAcceptedCanonical,
   type DesiredExtensionNode,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
@@ -82,8 +81,8 @@ const promoteToDirectSettings = (
 /**
  * Handles `axm packs unpack` by promoting every desired leaf from the named
  * pack to a direct settings origin, then removing the pack. Membership comes
- * from the complete desired graph and exact refs come from authoritative trust;
- * optional receipt history is never consulted.
+ * from the complete desired graph and exact refs come from authored intent or
+ * accepted external resolutions.
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
@@ -114,42 +113,36 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     });
   }
 
-  const trust = yield* ws.getTrustState();
-  const trustedRefFor = (node: DesiredExtensionNode) =>
+  const acceptedRefFor = (node: DesiredExtensionNode) =>
     Effect.gen(function* () {
-      const record = trust.records[trustRecordKey(node.type, node.name)];
-      if (
-        record === undefined ||
-        normalizeIdentity(record.sourceIdentity) !== normalizeIdentity(node.identity)
-      ) {
+      const canonical = yield* usableAcceptedCanonical({
+        workspace: ws,
+        type: node.type,
+        name: node.name,
+      });
+      if (Option.isNone(canonical)) {
         return yield* makeAppError({
           code: "not_found",
-          detail: `Trusted ${node.type} identity for "${node.name}" is unavailable`,
+          detail: `Accepted ${node.type} identity for "${node.name}" is unavailable`,
           suggestions: [
             {
-              description:
-                "Inspect and explicitly accept the authored pack baseline before unpacking.",
-              cmd: `axm packs repair ${packNode.identity} --preview`,
+              description: "Preview workspace reconciliation before unpacking.",
+              cmd: `axm sync ${packNode.identity} --preview`,
             },
           ],
         });
       }
-      return yield* trustedCanonicalRef({
-        baseDir: ws.baseDir,
-        scope: ws.scope,
-        desired: node,
-        trust: record,
-      });
+      return canonical.value.ref;
     });
-  const packRef = yield* trustedRefFor(packNode);
+  const packRef = yield* acceptedRefFor(packNode);
   if (packRef.type !== "pack") {
     return yield* makeAppError({
       code: "not_found",
-      detail: `Trusted pack identity for "${args.name}" is invalid`,
+      detail: `Accepted pack identity for "${args.name}" is invalid`,
       suggestions: [
         {
-          description: "Inspect and explicitly accept the authored pack baseline before unpacking.",
-          cmd: `axm packs repair ${packNode.identity} --preview`,
+          description: "Preview workspace reconciliation before unpacking.",
+          cmd: `axm sync ${packNode.identity} --preview`,
         },
       ],
     });
@@ -164,16 +157,15 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     memberNodes,
     (node) =>
       Effect.gen(function* () {
-        const ref = yield* trustedRefFor(node);
+        const ref = yield* acceptedRefFor(node);
         if (ref.type === "pack") {
           return yield* makeAppError({
             code: "not_found",
-            detail: `Trusted ${node.type} identity for "${node.name}" is invalid`,
+            detail: `Accepted ${node.type} identity for "${node.name}" is invalid`,
             suggestions: [
               {
-                description:
-                  "Inspect and explicitly accept the authored pack baseline before unpacking.",
-                cmd: `axm packs repair ${packNode.identity} --preview`,
+                description: "Preview workspace reconciliation before unpacking.",
+                cmd: `axm sync ${packNode.identity} --preview`,
               },
             ],
           });

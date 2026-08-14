@@ -61,9 +61,6 @@ describe("axm skills uninstall", () => {
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills?.["my-skill"]).toBeUndefined();
 
-        const status = await runCli(["status", "--json"], { cwd: temp.path });
-        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
-
         const lint = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
 

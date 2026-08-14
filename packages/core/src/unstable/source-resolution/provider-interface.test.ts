@@ -126,7 +126,8 @@ describe("SourceHostProvider", () => {
         },
         source,
         location: "file:///tmp/clone",
-        gitTreeSha: Option.none(),
+        gitTreeSha: "tree-1",
+        gitCommitSha: "commit-1",
       };
       const result = yield* provider.fetch(source, ref);
       expect(result.directory).toBe("/tmp/clone");

@@ -321,10 +321,15 @@ const candidateMatchesSettings = (
   entry !== undefined &&
   entry.source === "inline" &&
   entry.enabled &&
-  entry.command === candidate.lockEntry.command &&
-  JSON.stringify(entry.args ?? []) === JSON.stringify(candidate.lockEntry.args ?? []) &&
-  entry.url === candidate.lockEntry.url &&
-  recordsEqual(entry.headers, candidate.lockEntry.headers) &&
+  entry.command ===
+    (candidate.definition.type === "stdio" ? candidate.definition.command : undefined) &&
+  JSON.stringify(entry.args ?? []) ===
+    JSON.stringify(candidate.definition.type === "stdio" ? candidate.definition.args : []) &&
+  entry.url === (candidate.definition.type === "http" ? candidate.definition.url : undefined) &&
+  recordsEqual(
+    entry.headers,
+    candidate.definition.type === "http" ? candidate.definition.headers : undefined,
+  ) &&
   recordsEqual(entry.env, candidate.env);
 
 const validateAdoption = (
@@ -350,10 +355,11 @@ const applyImport = (
   hooks: McpsImportTestHooks,
 ): Effect.Effect<void, AppError> => {
   const adoptions = candidates.flatMap((candidate) => candidate.adoptions);
-  const setArgs = (candidate: McpImportCandidate) => ({
-    name: candidate.name,
-    lockEntry: candidate.lockEntry,
-    versionRange: Option.none(),
+  const settingsEntry = (candidate: McpImportCandidate): McpServerEntry => ({
+    source: "inline",
+    ...(candidate.definition.type === "stdio"
+      ? { command: candidate.definition.command, args: candidate.definition.args }
+      : { url: candidate.definition.url, headers: candidate.definition.headers }),
     env: candidate.env,
     enabled: true,
   });
@@ -361,7 +367,7 @@ const applyImport = (
     targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
     transition: Effect.gen(function* () {
       for (const candidate of candidates) {
-        yield* ws.setMcpServer({ ...setArgs(candidate), commit: "authoritative" });
+        yield* ws.setMcpServerEntry(candidate.name, settingsEntry(candidate));
       }
       for (const adoption of adoptions) {
         if (hooks.beforeAdoptionWrite !== undefined) {
@@ -385,12 +391,6 @@ const applyImport = (
           concurrency: 1,
         });
       }),
-    receipt: () =>
-      Effect.forEach(
-        candidates,
-        (candidate) => ws.setMcpServerLock({ ...setArgs(candidate), commit: "receipt" }),
-        { concurrency: 1 },
-      ).pipe(Effect.asVoid),
   });
 };
 
@@ -401,12 +401,12 @@ const importArtifact = (
 ): JobStepArtifact => {
   const adoptions = preflight.candidates.flatMap((candidate) => candidate.adoptions);
   return {
-    path: ".axm (config/lockfile)",
+    path: ".axm/settings.json",
     scope: ws.scope,
     change: "updated",
-    fileCount: 2 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
+    fileCount: 1 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
     targets: [
-      { path: ".axm (config/lockfile)", change: "updated" },
+      { path: ".axm/settings.json", change: "updated" },
       ...Array.from(new Set(adoptions.map((adoption) => adoption.filePath)))
         .sort()
         .map((filePath) => ({
@@ -469,12 +469,12 @@ const importSummary = (
 ): string | undefined => {
   const rows = candidates.map((candidate) => {
     const targets = [
-      ".axm (config/lockfile) (updated)",
+      ".axm/settings.json (updated)",
       ...candidate.adoptions.map(
         (adoption) => `${path.relative(baseDir, adoption.filePath)} (updated)`,
       ),
     ];
-    return `${candidate.name}   created   ${count(2 + candidate.adoptions.length, "file")}   ${targets.join(", ")}`;
+    return `${candidate.name}   created   ${count(1 + candidate.adoptions.length, "file")}   ${targets.join(", ")}`;
   });
   return rows.length === 0 ? undefined : rows.join("\n");
 };
@@ -518,7 +518,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
           : "MCP package import requires exactly one unmanaged server candidate",
     });
   }
-  if (candidate.lockEntry.url === undefined) {
+  if (candidate.definition.type !== "http") {
     return yield* makeAppError({
       code: "usage",
       detail:
@@ -555,11 +555,11 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       remotes: [
         {
           type: "streamable-http",
-          url: candidate.lockEntry.url,
-          ...(candidate.lockEntry.headers === undefined
+          url: candidate.definition.url,
+          ...(Object.keys(candidate.definition.headers).length === 0
             ? {}
             : {
-                headers: Object.entries(candidate.lockEntry.headers).map(([name, value]) => ({
+                headers: Object.entries(candidate.definition.headers).map(([name, value]) => ({
                   name,
                   value,
                 })),
@@ -582,7 +582,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     change: "created",
     targets: [
       { path: args.path.relative(args.ws.baseDir, targetDir), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: ".axm/settings.json", change: "created" },
       ...adoptionPaths.map((filePath) => ({
         path: args.path.relative(args.ws.baseDir, filePath),
         change: "updated" as const,

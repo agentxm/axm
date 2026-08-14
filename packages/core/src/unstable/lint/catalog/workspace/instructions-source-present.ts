@@ -34,8 +34,7 @@ export const instructionsSourcePresentRule: AdvisoryRule<WorkspaceRuleContext> =
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "error",
-          message:
-            "The configured instruction source file is missing. Create it before running `axm lint --fix` or `axm sync`.",
+          message: "The configured instruction source file is missing.",
           location: { file: relativeToRoot(context.subject.root, sourceFile) },
         });
       }

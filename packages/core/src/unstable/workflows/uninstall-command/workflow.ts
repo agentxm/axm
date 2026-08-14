@@ -39,7 +39,6 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export interface UninstallWorkflowFlags {
   readonly execution: PlanExecution;
   readonly displayApplied?: boolean;
-  readonly breakDependencies?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -61,23 +60,7 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
     const plan = yield* actions.buildUninstallPlan(intent, flags);
-    const candidatePlan: Plan =
-      flags.breakDependencies === true
-        ? {
-            ...plan,
-            riskConditions: [
-              ...(plan.riskConditions ?? []),
-              {
-                level: "override-required",
-                id: "break-installed-pack-dependencies",
-                policy: "break-dependencies",
-                requiredFlag: "--break-dependencies",
-                detail: "Allow removal even when an installed pack still requires the extension.",
-              },
-            ],
-          }
-        : plan;
-    return yield* previewOrApplyPlan(candidatePlan, {
+    return yield* previewOrApplyPlan(plan, {
       execution: flags.execution,
       ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
     });

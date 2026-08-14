@@ -110,10 +110,10 @@ describe("mcps import output", () => {
               status: "applied",
               message: "Imported 1 MCP server",
               artifact: {
-                path: ".axm (config/lockfile)",
+                path: ".axm/settings.json",
                 scope: "project",
                 change: "updated",
-                fileCount: 3,
+                fileCount: 2,
                 targets: [{ path: ".mcp.json", change: "updated" }],
               },
             },
@@ -237,7 +237,7 @@ describe("mcps import output", () => {
           "Imported 1 MCP server (0 skipped, 0 conflicts)",
         ]);
         expect(rendererState.summaries).toEqual([
-          "demo   created   3 files   .axm (config/lockfile) (updated), .mcp.json (updated)",
+          "demo   created   2 files   .axm/settings.json (updated), .mcp.json (updated)",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },

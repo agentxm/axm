@@ -11,7 +11,6 @@ export const handleUninstallHook = (
   args: UninstallHookHandlerArgs,
   flags: {
     readonly yes: boolean;
-    readonly force: boolean;
     readonly preview: boolean;
   },
 ) =>
@@ -20,7 +19,6 @@ export const handleUninstallHook = (
     const execution = yield* makeUninstallPlanExecution(flags, ["hooks", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
-      breakDependencies: flags.force,
       displayApplied: false,
     });
     yield* emitAppliedPlanOutcome({

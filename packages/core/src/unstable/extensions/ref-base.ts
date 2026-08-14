@@ -31,7 +31,9 @@ export interface GitHostedRefDetails {
   /** Repository-relative directory selected for this extension */
   readonly sourcePath?: string;
   /** Git tree SHA for integrity verification */
-  readonly gitTreeSha: Option.Option<string>;
+  readonly gitTreeSha: string;
+  /** Immutable commit checked out while resolving this ref. */
+  readonly gitCommitSha: string;
 }
 
 /** Ref details for registry sources. @experimental */

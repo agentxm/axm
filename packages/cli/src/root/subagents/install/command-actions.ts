@@ -159,8 +159,8 @@ const previousResolvedVersion = (entry: unknown): string | undefined => {
 
 const previousSourceHash = (entry: unknown): string | undefined => {
   if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
-  return entry.sourceHash;
+  if (!("contentIdentity" in entry) || typeof entry.contentIdentity !== "string") return undefined;
+  return entry.contentIdentity;
 };
 
 const artifactChange = (args: {
@@ -445,7 +445,10 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     .getLockedSubagent(ref.subagent.name)
                     .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                   const lockEntry = Option.getOrUndefined(lockEntryOption);
-                  const sourceHash = lockEntry?.sourceHash;
+                  const sourceHash =
+                    lockEntry !== undefined && "contentIdentity" in lockEntry
+                      ? lockEntry.contentIdentity
+                      : undefined;
                   const change = artifactChange({
                     installedBefore,
                     previousVersion,

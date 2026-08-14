@@ -16,8 +16,6 @@ const readAgents = (workspace: string): ReadonlyArray<string> => {
 const expectCleanWorkspace = async (workspace: string) => {
   const lint = await runCli(["lint", "--json"], { cwd: workspace });
   expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
-  const status = await runCli(["status", "--json"], { cwd: workspace });
-  expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
 };
 
 describe("atomic agent membership lifecycle", () => {

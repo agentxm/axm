@@ -14,7 +14,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import { SuggestedActionSchema } from "../cli-runtime/suggested-action.js";
 import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
 
 const LintJsonLocationSchema = Schema.Struct({
@@ -38,14 +37,17 @@ export const LintJsonFindingSchema = Schema.Struct({
     title: "Lint Finding Group",
     description: "Rule catalog the finding came from.",
   }),
-  kind: Schema.Literals(["autofixable", "advisory"] as const),
+  kind: Schema.Literal("advisory"),
   ruleId: Schema.String,
   severity: Schema.Literals(["error", "warning", "info"] as const),
   message: Schema.String,
   displayRoot: Schema.String,
   path: Schema.String,
+  subject: Schema.String,
+  authority: Schema.String,
+  observed: Schema.String,
+  expected: Schema.String,
   location: Schema.optional(LintJsonLocationSchema),
-  suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
 }).annotate({
   identifier: "LintJsonFinding",
   title: "Lint Finding",

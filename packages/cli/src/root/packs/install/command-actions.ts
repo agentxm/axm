@@ -26,6 +26,7 @@ import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
   type SourceAuthorityBlockedFact,
+  type SourceAuthorityInput,
   type ExtensionName,
   type ExtensionRef,
   type ExtensionType,
@@ -97,12 +98,7 @@ import type {
   SubagentExtensionTarget,
   DesiredStateGraph,
 } from "@agentxm/client-core/unstable/workspace";
-import {
-  observeCanonicalExtension,
-  usableTrustedCanonical,
-  validateDesiredPackTrust,
-} from "@agentxm/client-core/unstable/workspace";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+import { usableAcceptedCanonical } from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
@@ -488,7 +484,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const scanWorkspaceAuthority = (pack: PackRef) =>
       Effect.gen(function* () {
         const graph = yield* ws.getDesiredStateGraph();
-        const trust = yield* ws.getTrustState();
         const packIdentity = `${pack.owner}/packs/${pack.name}`;
         const blockers: Array<SourceAuthorityBlockedFact> = [];
         const workspaceRefs = new Map<string, ExtensionRef>();
@@ -533,23 +528,27 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           );
           if (desired === undefined) continue;
 
-          const trustRecord = trust.records[trustRecordKey(parsed.type, parsed.name)];
-          const observation = yield* provide(
-            observeCanonicalExtension({ baseDir: ws.baseDir, desired, trust: trustRecord }),
+          const canonical = yield* provide(
+            usableAcceptedCanonical({ workspace: ws, type: parsed.type, name: parsed.name }),
           );
           const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
-          const input = {
+          const configuredVersion =
+            Option.isSome(canonical) &&
+            (canonical.value.ref.refType === "registry" ||
+              canonical.value.ref.refType === "workspace")
+              ? canonical.value.ref.version
+              : undefined;
+          const configured: NonNullable<SourceAuthorityInput["configured"]> = {
+            identity: desired.identity,
+            workspace: desired.identity.startsWith("workspace:"),
+            ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
+            status: Option.isSome(canonical) ? canonical.value.observation.status : "missing",
+          };
+          const input: SourceAuthorityInput = {
             target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
             relationship: { kind: "member" as const, root: packIdentity },
             requested: { identity: `registry:${targetIdentity}`, workspace: false },
-            configured: {
-              identity: desired.identity,
-              workspace: desired.identity.startsWith("workspace:"),
-              ...(trustRecord?.resolvedVersion === undefined
-                ? {}
-                : { version: trustRecord.resolvedVersion }),
-              status: observation.status,
-            },
+            configured,
             requiredVersionRange: constraint,
           };
           const decision = evaluateSourceAuthority(input);
@@ -559,13 +558,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           }
           if (decision.kind !== "workspace-satisfied") continue;
 
-          const canonical = yield* provide(
-            usableTrustedCanonical({ workspace: ws, type: parsed.type, name: parsed.name }),
-          );
           if (Option.isNone(canonical)) {
             const unusable = evaluateSourceAuthority({
               ...input,
-              configured: { ...input.configured, status: "wrong-origin" },
+              configured: { ...configured, status: "wrong-origin" },
             });
             if (unusable.kind === "blocked") blockers.push(unusable.fact);
             continue;
@@ -579,7 +575,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           ) {
             const mismatched = evaluateSourceAuthority({
               ...input,
-              configured: { ...input.configured, status: "wrong-origin" },
+              configured: { ...configured, status: "wrong-origin" },
             });
             if (mismatched.kind === "blocked") blockers.push(mismatched.fact);
             continue;
@@ -1041,18 +1037,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         if (expansion.kind === "policy_held") {
           let preservable = false;
           if (intent.releaseAgeHoldbackBehavior === "preserve-or-block") {
-            const initialGraph = yield* ws.getDesiredStateGraph();
-            const trust = yield* ws.getTrustState();
-            const graph = yield* provide(
-              validateDesiredPackTrust({
-                baseDir: ws.baseDir,
-                graph: initialGraph,
-                trust,
-              }),
-            );
+            const graph = yield* ws.getDesiredStateGraph();
             if (graph.complete) {
               const currentPack = yield* provide(
-                usableTrustedCanonical({
+                usableAcceptedCanonical({
                   workspace: ws,
                   type: "pack",
                   name: intent.packToInstall.pack.name,
@@ -1076,7 +1064,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 );
                 const usable = yield* Effect.forEach(nodes, (node) =>
                   provide(
-                    usableTrustedCanonical({
+                    usableAcceptedCanonical({
                       workspace: ws,
                       type: node.type,
                       name: node.name,
@@ -1104,7 +1092,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     {
                       level: "blocked" as const,
                       id: "minimum-release-age",
-                      detail: "The selected pack graph has no complete trusted usable fallback.",
+                      detail: "The selected pack graph has no complete usable accepted resolution.",
                       errorCode: "conflict" as const,
                     },
                   ],
@@ -1114,8 +1102,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         }
         const refs = expansion.refs;
         const graph = authority.graph;
-        // Installing is also the repair path for a configured pack whose
-        // canonical manifest or trust baseline is unavailable. Preserve
+        // Installing is also the recovery path for a configured pack whose
+        // canonical manifest or accepted resolution is unavailable. Preserve
         // fail-closed cleanup by suppressing dropped-member removal until the
         // pre-install graph is complete.
         const existingPack = graph.complete

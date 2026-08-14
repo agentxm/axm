@@ -27,7 +27,7 @@ interface DiskRefEnv {
   readonly scope: WorkspaceScope;
 }
 
-interface SkillDiskTrustContext {
+interface SkillDiskAcceptedResolutionContext {
   readonly lockEntries: Readonly<Record<string, SkillLockEntry>>;
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   readonly getConfiguredSourceByName: (
@@ -37,10 +37,7 @@ interface SkillDiskTrustContext {
 
 const isGitHostedLockEntry = (
   entry: SkillLockEntry,
-): entry is Exclude<
-  SkillLockEntry,
-  { readonly type: "registry" | "local" | "inline" | "workspace" }
-> => {
+): entry is Exclude<SkillLockEntry, { readonly type: "registry" | "local" }> => {
   switch (entry.type) {
     case "github":
     case "gitlab":
@@ -50,7 +47,6 @@ const isGitHostedLockEntry = (
       return true;
     case "registry":
     case "local":
-    case "workspace":
       return false;
   }
 };
@@ -75,7 +71,7 @@ const resolveWorkspaceFromDisk = (
 export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
-  trust?: SkillDiskTrustContext,
+  accepted?: SkillDiskAcceptedResolutionContext,
 ): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
@@ -87,9 +83,9 @@ export const configuredSkillsToDiskRefs = (
           ),
         );
       }
-      if (trust === undefined) return Effect.succeed(Option.none<SkillExtensionRef>());
+      if (accepted === undefined) return Effect.succeed(Option.none<SkillExtensionRef>());
 
-      const lockEntry = trust.lockEntries[settingsName];
+      const lockEntry = accepted.lockEntries[settingsName];
       if (
         lockEntry === undefined ||
         !isGitHostedLockEntry(lockEntry) ||
@@ -121,8 +117,8 @@ export const configuredSkillsToDiskRefs = (
                 baseDir: env.baseDir,
                 path: env.path,
                 scope: env.scope,
-                getConfiguredSources: trust.getConfiguredSources,
-                getConfiguredSourceByName: trust.getConfiguredSourceByName,
+                getConfiguredSources: accepted.getConfiguredSources,
+                getConfiguredSourceByName: accepted.getConfiguredSourceByName,
               }).pipe(
                 Effect.map((ref) =>
                   ref.refType === "git-hosted"

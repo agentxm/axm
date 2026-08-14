@@ -6,10 +6,8 @@
  * namespace passes an empty installed-pack set into the projection helper for
  * its own derivation.
  *
- * Resolved member groups read directly from the installed pack lockfile
- * entry's six non-pack resolved dependency maps.
- * Phase 7's pack module exposes these on the resolved payload; Phase 9 then
- * threads them into other subjects' `installedPacks` inputs.
+ * Pack membership comes from authored manifests; the accepted Pack lock row
+ * carries only external resolution and manifest identity.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -53,7 +51,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 3,
+    lockfileVersion: 4,
     skills: {},
     packs: {
       [packName]: {
@@ -62,21 +60,9 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         name: packName,
         resolvedVersion: "1.0.0",
         integrity: "sha256-abc",
+        manifestContentIdentity: "sha256-manifest",
         sourceName: "registry",
-
         publisherBindingId: "hbnd_test",
-        installedAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-        resolvedSkills: {
-          "@team/skills/review-tool": {
-            source: "registry",
-            version: "1.0.0",
-            publisherBindingId: "hbnd_test",
-            integrity: "sha512-member",
-          },
-        },
-        resolvedMcpServers: {},
-        resolvedSubagents: {},
       },
     },
   }).pipe(Effect.orDie);
@@ -95,7 +81,7 @@ describe("makePackExtensionsApi", () => {
     }),
   );
 
-  it.effect("resolved exposes pack lockfile entry with member groups", () =>
+  it.effect("resolved exposes accepted Pack provenance without member authority", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithPacks({
         "team-pack": { source: "registry:@team/team-pack" },
@@ -106,10 +92,11 @@ describe("makePackExtensionsApi", () => {
       const arr = Option.match(resolved, { onNone: () => [], onSome: (r) => r });
       expect(arr).toHaveLength(1);
       expect(arr[0]?.name).toBe("team-pack");
-      // resolved member group keys (FQN) preserved verbatim.
-      expect(Object.keys(arr[0]?.lockEntry.resolvedSkills ?? {})).toContain(
-        "@team/skills/review-tool",
-      );
+      expect(arr[0]?.lockEntry).toMatchObject({
+        resolvedVersion: "1.0.0",
+        manifestContentIdentity: "sha256-manifest",
+      });
+      expect("resolvedSkills" in (arr[0]?.lockEntry ?? {})).toBe(false);
     }),
   );
 

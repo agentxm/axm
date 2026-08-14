@@ -1,15 +1,14 @@
-lockfileVersion: 3
+lockfileVersion: 4
 skills:
   code-review:
     type: github
     owner: acme
     repo: code-review
     ref: v1.0.0
-    installedAt: 2024-01-15T10:30:00.000Z
-    updatedAt: 2024-01-15T10:30:00.000Z
-    gitTreeHash: abc123def456
+    resolvedCommit: 0123456789abcdef0123456789abcdef01234567
+    resolvedTree: abc123def456
+    contentIdentity: sha256-code-review
   local-skill:
     type: local
     path: skills/my-skill
-    installedAt: 2024-01-16T14:00:00.000Z
-    updatedAt: 2024-01-16T14:00:00.000Z
+    contentIdentity: sha256-local-skill

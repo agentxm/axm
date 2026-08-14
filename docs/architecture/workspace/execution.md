@@ -71,8 +71,9 @@ construction is incomplete.
 
 ## Mutation boundary
 
-Application takes one OS-backed exclusive lock for the selected AXM workspace
-scope. The operating system releases it on process death. AXM does not add
+Application takes one atomic process lock for the selected AXM workspace
+scope. AXM refreshes the lock while its owner runs and a later mutation
+reclaims it after abrupt process death. AXM does not add
 leases, heartbeats, PID inference, lock stealing, or distributed coordination.
 
 Under the lock, AXM revalidates every material authoritative input and target

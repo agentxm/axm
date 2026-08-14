@@ -47,14 +47,12 @@ import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
 } from "./root/knowledge/concepts/schemas.js";
-import { LintFixDocumentSchema, LintResultDocumentSchema } from "./root/lint/handler.js";
+import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import { ExtensionListDocumentSchema } from "./root/list/command.js";
-import { PackRepairResultSchema } from "./root/packs/repair.js";
 import { PackShowResultSchema } from "./root/packs/show.js";
 import { InstructionsStatusOutputSchema } from "./root/rules/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
 import { ExtensionShowResultSchema } from "./root/shared/extension-show.js";
-import { WorkspaceStatusSchema } from "./root/status.js";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 import { ViewDocumentSchema, ViewFieldValueSchema } from "./root/view/handler.js";
 
@@ -85,13 +83,11 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   KnowledgeConceptRelatedOutputSchema,
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
-  LintFixDocumentSchema,
   LintResultDocumentSchema,
   LoginDocumentSchema,
   LoginNoOpDocumentSchema,
   LogoutDocumentSchema,
   ExtensionListDocumentSchema,
-  PackRepairResultSchema,
   PackShowResultSchema,
   PlanResolutionDocumentSchema,
   PublishResultSchema,
@@ -103,7 +99,6 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   ViewDocumentSchema,
   ViewFieldValueSchema,
   WhoamiDocumentSchema,
-  WorkspaceStatusSchema,
 };
 
 describe("machine-output contract register", () => {

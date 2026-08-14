@@ -9,7 +9,9 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { computePackageContentHash, type ExtensionRef } from "../../extensions/index.js";
+import type { ExtensionRef } from "../../extensions/index.js";
+import { computePackManifestContentIdentity, PackManifestSchema } from "../index.js";
+import * as Schema from "effect/Schema";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {
@@ -221,11 +223,14 @@ describe("installPack", () => {
     let writtenPack: SetPackArgs | undefined;
     return Effect.gen(function* () {
       const result = yield* installPack(makeOp());
-      const expectedSourceHash = yield* computePackageContentHash(packDir);
+      const manifest = Schema.decodeUnknownSync(PackManifestSchema)(
+        JSON.parse(fs.readFileSync(path.join(packDir, "pack.json"), "utf8")),
+      );
+      const expectedIdentity = computePackManifestContentIdentity(manifest);
 
       expect(result.result).toBe("success");
       expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
-      expect(writtenPack).toMatchObject({ sourceHash: expectedSourceHash });
+      expect(writtenPack).toMatchObject({ manifestContentIdentity: expectedIdentity });
     }).pipe(
       Effect.provide(
         withServices(projectDir, packSourceDir, {

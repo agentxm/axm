@@ -4,14 +4,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import type { SourceHash } from "../extensions/rendered-files.js";
 import type { GitBasedSource } from "../sources/types.js";
-
-export const commonLockFields = (now: DateTime.Utc) => ({
-  installedAt: now,
-  updatedAt: now,
-});
 
 export const optionalField = <K extends string, V>(
   key: K,
@@ -24,10 +19,17 @@ export const optionalField = <K extends string, V>(
   return fields;
 };
 
-export const gitSourceLockFields = (source: GitBasedSource, gitTreeSha: Option.Option<string>) => {
+export const gitSourceLockFields = (
+  source: GitBasedSource,
+  resolvedCommit: string,
+  resolvedTree: string,
+  contentIdentity: SourceHash,
+) => {
   const common = {
     ...optionalField("ref", source.ref),
-    ...optionalField("gitTreeHash", gitTreeSha),
+    resolvedCommit,
+    resolvedTree,
+    contentIdentity,
   };
 
   switch (source.type) {

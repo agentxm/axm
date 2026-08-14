@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
-import { computePackageContentHashSync, writeWorkspaceFiles } from "../../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { expectNoOpPlanResult, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import {
   CodingAgentRepository,
@@ -224,7 +224,7 @@ describe("subagents disable.handler", () => {
     );
 
     initWorkspace(axmDir, {
-      packs: { "starter-pack": "@acme/packs/starter-pack" },
+      packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
       lockfileSubagents: {
         "pack-subagent": {
           ...makeLockEntry(),
@@ -236,30 +236,6 @@ describe("subagents disable.handler", () => {
           sourceName: "default",
           publisherBindingId: "hbnd_test",
           sourceHash: computeSourceHash("# pack-subagent"),
-        },
-      },
-      lockfilePacks: {
-        "starter-pack": {
-          type: "registry",
-          owner: "@acme",
-          name: "starter-pack",
-          resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
-          sourceName: "default",
-          publisherBindingId: "hbnd_test",
-          sourceHash: computePackageContentHashSync(packDir),
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          resolvedSkills: {},
-          resolvedMcpServers: {},
-          resolvedSubagents: {
-            "@acme/subagents/pack-subagent": {
-              source: "registry",
-              version: "1.0.0",
-              publisherBindingId: "hbnd_test",
-              integrity: "sha512-member",
-            },
-          },
         },
       },
     });

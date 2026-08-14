@@ -55,7 +55,7 @@ describe("axm skills update", () => {
   });
 
   describe("update local source skill", () => {
-    it("refreshes changed source files and their receipt hash", async () => {
+    it("refreshes changed source files and their accepted content identity", async () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
@@ -85,13 +85,9 @@ describe("axm skills update", () => {
         expect(lockAfter.skills["my-skill"]).toMatchObject({
           type: lockBefore.skills["my-skill"].type,
           path: lockBefore.skills["my-skill"].path,
-          installedAt: lockBefore.skills["my-skill"].installedAt,
         });
-        expect(lockAfter.skills["my-skill"].sourceHash).not.toBe(
-          lockBefore.skills["my-skill"].sourceHash,
-        );
-        expect(lockAfter.skills["my-skill"].updatedAt).not.toBe(
-          lockBefore.skills["my-skill"].updatedAt,
+        expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
+          lockBefore.skills["my-skill"].contentIdentity,
         );
         expect(lockAfter.skills["another-skill"]).toEqual(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
@@ -129,11 +125,7 @@ describe("axm skills update", () => {
 
         // Record lockfile state before preview
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const updatedAtBefore = lockBefore.skills["my-skill"].updatedAt;
-
-        // Wait to ensure any timestamp difference would be visible
-        await new Promise((r) => setTimeout(r, 50));
+        const lockBefore = fs.readFileSync(lockPath, "utf-8");
 
         // Run update with --preview --non-interactive (no prompts, no apply)
         const result = await runCli(["skills", "update", "--preview", "--non-interactive"], {
@@ -147,9 +139,7 @@ describe("axm skills update", () => {
         expect(output).toContain("another-skill");
 
         // Verify lockfile was NOT changed (preview does not apply)
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const updatedAtAfter = lockAfter.skills["my-skill"].updatedAt;
-        expect(updatedAtAfter).toBe(updatedAtBefore);
+        expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockBefore);
       } finally {
         temp.cleanup();
       }
@@ -191,11 +181,8 @@ describe("axm skills update", () => {
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lockAfter.skills["my-skill"]).toEqual(lockBefore.skills["my-skill"]);
-        expect(lockAfter.skills["another-skill"].sourceHash).not.toBe(
-          lockBefore.skills["another-skill"].sourceHash,
-        );
-        expect(lockAfter.skills["another-skill"].updatedAt).not.toBe(
-          lockBefore.skills["another-skill"].updatedAt,
+        expect(lockAfter.skills["another-skill"].contentIdentity).not.toBe(
+          lockBefore.skills["another-skill"].contentIdentity,
         );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(installedSkillContent(temp.path, "my-skill")).not.toContain(
@@ -239,11 +226,8 @@ describe("axm skills update", () => {
         expect(result.exitCode).toBe(0);
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.skills["my-skill"].sourceHash).not.toBe(
-          lockBefore.skills["my-skill"].sourceHash,
-        );
-        expect(lockAfter.skills["my-skill"].updatedAt).not.toBe(
-          lockBefore.skills["my-skill"].updatedAt,
+        expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
+          lockBefore.skills["my-skill"].contentIdentity,
         );
         expect(lockAfter.skills["another-skill"]).toEqual(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);

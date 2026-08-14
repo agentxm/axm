@@ -10,11 +10,9 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { computeIntegrity, isPathSafe } from "../utils/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -26,14 +24,9 @@ import type {
   McpServerExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import {
-  computePackageContentHash,
-  REGISTRY_EXTENSIONS_DIR,
-  shouldReuseCanonicalInstall,
-  type SourceHash,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { validateExactResolvedVersion } from "../lockfile/index.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
@@ -50,11 +43,7 @@ export class McpServerManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/mcps/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
-const buildMcpServerLockEntry = (
-  ref: RegistryMcpServerRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash,
-): McpServerLockEntry => ({
+const buildMcpServerLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -62,9 +51,6 @@ const buildMcpServerLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
-  sourceHash,
-  installedAt: now,
-  updatedAt: now,
 });
 
 const checkInstalledOnDisk = (
@@ -117,7 +103,6 @@ export const McpServerManagerLive = Layer.effect(
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
-    const lastSourceHashes = new Map<string, SourceHash>();
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
       Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
@@ -159,7 +144,10 @@ export const McpServerManagerLive = Layer.effect(
             }),
           ),
         );
-        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), registryRef);
+        const lockedVersion = acceptedRegistryVersionForRef(
+          yield* ws.getLockedMcpServer(registryRef.server.name),
+          registryRef,
+        );
         const useExisting = shouldReuseCanonicalInstall({
           canonicalExists,
           force: force === true,
@@ -261,10 +249,6 @@ export const McpServerManagerLive = Layer.effect(
             Effect.tap(() => cleanup),
           );
         }
-        lastSourceHashes.set(
-          registryRef.server.name,
-          yield* provide(computePackageContentHash(canonicalPath)),
-        );
       }, Effect.asVoid);
 
     const makeMaterializeRemoval = (
@@ -335,10 +319,6 @@ export const McpServerManagerLive = Layer.effect(
     return {
       type: "mcp-server",
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {
@@ -384,45 +364,15 @@ export const McpServerManagerLive = Layer.effect(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
         ).pipe(
-          Effect.flatMap(() => DateTime.now),
-          Effect.flatMap((now) => {
-            const sourceHash = lastSourceHashes.get(registryRef.server.name);
-            if (sourceHash === undefined) {
-              return makeAppError({
-                code: "internal",
-                detail: `MCP server ${registryRef.server.name} has no materialized content identity`,
-              });
-            }
-            const lockEntry = buildMcpServerLockEntry(registryRef, now, sourceHash);
+          Effect.flatMap(() => {
+            const lockEntry = buildMcpServerLockEntry(registryRef);
             return ws.setMcpServer({
               name: ref.server.name,
               lockEntry,
               versionRange,
-              commit: "authoritative",
             });
           }),
           Effect.withSpan("McpServerManager.upsertSettingsEntry"),
-        );
-      },
-
-      upsertTrustEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
-        if (ref.refType !== "registry") return Effect.void;
-        return DateTime.now.pipe(
-          Effect.flatMap((now) => {
-            const sourceHash = lastSourceHashes.get(ref.server.name);
-            if (sourceHash === undefined) {
-              return makeAppError({
-                code: "internal",
-                detail: `MCP server ${ref.server.name} has no materialized content identity`,
-              });
-            }
-            return ws.setMcpServerLock({
-              name: ref.server.name,
-              lockEntry: buildMcpServerLockEntry(ref, now, sourceHash),
-              versionRange: Option.none(),
-              commit: "authoritative",
-            });
-          }),
         );
       },
 
@@ -433,27 +383,20 @@ export const McpServerManagerLive = Layer.effect(
 
       upsertLockfileEntry: ({ ref }: { readonly ref: McpServerExtensionRef }) => {
         if (ref.refType !== "registry")
-          return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
+          return ws
+            .removeMcpServerLock(ref.server.name)
+            .pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
         const registryRef = ref;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
         ).pipe(
-          Effect.flatMap(() => DateTime.now),
-          Effect.flatMap((now) => {
-            const sourceHash = lastSourceHashes.get(registryRef.server.name);
-            if (sourceHash === undefined) {
-              return makeAppError({
-                code: "internal",
-                detail: `MCP server ${registryRef.server.name} has no materialized content identity`,
-              });
-            }
-            const lockEntry = buildMcpServerLockEntry(registryRef, now, sourceHash);
+          Effect.flatMap(() => {
+            const lockEntry = buildMcpServerLockEntry(registryRef);
             return ws.setMcpServerLock({
               name: ref.server.name,
               lockEntry,
               versionRange: Option.none(),
-              commit: "receipt",
             });
           }),
           Effect.withSpan("McpServerManager.upsertLockfileEntry"),
@@ -464,8 +407,6 @@ export const McpServerManagerLive = Layer.effect(
         ws
           .removeMcpServerLock(target.name)
           .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry")),
-      removeTrustEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws.removeTrustRecord("mcp-server", target.name),
     } satisfies ExtensionManager<McpServerExtensionRef>;
   }),
 );

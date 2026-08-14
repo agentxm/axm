@@ -198,7 +198,7 @@ describe("resolvePackDependencies", () => {
       expect(error.suggestions).toEqual([
         {
           description: "Replace the authored pack constraint with the current workspace version",
-          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review --replace-existing",
+          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review",
         },
       ]);
     }),
@@ -314,7 +314,7 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
       expect(error.suggestions).toEqual([
         {
           description: "Replace the authored pack constraint with the current workspace version",
-          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review --replace-existing",
+          cmd: "axm packs add @acme/packs/toolkit @acme/skills/review",
         },
       ]);
     }),

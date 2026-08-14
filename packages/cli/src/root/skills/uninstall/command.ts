@@ -1,10 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  breakDependenciesFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleUninstall } from "./handler.js";
 import { scopeFlag } from "../../../cli-flags.js";
@@ -16,9 +12,6 @@ const uninstallConfig = {
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
-  force: breakDependenciesFlag.pipe(
-    Flag.withDescription("Remove even if other extensions depend on this skill"),
-  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
   ),
@@ -27,8 +20,8 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ skill, scope, yes, force, preview }) =>
-    handleUninstall({ skill }, { yes, force, preview }).pipe(
+  ({ skill, scope, yes, preview }) =>
+    handleUninstall({ skill }, { yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("skills uninstall"),
     ),

@@ -75,9 +75,6 @@ export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./p
 // Utilities
 export { getSkillDisplayName } from "./utils.js";
 
-// Reconciliation
-export { skillReconciliationAdapter } from "./reconciliation-adapter.js";
-
 // Registry ref builder
 
 // Operations

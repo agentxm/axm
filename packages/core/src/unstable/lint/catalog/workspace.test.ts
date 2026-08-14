@@ -22,7 +22,6 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/knowledge-config-current", severity: "warning" },
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/desired-state-reconcilable", severity: "error" },
-  { id: "workspace/authored-content-unpublished", severity: "warning" },
   { id: "workspace/axm-skill-compatible", severity: "error" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },
@@ -47,14 +46,8 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-integrity-valid", severity: "error" },
   // Artifacts correct (configured + implicit).
   { id: "workspace/skills-artifacts-correct", severity: "error" },
-  // Managed — unmanaged class must be empty.
-  { id: "workspace/skills-managed", severity: "error" },
   // Pack dependencies resolved (configured packs).
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
-  // Pack dependency ranges include the latest visible versions.
-  { id: "workspace/pack-dependency-versions-current", severity: "error" },
-  // Pack recommendation retention.
-  { id: "workspace/recommended-packs-retained", severity: "warning" },
 ];
 
 describe("workspaceRules", () => {
@@ -75,19 +68,8 @@ describe("workspaceRules", () => {
     }
   });
 
-  it("registers the expected autofixing rule-ids", () => {
-    const autofixingIds = workspaceRules.filter((r) => r.kind === "autofixing").map((r) => r.id);
-    expect(autofixingIds).toEqual([
-      "workspace/knowledge-config-current",
-      "workspace/lockfile-valid",
-      "workspace/instructions-target-current",
-      "workspace/instructions-gitignore-current",
-      "workspace/mcps-agent-drift",
-      "workspace/mcps-agent-orphaned",
-      "workspace/skills-lockfile-aligned",
-      "workspace/skills-integrity-valid",
-      "workspace/skills-artifacts-correct",
-    ]);
+  it("registers fact-only advisory rules", () => {
+    expect(workspaceRules.every((rule) => rule.kind === "advisory")).toBe(true);
   });
 
   it("every rule id is namespaced under workspace/", () => {

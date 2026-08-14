@@ -9,18 +9,13 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { computePackageContentHash, decodeExtensionNameSync } from "../../extensions/index.js";
+import { decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import {
-  type ResolvedExtensionMap,
-  validateExactResolvedVersion,
-  validateExactResolvedVersionMap,
-} from "../../lockfile/index.js";
+import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { Version } from "../../version-constraints/version-constraints.js";
 import type { PackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
@@ -35,6 +30,11 @@ import {
   type PackManifest,
   PackManifestSchema,
 } from "../manifest-schema.js";
+import {
+  type ResolvedPackDependencyMap,
+  validateExactPackDependencyVersions,
+} from "../resolved-dependency.js";
+import { computePackManifestContentIdentity } from "../manifest-content-identity.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -56,17 +56,17 @@ export interface InstallPackOperationArgs {
   readonly sourceName: string;
   readonly publisherBindingId: string;
   /** Resolved skill FQNs to exact versions */
-  readonly resolvedSkills: ResolvedExtensionMap;
+  readonly resolvedSkills: ResolvedPackDependencyMap;
   /** Resolved MCP server FQNs to exact versions */
-  readonly resolvedMcpServers: ResolvedExtensionMap;
+  readonly resolvedMcpServers: ResolvedPackDependencyMap;
   /** Resolved subagent FQNs to exact versions */
-  readonly resolvedSubagents: ResolvedExtensionMap;
+  readonly resolvedSubagents: ResolvedPackDependencyMap;
   /** Resolved rule FQNs to exact versions */
-  readonly resolvedRules: ResolvedExtensionMap;
+  readonly resolvedRules: ResolvedPackDependencyMap;
   /** Resolved hook FQNs to exact versions */
-  readonly resolvedHooks: ResolvedExtensionMap;
+  readonly resolvedHooks: ResolvedPackDependencyMap;
   /** Resolved knowledge FQNs to exact versions */
-  readonly resolvedKnowledge: ResolvedExtensionMap;
+  readonly resolvedKnowledge: ResolvedPackDependencyMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionRange: Option<string>;
   /** Pack extension ref for fetching the archive. */
@@ -121,27 +121,27 @@ export const installPack: OperationHandler<
       `packs.${op.args.packName}.resolvedVersion`,
       op.args.resolvedVersion,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedSkills`,
       op.args.resolvedSkills,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedMcpServers`,
       op.args.resolvedMcpServers,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedSubagents`,
       op.args.resolvedSubagents,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedRules`,
       op.args.resolvedRules,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedHooks`,
       op.args.resolvedHooks,
     );
-    yield* validateExactResolvedVersionMap(
+    yield* validateExactPackDependencyVersions(
       `packs.${op.args.packName}.resolvedKnowledge`,
       op.args.resolvedKnowledge,
     );
@@ -155,7 +155,7 @@ export const installPack: OperationHandler<
     ).canonicalPath;
 
     // Keep fetch scope alive through copy; fetched directories are released on scope close.
-    yield* Effect.scoped(
+    const manifestContentIdentity = yield* Effect.scoped(
       Effect.gen(function* () {
         const fetched = yield* sources.fetch(op.args.ref).pipe(
           Effect.mapError((error) =>
@@ -222,13 +222,11 @@ export const installPack: OperationHandler<
             }),
           ),
         );
+        return computePackManifestContentIdentity(manifest);
       }),
     );
 
-    const sourceHash = yield* computePackageContentHash(packDir);
-
     // Write lockfile + settings
-    const now = yield* DateTime.now;
     const metadataWarning = yield* ws
       .setPack({
         type: "registry",
@@ -238,15 +236,7 @@ export const installPack: OperationHandler<
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
         publisherBindingId: op.args.publisherBindingId,
-        sourceHash,
-        installedAt: now,
-        updatedAt: now,
-        resolvedSkills: op.args.resolvedSkills,
-        resolvedMcpServers: op.args.resolvedMcpServers,
-        resolvedSubagents: op.args.resolvedSubagents,
-        resolvedRules: op.args.resolvedRules,
-        resolvedHooks: op.args.resolvedHooks,
-        resolvedKnowledge: op.args.resolvedKnowledge,
+        manifestContentIdentity,
         versionRange: op.args.versionRange,
       })
       .pipe(

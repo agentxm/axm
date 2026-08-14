@@ -71,27 +71,29 @@ If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
 
 ## Unmanaged skills
 
-When `axm lint` reports `workspace/skills-managed`, choose one resolution per skill or related group:
+Agent-native skills without AXM ownership remain outside reconciliation. Choose one resolution per skill or related group:
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
 - **Import** unmanaged/native content when you want to own, customize, or publish it: `axm import <source> <target-fqn>`, then `axm skills publish`.
 - **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <target-fqn>`.
-- **Leave it unowned** when another tool owns its lifecycle. AXM reports it but does not delete it.
-- **Prune** when it is orphaned and AXM ownership is proven: review `axm prune <name>`, then apply with `--yes`.
+- **Leave it unowned** when another tool owns its lifecycle. AXM does not delete it.
 
-Import only when you deliberately create an AXM-owned copy. The native source remains unchanged. `axm prune` shows the exact marker, symlink target, lock entry, or trust record that proves AXM ownership; unknown artifacts are retained.
+Import only when you deliberately create an AXM-owned copy. The native source
+remains unchanged. Sync removes obsolete output only when the projection
+adapter proves unit-local AXM ownership; unknown artifacts are retained.
 
 ## Lockfile and integrity
 
-AXM records two different identities for registry-installed skills:
+AXM records accepted immutable resolution for externally sourced skills:
 
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
-- **Content identity** — a SHA-256 marker used with source identity in `.axm/trust.json` to decide whether canonical content is safe to reuse. Receipt history may also record it as `sourceHash`.
+- **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
+- **Local-source identity** — relative locator and content identity for an accepted local source.
 
 After install, remote-source canonical files under `.axm/extensions/` are
-AXM-managed. If their content identity changes, `axm sync` resolves the declared
-source instead of projecting untrusted local edits. Workspace-authored packages
-remain local authority and are re-materialized from their current source.
+observed materialization. If their content changes locally, AXM preserves the
+drift and reports or blocks affected reconciliation instead of silently
+overwriting it. Workspace-authored packages remain local authority.
 
 ## Recommended packs
 
@@ -116,4 +118,4 @@ for the only supported direct-sibling pack composition.
 - `axm skills --help` — full skill subcommand surface
 - `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics

@@ -46,7 +46,6 @@ import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-
 import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
-import { expectAppliedPlanResult, expectRecord, planResultSteps } from "../../test-helpers.js";
 import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";
 
 describe("axm lint handler", () => {
@@ -75,7 +74,7 @@ describe("axm lint handler", () => {
     fs.mkdirSync(axmDir, { recursive: true });
     fs.writeFileSync(
       path.join(axmDir, "axm-lock.yaml"),
-      "lockfileVersion: 3\nskills: {}\nmcpServers: {}\n",
+      "lockfileVersion: 4\nskills: {}\nmcpServers: {}\n",
     );
   };
 
@@ -191,6 +190,7 @@ describe("axm lint handler", () => {
             group: "workspace",
             displayRoot: sourceRoot,
             path: `${sourceRoot}/.axm/settings.json:4:2`,
+            ruleDescription: "Settings must satisfy the workspace schema.",
             finding: {
               kind: "advisory",
               ruleId: "workspace/settings-schema-valid",
@@ -214,7 +214,7 @@ describe("axm lint handler", () => {
     expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/.axm/settings.json`);
   });
 
-  it.effect("emits drift banner when a publish-gate rule is weakened", () => {
+  it.effect("does not retain the retired publish-gate drift banner", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -225,8 +225,7 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).toMatch(/The registry will still block publish/);
-        expect(allMessages).toMatch(/skill\/manifest-schema-valid/);
+        expect(allMessages).not.toMatch(/The registry will still block publish/);
       }),
     );
   });
@@ -319,54 +318,29 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const logs = logsByTag(rendererState);
-        // Section headers render via step()
-        expect(logs.step.some((m) => m.includes("Auto-fixable"))).toBe(true);
+        expect(logs.step.some((m) => m.includes("Auto-fixable"))).toBe(false);
         expect(logs.step.some((m) => m.includes("axm lint --fix"))).toBe(false);
         expect(logs.message).not.toContain("More output: `axm lint --details` | `axm lint --json`");
-        expect(rendererState.suggestions).toEqual([
-          {
-            description: "Apply auto-fixable lint findings",
-            cmd: "axm lint --fix",
-          },
-          {
-            description: "Show detailed lint output",
-            cmd: "axm lint --details",
-          },
-          {
-            description: "Show machine-readable lint output",
-            cmd: "axm lint --json",
-          },
-          {
-            description: "Install configured missing content",
-            cmd: "axm install demo",
-          },
-          {
-            description: "Run suggested lint follow-up",
-            cmd: "axm status",
-          },
-        ]);
+        expect(rendererState.suggestions).toEqual([]);
         expect(logs.message.some((message) => message.includes("axm install demo"))).toBe(false);
         // Rule lines always present
-        expect(logs.message).toContain("  rule: workspace/lockfile-valid (auto-fixable)");
-        expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct (auto-fixable)");
+        expect(logs.message).toContain("  rule: workspace/lockfile-valid");
+        expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct");
         expect(
           logs.message.some((message) =>
             message.includes(
-              "The lockfile is missing even though workspace settings declare installed extensions.",
+              "Accepted external-resolution state is missing for desired external content.",
             ),
           ),
         ).toBe(true);
         expect(
           logs.message.some((message) =>
-            message.includes(
-              "Skill 'demo' is listed as enabled, but it is missing from some declared agents.",
-            ),
+            message.includes("Skill 'demo' is enabled, but it is missing from declared agents"),
           ),
         ).toBe(true);
         expect(
           logs.error.some(
-            (message) =>
-              message.includes("issues.") && message.includes("can be fixed automatically."),
+            (message) => message.includes("issues.") && message.includes("need manual attention."),
           ),
         ).toBe(true);
         // Diagnostic headers always show location
@@ -418,11 +392,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("--fix runs the autofix pipeline non-interactively", () => {
-    // Build a workspace declaring a local skill with no lockfile; the
-    // `workspace/lockfile-valid` missing-arm autofix should emit an
-    // `install-skill` intent for it. `--fix` re-resolves the source and
-    // hands the canonical install Operation to `applyPlan`.
+  it.effect("--fix does not perform lifecycle recovery", () => {
     const { provide, rendererState } = makeLayers();
     const skillRoot = path.join(tempDir, "source-skills");
     const skillDir = path.join(skillRoot, "demo");
@@ -439,23 +409,19 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         const outcome = yield* lint({ fix: true }).pipe(Effect.exit);
-        // The skill is successfully installed; lint succeeded (exit 0).
-        // The original findings remain in the summary, but the fix succeeded.
         void outcome;
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        // The trailing summary line from --fix.
-        expect(allMessages).toMatch(/Applied \d+ (fix|fixes)/);
-        // The skill got materialized under the external skills tree.
+        expect(allMessages).not.toMatch(/Applied \d+ (fix|fixes)/);
         expect(
           fs.existsSync(
             path.join(tempDir, ".axm", "extensions", "external", "skills", "demo", "SKILL.md"),
           ),
-        ).toBe(true);
+        ).toBe(false);
       }),
     );
   });
 
-  it.effect("--fix emits a plan-shaped machine result and preserves the lint report", () => {
+  it.effect("--fix preserves the fact-report machine contract", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const skillRoot = path.join(tempDir, "source-skills");
     const skillDir = path.join(skillRoot, "demo");
@@ -472,45 +438,20 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* lint({ fix: true }).pipe(Effect.exit);
-        // `--fix` emits one primary payload: the lint document, with the
-        // autofix plan nested under `plan`.
-        const result = expectAppliedPlanResult(
-          { result: expectRecord(expectRecord(rendererState.results[0]?.data)["result"])["plan"] },
-          {
-            planName: "Lint autofix",
-            totalSteps: 4,
-            appliedCount: 4,
-          },
-        );
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             findings: expect.any(Array),
             summary: expect.objectContaining({
               total: expect.any(Number),
             }),
-            fix: expect.objectContaining({
-              attempted: expect.any(Number),
-              applied: expect.any(Number),
-              failed: expect.any(Number),
-            }),
           },
         });
         expect(rendererState.results[0]?.ok).toBe(false);
-        expect(planResultSteps(result)).toEqual([
-          expect.objectContaining({ status: "applied" }),
-          expect.objectContaining({ status: "applied" }),
-          expect.objectContaining({ status: "applied" }),
-          expect.objectContaining({ status: "applied" }),
-        ]);
-        expect(rendererState.logs).toContainEqual({
-          _tag: "info",
-          message: expect.stringContaining("Would apply 4 steps"),
-        });
       }),
     );
   });
 
-  it.effect("--fix repairs configured instruction-file drift", () => {
+  it.effect("--fix leaves instruction projection recovery to sync", () => {
     const { provide, rendererState } = makeLayers();
     fs.mkdirSync(path.join(tempDir, ".git"));
     writeSettings({
@@ -528,16 +469,14 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({ fix: true }).pipe(Effect.exit);
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).toMatch(/Applied \d+ (fix|fixes)/);
-        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
-        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-          "**/CLAUDE.md",
-        );
+        expect(allMessages).not.toMatch(/Applied \d+ (fix|fixes)/);
+        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
       }),
     );
   });
 
-  it.effect("--fix repairs MCP agent config drift and orphaned managed entries", () => {
+  it.effect("--fix reports MCP projection drift without reconciling it", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -581,13 +520,8 @@ describe("axm lint handler", () => {
 
         yield* lint({ fix: true }).pipe(Effect.exit);
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
-        expect(config.mcpServers.demo).toEqual({
-          "x-axm": { managed: true, source: "inline" },
-          type: "stdio",
-          command: "node",
-          args: ["server.js"],
-        });
-        expect(config.mcpServers.stale).toBeUndefined();
+        expect(config.mcpServers.demo.command).toBe("python");
+        expect(config.mcpServers.stale).toBeDefined();
 
         const beforeFinalLint = rendererState.logs.length;
         yield* lint({}).pipe(Effect.exit);
@@ -595,8 +529,8 @@ describe("axm lint handler", () => {
           .slice(beforeFinalLint)
           .map((e) => e.message)
           .join("\n");
-        expect(finalMessages).not.toMatch(/MCP server 'demo' has drifted/);
-        expect(finalMessages).not.toMatch(/MCP server 'stale' has an orphaned/);
+        expect(finalMessages).toMatch(/MCP server 'demo' has drifted/);
+        expect(finalMessages).toMatch(/MCP server 'stale' has an orphaned/);
       }),
     );
   });

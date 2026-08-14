@@ -13,7 +13,6 @@ export const handleUninstallRule = (
   args: UninstallRuleHandlerArgs,
   flags: {
     readonly yes: boolean;
-    readonly force: boolean;
     readonly preview: boolean;
   },
 ) =>
@@ -22,7 +21,6 @@ export const handleUninstallRule = (
     const execution = yield* makeUninstallPlanExecution(flags, ["rules", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
-      breakDependencies: flags.force,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

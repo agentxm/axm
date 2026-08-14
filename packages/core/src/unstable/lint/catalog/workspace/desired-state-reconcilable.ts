@@ -8,7 +8,7 @@ const RULE_ID = "workspace/desired-state-reconcilable";
 
 export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Known local desired-state blockers are repaired before reconciliation.",
+  description: "Desired-state declarations and observations are mutually reconcilable.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
@@ -18,19 +18,15 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
       if (Result.isFailure(graph)) return [];
       const graphFindings = graph.success.problems.map((problem): AdvisoryFinding => {
         if ("pack" in problem) {
-          const recovery =
-            problem.type === "pack-canonical-unusable" || problem.type === "pack-trust-unavailable"
-              ? ` Run \`axm packs repair ${problem.pack} --preview\` to inspect the supported recovery.`
-              : "";
           const observed =
-            problem.type === "pack-canonical-unusable"
+            problem.type === "pack-manifest-content-mismatch"
               ? ` Canonical state: ${problem.status}.`
               : "";
           return {
             kind: "advisory",
             ruleId: RULE_ID,
             severity: "error",
-            message: `Pack '${problem.pack}' blocks desired-state reconciliation.${observed}${recovery}`,
+            message: `Pack '${problem.pack}' does not currently form a reconcilable desired-state route.${observed}`,
             location: { file: ".axm/settings.json" },
           };
         }
@@ -65,18 +61,12 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           ) {
             return [];
           }
-          const recovery =
-            observation.type === "pack" && observation.status === "locally-modified"
-              ? ` Run \`axm packs repair ${observation.name} --preview\` to inspect the supported recovery.`
-              : observation.status === "locally-modified"
-                ? ` Review \`axm sync ${identity} --preview\`; applying sync restores trusted source content and discards these local modifications.`
-                : " Run `axm status` to inspect the blocking local state.";
           return [
             {
               kind: "advisory",
               ruleId: RULE_ID,
               severity: "error",
-              message: `${label} has canonical state ${observation.status}.${recovery}`,
+              message: `${label} has canonical state ${observation.status}.`,
               location: { file: observation.path ?? ".axm/settings.json" },
             },
           ];

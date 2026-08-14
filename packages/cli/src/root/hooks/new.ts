@@ -65,11 +65,7 @@ const HOOK_EVENTS = [
 ] as const satisfies readonly HookEvent[];
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry"
-    ? entry.resolvedVersion
-    : entry.type === "workspace"
-      ? entry.version
-      : undefined;
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
 
 const hookNewArtifact = (args: {
   readonly lockEntry: HookLockEntry;

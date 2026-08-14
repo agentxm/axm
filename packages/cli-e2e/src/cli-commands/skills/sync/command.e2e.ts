@@ -11,7 +11,7 @@ const writeJson = (filePath: string, value: unknown) => {
 };
 
 describe("axm sync configured GitHub skills", () => {
-  it("repairs a missing Codex projection from trusted canonical content without fetching", async () => {
+  it("repairs a missing Codex projection from accepted canonical content without fetching", async () => {
     const temp = createTempDir();
     try {
       const setup = await runCli(["setup", "--yes", "--agent", "codex"], {
@@ -44,10 +44,6 @@ describe("axm sync configured GitHub skills", () => {
       fs.mkdirSync(canonicalDir, { recursive: true });
       const skillContents = "---\nname: quality\ndescription: Review project quality.\n---\n";
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), skillContents);
-      const legacyContentIdentity = crypto
-        .createHash("sha256")
-        .update(`SKILL.md\n${skillContents}`)
-        .digest("hex");
       const packageContentDigest = crypto
         .createHash("sha256")
         .update("SKILL.md")
@@ -60,25 +56,20 @@ describe("axm sync configured GitHub skills", () => {
         .update(packageContentDigest)
         .digest("hex");
 
-      const installedAt = "2026-07-29T00:00:00.000Z";
-      writeJson(path.join(temp.path, ".axm", "trust.json"), {
-        trustStateVersion: 1,
-        records: {
-          "skill:quality": {
-            extensionType: "skill",
-            name: "quality",
-            authority: "github",
-            sourceIdentity: "github:qualitymd/quality.md",
-            contentIdentity: legacyContentIdentity,
-          },
-        },
-      });
       fs.writeFileSync(
         path.join(temp.path, ".axm", "axm-lock.yaml"),
         YAML.stringify({
-          lockfileVersion: 3,
-          skills: {},
-          generatedAt: installedAt,
+          lockfileVersion: 4,
+          skills: {
+            quality: {
+              type: "github",
+              owner: "qualitymd",
+              repo: "quality.md",
+              resolvedCommit: "0123456789abcdef",
+              resolvedTree: "fedcba9876543210",
+              contentIdentity: canonicalContentIdentity,
+            },
+          },
         }),
       );
 
@@ -96,16 +87,7 @@ describe("axm sync configured GitHub skills", () => {
       expect(apply.exitCode, `${apply.stderr}\n${apply.stdout}`).toBe(0);
       expect(fs.existsSync(projection)).toBe(true);
       expect(fs.lstatSync(projection).isSymbolicLink()).toBe(true);
-      const trustAfter = JSON.parse(
-        fs.readFileSync(path.join(temp.path, ".axm", "trust.json"), "utf8"),
-      );
-      expect(trustAfter.records["skill:quality"]).toEqual({
-        extensionType: "skill",
-        name: "quality",
-        authority: "github",
-        sourceIdentity: "github:qualitymd/quality.md",
-        contentIdentity: canonicalContentIdentity,
-      });
+      expect(fs.existsSync(path.join(temp.path, ".axm", "trust.json"))).toBe(false);
       expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).skills.quality).toBe(
         "github:qualitymd/quality.md",
       );

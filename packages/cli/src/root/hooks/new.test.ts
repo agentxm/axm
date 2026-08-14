@@ -114,9 +114,7 @@ describe("hooks-new.handler", () => {
           expect(settings.hooks?.["tool-audit"]).toBe("workspace:@acme/hooks/tool-audit");
 
           const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
-          expect(lockfile).toContain("tool-audit:");
-          expect(lockfile).toContain("type: workspace");
-          expect(lockfile).toContain("version: 0.1.0");
+          expect(lockfile).not.toContain("tool-audit:");
 
           const claudeSettingsPath = path.join(tempDir, ".claude", "settings.json");
           expect(fs.existsSync(claudeSettingsPath)).toBe(true);

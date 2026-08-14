@@ -88,27 +88,8 @@ describe("axm setup", () => {
         );
         fs.appendFileSync(bundledSkillPath, "\nLocal drift\n");
 
-        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
-
-        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
-        const result = JSON.parse(status.stdout);
-        expect(result).toMatchObject({
-          ok: true,
-          result: {
-            healthy: false,
-            desiredGraphComplete: true,
-            blockedOperations: [],
-          },
-        });
-        expect(result.result.problems).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              identity: "@agentxm/skills/axm",
-              blocking: false,
-              recoveryAction: "axm publish @agentxm/skills/axm",
-            }),
-          ]),
-        );
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
       } finally {
         temp.cleanup();
       }

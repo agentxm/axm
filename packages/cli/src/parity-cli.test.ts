@@ -66,7 +66,7 @@ const CHECKS: Record<
   ObligationId,
   ((files: HelpFiles, type: CatalogExtensionType) => boolean) | null
 > = {
-  "2.6-source-hash": null,
+  "2.6-accepted-resolution": null,
   "2.9-read-model-family": null,
   "2.11-ownership-safe-prune": null,
   "2.12-workspace-reconciliation": null,

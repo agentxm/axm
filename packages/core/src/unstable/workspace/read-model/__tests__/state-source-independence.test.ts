@@ -45,16 +45,16 @@ const VALID_SETTINGS_JSON = JSON.stringify({
 });
 
 const VALID_LOCKFILE_YAML = [
-  "lockfileVersion: 3",
+  "lockfileVersion: 4",
   "skills:",
   "  review-tool:",
   "    type: github",
   "    owner: owner",
   "    repo: repo",
   "    ref: main",
-  "    installedAt: 2026-01-01T00:00:00.000Z",
-  "    updatedAt: 2026-01-01T00:00:00.000Z",
-  "    agents: []",
+  "    resolvedCommit: commit-1",
+  "    resolvedTree: tree-1",
+  "    contentIdentity: content-1",
   "",
 ].join("\n");
 
@@ -140,7 +140,7 @@ describe("source independence (Decision 2)", () => {
       const lockfile = yield* api.lockfile;
       expect(Option.isSome(lockfile)).toBe(true);
       const lf = Option.getOrThrow(lockfile);
-      expect(lf.lockfileVersion).toBe(3);
+      expect(lf.lockfileVersion).toBe(4);
       expect(Object.keys(lf.skills)).toContain("review-tool");
 
       // Settings cell SHALL fail with `SettingsParseError` (corrupt JSON).

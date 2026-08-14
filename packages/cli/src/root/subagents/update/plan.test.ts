@@ -1,21 +1,11 @@
-/**
- * Unit tests for the subagent update plan builder.
- *
- * Tests version comparison and plan construction.
- */
-
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { SubagentsLockMap } from "@agentxm/client-core/unstable/lockfile";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
-import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
-import type { WorkspaceTrustState } from "@agentxm/client-core/unstable/trust";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => ({
   type: "subagent",
@@ -34,96 +24,67 @@ const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => 
   },
 });
 
-const trustStateWith = (name: string, version: string | undefined): WorkspaceTrustState => ({
-  trustStateVersion: 1,
-  records:
-    version === undefined
-      ? {}
-      : {
-          [`subagent:${name}`]: {
-            extensionType: "subagent",
-            name,
-            authority: "registry",
-            sourceIdentity: `@test/subagents/${name}`,
-            resolvedVersion: version,
-            publisherBindingId: "hbnd_test",
-            integrity: "sha512-AAAA==",
-          },
-        },
+const acceptedRegistry = (version: string): SubagentsLockMap => ({
+  researcher: {
+    type: "registry",
+    owner: handle("@test"),
+    name: extensionName("researcher"),
+    resolvedVersion: exactVersion(version),
+    integrity: "sha512-AAAA==",
+    sourceName: "default",
+    publisherBindingId: "hbnd_test",
+  },
 });
 
 const noopRunClosure = (_op: UpdateOperation) =>
   Effect.succeed<JobStepResult>({ result: "success", message: "applied" });
 
-// -----------------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------------
+const runFirst = (operation: UpdateOperation, locks: SubagentsLockMap) => {
+  const plan = buildUpdatePlan(
+    [operation],
+    locks,
+    "Update subagents",
+    Option.none(),
+    noopRunClosure,
+  );
+  const step: PlannedJobStep | undefined = plan.jobs[0]?.steps[0];
+  if (step === undefined || step.readiness === "error") return Effect.succeed("error");
+  return step.run.pipe(Effect.map((result) => result.message));
+};
 
 describe("buildUpdatePlan", () => {
-  it("marks unchanged registry subagent as up to date", () => {
-    const ref = makeRegistryRef("researcher", "1.0.0");
-    const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: false }];
+  it.effect("skips the same accepted registry version", () =>
+    Effect.gen(function* () {
+      const message = yield* runFirst(
+        { ref: makeRegistryRef("researcher", "1.0.0"), force: false },
+        acceptedRegistry("1.0.0"),
+      );
+      expect(message).toBe("already up to date");
+    }),
+  );
 
-    const plan = buildUpdatePlan(
-      ops,
-      trustStateWith("researcher", "1.0.0"),
-      "Update subagents",
-      Option.none(),
-      noopRunClosure,
-    );
+  it.effect("dispatches changed, forced, and missing resolutions", () =>
+    Effect.gen(function* () {
+      const changed = yield* runFirst(
+        { ref: makeRegistryRef("researcher", "2.0.0"), force: false },
+        acceptedRegistry("1.0.0"),
+      );
+      const forced = yield* runFirst(
+        { ref: makeRegistryRef("researcher", "1.0.0"), force: true },
+        acceptedRegistry("1.0.0"),
+      );
+      const missing = yield* runFirst(
+        { ref: makeRegistryRef("researcher", "1.0.0"), force: false },
+        {},
+      );
+      expect([changed, forced, missing]).toEqual(["applied", "applied", "applied"]);
+    }),
+  );
 
+  it("produces one empty unbounded job for empty input", () => {
+    const plan = buildUpdatePlan([], {}, "Update subagents", Option.none(), noopRunClosure);
     expect(plan.jobs).toHaveLength(1);
-    const [job] = plan.jobs;
-    expect(job?.steps).toHaveLength(1);
-  });
-
-  it("marks changed registry subagent as needing update", () => {
-    const ref = makeRegistryRef("researcher", "2.0.0");
-    const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: false }];
-
-    const plan = buildUpdatePlan(
-      ops,
-      trustStateWith("researcher", "1.0.0"),
-      "Update subagents",
-      Option.none(),
-      noopRunClosure,
-    );
-
-    expect(plan.jobs).toHaveLength(1);
-    const [job] = plan.jobs;
-    expect(job?.steps).toHaveLength(1);
-    const [step] = job?.steps ?? [];
-    expect(step?.label).toBe("researcher");
-  });
-
-  it("force flag overrides version comparison", () => {
-    const ref = makeRegistryRef("researcher", "1.0.0");
-    const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: true }];
-
-    const plan = buildUpdatePlan(
-      ops,
-      trustStateWith("researcher", "1.0.0"),
-      "Update subagents",
-      Option.none(),
-      noopRunClosure,
-    );
-
-    expect(plan.jobs).toHaveLength(1);
-    const [job] = plan.jobs;
-    expect(job?.steps).toHaveLength(1);
-  });
-
-  it("handles empty operations", () => {
-    const plan = buildUpdatePlan(
-      [],
-      trustStateWith("researcher", undefined),
-      "Update subagents",
-      Option.none(),
-      noopRunClosure,
-    );
-
-    expect(plan.jobs).toHaveLength(1);
-    const [job] = plan.jobs;
-    expect(job?.steps).toHaveLength(0);
+    expect(plan.jobs[0]?.concurrency).toBe("unbounded");
+    expect(plan.jobs[0]?.steps).toEqual([]);
   });
 });

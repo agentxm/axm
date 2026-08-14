@@ -30,7 +30,7 @@ const removeCompatibilityRange = (content: string): string =>
     .join("\n");
 
 describe("AXM skill compatibility lifecycle", () => {
-  it("reports a compatible bundled pair in human, JSON, quiet, and no-color modes", async () => {
+  it("accepts a compatible bundled pair in human, JSON, quiet, and no-color lint modes", async () => {
     const temp = createTempDir("axm-skill-compatibility-e2e-");
     try {
       const env = { DO_NOT_TRACK: "1" };
@@ -40,46 +40,35 @@ describe("AXM skill compatibility lifecycle", () => {
       );
       expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
 
-      const human = await runCli(["status"], { cwd: temp.path, env });
+      const human = await runCli(["lint", "--strict"], { cwd: temp.path, env });
       expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
-      expect(human.stdout + human.stderr).toContain("AXM skill compatibility: compatible");
 
-      const json = await runCli(["status", "--json"], { cwd: temp.path, env });
+      const json = await runCli(["lint", "--strict", "--json"], { cwd: temp.path, env });
       expect(json.exitCode, `${json.stderr}\n${json.stdout}`).toBe(0);
       const document = JSON.parse(json.stdout);
-      expect(document.result.axmSkillCompatibility).toEqual({
-        status: "compatible",
-        cliVersion: expect.any(String),
-        skillVersion: expect.any(String),
-        source: "workspace:@agentxm/skills/axm",
-        declaredCliVersion: expect.any(String),
-        declaredCliVersionRange: expect.any(String),
-        reasonCode: null,
-        detail: null,
-      });
-      expect(document.result.axmSkillCompatibility.cliVersion).toBe(
-        document.result.axmSkillCompatibility.skillVersion,
+      expect(document.result.findings).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ ruleId: "workspace/axm-skill-compatible" }),
+        ]),
       );
 
-      const quiet = await runCli(["status", "--quiet"], { cwd: temp.path, env });
+      const quiet = await runCli(["lint", "--strict", "--quiet"], { cwd: temp.path, env });
       expect(quiet.exitCode).toBe(0);
       expect(quiet.stdout).toBe("");
-      expect(quiet.stderr).toContain("AXM skill compatibility: compatible");
       expect(quiet.stderr).not.toContain("Loading project workspace");
 
-      const noColor = await runCli(["status"], {
+      const noColor = await runCli(["lint", "--strict"], {
         cwd: temp.path,
         env: { ...env, NO_COLOR: "1" },
       });
       expect(noColor.exitCode).toBe(0);
       expect(noColor.stdout + noColor.stderr).not.toContain("\u001b[");
-      expect(noColor.stdout + noColor.stderr).toContain("AXM skill compatibility: compatible");
     } finally {
       temp.cleanup();
     }
   });
 
-  it("blocks status and strict lint from incompatible live and staged skill bytes", async () => {
+  it("blocks strict lint for incompatible live and staged skill bytes", async () => {
     const temp = createTempDir("axm-skill-incompatible-e2e-");
     try {
       initializeGit(temp.path);
@@ -97,23 +86,6 @@ describe("AXM skill compatibility lifecycle", () => {
       const incompatible = removeCompatibilityRange(compatible);
       expect(incompatible).not.toBe(compatible);
       fs.writeFileSync(skillPath, incompatible);
-
-      const status = await runCli(["status", "--json"], { cwd: temp.path, env });
-      expect(status.exitCode).toBe(1);
-      const statusDocument = JSON.parse(status.stdout);
-      expect(statusDocument.result.axmSkillCompatibility).toMatchObject({
-        status: "incompatible",
-        reasonCode: "compatibility-metadata-missing",
-      });
-      expect(statusDocument.result.problems).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: "compatibility-metadata-missing",
-            blocking: true,
-            recoveryAction: "axm skills install @agentxm/skills/axm --bundled --preview",
-          }),
-        ]),
-      );
 
       const lint = await runCli(["lint", "--strict", "--json"], {
         cwd: temp.path,

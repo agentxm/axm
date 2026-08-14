@@ -22,13 +22,7 @@ import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-err
 import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
-export const PlanPolicyIds = [
-  "break-dependencies",
-  "ignore-version-constraints",
-  "replace-existing",
-  "accept-warnings",
-  "allow-empty",
-] as const;
+export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;
 
 export const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
 export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;

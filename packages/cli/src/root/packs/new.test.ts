@@ -134,14 +134,7 @@ describe("packs-new.handler", () => {
           const lockfile = YAML.parse(
             fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
           );
-          expect(lockfile.packs["frontend-tools"]).toMatchObject({
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "pack",
-            name: "frontend-tools",
-            version: "0.0.1",
-            sourceHash: expect.any(String),
-          });
+          expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
           expect(rendererState.summaries).toContain(

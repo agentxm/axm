@@ -7,11 +7,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import { AGENTS } from "../../agents/registry.js";
 import type { CatalogExtensionType } from "../../extension-types/schema.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
 import { type Handle } from "../../extensions/handle.js";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../../packs/index.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
@@ -183,14 +186,6 @@ const validateRoot = (
     return ResolvedWorkspaceRoot(resolved);
   });
 
-const memberNamesFromResolvedMap = (
-  resolvedMap: Readonly<Record<string, unknown>>,
-): ReadonlyArray<ExtensionName> =>
-  Object.keys(resolvedMap).flatMap((fqn) => {
-    const parts = parseExtensionFqnParts(fqn);
-    return parts === undefined ? [] : [parts.name];
-  });
-
 // ---------------------------------------------------------------------------
 // Pack-member maps for cross-subject implicit installation
 // ---------------------------------------------------------------------------
@@ -301,38 +296,78 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics,
   });
 
-  // Cache the installed-packs rollup once per scope; shared across subjects.
+  // Cache the authored-manifest membership rollup once per scope; shared
+  // across subjects. Lock rows authorize external Pack resolution but never
+  // provide membership.
   const installedPackMembers: Effect.Effect<ReadonlyArray<PackMemberSets>> = yield* Effect.cached(
     Effect.gen(function* () {
       const active = yield* packsApi.active;
-      return active.map<PackMemberSets>((row) => {
-        const resolvedSome = Option.match(row.resolved, {
-          onNone: () => null,
-          onSome: (r) => r.lockEntry,
-        });
-        const skillNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSkills);
-        const mcpServerNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedMcpServers);
-        const subagentNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSubagents);
-        const ruleNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedRules ?? {});
-        const hookNames =
-          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedHooks ?? {});
-        const knowledgeNames =
-          resolvedSome === null
-            ? []
-            : memberNamesFromResolvedMap(resolvedSome.resolvedKnowledge ?? {});
-        return {
+      return yield* Effect.forEach(active, (row): Effect.Effect<PackMemberSets> => {
+        const packageRoot = row.actual.flatMap((actual) =>
+          actual.packageRoot === null ? [] : [actual.packageRoot],
+        )[0];
+        const empty: PackMemberSets = {
           key: row.key,
-          skills: skillNames,
-          mcpServers: mcpServerNames,
-          subagents: subagentNames,
-          rules: ruleNames,
-          hooks: hookNames,
-          knowledge: knowledgeNames,
+          skills: [],
+          mcpServers: [],
+          subagents: [],
+          rules: [],
+          hooks: [],
+          knowledge: [],
         };
+        if (packageRoot === undefined) return Effect.succeed(empty);
+
+        const manifestPath = path.join(packageRoot, PACK_MANIFEST_FILENAME);
+        return Effect.gen(function* () {
+          const contents = yield* fs.readFileString(manifestPath);
+          const parsedResult = Result.try({
+            try: (): unknown => JSON.parse(contents),
+            catch: (): "invalid-pack-manifest-json" => "invalid-pack-manifest-json",
+          });
+          if (Result.isFailure(parsedResult)) {
+            return yield* Effect.fail(parsedResult.failure);
+          }
+          const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+            parsedResult.success,
+          );
+          const members: Record<Exclude<CatalogExtensionType, never>, ExtensionName[]> = {
+            skill: [],
+            "mcp-server": [],
+            subagent: [],
+            rule: [],
+            hook: [],
+            knowledge: [],
+          };
+          for (const fqn of Object.keys(manifest.dependencies)) {
+            const member = parseExtensionFqnParts(fqn);
+            if (member !== undefined && member.type !== "pack") {
+              members[member.type].push(member.name);
+            }
+          }
+          return {
+            key: row.key,
+            skills: members.skill,
+            mcpServers: members["mcp-server"],
+            subagents: members.subagent,
+            rules: members.rule,
+            hooks: members.hook,
+            knowledge: members.knowledge,
+          };
+        }).pipe(
+          Effect.result,
+          Effect.flatMap((result) =>
+            Result.isSuccess(result)
+              ? Effect.succeed(result.success)
+              : diagnostics
+                  .append({
+                    source: "scanner",
+                    path: manifestPath,
+                    code: "pack-manifest-invalid",
+                    message: `pack: unable to read authored membership from ${manifestPath}`,
+                  })
+                  .pipe(Effect.as(empty)),
+          ),
+        );
       });
     }),
   );

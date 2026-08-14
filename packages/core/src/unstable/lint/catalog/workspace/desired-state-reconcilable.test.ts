@@ -70,7 +70,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
     });
   });
 
-  it.effect("keeps trusted-source modifications blocking with explicit discard framing", () => {
+  it.effect("reports external canonical modifications as a fact without workflow guidance", () => {
     const desired = {
       type: "skill",
       name: "installed-skill",
@@ -87,9 +87,8 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       expect(findings).toHaveLength(1);
       expect(findings[0]).toMatchObject({
         severity: "error",
-        message: expect.stringContaining("axm sync @test/skills/installed-skill --preview"),
+        message: "skill '@test/skills/installed-skill' has canonical state locally-modified.",
       });
-      expect(findings[0]?.message).toContain("discards these local modifications");
     });
   });
 });

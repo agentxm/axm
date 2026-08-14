@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -18,6 +17,7 @@ import {
   makeBaseWorkspaceMock,
   makeRegistrySkillLockEntry,
   rowsFor,
+  TEST_CONTENT_IDENTITY,
 } from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
@@ -66,8 +66,7 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
-  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  contentIdentity: TEST_CONTENT_IDENTITY,
 });
 
 /** Creates a registry source lock entry. */
@@ -439,6 +438,7 @@ describe("disableSkill", () => {
                       pack: "@community/packs/toolkit",
                       source: "@community/skills/my-skill",
                       constraint: "*",
+                      enabled: true,
                     },
                   ],
                 },

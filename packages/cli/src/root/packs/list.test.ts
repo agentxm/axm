@@ -16,10 +16,7 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-} from "../../test-stubs.js";
+import { computePackageContentHashSync } from "../../test-stubs.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -44,7 +41,7 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     );
     lockedPacks[name] = {
       ...value,
-      sourceHash: computePackageContentHashSync(packDir),
+      manifestContentIdentity: computePackageContentHashSync(packDir),
     };
   }
   fs.writeFileSync(
@@ -56,9 +53,8 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
   );
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 3, skills: {}, packs: lockedPacks }),
+    YAML.stringify({ lockfileVersion: 4, skills: {}, packs: lockedPacks }),
   );
-  writeTrustFromWorkspaceLockfile(axmDir);
 };
 
 const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -69,11 +65,6 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   integrity: "sha512-AAAA==",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
-  installedAt: "2025-01-01T00:00:00.000Z",
-  updatedAt: "2025-01-01T00:00:00.000Z",
-  resolvedSkills: {},
-  resolvedMcpServers: {},
-  resolvedSubagents: {},
   ...overrides,
 });
 

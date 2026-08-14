@@ -44,8 +44,6 @@ export type {
 
 export { McpServerManager, McpServerManagerLive } from "./manager.js";
 
-export { mcpServerReconciliationAdapter } from "./reconciliation-adapter.js";
-
 export type {
   PublishMcpServerOperationArgs,
   PublishMcpServerOperation,

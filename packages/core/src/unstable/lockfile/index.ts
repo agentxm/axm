@@ -15,16 +15,12 @@ export type {
   KnowledgeLockEntry,
   KnowledgeLockMap,
   Lockfile,
-  MaterializedFileTarget,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
   PacksLockMap,
   RegistryPackLockEntryArgs,
-  ResolvedExtension,
-  ResolvedExtensionMap,
   RegistryPackLockEntry,
-  WorkspacePackLockEntry,
   RuleLockEntry,
   RulesLockMap,
   SkillLockEntry,
@@ -40,14 +36,11 @@ export {
   LOCKFILE_VERSION,
   makeRegistryPackLockEntry,
   LockfileSchema,
-  MaterializedFileTargetSchema,
   McpServerLockEntrySchema,
   McpServersLockMapSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
   RegistryPackLockEntrySchema,
-  WorkspacePackLockEntrySchema,
-  ResolvedExtensionMapSchema,
   RuleLockEntrySchema,
   RulesLockMapSchema,
   SkillLockEntrySchema,
@@ -63,11 +56,8 @@ export type { LockfileUpdate } from "./lockfile.js";
 export {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
-  commitTrustSnapshotUpdate,
   commitLockfileUpdates,
   writeLockfile,
 } from "./lockfile.js";
-export {
-  validateExactResolvedVersion,
-  validateExactResolvedVersionMap,
-} from "./resolved-version.js";
+export { validateExactResolvedVersion } from "./resolved-version.js";
+export { acceptedRegistryVersionForRef } from "./accepted-registry-version.js";

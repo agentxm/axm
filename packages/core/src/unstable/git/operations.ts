@@ -26,7 +26,7 @@ const createGit = (baseDir?: string): SimpleGit => {
   return simpleGit(options).env("GIT_TERMINAL_PROMPT", "0").env("GIT_LFS_SKIP_SMUDGE", "1");
 };
 
-type GitOperation = "clone" | "get-tree-sha";
+type GitOperation = "clone" | "get-commit-sha" | "get-tree-sha";
 
 /**
  * Maps unknown errors to AppError with appropriate context.
@@ -69,6 +69,13 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
       ]),
     catch: mapGitError("clone", `Failed to shallow clone ${url}`),
   }).pipe(Effect.withSpan("Git.shallowClone"));
+
+/** Get the immutable commit checked out at HEAD. */
+export const getCommitSha = (repoPath: string) =>
+  Effect.tryPromise({
+    try: async () => (await createGit(repoPath).revparse(["HEAD"])).trim(),
+    catch: mapGitError("get-commit-sha", "Failed to get checked-out commit SHA"),
+  }).pipe(Effect.withSpan("Git.getCommitSha"));
 
 /**
  * Get the git tree SHA for a path within a repository.

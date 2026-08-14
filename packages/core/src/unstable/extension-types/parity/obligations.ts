@@ -3,7 +3,7 @@
  * expected to carry.
  *
  * An obligation is a statement about one axis of the platform ("a lock entry
- * accepts `sourceHash`", "the CLI registers a renderer entity") that must hold
+ * carries immutable accepted resolution", "the CLI registers a renderer entity") that must hold
  * for *every* member of {@link CATALOG_EXTENSION_TYPES}. Each obligation is
  * mechanically verified by a conformance suite; a type that does not meet one
  * yet must carry a matching row in the exemption ledger (`exemptions.ts`).
@@ -27,7 +27,7 @@ export type ObligationTier = (typeof OBLIGATION_TIERS)[number];
 
 /** @experimental This API is unstable and may change without notice. */
 export const OBLIGATION_IDS = [
-  "2.6-source-hash",
+  "2.6-accepted-resolution",
   "2.9-read-model-family",
   "2.11-ownership-safe-prune",
   "2.12-workspace-reconciliation",
@@ -58,11 +58,11 @@ export interface ObligationDef {
 
 /** @experimental This API is unstable and may change without notice. */
 export const PARITY_OBLIGATIONS = {
-  "2.6-source-hash": {
-    id: "2.6-source-hash",
+  "2.6-accepted-resolution": {
+    id: "2.6-accepted-resolution",
     description:
-      "The type's lock entry accepts an advisory sourceHash on non-workspace source variants, " +
-      "so update reporting can tell changed content from unchanged content.",
+      "The type's lock entry requires immutable accepted-resolution identity for every " +
+      "external source class.",
     verifiedBy: "core-test",
   },
   "2.9-read-model-family": {
@@ -90,7 +90,7 @@ export const PARITY_OBLIGATIONS = {
     id: "2.13-transactional-postcondition",
     description:
       "Every lifecycle mutation participates in the shared transaction boundary and validates " +
-      "its durable postcondition before receipt history is written.",
+      "its durable postcondition before the workspace transition commits.",
     verifiedBy: "core-test",
   },
   "6.1-e2e-install-row": {

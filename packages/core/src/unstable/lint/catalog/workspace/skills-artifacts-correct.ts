@@ -27,16 +27,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type {
-  AdvisoryFinding,
-  AutofixableFinding,
-  AutofixingRule,
-  LintFinding,
-} from "../../rule.js";
-import type { Operation } from "../../../plan/plan.js";
-import { isSameFinding } from "./helpers/finding.js";
-import { disableSkillOp, enableSkillOp } from "./helpers/install-ops.js";
-import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
+import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 import {
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
@@ -46,48 +38,39 @@ import { isConfigurableAgentId } from "../../../agents/types.js";
 const RULE_ID = "workspace/skills-artifacts-correct";
 const SETTINGS_REL = ".axm/settings.json";
 
-const enableFinding = (name: string, reason: string): AutofixableFinding => ({
-  kind: "autofixable",
+const enableFinding = (name: string, reason: string): AdvisoryFinding => ({
+  kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${name}' is listed as enabled, but it is missing from some declared agents. Missing from agents: ${reason}. ` +
-    "Run `axm lint --fix` to make it present for every declared agent.",
+  message: `Skill '${name}' is enabled, but it is missing from declared agents: ${reason}.`,
   location: { file: SETTINGS_REL },
 });
 
-const disableFinding = (name: string, reason: string): AutofixableFinding => ({
-  kind: "autofixable",
+const disableFinding = (name: string, reason: string): AdvisoryFinding => ({
+  kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${name}' is listed as disabled, but it is still present in some declared agents. Present for agents: ${reason}. ` +
-    "Run `axm lint --fix` to remove it from those agents.",
+  message: `Skill '${name}' is disabled, but it is still present for declared agents: ${reason}.`,
   location: { file: SETTINGS_REL },
 });
 
-const inconsistentFinding = (name: string, details: string): AutofixableFinding => ({
-  kind: "autofixable",
+const inconsistentFinding = (name: string, details: string): AdvisoryFinding => ({
+  kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Skill '${name}' is present for some declared agents but missing from others. ${details}. ` +
-    "Run `axm lint --fix` to make its presence consistent across the declared agents.",
+  message: `Skill '${name}' is present for some declared agents but missing from others. ${details}.`,
   location: { file: SETTINGS_REL },
 });
 
 interface ArtifactViolation {
   readonly finding: LintFinding;
-  readonly operation?: Operation<string, unknown>;
 }
 
 const implicitEnableFinding = (name: string, reason: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Pack-provided skill '${name}' is missing from some declared agents. Missing from agents: ${reason}. ` +
-    "Run `axm install` to reinstall the owning pack declarations and recreate the missing artifacts.",
+  message: `Pack-provided skill '${name}' is missing from declared agents: ${reason}.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -116,7 +99,6 @@ const collectArtifactViolations = (
       if (presentAgents.length === 0) {
         violations.push({
           finding: enableFinding(name, missingAgents.join(", ")),
-          operation: enableSkillOp({ name }),
         });
         continue;
       }
@@ -125,7 +107,6 @@ const collectArtifactViolations = (
           name,
           `Present for agents: ${presentAgents.join(", ")}. Missing from agents: ${missingAgents.join(", ")}`,
         ),
-        operation: enableSkillOp({ name }),
       });
       continue;
     }
@@ -133,7 +114,6 @@ const collectArtifactViolations = (
     if (presentAgents.length > 0) {
       violations.push({
         finding: disableFinding(name, presentAgents.join(", ")),
-        operation: disableSkillOp({ name }),
       });
     }
   }
@@ -141,10 +121,10 @@ const collectArtifactViolations = (
   return violations;
 };
 
-export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = {
+export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Skill directories match each skill's enabled state across declared agents.",
-  kind: "autofixing",
+  kind: "advisory",
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
@@ -195,59 +175,5 @@ export const skillsArtifactsCorrectRule: AutofixingRule<WorkspaceRuleContext> = 
       });
       const violations = collectArtifactViolations(existenceBySkill);
       return violations.map((violation): LintFinding => violation.finding);
-    }),
-  fix: (context, finding) =>
-    Effect.gen(function* () {
-      const scoped = context.workspace;
-      const settingsResult = yield* Effect.result(scoped.state.settings);
-      if (Result.isFailure(settingsResult)) {
-        return EMPTY_OPERATIONS;
-      }
-      if (Option.isNone(settingsResult.success)) {
-        return EMPTY_OPERATIONS;
-      }
-      const declaredAgentIds = new Set(settingsResult.success.value.agents ?? []);
-      if (declaredAgentIds.size === 0) {
-        return EMPTY_OPERATIONS;
-      }
-      const knownAgents = yield* scoped.agents.known;
-      const declaredAgents = knownAgents.filter(
-        (agent) => isConfigurableAgentId(agent.id) && declaredAgentIds.has(agent.id),
-      );
-      const universalAgentIds = new Set(
-        declaredAgents
-          .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
-          .map((agent) => agent.id),
-      );
-      const installed = yield* scoped.skills.installed;
-      const existenceBySkill = installed.flatMap((row) => {
-        const implicit = row.installationOrigin._tag === "pack-member";
-        if (implicit && Option.isNone(row.resolved)) {
-          return [];
-        }
-        const present = new Set(
-          row.actual.flatMap((actual) =>
-            actual.origin._tag === "agent-skill-dir" ? [actual.origin.agentId] : [],
-          ),
-        );
-        const collapsed = resolveUniversalDirPresence(
-          declaredAgents.map((agent) => ({ agentId: agent.id, exists: present.has(agent.id) })),
-          universalAgentIds,
-        );
-        return {
-          name: row.key.name,
-          enabled: row.activation === "enabled",
-          presentAgents: collapsed.filter((p) => p.exists).map((p) => p.agentId),
-          missingAgents: collapsed.filter((p) => !p.exists).map((p) => p.agentId),
-          implicit,
-        };
-      });
-      const violation = collectArtifactViolations(existenceBySkill).find(
-        (candidate) =>
-          candidate.finding.kind === "autofixable" &&
-          candidate.operation !== undefined &&
-          isSameFinding(candidate.finding, finding),
-      );
-      return violation?.operation === undefined ? EMPTY_OPERATIONS : [violation.operation];
     }),
 };

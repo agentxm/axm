@@ -1,8 +1,8 @@
 /**
  * Enable skill executor — re-creates agent symlinks for a previously disabled skill.
  *
- * Enabling requires usable trusted canonical content. Receipts are not consulted:
- * they are optional post-success history, not an input to lifecycle decisions.
+ * Enabling requires desired canonical content aligned with its accepted
+ * external resolution when one is required.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -22,7 +22,7 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { ensureSkillAgentArtifact } from "../materialization.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
-import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
+import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -41,7 +41,7 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
 /**
  * Enable-skill operation handler.
  *
- * 1. Resolve usable canonical content from desired state, trust, and observation.
+ * 1. Resolve usable canonical content from desired state, accepted resolution, and observation.
  * 2. Create agent artifacts.
  * 3. Update settings to set enabled: true.
  */
@@ -61,7 +61,7 @@ export const enableSkill: OperationHandler<
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
 
-    const canonical = yield* usableTrustedCanonicalObservation({
+    const canonical = yield* usableAcceptedCanonicalObservation({
       workspace: ws,
       type: "skill",
       name: op.args.skillName,
@@ -69,7 +69,7 @@ export const enableSkill: OperationHandler<
     if (Option.isNone(canonical)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Trusted skill content for "${op.args.skillName}" is not usable`,
+        detail: `Accepted skill content for "${op.args.skillName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the skill.",

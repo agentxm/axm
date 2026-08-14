@@ -9,7 +9,7 @@ import type {
   SourceAuthorityBlockedFact,
 } from "../extensions/index.js";
 import { formatFqn, parseFqnOrThrow, toExtensionTypePlural } from "../extensions/index.js";
-import type { ResolvedExtensionMap } from "../lockfile/index.js";
+import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
@@ -52,12 +52,12 @@ export type WorkspacePackDependencyResolver = (args: {
 }) => Effect.Effect<WorkspacePackDependencyResolution, AppError>;
 
 export interface ResolvedPackDependencies {
-  readonly resolvedSkills: ResolvedExtensionMap;
-  readonly resolvedMcpServers: ResolvedExtensionMap;
-  readonly resolvedSubagents: ResolvedExtensionMap;
-  readonly resolvedRules: ResolvedExtensionMap;
-  readonly resolvedHooks: ResolvedExtensionMap;
-  readonly resolvedKnowledge: ResolvedExtensionMap;
+  readonly resolvedSkills: ResolvedPackDependencyMap;
+  readonly resolvedMcpServers: ResolvedPackDependencyMap;
+  readonly resolvedSubagents: ResolvedPackDependencyMap;
+  readonly resolvedRules: ResolvedPackDependencyMap;
+  readonly resolvedHooks: ResolvedPackDependencyMap;
+  readonly resolvedKnowledge: ResolvedPackDependencyMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
@@ -109,7 +109,7 @@ const workspaceConstraintConflict = (
       suggestions: [
         {
           description: "Replace the authored pack constraint with the current workspace version",
-          cmd: `axm packs add ${packFqn} ${memberFqn} --replace-existing`,
+          cmd: `axm packs add ${packFqn} ${memberFqn}`,
         },
       ],
     });
@@ -388,7 +388,9 @@ const resolveDependencyRefWithReleaseAge = (
     };
   });
 
-const toResolvedMap = (dependencies: ReadonlyArray<ResolvedDependency>): ResolvedExtensionMap =>
+const toResolvedMap = (
+  dependencies: ReadonlyArray<ResolvedDependency>,
+): ResolvedPackDependencyMap =>
   Object.fromEntries(
     dependencies.map((dependency) => {
       const ref = dependency.ref;

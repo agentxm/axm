@@ -15,16 +15,14 @@ import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { computePackManifestContentIdentity } from "@agentxm/client-core/unstable/packs";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import {
   UninstallSkillCommandWorkflowActionsLive,
   type UninstallHandlerArgs,
 } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-} from "../../../test-stubs.js";
+import { writeTrustFromWorkspaceLockfile } from "../../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   makeEffectProvide,
@@ -67,7 +65,7 @@ const initWorkspace = (
     settings["packs"] = configuredPacks;
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = { lockfileVersion: 3, skills: lockfileSkills };
+  const lockfile: Record<string, unknown> = { lockfileVersion: 4, skills: lockfileSkills };
   if (Object.keys(lockfilePacks).length > 0) {
     lockfile["packs"] = lockfilePacks;
   }
@@ -93,8 +91,7 @@ const createAgentSymlink = (base: string, agentDir: string, name: string) => {
 const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  contentIdentity: "test-content",
 });
 
 const makeRegistryLockEntry = (
@@ -117,7 +114,6 @@ const makePackLockEntry = (
   owner: string,
   name: string,
   resolvedSkills: Record<string, string> = {},
-  sourceHash?: string,
 ) => ({
   type: "registry",
   owner,
@@ -126,22 +122,13 @@ const makePackLockEntry = (
   integrity: "sha256-abc",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
-  ...(sourceHash === undefined ? {} : { sourceHash }),
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  resolvedSkills: Object.fromEntries(
-    Object.entries(resolvedSkills).map(([skill, version]) => [
-      skill,
-      {
-        source: "registry",
-        version,
-        publisherBindingId: "hbnd_test",
-        integrity: "sha512-member",
-      },
-    ]),
-  ),
-  resolvedMcpServers: {},
-  resolvedSubagents: {},
+  manifestContentIdentity: computePackManifestContentIdentity({
+    owner,
+    type: "pack",
+    name,
+    version: "1.0.0",
+    dependencies: resolvedSkills,
+  }),
 });
 
 const defaultArgs = (
@@ -217,7 +204,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -253,7 +239,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("settings-only"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -295,7 +280,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("effect-*"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -331,7 +315,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -351,7 +334,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -379,7 +361,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -411,7 +392,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -442,7 +422,7 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("pack dependency retention", () => {
-    it.effect("retains pack dependencies unless --break-dependencies is explicit", () => {
+    it.effect("retains canonical content while an active pack still requires it", () => {
       const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
@@ -463,12 +443,7 @@ describe("uninstall.handler", () => {
         { [skillName]: makeRegistryLockEntry("@my-ns", "my-skill") },
         ["claude-code"],
         {
-          "my-pack": makePackLockEntry(
-            "@my-ns",
-            "my-pack",
-            { [fqn]: "1.0.0" },
-            computePackageContentHashSync(packDir),
-          ),
+          "my-pack": makePackLockEntry("@my-ns", "my-pack", { [fqn]: "1.0.0" }),
         },
         { [skillName]: fqn },
         { "my-pack": "@my-ns/packs/my-pack" },
@@ -481,7 +456,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs(skillName), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -499,17 +473,6 @@ describe("uninstall.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.[skillName]).toBeUndefined();
-
-          yield* handleUninstall(defaultArgs(skillName), {
-            yes: true,
-            force: true,
-            preview: false,
-          });
-          expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", skillName),
-            ),
-          ).toBe(false);
         }),
       );
     });
@@ -537,7 +500,6 @@ describe("uninstall.handler", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
             yes: false,
-            force: false,
             preview: true,
           });
 
@@ -563,7 +525,6 @@ describe("uninstall.handler", () => {
           Effect.gen(function* () {
             yield* handleUninstall(defaultArgs("my-skill"), {
               yes: false,
-              force: false,
               preview: true,
             });
 
@@ -625,7 +586,6 @@ describe("uninstall.handler", () => {
           Effect.gen(function* () {
             yield* handleUninstall(defaultArgs("my-skill"), {
               yes: false,
-              force: false,
               preview: true,
             });
 

@@ -40,9 +40,7 @@ import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { listCommand } from "./root/list/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
-import { pruneCommand } from "./root/prune/command.js";
 import { syncCommand } from "./root/sync/command.js";
-import { statusCommand } from "./root/status.js";
 import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
@@ -114,11 +112,9 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       group: "WORKSPACE",
       commands: [
         syncCommand,
-        statusCommand,
         agentsCommand,
         ...workspaceCapabilityCommands,
         lintCommand,
-        pruneCommand,
         cacheCommand,
         upgradeCommand,
       ],

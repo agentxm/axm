@@ -17,11 +17,7 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-  writeWorkspaceFiles,
-} from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -54,32 +50,6 @@ const initializePack = (root: string) => {
     }),
   );
   const lockPath = path.join(axmDir, "axm-lock.yaml");
-  const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
-  fs.writeFileSync(
-    lockPath,
-    YAML.stringify({
-      ...lock,
-      packs: {
-        toolkit: {
-          type: "workspace",
-          owner: "@acme",
-          extensionType: "pack",
-          name: "toolkit",
-          version: "1.0.0",
-          sourceHash: computePackageContentHashSync(packDir),
-          installedAt: "2026-08-04T00:00:00.000Z",
-          updatedAt: "2026-08-04T00:00:00.000Z",
-          resolvedSkills: {},
-          resolvedMcpServers: {},
-          resolvedSubagents: {},
-          resolvedRules: {},
-          resolvedHooks: {},
-          resolvedKnowledge: {},
-        },
-      },
-    }),
-  );
-  writeTrustFromWorkspaceLockfile(axmDir);
   return { axmDir, packDir, lockPath };
 };
 
@@ -106,8 +76,6 @@ const initializePackWithSkill = (root: string) => {
     }),
   );
 
-  const timestamp = "2026-08-04T00:00:00.000Z";
-  const skillHash = computePackageContentHashSync(skillDir);
   const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
   fs.writeFileSync(
     lockPath,
@@ -122,39 +90,10 @@ const initializePackWithSkill = (root: string) => {
           integrity: "sha512-AAAA==",
           sourceName: "default",
           publisherBindingId: "hbnd_test",
-          sourceHash: skillHash,
-          installedAt: timestamp,
-          updatedAt: timestamp,
-        },
-      },
-      packs: {
-        toolkit: {
-          type: "workspace",
-          owner: "@acme",
-          extensionType: "pack",
-          name: "toolkit",
-          version: "1.0.0",
-          sourceHash: computePackageContentHashSync(packDir),
-          installedAt: timestamp,
-          updatedAt: timestamp,
-          resolvedSkills: {
-            "@acme/skills/review": {
-              source: "registry",
-              version: "1.0.0",
-              publisherBindingId: "hbnd_test",
-              integrity: "sha512-member",
-            },
-          },
-          resolvedMcpServers: {},
-          resolvedSubagents: {},
-          resolvedRules: {},
-          resolvedHooks: {},
-          resolvedKnowledge: {},
         },
       },
     }),
   );
-  writeTrustFromWorkspaceLockfile(axmDir);
 
   const renderedSkill = path.join(root, ".claude", "skills", "review", "SKILL.md");
   fs.mkdirSync(path.dirname(renderedSkill), { recursive: true });

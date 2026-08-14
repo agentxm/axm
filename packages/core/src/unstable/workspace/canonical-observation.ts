@@ -5,7 +5,6 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import {
-  computePackageContentHash,
   parseExtensionFqnParts,
   toExtensionTypePlural,
   type ExtensionType,
@@ -15,16 +14,16 @@ import { KnowledgeManifestSchema } from "../knowledge/index.js";
 import { McpServerManifestSchema } from "../mcps/index.js";
 import { PackManifestSchema } from "../packs/index.js";
 import { RuleManifestSchema } from "../rules/index.js";
-import { computeSkillSourceHash, SkillManifestSchema } from "../skills/index.js";
-import { computeLegacySkillSourceHash } from "../skills/operations/source-hash.js";
+import { SkillManifestSchema } from "../skills/index.js";
 import { SubagentManifestSchema } from "../subagents/index.js";
-import type { ExtensionTrustRecord } from "../trust/index.js";
+import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
   | "missing"
-  | "missing-trust"
+  | "missing-resolution"
   | "constraint-mismatch"
   | "wrong-origin"
   | "corrupt"
@@ -43,8 +42,10 @@ export interface CanonicalObservation {
 interface ObserveCanonicalArgs {
   readonly baseDir: string;
   readonly desired: DesiredExtensionNode;
-  readonly trust: ExtensionTrustRecord | undefined;
+  readonly accepted: AcceptedExtensionResolution | undefined;
 }
+
+export type AcceptedExtensionResolution = SkillLockEntry | PackLockEntry;
 
 const MANIFEST_CONTRACTS = {
   skill: { filename: "skill.json", schema: SkillManifestSchema },
@@ -59,18 +60,17 @@ const MANIFEST_CONTRACTS = {
   { readonly filename: string; readonly schema: Schema.Top }
 >;
 
-export const canonicalPathForTrustedExtension = (
+export const canonicalPathForAcceptedExtension = (
   path: Path.Path,
   baseDir: string,
   desired: DesiredExtensionNode,
-  trust: ExtensionTrustRecord,
+  accepted: AcceptedExtensionResolution | undefined,
 ): string | undefined => {
-  if (trust.authority === "inline") return undefined;
-  if (trust.authority === "registry" || trust.authority === "workspace") {
-    const identity =
-      trust.authority === "workspace"
-        ? trust.sourceIdentity.slice("workspace:".length)
-        : trust.sourceIdentity;
+  if (desired.source === "inline") return undefined;
+  if (desired.identity.startsWith("workspace:") || accepted?.type === "registry") {
+    const identity = desired.identity.startsWith("workspace:")
+      ? desired.identity.slice("workspace:".length)
+      : desired.identity;
     const parsed = parseExtensionFqnParts(identity);
     if (parsed === undefined || parsed.type !== desired.type) return undefined;
     return path.join(
@@ -128,37 +128,10 @@ const parseJson = (raw: string): unknown | undefined => {
   }
 };
 
-const computeObservedContentIdentity = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  root: string,
-  type: ExtensionType,
-  trust: ExtensionTrustRecord,
-) =>
-  Effect.gen(function* () {
-    switch (type) {
-      case "skill": {
-        if (trust.authority === "registry" || trust.authority === "workspace") {
-          return yield* computePackageContentHash(root);
-        }
-        const src = path.join(root, "src");
-        const hashRoot = (yield* fs.exists(src)) ? src : root;
-        return yield* computeSkillSourceHash(hashRoot);
-      }
-      case "subagent":
-      case "mcp-server":
-      case "rule":
-      case "hook":
-      case "knowledge":
-      case "pack":
-        return yield* computePackageContentHash(root);
-    }
-  });
-
 export const observeCanonicalExtension = ({
   baseDir,
   desired,
-  trust,
+  accepted,
 }: ObserveCanonicalArgs): Effect.Effect<
   CanonicalObservation,
   never,
@@ -174,14 +147,25 @@ export const observeCanonicalExtension = ({
         status: "not-applicable",
       };
     }
-    if (trust === undefined) {
+    const workspaceAuthored = desired.identity.startsWith("workspace:");
+    if (!workspaceAuthored && accepted === undefined) {
       return {
         type: desired.type,
         name: desired.name,
-        status: "missing-trust",
+        status: "missing-resolution",
       };
     }
-    if (trust.sourceIdentity !== desired.identity) {
+    const acceptedIdentity =
+      accepted?.type === "registry"
+        ? `${accepted.owner}/${toExtensionTypePlural(desired.type)}/${accepted.name}`
+        : accepted === undefined
+          ? undefined
+          : printSourceParams(lockEntryToSourceParams(accepted));
+    if (
+      !workspaceAuthored &&
+      acceptedIdentity !== desired.identity &&
+      acceptedIdentity !== desired.source
+    ) {
       return {
         type: desired.type,
         name: desired.name,
@@ -190,9 +174,9 @@ export const observeCanonicalExtension = ({
     }
     if (
       desired.constraints.length > 0 &&
-      (trust.resolvedVersion === undefined ||
+      (accepted?.type !== "registry" ||
         desired.constraints.some(
-          (constraint) => !semver.satisfies(trust.resolvedVersion ?? "", constraint),
+          (constraint) => !semver.satisfies(accepted.resolvedVersion, constraint),
         ))
     ) {
       return {
@@ -202,7 +186,7 @@ export const observeCanonicalExtension = ({
       };
     }
 
-    const root = canonicalPathForTrustedExtension(path, baseDir, desired, trust);
+    const root = canonicalPathForAcceptedExtension(path, baseDir, desired, accepted);
     if (root === undefined) {
       return {
         type: desired.type,
@@ -247,60 +231,10 @@ export const observeCanonicalExtension = ({
       return { type: desired.type, name: desired.name, status: "incomplete", path: root };
     }
 
-    const contentIdentity = yield* computeObservedContentIdentity(
-      fs,
-      path,
-      root,
-      desired.type,
-      trust,
-    ).pipe(Effect.result);
-    if (Result.isFailure(contentIdentity)) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
-    const observedIdentity = contentIdentity.success;
-    if (trust.contentIdentity === undefined) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "wrong-origin",
-        path: root,
-        contentIdentity: observedIdentity,
-      };
-    }
-    if (trust.contentIdentity !== observedIdentity) {
-      if (
-        desired.type === "skill" &&
-        trust.authority !== "registry" &&
-        trust.authority !== "workspace"
-      ) {
-        const src = path.join(root, "src");
-        const hashRoot = (yield* fs.exists(src).pipe(Effect.orElseSucceed(() => false)))
-          ? src
-          : root;
-        const legacyIdentity = yield* computeLegacySkillSourceHash(hashRoot).pipe(Effect.result);
-        if (Result.isSuccess(legacyIdentity) && trust.contentIdentity === legacyIdentity.success) {
-          return {
-            type: desired.type,
-            name: desired.name,
-            status: "usable",
-            path: root,
-            contentIdentity: observedIdentity,
-          };
-        }
-      }
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "locally-modified",
-        path: root,
-        contentIdentity: observedIdentity,
-      };
-    }
     return {
       type: desired.type,
       name: desired.name,
       status: "usable",
       path: root,
-      contentIdentity: observedIdentity,
     };
   });

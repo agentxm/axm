@@ -435,8 +435,8 @@ export const instructionsCommand = Command.make(
   Command.withExamples([
     { command: "axm rules instructions", description: "Inspect instruction files" },
     {
-      command: "axm lint --fix",
-      description: "Repair instruction-file drift",
+      command: "axm sync --preview",
+      description: "Preview instruction-file reconciliation",
     },
   ]),
   Command.withSubcommands([

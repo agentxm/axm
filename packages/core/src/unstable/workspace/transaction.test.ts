@@ -67,18 +67,18 @@ describe("runWorkspaceTransaction", () => {
   );
 
   it.effect("restores every authoritative state family after an injected write failure", () => {
-    const trustPath = nodePath.join(workspaceDir, "trust.json");
+    const lockfilePath = nodePath.join(workspaceDir, "axm-lock.yaml");
     const canonicalFile = nodePath.join(canonicalPath, "content.txt");
     const projectionPath = nodePath.join(tempDir, ".claude", "skills", "demo", "SKILL.md");
     nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });
-    nodeFs.writeFileSync(trustPath, '{"trusted":true}\n');
+    nodeFs.writeFileSync(lockfilePath, "lockfileVersion: 4\nskills: {}\n");
     nodeFs.writeFileSync(projectionPath, "projected before\n");
 
     const families = [
       { family: "desired settings", target: settingsPath },
       { family: "observed canonical content", target: canonicalFile },
       { family: "managed projection", target: projectionPath },
-      { family: "trust state", target: trustPath },
+      { family: "accepted lock state", target: lockfilePath },
     ] as const;
 
     return withContext(
@@ -129,7 +129,7 @@ describe("runWorkspaceTransaction", () => {
     );
   });
 
-  it.effect("removes a workspace state directory created for a failed transition", () => {
+  it.effect("removes the process-lock artifact after a failed first transition", () => {
     const absentWorkspaceDir = nodePath.join(tempDir, "new-workspace", ".axm");
     const createdPath = nodePath.join(absentWorkspaceDir, "settings.json");
     return withContext(
@@ -145,7 +145,9 @@ describe("runWorkspaceTransaction", () => {
       }).pipe(
         Effect.flip,
         Effect.tap(() =>
-          Effect.sync(() => expect(nodeFs.existsSync(absentWorkspaceDir)).toBe(false)),
+          Effect.sync(() => {
+            expect(nodeFs.readdirSync(absentWorkspaceDir)).toEqual([]);
+          }),
         ),
       ),
     );
@@ -216,63 +218,6 @@ describe("runWorkspaceTransaction", () => {
       ),
     );
   });
-
-  it.effect("does not roll back a valid transition when receipt persistence fails", () =>
-    withContext(
-      runWorkspaceTransaction({
-        workspaceDir,
-        targets: [settingsPath],
-        transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),
-        validate: () => Effect.void,
-        receipt: () =>
-          Effect.fail(makeAppError({ code: "internal", detail: "injected receipt failure" })),
-      }).pipe(
-        Effect.flip,
-        Effect.tap((error) =>
-          Effect.sync(() => {
-            expect(error.detail).toContain("transition completed");
-            expect(error.detail).toContain("injected receipt failure");
-            expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
-          }),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("does not roll back a valid outer transition when a nested receipt fails", () =>
-    withContext(
-      runWorkspaceTransaction({
-        workspaceDir,
-        targets: [settingsPath],
-        transition: Effect.gen(function* () {
-          yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'));
-          yield* runWorkspaceTransaction({
-            workspaceDir,
-            targets: [canonicalPath],
-            transition: Effect.sync(() =>
-              nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "after\n"),
-            ),
-            validate: () => Effect.void,
-            receipt: () =>
-              Effect.fail(makeAppError({ code: "internal", detail: "nested receipt unavailable" })),
-          });
-        }),
-        validate: () => Effect.void,
-      }).pipe(
-        Effect.flip,
-        Effect.tap((error) =>
-          Effect.sync(() => {
-            expect(error.detail).toContain("receipt history could not be written");
-            expect(error.detail).toContain("nested receipt unavailable");
-            expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
-            expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
-              "after\n",
-            );
-          }),
-        ),
-      ),
-    ),
-  );
 
   it.effect("retains a usable backup path when exact rollback fails", () => {
     const parent = nodePath.dirname(settingsPath);

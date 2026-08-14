@@ -85,13 +85,6 @@ const hasCanonicalContent = (actual: ReadonlyArray<ActualWithOrigin>): boolean =
       entry.origin._tag.startsWith("external-axm-"),
   );
 
-const remediationCommand = (row: InstalledRow): string => {
-  if (row.installationOrigin._tag === "pack-member") {
-    return `axm packs install ${row.installationOrigin.pack.key.name}`;
-  }
-  return `axm install ${row.key.name}`;
-};
-
 const findingFor = (row: InstalledRow): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
@@ -99,9 +92,8 @@ const findingFor = (row: InstalledRow): AdvisoryFinding => ({
   message:
     row.installationOrigin._tag === "direct" &&
     categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source).kind === "workspace"
-      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authoritative package is missing from .axm/extensions. Restore the package or remove the workspace source declaration.`
-      : `${extensionLabel(row.key.type)} '${row.key.name}' is configured but its installed content is missing from .axm/extensions. ` +
-        `Run \`${remediationCommand(row)}\` to install it before syncing.`,
+      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authored canonical package is missing from .axm/extensions.`
+      : `${extensionLabel(row.key.type)} '${row.key.name}' is desired, but its canonical content is missing from .axm/extensions.`,
   location: { file: SETTINGS_REL },
 });
 

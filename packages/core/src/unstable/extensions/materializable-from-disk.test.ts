@@ -3,12 +3,12 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
 import {
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,
@@ -109,8 +109,6 @@ layer(NodeServices.layer, { excludeTestServices: true })(
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
           const env = { fs, path, baseDir: tempDir, scope: "project" as const };
-          const installedAt = DateTime.makeUnsafe("2026-07-29T00:00:00.000Z");
-
           nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
             recursive: true,
           });
@@ -137,8 +135,9 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   type: "github",
                   owner: "qualitymd",
                   repo: "quality.md",
-                  installedAt,
-                  updatedAt: installedAt,
+                  resolvedCommit: "commit-1",
+                  resolvedTree: "tree-1",
+                  contentIdentity: TEST_CONTENT_IDENTITY,
                 },
               },
               getConfiguredSources: () =>
@@ -172,8 +171,6 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
-          const installedAt = DateTime.makeUnsafe("2026-07-29T00:00:00.000Z");
-
           nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
             recursive: true,
           });
@@ -200,8 +197,9 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   type: "github",
                   owner: "qualitymd",
                   repo: "quality.md",
-                  installedAt,
-                  updatedAt: installedAt,
+                  resolvedCommit: "commit-1",
+                  resolvedTree: "tree-1",
+                  contentIdentity: TEST_CONTENT_IDENTITY,
                 },
               },
               getConfiguredSources: () =>

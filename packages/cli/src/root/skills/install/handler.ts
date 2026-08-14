@@ -173,7 +173,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
         : "Installed the bundled AXM skill",
       resolution,
       reportInstallationCoverage: true,
-      suggestions: [{ description: "Verify compatibility", cmd: "axm status" }],
+      suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
     });
   });
 

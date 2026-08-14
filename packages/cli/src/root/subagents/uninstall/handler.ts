@@ -12,7 +12,7 @@ import {
 
 export const handleUninstall = (
   args: UninstallSubagentHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSubagentCommandWorkflowActions;
@@ -23,7 +23,6 @@ export const handleUninstall = (
     );
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
-      breakDependencies: flags.force,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

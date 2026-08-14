@@ -13,7 +13,6 @@ import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 
 import {
-  computePackageContentHashSync,
   managerLifecycleStubs,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
@@ -226,18 +225,6 @@ describe("knowledge JSON output", () => {
     );
     writeWorkspaceFiles(axmDir, {
       knowledge: { platform: "workspace:@acme/knowledge/platform" },
-      lockfileKnowledge: {
-        platform: {
-          type: "workspace",
-          owner: "@acme",
-          extensionType: "knowledge",
-          name: "platform",
-          version: "1.0.0",
-          sourceHash: computePackageContentHashSync(packageRoot),
-          installedAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        },
-      },
     });
 
     return provide(

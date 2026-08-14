@@ -12,6 +12,7 @@ import {
   listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
+  reconcileInstructionTargets,
   removeManagedInstructionTargets,
   resolveInstructionMechanism,
   syncInstructions,
@@ -303,6 +304,44 @@ describe("agent instructions", () => {
 
         expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Local edit\n");
         expect(status.items[0]?.health).toBe("drift");
+      }),
+    ),
+  );
+
+  it.effect("restores an AXM-owned managed copy that has drifted", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          force: false,
+          dryRun: false,
+          symlinkSupported: false,
+        });
+        const targetPath = path.join(tempDir, "CLAUDE.md");
+        const managed = fs.readFileSync(targetPath, "utf-8");
+        fs.writeFileSync(targetPath, managed.replace("# Workspace", "# Drifted"));
+
+        yield* assertInstructionTargetsSafe({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: false,
+        });
+        const result = yield* reconcileInstructionTargets({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: false,
+        });
+
+        expect(result.written).toContain(targetPath);
+        expect(fs.readFileSync(targetPath, "utf-8")).toBe(managed);
       }),
     ),
   );

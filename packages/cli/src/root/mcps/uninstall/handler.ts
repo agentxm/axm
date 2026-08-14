@@ -10,7 +10,7 @@ import {
 
 export const handleUninstallMcpServer = (
   args: UninstallMcpServerHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
@@ -21,7 +21,6 @@ export const handleUninstallMcpServer = (
     );
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
-      breakDependencies: flags.force,
       displayApplied: false,
     });
     yield* emitAppliedPlanOutcome({

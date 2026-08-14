@@ -162,7 +162,7 @@ describe("publishPack", () => {
     }),
   );
 
-  it.effect("rejects publishing an empty pack", () =>
+  it.effect("publishes an empty pack", () =>
     Effect.gen(function* () {
       const { axmDir, registryRoot } = setup("@community", "empty-pack", {
         dependencies: {},
@@ -170,12 +170,14 @@ describe("publishPack", () => {
 
       const result = yield* publishPack(
         makeOp({ name: "@community/packs/empty-pack", registryName: "local" }),
-      ).pipe(
-        Effect.provide(withServices(axmDir, registryRoot)),
-        Effect.catch((error) => Effect.succeed(error)),
-      );
+      ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
-      expect(result).toMatchObject({ code: "validation" });
+      expect(result).toMatchObject({ result: "success" });
+      expect(
+        fs.existsSync(
+          path.join(registryRoot, "extensions", "@community", "packs", "empty-pack", "index.json"),
+        ),
+      ).toBe(true);
     }),
   );
 });

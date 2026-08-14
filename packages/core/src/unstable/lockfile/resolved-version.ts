@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
-import type { ResolvedExtensionMap } from "./schema.js";
 
 const decodeVersion = Schema.decodeUnknownEffect(VersionSchema);
 
@@ -24,10 +23,3 @@ export const validateExactResolvedVersion = (field: string, value: string) =>
     Effect.asVoid,
     Effect.mapError((cause) => makeResolvedVersionError(field, value, cause)),
   );
-
-export const validateExactResolvedVersionMap = (field: string, resolvedMap: ResolvedExtensionMap) =>
-  Effect.forEach(
-    Object.entries(resolvedMap),
-    ([fqn, value]) => validateExactResolvedVersion(`${field}.${fqn}.version`, value.version),
-    { concurrency: "unbounded" },
-  ).pipe(Effect.asVoid);

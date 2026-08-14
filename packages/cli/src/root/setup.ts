@@ -14,7 +14,6 @@ import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
@@ -27,17 +26,10 @@ import {
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import {
-  computePackageContentHash,
-  decodeExtensionNameSync,
-  normalizeHandle,
-  sanitizeName,
-} from "@agentxm/client-core/unstable/extensions";
+import { normalizeHandle, sanitizeName } from "@agentxm/client-core/unstable/extensions";
 import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -248,22 +240,9 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     { concurrency: "unbounded" },
   );
 
-  const sourceHash = yield* provide(computePackageContentHash(canonicalPath));
-  const now = yield* DateTime.now;
-  const lockEntry: SkillLockEntry = {
-    type: "workspace",
-    owner: normalizeHandle("@agentxm"),
-    extensionType: "skill",
-    name: decodeExtensionNameSync(sanitizedName),
-    version: decodeVersionSync(AXM_SKILL_VERSION),
-    sourceHash,
-    installedAt: now,
-    updatedAt: now,
-  };
-  yield* ws.setSkill({
-    name: sanitizedName,
-    lockEntry,
-    versionRange: Option.none(),
+  yield* ws.setSkillEntry(sanitizedName, {
+    source: `workspace:@agentxm/skills/${sanitizedName}`,
+    enabled: true,
   });
 });
 

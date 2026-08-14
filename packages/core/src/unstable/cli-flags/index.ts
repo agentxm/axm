@@ -90,20 +90,8 @@ export const ignoreVersionConstraintsFlag = Flag.boolean("ignore-version-constra
   Flag.withDescription("Update even when the configured version constraint excludes the result"),
 );
 
-export const breakDependenciesFlag = Flag.boolean("break-dependencies").pipe(
-  Flag.withDescription("Remove the target even when another extension still references it"),
-);
-
 export const acceptWarningsFlag = Flag.boolean("accept-warnings").pipe(
   Flag.withDescription("Apply the plan even when preflight reports unresolved warnings"),
-);
-
-export const replaceExistingFlag = Flag.boolean("replace-existing").pipe(
-  Flag.withDescription("Replace the pack's existing declaration for this extension"),
-);
-
-export const allowEmptyFlag = Flag.boolean("allow-empty").pipe(
-  Flag.withDescription("Remove the extension even when the pack would become empty"),
 );
 
 export const previewFlag = Flag.boolean("preview").pipe(

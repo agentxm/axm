@@ -45,7 +45,7 @@ Three forms:
   configured agent's instruction file in sync with the source file.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles
-existing on-disk files through `axm lint --fix` or `axm sync`.
+existing on-disk files through `axm sync`.
 
 ## Per-agent propagation
 
@@ -126,20 +126,20 @@ Instruction-file management:
   the managed `.gitignore` block, preserve the canonical source and its human
   content, then set `instructions: false`. Add `--preview` to inspect the plan.
 
-## Diagnosis and repair
+## Diagnosis and reconciliation
 
 Use `axm lint` for instruction-file diagnostics. It reports missing source
 files, missing or drifted agent targets, unsupported agent conventions, and
 stale managed `.gitignore` blocks.
 
-Use `axm lint --fix` to repair autofixable instruction drift. `axm sync` also
-propagates configured instruction files after materializing extension
-artifacts.
+Use `axm sync --preview` to inspect instruction reconciliation, then `axm sync`
+to restore missing or drifted AXM-owned aliases and propagate configured
+instruction files after materializing extension artifacts.
 
 Rule and instruction-management transitions fail closed when an alias is
-unowned or drifted; settings and files remain unchanged. Inspect the files,
-then use the explicit `axm lint --fix` recovery plan when overwriting the drift
-is intended. There is no generic force flag for these transitions.
+unowned; settings and files remain unchanged. Inspect the ownership evidence,
+then move, remove, or adopt the unowned target before rerunning sync. There is
+no generic force flag for these transitions.
 
 ## Alias gitignore propagation
 

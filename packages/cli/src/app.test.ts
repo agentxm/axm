@@ -60,18 +60,9 @@ describe("root command help", () => {
       ["axm mcps update", "refresh"],
       ["axm skills update", "ignore-version-constraints"],
       ["axm subagents update", "ignore-version-constraints"],
-      ["axm uninstall", "break-dependencies"],
-      ["axm skills uninstall", "break-dependencies"],
-      ["axm mcps uninstall", "break-dependencies"],
-      ["axm subagents uninstall", "break-dependencies"],
-      ["axm hooks uninstall", "break-dependencies"],
-      ["axm packs uninstall", "break-dependencies"],
-      ["axm rules uninstall", "break-dependencies"],
       ["axm agents add", "accept-warnings"],
       ["axm agents remove", "accept-warnings"],
       ["axm mcps add", "accept-warnings"],
-      ["axm packs add", "replace-existing"],
-      ["axm packs remove", "allow-empty"],
     ];
 
     for (const [command, expectedFlag] of expectedFlags) {
@@ -81,6 +72,24 @@ describe("root command help", () => {
         doc?.flags.map((flag) => flag.name),
         command,
       ).toContain(expectedFlag);
+    }
+
+    const removedFlags: ReadonlyArray<readonly [string, string]> = [
+      ["axm uninstall", "break-dependencies"],
+      ["axm skills uninstall", "break-dependencies"],
+      ["axm mcps uninstall", "break-dependencies"],
+      ["axm subagents uninstall", "break-dependencies"],
+      ["axm hooks uninstall", "break-dependencies"],
+      ["axm packs uninstall", "break-dependencies"],
+      ["axm rules uninstall", "break-dependencies"],
+      ["axm packs add", "replace-existing"],
+      ["axm packs remove", "allow-empty"],
+    ];
+    for (const [command, removedFlag] of removedFlags) {
+      expect(
+        files.get(command)?.flags.map((flag) => flag.name),
+        command,
+      ).not.toContain(removedFlag);
     }
   });
 

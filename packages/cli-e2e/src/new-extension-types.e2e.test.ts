@@ -53,7 +53,7 @@ describe("axm skills new", () => {
 });
 
 describe("axm mcps new", () => {
-  it("scaffolds, registers, and writes lockfile for an authored MCP server", async () => {
+  it("scaffolds and registers an authored MCP server without a lockfile row", async () => {
     const temp = createTempDir();
 
     try {
@@ -83,9 +83,7 @@ describe("axm mcps new", () => {
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toContain("context:");
-      expect(lockfile).toContain("type: workspace");
-      expect(lockfile).toContain("version: 0.1.0");
+      expect(lockfile).toBe("lockfileVersion: 4\nskills: {}\n");
       expect(result.stdout + result.stderr).toContain(
         "Edit `.axm/extensions/@test/mcps/context/mcp.json`",
       );
@@ -141,22 +139,10 @@ describe("axm mcps new", () => {
         mcpServers: { context: "workspace:@other/mcps/context" },
       }));
 
-      const status = await runCli(["status"], { cwd: temp.path });
-      expect(status.exitCode).toBe(1);
-      expect(status.stdout + status.stderr).toContain("axm adopt @other/mcps/context --preview");
-
-      const refused = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
-      expect(refused.exitCode).not.toBe(0);
-      expect(refused.stdout + refused.stderr).not.toContain("workspace:workspace:");
-      expect(refused.stdout + refused.stderr).toContain("axm adopt @other/mcps/context --preview");
-
-      const recovered = await runCli(["adopt", "@other/mcps/context", "--yes"], {
-        cwd: temp.path,
-      });
+      const recovered = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
       expect(recovered.exitCode).toBe(0);
+      expect(recovered.stdout + recovered.stderr).not.toContain("workspace:workspace:");
 
-      const finalStatus = await runCli(["status"], { cwd: temp.path });
-      expect(finalStatus.exitCode).toBe(0);
       const lint = await runCli(["lint"], { cwd: temp.path });
       expect(lint.exitCode).toBe(0);
     } finally {

@@ -1,5 +1,4 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -12,7 +11,6 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   type JobStepArtifact,
   type JobStepResult,
@@ -29,6 +27,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import type { InlineMcpDefinition } from "./import-preflight.js";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -140,25 +139,30 @@ const recordsEqual = (
 
 const matchesInlineMcpEntry = (args: {
   readonly existing: McpServerEntry | undefined;
-  readonly lockEntry: McpServerLockEntry;
+  readonly definition: InlineMcpDefinition;
   readonly env: Readonly<Record<string, string>>;
 }): boolean =>
   args.existing !== undefined &&
-  args.lockEntry.type === "inline" &&
   args.existing.source === "inline" &&
   args.existing.enabled &&
-  args.existing.command === args.lockEntry.command &&
-  arraysEqual(args.existing.args, args.lockEntry.args) &&
-  args.existing.url === args.lockEntry.url &&
-  recordsEqual(args.existing.headers, args.lockEntry.headers) &&
+  args.existing.command ===
+    (args.definition.type === "stdio" ? args.definition.command : undefined) &&
+  arraysEqual(
+    args.existing.args,
+    args.definition.type === "stdio" ? args.definition.args : undefined,
+  ) &&
+  args.existing.url === (args.definition.type === "http" ? args.definition.url : undefined) &&
+  recordsEqual(
+    args.existing.headers,
+    args.definition.type === "http" ? args.definition.headers : undefined,
+  ) &&
   recordsEqual(args.existing.env, args.env);
 
-const makeInlineLockEntry = (
+const makeInlineDefinition = (
   args: McpsAddArgs,
   headers: Readonly<Record<string, string>>,
-): Effect.Effect<McpServerLockEntry, AppError> =>
+): Effect.Effect<InlineMcpDefinition, AppError> =>
   Effect.gen(function* () {
-    const now = yield* DateTime.now;
     if (Option.isSome(args.command)) {
       const commandParts = splitCommand(args.command.value);
       const command = commandParts[0];
@@ -169,21 +173,17 @@ const makeInlineLockEntry = (
         });
       }
       return {
-        type: "inline",
+        type: "stdio",
         command,
         args: commandParts.slice(1),
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry;
+      } satisfies InlineMcpDefinition;
     }
     if (Option.isSome(args.url)) {
       return {
-        type: "inline",
+        type: "http",
         url: args.url.value,
         headers,
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry;
+      } satisfies InlineMcpDefinition;
     }
     return yield* makeAppError({
       code: "usage",
@@ -291,10 +291,10 @@ const configArtifact = (
   scope: "project" | "user",
   change: JobStepArtifact["change"],
 ): JobStepArtifact => ({
-  path: ".axm (config/lockfile)",
+  path: ".axm/settings.json",
   scope,
   change,
-  targets: [{ path: ".axm (config/lockfile)", change }],
+  targets: [{ path: ".axm/settings.json", change }],
 });
 
 const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
@@ -329,10 +329,10 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   if (Option.isSome(args.url)) {
     yield* validateRemoteUrl(args.url.value);
   }
-  const lockEntry = yield* makeInlineLockEntry(args, headers);
+  const definition = yield* makeInlineDefinition(args, headers);
   const configured = yield* ws.getConfiguredMcpServerEntries();
   const existingEntry = configured[args.name];
-  if (matchesInlineMcpEntry({ existing: configured[args.name], lockEntry, env })) {
+  if (matchesInlineMcpEntry({ existing: configured[args.name], definition, env })) {
     yield* emitNoOpOutcome("mcps.add", {
       planName: "Add MCP server",
       planDescription: `Configure ${args.name} and sync agent MCP configs`,
@@ -346,10 +346,11 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
       label: `Configure ${args.name}`,
       readiness: "ready",
       run: ws
-        .setMcpServer({
-          name: args.name,
-          lockEntry,
-          versionRange: Option.none(),
+        .setMcpServerEntry(args.name, {
+          source: "inline",
+          ...(definition.type === "stdio"
+            ? { command: definition.command, args: definition.args }
+            : { url: definition.url, headers: definition.headers }),
           env,
           enabled: true,
         })

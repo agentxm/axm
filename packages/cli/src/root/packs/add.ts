@@ -29,20 +29,17 @@ import { addToPack } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  usableAcceptedCanonical,
+} from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import {
-  replaceExistingFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
-  recoverySwitch,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
@@ -56,7 +53,6 @@ export interface PacksAddHandlerArgs {
   readonly pack: string;
   readonly extension: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -184,7 +180,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   );
 
   // Step 3: Resolve versioned managed extensions of every non-pack type from
-  // desired intent and authoritative trust. Receipt history is not consulted.
+  // desired intent and accepted external resolutions.
   const graph = yield* ws.getDesiredStateGraph();
   const packFqn = formatFqn({
     owner: packOwner,
@@ -202,8 +198,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       recover: "Inspect the pack drift, then explicitly accept or restore the current content.",
       suggestions: [
         {
-          description: "Preview pack repair",
-          cmd: `axm packs repair ${packFqn} --preview`,
+          description: "Preview workspace reconciliation",
+          cmd: `axm sync ${packFqn} --preview`,
         },
       ],
     });
@@ -211,27 +207,24 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const installedNames = new Set(
     graph.nodes.filter((node) => node.type !== "pack").map((node) => node.name),
   );
-  const trust = yield* ws.getTrustState();
   const candidates: Array<PackAddCandidate> = [];
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
-    const record = trust.records[trustRecordKey(node.type, node.name)];
+    const canonical = yield* usableAcceptedCanonical({
+      workspace: ws,
+      type: node.type,
+      name: node.name,
+    });
     if (
-      record === undefined ||
-      (record.authority !== "registry" && record.authority !== "workspace") ||
-      record.resolvedVersion === undefined
-    ) {
+      Option.isNone(canonical) ||
+      (canonical.value.ref.refType !== "registry" && canonical.value.ref.refType !== "workspace")
+    )
       continue;
-    }
-    const trustedIdentity = record.sourceIdentity.startsWith("workspace:")
-      ? record.sourceIdentity.slice("workspace:".length)
-      : record.sourceIdentity;
-    const parsed = parseExtensionFqnParts(trustedIdentity);
-    if (parsed === undefined || parsed.type !== node.type) continue;
-    const desiredIdentity = node.identity.startsWith("workspace:")
+    const acceptedIdentity = node.identity.startsWith("workspace:")
       ? node.identity.slice("workspace:".length)
       : node.identity;
-    if (desiredIdentity !== trustedIdentity) continue;
+    const parsed = parseExtensionFqnParts(acceptedIdentity);
+    if (parsed === undefined || parsed.type !== node.type) continue;
     const packageName = decodeExtensionNameSync(parsed.name);
     candidates.push({
       type: node.type,
@@ -239,7 +232,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       owner: parsed.owner,
       packageName,
       fqn: formatFqn({ owner: parsed.owner, type: node.type, name: packageName }),
-      versionRange: toVersionRange(record.resolvedVersion),
+      versionRange: toVersionRange(canonical.value.ref.version),
     });
   }
 
@@ -312,12 +305,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   // Step 4: Compute manifest delta (additions)
   const currentDependencies = manifest.dependencies;
   const additions: Record<string, string> = {};
-  const replacements: Array<string> = [];
-
   for (const candidate of matched) {
     const existing = currentDependencies[candidate.fqn];
     if (existing === candidate.versionRange) continue;
-    if (existing !== undefined) replacements.push(candidate.fqn);
     additions[candidate.fqn] = candidate.versionRange;
   }
 
@@ -364,19 +354,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       `Add ${count(Object.keys(additions).length, "extension")} to ${args.pack}`,
     ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
-    ...(replacements.length === 0
-      ? {}
-      : {
-          riskConditions: [
-            {
-              level: "override-required" as const,
-              id: "replace-existing-pack-dependencies",
-              policy: "replace-existing" as const,
-              requiredFlag: "--replace-existing",
-              detail: `Replace existing constraints for ${replacements.join(", ")}.`,
-            },
-          ],
-        }),
   };
 
   const execution = yield* makePlanExecution(
@@ -384,12 +361,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     makeConfirmationRecovery(
       ["packs", "add"],
       [
-        recoverySwitch("--replace-existing", args.force),
         recoveryPositional(publicRecoveryValue(args.pack)),
         recoveryPositional(publicRecoveryValue(args.extension)),
       ],
     ),
-    args.force ? ["replace-existing"] : [],
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
   const suggestions = [
@@ -428,20 +403,16 @@ const addConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Add without confirmation")),
-  force: replaceExistingFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
 } as const;
 
-export const addCommand = Command.make(
-  "add",
-  addConfig,
-  ({ pack, extension, yes, force, preview }) =>
-    handlePacksAdd({ pack, extension, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("packs add"),
-    ),
+export const addCommand = Command.make("add", addConfig, ({ pack, extension, yes, preview }) =>
+  handlePacksAdd({ pack, extension, yes, preview }).pipe(
+    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+    withRuntime("packs add"),
+  ),
 ).pipe(
   withArgvTracking(addConfig),
   Command.withDescription("Add an extension to a project-workspace pack manifest"),

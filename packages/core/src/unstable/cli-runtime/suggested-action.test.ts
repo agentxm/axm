@@ -26,11 +26,11 @@ describe("SuggestedActionSchema", () => {
     expect(
       decode({
         description: "Replace the pack dependency",
-        cmd: "axm packs add workflow @acme/skills/review --replace-existing",
+        cmd: "axm packs add workflow @acme/skills/review",
       }),
     ).toEqual({
       description: "Replace the pack dependency",
-      cmd: "axm packs add workflow @acme/skills/review --replace-existing",
+      cmd: "axm packs add workflow @acme/skills/review",
     });
   });
 

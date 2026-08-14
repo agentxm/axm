@@ -158,7 +158,7 @@ describe("axm knowledge lifecycle", () => {
       expect(focusedDiagnostic).toMatchObject({ severity: "warning" });
 
       const ordinaryLint = await runCli(["lint", "--json"], { cwd: temp.path });
-      expect(ordinaryLint.exitCode, ordinaryLint.stdout + ordinaryLint.stderr).toBe(1);
+      expect(ordinaryLint.exitCode, ordinaryLint.stdout + ordinaryLint.stderr).toBe(0);
       const ordinaryFinding = JSON.parse(ordinaryLint.stdout).result.findings.find(
         (finding: { ruleId: string }) => finding.ruleId === "knowledge/unresolved-resource",
       );

@@ -45,7 +45,6 @@ import {
   PublishOptionsSchema,
   REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
-  computePackageContentHash,
   decodeExtensionNameSync,
   fqnInvalidErrorToAppError,
   formatFqn,
@@ -391,7 +390,7 @@ const localPackConstraintErrors = (
                 ? [
                     {
                       description: `Replace ${conflict.packFqn}'s constraint with the selected version, then publish the member and pack together`,
-                      cmd: `axm packs add ${conflict.packFqn} ${conflict.memberFqn} --replace-existing`,
+                      cmd: `axm packs add ${conflict.packFqn} ${conflict.memberFqn}`,
                     },
                   ]
                 : [
@@ -1340,29 +1339,6 @@ const publishCandidate = (
     };
   });
 
-const refreshAuthoredPublishBaseline = Effect.fn("Publish.refreshAuthoredBaseline")(function* (
-  candidate: PublishCandidate,
-) {
-  if (!candidate.authored) return;
-  const ws = yield* WorkspaceMutations;
-  const contentIdentity = yield* computePackageContentHash(candidate.extensionDir);
-  if (candidate.type === "pack") {
-    yield* ws.refreshPackContentIdentity(
-      candidate.name,
-      contentIdentity,
-      undefined,
-      "authoritative",
-    );
-    return;
-  }
-  yield* ws.refreshAuthoredContentIdentity(
-    candidate.type,
-    candidate.name,
-    candidate.version,
-    contentIdentity,
-  );
-});
-
 const selectedResult = (
   entry: SelectedEntry,
   candidate: PublishCandidate | undefined,
@@ -1752,7 +1728,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
         publishedWarnings.set(publishTargetKey(candidate), warnings);
         return stepResult;
       }),
-      Effect.tap(() => refreshAuthoredPublishBaseline(candidate)),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, workspaceMutations),
@@ -1770,13 +1745,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
   };
 
   if (uploadCandidates.length === 0) {
-    if (!args.preview) {
-      yield* Effect.forEach(
-        candidates.filter((candidate) => candidate.action === "skip"),
-        refreshAuthoredPublishBaseline,
-        { concurrency: 4 },
-      );
-    }
     yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
       selection: selectionOutput,
@@ -1859,13 +1827,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
       : [];
-  if (!args.preview && resolution._tag === "ExecutedPlan") {
-    yield* Effect.forEach(
-      candidates.filter((candidate) => candidate.action === "skip"),
-      refreshAuthoredPublishBaseline,
-      { concurrency: 4 },
-    );
-  }
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
   if (resolution._tag === "ExecutedPlan") {

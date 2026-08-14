@@ -1,97 +1,87 @@
 # Workspace state
 
-AXM keeps four kinds of state separate:
+AXM separates three state families:
 
-- **Desired** — `.axm/settings.json` and configured pack manifests say what the
-  workspace wants.
+- **Desired** — `.axm/settings.json` and workspace-authored pack manifests say
+  what the workspace wants.
+- **Accepted resolution** — `.axm/axm-lock.yaml` records the exact immutable
+  identity and provenance accepted for each desired external extension.
 - **Observed** — canonical packages, managed agent artifacts and instruction
   regions, native config, and ownership markers say what actually exists.
-- **Trust** — `.axm/trust.json` preserves source identity, immutable revisions,
-  content identity, and Registry publisher epochs.
-- **Receipt** — `.axm/axm-lock.yaml` records successful resolution and
-  materialization history.
 
-`axm sync` performs workspace-wide reconciliation of desired and observed state
-using the trust baseline. Use `axm sync <fqn>` for one root and required pack
-members, or `axm sync --type <type>` to limit reconciliation by extension type.
-Run `axm sync --preview` before a workspace-wide apply. Sync
-does not treat receipt rows as declarations or proof of installation. Missing,
-stale, or malformed receipt history does not create install, update, uninstall,
-prune, or repair work.
+Settings and authored manifests are the only desired-state authority. A lock
+row never declares an extension by itself. Canonical packages and agent-native
+outputs never reconstruct missing settings or lock authority.
 
-## Safe failure
+`axm sync` reconciles desired, accepted, and observed state. Use `axm sync
+<fqn>` for one root and its required pack members, or `axm sync --type <type>`
+to limit reconciliation by extension type. Run `axm sync --preview` to inspect
+the same semantic candidate that apply will execute.
 
-AXM stops destructive reconciliation when a configured pack manifest is missing
-or invalid, constraints conflict, or the trust baseline cannot prove that
-same-name canonical content belongs to the configured source.
+## Accepted external resolution
 
-Sync preflights materialization, Knowledge, generator, trust migration, cleanup,
-and instruction work before applying any step. A readiness error blocks the
-whole plan, and a runtime failure blocks every later job. Drifted AXM-managed
-inline MCP entries are never overwritten by sync; review their exact targets
-with `axm mcps repair <name> --preview` and apply that targeted recovery
-explicitly.
+Lockfile v4 contains only external resolutions. Registry rows pin version,
+archive integrity, source name, and publisher binding. Git rows pin commit,
+tree, and content identity. Local-source rows pin the relative locator and
+content identity. Workspace-authored, bundled, inline, projected, and
+command-history state does not belong in the lockfile.
 
-Every plan-bearing mutation constructs one execution candidate before any
-write. Preview, human display, JSON output, approval, and apply refer to that
-same candidate ID. AXM fingerprints relevant desired, trust, receipt, manifest,
-and source material and fails with `stale-candidate` before the first effect if
-those inputs change.
+Sync may resolve a desired external extension once when no accepted row exists.
+After acceptance, reinstall and sync use that exact identity; only update may
+advance it. If the source can no longer reproduce the locked identity, AXM
+blocks that affected work instead of substituting current bytes.
 
-Local plans execute inside one candidate-wide workspace transaction. A failed
-step, failed postcondition, or SIGINT restores every protected local target;
-publish is non-rollbackable and instead reports the exact completed, failed,
-and unattempted remote work. `--preview`, including `--preview --yes`, never
-writes. JSON and non-interactive invocations never open a prompt.
+## Safe reconciliation
 
-A Registry publisher-epoch change is never crossed unattended. Local and
-`workspace:` content is not treated as remotely recoverable. Inline MCP servers
-are observed through settings and managed native configuration without a fake
-canonical package.
+AXM stops an affected semantic closure when its desired graph is incomplete,
+its accepted resolution is invalid or incompatible, or a target is unowned or
+ambiguously owned. Independent ready closures may still apply.
+
+Lint reports intrinsic workspace facts. `axm lint --fix` performs only
+deterministic, meaning-preserving normalization; it does not acquire sources,
+write accepted lock state, replace canonical content, or repair projections.
+Use `axm sync` for reconciliation work.
+
+Every plan-bearing mutation constructs one execution candidate before writing.
+Preview, human display, JSON output, approval, and apply refer to that same
+candidate ID. AXM fingerprints material desired, lock, manifest, canonical, and
+target preimage state and rejects a stale candidate before its first write.
+
+Application holds one atomic process lock per workspace. Settings, accepted
+lock state, canonical content, and owned outputs needed by one closure commit
+together. A handled failure or interruption restores protected targets. The
+lock is refreshed while its owner runs and reclaimed after abrupt process
+death; a later mutation converges surviving authoritative and owned state.
 
 ## Workspace files
 
-- Edit desired intent through AXM commands or `.axm/settings.json`.
-- Do not hand-edit `.axm/trust.json` or `.axm/axm-lock.yaml`.
-- Do not reconstruct desired state by copying content hashes or source identities
-  between those files. Hashes are verification records, not declarations.
+- Change intent through AXM commands or `.axm/settings.json`.
+- Treat `.axm/axm-lock.yaml` as generated accepted-resolution state; do not
+  hand-edit it.
 - Check `.axm/` into source control.
-- Use `axm sync --preview --json` to inspect the same plan apply would run.
-- Use `axm status` to inspect deterministic local blockers.
-- After intentionally relocating a workspace-authored extension, use the exact
-  `axm adopt <fqn> --preview` command reported by `axm status`, review its target,
-  then apply `axm adopt <fqn>`. This never authorizes an unattended Registry or
-  cross-authority transition.
-- Use `axm packs repair <name-or-fqn> --preview` for authored-pack trust drift.
-- Use `axm lint` for read-only diagnostics and `axm lint --fix` to reconcile.
+- Use `axm lint` for read-only facts and `axm lint --fix` only for safe
+  normalization.
+- Use `axm sync --preview --json` to inspect reconciliation, then `axm sync` to
+  apply it.
+- Use explicit lifecycle commands when desired intent must change.
 
-If `axm status` or `axm lint` reports a receipt-only skill, choose explicitly:
-run the exact `axm skills install <source>` command in the finding to declare
-and retain it, or run `axm skills uninstall <name>` to remove it. `axm lint
---fix` does not choose between those outcomes and never silently uninstalls a
-receipt-only skill.
-
-If a v3 workspace has no `trust.json`, AXM migrates available security fields
-from a valid receipt. Invalid trust state fails closed. Receipt-only maintenance
-does not erase the trust baseline.
+Legacy lockfile versions and `trust.json` are unsupported state. AXM does not
+reconstruct current authority from them.
 
 ## Extension coverage
 
 The model covers skills, MCP servers, subagents, rules, hooks, knowledge
-bundles, and packs. Packs are containers with authoritative
-dependency manifests; they do not have ordinary activation or per-agent
-projection behavior.
+bundles, and packs. Packs contribute desired members only through a configured
+pack and its authoritative manifest. A lock-only pack or member is not
+reachable.
 
-Active Knowledge is resolved from this desired-state graph, including enabled
-pack dependencies and shared dependencies. A direct `enabled: false`
-declaration wins over pack activation. Its canonical package, trust, and receipt
-remain valid while its instruction-table row and active search/open discovery
-are absent.
+A direct `enabled: false` declaration wins over pack activation. Retained
+canonical content and accepted resolution may remain while active projections
+and Knowledge discovery are absent.
 
 ## Where to go next
 
 - `axm help settings` — desired workspace configuration
-- `axm help trust-schema` — raw trust-state JSON Schema
-- `axm help axm-lock-schema` — raw receipt JSON Schema
+- `axm help axm-lock-schema` — accepted-resolution lockfile schema
 - `axm sync --help` — reconciliation flags
-- `axm help packs` — pack ownership, constraints, and retention
+- `axm help packs` — pack reachability, constraints, and retention

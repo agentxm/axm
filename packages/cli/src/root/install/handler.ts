@@ -186,7 +186,7 @@ const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
             : `Installed ${item.type} extensions from ${source}`,
         resolution: item.resolution,
         reportInstallationCoverage: item.type !== "knowledge",
-        suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+        suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       });
     }
   });
@@ -237,7 +237,7 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
               : `Installed ${intent.type} ${source}`,
           resolution,
           reportInstallationCoverage: intent.type !== "knowledge",
-          suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+          suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
         });
       }),
   });

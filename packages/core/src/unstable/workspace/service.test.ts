@@ -5,16 +5,15 @@
  * including CI environment detection fallback.
  */
 
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../cli-renderer/index.js";
 import YAML from "yaml";
@@ -34,6 +33,7 @@ import {
   versionRange,
 } from "../test-helpers.js";
 import { computeSourceHash } from "../extensions/index.js";
+import { computePackManifestContentIdentity, PackManifestSchema } from "../packs/index.js";
 import { withDegradedLockfileReads } from "./lockfile-read-tolerance.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
@@ -78,7 +78,7 @@ describe("WorkspaceMutationsService", () => {
       path.join(axmDir, "settings.json"),
       JSON.stringify({ agents: ["claude-code"] }),
     );
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -136,51 +136,6 @@ describe("WorkspaceMutationsService", () => {
         const config = yield* ws.getKnowledgeDiscoveryConfig();
 
         expect(config).toEqual({ instructions: false });
-      }),
-    );
-  });
-
-  describe("removeTrustRecord", () => {
-    it.effect("retires only the explicitly uninstalled identity", () =>
-      Effect.gen(function* () {
-        const trustPath = path.join(projectDir, ".axm", "trust.json");
-        fs.writeFileSync(
-          trustPath,
-          JSON.stringify({
-            trustStateVersion: 1,
-            records: {
-              "skill:review": {
-                extensionType: "skill",
-                name: "review",
-                authority: "registry",
-                sourceIdentity: "@acme/skills/review",
-                resolvedVersion: "1.0.0",
-                publisherBindingId: "hbnd_epoch_1",
-              },
-              "rule:review": {
-                extensionType: "rule",
-                name: "review",
-                authority: "registry",
-                sourceIdentity: "@acme/rules/review",
-                resolvedVersion: "1.0.0",
-                publisherBindingId: "hbnd_epoch_1",
-              },
-            },
-          }),
-        );
-        const ws = yield* getService({ scope: "project" });
-
-        yield* ws.removeTrustRecord("skill", "review");
-
-        const trust: unknown = JSON.parse(fs.readFileSync(trustPath, "utf8"));
-        expect(trust).toMatchObject({
-          records: {
-            "rule:review": {
-              publisherBindingId: "hbnd_epoch_1",
-            },
-          },
-        });
-        expect(JSON.stringify(trust)).not.toContain('"skill:review"');
       }),
     );
   });
@@ -313,53 +268,28 @@ describe("WorkspaceMutationsService", () => {
   ) => {
     const packDir = path.join(dir, ".axm", "extensions", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
-    const manifest = JSON.stringify({
+    const decodedManifest = Schema.decodeUnknownSync(PackManifestSchema)({
       owner,
       type: "pack",
       name,
       version: "1.0.0",
       dependencies,
     });
+    const manifest = JSON.stringify(decodedManifest);
     fs.writeFileSync(path.join(packDir, "pack.json"), manifest);
-    const packageDigest = crypto
-      .createHash("sha256")
-      .update("pack.json")
-      .update("\0")
-      .update(manifest)
-      .update("\0")
-      .digest("hex");
-    const contentIdentity = computeSourceHash(packageDigest);
-    fs.writeFileSync(
-      path.join(dir, ".axm", "trust.json"),
-      JSON.stringify({
-        trustStateVersion: 1,
-        records: {
-          [`pack:${name}`]: {
-            extensionType: "pack",
-            name,
-            authority: "registry",
-            sourceIdentity: `${owner}/packs/${name}`,
-            resolvedVersion: "1.0.0",
-            publisherBindingId: "hbnd_test",
-            contentIdentity,
-          },
-        },
-      }),
-    );
-    return contentIdentity;
+    return computePackManifestContentIdentity(decodedManifest);
   };
 
-  const writeLegacyPackReceiptTo = (
+  const writeAcceptedPackResolutionTo = (
     dir: string,
     owner: string,
     name: string,
     contentIdentity: string,
   ) => {
-    fs.rmSync(path.join(dir, ".axm", "trust.json"), { force: true });
     fs.writeFileSync(
       path.join(dir, ".axm", "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 3,
+        lockfileVersion: 4,
         skills: {},
         packs: {
           [name]: {
@@ -370,15 +300,7 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            sourceHash: contentIdentity,
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-            resolvedSkills: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-            resolvedKnowledge: {},
+            manifestContentIdentity: contentIdentity,
           },
         },
       }),
@@ -774,18 +696,64 @@ describe("WorkspaceMutationsService", () => {
   ) => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
-    const lockfileData: Record<string, unknown> = { lockfileVersion: 3, skills };
+    const normalizeEntry = (value: unknown, pack: boolean): unknown => {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+      const entry: Record<string, unknown> = {};
+      for (const [key, field] of Object.entries(value)) {
+        if (
+          key === "installedAt" ||
+          key === "updatedAt" ||
+          key === "agents" ||
+          key === "sourceHash" ||
+          key === "gitTreeHash" ||
+          key.startsWith("resolvedSkills") ||
+          key.startsWith("resolvedMcpServers") ||
+          key.startsWith("resolvedSubagents") ||
+          key.startsWith("resolvedRules") ||
+          key.startsWith("resolvedHooks") ||
+          key.startsWith("resolvedKnowledge")
+        ) {
+          continue;
+        }
+        entry[key] = field;
+      }
+      const type = entry["type"];
+      if (
+        type === "github" ||
+        type === "gitlab" ||
+        type === "bitbucket" ||
+        type === "azurerepos" ||
+        type === "git"
+      ) {
+        entry["resolvedCommit"] ??= "test-commit";
+        entry["resolvedTree"] ??= "test-tree";
+        entry["contentIdentity"] ??= computeSourceHash("test-content");
+      } else if (type === "local") {
+        entry["contentIdentity"] ??= computeSourceHash("test-content");
+      } else if (type === "registry" && pack) {
+        entry["manifestContentIdentity"] ??= computeSourceHash("test-pack-manifest");
+      }
+      return entry;
+    };
+    const normalizeEntries = (entries: Record<string, unknown>, pack = false) =>
+      Object.fromEntries(
+        Object.entries(entries).map(([name, value]) => [name, normalizeEntry(value, pack)]),
+      );
+    const lockfileData: Record<string, unknown> = {
+      lockfileVersion: 4,
+      skills: normalizeEntries(skills),
+    };
     if (packs !== undefined) {
-      lockfileData["packs"] = packs;
+      lockfileData["packs"] = normalizeEntries(packs, true);
     }
     if (mcpServers !== undefined) {
-      lockfileData["mcpServers"] = mcpServers;
+      lockfileData["mcpServers"] = normalizeEntries(mcpServers);
     }
     if (subagents !== undefined) {
-      lockfileData["subagents"] = subagents;
+      lockfileData["subagents"] = normalizeEntries(subagents);
     }
     if (knowledge !== undefined) {
-      lockfileData["knowledge"] = knowledge;
+      lockfileData["knowledge"] = normalizeEntries(knowledge);
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
@@ -808,21 +776,25 @@ describe("WorkspaceMutationsService", () => {
   };
 
   /** Create a sample SkillLockEntry for testing. */
-  const makeSampleLockEntry = (): SkillLockEntry => ({
+  const makeSampleLockEntry = (): Extract<SkillLockEntry, { readonly type: "github" }> => ({
     type: "github" as const,
     owner: "acme",
     repo: "code-review",
-    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    resolvedCommit: "test-commit",
+    resolvedTree: "test-tree",
+    contentIdentity: computeSourceHash("test-content"),
   });
 
-  const makeSampleSubagentLockEntry = (): SubagentLockEntry => ({
+  const makeSampleSubagentLockEntry = (): Extract<
+    SubagentLockEntry,
+    { readonly type: "github" }
+  > => ({
     type: "github" as const,
     owner: "acme",
     repo: "planner",
-    sourceHash: "abc123",
-    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    resolvedCommit: "test-commit",
+    resolvedTree: "test-tree",
+    contentIdentity: computeSourceHash("test-content"),
   });
 
   describe("getLockfileState", () => {
@@ -1024,8 +996,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1057,8 +1027,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1114,30 +1082,21 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("sets updatedAt to current time", () =>
+    it.effect("persists no receipt-history fields", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: makeSampleLockEntry(),
           versionRange: Option.none(),
         });
-        const after = yield* DateTime.now;
-
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = DateTime.makeUnsafe(
-          stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
-          DateTime.toEpochMillis(before),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
-          DateTime.toEpochMillis(after),
-        );
+        const entry = recordEntry(lockfile.skills, "code-review");
+        expect(entry).not.toHaveProperty("installedAt");
+        expect(entry).not.toHaveProperty("updatedAt");
       }),
     );
 
@@ -1152,8 +1111,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1166,8 +1123,6 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             ...makeSampleLockEntry(),
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
           versionRange: Option.none(),
         });
@@ -1187,8 +1142,6 @@ describe("WorkspaceMutationsService", () => {
           "local-review": {
             type: "local",
             path: "skills/local-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1201,8 +1154,7 @@ describe("WorkspaceMutationsService", () => {
           lockEntry: {
             type: "local",
             path: "skills/local-review",
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            contentIdentity: computeSourceHash("test-content"),
           },
           versionRange: Option.none(),
         });
@@ -1224,25 +1176,18 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           unrelated: {
             type: "github",
             owner: "acme",
             repo: "unrelated",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-02T00:00:00.000Z",
           },
         });
 
         const ws = yield* getService(defaultOptions);
         const updatedEntry: SkillLockEntry = {
-          type: "github",
-          owner: "acme",
+          ...makeSampleLockEntry(),
           repo: "code-review-v2",
-          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-          updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         };
         yield* ws.setSkill({
           name: "code-review",
@@ -1258,20 +1203,14 @@ describe("WorkspaceMutationsService", () => {
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
         expect(recordEntry(lockfile.skills, "code-review")).not.toHaveProperty("agents");
-        expect(
-          DateTime.toEpochMillis(
-            DateTime.makeUnsafe(
-              stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
-            ),
-          ),
-        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
-        expect(stringProperty(recordEntry(lockfile.skills, "unrelated"), "updatedAt")).toBe(
-          "2025-01-02T00:00:00.000Z",
+        expect(stringProperty(recordEntry(lockfile.skills, "code-review"), "repo")).toBe(
+          "code-review-v2",
         );
+        expect(stringProperty(recordEntry(lockfile.skills, "unrelated"), "repo")).toBe("unrelated");
       }),
     );
 
-    it.effect("preserves the original installedAt when the lock entry changes", () =>
+    it.effect("replaces the accepted immutable identity when the lock entry changes", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -1282,31 +1221,28 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
         const ws = yield* getService(defaultOptions);
-        // A re-install stamps a fresh installedAt on the candidate entry; the
-        // workspace must keep the timestamp from the first install.
+        const replacementIdentity = computeSourceHash("replacement-content");
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: {
             type: "github",
             owner: "acme",
             repo: "code-review-v2",
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            resolvedCommit: "replacement-commit",
+            resolvedTree: "replacement-tree",
+            contentIdentity: replacementIdentity,
           },
           versionRange: Option.none(),
         });
 
         const entry = recordEntry(readLockfileFromDisk(projectDir).skills, "code-review");
-        expect(stringProperty(entry, "installedAt")).toBe("2025-01-01T00:00:00.000Z");
-        expect(
-          DateTime.toEpochMillis(DateTime.makeUnsafe(stringProperty(entry, "updatedAt"))),
-        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
+        expect(stringProperty(entry, "resolvedCommit")).toBe("replacement-commit");
+        expect(stringProperty(entry, "resolvedTree")).toBe("replacement-tree");
+        expect(stringProperty(entry, "contentIdentity")).toBe(replacementIdentity);
       }),
     );
 
@@ -1325,8 +1261,6 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: yield* DateTime.now,
-          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1356,8 +1290,6 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: yield* DateTime.now,
-          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1387,8 +1319,6 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: yield* DateTime.now,
-          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1405,7 +1335,7 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe("setSkillLock", () => {
-    it.effect("preserves the original installedAt when the lock entry changes", () =>
+    it.effect("writes the replacement accepted identity when the lock entry changes", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {
@@ -1413,8 +1343,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1425,18 +1353,17 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review-v2",
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            resolvedCommit: "replacement-commit",
+            resolvedTree: "replacement-tree",
+            contentIdentity: computeSourceHash("replacement-content"),
           },
           versionRange: Option.none(),
         });
 
         const entry = recordEntry(readLockfileFromDisk(projectDir).skills, "code-review");
         expect(stringProperty(entry, "repo")).toBe("code-review-v2");
-        expect(stringProperty(entry, "installedAt")).toBe("2025-01-01T00:00:00.000Z");
-        expect(
-          DateTime.toEpochMillis(DateTime.makeUnsafe(stringProperty(entry, "updatedAt"))),
-        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
+        expect(stringProperty(entry, "resolvedCommit")).toBe("replacement-commit");
+        expect(stringProperty(entry, "resolvedTree")).toBe("replacement-tree");
       }),
     );
 
@@ -1448,8 +1375,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
         const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
@@ -1460,8 +1385,6 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             ...makeSampleLockEntry(),
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
           versionRange: Option.none(),
         });
@@ -1476,7 +1399,6 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
-        const now = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
 
         yield* ws.setSubagent({
@@ -1490,8 +1412,6 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-BBBB==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            installedAt: now,
-            updatedAt: now,
           },
         });
         yield* ws.setMcpServer({
@@ -1505,8 +1425,6 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-CCCC==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            installedAt: now,
-            updatedAt: now,
           },
         });
 
@@ -1537,8 +1455,6 @@ describe("WorkspaceMutationsService", () => {
             owner: "acme",
             repo: "planner",
             sourceHash: "abc123",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1552,8 +1468,6 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.none(),
           lockEntry: {
             ...makeSampleSubagentLockEntry(),
-            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
-            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
         });
 
@@ -1578,14 +1492,10 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "test-gen": {
             type: "local",
             path: "test-gen",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1615,8 +1525,6 @@ describe("WorkspaceMutationsService", () => {
           "test-gen": {
             type: "local",
             path: "test-gen",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1644,8 +1552,6 @@ describe("WorkspaceMutationsService", () => {
           implicit: {
             type: "local",
             path: "implicit",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1900,8 +1806,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -1925,8 +1829,6 @@ describe("WorkspaceMutationsService", () => {
               type: "github",
               owner: "acme",
               repo: "code-review",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
             },
           });
 
@@ -2220,12 +2122,8 @@ describe("WorkspaceMutationsService", () => {
     name: extensionName("starter-pack"),
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-AAAA==",
+    manifestContentIdentity: computeSourceHash("test-pack-manifest"),
     sourceName: "default",
-    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    resolvedSkills: {},
-    resolvedMcpServers: {},
-    resolvedSubagents: {},
     versionRange: Option.none(),
     ...overrides,
     publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
@@ -2343,33 +2241,31 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect(
-      "uses a valid legacy receipt as the one-time trust migration baseline for packs",
-      () =>
-        Effect.gen(function* () {
-          writeSettingsTo(projectDir, {
-            agents: ["claude-code"],
-            packs: { "starter-pack": "@acme/packs/starter-pack" },
-          });
-          const contentIdentity = writePackManifestTo(projectDir, "@acme", "starter-pack", {});
-          writeLegacyPackReceiptTo(projectDir, "@acme", "starter-pack", contentIdentity);
+    it.effect("uses the accepted pack resolution with the authored manifest", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        const contentIdentity = writePackManifestTo(projectDir, "@acme", "starter-pack", {});
+        writeAcceptedPackResolutionTo(projectDir, "@acme", "starter-pack", contentIdentity);
 
-          const ws = yield* getService(defaultOptions);
-          const graph = yield* ws.getDesiredStateGraph();
+        const ws = yield* getService(defaultOptions);
+        const graph = yield* ws.getDesiredStateGraph();
 
-          expect(graph.complete).toBe(true);
-          expect(graph.problems).toEqual([]);
-          expect(graph.nodes).toContainEqual(
-            expect.objectContaining({
-              type: "pack",
-              name: "starter-pack",
-            }),
-          );
-        }),
+        expect(graph.complete).toBe(true);
+        expect(graph.problems).toEqual([]);
+        expect(graph.nodes).toContainEqual(
+          expect.objectContaining({
+            type: "pack",
+            name: "starter-pack",
+          }),
+        );
+      }),
     );
 
     it.effect(
-      "keeps desired state identical across receipt conditions for all extension types",
+      "keeps direct desired declarations independent of unrelated accepted resolutions",
       () =>
         Effect.gen(function* () {
           writeSettingsTo(projectDir, {
@@ -2380,12 +2276,9 @@ describe("WorkspaceMutationsService", () => {
             rules: { security: "@acme/rules/security@^1.0.0" },
             hooks: { preflight: "@acme/hooks/preflight@^1.0.0" },
             knowledge: { handbook: "@acme/knowledge/handbook@^1.0.0" },
-            packs: { "starter-pack": "@acme/packs/starter-pack@^1.0.0" },
           });
-          writePackManifestTo(projectDir, "@acme", "starter-pack", {});
 
-          const timestamp = "2025-01-01T00:00:00.000Z";
-          const receiptEntry = (name: string, owner = "@acme") => ({
+          const resolutionEntry = (name: string, owner = "@acme") => ({
             type: "registry",
             owner,
             name,
@@ -2393,28 +2286,10 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            installedAt: timestamp,
-            updatedAt: timestamp,
           });
-          const receipt = (suffix = "", owner = "@acme") => ({
-            lockfileVersion: 3,
-            skills: { [`review${suffix}`]: receiptEntry(`review${suffix}`, owner) },
-            mcpServers: { [`browser${suffix}`]: receiptEntry(`browser${suffix}`, owner) },
-            subagents: { [`planner${suffix}`]: receiptEntry(`planner${suffix}`, owner) },
-            rules: { [`security${suffix}`]: receiptEntry(`security${suffix}`, owner) },
-            hooks: { [`preflight${suffix}`]: receiptEntry(`preflight${suffix}`, owner) },
-            knowledge: { [`handbook${suffix}`]: receiptEntry(`handbook${suffix}`, owner) },
-            packs: {
-              [`starter-pack${suffix}`]: {
-                ...receiptEntry(`starter-pack${suffix}`, owner),
-                resolvedSkills: {},
-                resolvedMcpServers: {},
-                resolvedSubagents: {},
-                resolvedRules: {},
-                resolvedHooks: {},
-                resolvedKnowledge: {},
-              },
-            },
+          const lock = (suffix = "", owner = "@acme") => ({
+            lockfileVersion: 4,
+            skills: { [`unrelated${suffix}`]: resolutionEntry(`unrelated${suffix}`, owner) },
           });
           const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
           const variants = [
@@ -2423,20 +2298,13 @@ describe("WorkspaceMutationsService", () => {
               write: () => fs.rmSync(lockfilePath, { force: true }),
             },
             {
-              name: "accurate",
-              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt())),
+              name: "empty",
+              write: () =>
+                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 4, skills: {} })),
             },
             {
-              name: "stale",
-              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt("-old"))),
-            },
-            {
-              name: "settings-conflicting",
-              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt("", "@other"))),
-            },
-            {
-              name: "corrupt",
-              write: () => fs.writeFileSync(lockfilePath, "not: [valid"),
+              name: "unrelated",
+              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(lock("-old", "@other"))),
             },
           ] as const;
 
@@ -2464,7 +2332,6 @@ describe("WorkspaceMutationsService", () => {
             "rule",
             "hook",
             "knowledge",
-            "pack",
           ]);
         }),
     );
@@ -2516,12 +2383,13 @@ describe("WorkspaceMutationsService", () => {
           agents: ["claude-code"],
           packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
-        writePackManifestTo(
+        const contentIdentity = writePackManifestTo(
           projectDir,
           "@acme",
           "starter-pack",
           Object.fromEntries(cases.map((entry) => [entry.fqn, "^1.0.0"])),
         );
+        writeAcceptedPackResolutionTo(projectDir, "@acme", "starter-pack", contentIdentity);
 
         const ws = yield* getService(defaultOptions);
         for (const entry of cases) {
@@ -2604,8 +2472,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {
                 "@acme/skills/code-review": {
                   source: "registry",
@@ -2625,14 +2491,7 @@ describe("WorkspaceMutationsService", () => {
 
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
-        expect(packs["starter-pack"]?.resolvedSkills).toEqual({
-          "@acme/skills/code-review": {
-            source: "registry",
-            version: "1.2.0",
-            publisherBindingId: "hbnd_test",
-            integrity: "sha512-member",
-          },
-        });
+        expect(packs["starter-pack"]).not.toHaveProperty("resolvedSkills");
       }),
     );
 
@@ -2664,8 +2523,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -2719,26 +2576,18 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("sets updatedAt to current time", () =>
+    it.effect("persists no receipt-history fields", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setPack(makeSampleSetPackArgs());
-        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = DateTime.makeUnsafe(
-          stringProperty(recordEntry(expectDefined(lockfile.packs), "starter-pack"), "updatedAt"),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
-          DateTime.toEpochMillis(before),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
-          DateTime.toEpochMillis(after),
-        );
+        const entry = recordEntry(expectDefined(lockfile.packs), "starter-pack");
+        expect(entry).not.toHaveProperty("installedAt");
+        expect(entry).not.toHaveProperty("updatedAt");
       }),
     );
   });
@@ -2766,8 +2615,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -2781,8 +2628,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -2866,8 +2711,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -2894,8 +2737,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -2922,8 +2763,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "implicit-skill": {
             type: "registry",
@@ -2934,8 +2773,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -2996,8 +2833,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "configured-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "implicit-mcp": {
             type: "registry",
@@ -3008,8 +2843,6 @@ describe("WorkspaceMutationsService", () => {
             sourceName: "default",
 
             publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3058,8 +2891,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3093,8 +2924,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3108,8 +2937,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3140,11 +2967,8 @@ describe("WorkspaceMutationsService", () => {
           name: "my-mcp",
           versionRange: Option.none(),
           lockEntry: {
-            type: "github" as const,
-            owner: "acme",
+            ...makeSampleMcpServerLockEntry(),
             repo: "my-mcp",
-            installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-            updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
           },
         });
 
@@ -3166,8 +2990,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3233,12 +3055,16 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
-  const makeSampleMcpServerLockEntry = (): McpServerLockEntry => ({
+  const makeSampleMcpServerLockEntry = (): Extract<
+    McpServerLockEntry,
+    { readonly type: "github" }
+  > => ({
     type: "github",
     owner: "acme",
     repo: "my-mcp-server",
-    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    resolvedCommit: "test-commit",
+    resolvedTree: "test-tree",
+    contentIdentity: computeSourceHash("test-content"),
   });
 
   const makeSampleSetMcpServerArgs = (overrides?: Partial<SetMcpServerArgs>): SetMcpServerArgs => ({
@@ -3256,8 +3082,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp-server",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3289,8 +3113,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp-server",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3340,29 +3162,18 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("sets updatedAt to current time", () =>
+    it.effect("persists no receipt-history fields", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
-        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = DateTime.makeUnsafe(
-          stringProperty(
-            recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"),
-            "updatedAt",
-          ),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
-          DateTime.toEpochMillis(before),
-        );
-        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
-          DateTime.toEpochMillis(after),
-        );
+        const entry = recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server");
+        expect(entry).not.toHaveProperty("installedAt");
+        expect(entry).not.toHaveProperty("updatedAt");
       }),
     );
 
@@ -3377,18 +3188,13 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp-server",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
         const ws = yield* getService(defaultOptions);
         const updatedEntry: McpServerLockEntry = {
-          type: "github",
-          owner: "acme",
+          ...makeSampleMcpServerLockEntry(),
           repo: "my-mcp-server-v2",
-          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-          updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         };
         yield* ws.setMcpServer({
           name: "my-mcp-server",
@@ -3449,14 +3255,10 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp-server",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "other-server": {
             type: "local",
             path: "other",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3486,8 +3288,6 @@ describe("WorkspaceMutationsService", () => {
           "other-server": {
             type: "local",
             path: "other",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3515,8 +3315,6 @@ describe("WorkspaceMutationsService", () => {
           implicit: {
             type: "local",
             path: "implicit-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3549,8 +3347,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3594,8 +3390,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3640,8 +3434,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         });
 
@@ -3693,8 +3485,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3751,8 +3541,6 @@ describe("WorkspaceMutationsService", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3798,7 +3586,13 @@ describe("WorkspaceMutationsService", () => {
         agents: ["claude-code"],
         packs: { "starter-pack": "@acme/packs/starter-pack" },
       });
-      writePackManifestTo(projectDir, "@acme", "starter-pack", dependencies);
+      const contentIdentity = writePackManifestTo(
+        projectDir,
+        "@acme",
+        "starter-pack",
+        dependencies,
+      );
+      writeAcceptedPackResolutionTo(projectDir, "@acme", "starter-pack", contentIdentity);
     };
 
     it.effect("uses the authoritative pack manifest for every leaf extension type", () =>
@@ -3811,8 +3605,6 @@ describe("WorkspaceMutationsService", () => {
           "@acme/hooks/preflight": "^1.0.0",
           "@acme/knowledge/handbook": "^1.0.0",
         });
-        writeLockfileTo(projectDir, {});
-
         const ws = yield* getService(defaultOptions);
         const targets = [
           { type: "skill", name: "review" },

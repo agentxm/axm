@@ -16,7 +16,7 @@ import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
-import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
+import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 
 export type EnableMcpServerOperation = Operation<
@@ -113,7 +113,7 @@ export const enableMcpServer = (
       };
     }
 
-    const canonical = yield* usableTrustedCanonicalObservation({
+    const canonical = yield* usableAcceptedCanonicalObservation({
       workspace: ws,
       type: "mcp-server",
       name: op.args.serverName,
@@ -121,7 +121,7 @@ export const enableMcpServer = (
     if (Option.isNone(canonical)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Trusted MCP server content for "${op.args.serverName}" is not usable`,
+        detail: `Accepted MCP server content for "${op.args.serverName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the MCP server.",
@@ -131,18 +131,14 @@ export const enableMcpServer = (
       });
     }
     const canonicalPath = canonical.value.observation.path;
-    const trust = canonical.value.trust;
-    const identity =
-      trust.authority === "workspace"
-        ? trust.sourceIdentity.slice("workspace:".length)
-        : trust.sourceIdentity;
-    const trustedIdentity =
-      trust.authority === "registry" || trust.authority === "workspace"
-        ? parseExtensionFqnParts(identity)
-        : undefined;
+    const accepted = canonical.value.accepted;
+    const identity = canonical.value.desired.identity.startsWith("workspace:")
+      ? canonical.value.desired.identity.slice("workspace:".length)
+      : canonical.value.desired.identity;
+    const trustedIdentity = parseExtensionFqnParts(identity);
     const owner =
       trustedIdentity?.type === "mcp-server" ? trustedIdentity.owner : normalizeHandle("@local");
-    const resolvedVersion = trust.resolvedVersion ?? "0.0.0";
+    const resolvedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
     const outcomes = yield* ws.runTransaction({
@@ -203,7 +199,7 @@ export const enableMcpServer = (
       result: "success",
       message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
       artifact: enableArtifact({
-        lockEntry: undefined,
+        lockEntry: accepted,
         scope: ws.scope,
         targets: agentConfigTargets(agentOutcomes),
       }),

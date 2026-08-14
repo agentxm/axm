@@ -4,8 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixingRule, LintFinding } from "../../rule.js";
-import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
+import type { AdvisoryRule, LintFinding } from "../../rule.js";
+import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/knowledge-config-current";
 
@@ -23,10 +23,10 @@ const hasLegacyKnowledgeConfig = (raw: string): boolean => {
   }
 };
 
-export const knowledgeConfigCurrentRule: AutofixingRule<WorkspaceRuleContext> = {
+export const knowledgeConfigCurrentRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Knowledge configuration uses only the current instruction discovery setting.",
-  kind: "autofixing",
+  kind: "advisory",
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
@@ -40,16 +40,13 @@ export const knowledgeConfigCurrentRule: AutofixingRule<WorkspaceRuleContext> = 
       }
       return [
         {
-          kind: "autofixable",
+          kind: "advisory",
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            "knowledgeConfig.directory and knowledgeConfig.ignore are deprecated and have no effect. Run `axm lint --fix` to remove them.",
+            "knowledgeConfig.directory and knowledgeConfig.ignore are obsolete representation fields with no domain effect.",
           location: { file: ".axm/settings.json" },
         },
       ] satisfies ReadonlyArray<LintFinding>;
     }),
-  // The CLI performs this canonical settings normalization as one pre-plan
-  // write. No extension lifecycle operation is appropriate here.
-  fix: () => Effect.succeed(EMPTY_OPERATIONS),
 };

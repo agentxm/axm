@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
-import { computePackageContentHashSync, writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -261,31 +261,7 @@ describe("disable.handler", () => {
         },
         ["claude-code"],
         {
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-          lockfilePacks: {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              publisherBindingId: "hbnd_test",
-              sourceHash: computePackageContentHashSync(packDir),
-              installedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              resolvedSkills: {
-                "@acme/skills/code-review": {
-                  source: "registry",
-                  version: "1.2.0",
-                  publisherBindingId: "hbnd_test",
-                  integrity: "sha512-member",
-                },
-              },
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
-          },
+          packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
         },
       );
 

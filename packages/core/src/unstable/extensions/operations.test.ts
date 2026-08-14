@@ -28,7 +28,6 @@ const runTransaction: WorkspaceTransactionRunner = (args) =>
   Effect.gen(function* () {
     const value = yield* args.transition;
     yield* args.validate(value);
-    if (args.receipt !== undefined) yield* args.receipt(value);
     return value;
   });
 
@@ -134,11 +133,9 @@ describe("buildInstallOperation", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -183,11 +180,9 @@ describe("buildInstallOperation", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -268,11 +263,9 @@ describe("buildNewExtensionStep", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildNewExtensionStep(manager, {
       target: { type: "skill", name: "review" },
@@ -295,7 +288,6 @@ describe("buildNewExtensionStep", () => {
       const state = {
         canonical: false,
         settings: false,
-        trust: false,
         lock: false,
         projection: false,
       };
@@ -334,11 +326,8 @@ describe("buildNewExtensionStep", () => {
         upsertSettingsEntry: () =>
           Effect.gen(function* () {
             state.settings = true;
-            state.trust = true;
-            state.lock = true;
             if (failureAt === "commit") return yield* fail();
           }),
-        upsertTrustEntry: () => Effect.void,
         removeSettingsEntry: () =>
           Effect.sync(() => {
             state.settings = false;
@@ -347,10 +336,6 @@ describe("buildNewExtensionStep", () => {
         removeLockfileEntry: () =>
           Effect.sync(() => {
             state.lock = false;
-          }),
-        removeTrustEntry: () =>
-          Effect.sync(() => {
-            state.trust = false;
           }),
       } satisfies ExtensionManager<SkillExtensionRef>;
       const step = buildNewExtensionStep(manager, {
@@ -374,7 +359,6 @@ describe("buildNewExtensionStep", () => {
       expect(state).toEqual({
         canonical: false,
         settings: false,
-        trust: false,
         lock: false,
         projection: false,
       });
@@ -399,11 +383,9 @@ describe("buildAuthoredExtensionStep", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -440,11 +422,9 @@ describe("buildAuthoredExtensionStep", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -475,11 +455,9 @@ describe("buildAuthoredExtensionStep", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.sync(() => calls.push("deactivate")),
       upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
-      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -496,7 +474,7 @@ describe("buildAuthoredExtensionStep", () => {
 
     await Effect.runPromise(step.run);
 
-    expect(calls).toEqual(["materialize", "settings", "deactivate", "receipt"]);
+    expect(calls).toEqual(["materialize", "settings", "deactivate"]);
   });
 
   it("does not touch projections for a disabled authored target by default", async () => {
@@ -511,11 +489,9 @@ describe("buildAuthoredExtensionStep", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.sync(() => calls.push("deactivate")),
       upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
-      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
       getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
     } satisfies ExtensionManager<SkillExtensionRef>;
     const step = buildAuthoredExtensionStep(manager, {
@@ -531,12 +507,12 @@ describe("buildAuthoredExtensionStep", () => {
 
     await Effect.runPromise(step.run);
 
-    expect(calls).toEqual(["settings", "receipt"]);
+    expect(calls).toEqual(["settings"]);
   });
 });
 
 describe("buildMaterializeOperation", () => {
-  it("persists the resolved content receipt only after materialization succeeds", async () => {
+  it("persists the accepted resolution only after materialization succeeds", async () => {
     const calls: string[] = [];
     const manager = {
       type: "skill",
@@ -547,11 +523,9 @@ describe("buildMaterializeOperation", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
-      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -577,19 +551,18 @@ describe("buildMaterializeOperation", () => {
 
     await Effect.runPromise(operation.run);
 
-    expect(calls).toEqual(["materialize", "receipt"]);
+    expect(calls).toEqual(["materialize", "accepted-resolution"]);
   });
 });
 
 describe("buildUninstallOperation", () => {
-  it.each(["materialize", "settings", "trust", "validate"] as const)(
+  it.each(["materialize", "settings", "lock", "validate"] as const)(
     "restores all authoritative state when uninstall %s fails",
     async (failureAt) => {
       const state = {
         canonical: true,
         projection: true,
         settings: true,
-        trust: true,
         lock: true,
       };
       const transactionalRun: WorkspaceTransactionRunner = (transaction) => {
@@ -620,7 +593,6 @@ describe("buildUninstallOperation", () => {
           }),
         materializeDeactivate: () => Effect.void,
         upsertSettingsEntry: () => Effect.void,
-        upsertTrustEntry: () => Effect.void,
         removeSettingsEntry: () =>
           Effect.gen(function* () {
             state.settings = false;
@@ -628,13 +600,9 @@ describe("buildUninstallOperation", () => {
           }),
         upsertLockfileEntry: () => Effect.void,
         removeLockfileEntry: () =>
-          Effect.sync(() => {
-            state.lock = false;
-          }),
-        removeTrustEntry: () =>
           Effect.gen(function* () {
-            state.trust = false;
-            if (failureAt === "trust") return yield* fail();
+            state.lock = false;
+            if (failureAt === "lock") return yield* fail();
           }),
       } satisfies ExtensionManager<SkillExtensionRef>;
       const operation = buildUninstallOperation<SkillExtensionRef>(
@@ -650,7 +618,6 @@ describe("buildUninstallOperation", () => {
         canonical: true,
         projection: true,
         settings: true,
-        trust: true,
         lock: true,
       });
     },
@@ -675,14 +642,12 @@ describe("buildUninstallOperation", () => {
       materializeUninstall,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () =>
         Effect.sync(() => {
           configured = false;
         }),
       upsertLockfileEntry: () => Effect.void,
       removeLockfileEntry: () => Effect.void,
-      removeTrustEntry: () => Effect.void,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const operation = buildUninstallOperation<SkillExtensionRef>(
       manager,
@@ -700,8 +665,8 @@ describe("buildUninstallOperation", () => {
     });
   });
 
-  it("retires trust for an explicit uninstall even when no artifacts remain", async () => {
-    const removeTrustEntry = vi.fn(() => Effect.void);
+  it("does not turn an orphan accepted resolution into installed state during uninstall", async () => {
+    const removeLockfileEntry = vi.fn(() => Effect.void);
     const manager = {
       type: "skill",
       runTransaction,
@@ -712,11 +677,9 @@ describe("buildUninstallOperation", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () => Effect.void,
       upsertLockfileEntry: () => Effect.void,
-      removeLockfileEntry: () => Effect.void,
-      removeTrustEntry,
+      removeLockfileEntry,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const operation = buildUninstallOperation<SkillExtensionRef>(
       manager,
@@ -729,13 +692,11 @@ describe("buildUninstallOperation", () => {
 
     await Effect.runPromise(operation.run);
 
-    expect(removeTrustEntry).toHaveBeenCalledWith({
-      target: { type: "skill", name: "review" },
-    });
+    expect(removeLockfileEntry).not.toHaveBeenCalled();
   });
 
-  it("preserves trust while an installed pack retains the extension", async () => {
-    const removeTrustEntry = vi.fn(() => Effect.void);
+  it("preserves an accepted resolution while a desired pack retains the extension", async () => {
+    const removeLockfileEntry = vi.fn(() => Effect.void);
     let configured = true;
     const manager = {
       type: "skill",
@@ -748,14 +709,12 @@ describe("buildUninstallOperation", () => {
       materializeUninstall: () => Effect.void,
       materializeDeactivate: () => Effect.void,
       upsertSettingsEntry: () => Effect.void,
-      upsertTrustEntry: () => Effect.void,
       removeSettingsEntry: () =>
         Effect.sync(() => {
           configured = false;
         }),
       upsertLockfileEntry: () => Effect.void,
-      removeLockfileEntry: () => Effect.void,
-      removeTrustEntry,
+      removeLockfileEntry,
     } satisfies ExtensionManager<SkillExtensionRef>;
     const operation = buildUninstallOperation<SkillExtensionRef>(
       manager,
@@ -768,6 +727,6 @@ describe("buildUninstallOperation", () => {
 
     await Effect.runPromise(operation.run);
 
-    expect(removeTrustEntry).not.toHaveBeenCalled();
+    expect(removeLockfileEntry).not.toHaveBeenCalled();
   });
 });

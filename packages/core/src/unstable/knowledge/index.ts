@@ -142,4 +142,3 @@ export {
   type KnowledgeDiscoveryBundle,
   type KnowledgeDiscoveryResult,
 } from "./discovery.js";
-export { knowledgeReconciliationAdapter } from "./reconciliation-adapter.js";

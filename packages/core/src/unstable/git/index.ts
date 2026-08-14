@@ -6,4 +6,4 @@
  */
 
 export { findGitRoot, isGitManaged } from "./detect.js";
-export { getTreeSha, shallowClone } from "./operations.js";
+export { getCommitSha, getTreeSha, shallowClone } from "./operations.js";

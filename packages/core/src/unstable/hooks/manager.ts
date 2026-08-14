@@ -4,7 +4,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -35,11 +34,16 @@ import {
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { validatePathSafety } from "../extensions/utils.js";
-import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
-import type { HookLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
-import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import type { HookLockEntry } from "../lockfile/index.js";
+import {
+  MaterializedFileTargetSchema,
+  type MaterializedFileTarget,
+} from "../workspace/materialized-file-target.js";
+import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import {
   commentStyleForTarget,
@@ -48,7 +52,6 @@ import {
 } from "../managed-files/index.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -60,7 +63,7 @@ import type {
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   HOOK_EXTENSION_DIR,
@@ -72,7 +75,6 @@ import {
   type HookManifest,
   type LocalHookRef,
   type RegistryHookRef,
-  type WorkspaceHookRef,
 } from "./index.js";
 import { updateHooksJson } from "./managed-groups.js";
 
@@ -97,15 +99,7 @@ const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const optionalSourceHash = (
-  sourceHash: SourceHash | undefined,
-): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
-
-const registryHookLockEntry = (
-  ref: RegistryHookRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash | undefined,
-): HookLockEntry => ({
+const registryHookLockEntry = (ref: RegistryHookRef): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -113,40 +107,20 @@ const registryHookLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
 });
 
-const gitHookLockEntry = (
-  ref: GitHostedHookRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash | undefined,
-): HookLockEntry => ({
-  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
+const gitHookLockEntry = (ref: GitHostedHookRef, contentIdentity: SourceHash): HookLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
 });
 
 const localHookLockEntry = (
   ref: LocalHookRef,
-  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
-  sourceHash: SourceHash | undefined,
+  contentIdentity: SourceHash,
 ): HookLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
-});
-
-const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: DateTime.Utc): HookLockEntry => ({
-  type: "workspace",
-  owner: ref.owner,
-  extensionType: "hook",
-  name: ref.name,
-  version: ref.version,
-  sourceHash: ref.sourceHash,
-  ...commonLockFields(now),
+  contentIdentity,
 });
 
 interface HookWriterTarget {
@@ -433,7 +407,10 @@ export const HookManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
       Effect.gen(function* () {
-        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        const lockedVersion = acceptedRegistryVersionForRef(
+          yield* ws.getLockedHookEntry(ref.hook.name),
+          ref,
+        );
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
@@ -917,24 +894,32 @@ export const HookManagerLive = Layer.effect(
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> =>
+    const buildLockEntry = (
+      ref: HookExtensionRef,
+    ): Effect.Effect<Option.Option<HookLockEntry>, AppError> =>
       Effect.gen(function* () {
         const state = lastInstallState.get(ref.hook.name);
-        const now = yield* DateTime.now;
         switch (ref.refType) {
           case "registry":
-            return registryHookLockEntry(ref, now, state?.sourceHash);
+            return Option.some(registryHookLockEntry(ref));
           case "git-hosted":
-            return gitHookLockEntry(ref, now, state?.sourceHash);
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Hook ${ref.hook.name} has no materialized content identity`,
+                })
+              : Option.some(gitHookLockEntry(ref, state.sourceHash));
           case "local":
-            return localHookLockEntry(
-              ref,
-              now,
-              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
-              state?.sourceHash,
-            );
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Hook ${ref.hook.name} has no materialized content identity`,
+                })
+              : Option.some(
+                  localHookLockEntry(ref, state.workspaceRelativeLocalSourcePath, state.sourceHash),
+                );
           case "workspace":
-            return workspaceHookLockEntry(ref, now);
+            return Option.none();
         }
       });
 
@@ -943,7 +928,7 @@ export const HookManagerLive = Layer.effect(
     ): ExtensionManager<HookExtensionRef>["materializeUninstall"] =>
       Effect.fn("HookManager.materializeRemoval")(function* ({ target }) {
         const canonical = yield* provide(
-          trustedCanonicalObservation({
+          acceptedCanonicalObservation({
             workspace: ws,
             type: "hook",
             name: target.name,
@@ -973,10 +958,6 @@ export const HookManagerLive = Layer.effect(
     return {
       type: "hook",
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
@@ -1016,27 +997,23 @@ export const HookManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        if (lockEntry.type === "registry") {
+        if (Option.isNone(lockEntry)) {
+          yield* ws.setHookEntry(ref.hook.name, {
+            source: printSourceParams(ref.source),
+            enabled: true,
+          });
+          return;
+        }
+        if (lockEntry.value.type === "registry") {
           yield* validateExactResolvedVersion(
             `hooks.${ref.hook.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntry.value.resolvedVersion,
           );
         }
         yield* ws.setHook({
           name: ref.hook.name,
-          lockEntry,
+          lockEntry: lockEntry.value,
           versionRange,
-          commit: "authoritative",
-        });
-      }),
-
-      upsertTrustEntry: Effect.fn("HookManager.upsertTrustEntry")(function* ({ ref }) {
-        const entry = yield* buildLockEntry(ref);
-        yield* ws.setHookLock({
-          name: ref.hook.name,
-          lockEntry: entry,
-          versionRange: Option.none(),
-          commit: "authoritative",
         });
       }),
 
@@ -1046,6 +1023,10 @@ export const HookManagerLive = Layer.effect(
 
       upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({ ref }) {
         const entry = yield* buildLockEntry(ref);
+        if (Option.isNone(entry)) {
+          yield* ws.removeHookLock(ref.hook.name);
+          return;
+        }
         if (ref.refType === "registry") {
           yield* validateExactResolvedVersion(
             `hooks.${ref.hook.name}.resolvedVersion`,
@@ -1054,16 +1035,14 @@ export const HookManagerLive = Layer.effect(
         }
         yield* ws.setHookLock({
           name: ref.hook.name,
-          lockEntry: entry,
+          lockEntry: entry.value,
           versionRange: Option.none(),
-          commit: "receipt",
         });
       }),
 
       removeLockfileEntry: Effect.fn("HookManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeHookLock(target.name);
       }),
-      removeTrustEntry: ({ target }) => ws.removeTrustRecord("hook", target.name),
     };
   }),
 );

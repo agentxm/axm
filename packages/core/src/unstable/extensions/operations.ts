@@ -175,9 +175,9 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
 /**
  * Execute the canonical install sequence.
  *
- * Root installs materialize and commit desired/trust state before validating
- * the observable postcondition. Pack-derived installs commit trust without a
- * root settings declaration. Receipt history is written only after validation.
+ * Root installs materialize and commit desired state plus any accepted external
+ * resolution before validating the observable postcondition. Pack-derived
+ * installs omit the root settings declaration while retaining that resolution.
  */
 const runInstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -217,27 +217,19 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
-    if (manager.validateTrustTransition !== undefined) {
-      yield* manager.validateTrustTransition({
-        ref: args.ref,
-        allowSourceTransition: true,
-        allowDowngrade: args.force === true,
-      });
-    }
     yield* manager.runTransaction({
       transition: Effect.gen(function* () {
         yield* manager.materializeInstall({
           ref: args.ref,
           ...(args.force === undefined ? {} : { force: args.force }),
         });
-        if (args.skipSettings) {
-          yield* manager.upsertTrustEntry({ ref: args.ref });
-        } else {
+        if (!args.skipSettings) {
           yield* manager.upsertSettingsEntry({
             ref: args.ref,
             versionRange: args.versionRange,
           });
         }
+        yield* manager.upsertLockfileEntry({ ref: args.ref });
         return installedBefore;
       }),
       validate: () =>
@@ -259,7 +251,6 @@ const runInstallOperation = <TRef extends ExtensionRef>(
             }
           }
         }),
-      receipt: () => manager.upsertLockfileEntry({ ref: args.ref }),
     });
     const artifact =
       args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
@@ -304,7 +295,7 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
  *
  * A read-only preflight runs first. The transaction then snapshots the source
  * path, scaffolds it, seeds desired state, resolves the canonical package, and
- * materializes projections before validating and writing receipt history.
+ * materializes projections before validating the authored postcondition.
  */
 export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -336,13 +327,6 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
-              });
-            }
-            if (manager.validateTrustTransition !== undefined) {
-              yield* manager.validateTrustTransition({
-                ref,
-                allowSourceTransition: true,
-                allowDowngrade: false,
               });
             }
             const installedBefore =
@@ -382,7 +366,6 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
                 }
               }
             }),
-          receipt: ({ ref }) => manager.upsertLockfileEntry({ ref }),
         }),
       ),
       Effect.flatMap(({ installedBefore }) =>
@@ -448,14 +431,6 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
   args: MaterializeOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
-    if (manager.validateTrustTransition !== undefined) {
-      yield* manager.validateTrustTransition({
-        ref: args.ref,
-        allowSourceTransition: false,
-        allowWorkspaceSourceTransition: args.allowWorkspaceSourceTransition === true,
-        allowDowngrade: false,
-      });
-    }
     const target = targetFromRef(args.ref);
     yield* manager.runTransaction({
       transition: Effect.gen(function* () {
@@ -463,7 +438,7 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
           ref: args.ref,
           ...(args.force === undefined ? {} : { force: args.force }),
         });
-        yield* manager.upsertTrustEntry({ ref: args.ref });
+        yield* manager.upsertLockfileEntry({ ref: args.ref });
       }),
       validate: () =>
         manager.isInstalled({ target }).pipe(
@@ -476,7 +451,6 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
                 }),
           ),
         ),
-      receipt: () => manager.upsertLockfileEntry({ ref: args.ref }),
     });
     const artifact = args.buildArtifact === undefined ? undefined : yield* args.buildArtifact();
     return {
@@ -535,20 +509,17 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       if (!isInstalled) {
         if (Option.isSome(configuredSource)) {
           yield* manager.removeSettingsEntry({ target: args.target });
-          yield* manager.removeTrustEntry({ target: args.target });
+          yield* manager.removeLockfileEntry({ target: args.target });
           return {
             job: {
               result: "success" as const,
               message: `Removed configured ${toLabel(args.target)}; no installed artifacts were observed`,
             } satisfies JobStepResult,
-            receipt: "remove" as const,
             expectedInstalled: false,
           };
         }
-        yield* manager.removeTrustEntry({ target: args.target });
         return {
           job: { result: "success" as const, message: "not installed" } satisfies JobStepResult,
-          receipt: "none" as const,
           expectedInstalled: false,
         };
       }
@@ -563,20 +534,18 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
             result: "success" as const,
             message: "Kept on disk because dependency is still required by an installed pack",
           } satisfies JobStepResult,
-          receipt: "none" as const,
           expectedInstalled: true,
         };
       }
 
       yield* manager.materializeUninstall({ target: args.target });
       yield* manager.removeSettingsEntry({ target: args.target });
-      yield* manager.removeTrustEntry({ target: args.target });
+      yield* manager.removeLockfileEntry({ target: args.target });
       return {
         job: {
           result: "success" as const,
           message: `Removed ${toLabel(args.target)}`,
         } satisfies JobStepResult,
-        receipt: "remove" as const,
         expectedInstalled: false,
       };
     });
@@ -602,10 +571,6 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
             });
           }
         }),
-      receipt: (outcome) =>
-        outcome.receipt === "remove"
-          ? manager.removeLockfileEntry({ target: args.target })
-          : Effect.void,
     });
     return result.job;
   });

@@ -1,11 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { Operation } from "../../../plan/plan.js";
 import type { InstructionStatusItem } from "../../../agents/instructions.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
-import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
-import { syncInstructionTargetOp } from "./helpers/install-ops.js";
+import type { AdvisoryRule, LintFinding } from "../../rule.js";
+import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/instructions-target-current";
 
@@ -23,20 +21,20 @@ const isTargetFinding = (item: InstructionStatusItem): boolean =>
 const messageFor = (item: InstructionStatusItem): string => {
   switch (item.health) {
     case "missing-target":
-      return `The ${item.agentName} instruction file is missing. Run \`axm lint --fix\` to propagate the source file.`;
+      return `The ${item.agentName} instruction file is missing.`;
     case "drift":
-      return `The ${item.agentName} instruction file differs from the source file. Run \`axm lint --fix\` to propagate the source file.`;
+      return `The ${item.agentName} instruction file differs from the source file.`;
     case "broken-link":
-      return `The ${item.agentName} instruction symlink target is missing. Run \`axm lint --fix\` to recreate it.`;
+      return `The ${item.agentName} instruction symlink target is missing.`;
     default:
-      return `The ${item.agentName} instruction file is not current. Run \`axm lint --fix\` to propagate the source file.`;
+      return `The ${item.agentName} instruction file is not current.`;
   }
 };
 
-export const instructionsTargetCurrentRule: AutofixingRule<WorkspaceRuleContext> = {
+export const instructionsTargetCurrentRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Configured agent instruction target files are current.",
-  kind: "autofixing",
+  kind: "advisory",
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
@@ -48,7 +46,7 @@ export const instructionsTargetCurrentRule: AutofixingRule<WorkspaceRuleContext>
       for (const item of status.value.items) {
         if (!isTargetFinding(item)) continue;
         findings.push({
-          kind: "autofixable",
+          kind: "advisory",
           ruleId: RULE_ID,
           severity: item.health === "broken-link" ? "error" : "warning",
           message: messageFor(item),
@@ -56,26 +54,5 @@ export const instructionsTargetCurrentRule: AutofixingRule<WorkspaceRuleContext>
         });
       }
       return findings;
-    }),
-  fix: (context, finding: AutofixableFinding) =>
-    Effect.gen(function* () {
-      if (context.instructions === undefined || finding.location === undefined) {
-        return EMPTY_OPERATIONS;
-      }
-      const status = yield* context.instructions.status;
-      if (Option.isNone(status)) return EMPTY_OPERATIONS;
-      const item = status.value.items.find(
-        (candidate) =>
-          isTargetFinding(candidate) &&
-          relativeToRoot(context.subject.root, candidate.targetFile) === finding.location?.file,
-      );
-      if (item === undefined) return EMPTY_OPERATIONS;
-      return [
-        syncInstructionTargetOp({
-          root: item.root,
-          agentId: item.agentId,
-          force: item.health === "drift",
-        }),
-      ] satisfies ReadonlyArray<Operation<string, unknown>>;
     }),
 };

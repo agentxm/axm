@@ -159,7 +159,9 @@ axm list --deprecated                # Show deprecated installed extensions
 axm uninstall @acme/skills/code-review
 axm adopt @acme/skills/retained-package       # Make a canonical package authoritative
 axm demote @acme/skills/review ./upstream     # Explicitly return to external source management
-axm prune                            # Remove extensions axm isn't managing
+axm lint                             # Report intrinsic workspace facts
+axm sync --preview                   # Preview reconciliation without writing
+axm sync                             # Reconcile desired, accepted, and observed state
 axm upgrade                          # Update axm itself
 ```
 

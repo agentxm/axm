@@ -14,10 +14,8 @@
  * - subject-lockfile-entry-alone-does-not-create-implicit-inventory
  * - packs-are-not-installed-as-pack-members
  *
- * The Live layer reads `resolvedSkills`/`resolvedSubagents` keys from the
- * lockfile pack entry. Skill pack members normalize FQN keys to simple skill
- * names for installed rows; subjects that allow FQN declarations keep their
- * original keys.
+ * Pack membership comes only from the authored manifest. Accepted-resolution
+ * rows never supply membership or create desired inventory.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -29,16 +27,6 @@ import {
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
 } from "./_harness.js";
-
-type RawResolvedExtensionMap = Record<
-  string,
-  {
-    readonly source: "registry";
-    readonly version: string;
-    readonly publisherBindingId: string;
-    readonly integrity: string;
-  }
->;
 
 // ---------------------------------------------------------------------------
 // Spec helpers
@@ -72,49 +60,30 @@ const settingsJson = (params: {
   return out;
 };
 
-/**
- * Build a lockfile YAML value (schema-decodable) — installs one pack with the
- * supplied member names. Member keys are FQN-shaped (`@owner/<type-plural>/<name>`).
- */
-const lockfileWithPack = (params: {
-  readonly packName: string;
-  readonly resolvedSkills?: RawResolvedExtensionMap;
-  readonly resolvedSubagents?: RawResolvedExtensionMap;
-  readonly resolvedMcpServers?: RawResolvedExtensionMap;
-  readonly extraSkillEntries?: Record<string, unknown>;
-}): object => ({
-  lockfileVersion: 3,
-  skills: params.extraSkillEntries ?? {},
-  packs: {
-    [params.packName]: {
-      type: "registry",
-      owner: "@team",
-      name: params.packName,
-      resolvedVersion: "1.0.0",
-      integrity: "sha256-deadbeef",
-      sourceName: "registry",
-
-      publisherBindingId: "hbnd_test",
-      installedAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      resolvedSkills: params.resolvedSkills ?? {},
-      resolvedMcpServers: params.resolvedMcpServers ?? {},
-      resolvedSubagents: params.resolvedSubagents ?? {},
-    },
-  },
+const authoredPackFiles = (
+  packName: string,
+  dependencies: Readonly<Record<string, string>>,
+): Record<string, string> => ({
+  [`@team/packs/${packName}/pack.json`]: JSON.stringify({
+    owner: "@team",
+    type: "pack",
+    name: packName,
+    version: "1.0.0",
+    dependencies,
+  }),
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 3,
+  lockfileVersion: 4,
   skills: {
     [skillName]: {
       type: "github",
       owner: "owner",
       repo: "repo",
       ref: "main",
-      installedAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      agents: [],
+      resolvedCommit: "commit-main",
+      resolvedTree: "tree-main",
+      contentIdentity: "content-main",
     },
   },
 });
@@ -176,42 +145,29 @@ describe("projection: actual-only skills remain visible outside installed", () =
 });
 
 describe("projection: pack-provided skill is implicit installed inventory", () => {
-  it.effect(
-    "direct pack declaration + resolved member produces an implicit pack-member skill row",
-    () =>
-      runScenario(
-        projectSpec({
-          settings: {
-            _tag: "valid",
-            contents: settingsJson({
-              packs: { "team-pack": "registry:@team/team-pack" },
-            }),
-          },
-          lockfile: {
-            _tag: "valid",
-            contents: lockfileWithPack({
-              packName: "team-pack",
-              resolvedSkills: {
-                "@team/skills/review-tool": {
-                  source: "registry",
-                  version: "1.0.0",
-                  publisherBindingId: "hbnd_test",
-                  integrity: "sha512-member",
-                },
-              },
-            }),
-          },
-        }),
-        (ctx) =>
-          Effect.gen(function* () {
-            const installed = yield* ctx.scope("project").skills.installed;
-            const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
-            expect(memberRows).toHaveLength(1);
-            const row = expectFirst(memberRows);
-            expect(row.key.name).toBe("review-tool");
-            expect(row.activation).toBe("enabled");
+  it.effect("authored pack membership produces an implicit pack-member skill row", () =>
+    runScenario(
+      projectSpec({
+        settings: {
+          _tag: "valid",
+          contents: settingsJson({
+            packs: { "team-pack": "workspace:@team/packs/team-pack" },
           }),
-      ),
+        },
+        axmExtensions: authoredPackFiles("team-pack", {
+          "@team/skills/review-tool": "1.0.0",
+        }),
+      }),
+      (ctx) =>
+        Effect.gen(function* () {
+          const installed = yield* ctx.scope("project").skills.installed;
+          const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
+          expect(memberRows).toHaveLength(1);
+          const row = expectFirst(memberRows);
+          expect(row.key.name).toBe("review-tool");
+          expect(row.activation).toBe("enabled");
+        }),
+    ),
   );
 });
 
@@ -222,24 +178,13 @@ describe("projection: direct skill declaration wins over pack membership", () =>
         settings: {
           _tag: "valid",
           contents: settingsJson({
-            packs: { "team-pack": "registry:@team/team-pack" },
+            packs: { "team-pack": "workspace:@team/packs/team-pack" },
             skills: { "review-tool": "github:owner/review-tool" },
           }),
         },
-        lockfile: {
-          _tag: "valid",
-          contents: lockfileWithPack({
-            packName: "team-pack",
-            resolvedSkills: {
-              "@team/skills/review-tool": {
-                source: "registry",
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-                integrity: "sha512-member",
-              },
-            },
-          }),
-        },
+        axmExtensions: authoredPackFiles("team-pack", {
+          "@team/skills/review-tool": "1.0.0",
+        }),
       }),
       (ctx) =>
         Effect.gen(function* () {
@@ -282,29 +227,18 @@ describe("projection: actual-only pack does not install member skills", () => {
 });
 
 describe("projection: pack-provided subagent is implicit installed inventory", () => {
-  it.effect("pack-resolved subagent member produces a pack-member subagent row", () =>
+  it.effect("authored subagent member produces a pack-member subagent row", () =>
     runScenario(
       projectSpec({
         settings: {
           _tag: "valid",
           contents: settingsJson({
-            packs: { "team-pack": "registry:@team/team-pack" },
+            packs: { "team-pack": "workspace:@team/packs/team-pack" },
           }),
         },
-        lockfile: {
-          _tag: "valid",
-          contents: lockfileWithPack({
-            packName: "team-pack",
-            resolvedSubagents: {
-              "@team/subagents/code-reviewer": {
-                source: "registry",
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-                integrity: "sha512-member",
-              },
-            },
-          }),
-        },
+        axmExtensions: authoredPackFiles("team-pack", {
+          "@team/subagents/code-reviewer": "1.0.0",
+        }),
       }),
       (ctx) =>
         Effect.gen(function* () {
@@ -333,7 +267,7 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
           settings: {
             _tag: "valid",
             contents: settingsJson({
-              packs: { "team-pack": "registry:@team/team-pack" },
+              packs: { "team-pack": "workspace:@team/packs/team-pack" },
               subagents: {
                 "code-reviewer": {
                   source: "github:owner/code-reviewer",
@@ -342,23 +276,9 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
               },
             }),
           },
-          lockfile: {
-            _tag: "valid",
-            contents: lockfileWithPack({
-              packName: "team-pack",
-              // Pack contributes a different FQN-shaped subagent, so both
-              // rows coexist; this still exercises the implicit-vs-direct
-              // pathways through the live projection.
-              resolvedSubagents: {
-                "@team/subagents/other-reviewer": {
-                  source: "registry",
-                  version: "1.0.0",
-                  publisherBindingId: "hbnd_test",
-                  integrity: "sha512-member",
-                },
-              },
-            }),
-          },
+          axmExtensions: authoredPackFiles("team-pack", {
+            "@team/subagents/other-reviewer": "1.0.0",
+          }),
         }),
         (ctx) =>
           Effect.gen(function* () {
@@ -420,35 +340,29 @@ describe("projection: disabled direct skill still claims actual materialization"
 });
 
 describe("projection: subject lockfile entry alone does not create implicit inventory", () => {
-  it.effect(
-    "lockfile-only skill (no declared, no pack) → not installed; orphan diagnostic published",
-    () =>
-      runScenario(
-        projectSpec({
-          settings: {
-            _tag: "valid",
-            contents: settingsJson({}),
-          },
-          lockfile: {
-            _tag: "valid",
-            contents: lockfileWithSkill("review-tool"),
-          },
+  it.effect("lockfile-only skill is not installed and is reported as an orphan fact", () =>
+    runScenario(
+      projectSpec({
+        settings: {
+          _tag: "valid",
+          contents: settingsJson({}),
+        },
+        lockfile: {
+          _tag: "valid",
+          contents: lockfileWithSkill("review-tool"),
+        },
+      }),
+      (ctx) =>
+        Effect.gen(function* () {
+          const project = ctx.scope("project");
+          const installed = yield* project.skills.installed;
+          expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
+          const warnings = yield* project.diagnostics;
+          const warning = warnings.find((item) => item.message.includes("review-tool"));
+          expect(warning).toMatchObject({ source: "lockfile", code: "orphan-resolved" });
+          expect(warning?.message).not.toContain("axm ");
         }),
-        (ctx) =>
-          Effect.gen(function* () {
-            const project = ctx.scope("project");
-            const installed = yield* project.skills.installed;
-            expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
-            const warnings = yield* project.diagnostics;
-            const orphanWarning = warnings.find(
-              (w) =>
-                w.code === "orphan-resolved" &&
-                w.source === "lockfile" &&
-                w.message.includes("review-tool"),
-            );
-            expect(orphanWarning).toBeDefined();
-          }),
-      ),
+    ),
   );
 });
 
@@ -465,30 +379,16 @@ describe("projection: packs are not installed as pack members", () => {
           settings: {
             _tag: "valid",
             contents: settingsJson({
-              packs: { "platform-pack": "registry:@team/platform-pack" },
+              packs: { "platform-pack": "workspace:@team/packs/platform-pack" },
             }),
           },
+          axmExtensions: authoredPackFiles("platform-pack", {}),
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 3,
+              lockfileVersion: 4,
               skills: {},
               packs: {
-                "platform-pack": {
-                  type: "registry",
-                  owner: "@team",
-                  name: "platform-pack",
-                  resolvedVersion: "1.0.0",
-                  integrity: "sha256-platform",
-                  sourceName: "registry",
-
-                  publisherBindingId: "hbnd_test",
-                  installedAt: "2026-01-01T00:00:00.000Z",
-                  updatedAt: "2026-01-01T00:00:00.000Z",
-                  resolvedSkills: {},
-                  resolvedMcpServers: {},
-                  resolvedSubagents: {},
-                },
                 // nested-pack is in the lockfile but not declared in settings;
                 // it must not appear in `packs.installed` as a pack member.
                 "nested-pack": {
@@ -498,13 +398,8 @@ describe("projection: packs are not installed as pack members", () => {
                   resolvedVersion: "1.0.0",
                   integrity: "sha256-nested",
                   sourceName: "registry",
-
                   publisherBindingId: "hbnd_test",
-                  installedAt: "2026-01-01T00:00:00.000Z",
-                  updatedAt: "2026-01-01T00:00:00.000Z",
-                  resolvedSkills: {},
-                  resolvedMcpServers: {},
-                  resolvedSubagents: {},
+                  manifestContentIdentity: "nested-content",
                 },
               },
             },

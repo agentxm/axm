@@ -27,7 +27,6 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
 } from "../test-helpers.js";
-import { computePackageContentHashSync } from "../test-stubs.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
@@ -477,16 +476,7 @@ describe("setup.handler", () => {
           expect(fs.existsSync(agentSkillPath)).toBe(true);
 
           const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));
-          const axmLockEntry = expectDefined(lockfile.skills["axm"]);
-          expect(axmLockEntry.type).toBe("workspace");
-          if (axmLockEntry.type !== "workspace") return;
-          expect(axmLockEntry.owner).toBe("@agentxm");
-          expect(axmLockEntry.name).toBe("axm");
-          expect(axmLockEntry.version).toBe(AXM_SKILL_VERSION);
-          expect(axmLockEntry.sourceHash).toBe(
-            computePackageContentHashSync(path.dirname(path.dirname(skillMdPath))),
-          );
-          expect(axmLockEntry).not.toHaveProperty("agents");
+          expect(lockfile.skills["axm"]).toBeUndefined();
         }),
       );
     });
@@ -508,7 +498,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -924,7 +914,7 @@ describe("setup.handler", () => {
           if (error._tag === "AppError") {
             expect(error.detail).toBe("Injected bundled skill installation failure");
           }
-          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(true);
           expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm", "axm-lock.yaml"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
@@ -941,7 +931,7 @@ describe("setup.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");

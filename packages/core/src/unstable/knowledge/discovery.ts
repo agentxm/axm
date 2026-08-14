@@ -159,7 +159,6 @@ export const reconcileKnowledgeDiscovery = (args: {
   readonly instructionManagementEnabled?: boolean;
   readonly preserveInstructionsSource?: boolean;
   readonly dryRun?: boolean;
-  readonly preserveBundleNames?: ReadonlySet<string>;
   readonly symlinkSupported?: boolean;
 }): Effect.Effect<KnowledgeDiscoveryResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {

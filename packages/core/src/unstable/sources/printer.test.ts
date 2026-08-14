@@ -1,356 +1,74 @@
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
-
-import type { SkillLockEntry } from "../lockfile/schema.js";
+import * as Schema from "effect/Schema";
+import { SourceHashSchema } from "../extensions/rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
-import { decodeRelativePathSync } from "../utils/path-types.js";
 import {
   lockEntryToSourceParams,
   printSkillLockSourceLocator,
   printSourceParams,
 } from "./printer.js";
-import type { SourceParams } from "./types.js";
 
-const makeSourceParams = (source: SourceParams): SourceParams => source;
+const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 
-const baseLockFields = {
-  agents: Array<string>(),
-  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-};
-
-const makeLockEntry = (entry: SkillLockEntry): SkillLockEntry => entry;
-
-describe("printSourceParams", () => {
-  it("prints github source", () => {
-    const source = makeSourceParams({
-      type: "github",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.some("main"),
-      subPath: Option.some("skills/foo"),
-    });
-    expect(printSourceParams(source)).toBe("github:acme/widgets//skills/foo@main");
-  });
-
-  it("prints gitlab source", () => {
-    const source = makeSourceParams({
-      type: "gitlab",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.none(),
-      subPath: Option.none(),
-    });
-    expect(printSourceParams(source)).toBe("gitlab:acme/widgets");
-  });
-
-  it("prints bitbucket source", () => {
-    const source = makeSourceParams({
-      type: "bitbucket",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.none(),
-      subPath: Option.some("tools"),
-    });
-    expect(printSourceParams(source)).toBe("bitbucket:acme/widgets//tools");
-  });
-
-  it("prints azurerepos source", () => {
-    const source = makeSourceParams({
-      type: "azurerepos",
-      organization: "org",
-      project: "proj",
-      repo: "repo",
-      ref: Option.some("v1"),
-      subPath: Option.some("skills/bar"),
-    });
-    expect(printSourceParams(source)).toBe("azurerepos:org/proj/repo/skills/bar@v1");
-  });
-
-  it("prints git source", () => {
-    const source = makeSourceParams({
-      type: "git",
-      url: new URL("https://example.com/repo.git"),
-      ref: Option.none(),
-    });
-    expect(printSourceParams(source)).toBe("https://example.com/repo.git");
-    const sourceWithRef = makeSourceParams({
-      type: "git",
-      url: new URL("https://example.com/repo.git"),
-      ref: Option.some("release/1.x"),
-    });
-    expect(printSourceParams(sourceWithRef)).toBe("https://example.com/repo.git#release/1.x");
-  });
-
-  it("prints local source", () => {
-    const source = makeSourceParams({
-      type: "local",
-      path: "./skills/my-skill",
-    });
-    expect(printSourceParams(source)).toBe("./skills/my-skill");
-  });
-
-  it("prints registry source", () => {
-    const source = makeSourceParams({
-      type: "registry",
-      owner: Option.none(),
-    });
-    expect(printSourceParams(source)).toBe("registry");
-  });
-
-  it("prints a canonical workspace locator", () => {
-    const source = makeSourceParams({
-      type: "workspace",
-      owner: handle("@acme"),
-      extensionType: "mcp-server",
-      name: extensionName("review-server"),
-    });
-    expect(printSourceParams(source)).toBe("workspace:@acme/mcps/review-server");
-  });
-});
-
-describe("lockEntryToSourceParams", () => {
-  it("maps github lock entry with/without optional fields", () => {
-    const withOptional = lockEntryToSourceParams(
-      makeLockEntry({
+describe("source printers", () => {
+  it("prints source parameters", () => {
+    expect(
+      printSourceParams({
         type: "github",
         owner: "acme",
         repo: "widgets",
-        ref: "main",
-        path: "skills/foo",
-        ...baseLockFields,
+        ref: Option.some("main"),
+        subPath: Option.some("skills/foo"),
       }),
-    );
-    expect(withOptional).toEqual({
-      type: "github",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.some("main"),
-      subPath: Option.some("skills/foo"),
-    });
+    ).toBe("github:acme/widgets//skills/foo@main");
+    expect(printSourceParams({ type: "local", path: "./skills/foo" })).toBe("./skills/foo");
+    expect(
+      printSourceParams({
+        type: "workspace",
+        owner: handle("@acme"),
+        extensionType: "skill",
+        name: extensionName("review"),
+      }),
+    ).toBe("workspace:@acme/skills/review");
+  });
 
-    const withoutOptional = lockEntryToSourceParams(
-      makeLockEntry({
+  it("maps accepted Git and local resolutions back to source parameters", () => {
+    expect(
+      lockEntryToSourceParams({
         type: "github",
         owner: "acme",
-        repo: "widgets",
-        ...baseLockFields,
+        repo: "extensions",
+        ref: "main",
+        path: "skills/review",
+        resolvedCommit: "commit-1",
+        resolvedTree: "tree-1",
+        contentIdentity,
       }),
-    );
-    expect(withoutOptional).toEqual({
+    ).toEqual({
       type: "github",
       owner: "acme",
-      repo: "widgets",
-      ref: Option.none(),
-      subPath: Option.none(),
-    });
-  });
-
-  it("maps gitlab lock entry with/without optional fields", () => {
-    const withOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "gitlab",
-        owner: "acme",
-        repo: "widgets",
-        ref: "main",
-        path: "skills/foo",
-        ...baseLockFields,
-      }),
-    );
-    expect(withOptional).toEqual({
-      type: "gitlab",
-      owner: "acme",
-      repo: "widgets",
+      repo: "extensions",
       ref: Option.some("main"),
-      subPath: Option.some("skills/foo"),
+      subPath: Option.some("skills/review"),
     });
-
-    const withoutOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "gitlab",
-        owner: "acme",
-        repo: "widgets",
-        ...baseLockFields,
-      }),
-    );
-    expect(withoutOptional).toEqual({
-      type: "gitlab",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.none(),
-      subPath: Option.none(),
-    });
-  });
-
-  it("maps bitbucket lock entry with/without optional fields", () => {
-    const withOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "bitbucket",
-        owner: "acme",
-        repo: "widgets",
-        ref: "main",
-        path: "skills/foo",
-        ...baseLockFields,
-      }),
-    );
-    expect(withOptional).toEqual({
-      type: "bitbucket",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.some("main"),
-      subPath: Option.some("skills/foo"),
-    });
-
-    const withoutOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "bitbucket",
-        owner: "acme",
-        repo: "widgets",
-        ...baseLockFields,
-      }),
-    );
-    expect(withoutOptional).toEqual({
-      type: "bitbucket",
-      owner: "acme",
-      repo: "widgets",
-      ref: Option.none(),
-      subPath: Option.none(),
-    });
-  });
-
-  it("maps azurerepos lock entry with/without optional fields", () => {
-    const withOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "azurerepos",
-        organization: "org",
-        project: "proj",
-        repo: "repo",
-        ref: "main",
-        path: "skills/foo",
-        ...baseLockFields,
-      }),
-    );
-    expect(withOptional).toEqual({
-      type: "azurerepos",
-      organization: "org",
-      project: "proj",
-      repo: "repo",
-      ref: Option.some("main"),
-      subPath: Option.some("skills/foo"),
-    });
-
-    const withoutOptional = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "azurerepos",
-        organization: "org",
-        project: "proj",
-        repo: "repo",
-        ...baseLockFields,
-      }),
-    );
-    expect(withoutOptional).toEqual({
-      type: "azurerepos",
-      organization: "org",
-      project: "proj",
-      repo: "repo",
-      ref: Option.none(),
-      subPath: Option.none(),
-    });
-  });
-
-  it("maps git lock entry and reconstructs URL", () => {
-    const withRef = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "git",
-        url: "https://example.com/repo.git",
-        ref: "main",
-        ...baseLockFields,
-      }),
-    );
-    expect(withRef).toEqual({
-      type: "git",
-      url: new URL("https://example.com/repo.git"),
-      ref: Option.some("main"),
-    });
-
-    const withoutRef = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "git",
-        url: "https://example.com/repo.git",
-        ...baseLockFields,
-      }),
-    );
-    expect(withoutRef).toEqual({
-      type: "git",
-      url: new URL("https://example.com/repo.git"),
-      ref: Option.none(),
-    });
-  });
-
-  it("maps local lock entry", () => {
-    const source = lockEntryToSourceParams(
-      makeLockEntry({
-        type: "local",
-        path: decodeRelativePathSync("tmp/skills/my-skill"),
-        ...baseLockFields,
-      }),
-    );
-    expect(source).toEqual({
+    expect(lockEntryToSourceParams({ type: "local", path: "../review", contentIdentity })).toEqual({
       type: "local",
-      path: "tmp/skills/my-skill",
+      path: "../review",
     });
   });
 
-  it("maps registry lock entry", () => {
-    const source = lockEntryToSourceParams(
-      makeLockEntry({
+  it("prints a Registry accepted resolution as an exact locator", () => {
+    expect(
+      printSkillLockSourceLocator("ignored", {
         type: "registry",
         owner: handle("@acme"),
-        name: extensionName("widgets"),
-        resolvedVersion: exactVersion("1.0.0"),
-        integrity: "sha512-abc",
+        name: extensionName("review"),
+        resolvedVersion: exactVersion("1.2.3"),
+        integrity: "sha512-archive",
         sourceName: "default",
-
-        publisherBindingId: "hbnd_test",
-        ...baseLockFields,
+        publisherBindingId: "binding-1",
       }),
-    );
-    expect(source).toEqual({
-      type: "registry",
-      owner: Option.none(),
-    });
-  });
-});
-
-describe("printSkillLockSourceLocator", () => {
-  it("prints the exact registry identity and resolved version", () => {
-    const entry = makeLockEntry({
-      type: "registry",
-      owner: handle("@acme"),
-      name: extensionName("review"),
-      resolvedVersion: exactVersion("1.2.3"),
-      integrity: "sha512-stub",
-      sourceName: "default",
-      publisherBindingId: "hbnd_test",
-      ...baseLockFields,
-    });
-
-    expect(printSkillLockSourceLocator("review", entry)).toBe("@acme/skills/review@1.2.3");
-  });
-
-  it("round-trips a GitHub lock source", () => {
-    const entry = makeLockEntry({
-      type: "github",
-      owner: "acme",
-      repo: "agent-extensions",
-      path: ".agents/skills/review",
-      ref: "v1",
-      ...baseLockFields,
-    });
-
-    expect(printSkillLockSourceLocator("review", entry)).toBe(
-      "github:acme/agent-extensions//.agents/skills/review@v1",
-    );
+    ).toBe("@acme/skills/review@1.2.3");
   });
 });

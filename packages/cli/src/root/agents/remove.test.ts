@@ -128,7 +128,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: {}\n",
+      lockfile: "lockfileVersion: 4\nskills: {}\n",
     });
 
     return provide(
@@ -153,7 +153,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: {}\n",
+      lockfile: "lockfileVersion: 4\nskills: {}\n",
     });
 
     return provide(
@@ -183,7 +183,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: {}\n",
+      lockfile: "lockfileVersion: 4\nskills: {}\n",
     });
 
     return provide(
@@ -236,7 +236,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ failCleanupAtApply: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: {}\n",
+      lockfile: "lockfileVersion: 4\nskills: {}\n",
     });
 
     return provide(
@@ -268,7 +268,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 3\nskills: {}\n",
+      lockfile: "lockfileVersion: 4\nskills: {}\n",
     });
     const sourceDir = path.join(tempDir, ".axm", "extensions", "@agentxm", "skills", "axm", "src");
     const skillsDir = path.join(tempDir, ".opencode", "skills");
@@ -315,7 +315,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
-      lockfile: "lockfileVersion: 3\nskills: []\n",
+      lockfile: "lockfileVersion: 4\nskills: []\n",
     });
 
     return provide(

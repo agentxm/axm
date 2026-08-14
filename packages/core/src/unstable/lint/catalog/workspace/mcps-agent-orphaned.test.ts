@@ -49,29 +49,15 @@ const makeContext = (): WorkspaceRuleContext =>
   }) as unknown as WorkspaceRuleContext;
 
 describe("workspace/mcps-agent-orphaned", () => {
-  it.effect("reports and fixes managed agent MCP entries not declared in settings", () =>
+  it.effect("reports owned MCP entries not declared in settings without mutating", () =>
     Effect.gen(function* () {
       const findings = yield* mcpServerAgentOrphanedRule.check(makeContext());
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/mcps-agent-orphaned");
-      expect(findings[0]?.kind).toBe("autofixable");
+      expect(findings[0]?.kind).toBe("advisory");
       expect(findings[0]?.location).toEqual({ file: ".mcp.json" });
-      const finding = findings[0];
-      if (finding === undefined || finding.kind !== "autofixable") {
-        throw new Error("Expected an autofixable orphan finding");
-      }
-      const operations = yield* mcpServerAgentOrphanedRule.fix(makeContext(), finding);
-      expect(operations).toEqual([
-        {
-          name: "remove-mcp-server-agent",
-          args: {
-            serverName: "demo",
-            agentId: "claude-code",
-            scope: "project",
-          },
-        },
-      ]);
+      expect("fix" in mcpServerAgentOrphanedRule).toBe(false);
     }),
   );
 });

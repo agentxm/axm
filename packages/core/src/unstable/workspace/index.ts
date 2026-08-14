@@ -55,16 +55,6 @@ export {
   type AnyLockMap,
 } from "./locked-entries.js";
 
-// Reconciliation
-export {
-  buildReconciliationSnapshot,
-  dedupeDeclarations,
-  ReconciliationAdapters,
-  runReadRecoverOperation,
-  runReconcileMaterializeOperation,
-  type ReconciliationSnapshot,
-} from "./reconciliation.js";
-
 export {
   buildDesiredStateGraph,
   type DesiredExtensionNode,
@@ -76,23 +66,23 @@ export {
   isDesiredExtensionActive,
   type DesiredStateEnabledOrigin,
 } from "./desired-state-enabled.js";
-export { validateDesiredPackTrust } from "./desired-pack-trust.js";
+export { validateDesiredPackLock } from "./desired-pack-lock.js";
 export {
   observeCanonicalExtension,
-  canonicalPathForTrustedExtension,
+  canonicalPathForAcceptedExtension,
   type CanonicalObservation,
   type CanonicalObservationStatus,
 } from "./canonical-observation.js";
 export {
-  trustedCanonicalRef,
-  trustedCanonicalObservation,
-  usableTrustedCanonical,
-  usableTrustedCanonicalObservation,
-  usableTrustedCanonicalRef,
-  type TrustedCanonicalObservation,
-  type UsableTrustedCanonical,
-  type UsableTrustedCanonicalObservation,
-} from "./trusted-canonical-ref.js";
+  acceptedResolutionRef,
+  acceptedCanonicalObservation,
+  usableAcceptedCanonical,
+  usableAcceptedCanonicalObservation,
+  usableAcceptedCanonicalRef,
+  type AcceptedCanonicalObservation,
+  type UsableAcceptedCanonical,
+  type UsableAcceptedCanonicalObservation,
+} from "./accepted-canonical-ref.js";
 export { isObservedInstalled } from "./observed-installed.js";
 
 // Configured entry resolution
@@ -118,19 +108,6 @@ export {
   type ResolvedConfiguredSkill,
   type ResolvedConfiguredSubagent,
 } from "./configured-entry-resolution/index.js";
-
-// Reconciliation types
-export type {
-  AdapterEnvironment,
-  DeclarationResolution,
-  DeclarationScanResult,
-  ReconcileExtensionType,
-  ReconciliationAdapter,
-  ReconciliationContext,
-  ReconciliationDeclaration,
-  ReconstructedLockEntry,
-  UnresolvedReason,
-} from "./reconciliation-types.js";
 
 export {
   AXM_MANAGED_MARKER,

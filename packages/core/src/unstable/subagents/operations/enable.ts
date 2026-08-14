@@ -1,8 +1,7 @@
 /**
  * Enable subagent executor — re-renders agent-native files for a previously disabled subagent.
  *
- * Enabling requires usable trusted canonical content. Receipts are not consulted:
- * they are optional post-success history, not an input to lifecycle decisions.
+ * Enabling requires canonical content backed by a usable accepted resolution.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,7 +23,7 @@ import { subagentContentFilename, subagentContentPath } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
-import { usableTrustedCanonical } from "../../workspace/trusted-canonical-ref.js";
+import { usableAcceptedCanonical } from "../../workspace/accepted-canonical-ref.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -59,7 +58,7 @@ export type EnableSubagentOperation = Operation<
 /**
  * Enable-subagent operation handler.
  *
- * Resolves trusted canonical content, renders to configured agents, and then
+ * Resolves accepted canonical content, renders to configured agents, and then
  * updates the desired settings entry.
  */
 export const enableSubagent: OperationHandler<
@@ -72,7 +71,7 @@ export const enableSubagent: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
-    const canonical = yield* usableTrustedCanonical({
+    const canonical = yield* usableAcceptedCanonical({
       workspace: ws,
       type: "subagent",
       name: op.args.subagentName,
@@ -80,7 +79,7 @@ export const enableSubagent: OperationHandler<
     if (Option.isNone(canonical) || canonical.value.ref.type !== "subagent") {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Trusted subagent content for "${op.args.subagentName}" is not usable`,
+        detail: `Accepted subagent content for "${op.args.subagentName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the subagent.",
@@ -201,7 +200,10 @@ export const enableSubagent: OperationHandler<
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
     const renderedFiles = decodeRenderedFiles(renderedFilesMap);
 
-    const version = canonical.value.trust.resolvedVersion;
+    const version =
+      canonical.value.accepted?.type === "registry"
+        ? canonical.value.accepted.resolvedVersion
+        : undefined;
 
     return {
       result: "success",

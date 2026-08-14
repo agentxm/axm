@@ -34,16 +34,14 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 3, skills: lockfileSkills }),
+    YAML.stringify({ lockfileVersion: 4, skills: lockfileSkills }),
   );
 };
 
-const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  agents,
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  contentIdentity: "test-content",
 });
 
 const createAgentSkill = (baseDir: string, agentId: "claude-code" | "cursor", name: string) => {

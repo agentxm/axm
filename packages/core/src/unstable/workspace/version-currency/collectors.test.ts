@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -14,6 +13,7 @@ import {
   makeRegistrySkillLockEntry,
   makeRegistryMcpServerLockEntry,
   makeRegistryPackLockEntry,
+  TEST_CONTENT_IDENTITY,
 } from "../test-stubs.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import {
@@ -54,8 +54,6 @@ const makeRegistryLockFields = (opts: {
   integrity: "sha512-AAAA==",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
-  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
 });
 
 describe("collectSkillCurrency", () => {
@@ -148,9 +146,9 @@ describe("collectSkillCurrency", () => {
               type: "github" as const,
               owner: "user",
               repo: "repo",
-              agents: ["claude-code"],
-              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+              resolvedCommit: "commit-1",
+              resolvedTree: "tree-1",
+              contentIdentity: TEST_CONTENT_IDENTITY,
             },
           }),
       });
@@ -189,10 +187,9 @@ describe("collectSkillSourceFreshness", () => {
               owner: "vercel-labs",
               repo: "skills",
               path: "skills/find-skills",
-              gitTreeHash: "old-tree",
-              agents: ["codex"],
-              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+              resolvedCommit: "commit-1",
+              resolvedTree: "old-tree",
+              contentIdentity: TEST_CONTENT_IDENTITY,
             },
           }),
       });
@@ -219,7 +216,8 @@ describe("collectSkillSourceFreshness", () => {
               },
               location: "file:///tmp/find-skills",
               sourcePath: "skills/find-skills",
-              gitTreeSha: Option.some("new-tree"),
+              gitTreeSha: "new-tree",
+              gitCommitSha: "commit-2",
             },
           ]),
         fetch: () => Effect.die(new Error("not used")),
@@ -244,13 +242,13 @@ describe("collectSkillSourceFreshness", () => {
 });
 
 describe("git-source freshness beyond skills", () => {
-  const gitLockEntry = (repo: string, gitTreeHash: string) => ({
+  const gitLockEntry = (repo: string, resolvedTree: string) => ({
     type: "github" as const,
     owner: "acme",
     repo,
-    gitTreeHash,
-    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    resolvedCommit: "commit-1",
+    resolvedTree,
+    contentIdentity: TEST_CONTENT_IDENTITY,
   });
 
   const providersReturning = (refs: ReadonlyArray<ExtensionRef>): SourceHostProvidersService => ({
@@ -301,7 +299,8 @@ describe("git-source freshness beyond skills", () => {
               source: gitSource("guard"),
               location: "file:///tmp/guard",
               sourcePath: "guard",
-              gitTreeSha: Option.some("same-tree"),
+              gitTreeSha: "same-tree",
+              gitCommitSha: "commit-1",
             },
           ]),
         ),
@@ -354,15 +353,7 @@ describe("git-source freshness beyond skills", () => {
             }),
           ],
         }),
-        getLockedMcpServers: () =>
-          Effect.succeed({
-            "local-server": {
-              type: "inline" as const,
-              command: "run-server",
-              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-            },
-          }),
+        getLockedMcpServers: () => Effect.succeed({}),
       });
       const layer = Layer.merge(
         Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
@@ -439,9 +430,6 @@ describe("collectSubagentCurrency", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              agents: ["claude-code"],
-              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
             },
           }),
       });
@@ -567,8 +555,9 @@ describe("collectRuleCurrency", () => {
               type: "github" as const,
               owner: "user",
               repo: "repo",
-              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+              resolvedCommit: "commit-1",
+              resolvedTree: "tree-1",
+              contentIdentity: TEST_CONTENT_IDENTITY,
             },
           }),
       });

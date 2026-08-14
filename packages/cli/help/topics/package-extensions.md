@@ -106,5 +106,5 @@ For a complete, working example for every package format above — including pai
 ## Where to go next
 
 - `axm help packs` — bundling multiple extensions into a single recommendable pack
-- `axm help skills` — skill manifest details, plus how lockfile `integrity` and `sourceHash` work for installed extensions
+- `axm help skills` — skill manifest details and accepted external-resolution fields
 - `axm help subagents` — subagent manifest details

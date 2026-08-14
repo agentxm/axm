@@ -140,18 +140,10 @@ describe("subagents-new.handler", () => {
           expect(settings.subagents).toBeDefined();
           expect(settings.subagents["my-subagent"]).toBe("workspace:@acme/subagents/my-subagent");
 
-          // Verify lockfile registration
+          // Authored workspace content is desired authority and has no lock row.
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
-          expect(lockfile.subagents["my-subagent"]).toMatchObject({
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "subagent",
-            name: "my-subagent",
-            version: "0.0.1",
-            sourceHash: expect.any(String),
-          });
-          expect(lockfile.subagents["my-subagent"]).not.toHaveProperty("agents");
+          expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 
           expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
           expect(rendererState.suggestions).toEqual([

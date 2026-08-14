@@ -19,7 +19,6 @@ import {
   type Handle,
 } from "../extensions/index.js";
 import { createRegistryClient } from "../registry/index.js";
-import { trustRecordKey } from "../trust/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 
 /**
@@ -161,9 +160,7 @@ const installedCandidates = (
     const ws = yield* WorkspaceMutations;
     const candidates: IdentifierCandidate[] = [];
 
-    const [graph, trust] = yield* Effect.all([ws.getDesiredStateGraph(), ws.getTrustState()], {
-      concurrency: "unbounded",
-    });
+    const graph = yield* ws.getDesiredStateGraph();
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
@@ -183,17 +180,7 @@ const installedCandidates = (
       const graphIdentity = node.identity.startsWith("workspace:")
         ? node.identity.slice("workspace:".length)
         : node.identity;
-      const trustedIdentity =
-        trust.records[trustRecordKey(resourceType, node.name)]?.sourceIdentity;
-      const parsedIdentity =
-        parseExtensionFqnParts(graphIdentity) ??
-        (trustedIdentity === undefined
-          ? undefined
-          : parseExtensionFqnParts(
-              trustedIdentity.startsWith("workspace:")
-                ? trustedIdentity.slice("workspace:".length)
-                : trustedIdentity,
-            ));
+      const parsedIdentity = parseExtensionFqnParts(graphIdentity);
       const parts =
         parsedIdentity !== undefined && parsedIdentity.type === resourceType
           ? Option.some({

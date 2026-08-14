@@ -306,10 +306,11 @@ describe("ref detail interfaces", () => {
   it("GitHostedRefDetails has location and gitTreeSha", () => {
     const details: GitHostedRefDetails = {
       location: "file:///tmp/clone",
-      gitTreeSha: Option.some("abc123"),
+      gitTreeSha: "abc123",
+      gitCommitSha: "commit123",
     };
     expect(details.location).toBe("file:///tmp/clone");
-    expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
+    expect(details.gitTreeSha).toBe("abc123");
   });
 
   it("RegistryRefDetails has owner, name, version, and integrity", () => {
@@ -356,11 +357,12 @@ describe("SkillExtensionRef", () => {
         subPath: Option.none(),
       },
       location: "file:///tmp/clone",
-      gitTreeSha: Option.some("sha1"),
+      gitTreeSha: "sha1",
+      gitCommitSha: "commit1",
     };
     if (ref.refType === "git-hosted") {
       expect(ref.location).toBe("file:///tmp/clone");
-      expect(Option.getOrNull(ref.gitTreeSha)).toBe("sha1");
+      expect(ref.gitTreeSha).toBe("sha1");
       if (ref.source.type === "github") {
         expect(ref.source.owner).toBe("o");
       }
@@ -453,7 +455,8 @@ describe("McpServerExtensionRef", () => {
         subPath: Option.none(),
       },
       location: "file:///tmp/clone",
-      gitTreeSha: Option.none(),
+      gitTreeSha: "tree1",
+      gitCommitSha: "commit1",
     };
     if (ref.refType === "git-hosted") {
       expect(ref.location).toBe("file:///tmp/clone");

@@ -8,12 +8,8 @@
  * row is ever produced for a pack. Direct pack declarations remain the only
  * way a pack appears in `installed`.
  *
- * Resolved member groups (`resolvedSkills`, `resolvedMcpServers`,
- * `resolvedSubagents`, `resolvedRules`, `resolvedHooks`, and
- * `resolvedKnowledge`) read from the installed pack
- * lockfile entry. Phase 9 threads these maps into other subjects'
- * `installedPacks` inputs so pack-provided members surface as implicit
- * installed rows on those subjects.
+ * Other subjects derive Pack membership from the authored `pack.json`
+ * manifest. The lock entry carries only accepted external resolution.
  *
  * Pack activation follows its declared settings entry. Disabled packs retain
  * their declaration, lock data, and canonical content while leaving the
@@ -64,13 +60,7 @@ export interface DeclaredPack {
 }
 export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
 
-/**
- * Resolved pack carrying the lockfile entry verbatim. Member groups are
- * available as `lockEntry.resolvedSkills` / `resolvedMcpServers` /
- * `resolvedSubagents` / `resolvedRules` / `resolvedHooks` /
- * `resolvedKnowledge`. Subject modules read these
- * maps when assembling pack-member input for the projection helper.
- */
+/** Resolved Pack carrying the accepted external-resolution row verbatim. */
 export interface ResolvedPack {
   readonly keyName: string;
   readonly name: ExtensionName;

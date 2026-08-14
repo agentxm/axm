@@ -218,31 +218,7 @@ describe("enable.handler", () => {
         },
         ["claude-code"],
         {
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-          lockfilePacks: {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              publisherBindingId: "hbnd_test",
-              sourceHash: computePackageContentHashSync(packDir),
-              installedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              resolvedSkills: {
-                "@acme/skills/code-review": {
-                  source: "registry",
-                  version: "1.2.0",
-                  publisherBindingId: "hbnd_test",
-                  integrity: "sha512-member",
-                },
-              },
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
-          },
+          packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
         },
       );
 

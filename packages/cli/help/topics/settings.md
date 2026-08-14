@@ -1,7 +1,7 @@
 # Settings
 
-Desired AXM workspace state lives in `.axm/settings.json`. Observed content,
-trust, and receipt history are separate; see `axm help workspace-state`.
+Desired AXM workspace state lives in `.axm/settings.json`. Accepted external
+resolution and observed state are separate; see `axm help workspace-state`.
 
 ## `.axm/settings.json`
 
@@ -32,7 +32,7 @@ and has reached the minimum age. If a newer matching version is still too new,
 AXM continues with the eligible version and reports the held release. If every
 matching version is too new, a workspace-wide `axm update` leaves that target
 unchanged and continues with other targets. A targeted update preserves already
-trusted and usable desired state; otherwise it stops without writing.
+accepted and usable desired state; otherwise it stops without writing.
 
 Use `--ignore-release-age` on bare `axm install`, `axm sync`, or `axm update`
 for a reviewed, one-shot workspace bypass. A targeted Registry update also
@@ -72,7 +72,7 @@ and `mcpServersConfig`.
 
 `knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
 the canonical instruction source. It defaults to enabled; persist only the
-non-default `false`. This setting does not affect install, trust, enablement, or
+non-default `false`. This setting does not affect install, accepted resolution, enablement, or
 concept discovery.
 
 ```jsonc

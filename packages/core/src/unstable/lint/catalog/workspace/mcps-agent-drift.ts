@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { Operation } from "../../../plan/plan.js";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
@@ -22,8 +21,7 @@ import type {
   InstalledMcpServer,
 } from "../../../workspace/read-model/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
-import { syncMcpServerAgentOp } from "./helpers/install-ops.js";
+import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 
 const RULE_ID = "workspace/mcps-agent-drift";
 
@@ -79,15 +77,15 @@ const findingFor = (args: {
   readonly actual: ActualMcpServer;
   readonly fields: ReadonlyArray<string>;
   readonly root: string;
-}): AutofixableFinding => {
+}): AdvisoryFinding => {
   const finding = {
-    kind: "autofixable",
+    kind: "advisory",
     ruleId: RULE_ID,
     severity: "warning",
     message:
       `MCP server '${args.name}' has drifted agent config for ${args.actual.origin._tag === "agent-mcp-config" ? args.actual.origin.agentId : "agent"} ` +
-      `(${args.fields.join(", ")}). Run \`axm lint --fix\` to reconcile managed agent configs.`,
-  } satisfies Omit<AutofixableFinding, "location">;
+      `(${args.fields.join(", ")}).`,
+  } satisfies Omit<AdvisoryFinding, "location">;
   return args.actual.configFile === null
     ? finding
     : { ...finding, location: { file: relativeToRoot(args.root, args.actual.configFile) } };
@@ -186,27 +184,10 @@ const findingsForRows = (
     }),
   );
 
-const operationsForRows = (
-  context: WorkspaceRuleContext,
-  rows: ReadonlyArray<InstalledMcpServer>,
-  configuredAgents: ReadonlySet<string>,
-): ReadonlyArray<Operation<string, unknown>> =>
-  driftedAgentConfigs(rows, configuredAgents).flatMap((drift) => {
-    if (drift.actual.origin._tag !== "agent-mcp-config") return [];
-    return [
-      syncMcpServerAgentOp({
-        serverName: drift.row.key.name,
-        agentId: drift.actual.origin.agentId,
-        scope: context.subject.scope,
-        force: false,
-      }),
-    ];
-  });
-
-export const mcpServerAgentDriftRule: AutofixingRule<WorkspaceRuleContext> = {
+export const mcpServerAgentDriftRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Managed MCP server agent configs match AXM settings.",
-  kind: "autofixing",
+  kind: "advisory",
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
@@ -214,12 +195,5 @@ export const mcpServerAgentDriftRule: AutofixingRule<WorkspaceRuleContext> = {
       if (Result.isFailure(rows)) return [];
       const agents = yield* configuredAgentIds(context);
       return findingsForRows(rows.success, agents, context.subject.root);
-    }),
-  fix: (context, _finding: AutofixableFinding) =>
-    Effect.gen(function* () {
-      const rows = yield* Effect.result(context.workspace.mcpServers.installed);
-      if (Result.isFailure(rows)) return [];
-      const agents = yield* configuredAgentIds(context);
-      return operationsForRows(context, rows.success, agents);
     }),
 };

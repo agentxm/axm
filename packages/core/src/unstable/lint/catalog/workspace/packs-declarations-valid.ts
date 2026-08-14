@@ -29,9 +29,7 @@ const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Pack '${entry.name}' uses bare source '${entry.source}', so axm cannot tell which registry pack you mean. ` +
-    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
+  message: `Pack '${entry.name}' uses ambiguous bare source '${entry.source}'.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -39,9 +37,7 @@ const nonRegistryFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Pack '${entry.name}' source '${entry.source}' is not a registry pack reference. ` +
-    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
+  message: `Pack '${entry.name}' source '${entry.source}' is not a supported Pack source reference.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -49,9 +45,7 @@ const missingOwnerFinding = (entry: Categorized): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Pack '${entry.name}' source '${entry.source}' looks like a registry pack reference but is missing the \`@owner\` prefix. ` +
-    "Run `axm packs install @owner/packs/<name>` with the owner-qualified source you intend.",
+  message: `Pack '${entry.name}' source '${entry.source}' is missing its owner-qualified identity.`,
   location: { file: SETTINGS_REL },
 });
 
@@ -62,10 +56,7 @@ const duplicateFinding = (
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
-  message:
-    `Pack '${entry.name}' points to the same registry pack as these entries: ${duplicates.join(", ")}. ` +
-    "Run `axm packs uninstall <name>` for each duplicate declaration you do not want to keep. " +
-    "If needed, run `axm packs install <source>` for the declaration you do want to keep.",
+  message: `Pack '${entry.name}' duplicates the same Pack identity as: ${duplicates.join(", ")}.`,
   location: { file: SETTINGS_REL },
 });
 

@@ -97,5 +97,5 @@ or its members. If the subagent requires another extension, follow
 ## Where to go next
 
 - `axm subagents --help` — full subagent subcommand surface
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics
 - `axm help packs` — bundling subagent extensions with extension packs

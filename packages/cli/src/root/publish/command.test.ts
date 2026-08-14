@@ -13,10 +13,7 @@ import {
   getCommandSemanticProperties,
   isEffectCliExit,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  computePackageContentHash,
-  extensionTypes,
-} from "@agentxm/client-core/unstable/extensions";
+import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
 import {
@@ -46,14 +43,7 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-helpers.js";
-import {
-  computePackageContentHashSync,
-  exactVersion,
-  extensionName,
-  handle,
-  versionRange,
-  writeTrustFromWorkspaceLockfile,
-} from "../../test-stubs.js";
+import { exactVersion, extensionName, handle, versionRange } from "../../test-stubs.js";
 import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
@@ -346,7 +336,7 @@ describe("root publish", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 3\nskills: {}\n",
+      "lockfileVersion: 4\nskills: {}\n",
     );
   });
 
@@ -389,25 +379,6 @@ describe("root publish", () => {
     );
   };
 
-  const writeReviewTrust = () => {
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "trust.json"),
-      JSON.stringify({
-        trustStateVersion: 1,
-        records: {
-          "skill:review": {
-            extensionType: "skill",
-            name: "review",
-            authority: "workspace",
-            sourceIdentity: "workspace:@acme/skills/review",
-            resolvedVersion: "0.9.0",
-            contentIdentity: "0".repeat(64),
-          },
-        },
-      }),
-    );
-  };
-
   const writeAuthoredReviewPackWorkspace = (args: {
     readonly skillVersion: string;
     readonly constraint: string;
@@ -446,44 +417,13 @@ describe("root publish", () => {
         packs: { reviewers: "workspace:@acme/packs/reviewers" },
       }),
     );
-    const timestamp = "2026-08-12T00:00:00.000Z";
     fs.writeFileSync(
       path.join(axmDir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 3,
-        skills: {
-          review: {
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "skill",
-            name: "review",
-            version: args.skillVersion,
-            sourceHash: computePackageContentHashSync(skillDir),
-            installedAt: timestamp,
-            updatedAt: timestamp,
-          },
-        },
-        packs: {
-          reviewers: {
-            type: "workspace",
-            owner: "@acme",
-            extensionType: "pack",
-            name: "reviewers",
-            version: args.packVersion ?? "0.1.0",
-            sourceHash: computePackageContentHashSync(packDir),
-            installedAt: timestamp,
-            updatedAt: timestamp,
-            resolvedSkills: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-            resolvedKnowledge: {},
-          },
-        },
+        lockfileVersion: 4,
+        skills: {},
       }),
     );
-    writeTrustFromWorkspaceLockfile(axmDir);
     return { packDir };
   };
 
@@ -511,7 +451,7 @@ describe("root publish", () => {
           expect(error.suggestions).toContainEqual({
             description:
               "Replace @acme/packs/reviewers's constraint with the selected version, then publish the member and pack together",
-            cmd: "axm packs add @acme/packs/reviewers @acme/skills/review --replace-existing",
+            cmd: "axm packs add @acme/packs/reviewers @acme/skills/review",
           });
           expect(
             fs.existsSync(
@@ -613,14 +553,6 @@ describe("root publish", () => {
       const request = NodeHttp.get(url, (response) => response.resume());
       request.on("error", () => undefined);
     }, 10);
-  };
-
-  const reviewTrustRecord = () => {
-    const trust = expectRecord(
-      JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "trust.json"), "utf8")),
-    );
-    const records = expectRecord(property(trust, "records"));
-    return expectRecord(property(records, "skill:review"));
   };
 
   it("reports authentication as a human-blocked preview precondition only when needed", () => {
@@ -1339,24 +1271,16 @@ describe("root publish", () => {
     );
   });
 
-  it.effect("advances the authored baseline after publish and verified skip", () => {
+  it.effect("does not persist an authored publication baseline", () => {
     writeReviewSkill();
-    writeReviewTrust();
     const { provide, rendererState } = makeContext(false);
     const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
     return provide(
       Effect.gen(function* () {
-        const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
-        const expectedIdentity = yield* computePackageContentHash(skillDir);
-
         yield* handleRootPublish(args(registryUrl, { preview: false }));
-        expect(reviewTrustRecord()).toMatchObject({
-          resolvedVersion: "1.0.0",
-          contentIdentity: expectedIdentity,
-        });
+        expect(fs.existsSync(path.join(tempDir, ".axm", "trust.json"))).toBe(false);
 
-        writeReviewTrust();
         yield* handleRootPublish(args(registryUrl, { preview: false }));
         const result = expectPublishResult(at(rendererState.results, 1).data, {
           mode: "apply",
@@ -1369,10 +1293,7 @@ describe("root publish", () => {
           reason: "version_already_published",
           status: "success",
         });
-        expect(reviewTrustRecord()).toMatchObject({
-          resolvedVersion: "1.0.0",
-          contentIdentity: expectedIdentity,
-        });
+        expect(fs.existsSync(path.join(tempDir, ".axm", "trust.json"))).toBe(false);
       }),
     );
   });

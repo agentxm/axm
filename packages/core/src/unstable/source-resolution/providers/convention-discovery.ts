@@ -11,7 +11,7 @@ import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "../../extensions/discovery-walk.js";
-import { getTreeSha } from "../../git/index.js";
+import { getCommitSha, getTreeSha } from "../../git/index.js";
 import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -73,11 +73,11 @@ const gitTreeShaFor = (
   source: GitBasedSource,
   basePath: string,
   location: string,
-): Effect.Effect<Option.Option<string>, never, Path.Path> =>
-  relativeDir(basePath, location).pipe(
-    Effect.flatMap((dir) => getTreeSha(basePath, dir)),
-    Effect.option,
-  );
+): Effect.Effect<string, AppError, Path.Path> =>
+  relativeDir(basePath, location).pipe(Effect.flatMap((dir) => getTreeSha(basePath, dir)));
+
+const gitCommitShaFor = (basePath: string): Effect.Effect<string, AppError> =>
+  getCommitSha(basePath);
 
 const subPathForSource = (source: ExternalSource): Option.Option<string> => {
   switch (source.type) {
@@ -134,6 +134,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                   location: discovered.location,
                   sourcePath: yield* relativeDir(basePath, discovered.location),
                   gitTreeSha: yield* gitTreeShaFor(source, basePath, discovered.location),
+                  gitCommitSha: yield* gitCommitShaFor(basePath),
                 } satisfies SkillExtensionRef;
             }
           }),
@@ -280,6 +281,7 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
           source,
           location: discovery.location,
           gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+          gitCommitSha: yield* gitCommitShaFor(basePath),
         } satisfies SubagentExtensionRef;
     }
   });
@@ -309,6 +311,7 @@ const knowledgeRef = (source: ExternalSource, basePath: string, discovery: Knowl
           location: discovery.location,
           sourcePath: yield* relativeDir(basePath, discovery.location),
           gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+          gitCommitSha: yield* gitCommitShaFor(basePath),
         } satisfies KnowledgeExtensionRef;
     }
   });
@@ -368,6 +371,7 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 source,
                 location: discovery.location,
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+                gitCommitSha: yield* gitCommitShaFor(basePath),
               } satisfies RuleExtensionRef;
           }
         }),
@@ -406,6 +410,7 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 source,
                 location: discovery.location,
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+                gitCommitSha: yield* gitCommitShaFor(basePath),
               } satisfies HookExtensionRef;
           }
         }),

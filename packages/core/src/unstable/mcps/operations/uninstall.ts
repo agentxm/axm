@@ -2,7 +2,7 @@
  * Uninstall MCP server executor — orchestrates per-server removal pipeline.
  *
  * Pipeline: resolve desired/observed state -> remove canonical source -> clear
- * settings and receipt.
+ * settings and accepted resolution.
  * Simpler than skills — no agent symlinks.
  *
  * @experimental This API is unstable and may change without notice.
@@ -201,7 +201,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
  *
  * 1. Resolve configured and observed state
  * 2. Remove canonical directory from disk (if exists)
- * 3. Remove settings and receipt
+ * 3. Remove settings and accepted resolution
  */
 export const uninstallMcpServer: (
   op: UninstallMcpServerOperation,

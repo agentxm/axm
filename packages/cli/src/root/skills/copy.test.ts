@@ -26,7 +26,7 @@ describe("skills copy", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 3\nskills: {}\n",
+      "lockfileVersion: 4\nskills: {}\n",
     );
     const sourceDir = path.join(tempDir, "source", "review");
     fs.mkdirSync(sourceDir, { recursive: true });
@@ -75,8 +75,8 @@ describe("skills copy", () => {
           source: "workspace:@acme/skills/copied-review",
           enabled: true,
         });
-        expect(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8")).toContain(
-          "type: workspace",
+        expect(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8")).not.toContain(
+          "copied-review:",
         );
       }),
     );

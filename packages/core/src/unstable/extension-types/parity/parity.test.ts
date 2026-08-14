@@ -42,15 +42,13 @@ const REGISTRY_LOCK_ENTRY = {
   integrity: "sha512-abc123",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
-  installedAt: "2025-01-15T10:30:00Z",
-  updatedAt: "2025-01-15T10:30:00Z",
 } as const;
 
 type LockEntrySchema = (typeof LOCK_ENTRY_SCHEMA_BY_TYPE)[CatalogExtensionType];
 
 // `onExcessProperty: "error"` is load-bearing: under the default tolerance an
 // unknown field is silently dropped, which would make every type appear to
-// accept `sourceHash`.
+// accept obsolete receipt fields.
 const decodes = (schema: LockEntrySchema, input: unknown): boolean => {
   try {
     Schema.decodeUnknownSync(schema)(input, { onExcessProperty: "error" });
@@ -66,10 +64,15 @@ const decodes = (schema: LockEntrySchema, input: unknown): boolean => {
  * coverage test below.
  */
 const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | null> = {
-  "2.6-source-hash": (type) =>
+  "2.6-accepted-resolution": (type) =>
+    decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], REGISTRY_LOCK_ENTRY) &&
     decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], {
-      ...REGISTRY_LOCK_ENTRY,
-      sourceHash: "sha256-0123456789abcdef",
+      type: "github",
+      owner: "acme",
+      repo: "example",
+      resolvedCommit: "commit-1",
+      resolvedTree: "tree-1",
+      contentIdentity: "content-1",
     }),
   "2.9-read-model-family": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
   "2.11-ownership-safe-prune": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,

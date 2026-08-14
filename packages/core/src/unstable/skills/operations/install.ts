@@ -10,11 +10,14 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
-import { printSkillLockSourceLocator, sourceToLockEntry } from "../../sources/index.js";
+import {
+  printSourceParams,
+  printSkillLockSourceLocator,
+  sourceToLockEntry,
+} from "../../sources/index.js";
 import {
   UNIVERSAL_SKILLS_DIR,
   computePackageContentHash,
@@ -45,7 +48,10 @@ import {
 import { shouldReuseCanonicalInstall, validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { Operation } from "../../plan/plan.js";
@@ -56,11 +62,6 @@ import type {
   JobStepResult,
 } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import {
-  trustedRegistryVersionForRef,
-  trustRecordKey,
-  validateRefTrustTransition,
-} from "../../trust/index.js";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
@@ -86,8 +87,6 @@ export type InstallSkillOperationArgs = {
   readonly skipSettings: Option.Option<boolean>;
   /** When true, fail on unknown configured agents instead of warning+skip. */
   readonly strictUnknownAgents: Option.Option<boolean>;
-  /** When updating, preserve the original install timestamp instead of using now. */
-  readonly existingInstalledAt: Option.Option<DateTime.Utc>;
   /** Named registry source that provided the ref (written to lockfile for registry skills). */
   readonly sourceName: Option.Option<string>;
 };
@@ -330,7 +329,7 @@ export const gitHostedSkillArtifactSource = (
 ): JobStepArtifactSource | undefined => {
   if (ref.refType !== "git-hosted") return undefined;
 
-  const gitTreeHash = Option.getOrUndefined(ref.gitTreeSha);
+  const gitTreeHash = ref.gitTreeSha;
   const gitRef = Option.getOrUndefined(ref.source.ref);
   const directory =
     ref.sourcePath === undefined || ref.sourcePath.length === 0 ? "." : ref.sourcePath;
@@ -340,7 +339,7 @@ export const gitHostedSkillArtifactSource = (
     origin: gitHostedSourceOrigin(ref),
     ...(gitRef !== undefined ? { ref: gitRef } : {}),
     directory,
-    ...(gitTreeHash !== undefined ? { gitTreeHash } : {}),
+    gitTreeHash,
   };
 };
 
@@ -714,11 +713,10 @@ export const installSkill: OperationHandler<
     const { ref } = op.args;
     const sanitizedName = sanitizeName(ref.skill.name);
     const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
-    const trustState = yield* ws.getTrustState();
-    yield* validateRefTrustTransition(trustState, ref);
-    const previousVersion = trustedRegistryVersionForRef(trustState, ref);
-    const previouslyTrusted =
-      trustState.records[trustRecordKey("skill", ref.skill.name)] !== undefined;
+    const previousLock = yield* ws.getLockedSkill(ref.skill.name);
+    const previousVersion =
+      ref.refType === "registry" ? acceptedRegistryVersionForRef(previousLock, ref) : undefined;
+    const previouslyAccepted = Option.isSome(previousLock);
     const sourceHashBeforeInstall = yield* existingSourceHash(ref);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
@@ -851,20 +849,15 @@ export const installSkill: OperationHandler<
     }
     const baseLockEntry = sourceToLockEntry({
       ref,
-      now: yield* DateTime.now,
       sourceName: op.args.sourceName,
-      existingInstalledAt: op.args.existingInstalledAt,
+      contentIdentity: sourceHash,
       workspaceRelativeLocalSourcePath,
     });
-    const lockEntry = {
-      ...baseLockEntry,
-      sourceHash,
-    };
 
-    if (lockEntry.type === "registry") {
+    if (baseLockEntry?.type === "registry") {
       yield* validateExactResolvedVersion(
         `skills.${ref.skill.name}.resolvedVersion`,
-        lockEntry.resolvedVersion,
+        baseLockEntry.resolvedVersion,
       );
     }
 
@@ -886,12 +879,12 @@ export const installSkill: OperationHandler<
       };
     });
     const version =
-      lockEntry.type === "registry"
-        ? lockEntry.resolvedVersion
+      baseLockEntry?.type === "registry"
+        ? baseLockEntry.resolvedVersion
         : Option.getOrUndefined(op.args.versionRange);
     const sameVersion = previousVersion === version;
     const sameSource = sourceHashBeforeInstall === currentSourceHash;
-    const fallbackChange: JobStepArtifact["change"] = !previouslyTrusted
+    const fallbackChange: JobStepArtifact["change"] = !previouslyAccepted
       ? "created"
       : sameVersion && sameSource
         ? "unchanged"
@@ -913,14 +906,26 @@ export const installSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    const skillArgs = {
-      name: ref.skill.name,
-      lockEntry,
-      versionRange: materialized.versionRange,
-    };
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setSkillLock(skillArgs)
-      : ws.setSkill(skillArgs);
+    const skipSettings = Option.getOrElse(op.args.skipSettings, () => false);
+    const writeEffect =
+      baseLockEntry === undefined
+        ? skipSettings
+          ? Effect.void
+          : ws.setSkillEntry(ref.skill.name, {
+              source: printSourceParams(ref.source),
+              enabled: true,
+            })
+        : skipSettings
+          ? ws.setSkillLock({
+              name: ref.skill.name,
+              lockEntry: baseLockEntry,
+              versionRange: materialized.versionRange,
+            })
+          : ws.setSkill({
+              name: ref.skill.name,
+              lockEntry: baseLockEntry,
+              versionRange: materialized.versionRange,
+            });
     const writeFailure = yield* writeEffect.pipe(Effect.result);
     if (writeFailure._tag === "Failure") {
       const detail = `Installed ${ref.skill.name}, but failed to record desired state: ${writeFailure.failure.detail}`;
@@ -931,7 +936,7 @@ export const installSkill: OperationHandler<
           code: writeFailure.failure.code,
           detail,
           recover: "Retry the install after repairing workspace write access.",
-          cmd: `axm skills install ${printSkillLockSourceLocator(ref.skill.name, lockEntry)}`,
+          cmd: `axm skills install ${baseLockEntry === undefined ? printSourceParams(ref.source) : printSkillLockSourceLocator(ref.skill.name, baseLockEntry)}`,
           cause: writeFailure.failure,
         }),
       } satisfies JobStepResult;

@@ -10,7 +10,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
   exactVersion,
@@ -18,8 +17,6 @@ import {
   handle,
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
 import {
@@ -37,6 +34,9 @@ import { handlePacksAdd, type PacksAddHandlerArgs } from "./add.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const initWorkspace = (
   axmDir: string,
@@ -68,11 +68,46 @@ const initWorkspace = (
     hooks: opts.hooks,
     rules: opts.rules,
     knowledge: opts.knowledge,
+    sources: [{ type: "registry", name: "local", location: "file:///tmp/test-registry" }],
     lockfileSkills: opts.lockfileSkills,
     lockfileHooks: opts.lockfileHooks,
     lockfileRules: opts.lockfileRules,
     lockfileKnowledge: opts.lockfileKnowledge,
   });
+  const writeCanonical = (
+    type: "skill" | "hook" | "rule" | "knowledge",
+    entries: Record<string, unknown> | undefined,
+  ) => {
+    for (const [workspaceName, raw] of Object.entries(entries ?? {})) {
+      if (!isRecord(raw)) continue;
+      const owner = typeof raw["owner"] === "string" ? raw["owner"] : "@acme";
+      const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
+      const version = typeof raw["resolvedVersion"] === "string" ? raw["resolvedVersion"] : "1.0.0";
+      const plural = type === "knowledge" ? "knowledge" : `${type}s`;
+      const packageDir = path.join(axmDir, "extensions", owner, plural, packageName);
+      fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
+      const extras =
+        type === "hook"
+          ? { runtime: "bash", entrypoint: "src/hook.sh", bindings: [] }
+          : type === "knowledge"
+            ? { format: { name: "okf", version: "0.2" }, bundleRoot: "src" }
+            : {};
+      fs.writeFileSync(
+        path.join(packageDir, `${type}.json`),
+        JSON.stringify({ owner, type, name: packageName, version, ...extras }),
+      );
+      if (type === "skill") {
+        fs.writeFileSync(
+          path.join(packageDir, "src", "SKILL.md"),
+          `---\nname: ${packageName}\ndescription: Test skill\n---\n`,
+        );
+      }
+    }
+  };
+  writeCanonical("skill", opts.lockfileSkills);
+  writeCanonical("hook", opts.lockfileHooks);
+  writeCanonical("rule", opts.lockfileRules);
+  writeCanonical("knowledge", opts.lockfileKnowledge);
 };
 
 /** Registry lock fields shared by every non-skill lock union used below. */
@@ -127,30 +162,6 @@ const createPackManifest = (
       2,
     ),
   );
-  const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
-  const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
-  const packs = expectRecord(lockfile["packs"] ?? {});
-  const updatedPacks = {
-    ...packs,
-    [name]: {
-      type: "workspace",
-      owner,
-      extensionType: "pack",
-      name,
-      version: manifest?.["version"] ?? "0.0.1",
-      sourceHash: computePackageContentHashSync(packDir),
-      installedAt: "2025-01-01T00:00:00.000Z",
-      updatedAt: "2025-01-01T00:00:00.000Z",
-      resolvedSkills: {},
-      resolvedMcpServers: {},
-      resolvedSubagents: {},
-      resolvedRules: {},
-      resolvedHooks: {},
-      resolvedKnowledge: {},
-    },
-  };
-  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
-  writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
   return packDir;
 };
 
@@ -162,7 +173,6 @@ const defaultArgs = (
   pack,
   extension,
   yes: true,
-  force: false,
   preview: false,
   ...overrides,
 });
@@ -215,11 +225,7 @@ describe("packs-add.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handlePacksAdd(
-          defaultArgs("my-pack", "review", {
-            force: true,
-          }),
-        );
+        yield* handlePacksAdd(defaultArgs("my-pack", "review"));
 
         expect(readPackDependencies(tempDir, "my-pack")["@acme/skills/review"]).toBe(range);
       }),

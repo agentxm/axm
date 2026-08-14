@@ -256,10 +256,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         return { packsToUninstall: [...targets.values()] };
       });
 
-    const buildUninstallPlan = (
-      intent: UninstallPackCommandIntent,
-      flags: { readonly breakDependencies?: boolean },
-    ) =>
+    const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
       Effect.gen(function* () {
         if (intent.packsToUninstall.length === 0) {
           return {
@@ -270,7 +267,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           } satisfies Plan;
         }
 
-        const retentionPolicy = makeWorkspaceRetentionPolicy(ws, flags.breakDependencies === true);
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
         const exclusiveMemberPolicy = {
           isRequiredByInstalledPack: () => Effect.succeed(false),
         };
@@ -307,8 +304,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           });
         }
 
-        // Remove members while their pack-derived desired state and trust are
-        // still observable, then retire the owning pack.
+        // Remove members while their pack-derived desired state is still
+        // observable, then retire the owning pack.
         const packTargets = [...allTargets.values()].filter((t) => t.type === "pack");
         const depTargets = [...allTargets.values()].filter((t) => t.type !== "pack");
         const orderedTargets = [...depTargets, ...packTargets];

@@ -27,7 +27,7 @@ const writeWorkspace = (root: string, agents: ReadonlyArray<string>) => {
   const axmDir = path.join(root, ".axm");
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }, null, 2));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\n");
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\n");
 };
 
 const readAgents = (root: string): ReadonlyArray<string> => {

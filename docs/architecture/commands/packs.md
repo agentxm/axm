@@ -18,7 +18,7 @@ owns dependency, reachability, and realization semantics.
 `packs add` is a narrow authored-manifest add-or-update operation. A dependency
 is a fully qualified registry extension name with an explicit version
 constraint. Supplying a new constraint explicitly authorizes replacing the old
-declaration; no `--replace-existing` mode is needed.
+declaration.
 
 `packs remove` removes an authored dependency declaration. Both commands edit
 authored intent only. Direct editing of an authored pack manifest remains a

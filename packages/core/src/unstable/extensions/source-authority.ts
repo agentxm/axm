@@ -7,7 +7,6 @@ export type SourceAuthorityRelationship =
 export type WorkspaceAuthorityStatus =
   | "usable"
   | "missing"
-  | "missing-trust"
   | "constraint-mismatch"
   | "wrong-origin"
   | "corrupt"

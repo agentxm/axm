@@ -2,15 +2,8 @@
  * Pure evaluator for the lint engine.
  *
  * `evaluateContexts(rules, contexts, config)` pairs each rule with each context,
- * invokes `rule.check`, applies severity overrides from `config.rules`, and
- * drops findings whose configured severity is `"off"`. It never invokes
- * `rule.fix` — that is the caller's job via `collectFixOperations` plus the
- * plan pipeline.
- *
- * `collectFixOperations(evaluated)` walks the `AutofixableFinding`s produced
- * above, invokes the matched rule's `fix`, flattens the returned operations
- * and deduplicates them by structural equality. Two rules that emit the same
- * `install-skill` Operation for the same target contribute it once.
+ * invokes `rule.check`, applies permitted severity overrides from
+ * `config.rules`, and drops warning findings configured `"off"`.
  *
  * Both functions are plain `Effect` values; neither requires a Layer or an
  * ambient service. See the `lint-engine` design doc §3 for the rationale
@@ -20,18 +13,9 @@
  * @packageDocumentation
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type { Operation } from "../plan/plan.js";
 import type { LintConfig, LintRuleSeverity } from "./config.js";
-import type {
-  AdvisoryFinding,
-  AutofixableFinding,
-  AutofixingRule,
-  LintFinding,
-  LintRule,
-  Severity,
-} from "./rule.js";
+import type { LintFinding, LintRule, Severity } from "./rule.js";
 
 // -----------------------------------------------------------------------------
 // Evaluated — the (rule, context, findings) triple
@@ -79,20 +63,20 @@ const applyOverride = (
   defaultSeverity: Severity,
   override: LintRuleSeverity | undefined,
 ): Severity | "off" => {
+  if (defaultSeverity === "error") {
+    return "error";
+  }
   if (override === undefined) {
     return defaultSeverity;
   }
-  return translateConfigValue(override);
+  const translated = translateConfigValue(override);
+  return defaultSeverity === "warning" && translated === "info" ? "warning" : translated;
 };
 
-const withSeverity = (finding: LintFinding, severity: Severity): LintFinding => {
-  if (finding.kind === "autofixable") {
-    const next: AutofixableFinding = { ...finding, severity };
-    return next;
-  }
-  const next: AdvisoryFinding = { ...finding, severity };
-  return next;
-};
+const withSeverity = (finding: LintFinding, severity: Severity): LintFinding => ({
+  ...finding,
+  severity,
+});
 
 // -----------------------------------------------------------------------------
 // evaluateContexts
@@ -144,74 +128,5 @@ const applySeverityConfig = <C>(
   if (effective === "off") {
     return [];
   }
-  return Array.map(findings, (finding) => withSeverity(finding, effective));
+  return findings.map((finding) => withSeverity(finding, effective));
 };
-
-// -----------------------------------------------------------------------------
-// collectFixOperations
-// -----------------------------------------------------------------------------
-
-/**
- * Walk the `AutofixableFinding`s in `evaluated`, invoke each matched rule's
- * `fix`, flatten the returned operations, and deduplicate by structural
- * equality of the Operation value.
- *
- * Structural equality is defined as JSON-serializable deep equality on
- * `{ name, args }`. v1 operations are plain POJOs; if an operation later grows
- * non-serializable fields, the dedupe key extraction lands alongside that
- * change.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const collectFixOperations = <C>(
-  evaluated: ReadonlyArray<Evaluated<C>>,
-): Effect.Effect<ReadonlyArray<Operation<string, unknown>>> =>
-  Effect.gen(function* () {
-    const collected: Array<Operation<string, unknown>> = [];
-    const seen = new Set<string>();
-
-    for (const entry of evaluated) {
-      if (entry.rule.kind !== "autofixing") {
-        continue;
-      }
-      const rule: AutofixingRule<C> = entry.rule;
-
-      for (const finding of entry.findings) {
-        if (finding.kind !== "autofixable") {
-          continue;
-        }
-        const ops = yield* rule.fix(entry.context, finding);
-        for (const op of ops) {
-          const key = dedupeKey(op);
-          if (seen.has(key)) {
-            continue;
-          }
-          seen.add(key);
-          collected.push(op);
-        }
-      }
-    }
-
-    return collected;
-  });
-
-const dedupeKey = (op: Operation<string, unknown>): string => {
-  // Stable serialization: sort keys recursively to avoid collisions from
-  // property-order differences. v1 Operation args are plain JSON-compatible
-  // values; when that stops being true, dedupe extraction changes alongside.
-  return JSON.stringify(op, canonicalReplacer);
-};
-
-const canonicalReplacer = (_key: string, value: unknown): unknown => {
-  if (!isPlainRecord(value)) {
-    return value;
-  }
-  const sorted: Record<string, unknown> = {};
-  for (const k of Object.keys(value).sort()) {
-    sorted[k] = value[k];
-  }
-  return sorted;
-};
-
-const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);

@@ -2,7 +2,7 @@
  * Uninstall skill executor — orchestrates per-skill removal pipeline.
  *
  * Pipeline: resolve desired/observed state -> remove agent artifacts
- * concurrently -> remove canonical source -> clear settings and receipt.
+ * concurrently -> remove canonical source -> clear settings and accepted resolution.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -57,7 +57,7 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
  * 2. Resolve configured and observed state
  * 3. Remove agent symlinks concurrently (skip missing)
  * 4. Remove from all known canonical locations (full uninstall only)
- * 5. Remove or update settings and receipt
+ * 5. Remove or update settings and accepted resolution
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,

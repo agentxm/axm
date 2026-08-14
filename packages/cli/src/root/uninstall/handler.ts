@@ -49,7 +49,6 @@ import {
 
 export interface RootUninstallFlags {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -113,7 +112,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallHandlerArgs = { skill: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "mcp-server": {
@@ -121,7 +119,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallMcpServerHandlerArgs = { serverName: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "rule": {
@@ -129,7 +126,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallRuleHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "hook": {
@@ -137,7 +133,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallHookHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "knowledge": {
@@ -145,7 +140,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallKnowledgeHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "subagent": {
@@ -153,7 +147,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallSubagentHandlerArgs = { subagent: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
         case "pack": {
@@ -161,7 +154,6 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
           const uninstallArgs: UninstallPackHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
             execution,
-            breakDependencies: args.force,
           });
         }
       }

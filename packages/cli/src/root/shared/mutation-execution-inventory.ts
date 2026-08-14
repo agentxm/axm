@@ -33,7 +33,7 @@ export const mutationExecutionInventory = [
     commands: [
       "agents add/remove",
       "packs add/remove/unpack/enable/disable",
-      "mcps enable/disable/import/repair",
+      "mcps enable/disable/import",
       "rules enable/disable/instructions",
       "hooks enable/disable",
       "subagents enable/disable",
@@ -47,7 +47,7 @@ export const mutationExecutionInventory = [
   },
   {
     family: "workspace maintenance",
-    commands: ["sync", "prune", "lint --fix"],
+    commands: ["sync", "lint --fix"],
     classification: "shared-plan-policy",
   },
   {
@@ -60,11 +60,8 @@ export const mutationExecutionInventory = [
 ] as const satisfies ReadonlyArray<MutationExecutionInventoryEntry>;
 
 export const mutationPolicyFlagInventory = {
-  "break-dependencies": "--break-dependencies",
   "ignore-version-constraints": "--ignore-version-constraints",
-  "replace-existing": "--replace-existing",
   "accept-warnings": "--accept-warnings",
-  "allow-empty": "--allow-empty",
 } as const satisfies Record<PlanPolicyId, string>;
 
 export const mutationPolicyIds = PlanPolicyIds;

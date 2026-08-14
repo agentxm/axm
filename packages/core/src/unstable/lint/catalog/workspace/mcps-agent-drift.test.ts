@@ -71,24 +71,9 @@ describe("workspace/mcps-agent-drift", () => {
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/mcps-agent-drift");
-      expect(findings[0]?.kind).toBe("autofixable");
-      expect(findings[0]?.message).toContain("axm lint --fix");
-      const finding = findings[0];
-      if (finding === undefined || finding.kind !== "autofixable") {
-        throw new Error("Expected an autofixable drift finding");
-      }
-      const operations = yield* mcpServerAgentDriftRule.fix(makeContext(), finding);
-      expect(operations).toEqual([
-        {
-          name: "sync-mcp-server-agent",
-          args: {
-            serverName: "demo",
-            agentId: "claude-code",
-            scope: "project",
-            force: false,
-          },
-        },
-      ]);
+      expect(findings[0]?.kind).toBe("advisory");
+      expect(findings[0]?.message).not.toContain("axm lint --fix");
+      expect("fix" in mcpServerAgentDriftRule).toBe(false);
     }),
   );
 

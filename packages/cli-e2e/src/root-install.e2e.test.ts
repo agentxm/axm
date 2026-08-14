@@ -406,13 +406,8 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
 };
 
 const expectCleanWorkspace = async (workspacePath: string, context: string): Promise<void> => {
-  for (const command of [["status"], ["lint"]]) {
-    const result = await runCli(command, { cwd: workspacePath });
-    expect(
-      result.exitCode,
-      `${context}: axm ${command.join(" ")}\n${result.stdout}${result.stderr}`,
-    ).toBe(0);
-  }
+  const result = await runCli(["lint"], { cwd: workspacePath });
+  expect(result.exitCode, `${context}: axm lint\n${result.stdout}${result.stderr}`).toBe(0);
 };
 
 describe("axm install", () => {

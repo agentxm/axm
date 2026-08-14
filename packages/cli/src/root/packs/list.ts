@@ -9,6 +9,7 @@ import {
   ExtensionInventorySchema,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -54,23 +55,22 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
   const packs = yield* ws.getLockedPacks();
 
   const items: ReadonlyArray<PackListItem> = inventory.items.map((row) => {
-    const entry = Object.values(packs).find((candidate) => candidate.name === row.name);
+    const entry = packs[row.name];
+    const configuredSource = row.source ?? row.origins.join(", ");
+    const parsed = parseExtensionFqnParts(
+      configuredSource
+        .replace(/^workspace:/u, "")
+        .replace(/^registry:/u, "")
+        .replace(/@[^@/]+$/u, ""),
+    );
     return {
       name: row.name,
       state: inventoryState(row),
-      owner: entry?.owner ?? "n/a",
-      version:
-        entry === undefined
-          ? "n/a"
-          : entry.type === "workspace"
-            ? entry.version
-            : entry.resolvedVersion,
-      source:
-        entry === undefined
-          ? row.origins.join(", ")
-          : entry.type === "workspace"
-            ? "workspace"
-            : entry.sourceName,
+      owner: entry?.owner ?? parsed?.owner ?? "n/a",
+      version: entry?.resolvedVersion ?? "n/a",
+      source: configuredSource.startsWith("workspace:")
+        ? "workspace"
+        : (entry?.sourceName ?? configuredSource),
     };
   });
   const details = new Map(items.map((item) => [item.name, item]));

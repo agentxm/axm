@@ -55,7 +55,7 @@ const initWorkspace = (
   if (opts?.sources) settings["sources"] = opts.sources;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 3,
+    lockfileVersion: 4,
     skills: {},
     subagents: opts?.subagentLocks ?? {},
   };
@@ -202,7 +202,6 @@ describe("subagents-update.handler", () => {
     it.effect("filters by name", () => {
       const { provide, logs } = makeLayers();
 
-      const now = new Date().toISOString();
       initWorkspace(path.join(tempDir, ".axm"), {
         subagents: {
           researcher: "file:///nonexistent/path",
@@ -212,16 +211,12 @@ describe("subagents-update.handler", () => {
           researcher: {
             type: "local",
             path: "nonexistent/path",
-            agents: ["claude-code"],
-            installedAt: now,
-            updatedAt: now,
+            contentIdentity: "researcher-content",
           },
           summarizer: {
             type: "local",
             path: "nonexistent/path2",
-            agents: ["claude-code"],
-            installedAt: now,
-            updatedAt: now,
+            contentIdentity: "summarizer-content",
           },
         },
       });

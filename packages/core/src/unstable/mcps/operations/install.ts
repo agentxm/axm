@@ -10,7 +10,6 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -21,20 +20,17 @@ import { computeIntegrity, isPathSafe } from "../../utils/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../../trust/index.js";
 import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
-import { computePackageContentHash } from "../../extensions/package-hash.js";
-import type { SourceHash } from "../../extensions/rendered-files.js";
-import type {
-  McpServerExtensionRef,
-  RegistryMcpServerRef,
-  WorkspaceMcpServerRef,
-} from "../refs.js";
+import { printSourceParams } from "../../sources/index.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import {
@@ -89,11 +85,7 @@ export type InstallMcpServerOperation = Operation<
 // Lock entry builder
 // -----------------------------------------------------------------------------
 
-const buildLockEntry = (
-  ref: RegistryMcpServerRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash,
-): McpServerLockEntry => ({
+const buildLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -101,23 +93,6 @@ const buildLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
-  sourceHash,
-  installedAt: now,
-  updatedAt: now,
-});
-
-const buildWorkspaceLockEntry = (
-  ref: WorkspaceMcpServerRef,
-  now: DateTime.Utc,
-): McpServerLockEntry => ({
-  type: "workspace",
-  owner: ref.owner,
-  extensionType: "mcp-server",
-  name: ref.name,
-  version: ref.version,
-  sourceHash: ref.sourceHash,
-  installedAt: now,
-  updatedAt: now,
 });
 
 const MCP_SECRET_SERVICE = "axm-mcp";
@@ -640,11 +615,10 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
-    const trustState = yield* ws.getTrustState();
-    yield* validateRefTrustTransition(trustState, ref, {
-      allowWorkspaceSourceTransition: op.args.allowWorkspaceSourceTransition === true,
-    });
-    const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
+    const lockedVersion =
+      ref.refType === "registry"
+        ? acceptedRegistryVersionForRef(yield* ws.getLockedMcpServer(ref.server.name), ref)
+        : undefined;
     const canonicalPath =
       ref.refType === "registry"
         ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
@@ -691,17 +665,14 @@ export const installMcpServer: (
       onSome: collectSecretInputNames,
     });
 
-    yield* validateExactResolvedVersion(
-      `mcpServers.${ref.server.name}.resolvedVersion`,
-      ref.version,
-    );
+    if (ref.refType === "registry") {
+      yield* validateExactResolvedVersion(
+        `mcpServers.${ref.server.name}.resolvedVersion`,
+        ref.version,
+      );
+    }
 
-    // Build lock entry and persist
-    const now = yield* DateTime.now;
-    const lockEntry =
-      ref.refType === "registry"
-        ? buildLockEntry(ref, now, yield* computePackageContentHash(canonicalPath))
-        : buildWorkspaceLockEntry(ref, now);
+    const lockEntry = ref.refType === "registry" ? buildLockEntry(ref) : undefined;
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);
@@ -749,18 +720,26 @@ export const installMcpServer: (
       op.args.skipStateWrites === true
         ? Effect.void
         : Option.getOrElse(op.args.skipSettings, () => false)
-          ? ws.setMcpServerLock({
-              name: ref.server.name,
-              lockEntry,
-              versionRange: Option.none(),
-            })
-          : ws.setMcpServer({
-              name: ref.server.name,
-              lockEntry,
-              versionRange: op.args.versionRange,
-              env: persistedEnv,
-              enabled,
-            });
+          ? lockEntry === undefined
+            ? Effect.void
+            : ws.setMcpServerLock({
+                name: ref.server.name,
+                lockEntry,
+                versionRange: Option.none(),
+              })
+          : lockEntry === undefined
+            ? ws.setMcpServerEntry(ref.server.name, {
+                source: printSourceParams(ref.source),
+                env: persistedEnv,
+                enabled,
+              })
+            : ws.setMcpServer({
+                name: ref.server.name,
+                lockEntry,
+                versionRange: op.args.versionRange,
+                env: persistedEnv,
+                enabled,
+              });
     const writeWarning = yield* writeEffect.pipe(
       Effect.as(Option.none<string>()),
       Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
@@ -794,7 +773,7 @@ export const installMcpServer: (
         change,
         agents: agentOutcomes.map(({ agentId }) => agentId),
         targets: [
-          ...(ref.refType === "registry" ? [mcpSourceTarget(lockEntry, change)] : []),
+          ...(lockEntry === undefined ? [] : [mcpSourceTarget(lockEntry, change)]),
           mcpSettingsTarget(change),
           ...agentConfigTargets(agentOutcomes),
         ],

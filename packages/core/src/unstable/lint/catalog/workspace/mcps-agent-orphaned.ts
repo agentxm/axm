@@ -1,12 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { Operation } from "../../../plan/plan.js";
 import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
 import type { UnmanagedMcpServer } from "../../../workspace/read-model/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
-import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
-import { removeMcpServerAgentOp } from "./helpers/install-ops.js";
+import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 
 const RULE_ID = "workspace/mcps-agent-orphaned";
 
@@ -24,14 +22,14 @@ const configuredAgentIds = (context: WorkspaceRuleContext): Effect.Effect<Readon
     return new Set(settings.success.value.agents ?? []);
   });
 
-const findingFor = (row: UnmanagedMcpServer): AutofixableFinding => {
+const findingFor = (row: UnmanagedMcpServer): AdvisoryFinding => {
   const agent = row.actual.origin._tag === "agent-mcp-config" ? row.actual.origin.agentId : "agent";
   const finding = {
-    kind: "autofixable",
+    kind: "advisory",
     ruleId: RULE_ID,
     severity: "warning",
-    message: `MCP server '${row.key.name}' has an orphaned managed agent config for ${agent}. Run \`axm lint --fix\` to remove it.`,
-  } satisfies Omit<AutofixableFinding, "location">;
+    message: `MCP server '${row.key.name}' has an orphaned AXM-owned agent config for ${agent}.`,
+  } satisfies Omit<AdvisoryFinding, "location">;
   return row.actual.configFile === null
     ? finding
     : { ...finding, location: { file: row.actual.configFile } };
@@ -54,28 +52,10 @@ const findingsForRows = (
     .filter((row) => isConfiguredAgentRow(row, configuredAgents))
     .map(findingFor);
 
-const operationsForRows = (
-  context: WorkspaceRuleContext,
-  rows: ReadonlyArray<UnmanagedMcpServer>,
-  configuredAgents: ReadonlySet<string>,
-): ReadonlyArray<Operation<string, unknown>> =>
-  orphanedRows(rows)
-    .filter((row) => isConfiguredAgentRow(row, configuredAgents))
-    .flatMap((row) => {
-      if (row.actual.origin._tag !== "agent-mcp-config") return [];
-      return [
-        removeMcpServerAgentOp({
-          serverName: row.key.name,
-          agentId: row.actual.origin.agentId,
-          scope: context.subject.scope,
-        }),
-      ];
-    });
-
-export const mcpServerAgentOrphanedRule: AutofixingRule<WorkspaceRuleContext> = {
+export const mcpServerAgentOrphanedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "Managed MCP server agent configs are declared in AXM settings.",
-  kind: "autofixing",
+  kind: "advisory",
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
@@ -83,12 +63,5 @@ export const mcpServerAgentOrphanedRule: AutofixingRule<WorkspaceRuleContext> = 
       if (Result.isFailure(rows)) return [];
       const agents = yield* configuredAgentIds(context);
       return findingsForRows(rows.success, agents);
-    }),
-  fix: (context, _finding: AutofixableFinding) =>
-    Effect.gen(function* () {
-      const rows = yield* Effect.result(context.workspace.mcpServers.unmanaged);
-      if (Result.isFailure(rows)) return [];
-      const agents = yield* configuredAgentIds(context);
-      return operationsForRows(context, rows.success, agents);
     }),
 };

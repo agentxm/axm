@@ -18,6 +18,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  acceptedResolutionRef,
   WorkspaceMutations,
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -33,6 +34,7 @@ import {
   enabledConfiguredEntries,
   extensionTypePluralSentenceLabels,
   installableExtensionTypes,
+  parseRegistrySourceRef,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
@@ -316,20 +318,36 @@ const resolveMcpServerIntent = (
   );
 
 const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: ReleaseAgeEvaluation) =>
-  resolveConfiguredPack(name, source, releaseAgeEvaluation).pipe(
-    Effect.map((resolved) => {
-      const { ref, versionRange } = resolved;
-      const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const accepted = yield* acceptedResolutionRef({ workspace: ws, type: "pack", name });
+    if (Option.isSome(accepted) && accepted.value.type === "pack") {
       return {
         intent: {
-          packToInstall: ref,
-          versionRange,
+          packToInstall: accepted.value,
+          versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(source)?.versionRange),
           unattended: true,
+          releaseAgeEvaluation,
+          releaseAgeHoldbackBehavior: "preserve-or-block",
         } satisfies InstallPackCommandIntent,
-        releaseAge,
+        releaseAge: undefined,
       };
-    }),
-  );
+    }
+
+    const resolved = yield* resolveConfiguredPack(name, source, releaseAgeEvaluation);
+    const { ref, versionRange } = resolved;
+    const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
+    return {
+      intent: {
+        packToInstall: ref,
+        versionRange,
+        unattended: true,
+        releaseAgeEvaluation,
+        releaseAgeHoldbackBehavior: "preserve-or-block",
+      } satisfies InstallPackCommandIntent,
+      releaseAge,
+    };
+  });
 
 const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
@@ -493,12 +511,17 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectPackPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectPackPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectedNames?: ReadonlySet<string>,
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
     const configured = yield* ws.getConfiguredPackEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = enabledConfiguredEntries(configured).filter(
+      ([name]) => selectedNames === undefined || selectedNames.has(name),
+    );
 
     const plans = yield* Effect.forEach(
       entries,
@@ -555,6 +578,48 @@ const makePlan = (
   ...(sections === undefined ? {} : { sections }),
   ...(releaseAge === undefined ? {} : { releaseAge }),
 });
+
+/** Build the configured Pack graph as one recovery candidate for sync. */
+export const buildConfiguredPackInstallPlan = (args: {
+  readonly planName: string;
+  readonly planDescription: Option.Option<string>;
+  readonly packNames: ReadonlySet<string>;
+  readonly ignoreReleaseAge?: boolean;
+}) =>
+  Effect.gen(function* () {
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
+      args.ignoreReleaseAge === true ? "ignore" : "enforce",
+    );
+    const collection = yield* collectPackPlans(releaseAgeEvaluation, args.packNames);
+    const fragments = mergeFragments([collection]);
+    if (fragments.length === 0) {
+      return {
+        _tag: "NoConfiguredExtensions",
+        message: noConfiguredMessage(Option.some("pack")),
+      } satisfies WorkspaceInstallPlanResult;
+    }
+
+    const holdbacks = normalizeReleaseAgeRecords(collection.holdbacks);
+    const bypasses = normalizeReleaseAgeRecords(collection.bypasses);
+    const releaseAge =
+      holdbacks.length === 0 && bypasses.length === 0
+        ? undefined
+        : {
+            evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
+            holdbacks,
+            bypasses,
+          };
+    return {
+      _tag: "WorkspaceInstallPlan",
+      plan: makePlan(
+        args.planName,
+        args.planDescription,
+        fragments.map((fragment) => fragment.step),
+        mergePlanSections(collection.plans),
+        releaseAge,
+      ),
+    } satisfies WorkspaceInstallPlanResult;
+  });
 
 export const buildWorkspaceInstallPlan = (args: {
   readonly type: Option.Option<WorkspaceInstallableType>;

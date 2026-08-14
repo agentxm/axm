@@ -4,12 +4,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
@@ -32,9 +30,13 @@ import {
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
 import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
-import type { MaterializedFileTarget, RuleLockEntry } from "../lockfile/index.js";
-import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
-import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
+import type { RuleLockEntry } from "../lockfile/index.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import {
+  MaterializedFileTargetSchema,
+  type MaterializedFileTarget,
+} from "../workspace/materialized-file-target.js";
+import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import {
   commentStyleForTarget,
   replaceManagedRegion,
@@ -42,6 +44,7 @@ import {
 } from "../managed-files/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type {
@@ -55,7 +58,7 @@ import {
   resolveConfiguredRule,
 } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
+import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   RULE_BODY_FILENAME,
@@ -67,7 +70,6 @@ import {
   type RegistryRuleRef,
   type RuleExtensionRef,
   type RuleManifest,
-  type WorkspaceRuleRef,
 } from "./index.js";
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
@@ -83,15 +85,7 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const optionalSourceHash = (
-  sourceHash: SourceHash | undefined,
-): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
-
-const registryRuleLockEntry = (
-  ref: RegistryRuleRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash | undefined,
-): RuleLockEntry => ({
+const registryRuleLockEntry = (ref: RegistryRuleRef): RuleLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -99,40 +93,20 @@ const registryRuleLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
 });
 
-const gitRuleLockEntry = (
-  ref: GitHostedRuleRef,
-  now: DateTime.Utc,
-  sourceHash: SourceHash | undefined,
-): RuleLockEntry => ({
-  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
+const gitRuleLockEntry = (ref: GitHostedRuleRef, contentIdentity: SourceHash): RuleLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
 });
 
 const localRuleLockEntry = (
   ref: LocalRuleRef,
-  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
-  sourceHash: SourceHash | undefined,
+  contentIdentity: SourceHash,
 ): RuleLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  ...commonLockFields(now),
-  ...optionalSourceHash(sourceHash),
-});
-
-const workspaceRuleLockEntry = (ref: WorkspaceRuleRef, now: DateTime.Utc): RuleLockEntry => ({
-  type: "workspace",
-  owner: ref.owner,
-  extensionType: "rule",
-  name: ref.name,
-  version: ref.version,
-  sourceHash: ref.sourceHash,
-  ...commonLockFields(now),
+  contentIdentity,
 });
 
 const normalizeMarkdown = (content: string): string =>
@@ -201,7 +175,10 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
       Effect.gen(function* () {
-        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        const lockedVersion = acceptedRegistryVersionForRef(
+          yield* ws.getLockedRuleEntry(ref.rule.name),
+          ref,
+        );
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
@@ -563,24 +540,32 @@ export const RuleManagerLive = Layer.effect(
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: RuleExtensionRef): Effect.Effect<RuleLockEntry, never> =>
+    const buildLockEntry = (
+      ref: RuleExtensionRef,
+    ): Effect.Effect<Option.Option<RuleLockEntry>, AppError> =>
       Effect.gen(function* () {
         const state = lastInstallState.get(ref.rule.name);
-        const now = yield* DateTime.now;
         switch (ref.refType) {
           case "registry":
-            return registryRuleLockEntry(ref, now, state?.sourceHash);
+            return Option.some(registryRuleLockEntry(ref));
           case "git-hosted":
-            return gitRuleLockEntry(ref, now, state?.sourceHash);
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Rule ${ref.rule.name} has no materialized content identity`,
+                })
+              : Option.some(gitRuleLockEntry(ref, state.sourceHash));
           case "local":
-            return localRuleLockEntry(
-              ref,
-              now,
-              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
-              state?.sourceHash,
-            );
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Rule ${ref.rule.name} has no materialized content identity`,
+                })
+              : Option.some(
+                  localRuleLockEntry(ref, state.workspaceRelativeLocalSourcePath, state.sourceHash),
+                );
           case "workspace":
-            return workspaceRuleLockEntry(ref, now);
+            return Option.none();
         }
       });
 
@@ -589,7 +574,7 @@ export const RuleManagerLive = Layer.effect(
     ): ExtensionManager<RuleExtensionRef>["materializeUninstall"] =>
       Effect.fn("RuleManager.materializeRemoval")(function* ({ target }) {
         const canonical = yield* provide(
-          trustedCanonicalObservation({
+          acceptedCanonicalObservation({
             workspace: ws,
             type: "rule",
             name: target.name,
@@ -621,10 +606,6 @@ export const RuleManagerLive = Layer.effect(
         Effect.map(({ materializedTarget }) => materializedTarget),
       ),
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),
@@ -664,27 +645,23 @@ export const RuleManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        if (lockEntry.type === "registry") {
+        if (Option.isNone(lockEntry)) {
+          yield* ws.setRuleEntry(ref.rule.name, {
+            source: printSourceParams(ref.source),
+            enabled: true,
+          });
+          return;
+        }
+        if (lockEntry.value.type === "registry") {
           yield* validateExactResolvedVersion(
             `rules.${ref.rule.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntry.value.resolvedVersion,
           );
         }
         yield* ws.setRule({
           name: ref.rule.name,
-          lockEntry,
+          lockEntry: lockEntry.value,
           versionRange,
-          commit: "authoritative",
-        });
-      }),
-
-      upsertTrustEntry: Effect.fn("RuleManager.upsertTrustEntry")(function* ({ ref }) {
-        const lockEntry = yield* buildLockEntry(ref);
-        yield* ws.setRuleLock({
-          name: ref.rule.name,
-          lockEntry,
-          versionRange: Option.none(),
-          commit: "authoritative",
         });
       }),
 
@@ -694,24 +671,26 @@ export const RuleManagerLive = Layer.effect(
 
       upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({ ref }) {
         const lockEntry = yield* buildLockEntry(ref);
-        if (lockEntry.type === "registry") {
+        if (Option.isNone(lockEntry)) {
+          yield* ws.removeRuleLock(ref.rule.name);
+          return;
+        }
+        if (lockEntry.value.type === "registry") {
           yield* validateExactResolvedVersion(
             `rules.${ref.rule.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntry.value.resolvedVersion,
           );
         }
         yield* ws.setRuleLock({
           name: ref.rule.name,
-          lockEntry,
+          lockEntry: lockEntry.value,
           versionRange: Option.none(),
-          commit: "receipt",
         });
       }),
 
       removeLockfileEntry: Effect.fn("RuleManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeRuleLock(target.name);
       }),
-      removeTrustEntry: ({ target }) => ws.removeTrustRecord("rule", target.name),
     };
   }),
 );

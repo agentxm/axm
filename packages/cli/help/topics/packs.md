@@ -12,13 +12,12 @@ Run `axm help pack-schema` to print the raw JSON Schema.
 
 Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <pack> <extension>` and `axm packs remove <pack> <extension>` to edit dependencies when possible.
 
-Use `axm packs show <name-or-fqn>` to compare desired membership with the last
-successful resolution receipt. If an intentional edit causes trust drift, run
-`axm packs repair <name-or-fqn> --preview`, review the classified changes, and
-then use `--accept-current`. Repair works from workspace state and canonical
-content without Registry access. Reinstall options never accept an
-authored pack's changed trust baseline. Never edit `.axm/trust.json` or the
-receipt.
+Use `axm packs show <name-or-fqn>` to compare desired membership, accepted
+external resolution, canonical observation, and graph problems. A
+workspace-authored pack manifest is authority immediately; edit it through pack
+authoring commands when possible, then use `axm sync --preview` and `axm sync`
+to reconcile affected members and projections. Never hand-edit accepted lock
+rows.
 
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
@@ -54,12 +53,12 @@ member version satisfying each range. The common manifest `packages` field is
 different. Its Package URL and optional VERS range recommend a companion
 ecosystem package but do not install or select that package.
 
-Replacing an existing dependency constraint requires `--replace-existing`.
-Removing the final dependency requires `--allow-empty`. These are named policy
-overrides: `--yes` cannot substitute for either one. `--preview` shows the
-resulting manifest candidate without writing it.
+Adding an already-declared dependency with a different resolved constraint
+replaces that constraint explicitly. Removing the final dependency is valid;
+empty packs remain authorable. `--preview` shows the resulting manifest
+candidate without writing it.
 
-Resolution prefers a matching configured and trusted workspace package. If
+Resolution prefers a matching configured workspace package. If
 that workspace version does not satisfy the constraint, AXM fails without
 falling back to the Registry. Registry resolution is used only when there is no
 matching configured workspace authority.
@@ -67,7 +66,7 @@ matching configured workspace authority.
 Minimum release age applies to the pack and every Registry-resolved member as
 one atomic graph. A held member holds the complete pack graph: workspace-wide
 update leaves that graph unchanged and continues, while a targeted update
-preserves the complete trusted, usable graph or stops without writing. A
+preserves the complete accepted, usable graph or stops without writing. A
 targeted `axm update @owner/packs/name --ignore-release-age` bypasses the policy
 for the pack and all of its Registry dependencies for that invocation, and the
 result identifies each bypass by dependency path.
@@ -136,11 +135,11 @@ Packs support the same lifecycle verbs as other extension types:
   created or updated and every exclusive package that will be deleted.
 - `axm packs update [--preview]` re-resolves every enabled pack's configured
   version constraint and reconciles additions, removals, and shared members.
-- `axm packs disable <name> [--preview]` keeps the settings entry, lock data,
-  trust baseline, and canonical packages, but removes active artifacts and
+- `axm packs disable <name> [--preview]` keeps the settings entry, accepted
+  lock data, and canonical packages, but removes active artifacts and
   Knowledge discovery contributed only by that pack.
 - `axm packs enable <name> [--preview]` restores the pack and its exclusive
-  members from retained trusted content without advancing locked versions.
+  members from retained accepted content without advancing locked versions.
 - `axm packs uninstall <name> [--preview]` removes the pack and only members
   whose final origin disappears.
 - `axm packs unpack <name> [--preview]` promotes each member to direct settings
@@ -148,8 +147,8 @@ Packs support the same lifecycle verbs as other extension types:
 
 Each verb applies one pack and its complete member graph as a single
 transaction. If a pack or member cannot reach its promised postcondition, AXM
-rolls back the whole graph. Disabling retains canonical content, trust, and
-receipt history for offline re-enable; unpack preserves members by promoting
+rolls back the whole graph. Disabling retains canonical content and accepted
+resolution for offline re-enable; unpack preserves members by promoting
 their provenance in the same transaction that removes the pack.
 
 Direct intent has precedence over membership: an explicit member
@@ -193,5 +192,4 @@ still belong to or optionally recommend a pack.
 ## Where to go next
 
 - `axm packs --help` — full pack subcommand surface
-- `axm status` — local reconciliation blockers and recovery actions
-- `axm help workspace-state` — desired graph, trust, receipts, and retention
+- `axm help workspace-state` — desired graph, accepted resolution, observation, and retention

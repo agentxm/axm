@@ -1,25 +1,10 @@
-/**
- * Unit tests for augmentPlanWithReconciliation.
- *
- * Tests that the function returns an AugmentedPlanResult with the correct
- * reconciliation state, without requiring a CLI renderer.
- */
+/** Unit tests for the authoritative lockfile health gate. */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { augmentPlanWithReconciliation, type AugmentedPlanResult } from "./augment-plan.js";
-import { ReconciliationAdapters } from "./reconciliation.js";
 import type { Plan } from "../plan/plan.js";
-import type { Settings } from "../settings/index.js";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 
 const basePlan: Plan = {
   _tag: "Plan",
@@ -32,92 +17,50 @@ const okLockfileState = () => Effect.succeed("ok" as const);
 const missingLockfileState = () => Effect.succeed("missing" as const);
 const invalidLockfileState = () => Effect.succeed("invalid" as const);
 
-const defaultSettings: Settings = {
-  skills: {},
-  agents: ["claude-code"],
-};
-const readSettingsSafe = (_dir: string) => Effect.succeed(defaultSettings);
-const testLayer = Layer.mergeAll(NodeServices.layer, Layer.succeed(ReconciliationAdapters, []));
-
 describe("augmentPlanWithReconciliation", () => {
-  it.effect("returns plan unchanged when lockfile is ok", () =>
+  it.effect("returns the plan unchanged when the lockfile is readable", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const fsLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, fs),
-        Layer.succeed(Path.Path, path),
-      );
-
       const result: AugmentedPlanResult = yield* augmentPlanWithReconciliation(
         basePlan,
         okLockfileState,
-        "/tmp",
-        "/tmp/.axm",
-        readSettingsSafe,
-        fsLayer,
       );
 
       expect(result.plan).toEqual(basePlan);
       expect(result.reconciliationTriggered).toBe(false);
       expect(result.reason).toBeUndefined();
-    }).pipe(Effect.provide(testLayer)),
+    }),
   );
 
-  it.effect("prepends reconciliation jobs and sets reason for missing lockfile", () =>
+  it.effect("allows a resolved lifecycle plan to establish a missing lockfile", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const fsLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, fs),
-        Layer.succeed(Path.Path, path),
-      );
+      const result = yield* augmentPlanWithReconciliation(basePlan, missingLockfileState);
 
-      const result = yield* augmentPlanWithReconciliation(
-        basePlan,
-        missingLockfileState,
-        "/tmp",
-        "/tmp/.axm",
-        readSettingsSafe,
-        fsLayer,
-      );
-
+      expect(result.plan).toEqual(basePlan);
       expect(result.reconciliationTriggered).toBe(true);
       expect(result.reason).toBe("missing");
-      // The plan should have more jobs than the original (reconciliation job prepended)
-      expect(result.plan.jobs.length).toBeGreaterThan(basePlan.jobs.length);
-      // First job should have 2 reconciliation steps
-      expect(result.plan.jobs[0]?.steps).toHaveLength(2);
-    }).pipe(Effect.provide(testLayer)),
+    }),
   );
 
-  it.effect("prepends reconciliation jobs and sets reason for invalid lockfile", () =>
+  it.effect("blocks an invalid authoritative lockfile without reconstructing it", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const fsLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, fs),
-        Layer.succeed(Path.Path, path),
-      );
-
-      const result = yield* augmentPlanWithReconciliation(
-        basePlan,
-        invalidLockfileState,
-        "/tmp",
-        "/tmp/.axm",
-        readSettingsSafe,
-        fsLayer,
-      );
+      const result = yield* augmentPlanWithReconciliation(basePlan, invalidLockfileState);
 
       expect(result.reconciliationTriggered).toBe(true);
       expect(result.reason).toBe("invalid");
-      expect(result.plan.jobs.length).toBeGreaterThan(basePlan.jobs.length);
-      expect(result.plan.jobs[0]?.steps[0]).toMatchObject({
-        readiness: "warn",
-        label: "Recover lockfile (invalid)",
-        warnMessage:
-          "Existing lockfile is invalid; AXM will recover installed extensions before applying this plan.",
-      });
-    }).pipe(Effect.provide(testLayer)),
+      expect(result.plan.jobs).toEqual([
+        {
+          concurrency: 1,
+          steps: [
+            {
+              key: "workspace:lockfile-invalid",
+              readiness: "error",
+              label: "Read accepted external resolutions",
+              errorMessage:
+                "The authoritative lockfile is invalid and cannot be reconstructed from workspace observation.",
+            },
+          ],
+        },
+      ]);
+    }),
   );
 });

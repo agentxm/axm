@@ -58,7 +58,7 @@ const initWorkspace = (
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 3,
+    lockfileVersion: 4,
     skills: {},
     subagents: lockfileSubagents,
   };
@@ -79,8 +79,7 @@ const createCanonicalSubagent = (base: string, name: string) => {
 const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  contentIdentity: "test-content",
 });
 
 const defaultArgs = (
@@ -152,7 +151,6 @@ describe("uninstall.handler (subagents)", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -181,7 +179,6 @@ describe("uninstall.handler (subagents)", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -201,7 +198,6 @@ describe("uninstall.handler (subagents)", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -231,7 +227,6 @@ describe("uninstall.handler (subagents)", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -268,7 +263,6 @@ describe("uninstall.handler (subagents)", () => {
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
             yes: true,
-            force: false,
             preview: false,
           });
 

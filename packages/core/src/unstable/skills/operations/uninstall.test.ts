@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -21,6 +20,7 @@ import {
   makeBaseWorkspaceMock,
   makeRegistryPackLockEntry,
   makeRegistrySkillLockEntry,
+  TEST_CONTENT_IDENTITY,
 } from "../../workspace/test-stubs.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { exactVersion, handle } from "../../test-helpers.js";
@@ -31,14 +31,7 @@ import { uninstallSkill } from "./uninstall.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const legacyConfiguredAgents = (entries: Record<string, SkillLockEntry>): ReadonlyArray<string> => [
-  ...new Set(
-    Object.values(entries).flatMap((entry) => {
-      if (!("agents" in entry) || !Array.isArray(entry.agents)) return [];
-      return entry.agents.filter((agent): agent is string => typeof agent === "string");
-    }),
-  ),
-];
+const configuredAgentsByWorkspace = new Map<string, ReadonlyArray<string>>();
 
 /** Creates a workspace mock backed by in-memory skills + on-disk YAML. */
 const makeWorkspaceMock = (
@@ -64,21 +57,18 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
-      lockfileVersion: 3,
+      lockfileVersion: 4,
       skills: {},
     };
     for (const [k, v] of Object.entries(skills)) {
-      lockfile.skills[k] = {
-        ...v,
-        installedAt: DateTime.formatIso(v.installedAt),
-        updatedAt: DateTime.formatIso(v.updatedAt),
-      };
+      lockfile.skills[k] = v;
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
   };
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed(legacyConfiguredAgents(lockfileSkills)),
+    getConfiguredAgents: () =>
+      Effect.succeed(configuredAgentsByWorkspace.get(axmDir) ?? ["claude-code"]),
     getLockedSkills: () =>
       lockfileErrorOverride !== undefined ? lockfileErrorOverride() : Effect.succeed(skills),
     getLockedSkill: (name: string) =>
@@ -92,10 +82,7 @@ const makeWorkspaceMock = (
             Effect.sync(() => {
               skills = {
                 ...skills,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-                },
+                [name]: lockEntry,
               };
               writeToDisk();
             }),
@@ -103,10 +90,7 @@ const makeWorkspaceMock = (
       Effect.sync(() => {
         skills = {
           ...skills,
-          [name]: {
-            ...lockEntry,
-            updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-          },
+          [name]: lockEntry,
         };
         writeToDisk();
       }),
@@ -151,6 +135,7 @@ const makeWorkspaceMock = (
                       pack: "@acme/packs/starter-pack",
                       source: "@acme/skills/my-skill",
                       constraint: "^1.0.0",
+                      enabled: true,
                     },
                   ],
                 },
@@ -195,7 +180,7 @@ const makeOp = (
 /** Writes a lockfile YAML to disk. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
 const writeLockfileYaml = (axmDir: string, skills: Record<string, any>) => {
-  const lockfile = { lockfileVersion: 3, skills };
+  const lockfile = { lockfileVersion: 4, skills };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
@@ -205,22 +190,18 @@ const readLockfileYaml = (axmDir: string) => {
   return YAML.parse(content);
 };
 
-/** Creates a local source lock entry for the in-memory mock (DateTime.Utc values). */
-const makeLocalLockEntry = (agents: string[]) => ({
+/** Creates a local source accepted-resolution entry for the in-memory mock. */
+const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
-  agents,
-  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  contentIdentity: TEST_CONTENT_IDENTITY,
 });
 
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
-const makeLocalLockEntryYaml = (agents: string[]) => ({
+const makeLocalLockEntryYaml = (_agents: string[]) => ({
   type: "local",
   path: "tmp/source",
-  agents,
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  contentIdentity: TEST_CONTENT_IDENTITY,
 });
 
 /** Creates a registry source lock entry for the in-memory mock (DateTime.Utc values). */
@@ -235,7 +216,7 @@ const makeRegistryLockEntry = (agents: string[]) =>
   });
 
 /** Creates a registry source lock entry for on-disk YAML (ISO strings). */
-const makeRegistryLockEntryYaml = (agents: string[]) => ({
+const makeRegistryLockEntryYaml = (_agents: string[]) => ({
   type: "registry",
   owner: "@community",
   name: "my-skill",
@@ -244,9 +225,6 @@ const makeRegistryLockEntryYaml = (agents: string[]) => ({
   sourceName: "local",
 
   publisherBindingId: "hbnd_test",
-  agents,
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
 });
 
 /** Creates a removeSkill spy function for use as a workspace mock override. */
@@ -264,6 +242,7 @@ describe("uninstallSkill", () => {
 
   beforeEach(() => {
     tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-skill-")));
+    configuredAgentsByWorkspace.clear();
   });
 
   afterEach(() => {
@@ -293,6 +272,7 @@ describe("uninstallSkill", () => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
+    configuredAgentsByWorkspace.set(axmDir, agents);
 
     // Create canonical skill dir (unified: .axm/extensions/external/skills/<name>)
     const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", skillName);
@@ -476,7 +456,7 @@ describe("uninstallSkill", () => {
         // Partial materialization changes do not rewrite shared resolution state.
         const lockfile = readLockfileYaml(axmDir);
         expect(lockfile.skills["my-skill"]).toBeDefined();
-        expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code", "cursor"]);
+        expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
       }),
     );
 
@@ -513,7 +493,7 @@ describe("uninstallSkill", () => {
         expect(fs.lstatSync(sharedSkillPath).isSymbolicLink()).toBe(true);
 
         const lockfile = readLockfileYaml(axmDir);
-        expect(lockfile.skills["my-skill"].agents).toEqual(agents);
+        expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
       }),
     );
   });
@@ -546,7 +526,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("missing canonical dir", () => {
-    it.effect("ignores a stale receipt when canonical dir does not exist", () =>
+    it.effect("removes a stale accepted resolution when canonical content is absent", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -1019,6 +999,7 @@ describe("uninstallSkill", () => {
       const base = path.join(tmpDir, "project");
       const axmDir = path.join(base, ".axm");
       fs.mkdirSync(axmDir, { recursive: true });
+      configuredAgentsByWorkspace.set(axmDir, agents);
 
       // Create registry canonical dir: .axm/extensions/@owner/skills/<name>/
       const registryPath = path.join(base, ".axm", "extensions", owner, "skills", skillName);
@@ -1123,10 +1104,10 @@ describe("uninstallSkill", () => {
         // Registry canonical dir should still exist
         expect(fs.existsSync(registryPath)).toBe(true);
 
-        // Lockfile should still have entry but without claude-code
+        // Partial projection changes leave accepted resolution unchanged.
         const lockfile = readLockfileYaml(axmDir);
         expect(lockfile.skills["my-skill"]).toBeDefined();
-        expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code", "cursor"]);
+        expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
       }),
     );
 

@@ -16,16 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { createDefaultSettings, type Settings } from "../settings/index.js";
 import { applyPlan } from "./apply-plan.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
-import { ReconciliationAdapters } from "../workspace/reconciliation.js";
-import type {
-  ReconcileExtensionType,
-  ReconciliationAdapter,
-} from "../workspace/reconciliation-types.js";
 import type {
   CancelledPlan,
   ExecutedPlan,
@@ -36,21 +30,7 @@ import type {
   PreviewedPlan,
 } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { getAxmDir } from "../workspace/paths.js";
-import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
-import {
-  makeWorkspaceReadModel,
-  WorkspaceReadModelConfig,
-} from "../workspace/read-model/service.js";
-import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
-import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
-import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
-import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
-import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
-import { ruleReconciliationAdapter } from "../rules/reconciliation-adapter.js";
-import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
-import { makeAbsolutePath } from "../utils/path-types.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
 import {
@@ -59,20 +39,6 @@ import {
   type PlanExecution,
 } from "../cli-runtime/confirmation-recovery.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
-
-// Total over ReconcileExtensionType: a missing key is a compile error, so a
-// type can never again be silently dropped from lockfile reconciliation.
-const reconciliationAdaptersByType = {
-  skills: skillReconciliationAdapter,
-  mcps: mcpServerReconciliationAdapter,
-  subagents: subagentReconciliationAdapter,
-  rules: ruleReconciliationAdapter,
-  hooks: hookReconciliationAdapter,
-  knowledge: knowledgeReconciliationAdapter,
-  packs: packReconciliationAdapter,
-} satisfies Record<ReconcileExtensionType, ReconciliationAdapter>;
-
-const reconciliationAdapters = Object.values(reconciliationAdaptersByType);
 
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
@@ -95,41 +61,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const verbosity = yield* Verbosity;
-
-  // Capture FS layer for augmentPlan
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const fsLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
   );
-  const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, reconciliationAdapters);
-  const globalDir = yield* getAxmDir("user");
-  const contextEnv = Layer.mergeAll(
-    fsLayer,
-    Layer.succeed(WorkspaceReadModelConfig, {
-      projectRoot: makeAbsolutePath(path, ws.baseDir),
-      userHome: makeAbsolutePath(path, path.dirname(globalDir)),
-      allowedRoot: makeAbsolutePath(path, "/"),
-    }),
-    AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
-  );
 
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
-
-  const readSettingsSafe = (dir: string): Effect.Effect<Settings, AppError> =>
-    makeWorkspaceReadModel(dir === globalDir ? "user" : "project").pipe(
-      Effect.flatMap((readModel) => readModel.state.settings),
-      Effect.provide(contextEnv),
-      Effect.map(Option.getOrElse(() => createDefaultSettings())),
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: "Workspace settings could not be read",
-          cause: error,
-        }),
-      ),
-    );
 
   const showPlan = (targetPlan: Plan | ExecutedPlan) =>
     displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
@@ -137,15 +76,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   // Step 1: Lockfile reconciliation
   const augmented = yield* renderer.withSpinner(
     `Resolving ${plan.name}`,
-    () =>
-      augmentPlanWithReconciliation(
-        plan,
-        getLockfileState,
-        ws.baseDir,
-        ws.path,
-        readSettingsSafe,
-        fsLayer,
-      ).pipe(Effect.provide(reconciliationAdaptersLayer)),
+    () => augmentPlanWithReconciliation(plan, getLockfileState),
     { successMessage: `Resolved ${plan.name}` },
   );
 
@@ -453,10 +384,10 @@ export interface ResolvePlanArgs {
  * runner hands a fully-resolved `PlannedJobStep[]` — each step already carries
  * its own `run` closure wired against the per-extension
  * {@link OperationHandler}s — and `resolvePlan` wraps them into a `Plan` that
- * `applyPlan` can execute directly, without invoking the reconciliation-adapter
- * augmentation {@link previewOrApplyPlan} performs for install/uninstall flows.
+ * `applyPlan` can execute directly, without invoking the authoritative-lock
+ * health gate {@link previewOrApplyPlan} performs for lifecycle flows.
  *
- * Consumers that need lockfile reconciliation (install, uninstall, pack) keep
+ * Consumers that need lockfile health gating (install, uninstall, pack) keep
  * calling `previewOrApplyPlan`; lint-fix composes the narrower
  * `collectFixOperations → resolvePlan → applyPlan` pipeline.
  *

@@ -20,7 +20,7 @@ const configureRegistry = (settingsPath: string, registryPath: string) => {
 };
 
 describe("installed-state scope consistency", () => {
-  it("keeps status and pack show/unpack isolated to user scope", async () => {
+  it("keeps lint and pack show/unpack isolated to user scope", async () => {
     const author = createTempDir("axm-scope-author-");
     const consumer = createTempDir("axm-scope-consumer-");
     const userHome = createTempDir("axm-scope-user-");
@@ -236,16 +236,6 @@ describe("installed-state scope consistency", () => {
       expect(JSON.parse(shown.stdout)).toMatchObject({
         ok: true,
         result: { scope: "user", pack: `${OWNER}/packs/${PACK}` },
-      });
-
-      const status = await runCli(["status", "--scope", "user", "--json"], {
-        cwd: consumer.path,
-        env,
-      });
-      expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
-      expect(JSON.parse(status.stdout)).toMatchObject({
-        ok: true,
-        result: { scope: "user" },
       });
 
       const linted = await runCli(["lint", "--scope", "user", "--json"], {

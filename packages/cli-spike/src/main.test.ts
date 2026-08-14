@@ -107,11 +107,14 @@ const expectErrorRequestBody = (value: unknown): ErrorRequestBody => {
 const runSpike = (
   args: ReadonlyArray<string>,
   env: Record<string, string> = {},
-): Promise<CliResult> =>
-  new Promise((resolve, reject) => {
+): Promise<CliResult> => {
+  const childEnv = { ...process.env };
+  delete childEnv["FORCE_COLOR"];
+
+  return new Promise((resolve, reject) => {
     const child = spawn("bun", ["run", CLI_PATH, ...args], {
       cwd: PACKAGE_ROOT,
-      env: { ...process.env, AXM_TELEMETRY: "0", ...env, NO_COLOR: "1" },
+      env: { ...childEnv, AXM_TELEMETRY: "0", ...env, NO_COLOR: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -141,6 +144,7 @@ const runSpike = (
       });
     });
   });
+};
 
 const startCaptureServer = async (): Promise<CaptureServer> => {
   const captured: Array<CapturedRequest> = [];

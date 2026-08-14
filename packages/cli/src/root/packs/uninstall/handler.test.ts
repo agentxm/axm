@@ -31,7 +31,10 @@ import {
   UninstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import {
+  computePackManifestContentIdentity,
+  PackManagerLive,
+} from "@agentxm/client-core/unstable/packs";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -39,10 +42,7 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { expectNoOpPlanResult, expectPreviewedPlanResult } from "../../../test-helpers.js";
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-} from "../../../test-stubs.js";
+import { writeTrustFromWorkspaceLockfile } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -62,8 +62,18 @@ const initWorkspace = (
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfilePacks: Record<string, unknown> = { ...(opts?.lockfilePacks ?? {}) };
+  if (
+    Object.values(lockfilePacks).some(
+      (entry) =>
+        typeof entry === "object" && entry !== null && Reflect.get(entry, "type") === "registry",
+    )
+  ) {
+    settings["sources"] = [
+      { type: "registry", name: "default", location: "file:///tmp/test-registry" },
+    ];
+  }
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   for (const [name, value] of Object.entries(lockfilePacks)) {
     if (typeof value !== "object" || value === null) continue;
     const owner = Reflect.get(value, "owner");
@@ -94,19 +104,27 @@ const initWorkspace = (
     }
     const packDir = path.join(axmDir, "extensions", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(packDir, "pack.json"),
-      JSON.stringify({ owner, type: "pack", name, version, dependencies }),
-    );
+    const manifest = { owner, type: "pack" as const, name, version, dependencies };
+    fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
+    if (Reflect.get(value, "type") === "workspace") {
+      delete lockfilePacks[name];
+      continue;
+    }
     lockfilePacks[name] = {
-      ...value,
-      sourceHash: computePackageContentHashSync(packDir),
+      type: "registry",
+      owner,
+      name,
+      resolvedVersion: version,
+      integrity: Reflect.get(value, "integrity"),
+      manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      sourceName: Reflect.get(value, "sourceName"),
+      publisherBindingId: Reflect.get(value, "publisherBindingId"),
     };
   }
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 3,
+      lockfileVersion: 4,
       skills: opts?.lockfileSkills ?? {},
       ...(Object.keys(lockfilePacks).length === 0 ? {} : { packs: lockfilePacks }),
     }),
@@ -270,7 +288,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -295,7 +312,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("@acme/packs/my-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -314,7 +330,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -344,7 +359,6 @@ describe("packs uninstall handler", () => {
       const before = {
         settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
         lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
-        trust: fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"),
         manifest: fs.readFileSync(
           path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
           "utf8",
@@ -355,7 +369,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("toolkit"), {
             yes: false,
-            force: false,
             preview: true,
           });
 
@@ -365,7 +378,6 @@ describe("packs uninstall handler", () => {
           });
           expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
           expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
-          expect(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8")).toBe(before.trust);
           expect(
             fs.readFileSync(
               path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
@@ -386,7 +398,6 @@ describe("packs uninstall handler", () => {
           Effect.gen(function* () {
             yield* handleUninstallPack(defaultArgs(selector), {
               yes: true,
-              force: false,
               preview: false,
             });
 
@@ -396,10 +407,8 @@ describe("packs uninstall handler", () => {
             const lockfile = YAML.parse(
               fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
             );
-            const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
             expect(settings.packs?.toolkit).toBeUndefined();
             expect(lockfile.packs?.toolkit).toBeUndefined();
-            expect(trust.records?.["pack:toolkit"]).toBeUndefined();
             expect(
               fs.existsSync(path.join(axmDir, "extensions", "@acme", "packs", "toolkit")),
             ).toBe(false);
@@ -416,7 +425,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("@other/packs/toolkit"), {
             yes: true,
-            force: false,
             preview: false,
           });
 
@@ -439,7 +447,6 @@ describe("packs uninstall handler", () => {
           const error = yield* Effect.flip(
             handleUninstallPack(defaultArgs("@acme/skills/toolkit"), {
               yes: true,
-              force: false,
               preview: false,
             }),
           );
@@ -471,7 +478,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -508,7 +514,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("pack-a"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -539,7 +544,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -576,7 +580,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -613,7 +616,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("acme-*"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -635,7 +637,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -653,7 +654,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: false,
           });
 
@@ -675,7 +675,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: true,
           });
 
@@ -692,7 +691,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
             yes: false,
-            force: false,
             preview: true,
           });
 

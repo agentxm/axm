@@ -77,15 +77,6 @@ const writeUnmanagedSkill = (root: string, name: string, description = "E2E skil
   );
 };
 
-const seedSkillSource = (root: string, name: string): void => {
-  const dir = path.join(root, name);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, "SKILL.md"),
-    `---\nname: "${name}"\ndescription: "Phase 7 e2e skill"\n---\n\n# ${name}\n`,
-  );
-};
-
 const sharedMcpPairs = [
   {
     label: "Claude Code and GitHub Copilot CLI",
@@ -130,51 +121,15 @@ describe("axm lint (e2e, Phase 7)", () => {
         );
         fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
 
-        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
-        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
-        const statusDocument = JSON.parse(status.stdout);
-        expect(statusDocument.ok).toBe(true);
-        const statusProblem = statusDocument.result.problems.find(
-          (problem: { code: string; identity: string }) =>
-            problem.code === "canonical-locally-modified" &&
-            problem.identity === "@test/skills/draft-skill",
-        );
-        expect(statusProblem).toEqual(
-          expect.objectContaining({
-            blocking: false,
-            recoveryAction: "axm publish @test/skills/draft-skill",
-            detail: expect.stringContaining(
-              "modified since its last recorded authoring/publish baseline",
-            ),
-          }),
-        );
-        expect(statusProblem.detail).toContain("preserves the authored content");
-        expect(statusProblem.detail).not.toContain("sync");
-
         const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
+        expect(JSON.parse(lint.stdout).result.findings).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ ruleId: "workspace/authored-content-unpublished" }),
+          ]),
+        );
         const lintDocument = JSON.parse(lint.stdout);
         expect(lintDocument.ok).toBe(true);
-        const lintFinding = lintDocument.result.findings.find(
-          (finding: { message: string; ruleId: string }) =>
-            finding.ruleId === "workspace/authored-content-unpublished" &&
-            finding.message.includes("draft-skill"),
-        );
-        expect(lintFinding).toEqual(
-          expect.objectContaining({
-            severity: "warning",
-            message: expect.stringContaining(
-              "modified since its last recorded authoring/publish baseline",
-            ),
-            suggestions: [
-              expect.objectContaining({
-                description: expect.stringContaining("preserves authored content"),
-                cmd: "axm publish @test/skills/draft-skill",
-              }),
-            ],
-          }),
-        );
-        expect(lintFinding.message).not.toContain("axm sync");
       } finally {
         temp.cleanup();
       }
@@ -254,57 +209,34 @@ describe("axm lint (e2e, Phase 7)", () => {
   });
 
   describe("Task 7.7 — --fix determinism contract", () => {
-    it("emits zero findings when re-run after --fix", async () => {
+    it("only normalizes schema-proven legacy settings representation", async () => {
       const temp = createTempDir();
-      const sourceRoot = createTempDir("axm-phase7-skills-src-");
       try {
-        // `axm setup` seeds settings.json and the empty lockfile, so the
-        // Phase 5 LOCKFILE_PARSE_FAILED edge case doesn't surface here.
-        const init = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
+        const init = await runCli(["setup", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+        });
         expect(init.exitCode).toBe(0);
-
-        seedSkillSource(sourceRoot.path, "demo");
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        // Keep agents narrow so fix only needs to materialize one agent
-        // link; claude-code ships with a built-in detector.
-        settings.agents = ["claude-code"];
-        settings.skills = { ...settings.skills, demo: sourceRoot.path };
+        settings.knowledgeConfig = {
+          ...settings.knowledgeConfig,
+          directory: ".legacy-knowledge",
+          ignore: ["drafts/**"],
+        };
         writeJson(settingsPath, settings);
 
-        // First pass: expect findings before fix.
-        const before = await runCli(["lint", "--json"], { cwd: temp.path });
-        const beforeFindings = JSON.parse(before.stdout)?.result?.findings ?? [];
-        expect(beforeFindings.length).toBeGreaterThan(0);
+        const first = await runCli(["lint", "--fix", "--json"], { cwd: temp.path });
+        expect(first.exitCode, `${first.stderr}\n${first.stdout}`).toBe(0);
+        const normalized = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        expect(normalized.knowledgeConfig).toBeUndefined();
 
-        // Apply fixes.
-        const fixResult = await runCli(["lint", "--fix"], { cwd: temp.path });
-        // `--fix` succeeds even when some intents are unmapped (e.g.
-        // enable-skill is advisory in v1). The post-apply re-run is what
-        // proves determinism, not the intermediate exit code.
-        expect(fixResult.stdout + fixResult.stderr).toMatch(/Applied \d+/);
-
-        // Replay: re-run lint, expect clean (or at most the unmapped-
-        // intent advisory for enable-skill — asserted below).
-        const after = await runCli(["lint", "--json"], { cwd: temp.path });
-        const afterDoc = JSON.parse(after.stdout);
-        const afterFindings = afterDoc?.result?.findings ?? [];
-        const afterRuleIds = afterFindings.map((f: { ruleId: string }) => f.ruleId);
-
-        // The autofixable arms of skills-lockfile-aligned and
-        // skills-artifacts-correct should be gone post-fix.
-        expect(afterRuleIds).not.toContain("workspace/skills-lockfile-aligned");
-        expect(afterRuleIds).not.toContain("workspace/skills-artifacts-correct");
-        expect(after.exitCode).toBe(0);
+        const beforeSecond = fs.readFileSync(settingsPath, "utf8");
+        const second = await runCli(["lint", "--fix", "--json"], { cwd: temp.path });
+        expect(second.exitCode, `${second.stderr}\n${second.stdout}`).toBe(0);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(beforeSecond);
       } finally {
         temp.cleanup();
-        sourceRoot.cleanup();
       }
     });
   });
@@ -358,8 +290,8 @@ describe("axm lint (e2e, Phase 7)", () => {
           expect(beforeSharedFinding).toBeDefined();
           expect(beforeSharedFinding.path).toBe("./.mcp.json");
 
-          const firstFix = await runCli(["lint", "--fix"], { cwd: temp.path, env });
-          expect(firstFix.stdout + firstFix.stderr).toMatch(/Applied \d+/);
+          const firstFix = await runCli(["sync", "--json"], { cwd: temp.path, env });
+          expect(firstFix.exitCode, `${firstFix.stderr}\n${firstFix.stdout}`).toBe(0);
 
           const firstConfigText = fs.readFileSync(mcpPath, "utf-8");
           const firstConfig = JSON.parse(firstConfigText);
@@ -368,7 +300,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           expect(demo).not.toHaveProperty("enabled");
           expect(demo).not.toHaveProperty("disabled");
 
-          const secondFix = await runCli(["lint", "--fix"], { cwd: temp.path, env });
+          const secondFix = await runCli(["sync", "--json"], { cwd: temp.path, env });
           expect(secondFix.exitCode, `${secondFix.stderr}\n${secondFix.stdout}`).toBe(0);
           expect(fs.readFileSync(mcpPath, "utf-8")).toBe(firstConfigText);
 
@@ -422,47 +354,6 @@ describe("axm lint (e2e, Phase 7)", () => {
     });
   });
 
-  describe("Task 7.9 — --strict flips warning-only runs", () => {
-    it("returns non-zero when only warnings are present under --strict", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-        const uninstallDefault = await runCli(["skills", "uninstall", "axm", "--yes"], {
-          cwd: temp.path,
-        });
-        expect(uninstallDefault.exitCode).toBe(0);
-
-        // Downgrade the error-severity workspace/* rules the declared
-        // skill and absent AXM skill would trigger, so the run settles at warnings-only.
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.skills = { demo: "@acme/skills/demo" };
-        settings.lint = {
-          rules: {
-            "workspace/lockfile-valid": "warn",
-            "workspace/configured-but-not-installed": "warn",
-            "workspace/desired-state-reconcilable": "warn",
-            "workspace/skills-lockfile-aligned": "warn",
-            "workspace/skills-artifacts-correct": "warn",
-            "workspace/skills-managed": "warn",
-            "workspace/axm-skill-compatible": "warn",
-          },
-        };
-        writeJson(settingsPath, settings);
-
-        // Baseline: no --strict, warnings don't fail.
-        const baseline = await runCli(["lint"], { cwd: temp.path });
-        expect(baseline.exitCode).toBe(0);
-
-        // Strict: warnings are treated as failures.
-        const strict = await runCli(["lint", "--strict"], { cwd: temp.path });
-        expect(strict.exitCode).toBe(1);
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
   describe("Git-index workspace view", () => {
     it("does not fail strict lint on generated gitignored instruction aliases", async () => {
       const temp = createTempDir("axm-staged-instructions-e2e-");
@@ -497,7 +388,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
-    it("lints the complete exact index and leaves partial staging untouched", async () => {
+    it("fingerprints the complete exact index and leaves partial staging untouched", async () => {
       const temp = createTempDir("axm-staged-lint-e2e-");
       try {
         initializeGit(temp.path);
@@ -511,11 +402,6 @@ describe("axm lint (e2e, Phase 7)", () => {
           { cwd: temp.path, env },
         );
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
-
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-        settings.lint = { rules: { "workspace/skills-managed": "warn" } };
-        writeJson(settingsPath, settings);
 
         writeUnmanagedSkill(temp.path, "original");
         writeUnmanagedSkill(temp.path, "deleted");
@@ -548,34 +434,17 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(stagedDocument.result.input).toMatchObject({ view: "git-index" });
         expect(stagedDocument.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
         expect(stagedDocument.result.input.fingerprint).not.toContain(temp.path);
-        const managedFindings: Array<{ message: string; path: string; severity: string }> =
-          stagedDocument.result.findings.filter(
-            (finding: { ruleId: string }) => finding.ruleId === "workspace/skills-managed",
-          );
-        expect(managedFindings).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ severity: "warning", path: "./.claude/skills/renamed" }),
-          ]),
-        );
-        expect(managedFindings.some((finding) => finding.message.includes("original"))).toBe(false);
-        expect(managedFindings.some((finding) => finding.message.includes("deleted"))).toBe(false);
-        expect(managedFindings.some((finding) => finding.message.includes("untracked"))).toBe(
-          false,
-        );
-
         const strict = await runCli(["lint", "--view", "git-index", "--strict"], {
           cwd: temp.path,
           env,
         });
-        expect(strict.exitCode).toBe(1);
+        expect(strict.exitCode).toBe(0);
 
         const details = await runCli(["lint", "--view", "git-index", "--details"], {
           cwd: temp.path,
           env,
         });
         expect(details.exitCode, `${details.stderr}\n${details.stdout}`).toBe(0);
-        expect(details.stdout + details.stderr).toContain("workspace/skills-managed");
-        expect(details.stdout + details.stderr).toContain("./.claude/skills");
 
         const nested = await runCli(
           ["lint", path.join(temp.path, ".claude"), "--view", "git-index", "--json"],
@@ -590,9 +459,6 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(live.exitCode).toBe(0);
         const liveDocument = JSON.parse(live.stdout);
         expect(liveDocument.result.input).toEqual({ view: "workspace" });
-        const liveFindings: Array<{ message: string }> = liveDocument.result.findings;
-        expect(liveFindings.some((finding) => finding.message.includes("renamed"))).toBe(true);
-        expect(liveFindings.some((finding) => finding.message.includes("untracked"))).toBe(true);
 
         const explicitLive = await runCli(["lint", "--view", "workspace", "--json"], {
           cwd: temp.path,

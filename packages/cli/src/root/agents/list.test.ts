@@ -22,7 +22,7 @@ import { handleAgentsList } from "./list.js";
 const initWorkspace = (axmDir: string, agents: ReadonlyArray<string>) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }, null, 2));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 };
 
 describe("agents list.handler", () => {

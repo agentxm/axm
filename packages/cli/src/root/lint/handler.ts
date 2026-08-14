@@ -31,11 +31,7 @@ import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import {
-  effectCliExit,
-  sanitizeSuggestedAction,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   CodingAgentRepository,
@@ -66,7 +62,6 @@ import {
   buildLintWorkspace,
   buildPackRuleContexts,
   buildSkillRuleContexts,
-  collectAutofixableEntries,
   composePath,
   evaluateAllCatalogs,
   resolveLintExitCategory,
@@ -82,12 +77,7 @@ import {
   type LintSummary,
 } from "@agentxm/client-core/unstable/lint";
 import type { LintConfig } from "@agentxm/client-core/unstable/lint";
-import {
-  previewOrApplyPlan,
-  resolvePlan,
-  type Operation,
-  type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+import type { Operation, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   AXM_DIR_NAME,
   WorkspaceMutations,
@@ -101,7 +91,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-  observeCanonicalExtension,
+  acceptedCanonicalObservation,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import { SettingsSchema, writeSettings } from "@agentxm/client-core/unstable/settings";
@@ -114,8 +104,6 @@ import {
 import type { Settings } from "@agentxm/client-core/unstable/settings";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
-import { PlanResolutionResultSchema, toPlanResolutionResult } from "../../json-output.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { makeWorkspaceRetentionPolicyEffect as makeRetentionPolicy } from "../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -249,13 +237,126 @@ const withoutLegacyKnowledgeConfig = (value: unknown): unknown => {
   if (typeof value !== "object" || value === null || !("knowledgeConfig" in value)) return value;
   const config = Reflect.get(value, "knowledgeConfig");
   if (typeof config !== "object" || config === null) return value;
+  const normalizedConfig = Object.fromEntries(
+    Object.entries(config).filter(([key]) => key !== "directory" && key !== "ignore"),
+  );
+  if (Object.keys(normalizedConfig).length === 0) {
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "knowledgeConfig"));
+  }
   return {
     ...value,
-    knowledgeConfig: Object.fromEntries(
-      Object.entries(config).filter(([key]) => key !== "directory" && key !== "ignore"),
-    ),
+    knowledgeConfig: normalizedConfig,
   };
 };
+
+const isLintCommandGuidance = (message: string): boolean => message.includes("axm ");
+
+const normalizeSettingsForLintFix = (args: {
+  readonly workspacePath: string;
+  readonly runTransaction: typeof WorkspaceMutations.Service.runTransaction;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+}): Effect.Effect<FixSummary, AppError> =>
+  Effect.gen(function* () {
+    const settingsPath = args.path.join(args.workspacePath, "settings.json");
+    const exists = yield* args.fs
+      .exists(settingsPath)
+      .pipe(
+        Effect.mapError((cause) =>
+          makeAppError({ code: "internal", detail: `Failed to inspect ${settingsPath}`, cause }),
+        ),
+      );
+    if (!exists) return { attempted: 0, applied: 0, failed: 0, warnings: [] };
+
+    const preimage = yield* args.fs
+      .readFileString(settingsPath)
+      .pipe(
+        Effect.mapError((cause) =>
+          makeAppError({ code: "internal", detail: `Failed to read ${settingsPath}`, cause }),
+        ),
+      );
+    const parsed = yield* Effect.sync(() => {
+      try {
+        return Option.some<unknown>(JSON.parse(preimage));
+      } catch {
+        return Option.none<unknown>();
+      }
+    });
+    if (Option.isNone(parsed)) return { attempted: 0, applied: 0, failed: 0, warnings: [] };
+    const normalizedInput = withoutLegacyKnowledgeConfig(parsed.value);
+    const after = Schema.decodeUnknownResult(SettingsSchema)(normalizedInput);
+    if (Result.isFailure(after)) {
+      return { attempted: 0, applied: 0, failed: 0, warnings: [] };
+    }
+    const afterDomain = JSON.stringify(Schema.encodeSync(SettingsSchema)(after.success));
+    if (JSON.stringify(parsed.value) === JSON.stringify(normalizedInput)) {
+      return { attempted: 0, applied: 0, failed: 0, warnings: [] };
+    }
+
+    yield* args.runTransaction({
+      targets: [settingsPath],
+      transition: Effect.gen(function* () {
+        const current = yield* args.fs.readFileString(settingsPath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to revalidate ${settingsPath}`,
+              cause,
+            }),
+          ),
+        );
+        if (current !== preimage) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Settings changed before lint normalization: ${settingsPath}`,
+          });
+        }
+        yield* writeSettings(args.workspacePath, after.success).pipe(
+          Effect.provideService(FileSystem.FileSystem, args.fs),
+          Effect.provideService(Path.Path, args.path),
+        );
+      }),
+      validate: () =>
+        Effect.gen(function* () {
+          const current = yield* args.fs.readFileString(settingsPath).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to validate ${settingsPath}`,
+                cause,
+              }),
+            ),
+          );
+          const currentParsed = yield* Effect.try({
+            try: (): unknown => JSON.parse(current),
+            catch: (cause) =>
+              makeAppError({
+                code: "validation",
+                detail: "Normalized settings are invalid JSON",
+                cause,
+              }),
+          });
+          const currentDecoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+            currentParsed,
+          ).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail: "Normalized settings are invalid",
+                cause,
+              }),
+            ),
+          );
+          if (JSON.stringify(Schema.encodeSync(SettingsSchema)(currentDecoded)) !== afterDomain) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: "Normalized settings do not preserve the decoded value",
+            });
+          }
+        }),
+    });
+    return { attempted: 1, applied: 1, failed: 0, warnings: [] };
+  });
 
 /**
  * Read `lint.rules` from `.axm/settings.json`. Returns the empty config when
@@ -1006,66 +1107,10 @@ const adaptIntent = (
     }
   });
 
-// -----------------------------------------------------------------------------
-// --fix pipeline
-// -----------------------------------------------------------------------------
-
-const applyFixes = (args: {
-  readonly operations: ReadonlyArray<Operation<string, unknown>>;
-  readonly workspaceRoot: string;
-}) =>
-  Effect.gen(function* () {
-    const adapterResults = yield* Effect.forEach(
-      args.operations,
-      (op) => adaptIntent(op, { workspaceRoot: args.workspaceRoot }),
-      {
-        concurrency: "unbounded",
-      },
-    );
-
-    const steps: Array<PlannedJobStep> = [];
-    const unmappedWarnings: Array<string> = [];
-    for (const result of adapterResults) {
-      if (result.kind === "step") {
-        steps.push(result.step);
-      } else {
-        unmappedWarnings.push(`${result.unmapped.operationName}: ${result.unmapped.reason}`);
-      }
-    }
-
-    const plan = resolvePlan({
-      name: "Lint autofix",
-      description: "Apply autofixable findings from `axm lint --fix`",
-      steps,
-    });
-    const execution = yield* makePlanExecution(
-      { yes: false, preview: false },
-      makeConfirmationRecovery(["lint"], [{ _tag: "Switch", flag: "--fix", enabled: true }]),
-    );
-    const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-    const allSteps =
-      resolution._tag === "ExecutedPlan" ? resolution.jobs.flatMap((job) => job.steps) : [];
-    const applied = allSteps.filter((s) => s.result.result === "success").length;
-    const executionFailureCount =
-      resolution._tag === "FailedPlan" ? (resolution.executionSteps?.length ?? 1) : 0;
-    const failed =
-      allSteps.filter((s) => s.result.result === "error").length + executionFailureCount;
-    const warnings: Array<string> = [...unmappedWarnings];
-    for (const step of allSteps) {
-      if (step.result.result === "error") {
-        warnings.push(`${step.label}: ${step.result.message}`);
-      }
-    }
-    return {
-      summary: {
-        attempted: args.operations.length,
-        applied,
-        failed,
-        warnings,
-      },
-      resolution,
-    };
-  });
+// Retained temporarily as an unexported migration seam while the old lint
+// intent vocabulary and its tests are removed. No lint execution path invokes
+// this adapter.
+void adaptIntent;
 
 // -----------------------------------------------------------------------------
 // Output
@@ -1077,35 +1122,9 @@ const LintJsonDocumentFields = {
 export const LintResultDocumentSchema = Schema.Struct(LintJsonDocumentFields);
 export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
-/**
- * `--fix` emits the same lint document with the autofix plan nested under
- * `plan`. It used to emit the plan as `result` and the lint report as a second
- * top-level `data` key, which broke the one-primary-payload contract and made
- * `axm lint --json` and `axm lint --fix --json` two different documents.
- */
-const LintFixJsonDocumentFields = {
-  result: Schema.Struct({
-    ...LintJsonDocumentSchema.fields,
-    plan: PlanResolutionResultSchema,
-  }),
-} satisfies Schema.Struct.Fields;
-export const LintFixDocumentSchema = Schema.Struct(LintFixJsonDocumentFields);
-export type LintFixDocument = typeof LintFixDocumentSchema.Type;
-
-const emitJsonDocument = (
-  doc: LintJsonDocument,
-  fixResolution: Option.Option<typeof PlanResolutionResultSchema.Type>,
-  ok: boolean,
-) =>
+const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    if (Option.isSome(fixResolution)) {
-      return yield* renderer.result(
-        { result: { ...doc, plan: fixResolution.value } },
-        LintFixDocumentSchema,
-        { ok },
-      );
-    }
     return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
@@ -1204,15 +1223,6 @@ const emitHumanOutput = (args: {
         }),
       { discard: true },
     );
-    const suggestions = lintSuggestions({
-      summary: args.summary,
-      fixSummary: args.fixSummary,
-      details: args.details,
-      blocks,
-    });
-    if (suggestions.length > 0) {
-      yield* renderer.suggestions(suggestions);
-    }
   });
 
 const emitQuietHumanOutput = (
@@ -1243,175 +1253,6 @@ const emitQuietHumanOutput = (
       }),
     { discard: true },
   );
-
-const LINT_FIX_SUGGESTION = {
-  description: "Apply auto-fixable lint findings",
-  cmd: "axm lint --fix",
-} satisfies SuggestedAction;
-
-const LINT_DETAILS_SUGGESTION = {
-  description: "Show detailed lint output",
-  cmd: "axm lint --details",
-} satisfies SuggestedAction;
-
-const LINT_JSON_SUGGESTION = {
-  description: "Show machine-readable lint output",
-  cmd: "axm lint --json",
-} satisfies SuggestedAction;
-
-const BacktickedAxmCommandPattern = /`(axm [^`]+)`/g;
-
-const extractAxmCommands = (message: string): ReadonlyArray<string> => {
-  const commands: Array<string> = [];
-  for (const match of message.matchAll(BacktickedAxmCommandPattern)) {
-    const command = match[1];
-    if (command !== undefined) {
-      commands.push(command);
-    }
-  }
-  return commands;
-};
-
-const isLintCommandGuidance = (message: string): boolean =>
-  extractAxmCommands(message).length > 0 ||
-  message.includes("axm lint --details") ||
-  message.includes("axm lint --json");
-
-const hasAutofixableFindings = (summary: LintSummary): boolean =>
-  summary.findings.some((finding) => finding.finding.kind === "autofixable");
-
-const lintCommandSuggestion = (command: string): SuggestedAction | undefined => {
-  if (
-    command === LINT_FIX_SUGGESTION.cmd ||
-    command === LINT_DETAILS_SUGGESTION.cmd ||
-    command === LINT_JSON_SUGGESTION.cmd
-  ) {
-    return undefined;
-  }
-
-  if (command === "axm help skills") {
-    return {
-      description: "Open the skills decision guide",
-      cmd: command,
-    };
-  }
-
-  if (command === "axm prune") {
-    return {
-      description: "Prune unmanaged extension files",
-      cmd: command,
-    };
-  }
-
-  if (command.startsWith("axm skills install ")) {
-    return {
-      description: "Adopt an unmanaged skill",
-      cmd: command,
-    };
-  }
-
-  if (command.startsWith("axm install ")) {
-    return {
-      description: "Install configured missing content",
-      cmd: command,
-    };
-  }
-
-  return {
-    description: "Run suggested lint follow-up",
-    cmd: command,
-  };
-};
-
-const collectLintBlockCommands = (blocks: ReadonlyArray<LintHumanBlock>): ReadonlyArray<string> => {
-  const commands: Array<string> = [];
-  const collectDiagnostic = (diagnostic: LintHumanDiagnostic) => {
-    for (const value of [diagnostic.title, ...diagnostic.details, ...diagnostic.helps]) {
-      commands.push(...extractAxmCommands(value));
-    }
-  };
-
-  for (const block of blocks) {
-    switch (block.kind) {
-      case "overview":
-        for (const note of block.notes) {
-          commands.push(...extractAxmCommands(note));
-        }
-        break;
-      case "section":
-        if (block.note !== undefined) {
-          commands.push(...extractAxmCommands(block.note));
-        }
-        break;
-      case "diagnostic":
-        collectDiagnostic(block.diagnostic);
-        break;
-      case "pathGroup":
-        for (const diagnostic of block.diagnostics) {
-          collectDiagnostic(diagnostic);
-        }
-        break;
-      case "footer":
-        commands.push(...extractAxmCommands(block.message));
-        break;
-      case "fixSummary":
-        for (const warning of block.summary.warnings) {
-          commands.push(...extractAxmCommands(warning));
-        }
-        break;
-      case "driftBanner":
-      case "blank":
-      case "empty":
-        break;
-    }
-  }
-
-  return commands;
-};
-
-const lintSuggestions = (args: {
-  readonly summary: LintSummary;
-  readonly fixSummary: Option.Option<FixSummary>;
-  readonly details: boolean;
-  readonly blocks: ReadonlyArray<LintHumanBlock>;
-}): ReadonlyArray<SuggestedAction> => {
-  if (args.summary.findings.length === 0) {
-    return [];
-  }
-
-  const suggestions: Array<SuggestedAction> = [];
-  const seenCommands = new Set<string>();
-  const pushSuggestion = (suggestion: SuggestedAction) => {
-    const key = suggestion.cmd ?? suggestion.url ?? suggestion.description;
-    if (seenCommands.has(key)) {
-      return;
-    }
-    seenCommands.add(key);
-    suggestions.push(suggestion);
-  };
-
-  if (hasAutofixableFindings(args.summary) && Option.isNone(args.fixSummary)) {
-    pushSuggestion(LINT_FIX_SUGGESTION);
-  }
-  if (!args.details) {
-    pushSuggestion(LINT_DETAILS_SUGGESTION);
-  }
-  pushSuggestion(LINT_JSON_SUGGESTION);
-
-  for (const entry of args.summary.findings) {
-    for (const suggestion of entry.finding.suggestions ?? []) {
-      pushSuggestion(sanitizeSuggestedAction(suggestion));
-    }
-  }
-
-  for (const command of collectLintBlockCommands(args.blocks)) {
-    const suggestion = lintCommandSuggestion(command);
-    if (suggestion !== undefined) {
-      pushSuggestion(suggestion);
-    }
-  }
-  return suggestions;
-};
 
 const emitFullHumanDiagnostic = (
   renderer: typeof CliRenderer.Service,
@@ -1508,6 +1349,20 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     scope: args.scope,
   });
 
+  // `--fix` is deliberately limited to schema-proven representation
+  // normalization. Run it before building the read model so every emitted
+  // finding describes the post-fix workspace.
+  const fixSummary = args.fix
+    ? Option.some(
+        yield* normalizeSettingsForLintFix({
+          workspacePath: ws.path,
+          runTransaction: ws.runTransaction,
+          fs,
+          path,
+        }),
+      )
+    : Option.none<FixSummary>();
+
   // -- Load settings + lockfile + config --
   const loadedConfig = yield* loadLintConfig(workspaceRoot);
   const config =
@@ -1540,16 +1395,23 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const packContexts = buildPackRuleContexts(view);
   const canonicalObservations = Effect.gen(function* () {
     const graph = yield* ws.getDesiredStateGraph();
-    const trust = yield* ws.getTrustState();
     return yield* Effect.forEach(
       graph.nodes,
       (node) =>
-        observeCanonicalExtension({
-          baseDir: ws.baseDir,
-          desired: node,
-          trust: trust.records[`${node.type}:${node.name}`],
+        Effect.gen(function* () {
+          const accepted = yield* acceptedCanonicalObservation({
+            workspace: ws,
+            type: node.type,
+            name: node.name,
+          });
+          if (Option.isNone(accepted)) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
+            });
+          }
+          return { desired: node, observation: accepted.value.observation };
         }).pipe(
-          Effect.map((observation) => ({ desired: node, observation })),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         ),
@@ -1585,71 +1447,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       ? rawSummary
       : remapLintSummaryPaths(rawSummary, workspaceRoot, args.displayWorkspaceRoot, path);
 
-  // -- Apply fixes (optional) --
-  let fixSummary: Option.Option<FixSummary> = Option.none();
-  let fixResolution = Option.none<typeof PlanResolutionResultSchema.Type>();
-  if (args.fix) {
-    if (
-      summary.findings.some(
-        (finding) => finding.finding.ruleId === "workspace/knowledge-config-current",
-      )
-    ) {
-      const settingsPath = path.join(ws.path, "settings.json");
-      const raw = yield* fs.readFileString(settingsPath).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to read settings for Knowledge configuration migration: ${settingsPath}`,
-            cause,
-          }),
-        ),
-      );
-      const parsed = yield* Effect.try({
-        try: (): unknown => JSON.parse(raw),
-        catch: (cause) =>
-          makeAppError({
-            code: "validation",
-            detail: "Cannot migrate legacy Knowledge settings because settings JSON is invalid",
-            cause,
-          }),
-      });
-      const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
-        withoutLegacyKnowledgeConfig(parsed),
-      ).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "validation",
-            detail: "Cannot migrate legacy Knowledge settings because settings are invalid",
-            cause,
-          }),
-        ),
-      );
-      yield* writeSettings(ws.path, decoded);
-    }
-    const autofixable = collectAutofixableEntries(evaluations);
-    const opsEffect = Effect.forEach(
-      autofixable,
-      (entry) => entry.rule.fix(entry.context, entry.finding),
-      { concurrency: "unbounded" },
-    );
-    const opsBatches = yield* opsEffect;
-    const seen = new Set<string>();
-    const operations: Array<Operation<string, unknown>> = [];
-    for (const batch of opsBatches) {
-      for (const op of batch) {
-        const key = JSON.stringify(op);
-        if (seen.has(key)) {
-          continue;
-        }
-        seen.add(key);
-        operations.push(op);
-      }
-    }
-    const { summary: fixResult, resolution } = yield* applyFixes({ operations, workspaceRoot });
-    fixSummary = Option.some(fixResult);
-    fixResolution = Option.some(toPlanResolutionResult(resolution));
-  }
-
   // -- Resolve the semantic outcome before emitting the machine document so
   // its `ok` field and the eventual process exit code cannot disagree. --
   const category = summary.exitCategory;
@@ -1667,7 +1464,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       input: args.input,
       ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
     }),
-    fixResolution,
     ok,
   );
   if (!handledByMachine) {

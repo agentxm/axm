@@ -17,7 +17,6 @@ export {
 
 // Extension ref types
 export type { RegistryPackRef, WorkspacePackRef, PackRef } from "./refs.js";
-export { packTrustManifest } from "./trust-manifest.js";
 export {
   buildPackDependencyReachability,
   classifyPackDependencyReachability,
@@ -47,9 +46,14 @@ export {
   type WorkspacePackDependencyResolver,
   type WorkspacePackDependencyResolution,
 } from "./dependency-resolution.js";
-
-// Reconciliation adapter
-export { packReconciliationAdapter } from "./reconciliation-adapter.js";
+export {
+  ResolvedPackDependencyMapSchema,
+  ResolvedPackDependencySchema,
+  validateExactPackDependencyVersions,
+  type ResolvedPackDependency,
+  type ResolvedPackDependencyMap,
+} from "./resolved-dependency.js";
+export { computePackManifestContentIdentity } from "./manifest-content-identity.js";
 
 // Operations
 export {

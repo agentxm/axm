@@ -112,7 +112,7 @@ export const handleWorkspaceInstall = (args: {
           : args.planName,
       resolution,
       reportInstallationCoverage: Option.isNone(args.type) || args.type.value !== "knowledge",
-      suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+      suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
     });
   });
 

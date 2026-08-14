@@ -17,7 +17,6 @@
  * @packageDocumentation
  */
 
-import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -27,9 +26,6 @@ import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
-  commitTrustSnapshotUpdate,
-  type ResolvedExtension,
-  type ResolvedExtensionMap,
   type HooksLockMap,
   type KnowledgeLockMap,
   type RulesLockMap,
@@ -41,18 +37,13 @@ import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
-import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   ConfigurableAgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
-  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
-  type SourceHash,
-  SourceHashSchema,
 } from "../extensions/index.js";
-import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
   createDefaultSettings,
@@ -84,23 +75,12 @@ import {
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
-import {
-  readWorkspaceTrustState,
-  TRUST_STATE_FILENAME,
-  TRUST_STATE_VERSION,
-  trustRecordKey,
-  trustStateFromLockfile,
-  writeWorkspaceTrustState,
-  type PackTrustManifest,
-  type WorkspaceTrustState,
-} from "../trust/index.js";
 
 import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as semver from "semver";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,
@@ -124,21 +104,16 @@ import {
   type SetSubagentArgs,
   type SkillPathSource,
   type ExtensionTarget,
-  type WorkspaceCommitPhase,
   type WorkspaceTransactionRunner,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
-import { validateDesiredPackTrust } from "./desired-pack-trust.js";
+import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { runWorkspaceTransaction } from "./transaction.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
-});
-const createEmptyTrustState = (): WorkspaceTrustState => ({
-  trustStateVersion: TRUST_STATE_VERSION,
-  records: {},
 });
 
 const normalizeForStableCompare = (value: unknown): unknown => {
@@ -160,53 +135,18 @@ const stableCompare = (left: unknown, right: unknown): boolean =>
   JSON.stringify(normalizeForStableCompare(left)) ===
   JSON.stringify(normalizeForStableCompare(right));
 
-type TimestampedLockEntry = {
-  readonly installedAt: DateTime.Utc;
-  readonly updatedAt: DateTime.Utc;
-};
-
-const withoutLockTimestamps = (entry: TimestampedLockEntry): unknown => {
-  const { installedAt: _installedAt, updatedAt: _updatedAt, ...rest } = entry;
-  return rest;
-};
-
-const lockEntrySemanticallyEqual = <TEntry extends TimestampedLockEntry>(
-  current: TEntry | undefined,
-  next: TEntry,
-): boolean =>
-  current !== undefined &&
-  stableCompare(withoutLockTimestamps(current), withoutLockTimestamps(next));
+const lockEntrySemanticallyEqual = <TEntry>(current: TEntry | undefined, next: TEntry): boolean =>
+  current !== undefined && stableCompare(current, next);
 
 const skillLockEntrySemanticallyEqual = (
   current: SkillLockEntry | undefined,
   next: SkillLockEntry,
 ): boolean => lockEntrySemanticallyEqual(current, next);
 
-const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Effect.Effect<DateTime.Utc> =>
-  Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    if (current === undefined) return now;
-    // Keep updatedAt strictly increasing even when the clock has not advanced
-    // between two writes within the same millisecond.
-    return DateTime.isGreaterThan(now, current.updatedAt)
-      ? now
-      : DateTime.addDuration(current.updatedAt, Duration.millis(1));
-  });
-
-const preserveLockTimestampsOnNoop = <TEntry extends TimestampedLockEntry>(
+const preserveAcceptedResolutionOnNoop = <TEntry>(
   current: TEntry | undefined,
   next: TEntry,
-): Effect.Effect<TEntry> =>
-  Effect.gen(function* () {
-    const candidate = {
-      ...next,
-      installedAt: current?.installedAt ?? next.installedAt,
-      updatedAt: yield* nextUpdatedAt(current),
-    };
-    return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
-      ? current
-      : candidate;
-  });
+): TEntry => (lockEntrySemanticallyEqual(current, next) && current !== undefined ? current : next);
 
 const subagentLockEntrySemanticallyEqual = (
   current: SubagentLockEntry | undefined,
@@ -384,48 +324,16 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfileCell(dir);
 
-    const commitWorkspaceState = (
-      base: Lockfile,
-      next: Lockfile,
-      commit: WorkspaceCommitPhase = "both",
-    ) =>
-      commit === "authoritative"
-        ? commitTrustSnapshotUpdate(workspaceDir, base, next).pipe(Effect.provide(fsLayer))
-        : commitLockfileSnapshotUpdate(workspaceDir, base, next, {
-            preserveTrust: commit === "receipt",
-          }).pipe(Effect.provide(fsLayer));
+    const commitWorkspaceState = (base: Lockfile, next: Lockfile) =>
+      commitLockfileSnapshotUpdate(workspaceDir, base, next).pipe(Effect.provide(fsLayer));
 
     const runTransaction: WorkspaceTransactionRunner = (args) =>
       runWorkspaceTransaction({
         workspaceDir,
-        targets: [
-          settingsPath,
-          path.join(workspaceDir, TRUST_STATE_FILENAME),
-          ...(args.targets ?? []),
-        ],
+        targets: [settingsPath, ...(args.targets ?? [])],
         transition: args.transition,
         validate: args.validate,
-        ...(args.receipt === undefined ? {} : { receipt: args.receipt }),
       }).pipe(Effect.provide(fsLayer));
-
-    const readTrustState = () =>
-      readWorkspaceTrustState(workspaceDir).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.flatMap(
-          Option.match({
-            onNone: () => readLockfileSafe(workspaceDir).pipe(Effect.map(trustStateFromLockfile)),
-            onSome: Effect.succeed,
-          }),
-        ),
-      );
-
-    const readAuthoritativeTrustState = () =>
-      readWorkspaceTrustState(workspaceDir).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.map(Option.getOrElse(createEmptyTrustState)),
-      );
 
     /**
      * Look up `key` in `record`, failing with an `AppError` when absent.
@@ -491,13 +399,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
-        // A valid legacy lockfile is the one-time migration source when a
-        // workspace has not written trust.json yet. Once the dedicated trust
-        // document exists, readTrustState ignores receipt content entirely.
-        // This keeps existing configured packs usable on the first command
-        // after upgrade without accepting an invalid or missing baseline.
-        const trust = yield* readTrustState();
-        return yield* validateDesiredPackTrust({ baseDir, graph, trust }).pipe(
+        const lockfile = yield* readLockfileSafe(workspaceDir);
+        return yield* validateDesiredPackLock({ baseDir, graph, lockfile }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
@@ -578,100 +481,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         return merged;
       }).pipe(Effect.withSpan("WorkspaceMutations.getConfiguredSources"));
 
-    const resolvePackReceipt = (
-      manifest: PackTrustManifest,
-      trust: WorkspaceTrustState,
-    ): Effect.Effect<
-      {
-        readonly resolvedSkills: ResolvedExtensionMap;
-        readonly resolvedMcpServers: ResolvedExtensionMap;
-        readonly resolvedSubagents: ResolvedExtensionMap;
-        readonly resolvedRules: ResolvedExtensionMap;
-        readonly resolvedHooks: ResolvedExtensionMap;
-        readonly resolvedKnowledge: ResolvedExtensionMap;
-      },
-      AppError
-    > =>
-      Effect.gen(function* () {
-        const groups: Record<
-          Exclude<InstallableExtensionType, "pack">,
-          Record<string, ResolvedExtension>
-        > = {
-          skill: {},
-          "mcp-server": {},
-          subagent: {},
-          rule: {},
-          hook: {},
-          knowledge: {},
-        };
-        for (const [fqn, constraint] of Object.entries(manifest.dependencies)) {
-          const parsed = parseExtensionFqnParts(fqn);
-          if (parsed === undefined || parsed.type === "pack") {
-            return yield* makeAppError({
-              code: "validation",
-              detail: `Invalid pack dependency identity: ${fqn}`,
-            });
-          }
-          const record = trust.records[trustRecordKey(parsed.type, parsed.name)];
-          if (
-            record === undefined ||
-            record.resolvedVersion === undefined ||
-            !semver.satisfies(record.resolvedVersion, constraint)
-          ) {
-            return yield* makeAppError({
-              code: "conflict",
-              detail: `Pack dependency ${fqn} requires ${constraint}, but trusted workspace state has ${record?.resolvedVersion ?? "no resolved version"}.`,
-            });
-          }
-          const version = decodeVersionSync(record.resolvedVersion);
-          if (record.authority === "workspace" && record.contentIdentity !== undefined) {
-            const contentIdentity = yield* Schema.decodeUnknownEffect(SourceHashSchema)(
-              record.contentIdentity,
-            ).pipe(
-              Effect.mapError((cause) =>
-                makeAppError({
-                  code: "validation",
-                  detail: `Trusted content identity for ${fqn} is invalid`,
-                  cause,
-                }),
-              ),
-            );
-            groups[parsed.type][fqn] = {
-              source: "workspace",
-              version,
-              sourceIdentity: record.sourceIdentity,
-              contentIdentity,
-            };
-            continue;
-          }
-          if (
-            record.authority === "registry" &&
-            record.publisherBindingId !== undefined &&
-            record.integrity !== undefined
-          ) {
-            groups[parsed.type][fqn] = {
-              source: "registry",
-              version,
-              publisherBindingId: record.publisherBindingId,
-              integrity: record.integrity,
-            };
-            continue;
-          }
-          return yield* makeAppError({
-            code: "conflict",
-            detail: `Pack dependency ${fqn} has unsupported trusted authority ${record.authority}.`,
-          });
-        }
-        return {
-          resolvedSkills: groups.skill,
-          resolvedMcpServers: groups["mcp-server"],
-          resolvedSubagents: groups.subagent,
-          resolvedRules: groups.rule,
-          resolvedHooks: groups.hook,
-          resolvedKnowledge: groups.knowledge,
-        };
-      });
-
     return {
       scope: options.scope,
       path: workspaceDir,
@@ -683,27 +492,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getDesiredStateGraph: () =>
         readDesiredStateGraph().pipe(Effect.withSpan("WorkspaceMutations.getDesiredStateGraph")),
-
-      getTrustState: () =>
-        readTrustState().pipe(Effect.withSpan("WorkspaceMutations.getTrustState")),
-
-      removeTrustRecord: (type: InstallableExtensionType, name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const trust = yield* readAuthoritativeTrustState();
-            const key = trustRecordKey(type, name);
-            if (!(key in trust.records)) return;
-            const { [key]: _, ...remainingRecords } = trust.records;
-            void _;
-            yield* writeWorkspaceTrustState(workspaceDir, {
-              ...trust,
-              records: remainingRecords,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            );
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeTrustRecord")),
 
       getConfiguredSources,
 
@@ -832,7 +620,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.rules ?? {})[name])),
         ),
 
-      setRule: ({ name, lockEntry, versionRange, commit }: SetRuleArgs) =>
+      setRule: ({ name, lockEntry, versionRange }: SetRuleArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -863,14 +651,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRule")),
 
-      setRuleLock: ({ name, lockEntry, commit }: SetRuleArgs) =>
+      setRuleLock: ({ name, lockEntry }: SetRuleArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -880,10 +668,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRuleLock")),
 
@@ -995,7 +783,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.hooks ?? {})[name])),
         ),
 
-      setHook: ({ name, lockEntry, versionRange, commit }: SetHookArgs) =>
+      setHook: ({ name, lockEntry, versionRange }: SetHookArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -1026,14 +814,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHook")),
 
-      setHookLock: ({ name, lockEntry, commit }: SetHookArgs) =>
+      setHookLock: ({ name, lockEntry }: SetHookArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1043,10 +831,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHookLock")),
 
@@ -1169,7 +957,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lockfile) => Option.fromUndefinedOr((lockfile.knowledge ?? {})[name])),
         ),
 
-      setKnowledge: ({ name, lockEntry, versionRange, commit }: SetKnowledgeArgs) =>
+      setKnowledge: ({ name, lockEntry, versionRange }: SetKnowledgeArgs) =>
         withMutex(
           Effect.gen(function* () {
             const source =
@@ -1193,37 +981,29 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLocked = currentLockfile.knowledge ?? {};
             const previous = currentLocked[name];
-            yield* commitWorkspaceState(
-              currentLockfile,
-              {
-                ...currentLockfile,
-                knowledge: {
-                  ...currentLocked,
-                  [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
-                },
+            yield* commitWorkspaceState(currentLockfile, {
+              ...currentLockfile,
+              knowledge: {
+                ...currentLocked,
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
-              commit,
-            );
+            });
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledge")),
 
-      setKnowledgeLock: ({ name, lockEntry, commit }: SetKnowledgeArgs) =>
+      setKnowledgeLock: ({ name, lockEntry }: SetKnowledgeArgs) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLocked = currentLockfile.knowledge ?? {};
             const previous = currentLocked[name];
-            yield* commitWorkspaceState(
-              currentLockfile,
-              {
-                ...currentLockfile,
-                knowledge: {
-                  ...currentLocked,
-                  [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
-                },
+            yield* commitWorkspaceState(currentLockfile, {
+              ...currentLockfile,
+              knowledge: {
+                ...currentLocked,
+                [name]: preserveAcceptedResolutionOnNoop(previous, lockEntry),
               },
-              commit,
-            );
+            });
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledgeLock")),
 
@@ -1357,7 +1137,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
         }),
 
-      setSkill: ({ name, lockEntry, versionRange, commit }: SetSkillArgs) =>
+      setSkill: ({ name, lockEntry, versionRange }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings — thread version constraint through so it survives the round-trip
@@ -1396,14 +1176,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkill")),
 
-      setSkillLock: ({ name, lockEntry, commit }: SetSkillArgs) =>
+      setSkillLock: ({ name, lockEntry }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -1416,10 +1196,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkillLock")),
 
@@ -1564,7 +1344,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { versionRange, commit, ...lockEntry } = args;
+            const { versionRange, ...lockEntry } = args;
             const name = lockEntry.name;
             // Update settings — thread versionRange through so it's preserved
             const fqn = formatFqn({
@@ -1572,12 +1352,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type: "pack",
               name: decodeExtensionNameSync(name),
             });
-            const source =
-              lockEntry.type === "workspace"
-                ? `workspace:${fqn}`
-                : Option.isSome(versionRange)
-                  ? `${fqn}@${versionRange.value}`
-                  : fqn;
+            const source = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
             const enabled = currentPacks[name]?.enabled ?? true;
@@ -1594,17 +1369,17 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               packs: {
                 ...currentLockedPacks,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockedPacks[name], lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
 
       setPackLock: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { versionRange: _, commit, ...lockEntry } = args;
+            const { versionRange: _, ...lockEntry } = args;
             void _;
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedPacks = currentLockfile.packs ?? {};
@@ -1612,126 +1387,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               packs: {
                 ...currentLockedPacks,
-                [lockEntry.name]: yield* preserveLockTimestampsOnNoop(
+                [lockEntry.name]: preserveAcceptedResolutionOnNoop(
                   currentLockedPacks[lockEntry.name],
                   lockEntry,
                 ),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPackLock")),
-
-      refreshAuthoredContentIdentity: (
-        type: Exclude<InstallableExtensionType, "pack">,
-        name: string,
-        resolvedVersion: string,
-        contentIdentity: SourceHash,
-      ) =>
-        withMutex(
-          Effect.gen(function* () {
-            const trust = yield* readAuthoritativeTrustState();
-            const key = trustRecordKey(type, name);
-            const record = trust.records[key];
-            if (record === undefined) return;
-            if (record.authority !== "workspace") {
-              return yield* makeAppError({
-                code: "conflict",
-                detail: `${type} "${name}" is not an authored workspace extension`,
-                recover:
-                  "Only a verified publish of a workspace-authored extension can advance its trust baseline.",
-              });
-            }
-            yield* writeWorkspaceTrustState(workspaceDir, {
-              ...trust,
-              records: {
-                ...trust.records,
-                [key]: {
-                  ...record,
-                  resolvedVersion,
-                  contentIdentity,
-                },
-              },
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            );
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.refreshAuthoredContentIdentity")),
-
-      refreshPackContentIdentity: (
-        name: string,
-        contentIdentity: SourceHash,
-        manifest?: PackTrustManifest,
-        commit: WorkspaceCommitPhase = "both",
-      ) =>
-        withMutex(
-          Effect.gen(function* () {
-            const trust = yield* readAuthoritativeTrustState();
-            const key = trustRecordKey("pack", name);
-            const record = trust.records[key];
-            if (record?.authority !== "workspace") {
-              return yield* makeAppError({
-                code: "conflict",
-                detail: `Pack "${name}" is not an authored workspace pack`,
-                recover: "Only workspace-authored packs can be edited in place.",
-              });
-            }
-            const nextTrust = {
-              ...trust,
-              records: {
-                ...trust.records,
-                [key]: {
-                  ...record,
-                  contentIdentity,
-                  ...(manifest === undefined ? {} : { packManifest: manifest }),
-                },
-              },
-            };
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentPack = currentLockfile.packs?.[name];
-            const receipt =
-              manifest === undefined || commit === "authoritative"
-                ? undefined
-                : yield* resolvePackReceipt(manifest, trust);
-            if (
-              commit !== "authoritative" &&
-              manifest !== undefined &&
-              (currentPack === undefined || currentPack.type !== "workspace")
-            ) {
-              return yield* makeAppError({
-                code: "conflict",
-                detail: `Workspace pack "${name}" has no matching workspace receipt`,
-              });
-            }
-            const updatedLockfile =
-              manifest === undefined || receipt === undefined || currentPack === undefined
-                ? currentLockfile
-                : {
-                    ...currentLockfile,
-                    packs: {
-                      ...currentLockfile.packs,
-                      [name]: {
-                        ...currentPack,
-                        version: decodeVersionSync(manifest.version),
-                        sourceHash: contentIdentity,
-                        ...receipt,
-                      },
-                    },
-                  };
-            if (commit !== "receipt") {
-              yield* writeWorkspaceTrustState(workspaceDir, nextTrust).pipe(
-                Effect.provideService(FileSystem.FileSystem, fs),
-                Effect.provideService(Path.Path, path),
-              );
-            }
-            if (commit !== "authoritative" && updatedLockfile !== currentLockfile) {
-              yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, updatedLockfile, {
-                preserveTrust: true,
-              }).pipe(Effect.provide(fsLayer));
-            }
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.refreshPackContentIdentity")),
 
       setPackEntry: (name: string, entry: PackEntry) =>
         withMutex(
@@ -1796,7 +1460,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredSubagentEntries"),
         ),
 
-      setSubagent: ({ name, lockEntry, versionRange, commit }: SetSubagentArgs) =>
+      setSubagent: ({ name, lockEntry, versionRange }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
@@ -1835,14 +1499,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockEntry, lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSubagent")),
 
-      setSubagentLock: ({ name, lockEntry, commit }: SetSubagentArgs) =>
+      setSubagentLock: ({ name, lockEntry }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -1855,13 +1519,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: yield* preserveLockTimestampsOnNoop(
-                  currentLockedSubagents[name],
-                  lockEntry,
-                ),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockedSubagents[name], lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ),
 
@@ -1971,7 +1632,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry, versionRange, env, enabled, commit }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, versionRange, env, enabled }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -1979,34 +1640,21 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const currentEnabled = currentMcpServers[name]?.enabled ?? true;
             const currentEnv = currentMcpServers[name]?.env ?? {};
-            const settingsEntry =
-              lockEntry.type === "inline"
-                ? {
-                    source: "inline",
-                    ...(lockEntry.command === undefined ? {} : { command: lockEntry.command }),
-                    ...(lockEntry.args === undefined ? {} : { args: lockEntry.args }),
-                    ...(lockEntry.url === undefined ? {} : { url: lockEntry.url }),
-                    ...(lockEntry.headers === undefined ? {} : { headers: lockEntry.headers }),
-                    enabled: enabled ?? currentEnabled,
-                    env: env ?? currentEnv,
-                  }
-                : {
-                    source:
-                      lockEntry.type === "registry"
-                        ? (() => {
-                            const fqn = formatFqn({
-                              owner: lockEntry.owner,
-                              type: "mcp-server",
-                              name: decodeExtensionNameSync(name),
-                            });
-                            return Option.isSome(versionRange)
-                              ? `${fqn}@${versionRange.value}`
-                              : fqn;
-                          })()
-                        : printSourceParams(lockEntryToSourceParams(lockEntry)),
-                    enabled: enabled ?? currentEnabled,
-                    env: env ?? currentEnv,
-                  };
+            const settingsEntry = {
+              source:
+                lockEntry.type === "registry"
+                  ? (() => {
+                      const fqn = formatFqn({
+                        owner: lockEntry.owner,
+                        type: "mcp-server",
+                        name: decodeExtensionNameSync(name),
+                      });
+                      return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    })()
+                  : printSourceParams(lockEntryToSourceParams(lockEntry)),
+              enabled: enabled ?? currentEnabled,
+              env: env ?? currentEnv,
+            };
             const updatedSettings = {
               ...currentSettings,
               mcpServers: {
@@ -2023,17 +1671,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: yield* preserveLockTimestampsOnNoop(
-                  currentLockedMcpServers[name],
-                  lockEntry,
-                ),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockedMcpServers[name], lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setMcpServer")),
 
-      setMcpServerLock: ({ name, lockEntry, commit }: SetMcpServerArgs) =>
+      setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -2043,13 +1688,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: yield* preserveLockTimestampsOnNoop(
-                  currentLockedMcpServers[name],
-                  lockEntry,
-                ),
+                [name]: preserveAcceptedResolutionOnNoop(currentLockedMcpServers[name], lockEntry),
               },
             };
-            yield* commitWorkspaceState(currentLockfile, updatedLockfile, commit);
+            yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ),
 

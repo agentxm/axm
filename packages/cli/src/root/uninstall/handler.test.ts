@@ -234,7 +234,6 @@ describe("root uninstall handler", () => {
         const calls: Array<UninstallCall> = [];
         const flags = {
           yes: false,
-          force: false,
           preview: true,
         } satisfies RootUninstallFlags;
         const { provide } = makeLayers(calls);
@@ -270,7 +269,6 @@ describe("root uninstall handler", () => {
       const calls: Array<UninstallCall> = [];
       const flags = {
         yes: false,
-        force: false,
         preview: true,
       } satisfies RootUninstallFlags;
       const { provide } = makeLayers(calls);
@@ -294,7 +292,6 @@ describe("root uninstall handler", () => {
       const calls: Array<UninstallCall> = [];
       const flags = {
         yes: true,
-        force: false,
         preview: false,
       } satisfies RootUninstallFlags;
       const { provide, rendererState } = makeLayers(calls, { machine: true });

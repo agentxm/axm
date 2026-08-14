@@ -13,14 +13,13 @@ import {
 
 export const handleUninstallPack = (
   args: UninstallPackHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallPackCommandWorkflowActions;
     const execution = yield* makeUninstallPlanExecution(flags, ["packs", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
-      breakDependencies: flags.force,
       displayApplied: false,
     });
     const result = toPlanResolutionResult(resolution);

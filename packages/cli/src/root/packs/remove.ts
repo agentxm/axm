@@ -22,12 +22,7 @@ import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils"
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import {
-  allowEmptyFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
@@ -44,7 +39,6 @@ export interface PacksRemoveHandlerArgs {
   readonly pack: string;
   readonly extension: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -215,26 +209,12 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     name: "Remove from pack",
     description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
-    ...(allNames.length === matchedNames.length
-      ? {
-          riskConditions: [
-            {
-              level: "override-required" as const,
-              id: "empty-pack-dependencies",
-              policy: "allow-empty" as const,
-              requiredFlag: "--allow-empty",
-              detail: `Removing ${matchedNames.join(", ")} leaves the pack empty.`,
-            },
-          ],
-        }
-      : {}),
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
     displayApplied: false,
-    acceptedPolicies: args.force ? ["allow-empty"] : [],
     recovery: makeConfirmationRecovery(
       ["packs", "remove"],
       [
@@ -279,7 +259,6 @@ const removeConfig = {
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  force: allowEmptyFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -288,8 +267,8 @@ const removeConfig = {
 export const removeCommand = Command.make(
   "remove",
   removeConfig,
-  ({ pack, extension, yes, force, preview }) =>
-    handlePacksRemove({ pack, extension, yes, force, preview }).pipe(
+  ({ pack, extension, yes, preview }) =>
+    handlePacksRemove({ pack, extension, yes, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
       withRuntime("packs remove"),
     ),

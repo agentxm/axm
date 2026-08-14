@@ -497,7 +497,7 @@ const memberObservation = (
 
 const installedPackAuthority = (installed: InstalledPack): PackDependencyAuthority => {
   if (Option.isSome(installed.resolved)) {
-    return installed.resolved.value.lockEntry.type === "workspace" ? "workspace" : "registry";
+    return "registry";
   }
   if (installed.installationOrigin._tag !== "direct") return "registry";
   const declared = installed.installationOrigin.declared.entry;

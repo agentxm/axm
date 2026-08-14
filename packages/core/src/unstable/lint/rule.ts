@@ -2,16 +2,9 @@
  * Lint rule and finding primitives.
  *
  * Library-style discriminated unions for the lint engine. Rules are plain
- * values generic over a caller-built `RuleContext` — no Layer wiring, no
- * ambient service bag. Findings are produced by `rule.check`; an
- * `AutofixingRule` also carries a `fix` method that returns per-extension
- * `Operation` values for `axm lint --fix`. Rules that don't apply early-return
- * `[]` from `check`; there is no separate `applies` predicate.
- *
- * Rule `fix` methods compose only from the pre-sync per-extension vocabulary
- * (`install-{type}`, `uninstall-{type}`, `enable-{type}`, `disable-{type}`) so
- * lint-fix rides the same plan pipeline as `axm install`. See
- * `../plan/plan.ts` for the `Operation` primitive.
+ * values generic over a caller-built `RuleContext` — no Layer wiring and no
+ * ambient service bag. Findings are produced by `rule.check`; rules do not
+ * carry mutation or workflow guidance.
  *
  * Rule ids follow `<namespace>/<subject>-<predicate>` with lowercase letters,
  * digits, and hyphens; ids leak into settings files, CI logs, and agent
@@ -23,8 +16,6 @@
  */
 
 import type * as Effect from "effect/Effect";
-import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
-import type { Operation } from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Severity
@@ -80,22 +71,10 @@ export interface FindingBase {
   readonly severity: Severity;
   readonly message: string;
   readonly location?: FindingLocation;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
 
 /**
- * Finding produced by an `AutofixingRule` that `axm lint --fix` will remediate
- * mechanically.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface AutofixableFinding extends FindingBase {
-  readonly kind: "autofixable";
-}
-
-/**
- * Finding produced by an `AdvisoryRule` (or by an `AutofixingRule`'s advisory
- * arm when the invariant admits no mechanical resolution).
+ * Intrinsic fact produced by a lint rule.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -108,7 +87,7 @@ export interface AdvisoryFinding extends FindingBase {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type LintFinding = AutofixableFinding | AdvisoryFinding;
+export type LintFinding = AdvisoryFinding;
 
 // -----------------------------------------------------------------------------
 // Rule discriminated union
@@ -136,27 +115,8 @@ export interface AdvisoryRule<C> extends RuleBase {
 }
 
 /**
- * Rule that can emit `AutofixableFinding`s and remediate them via
- * pre-sync per-extension `Operation`s.
- *
- * `check` may return `AdvisoryFinding`s alongside (for sub-cascades that have
- * no single mechanical resolution); `fix` is only invoked for the autofixable
- * arm.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface AutofixingRule<C> extends RuleBase {
-  readonly kind: "autofixing";
-  readonly check: (context: C) => Effect.Effect<ReadonlyArray<LintFinding>>;
-  readonly fix: (
-    context: C,
-    finding: AutofixableFinding,
-  ) => Effect.Effect<ReadonlyArray<Operation<string, unknown>>>;
-}
-
-/**
  * Discriminated union of lint rules over a caller-built rule-context type `C`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type LintRule<C> = AdvisoryRule<C> | AutofixingRule<C>;
+export type LintRule<C> = AdvisoryRule<C>;

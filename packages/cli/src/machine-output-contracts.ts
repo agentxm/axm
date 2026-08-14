@@ -299,56 +299,14 @@ const packShowFamily = defineResultFamily({
     "sourceAuthority",
     "canonicalPath",
     "manifestVersion",
-    "trustStatus",
+    "acceptedResolution",
     "canonicalStatus",
     "desiredDependencies",
-    "resolvedDependencies",
-    "drift",
-    "recoveryAction",
-  ],
-  scenarios: ["trusted pack", "drifted workspace pack", "unresolved dependencies"],
-  rationale: "Pack inspection joins desired, trusted, canonical, and receipt state.",
-  commandCoverage: ["packages/cli/src/root/packs/show.test.ts"],
-});
-
-const packRepairFamily = defineResultFamily({
-  id: "pack-repair",
-  schemaNames: ["PackRepairResultSchema"],
-  requiredTopLevelKeys: [
-    "pack",
-    "authority",
-    "canonicalPath",
-    "previousContentIdentity",
-    "currentContentIdentity",
-    "changes",
-    "confirmation",
-    "result",
-    "recoveryAction",
-  ],
-  scenarios: ["current", "previewed", "requires confirmation", "repaired"],
-  rationale: "Pack repair reports the classified trust-baseline transition.",
-  humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/packs/repair.test.ts"],
-});
-
-const workspaceStatusFamily = defineResultFamily({
-  id: "workspace-status",
-  schemaNames: ["WorkspaceStatusSchema"],
-  requiredTopLevelKeys: [
-    "healthy",
-    "desiredGraphComplete",
-    "scope",
     "problems",
-    "blockedOperations",
-    "axmSkillCompatibility",
   ],
-  scenarios: [
-    "healthy workspace with compatible AXM skill",
-    "blocking local problems",
-    "incompatible AXM skill",
-  ],
-  rationale: "Workspace status reports local reconciliation health and supported recovery actions.",
-  commandCoverage: ["packages/cli/src/root/status.test.ts"],
+  scenarios: ["authored pack", "accepted Registry pack", "unresolved dependencies"],
+  rationale: "Pack inspection joins desired, accepted-resolution, and observed state.",
+  commandCoverage: ["packages/cli/src/root/packs/show.test.ts"],
 });
 
 const helpTopicFamily = defineResultFamily({
@@ -483,10 +441,10 @@ const knowledgeConceptStatusFamily = defineResultFamily({
 
 const lintFamily = defineResultFamily({
   id: "workspace-lint",
-  schemaNames: ["LintResultDocumentSchema", "LintFixDocumentSchema"],
+  schemaNames: ["LintResultDocumentSchema"],
   requiredTopLevelKeys: ["result"],
-  scenarios: ["clean", "findings", "fixed", "partially fixed", "fix failure"],
-  rationale: "Lint query and fix modes share a report, with fix nesting the applied plan.",
+  scenarios: ["clean", "findings", "normalized findings"],
+  rationale: "Lint query and normalized fix modes share one fact-report contract.",
   humanOutputKind: "mixed",
   commandCoverage: ["packages/cli/src/root/lint/handler.test.ts"],
 });
@@ -579,7 +537,6 @@ const planPaths = [
   "axm mcps disable",
   "axm mcps enable",
   "axm mcps import",
-  "axm mcps repair",
   "axm mcps install",
   "axm mcps new",
   "axm mcps uninstall",
@@ -593,7 +550,6 @@ const planPaths = [
   "axm packs uninstall",
   "axm packs unpack",
   "axm packs update",
-  "axm prune",
   "axm rules disable",
   "axm rules enable",
   "axm rules install",
@@ -682,8 +638,6 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
     "axm subagents show",
   ]),
   ...rowsFor(packShowFamily, ["axm packs show"]),
-  ...rowsFor(packRepairFamily, ["axm packs repair"]),
-  ...rowsFor(workspaceStatusFamily, ["axm status"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
   ...rowsFor(hooksInfoFamily, ["axm hooks info"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),

@@ -133,7 +133,6 @@ describe("JSON-mode channel contract (--json)", () => {
             {
               mcpServers: {
                 demo: {
-                  "x-axm": { managed: true, source: "inline" },
                   type: "stdio",
                   command: "python",
                 },

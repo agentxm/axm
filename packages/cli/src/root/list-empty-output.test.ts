@@ -105,7 +105,7 @@ describe("list command empty output", () => {
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 3,
+        lockfileVersion: 4,
         skills: {},
         mcpServers: {
           context: {

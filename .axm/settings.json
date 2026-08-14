@@ -24,9 +24,7 @@
   "lint": {
     "rules": {
       "workspace/agents-detected-declared": "off",
-      "workspace/authored-content-unpublished": "off",
-      "workspace/instructions-target-current": "off",
-      "workspace/skills-managed": "off"
+      "workspace/instructions-target-current": "off"
     }
   }
 }

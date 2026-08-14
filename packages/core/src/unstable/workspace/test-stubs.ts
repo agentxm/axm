@@ -5,9 +5,9 @@
  * @internal Test-only. Not exported from the barrel.
  */
 
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
@@ -21,7 +21,6 @@ import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type McpServerLockEntry,
   type RegistryPackLockEntry,
-  type ResolvedExtensionMap,
   type RuleLockEntry,
   type SkillLockEntry,
 } from "../lockfile/index.js";
@@ -29,11 +28,10 @@ import {
   decodeExtensionNameSync,
   extensionTypes,
   parseRegistrySourcePatternParts,
-  toExtensionTypePlural,
+  SourceHashSchema,
   type ExtensionType,
   type InstallableExtensionType,
 } from "../extensions/index.js";
-import { trustRecordKey, type TrustAuthority } from "../trust/index.js";
 import { type Handle } from "../extensions/handle.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
@@ -176,40 +174,6 @@ export const makeBaseWorkspaceMock = (
   };
   const emptyLocked = (): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
     Effect.succeed({});
-  const lockedForType = (
-    type: ExtensionType,
-  ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> => {
-    switch (type) {
-      case "skill":
-        return (serviceOverrides.getLockedSkills ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "mcp-server":
-        return (serviceOverrides.getLockedMcpServers ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "subagent":
-        return (serviceOverrides.getLockedSubagents ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "pack":
-        return (serviceOverrides.getLockedPacks ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "rule":
-        return (serviceOverrides.getLockedRules ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "hook":
-        return (serviceOverrides.getLockedHooks ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-      case "knowledge":
-        return (serviceOverrides.getLockedKnowledge ?? emptyLocked)().pipe(
-          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
-        );
-    }
-  };
   const configuredForType = (
     type: ExtensionType,
   ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> => {
@@ -272,22 +236,6 @@ export const makeBaseWorkspaceMock = (
         return [...entries.values()];
       }),
     );
-  const authorityOf = (value: string): TrustAuthority | undefined => {
-    switch (value) {
-      case "registry":
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos":
-      case "git":
-      case "local":
-      case "workspace":
-      case "inline":
-        return value;
-      default:
-        return undefined;
-    }
-  };
   const getSynthesizedDesiredStateGraph = () =>
     Effect.gen(function* () {
       const rowsByType = yield* Effect.forEach(extensionTypes, (type) =>
@@ -318,94 +266,23 @@ export const makeBaseWorkspaceMock = (
       );
       return { complete: true, nodes, problems: [] };
     });
-  const getSynthesizedTrustState = () =>
-    Effect.gen(function* () {
-      const entries = yield* Effect.forEach(extensionTypes, (type) =>
-        Effect.all({
-          type: Effect.succeed(type),
-          desired: desiredEntriesForType(type),
-          locked: lockedForType(type),
-        }),
-      );
-      const trustRecords: Record<
-        string,
-        {
-          readonly extensionType: ExtensionType;
-          readonly name: string;
-          readonly authority: TrustAuthority;
-          readonly sourceIdentity: string;
-          readonly sourceName?: string;
-          readonly resolvedVersion?: string;
-          readonly immutableRevision?: string;
-          readonly publisherBindingId?: string;
-          readonly integrity?: string;
-          readonly contentIdentity?: string;
-        }
-      > = {};
-      for (const { type, desired, locked } of entries) {
-        for (const entry of desired) {
-          const lock = locked[entry.name];
-          const source = entry.source;
-          if (
-            source === undefined ||
-            typeof lock !== "object" ||
-            lock === null ||
-            !("type" in lock) ||
-            typeof lock.type !== "string"
-          ) {
-            continue;
-          }
-          const authority = authorityOf(lock.type);
-          if (authority === undefined) continue;
-          const parsed = parseRegistrySourcePatternParts(source);
-          const sourceIdentity =
-            authority === "registry" && parsed !== undefined
-              ? `${parsed.owner}/${toExtensionTypePlural(type)}/${parsed.name}`
-              : source;
-          const resolvedVersion =
-            "resolvedVersion" in lock && typeof lock.resolvedVersion === "string"
-              ? lock.resolvedVersion
-              : "version" in lock && typeof lock.version === "string"
-                ? lock.version
-                : undefined;
-          const immutableRevision =
-            "gitTreeHash" in lock && typeof lock.gitTreeHash === "string"
-              ? lock.gitTreeHash
-              : undefined;
-          const publisherBindingId =
-            "publisherBindingId" in lock && typeof lock.publisherBindingId === "string"
-              ? lock.publisherBindingId
-              : undefined;
-          const integrity =
-            "integrity" in lock && typeof lock.integrity === "string" ? lock.integrity : undefined;
-          const sourceName =
-            "sourceName" in lock && typeof lock.sourceName === "string"
-              ? lock.sourceName
-              : undefined;
-          trustRecords[trustRecordKey(type, entry.name)] = {
-            extensionType: type,
-            name: entry.name,
-            authority,
-            sourceIdentity,
-            ...(sourceName === undefined ? {} : { sourceName }),
-            ...(resolvedVersion === undefined ? {} : { resolvedVersion }),
-            ...(immutableRevision === undefined ? {} : { immutableRevision }),
-            ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
-            ...(integrity === undefined ? {} : { integrity }),
-          };
-        }
-      }
-      return { trustStateVersion: 1 as const, records: trustRecords };
-    });
   const runTransaction: WorkspaceTransactionRunner = (args) =>
     Effect.gen(function* () {
       const value = yield* args.transition;
       yield* args.validate(value);
-      if (args.receipt !== undefined) {
-        yield* args.receipt(value);
-      }
       return value;
     });
+  const entryFrom =
+    <A>(read: () => Effect.Effect<Readonly<Record<string, A>>, AppError>) =>
+    (name: string): Effect.Effect<Option.Option<A>, AppError> =>
+      read().pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[name])));
+  const lockedSkills = serviceOverrides.getLockedSkills ?? (() => Effect.succeed({}));
+  const lockedMcpServers = serviceOverrides.getLockedMcpServers ?? (() => Effect.succeed({}));
+  const lockedSubagents = serviceOverrides.getLockedSubagents ?? (() => Effect.succeed({}));
+  const lockedRules = serviceOverrides.getLockedRules ?? (() => Effect.succeed({}));
+  const lockedHooks = serviceOverrides.getLockedHooks ?? (() => Effect.succeed({}));
+  const lockedKnowledge = serviceOverrides.getLockedKnowledge ?? (() => Effect.succeed({}));
+  const lockedPacks = serviceOverrides.getLockedPacks ?? (() => Effect.succeed({}));
   const base = {
     scope: "project",
     path: axmDir,
@@ -414,7 +291,6 @@ export const makeBaseWorkspaceMock = (
     runTransaction,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: getSynthesizedDesiredStateGraph,
-    getTrustState: getSynthesizedTrustState,
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -425,8 +301,8 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSkillEntries: () => Effect.succeed({}),
     getConfiguredRuleEntries: () => Effect.succeed({}),
     getConfiguredHookEntries: () => Effect.succeed({}),
-    getLockedRules: () => Effect.succeed({}),
-    getLockedRuleEntry: () => Effect.succeed(Option.none<RuleLockEntry>()),
+    getLockedRules: lockedRules,
+    getLockedRuleEntry: entryFrom<RuleLockEntry>(lockedRules),
     setRule: () => Effect.void,
     setRuleLock: () => Effect.void,
     removeRule: () => Effect.void,
@@ -434,8 +310,8 @@ export const makeBaseWorkspaceMock = (
     removeRuleLock: () => Effect.void,
     updateRuleEntry: () => Effect.void,
     setRuleEntry: () => Effect.void,
-    getLockedHooks: () => Effect.succeed({}),
-    getLockedHookEntry: () => Effect.succeed(Option.none()),
+    getLockedHooks: lockedHooks,
+    getLockedHookEntry: entryFrom(lockedHooks),
     setHook: () => Effect.void,
     setHookLock: () => Effect.void,
     removeHook: () => Effect.void,
@@ -445,8 +321,8 @@ export const makeBaseWorkspaceMock = (
     setHookEntry: () => Effect.void,
     getConfiguredKnowledgeEntries: () => Effect.succeed({}),
     getKnowledgeDiscoveryConfig: () => Effect.succeed({ instructions: true }),
-    getLockedKnowledge: () => Effect.succeed({}),
-    getLockedKnowledgeEntry: () => Effect.succeed(Option.none()),
+    getLockedKnowledge: lockedKnowledge,
+    getLockedKnowledgeEntry: entryFrom(lockedKnowledge),
     setKnowledge: () => Effect.void,
     setKnowledgeLock: () => Effect.void,
     removeKnowledge: () => Effect.void,
@@ -459,8 +335,8 @@ export const makeBaseWorkspaceMock = (
     getInstructionsConfig: () => Effect.succeed(Option.none()),
     setInstructionsConfig: () => Effect.void,
     getConfiguredMcpServerEntries: () => Effect.succeed({}),
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
+    getLockedSkills: lockedSkills,
+    getLockedSkill: entryFrom(lockedSkills),
     getSkillDir: () =>
       Effect.succeed({
         canonicalPath: `${axmDir}/extensions/external/skills/test`,
@@ -474,17 +350,15 @@ export const makeBaseWorkspaceMock = (
     setSkillEntry: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
     removeConfiguredAgent: () => Effect.void,
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
+    getLockedPacks: lockedPacks,
+    getLockedPack: entryFrom(lockedPacks),
     setPack: () => Effect.void,
     setPackLock: () => Effect.void,
-    refreshAuthoredContentIdentity: () => Effect.void,
-    refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
-    getLockedSubagents: () => Effect.succeed({}),
-    getLockedSubagent: () => Effect.succeed(Option.none()),
+    getLockedSubagents: lockedSubagents,
+    getLockedSubagent: entryFrom(lockedSubagents),
     getConfiguredSubagentEntries: () => Effect.succeed({}),
     setSubagent: () => Effect.void,
     setSubagentLock: () => Effect.void,
@@ -493,8 +367,8 @@ export const makeBaseWorkspaceMock = (
     setSubagentEntry: () => Effect.void,
     removeSubagentSettings: () => Effect.void,
     removeSubagentLock: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
+    getLockedMcpServers: lockedMcpServers,
+    getLockedMcpServer: entryFrom(lockedMcpServers),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
     updateMcpServerEntry: () => Effect.void,
@@ -505,13 +379,12 @@ export const makeBaseWorkspaceMock = (
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
     removePackLock: () => Effect.void,
-    removeTrustRecord: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   } satisfies WorkspaceMutationsService;
   return { ...base, ...serviceOverrides };
 };
 
-const TEST_DATE = DateTime.makeUnsafe("2025-01-01T00:00:00.000Z");
+export const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 
 const hasEntries = (
   value: Readonly<Record<string, unknown>> | undefined,
@@ -546,7 +419,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 3,
+    lockfileVersion: 4,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
@@ -562,13 +435,12 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
 export const makeLocalSkillLockEntry = (opts?: {
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
   path: decodeRelativePathSync(opts?.path ?? "installed"),
-  installedAt: opts?.installedAt ?? TEST_DATE,
-  updatedAt: opts?.updatedAt ?? TEST_DATE,
+  contentIdentity: TEST_CONTENT_IDENTITY,
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
@@ -579,8 +451,8 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "registry",
   owner: opts.owner,
@@ -589,8 +461,6 @@ export const makeRegistrySkillLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-  installedAt: opts.installedAt ?? TEST_DATE,
-  updatedAt: opts.updatedAt ?? TEST_DATE,
 });
 
 export const makeRegistryMcpServerLockEntry = (opts: {
@@ -600,8 +470,8 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): McpServerLockEntry => ({
   type: "registry",
   owner: opts.owner,
@@ -610,8 +480,6 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-  installedAt: opts.installedAt ?? TEST_DATE,
-  updatedAt: opts.updatedAt ?? TEST_DATE,
 });
 
 export const makeRegistryPackLockEntry = (opts: {
@@ -621,12 +489,12 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
-  readonly sourceHash?: RegistryPackLockEntry["sourceHash"];
-  readonly resolvedSkills?: ResolvedExtensionMap;
-  readonly resolvedMcpServers?: ResolvedExtensionMap;
-  readonly resolvedSubagents?: ResolvedExtensionMap;
-  readonly installedAt?: DateTime.Utc;
-  readonly updatedAt?: DateTime.Utc;
+  readonly sourceHash?: string;
+  readonly resolvedSkills?: Readonly<Record<string, unknown>>;
+  readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
+  readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
+  readonly installedAt?: unknown;
+  readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     owner: opts.owner,
@@ -635,10 +503,8 @@ export const makeRegistryPackLockEntry = (opts: {
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-    ...(opts.sourceHash === undefined ? {} : { sourceHash: opts.sourceHash }),
-    installedAt: opts.installedAt ?? TEST_DATE,
-    updatedAt: opts.updatedAt ?? TEST_DATE,
-    resolvedSkills: opts.resolvedSkills ?? {},
-    resolvedMcpServers: opts.resolvedMcpServers ?? {},
-    resolvedSubagents: opts.resolvedSubagents ?? {},
+    manifestContentIdentity:
+      opts.sourceHash === undefined
+        ? TEST_CONTENT_IDENTITY
+        : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
   });

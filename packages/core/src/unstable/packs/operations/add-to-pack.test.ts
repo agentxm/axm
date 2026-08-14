@@ -9,8 +9,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { SourceHash } from "../../extensions/index.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -26,7 +24,6 @@ import { addToPack } from "./add-to-pack.js";
 
 /** Compute a content hash for stale-check testing. */
 const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
-const packageContentHash = (content: string) => hashContent(hashContent(`pack.json\0${content}\0`));
 
 /** Creates a workspace mock for add-to-pack tests. */
 const makeWorkspaceMock = (
@@ -35,51 +32,25 @@ const makeWorkspaceMock = (
     configuredProfile?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     configuredPacks?: Record<string, any>;
-    refreshPackContentIdentity?: (
-      name: string,
-      contentIdentity: SourceHash,
-    ) => Effect.Effect<void, AppError>;
   } = {},
 ): WorkspaceMutationsService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
+  const configuredPacks = opts.configuredPacks ?? {
+    "my-pack": {
+      source: "workspace:@myorg/packs/my-pack",
+      enabled: true,
+    },
+  };
 
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
-    ...(opts.refreshPackContentIdentity === undefined
-      ? {}
-      : { refreshPackContentIdentity: opts.refreshPackContentIdentity }),
-    getTrustState: () =>
-      Effect.sync(() => {
-        const manifestPath = path.join(
-          path.dirname(axmDir),
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
-        const content = fs.existsSync(manifestPath) ? fs.readFileSync(manifestPath, "utf-8") : "";
-        return {
-          trustStateVersion: 1,
-          records: {
-            "pack:my-pack": {
-              extensionType: "pack",
-              name: "my-pack",
-              authority: "workspace",
-              sourceIdentity: "workspace:@myorg/packs/my-pack",
-              resolvedVersion: "0.0.1",
-              contentIdentity: packageContentHash(content),
-            },
-          },
-        };
-      }),
+    getConfiguredPackEntries: () => Effect.succeed(configuredPacks),
     rows: rowsFor({
       pack: [
         configuredRow({
           type: "pack",
           name: "my-pack",
-          source: "@myorg/packs/my-pack",
+          source: "workspace:@myorg/packs/my-pack",
           packagingKind: "non-native",
         }),
       ],
@@ -270,25 +241,6 @@ describe("addToPack", () => {
         );
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
-      }),
-    );
-
-    it.effect("restores the manifest when the trust commit fails", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const { manifestHash, content, packDir } = createPackManifest(base, "@myorg", "my-pack");
-        const error = yield* addToPack(makeOp({ manifestHash })).pipe(
-          Effect.provide(
-            withServices(axmDir, {
-              refreshPackContentIdentity: () =>
-                Effect.fail(makeAppError({ code: "internal", detail: "trust write failed" })),
-            }),
-          ),
-          Effect.flip,
-        );
-
-        expect(error.detail).toContain("trust write failed");
-        expect(fs.readFileSync(path.join(packDir, "pack.json"), "utf8")).toBe(content);
       }),
     );
   });

@@ -89,13 +89,8 @@ const runLifecycleMutation = async (
 };
 
 const expectCleanWorkspace = async (cwd: string, context: string): Promise<void> => {
-  for (const command of [["status"], ["lint"]]) {
-    const result = await runCli(command, { cwd });
-    expect(
-      result.exitCode,
-      `${context}: axm ${command.join(" ")}\n${result.stdout}${result.stderr}`,
-    ).toBe(0);
-  }
+  const result = await runCli(["lint"], { cwd });
+  expect(result.exitCode, `${context}: axm lint\n${result.stdout}${result.stderr}`).toBe(0);
 };
 
 describe("extension activation lifecycle", () => {

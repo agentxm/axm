@@ -90,9 +90,11 @@ export {
   printSourceParams,
 } from "./printer.js";
 export {
+  hookLockEntryToRef,
   knowledgeLockEntryToRef,
   packLockEntryToRef,
   mcpServerLockEntryToRef,
+  ruleLockEntryToRef,
   skillLockEntryToRef,
   subagentLockEntryToRef,
 } from "./lock-entry-to-ref.js";

@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -42,15 +41,11 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; mcpServers: Record<string, unknown> } = {
-      lockfileVersion: 3,
+      lockfileVersion: 4,
       mcpServers: {},
     };
     for (const [k, v] of Object.entries(mcpServers)) {
-      lockfile.mcpServers[k] = {
-        ...v,
-        installedAt: DateTime.formatIso(v.installedAt),
-        updatedAt: DateTime.formatIso(v.updatedAt),
-      };
+      lockfile.mcpServers[k] = v;
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
   };
@@ -135,12 +130,10 @@ const makeRegistryLockEntryYaml = (name = "my-server") => ({
   sourceName: "default",
 
   publisherBindingId: "hbnd_test",
-  installedAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
 });
 
 const writeLockfileYaml = (axmDir: string, mcpServers: Record<string, unknown>) => {
-  const lockfile = { lockfileVersion: 3, mcpServers };
+  const lockfile = { lockfileVersion: 4, mcpServers };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 

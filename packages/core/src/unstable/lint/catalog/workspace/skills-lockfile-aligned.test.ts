@@ -3,21 +3,28 @@ import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../context.js";
 import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
 import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
+import type { DesiredExtensionNode } from "../../../workspace/desired-state-graph.js";
 import { emptyWorkspaceState, type WorkspaceState } from "../workspace-fixtures/interpret-ops.js";
 import { scopeFilesFromWorkspaceState } from "../workspace-fixtures/fixture-state.js";
 import { skillsLockfileAlignedRule } from "./skills-lockfile-aligned.js";
 
-type RawResolvedExtensionMap = Record<
-  string,
-  {
-    readonly source: "registry";
-    readonly version: string;
-    readonly publisherBindingId: string;
-    readonly integrity: string;
-  }
->;
+const desiredSkill = (
+  source: string,
+  constraints: ReadonlyArray<string> = [],
+): DesiredExtensionNode => ({
+  type: "skill",
+  name: "reviewer",
+  identity: "@acme/skills/reviewer",
+  source,
+  enabled: true,
+  constraints,
+  origins: [{ type: "settings", source, enabled: true }],
+});
 
-const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
+const contextFor = (
+  state: WorkspaceState,
+  nodes: ReadonlyArray<DesiredExtensionNode>,
+): Effect.Effect<WorkspaceRuleContext> => {
   const project = scopeFilesFromWorkspaceState(state);
   return Effect.gen(function* () {
     const workspace = yield* makeWorkspaceReadModel("project");
@@ -25,6 +32,9 @@ const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> 
       subject: { root: "/tmp/ws", scope: "project" },
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
+      health: {
+        desiredState: Effect.succeed({ complete: true, nodes, problems: [] }),
+      },
       displayRoot: "",
     } satisfies WorkspaceRuleContext;
   }).pipe(
@@ -39,127 +49,48 @@ const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> 
   );
 };
 
-const runCheck = (state: WorkspaceState) =>
+const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNode> = []) =>
   Effect.gen(function* () {
-    const context = yield* contextFor(state);
+    const context = yield* contextFor(state, nodes);
     return yield* skillsLockfileAlignedRule.check(context);
   });
 
-const skillLockEntry = (args: {
-  readonly owner: string;
-  readonly name: string;
-  readonly resolvedVersion: string;
-}) => ({
+const registryResolution = (resolvedVersion: string) => ({
   type: "registry",
-  owner: args.owner,
-  name: args.name,
-  resolvedVersion: args.resolvedVersion,
+  owner: "@acme",
+  name: "reviewer",
+  resolvedVersion,
   integrity: "sha512-stub",
   sourceName: "default",
-
   publisherBindingId: "hbnd_test",
-  installedAt: "2026-04-21T00:00:00.000Z",
-  updatedAt: "2026-04-21T00:00:00.000Z",
-  sourceHash: "sha",
-});
-
-const packLockEntry = (args: {
-  readonly owner: string;
-  readonly name: string;
-  readonly resolvedSkills: RawResolvedExtensionMap;
-}) => ({
-  type: "registry",
-  owner: args.owner,
-  name: args.name,
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-stub",
-  sourceName: "default",
-
-  publisherBindingId: "hbnd_test",
-  installedAt: "2026-04-21T00:00:00.000Z",
-  updatedAt: "2026-04-21T00:00:00.000Z",
-  resolvedSkills: args.resolvedSkills,
-  resolvedMcpServers: {},
-  resolvedSubagents: {},
 });
 
 describe("workspace/skills-lockfile-aligned", () => {
-  it.effect("derives lockfile-only skill retention from an installed pack", () =>
+  it.effect("reports an accepted resolution that has no desired declaration", () =>
     Effect.gen(function* () {
       const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        packs: { foo: "@examples/packs/foo@1.0.0" },
-        skills: {},
-      };
+      state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 3,
-        skills: {
-          "foo-add-flag": skillLockEntry({
-            owner: "@examples",
-            name: "foo-add-flag",
-            resolvedVersion: "0.1.0",
-          }),
-        },
-        packs: {
-          foo: packLockEntry({
-            owner: "@examples",
-            name: "foo",
-            resolvedSkills: {
-              "@examples/skills/foo-add-flag": {
-                source: "registry",
-                version: "0.1.0",
-                publisherBindingId: "hbnd_test",
-                integrity: "sha512-member",
-              },
-            },
-          }),
-        },
-      };
-
-      const findings = yield* runCheck(state);
-
-      expect(findings).toEqual([]);
-    }),
-  );
-
-  it.effect("still reports a genuine orphan skill lock entry", () =>
-    Effect.gen(function* () {
-      const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        skills: {},
-      };
-      state.lockfile = {
-        lockfileVersion: 3,
-        skills: {
-          stale: skillLockEntry({
-            owner: "@acme",
-            name: "stale",
-            resolvedVersion: "1.0.0",
-          }),
-        },
+        lockfileVersion: 4,
+        skills: { reviewer: registryResolution("1.0.0") },
       };
 
       const findings = yield* runCheck(state);
 
       expect(findings).toHaveLength(1);
-      expect(findings[0]).toMatchObject({ kind: "advisory" });
-      expect(findings[0]?.message).toContain("listed in the lockfile but not in settings.skills");
-      expect(findings[0]?.message).toContain("axm skills install @acme/skills/stale@1.0.0");
-      expect(findings[0]?.message).toContain("axm skills uninstall stale");
+      expect(findings[0]?.message).toBe(
+        "Skill 'reviewer' has an accepted resolution but is not desired.",
+      );
+      expect(findings[0]).not.toHaveProperty("suggestedAction");
     }),
   );
 
-  it.effect("offers an exact declaration command for a receipt-only GitHub skill", () =>
+  it.effect("reports an orphan Git resolution without prescribing a command", () =>
     Effect.gen(function* () {
       const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        skills: {},
-      };
+      state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 3,
+        lockfileVersion: 4,
         skills: {
           review: {
             type: "github",
@@ -167,9 +98,9 @@ describe("workspace/skills-lockfile-aligned", () => {
             repo: "agent-extensions",
             path: ".agents/skills/review",
             ref: "v1",
-            installedAt: "2026-04-21T00:00:00.000Z",
-            updatedAt: "2026-04-21T00:00:00.000Z",
-            sourceHash: "sha",
+            resolvedCommit: "commit-v1",
+            resolvedTree: "tree-v1",
+            contentIdentity: "content-v1",
           },
         },
       };
@@ -177,59 +108,41 @@ describe("workspace/skills-lockfile-aligned", () => {
       const findings = yield* runCheck(state);
 
       expect(findings).toHaveLength(1);
-      expect(findings[0]).toMatchObject({ kind: "advisory" });
-      expect(findings[0]?.message).toContain(
-        "axm skills install github:acme/agent-extensions//.agents/skills/review@v1",
+      expect(findings[0]?.message).toBe(
+        "Skill 'review' has an accepted resolution but is not desired.",
       );
+      expect(findings[0]?.message).not.toContain("axm ");
     }),
   );
 
-  it.effect("accepts locked registry versions that satisfy the declared range", () =>
+  it.effect("accepts a Registry resolution satisfying the desired constraint", () =>
     Effect.gen(function* () {
+      const source = "@acme/skills/reviewer@^0.1.0";
       const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        skills: { reviewer: "@acme/skills/reviewer@^0.1.0" },
-      };
+      state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 3,
-        skills: {
-          reviewer: skillLockEntry({
-            owner: "@acme",
-            name: "reviewer",
-            resolvedVersion: "0.1.0",
-          }),
-        },
+        lockfileVersion: 4,
+        skills: { reviewer: registryResolution("0.1.0") },
       };
 
-      const findings = yield* runCheck(state);
-
-      expect(findings).toEqual([]);
+      expect(yield* runCheck(state, [desiredSkill(source, ["^0.1.0"])])).toEqual([]);
     }),
   );
 
-  it.effect("reports locked registry versions that do not satisfy the declared range", () =>
+  it.effect("reports a Registry resolution outside the desired constraint", () =>
     Effect.gen(function* () {
+      const source = "@acme/skills/reviewer@^0.1.0";
       const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        skills: { reviewer: "@acme/skills/reviewer@^0.1.0" },
-      };
+      state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 3,
-        skills: {
-          reviewer: skillLockEntry({
-            owner: "@acme",
-            name: "reviewer",
-            resolvedVersion: "1.0.0",
-          }),
-        },
+        lockfileVersion: 4,
+        skills: { reviewer: registryResolution("1.0.0") },
       };
 
-      const findings = yield* runCheck(state);
+      const findings = yield* runCheck(state, [desiredSkill(source, ["^0.1.0"])]);
 
       expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toContain("versions do not match");
+      expect(findings[0]?.message).toContain("does not satisfy desired constraint");
     }),
   );
 });

@@ -105,15 +105,13 @@ export const makeInstallPlanExecution = (
   );
 
 export const makeUninstallPlanExecution = (
-  flags: { readonly yes: boolean; readonly preview: boolean; readonly force?: boolean },
+  flags: { readonly yes: boolean; readonly preview: boolean },
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
 ): Effect.Effect<PlanExecution> =>
   makePlanExecution(
     flags,
     makeConfirmationRecovery(command, [
-      recoverySwitch("--break-dependencies", flags.force === true),
       ...positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ]),
-    flags.force === true ? ["break-dependencies"] : [],
   );

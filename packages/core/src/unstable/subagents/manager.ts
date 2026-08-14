@@ -10,11 +10,9 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
@@ -34,12 +32,13 @@ import {
   makeWorkspaceRelativeSourcePath,
   computeIntegrity,
 } from "../utils/index.js";
+import { printSourceParams } from "../sources/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
-import { validateExactResolvedVersion } from "../lockfile/index.js";
+import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import {
@@ -252,7 +251,10 @@ export const SubagentManagerLive = Layer.effect(
             }),
           ),
         );
-        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        const lockedVersion = acceptedRegistryVersionForRef(
+          yield* ws.getLockedSubagent(ref.subagent.name),
+          ref,
+        );
         const useExisting = shouldReuseCanonicalInstall({
           canonicalExists,
           force,
@@ -633,10 +635,6 @@ export const SubagentManagerLive = Layer.effect(
     return {
       type: "subagent",
       runTransaction: ws.runTransaction,
-      validateTrustTransition: (args) =>
-        ws
-          .getTrustState()
-          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,
       }: {
@@ -685,51 +683,40 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const now = yield* DateTime.now;
-        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.subagent.name);
-        const sharedLockEntry =
-          state === undefined
-            ? lockEntry
-            : {
-                ...lockEntry,
-                sourceHash: state.sourceHash,
-              };
-        if (sharedLockEntry.type === "registry") {
+        if (ref.refType === "workspace") {
+          return yield* ws.setSubagentEntry(ref.subagent.name, {
+            source: printSourceParams(ref.source),
+            enabled: true,
+          });
+        }
+        if (state === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Subagent ${ref.subagent.name} has no materialized content identity`,
+          });
+        }
+        const lockEntry = buildSubagentLockEntry(
+          ref,
+          state.sourceHash,
+          workspaceRelativeLocalSourcePath,
+        );
+        if (lockEntry === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Subagent ${ref.subagent.name} did not produce an external resolution`,
+          });
+        }
+        if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            sharedLockEntry.resolvedVersion,
+            lockEntry.resolvedVersion,
           );
         }
         return yield* ws.setSubagent({
           name: ref.subagent.name,
-          lockEntry: sharedLockEntry,
+          lockEntry,
           versionRange,
-          commit: "authoritative",
-        });
-      }),
-
-      upsertTrustEntry: Effect.fn("SubagentManager.upsertTrustEntry")(function* ({ ref }) {
-        const workspaceRelativeLocalSourcePath =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
-            : Option.none();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
-        const now = yield* DateTime.now;
-        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
-        const state = lastInstallState.get(ref.subagent.name);
-        const sharedLockEntry =
-          state === undefined ? lockEntry : { ...lockEntry, sourceHash: state.sourceHash };
-        return yield* ws.setSubagentLock({
-          name: ref.subagent.name,
-          lockEntry: sharedLockEntry,
-          versionRange: Option.none(),
-          commit: "authoritative",
         });
       }),
 
@@ -753,27 +740,38 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const now = yield* DateTime.now;
-        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
+        if (ref.refType === "workspace") {
+          yield* ws.removeSubagentLock(ref.subagent.name);
+          return;
+        }
         const state = lastInstallState.get(ref.subagent.name);
-        const sharedLockEntry =
-          state === undefined
-            ? lockEntry
-            : {
-                ...lockEntry,
-                sourceHash: state.sourceHash,
-              };
-        if (sharedLockEntry.type === "registry") {
+        if (state === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Subagent ${ref.subagent.name} has no materialized content identity`,
+          });
+        }
+        const lockEntry = buildSubagentLockEntry(
+          ref,
+          state.sourceHash,
+          workspaceRelativeLocalSourcePath,
+        );
+        if (lockEntry === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Subagent ${ref.subagent.name} did not produce an external resolution`,
+          });
+        }
+        if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            sharedLockEntry.resolvedVersion,
+            lockEntry.resolvedVersion,
           );
         }
         return yield* ws.setSubagentLock({
           name: ref.subagent.name,
-          lockEntry: sharedLockEntry,
+          lockEntry,
           versionRange: Option.none(),
-          commit: "receipt",
         });
       }),
 
@@ -781,8 +779,6 @@ export const SubagentManagerLive = Layer.effect(
         ws
           .removeSubagentLock(target.name)
           .pipe(Effect.withSpan("SubagentManager.removeLockfileEntry")),
-      removeTrustEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
-        ws.removeTrustRecord("subagent", target.name),
     } satisfies ExtensionManager<SubagentExtensionRef>;
   }),
 );

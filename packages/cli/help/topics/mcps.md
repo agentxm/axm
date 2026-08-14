@@ -68,9 +68,6 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   `--env` and `--header` for its inputs.
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
   inline AXM entries.
-- `axm mcps repair <name> --preview` — inspect the exact native config targets
-  for one drifted inline server, then run without `--preview` to replace only
-  those entries after confirmation.
 - `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
   latest resolved version.
 - `axm mcps list` (`ls`) — show installed servers and their state.
@@ -100,10 +97,10 @@ under that agent's servers key:
 
 The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 `mcp_servers`, `context_servers`). Local transports render as `command`/`args`;
-remote transports render as `url`/`headers`. AXM only edits its own entries and
-backs up each file before writing, so servers added by other tools are left
-untouched. `axm sync` fails closed when an AXM-managed native entry has drifted;
-use `axm mcps repair <name> --preview` for the explicit targeted recovery.
+remote transports render as `url`/`headers`. AXM only edits entries whose
+ownership it can prove and preserves servers added by other tools. `axm sync`
+restores missing or stale AXM-owned entries and blocks the affected server on
+unowned or ambiguous collisions.
 
 ## Settings and lockfile
 
@@ -138,7 +135,7 @@ declares exactly one transport — `source`, `command`, or `url`:
 - **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
   decodes to a `${VAR}` reference.
 - Agent-native entries without AXM ownership metadata remain unowned and are
-  never deleted by `axm prune`.
+  never deleted by reconciliation.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
 configs through `axm sync` or `axm lint --fix`.

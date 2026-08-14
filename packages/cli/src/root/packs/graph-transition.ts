@@ -187,6 +187,7 @@ export const validatePackGraphPostcondition = (args: {
   readonly requiredPacks?: ReadonlyArray<RequiredPack>;
   readonly requiredMembers?: ReadonlyArray<RequiredMember>;
   readonly absent?: ReadonlyArray<AbsentNode>;
+  readonly inactive?: ReadonlyArray<AbsentNode>;
 }): Effect.Effect<void, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -202,8 +203,8 @@ export const validatePackGraphPostcondition = (args: {
         case "pack-manifest-unavailable":
         case "pack-manifest-invalid":
         case "pack-identity-mismatch":
-        case "pack-trust-unavailable":
-        case "pack-canonical-unusable":
+        case "pack-resolution-unavailable":
+        case "pack-manifest-content-mismatch":
           return requiredPackIdentities.has(normalizedIdentity(problem.pack));
         case "projection-collision":
         case "constraint-conflict":
@@ -270,6 +271,18 @@ export const validatePackGraphPostcondition = (args: {
         return yield* makeAppError({
           code: "internal",
           detail: `${expected.type} "${expected.name}" remained in the desired graph after the pack transition`,
+        });
+      }
+    }
+
+    for (const expected of args.inactive ?? []) {
+      const node = graph.nodes.find(
+        (candidate) => candidate.type === expected.type && candidate.name === expected.name,
+      );
+      if (node === undefined || node.enabled) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `${expected.type} "${expected.name}" did not remain reachable and inactive after the Pack transition`,
         });
       }
     }

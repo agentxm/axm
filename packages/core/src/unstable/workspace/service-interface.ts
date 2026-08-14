@@ -20,7 +20,6 @@ import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type {
   RegistryPackLockEntry,
-  WorkspacePackLockEntry,
   HookLockEntry,
   HooksLockMap,
   KnowledgeLockEntry,
@@ -62,8 +61,6 @@ import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
-import type { PackTrustManifest, WorkspaceTrustState } from "../trust/index.js";
-import type { SourceHash } from "../extensions/index.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -168,7 +165,6 @@ export interface WorkspaceLifecycleTransactionArgs<A> {
   readonly targets?: ReadonlyArray<string>;
   readonly transition: Effect.Effect<A, AppError, never>;
   readonly validate: (value: A) => Effect.Effect<void, AppError, never>;
-  readonly receipt?: (value: A) => Effect.Effect<void, AppError, never>;
 }
 
 export type WorkspaceTransactionRunner = <A>(
@@ -195,12 +191,6 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
     /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
     readonly force?: boolean;
   }) => Effect.Effect<void, AppError, never>;
-  readonly validateTrustTransition?: (args: {
-    readonly ref: TRef;
-    readonly allowSourceTransition?: boolean;
-    readonly allowWorkspaceSourceTransition?: boolean;
-    readonly allowDowngrade?: boolean;
-  }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;
@@ -222,8 +212,6 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
     readonly ref: TRef;
     readonly versionRange: Option.Option<string>;
   }) => Effect.Effect<void, AppError, never>;
-  /** Persist authoritative trust for a materialized ref without writing receipt history. */
-  readonly upsertTrustEntry: (args: { readonly ref: TRef }) => Effect.Effect<void, AppError, never>;
   readonly removeSettingsEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
@@ -231,10 +219,6 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
     readonly ref: TRef;
   }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, AppError, never>;
-  /** Retire the trusted identity after an explicit full uninstall. */
-  readonly removeTrustEntry: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
 }
@@ -268,17 +252,11 @@ export interface WorkspaceReadModelRecords {
 // Args types
 // ---------------------------------------------------------------------------
 
-export type WorkspaceCommitPhase = "authoritative" | "receipt" | "both";
-
-interface WorkspaceCommitArgs {
-  readonly commit?: WorkspaceCommitPhase;
-}
-
 /**
  * Arguments for `setSkill` -- bundles the skill name (map key) with the lock entry.
  * The name may diverge from any registry extension name.
  */
-export interface SetSkillArgs extends WorkspaceCommitArgs {
+export interface SetSkillArgs {
   readonly name: string;
   readonly lockEntry: SkillLockEntry;
   /** Version constraint from the original source (e.g. "^1.0.0"). Preserved in settings, not in lockfile. */
@@ -289,16 +267,15 @@ export interface SetSkillArgs extends WorkspaceCommitArgs {
  * Arguments for `setPack` -- all `PackLockEntry` fields except `type` (always "registry"),
  * plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) &
-  WorkspaceCommitArgs & {
-    /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
-    readonly versionRange: Option.Option<string>;
-  };
+export type SetPackArgs = RegistryPackLockEntry & {
+  /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
+  readonly versionRange: Option.Option<string>;
+};
 
 /**
  * Arguments for `setSubagent` -- bundles the subagent name with the lock entry.
  */
-export interface SetSubagentArgs extends WorkspaceCommitArgs {
+export interface SetSubagentArgs {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry;
   readonly versionRange: Option.Option<string>;
@@ -307,7 +284,7 @@ export interface SetSubagentArgs extends WorkspaceCommitArgs {
 /**
  * Arguments for `setMcpServer` -- bundles the MCP server name with the lock entry.
  */
-export interface SetMcpServerArgs extends WorkspaceCommitArgs {
+export interface SetMcpServerArgs {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
   readonly versionRange: Option.Option<string>;
@@ -318,7 +295,7 @@ export interface SetMcpServerArgs extends WorkspaceCommitArgs {
 /**
  * Arguments for `setRule` -- bundles the rule name with the lock entry.
  */
-export interface SetRuleArgs extends WorkspaceCommitArgs {
+export interface SetRuleArgs {
   readonly name: string;
   readonly lockEntry: RuleLockEntry;
   readonly versionRange: Option.Option<string>;
@@ -327,13 +304,13 @@ export interface SetRuleArgs extends WorkspaceCommitArgs {
 /**
  * Arguments for `setHook` -- bundles the hook name with the lock entry.
  */
-export interface SetHookArgs extends WorkspaceCommitArgs {
+export interface SetHookArgs {
   readonly name: string;
   readonly lockEntry: HookLockEntry;
   readonly versionRange: Option.Option<string>;
 }
 
-export interface SetKnowledgeArgs extends WorkspaceCommitArgs {
+export interface SetKnowledgeArgs {
   readonly name: string;
   readonly lockEntry: KnowledgeLockEntry;
   readonly versionRange: Option.Option<string>;
@@ -358,23 +335,12 @@ export interface WorkspaceMutationsService {
   readonly path: string;
   /** Project root directory (parent of .axm) */
   readonly baseDir: string;
-  /** Run one coupled authoritative workspace transition before persisting receipt history. */
+  /** Run one coupled authoritative workspace transition under the workspace lock. */
   readonly runTransaction: WorkspaceTransactionRunner;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
   /** Build the authoritative desired extension graph from settings and installed pack manifests. */
   readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
-  /** Read the dedicated trust baseline, migrating in memory from a valid legacy lockfile if absent. */
-  readonly getTrustState: () => Effect.Effect<WorkspaceTrustState, AppError>;
-  /**
-   * Retire one trusted identity after an explicit full uninstall.
-   *
-   * Receipt-only maintenance must not call this operation.
-   */
-  readonly removeTrustRecord: (
-    type: InstallableExtensionType,
-    name: string,
-  ) => Effect.Effect<void, AppError>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */
@@ -421,7 +387,7 @@ export interface WorkspaceMutationsService {
   readonly getLockedRuleEntry: (
     name: string,
   ) => Effect.Effect<Option.Option<RuleLockEntry>, AppError>;
-  /** Add or update a rule in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired rule settings and any external accepted resolution atomically. */
   readonly setRule: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
   /** Add or update a rule in lockfile only. Used for pack dependencies. Serialized by semaphore. */
   readonly setRuleLock: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
@@ -446,7 +412,7 @@ export interface WorkspaceMutationsService {
   readonly getLockedHookEntry: (
     name: string,
   ) => Effect.Effect<Option.Option<HookLockEntry>, AppError>;
-  /** Add or update a hook in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired hook settings and any external accepted resolution atomically. */
   readonly setHook: (args: SetHookArgs) => Effect.Effect<void, AppError>;
   /** Add or update a hook in lockfile only. Used for pack dependencies. Serialized by semaphore. */
   readonly setHookLock: (args: SetHookArgs) => Effect.Effect<void, AppError>;
@@ -495,7 +461,7 @@ export interface WorkspaceMutationsService {
     name: string,
     source?: SkillPathSource,
   ) => Effect.Effect<SkillDirPaths, AppError>;
-  /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired skill settings and any external accepted resolution atomically. */
   readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
   /** Add or update a skill in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
   readonly setSkillLock: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
@@ -521,24 +487,10 @@ export interface WorkspaceMutationsService {
   readonly getLockedPacks: () => Effect.Effect<PacksLockMap, AppError>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
   readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
-  /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired Pack settings and any Registry accepted resolution atomically. */
   readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
-  /** Update pack trust or receipt state without changing desired settings. */
+  /** Update an accepted external Pack resolution without changing desired settings. */
   readonly setPackLock: (args: SetPackArgs) => Effect.Effect<void, AppError>;
-  /** Refresh the trusted content identity after a verified publish of a workspace-authored extension. */
-  readonly refreshAuthoredContentIdentity: (
-    type: Exclude<InstallableExtensionType, "pack">,
-    name: string,
-    resolvedVersion: string,
-    contentIdentity: SourceHash,
-  ) => Effect.Effect<void, AppError>;
-  /** Refresh the trusted content identity after an authorized edit to a workspace-authored pack. */
-  readonly refreshPackContentIdentity: (
-    name: string,
-    contentIdentity: SourceHash,
-    manifest?: PackTrustManifest,
-    commit?: WorkspaceCommitPhase,
-  ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
@@ -553,7 +505,7 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
   /** Read settings and return configured subagents, defaulting to `{}`. */
   readonly getConfiguredSubagentEntries: () => Effect.Effect<SubagentsMap, AppError>;
-  /** Add or update a subagent in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired subagent settings and any external accepted resolution atomically. */
   readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
   /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
   readonly setSubagentLock: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
@@ -577,7 +529,7 @@ export interface WorkspaceMutationsService {
   readonly getLockedMcpServer: (
     name: string,
   ) => Effect.Effect<Option.Option<McpServerLockEntry>, AppError>;
-  /** Add or update an MCP server in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  /** Update desired MCP settings and any external accepted resolution atomically. */
   readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   /** Add or update an MCP server in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
   readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;

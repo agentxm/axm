@@ -618,13 +618,11 @@ export const assertInstructionTargetsSafe = (args: {
 }) =>
   Effect.gen(function* () {
     const states = yield* managedTargetStates(args);
-    const blockers = states.filter(
-      (item) => item.state === "owned-drift" || item.state === "unowned",
-    );
+    const blockers = states.filter((item) => item.state === "unowned");
     if (blockers.length === 0) return;
     return yield* makeAppError({
       code: "conflict",
-      detail: `Instruction reconciliation would overwrite files with drifted or unknown ownership: ${blockers
+      detail: `Instruction reconciliation would overwrite files with unknown ownership: ${blockers
         .map((item) => item.targetPath)
         .join(", ")}`,
       suggestions: [
@@ -647,13 +645,11 @@ export const removeManagedInstructionTargets = (args: {
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const states = yield* managedTargetStates(args);
-    const blockers = states.filter(
-      (item) => item.state === "owned-drift" || item.state === "unowned",
-    );
+    const blockers = states.filter((item) => item.state === "unowned");
     if (blockers.length > 0) {
       return yield* makeAppError({
         code: "conflict",
-        detail: `Instruction cleanup would remove files with drifted or unknown ownership: ${blockers
+        detail: `Instruction cleanup would remove files with unknown ownership: ${blockers
           .map((item) => item.targetPath)
           .join(", ")}`,
         suggestions: [
@@ -665,7 +661,9 @@ export const removeManagedInstructionTargets = (args: {
       });
     }
     const removable = states.filter(
-      (item) => item.state === "owned-current" && item.sourcePath !== item.targetPath,
+      (item) =>
+        (item.state === "owned-current" || item.state === "owned-drift") &&
+        item.sourcePath !== item.targetPath,
     );
     if (!args.dryRun) {
       yield* Effect.forEach(

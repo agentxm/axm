@@ -84,35 +84,83 @@ const runUpdateIntent = (
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
           actions,
-          { execution },
+          {
+            execution,
+            transformIntent: (resolved) => ({
+              ...resolved,
+              skillsToInstall: resolved.skillsToInstall.map((entry) => ({
+                ...entry,
+                versionRange: intent.versionRange,
+              })),
+            }),
+          },
         );
       }
       case "mcp-server": {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(mcpArgs, actions, {
+          execution,
+          transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
+        });
       }
       case "rule": {
         const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(ruleArgs, actions, {
+          execution,
+          transformIntent: (resolved) => ({
+            ...resolved,
+            refs: resolved.refs.map((entry) => ({
+              ...entry,
+              versionRange: intent.versionRange,
+            })),
+          }),
+        });
       }
       case "hook": {
         const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(hookArgs, actions, {
+          execution,
+          transformIntent: (resolved) => ({
+            ...resolved,
+            refs: resolved.refs.map((entry) => ({
+              ...entry,
+              versionRange: intent.versionRange,
+            })),
+          }),
+        });
       }
       case "knowledge": {
         const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
+          execution,
+          transformIntent: (resolved) => ({
+            ...resolved,
+            refs: resolved.refs.map((entry) => ({
+              ...entry,
+              versionRange: intent.versionRange,
+            })),
+          }),
+        });
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
           actions,
-          { execution },
+          {
+            execution,
+            transformIntent: (resolved) => ({
+              ...resolved,
+              subagentsToInstall: resolved.subagentsToInstall.map((entry) => ({
+                ...entry,
+                versionRange: intent.versionRange,
+              })),
+            }),
+          },
         );
       }
       case "pack": {
@@ -127,7 +175,10 @@ const runUpdateIntent = (
                 releaseAgeHoldbackBehavior: "preserve-or-block",
               }),
         };
-        return yield* runInstallCommandWorkflow(packArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(packArgs, actions, {
+          execution,
+          transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
+        });
       }
     }
   });

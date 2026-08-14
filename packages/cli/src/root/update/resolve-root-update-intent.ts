@@ -14,6 +14,7 @@ import {
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 
@@ -27,7 +28,7 @@ export interface RootUpdateIntent {
   readonly type: RootUpdatableType;
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly versionRange: Option.Option<string>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly target: string;
 }
 

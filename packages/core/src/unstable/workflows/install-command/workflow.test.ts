@@ -164,6 +164,40 @@ describe("runInstallCommandWorkflow", () => {
       }).pipe(Effect.provide(makeTestLayer())),
   );
 
+  it.effect("transforms finalized intent before building the plan", () => {
+    let builtIntent: TestIntent | undefined;
+    const actions: InstallExtensionCommandWorkflowActions<
+      TestArgs,
+      TestParsed,
+      TestReq,
+      TestRef,
+      TestIntent
+    > = {
+      parseArgs: () => Effect.succeed({ parsedName: "resolved" }),
+      resolveSourceRequests: () => Effect.succeed([{ source: "resolved@2.0.0" }]),
+      discoverRefs: () => Effect.succeed([{ refName: "resolved@2.0.0" }]),
+      finalizeIntent: () => Effect.succeed({ intentName: "resolved@2.0.0" }),
+      buildPlan: (intent) => {
+        builtIntent = intent;
+        return Effect.succeed({
+          _tag: "Plan",
+          name: "transformed-install",
+          description: Option.none(),
+          jobs: [],
+        });
+      },
+    };
+
+    return Effect.gen(function* () {
+      yield* runInstallCommandWorkflow({ name: "resolved" }, actions, {
+        execution: preapprovedPlanExecution,
+        transformIntent: (intent) => ({ ...intent, intentName: "configured-range" }),
+      });
+
+      expect(builtIntent).toEqual({ intentName: "configured-range" });
+    }).pipe(Effect.provide(makeTestLayer()));
+  });
+
   it.effect("passes the built plan to previewOrApplyPlan", () => {
     const testPlan: Plan = {
       _tag: "Plan",

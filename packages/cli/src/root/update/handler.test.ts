@@ -221,7 +221,7 @@ describe("root update handler", () => {
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
+      finalizeIntent: () => Effect.succeed({ skillsToInstall: [] }),
       buildPlan: () => Effect.succeed(makePlan("skill")),
     };
 
@@ -257,7 +257,7 @@ describe("root update handler", () => {
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
+      finalizeIntent: () => Effect.succeed({ subagentsToInstall: [] }),
       buildPlan: () => Effect.succeed(makePlan("subagent")),
     };
 
@@ -275,7 +275,7 @@ describe("root update handler", () => {
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
+      finalizeIntent: () => Effect.succeed({ refs: [] }),
       buildPlan: () => Effect.succeed(makePlan("rule")),
     };
 
@@ -293,7 +293,7 @@ describe("root update handler", () => {
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
+      finalizeIntent: () => Effect.succeed({ refs: [] }),
       buildPlan: () => Effect.succeed(makePlan("hook")),
     };
 
@@ -329,7 +329,7 @@ describe("root update handler", () => {
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
+      finalizeIntent: () => Effect.succeed({ refs: [] }),
       buildPlan: () => Effect.succeed(makePlan("knowledge")),
     };
 

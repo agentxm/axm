@@ -60,12 +60,14 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
 export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
+  options?: { readonly transformIntent?: (intent: Intent) => Intent },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
     const sourceRequests = yield* actions.resolveSourceRequests(parsed);
     const refs = yield* actions.discoverRefs(sourceRequests);
-    const intent = yield* actions.finalizeIntent(parsed, refs);
+    const finalizedIntent = yield* actions.finalizeIntent(parsed, refs);
+    const intent = options?.transformIntent?.(finalizedIntent) ?? finalizedIntent;
     return yield* actions.buildPlan(intent);
   });
 
@@ -78,13 +80,17 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  options: { execution: PlanExecution; displayApplied?: boolean },
+  options: {
+    readonly execution: PlanExecution;
+    readonly displayApplied?: boolean;
+    readonly transformIntent?: (intent: Intent) => Intent;
+  },
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const plan = yield* renderer.withSpinner(
       "Resolving extension sources",
-      () => buildInstallCommandPlan(args, actions),
+      () => buildInstallCommandPlan(args, actions, options),
       { successMessage: "Resolved extension sources" },
     );
     return yield* previewOrApplyPlan(plan, {

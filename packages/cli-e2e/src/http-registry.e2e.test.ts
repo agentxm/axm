@@ -401,6 +401,26 @@ describe("HTTP registry transport", () => {
           { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
         ],
       });
+
+      const settingsAfterUpdate: unknown = JSON.parse(
+        fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
+      );
+      expect(settingsAfterUpdate).toMatchObject({
+        skills: { review: `${OWNER}/skills/review` },
+      });
+
+      const secondRun = await runCli(
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        { cwd: consumer.path, env },
+      );
+      expect(secondRun.exitCode, `${secondRun.stderr}\n${secondRun.stdout}`).toBe(0);
+      expect(structuredPlanResult(secondRun.stdout)).toMatchObject({ outcome: "no-op" });
+      const settingsAfterSecondRun: unknown = JSON.parse(
+        fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
+      );
+      expect(settingsAfterSecondRun).toMatchObject({
+        skills: { review: `${OWNER}/skills/review` },
+      });
     } finally {
       publisher.cleanup();
       consumer.cleanup();

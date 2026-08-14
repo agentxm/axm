@@ -55,6 +55,26 @@ fabricated, and no artificial lock row is created.
 Type-specific commands may add authoring, inspection, or discovery
 capabilities, but do not redefine lifecycle policy.
 
+## Authorship and manifest meaning
+
+An extension manifest describes portable package identity and canonical
+meaning. It does not record whether a workspace wants the extension active,
+which coding agents are configured, or where projections currently exist.
+Those are workspace choices.
+
+Authoring commands may populate manifest values that are safely determined
+from the invocation or governing extension standard. Values asserting legal,
+human, Registry, runtime, or external-package intent must be explicitly
+supplied or configured; AXM never invents plausible identities or licenses.
+Type-functional fields such as Hook bindings, Knowledge format, or MCP
+transport are canonical only when they describe the authored extension itself.
+
+A locally valid package may still be incomplete for publication. Scaffolding
+creates an honest editing baseline, while publish owns the stronger
+distribution gate. The shared [authoring architecture](../commands/authoring.md)
+defines defaults, activation, transactions, and conformance. Schemas and CLI
+help remain authoritative for exact manifest fields and command inputs.
+
 ## Architectural differences
 
 | Type       | Placement | Canonical state                                    | Realization                                       |

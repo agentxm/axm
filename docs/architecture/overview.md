@@ -82,20 +82,21 @@ use identical meaning.
 ## The workspace model
 
 ```text
-user intent -> workspace configuration -> desired workspace state
-                                           |
-                                           +-> sourced extensions
-                                           |      |
-                                           |      v
-                                           |   authoritative lock state
-                                           |      |
-                                           |      v
-                                           |   canonical extension content -----------+
-                                           |                                         |
-                                           +-> inline configuration ------------------+-> owned outputs
-                                           |                                         |
-                                           +-> configured agents and capabilities ----+
-
+authoring intent -> workspace-authored canonical content ------------+
+                                      ^                              |
+                                      | selected by                  |
+user intent -> workspace configuration -> desired workspace state    |
+                                           |                         |
+                                           +-> sourced extensions    |
+                                           |      |                  |
+                                           |   authoritative lock    |
+                                           |      |                  |
+                                           |   acquired canonical ---+-> owned outputs
+                                           |                         |
+                                           +-> inline configuration -+
+                                           |                         |
+                                           +-> configured agents ----+
+                                               and capabilities
 ```
 
 - **User intent** is the outcome the user means to achieve.
@@ -110,6 +111,8 @@ user intent -> workspace configuration -> desired workspace state
   [lockfile](workspace/lockfile.md).
 - **Canonical extension content** is the local content AXM obtains or the
   workspace authors for those extensions.
+- **Authoring inventory** is workspace-authored canonical content that exists
+  for editing and inspection without necessarily being desired or realized.
 - **Agent and workspace outputs** present managed capabilities in native
   configuration, directories, instruction files, and other owned surfaces.
 
@@ -149,6 +152,8 @@ wants to affect:
 - **List and view** inspect state without changing it.
 - **Discover** recommends extensions from observed project packages without
   changing workspace intent.
+- **Authoring commands** create, convert, or deliberately change
+  workspace-authored canonical content without implicitly activating it.
 - **Publish** validates and distributes workspace-authored extensions.
 - **Type command groups** provide the same extension lifecycle plus capabilities
   that genuinely belong only to that type, such as Knowledge concept retrieval
@@ -216,7 +221,8 @@ supported behavior.
 - [Coding agents](workspace/agents.md), [Instruction
   files](workspace/instruction-files.md), and [Sources and
   resolution](workspace/sources.md) for the principal workspace surfaces.
-- [Commands](commands/overview.md) for the responsibility of each command family.
+- [Commands](commands/overview.md) for the responsibility of each command family,
+  including [authoring](commands/authoring.md).
 - [Extensions](extensions/overview.md) for the common extension contract and
   type-specific differences.
 - [Lint](commands/lint.md) and [Sync](commands/sync.md) for feature

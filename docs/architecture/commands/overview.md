@@ -10,31 +10,31 @@ depends-on:
 # Commands
 
 AXM commands divide work by responsibility. Diagnostics explain state,
-lifecycle commands express user intent by changing workspace configuration,
-sync realizes desired state, and publishing distributes authored extensions.
-Keeping those jobs distinct makes the CLI easier to predict and invalid
-workspaces easier to recover.
+authoring commands create canonical content, lifecycle commands express user
+intent by changing workspace configuration, sync realizes desired state, and
+publishing distributes authored extensions. Keeping those jobs distinct makes
+the CLI easier to predict and invalid workspaces easier to recover.
 
 ## Responsibilities
 
-| Responsibility                    | Commands                                           | Result                                                                           |
-| --------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Initialize a workspace            | `setup`                                            | An uninitialized scope receives explicit starting configuration.                 |
-| Configure coding agents           | `agents add` and `agents remove`                   | The durable target set and affected owned outputs change together.               |
-| Configure instruction files       | `instructions`                                     | Instruction-file management is inspected, enabled, or disabled explicitly.       |
-| Diagnose invariant violations     | [`axm lint`](lint.md)                              | Facts about invalid extension or workspace state; no state change.               |
-| Normalize authored representation | [`axm lint --fix`](lint.md)                        | Schema-proven edits with decoded-domain equivalence.                             |
-| Realize desired state             | [`axm sync`](sync.md)                              | Managed installed state and projections agree with desired state.                |
-| Add extension configuration       | [`axm install`](install.md)                        | The extension becomes directly desired and required managed state is realized.   |
-| Change an installed resolution    | [`axm update`](update.md)                          | A resolution advances, a constraint changes, or accepted content is reinstalled. |
-| Remove extension configuration    | [`axm uninstall`](uninstall.md)                    | Direct reachability is removed; other desired routes remain.                     |
-| Change activation                 | `enable` and `disable`                             | Leaf projections or a Pack dependency route follow the desired activation.       |
-| Change pack membership            | [`axm packs add` and `axm packs remove`](packs.md) | The authored pack manifest changes.                                              |
-| Inspect extensions                | `list`, `list --outdated`, and `view`              | Inventory, update availability, or extension information; no state change.       |
-| Discover extensions               | `discover`                                         | Project packages produce recommendations without changing intent.                |
-| Use type-specific capabilities    | Type command groups                                | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
-| Author extensions                 | `new`, copy, import, and type authoring commands   | Workspace-authored canonical content or explicit inline configuration changes.   |
-| Distribute authored extensions    | [`publish`](publish.md)                            | Eligible authored content is validated and sent to the registry.                 |
+| Responsibility                    | Commands                                                                                 | Result                                                                           |
+| --------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Initialize a workspace            | `setup`                                                                                  | An uninitialized scope receives explicit starting configuration.                 |
+| Configure coding agents           | `agents add` and `agents remove`                                                         | The durable target set and affected owned outputs change together.               |
+| Configure instruction files       | `instructions`                                                                           | Instruction-file management is inspected, enabled, or disabled explicitly.       |
+| Diagnose invariant violations     | [`axm lint`](lint.md)                                                                    | Facts about invalid extension or workspace state; no state change.               |
+| Normalize authored representation | [`axm lint --fix`](lint.md)                                                              | Schema-proven edits with decoded-domain equivalence.                             |
+| Realize desired state             | [`axm sync`](sync.md)                                                                    | Managed installed state and projections agree with desired state.                |
+| Add extension configuration       | [`axm install`](install.md)                                                              | The extension becomes directly desired and required managed state is realized.   |
+| Change an installed resolution    | [`axm update`](update.md)                                                                | A resolution advances, a constraint changes, or accepted content is reinstalled. |
+| Remove extension configuration    | [`axm uninstall`](uninstall.md)                                                          | Direct reachability is removed; other desired routes remain.                     |
+| Change activation                 | `enable` and `disable`                                                                   | Leaf projections or a Pack dependency route follow the desired activation.       |
+| Change pack membership            | [`axm packs add` and `axm packs remove`](packs.md)                                       | The authored pack manifest changes.                                              |
+| Inspect extensions                | `list`, `list --outdated`, and `view`                                                    | Inventory, update availability, or extension information; no state change.       |
+| Discover extensions               | `discover`                                                                               | Project packages produce recommendations without changing intent.                |
+| Use type-specific capabilities    | Type command groups                                                                      | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
+| Author extensions                 | [`new`, fork, import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.             |
+| Distribute authored extensions    | [`publish`](publish.md)                                                                  | Eligible authored content is validated and sent to the registry.                 |
 
 ## Non-responsibilities
 
@@ -68,6 +68,12 @@ normal surface for fully qualified extension names and cross-type work. Type
 command groups expose the same lifecycle behavior and add only capabilities
 unique to that extension type, such as skill installation modes, inline MCP
 configuration, Knowledge concept retrieval, or Pack membership editing.
+
+Cross-type authoring commands own shared conversion, authority, and version
+behavior. Type command groups own type-specific scaffolding and may provide
+type-specific conversion, but follow the shared
+[authoring model](authoring.md). Creating an authored package is not an
+implicit lifecycle operation.
 
 `axm instructions` is a root workspace command family rather than an extension
 type command. Rules, Knowledge, and supported Hook fallbacks may contribute to

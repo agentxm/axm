@@ -11,6 +11,8 @@ Navigation for the durable responsibilities and boundaries of AXM commands.
   retention
 - [Lint](lint.md) — fact-only diagnostics and meaning-preserving normalization
 - [Sync](sync.md) — reconciliation of managed current state with desired state
+- [Authoring](authoring.md) — creation, conversion, defaults, activation, and
+  publication-readiness boundaries for workspace-authored extensions
 - [Publish](publish.md) — validation and distribution of authored extensions
 - [Packs](packs.md) — commands that edit authored pack membership
 - [CLI help](help.md) — help surfaces, resolution, authority, discoverability,

@@ -40,6 +40,18 @@ no artificial lock row is created. AXM owns only entries
 it created and can still identify; unrelated entries and surrounding
 configuration remain untouched.
 
+For a publishable MCP Server extension, the server name, transport, external
+software-package or endpoint identity, inputs, and runtime requirements are
+author declarations. AXM may validate them or import them from an explicit
+native source, but it does not invent a package name, endpoint, or connection
+that merely looks plausible.
+
+An inline connection that is valid workspace configuration is not thereby a
+publishable extension package. A new package scaffold may remain incomplete
+authoring inventory until real connection identity is supplied, and remains
+outside desired state unless the author explicitly activates it. Publish
+rejects missing or placeholder identity rather than repairing the scaffold.
+
 ## Ownership and coexistence
 
 One named server entry is the native ownership unit; the containing file is

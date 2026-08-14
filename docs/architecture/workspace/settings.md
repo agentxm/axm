@@ -12,9 +12,11 @@ depends-on:
 durable choices in one AXM workspace scope. It records configuration, not the
 complete dependency graph or what happens to be installed.
 
-Settings and workspace-authored manifests provide the configuration from which
-AXM derives desired state. Lock rows, canonical extension content, and managed
-outputs must never be used to invent missing settings.
+Settings names desired extensions and capabilities. When a settings entry
+references a workspace-authored package, its manifest supplies canonical
+package meaning. Authored manifests outside settings remain authoring
+inventory, not desired roots. Lock rows, canonical extension content, and
+managed outputs must never be used to invent missing settings.
 
 ## Responsibilities
 
@@ -71,9 +73,30 @@ workspace state.
 | Storing credentials or resolved secrets              | The user's environment or external secret store                                    |
 | Choosing CLI telemetry behavior                      | Process or user environment policy                                                 |
 
-The configured workspace owner is an authoring and resolution default. It does
-not authenticate the current user, confer Registry ownership, establish an
-accepted external resolution, or grant AXM authority over existing content.
+## Authoring defaults and identity
+
+Authoring defaults reduce repeated input without turning inference into user
+intent. They resolve from an explicit command input, then project settings,
+then user settings, then a safe built-in. An optional value with no expressed
+default is omitted; a required value with no safe default blocks creation.
+
+The configured workspace owner is an authoring and local-resolution default.
+It does not authenticate the current user, confer Registry ownership,
+establish an accepted external resolution, or grant AXM authority over
+existing content. Authentication may verify a Registry operation or present an
+owner choice, but it never silently supplies durable authorship.
+
+Owner, author attribution, publisher authorization, and license are distinct.
+A configured license is an expressed legal choice; `UNLICENSED` is likewise a
+deliberate choice rather than a fallback. External software-package identity
+and runtime connection details are extension declarations, not values AXM can
+derive from a workspace owner.
+
+Authoring defaults do not import activation or targeting from user scope.
+Activation and configured agents remain project workspace intent, and agent
+targets never become portable manifest metadata. The
+[authoring model](../commands/authoring.md) owns how commands apply these
+defaults.
 
 [Telemetry](../system-wide/telemetry.md) is not workspace desired state.
 Project or user-scope `settings.json` does not enable or disable it, and Registry

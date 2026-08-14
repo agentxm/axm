@@ -28,6 +28,30 @@ An extension may be valid authored workspace content but ineligible for
 distribution. For example, an empty authored pack is valid locally while the
 publish gate rejects it.
 
+## Publication eligibility
+
+The fixed gate separates these obligations:
+
+- schema, canonical-content, and archive safety;
+- explicit legal status, expressed as a valid SPDX license expression or the
+  deliberate `UNLICENSED` value;
+- Registry identity, authentication, ownership, and immutable version rules;
+- real type-specific external identity and runtime requirements, including
+  software-package or MCP connection declarations where the type requires
+  them; and
+- minimum discovery quality for people and agents evaluating the extension.
+
+Missing legal status, missing required external identity, or known example and
+placeholder identity is a hard publication failure. Description, README, and
+similar discovery material may begin as quality diagnostics rather than hard
+requirements unless a governing extension standard or Registry contract
+requires them.
+
+Publish validates authored intent; it never guesses, fills, normalizes, or
+rewrites a manifest to make the package eligible. The
+[authoring model](authoring.md) owns what scaffolding may populate before this
+gate.
+
 ## Non-responsibilities
 
 Publish does not repair installed state, reconcile projections, change an

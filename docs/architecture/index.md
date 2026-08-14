@@ -15,8 +15,8 @@ Navigation for the accepted product and system architecture of AXM.
 ## Commands
 
 - [Command architecture](commands/index.md) — responsibility boundaries across
-  lifecycle, workspace configuration, inspection, lint, sync, output, and
-  type-specific commands
+  lifecycle, authoring, workspace configuration, inspection, lint, sync,
+  output, and type-specific commands
 
 ## Extensions
 

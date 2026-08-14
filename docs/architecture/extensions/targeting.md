@@ -40,6 +40,18 @@ diagnosed when an equivalent capability condition exists. Per-model targeting
 is excluded because model selection may occur at runtime and differ within one
 agent.
 
+## Durable targeting choices
+
+Any command option that claims persistent placement must be represented in
+authoritative workspace configuration and consumed by later reconciliation.
+An option that affects only the first materialization while `sync` derives a
+different target set is not a supported durable choice.
+
+The configured agent set is workspace intent. Agent IDs and the target set are
+never written into portable extension manifests. If settings cannot represent
+a proposed per-extension target, authoring and lifecycle commands must not
+offer that target as persistent behavior.
+
 ## Rendering and authority
 
 Canonical extension content remains authoritative. AXM renders a projection

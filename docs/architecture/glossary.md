@@ -49,6 +49,13 @@ external resolutions and provenance. It participates in planning and exact
 materialization, but never creates desired membership, activation, Pack
 reachability, projection ownership, or cleanup authority.
 
+## Authoring inventory
+
+Workspace-authored canonical extension content available for direct editing,
+inspection, versioning, and publication preparation without necessarily being
+desired or active in the workspace. Creating authoring inventory does not by
+itself create a settings entry or managed output.
+
 ## Bundled extension
 
 An extension whose canonical extension content is supplied and controlled by the running

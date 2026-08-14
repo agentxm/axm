@@ -74,6 +74,10 @@ reconcile current state with desired state must not quietly change
 configuration. An available newer version is not permission to advance a
 satisfying accepted resolution.
 
+A command input that promises durable behavior must be recorded in an
+authoritative source that later reconciliation consumes. First materialization
+alone cannot make an activation, target, or other workspace choice persistent.
+
 Missing, malformed, or incompatible lock state is consequential because it owns
 accepted external resolution. It never creates reachability and AXM never
 reconstructs it from installed bytes or obsolete trust state.

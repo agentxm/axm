@@ -1,3 +1,14 @@
+## 0.27.3 (2026-08-14)
+
+### 🩹 Fixes
+
+- Drain buffered CLI output before exiting so large machine-readable responses remain complete. ([2c4b2b10](https://github.com/agentxm/axm/commit/2c4b2b10))
+- Run repository Git-hook lint with the source-tree CLI so a release can validate its newly stamped bundled skill.
+
+### ❤️ Thank You
+
+- Test @osintorg
+
 ## 0.27.2 (2026-08-14)
 
 ### 🩹 Fixes

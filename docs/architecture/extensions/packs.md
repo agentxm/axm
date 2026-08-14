@@ -40,10 +40,11 @@ content that remains reachable through another desired route.
 
 ## State and realization
 
-An authored Pack manifest is workspace authority. A registry Pack's trusted
-manifest owns its published dependency meaning; a divergent installed copy
-cannot redefine that graph. Realization consists of the desired dependency
-graph and the ordinary canonical content and projections of its members.
+An authored Pack manifest is workspace authority. A Registry Pack's accepted
+locked manifest identity owns its published dependency meaning; a divergent
+installed copy cannot redefine that graph. Lock-only member metadata cannot
+create reachability. Realization consists of the desired dependency graph and
+the ordinary canonical content and projections of its members.
 
 Pack disablement is therefore not uninstall. It preserves the Pack as managed
 state and removes only the dependency contribution associated with that Pack
@@ -55,8 +56,8 @@ Packs have no agent-native output and therefore no native coexistence category.
 A workspace-authored Pack may exist as authoring inventory without being
 desired. AXM preserves it until an explicit authoring operation removes it.
 
-A registry Pack is managed installed state only while its manifest and source
-records establish that authority. AXM removes unreachable managed state when
+A Registry Pack is managed installed state only while its manifest and accepted
+lock identity establish that authority. AXM removes unreachable managed state when
 the desired graph is complete, but preserves and reports content whose
 authority it cannot establish. Non-registry external Pack sources remain
 unsupported.

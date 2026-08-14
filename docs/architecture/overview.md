@@ -22,9 +22,9 @@ AXM derives the complete desired workspace state and presents the selected
 capabilities in the form and location each configured agent expects.
 
 The architecture keeps user intent, workspace configuration, desired state,
-canonical extension content, inline configuration, and managed output
-separate. That separation lets AXM reconcile current state without silently
-changing what the user asked for.
+authoritative external lock state, canonical extension content, inline
+configuration, and managed output separate. That separation lets AXM reconcile
+current state without silently changing what the user asked for.
 
 ## Responsibilities
 
@@ -48,14 +48,14 @@ AXM is not responsible for:
 - installing, running, or administering coding-agent products or extension
   runtimes;
 - inferring choices the user has not expressed;
-- adopting, rewriting, or deleting workspace-authored or unowned content
-  without explicit authority;
+- adopting unowned native content or rewriting or deleting content without
+  unit-local authority;
 - treating existing files or lock entries as declarations of intent;
 - making every invalid state automatically fixable; or
 - providing a generic health, repair, or policy-enforcement system beyond its
   defined extension and agent-workspace responsibilities.
 
-Workspace diagnosis, reconciliation, trust, output, and caching support these
+Workspace diagnosis, reconciliation, resolution, output, and caching support these
 jobs; they are not additional reasons for AXM to become a generic workspace or
 agent administration tool.
 
@@ -87,13 +87,15 @@ user intent -> workspace configuration -> desired workspace state
                                            +-> sourced extensions
                                            |      |
                                            |      v
-                                           |   accepted trust and canonical content --+
+                                           |   authoritative lock state
+                                           |      |
+                                           |      v
+                                           |   canonical extension content -----------+
                                            |                                         |
-                                           +-> inline configuration ------------------+-> managed outputs
+                                           +-> inline configuration ------------------+-> owned outputs
                                            |                                         |
                                            +-> configured agents and capabilities ----+
 
-successful resolution or materialization -----------------------------> receipt history
 ```
 
 - **User intent** is the outcome the user means to achieve.
@@ -103,19 +105,18 @@ successful resolution or materialization -----------------------------> receipt 
 - **Desired workspace state** is the complete target AXM derives from that
   configuration, including Pack members, inline definitions, configured
   agents, and workspace-level capability configuration.
-- **Trust and provenance** record the accepted source and resolution baseline
-  for sourced desired extensions. See [Trust](workspace/trust.md).
+- **Authoritative lock state** records the accepted immutable external source,
+  resolution, integrity, and publisher baseline. See the
+  [lockfile](workspace/lockfile.md).
 - **Canonical extension content** is the local content AXM obtains or the
   workspace authors for those extensions.
 - **Agent and workspace outputs** present managed capabilities in native
   configuration, directories, instruction files, and other owned surfaces.
-- **Receipt history** records successful resolution and materialization work
-  after that work completes. See the [lockfile](workspace/lockfile.md).
 
 Not every desired capability follows every branch. Inline MCP configuration is
 authoritative workspace configuration and produces native output without an
-extension archive, canonical extension content, or resolved extension version.
-It may still produce receipt history after successful realization.
+extension archive, canonical extension content, resolved extension version, or
+lock row.
 Instruction-file management produces workspace and agent outputs from its own
 configuration plus enabled Rule, Knowledge, or Hook contributions.
 
@@ -124,8 +125,8 @@ extension dependencies under one authored or published choice; they do not erase
 the identity or ownership of their members.
 
 These states support one another, but they are not interchangeable. An accepted
-resolution or receipt row does not make an extension desired. An output is not
-an authoring source. Workspace-authored canonical content may exist as
+lock row does not make an extension desired. An output is not an authoring
+source. Workspace-authored canonical content may exist as
 authoring inventory without becoming desired. Existing files do not give AXM
 permission to overwrite them. The [workspace design](workspace/overview.md)
 defines these boundaries in detail.
@@ -171,7 +172,14 @@ AXM does not take ownership merely because content appears in a familiar path.
 Unowned content may coexist when an extension type provides an independent
 ownership boundary. When it collides with a required output or its authority is
 ambiguous, AXM reports the fact, blocks the affected work, and leaves the
-content alone.
+content alone. AXM does not adopt even equivalent native content; manual
+preservation, relocation, or removal owns recovery.
+
+Operations change workspace state by semantic mutation closure: the smallest
+set joined by reachability, combined desired/lock/canonical postconditions,
+shared native ownership units, or jointly validated invariants. Independent
+ready closures may commit even when another blocks or fails, and the overall
+result reports that partial convergence truthfully.
 
 See [Workspace](workspace/overview.md) and [Architecture
 principles](principles.md) for the detailed authority and coexistence rules.
@@ -179,13 +187,14 @@ principles](principles.md) for the detailed authority and coexistence rules.
 ## Invalid state should be understandable and recoverable
 
 AXM should make invalid states difficult to create, clear to diagnose, and
-possible to leave through ordinary operations. Recovery belongs to one of four
+possible to leave through ordinary operations. Recovery belongs to one of five
 places:
 
-- a meaning-preserving `lint --fix` normalization;
+- a schema-proven, meaning-preserving `lint --fix` normalization;
 - sync of managed state;
 - the lifecycle command that expresses user intent through configuration; or
-- direct correction of workspace-authored settings, manifests, or content.
+- direct correction of workspace-authored settings or manifests; or
+- manual correction of unowned native content.
 
 There is no generic repair workflow. When AXM cannot safely choose the desired
 outcome, diagnostics provide the facts and leave that choice to the user or

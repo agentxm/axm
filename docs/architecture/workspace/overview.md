@@ -26,7 +26,8 @@ The workspace model owns:
 - authority and ownership for canonical extension content, inline
   configuration, and managed outputs;
 - reachability and retention across direct and Pack-derived routes;
-- the relationship between resolutions, trust, content, and projections; and
+- the relationship between authoritative lock state, content, and projections;
+  and
 - safety boundaries for changes within one workspace scope.
 
 ## Non-responsibilities
@@ -42,9 +43,8 @@ The workspace model does not own:
   files](instruction-files.md);
 - source-host precedence and resolution policy, which belong to [Sources and
   resolution](sources.md);
-- lockfile contents and regeneration rules, which belong to the
-  [Lockfile](lockfile.md);
-- accepted external source identity, which belongs to [Trust](trust.md);
+- accepted external source identity, immutable resolution, and lockfile
+  persistence, which belong to the [Lockfile](lockfile.md);
 - evaluation and recovery coverage of invalid workspace state, which belong to
   [Workspace invariants](invariants.md);
 - which command expresses an action, which belongs to
@@ -65,34 +65,33 @@ Workspace configuration records those durable choices: directly requested
 extensions, version constraints, agents, activation, inline definitions,
 workspace capabilities, and workspace-authored manifests. The [workspace
 settings design](settings.md) owns the `.axm/settings.json` boundary. AXM
-combines that configuration with trusted extension metadata to derive the
-complete desired state, including Pack members and the outputs required for
-configured agents.
+combines that configuration with authored Pack manifests and accepted locked
+Pack metadata to derive the complete desired state, including Pack members and
+the outputs required for configured agents.
 
-Trust and provenance record accepted source and resolution state. Installed
-files and managed outputs realize current state. Receipt history records
-completed work after the fact. None creates desired state on its own. Some
+The lockfile authoritatively records accepted external source and immutable
+resolution state. Installed files and managed outputs realize current state.
+Neither creates desired state on its own. Some
 desired capability state, such as inline MCP configuration and instruction-file
 management, does not require a sourced extension or canonical extension
 content.
 
 ## Workspace state
 
-| State                       | Role                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------- |
-| Workspace configuration     | Records the user's explicit, durable choices in [settings](settings.md).            |
-| Desired state               | Describes desired extensions, activation, agents, and workspace capabilities.       |
-| Trust and provenance        | Record the accepted source and resolution baseline; see [Trust](trust.md).          |
-| Canonical extension content | Holds authored or acquired content from which projections are produced.             |
-| Inline configuration        | Authoritatively defines a managed capability directly in settings.                  |
-| Managed outputs             | Present desired capabilities in agent or workspace-native surfaces.                 |
-| Observed content            | Records what exists without implying desired state or authority.                    |
-| Receipt history             | Records completed resolution and materialization work; see [Lockfile](lockfile.md). |
+| State                       | Role                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Workspace configuration     | Records the user's explicit, durable choices in [settings](settings.md).                     |
+| Desired state               | Describes desired extensions, activation, agents, and workspace capabilities.                |
+| Authoritative lock state    | Records accepted immutable external resolutions and provenance; see [Lockfile](lockfile.md). |
+| Canonical extension content | Holds authored, installed, or bundled content from which projections are produced.           |
+| Inline configuration        | Authoritatively defines a managed capability directly in settings.                           |
+| Managed outputs             | Present desired capabilities in agent or workspace-native surfaces.                          |
+| Observed content            | Records what exists without implying desired state or authority.                             |
 
 Workspace configuration answers which explicit choices the user has made.
 Desired state expands extension choices through Pack membership and derives
 the outputs required by configured agents and workspace capabilities. Accepted
-resolutions, receipt rows, and existing files do not make an extension or
+lock rows and existing files do not make an extension or
 capability desired.
 
 ## Authority across workspace surfaces
@@ -113,11 +112,11 @@ Canonical extension content has one of three authorities:
 - **Bundled:** The running AXM distribution supplies and controls the content.
 
 Changing an extension among workspace-authored, external, and bundled authority
-is an explicit operation. Receipt history, a trust record, or a recommended
-Pack does not silently change authority.
+is an explicit operation. A lock row or recommended Pack does not silently
+change authority.
 
 Workspace-authored content may exist as authoring inventory without being
-desired or active. Its presence does not create settings or accepted trust, and
+desired or active. Its presence does not create settings or accepted lock state, and
 AXM does not delete it merely because it is unreachable from desired state.
 
 Externally acquired content is managed installed state only when AXM can relate
@@ -147,8 +146,8 @@ path, and byte equality are observations, not ownership proof.
 
 AXM-managed installed state is retained when its extension is reachable from
 desired state. Direct extension configuration and Pack membership can make an
-extension reachable. Accepted trust or receipt history does not keep an
-otherwise undesired extension installed. Workspace-authored inventory is
+extension reachable. Lock rows do not keep an otherwise undesired extension
+installed. Workspace-authored inventory is
 preserved by authorship, not retained by desired-state reachability.
 
 Removing one route to an extension does not remove it while another desired
@@ -157,41 +156,42 @@ graph waits until that graph can be resolved completely.
 
 Registry packs depend on registry extension identities and version constraints.
 A local copy of a registry pack contributes dependency meaning only when its
-manifest matches the trusted registry manifest. Workspace-authored pack
+manifest matches the accepted locked Registry identity. Workspace-authored pack
 manifests are workspace configuration and may be edited directly.
 
-## Accepted resolutions, trust, and receipts
+## Accepted external resolutions
 
-[Trust](trust.md) records the external source and resolution accepted at
-acquisition. An accepted resolution that still satisfies desired constraints
-remains stable. Missing external canonical extension content can be reacquired
-from that baseline where the source supports it. Updating, not syncing, owns
-advancing it.
+The [lockfile](lockfile.md) records the immutable external source and resolution
+accepted at acquisition. A satisfying resolution remains stable during sync.
+Missing canonical content can be reacquired only from that exact identity when
+the source can still reproduce it. Update, not sync, owns advancement.
 
-Receipt history records successful work after these decisions. It does not pin
-the resolution, reconstruct trust, or participate in planning. Desired
-capabilities without a source have no fabricated extension resolution, though
-their successful realization may have a receipt.
+Registry, Git, and local-path sources use source-appropriate immutable identity.
+When a mutable source no longer reproduces the locked identity, sync and
+reinstall block rather than substituting different bytes. Desired capabilities
+without an external source have no fabricated resolution row.
 
-Trust does not make later local byte drift a standing security violation.
-Replacing divergent external content during an explicit update or reinstall
-must be disclosed.
+The accepted lock does not make later local byte drift a standing security
+violation. Present external canonical content remains valid projection input.
+Replacing divergent content during explicit update or reinstall is disclosed.
 
 ## Output reconciliation
 
-Managed outputs are derived and AXM-owned only while AXM can prove their
+Managed outputs are derived and AXM-owned only while AXM can prove unit-local
 authority. Every agent adapter and workspace-surface writer follows the same
-four rules:
+rules:
 
 - Create a missing AXM-owned projection.
 - Restore a stale AXM-owned projection.
 - Remove an obsolete AXM-owned projection.
-- Block on an unowned collision and never overwrite it.
+- Preserve independently coexisting unowned content.
+- Block on an unowned collision or ambiguous ownership and never overwrite it.
 
 Unowned native content may coexist only when the extension type establishes an
 independent boundary. Content occupying a required unit is a collision; content
 whose authority cannot be determined is ambiguous. AXM preserves both and
-blocks only the affected work.
+blocks only the affected work. AXM never adopts equivalent native content;
+manual preservation, relocation, or removal owns recovery.
 
 ## Safe workspace changes
 
@@ -199,14 +199,16 @@ Two AXM changes to the same workspace scope must not interleave. Immediately
 before writing, AXM checks that the inputs and targets still match the proposed
 change. If they do not, it writes nothing.
 
-Workspace configuration, trust, canonical extension content, inline
-configuration, and managed outputs change as one unit for work that must change
-together. A handled business failure leaves that work unchanged. Receipt
-history is persisted afterward; its failure is reported without rolling back
-completed business state.
+Workspace configuration, authoritative lock state, canonical extension content,
+inline configuration, and managed outputs change atomically by semantic
+mutation closure. Reachability, joint postconditions, shared native ownership
+units, and joint invariants connect work; physical file co-location does not. A
+handled failure rolls back only its closure while independent ready closures may
+commit.
 
 Abrupt termination must not leave a partly written authoritative file or lose
-authored or unowned content. A later run can safely finish from the remaining
-authoritative state. [Workspace execution](execution.md) owns the structural
+authored or unowned content. A later mutation converges from surviving
+authoritative state without resuming or rolling back interrupted command
+intent. [Workspace execution](execution.md) owns the structural
 guarantees behind these changes, while [workspace invariants](invariants.md)
 owns validity and recovery coverage.

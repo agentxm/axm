@@ -41,7 +41,7 @@ content, registry availability, recovery classifications, or predictions about
 which mutation a finding would block. It does not use the network.
 
 Lint does not guess user intent, choose workspace configuration, install or
-remove extensions, change trust or receipt history, or reconcile agent
+remove extensions, change authoritative lock state, or reconcile agent
 projections. Those responsibilities belong to the user, lifecycle commands, or
 sync.
 
@@ -50,8 +50,8 @@ Lint reports it only when the relevant extension contract makes the state a
 collision, an authority ambiguity, or another durable invalid condition.
 
 Local byte drift in externally installed canonical extension content is not by
-itself a lint or trust violation. The content remains externally sourced, but
-only an explicit update or reinstall may replace it.
+itself a lint or accepted-resolution violation. The content remains externally
+sourced, but only an explicit update or reinstall may replace it.
 
 ## Views
 
@@ -75,18 +75,20 @@ its fixed distribution requirements and remains authoritative for publishing.
 
 ## Autofix boundary
 
-`axm lint --fix` is limited to unambiguous, meaning-preserving normalization
-of workspace-authored source or configuration. Examples may include standard
-formatting or an unambiguous metadata normalization.
+`axm lint --fix` is limited to schema-proven semantic normalization of linted
+workspace-authored settings or manifests. AXM must decode the complete before
+and after documents to the same domain value; formatting or representation may
+change, but membership, activation, constraints, and source authority may not.
 
-Autofix performs no network acquisition, lifecycle transition, trust or receipt
-change, projection work, authority change, or rewrite of externally installed
+Autofix performs no network acquisition, lifecycle transition, lock or canonical
+content change, ownership or projection work, or rewrite of externally installed
 content. If a correction requires guessing user intent or choosing desired
 state, it is not an autofix.
 
-Fixing evaluates one stable snapshot, checks that every target still matches
-that snapshot, applies all eligible fixes or none, reruns lint, and reports the
-resulting findings. A stale target causes no writes.
+Fixing evaluates one stable snapshot, fingerprints every target and relevant
+input, checks that each still matches, applies the complete eligible fix set or
+none, reruns lint, and reports the resulting findings. A stale or incomplete
+target set causes no writes.
 
 ## Testing strategy
 
@@ -94,6 +96,6 @@ Lint tests own the rule catalog, views, and exact findings. The shared
 [workspace invariant design](../workspace/invariants.md) owns exhaustive
 recovery coverage. Cross-type tests prevent mere unowned presence from becoming
 a generic error while proving type-specific collision and ambiguity findings.
-Autofix tests additionally prove meaning preservation, all-or-nothing
-application, no external-content rewrite, post-fix reevaluation, and
-stale-target safety.
+Autofix tests additionally prove decoded-domain equivalence, complete
+fingerprinting, all-or-nothing application, no lock/canonical/ownership/output
+change, post-fix reevaluation, and stale-target safety.

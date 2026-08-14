@@ -61,20 +61,19 @@ authored manifests. AXM derives the complete desired workspace state from that
 configuration, including Pack members, configured agents, inline definitions,
 and workspace capability behavior.
 
-Trust and provenance record the accepted source and resolution baseline for
-sourced extensions. Canonical extension content, authoritative inline
-configuration, and managed outputs realize desired state. Receipt history
-records completed work after the fact. None of those artifacts creates desired
-state on its own.
+The authoritative lockfile records the accepted immutable source and resolution
+baseline for sourced extensions. Canonical extension content, authoritative
+inline configuration, and managed outputs realize desired state. None of those
+artifacts creates desired state on its own.
 
 Commands that change workspace configuration must say so. Commands that
 reconcile current state with desired state must not quietly change
 configuration. An available newer version is not permission to advance a
 satisfying accepted resolution.
 
-Receipt history is strictly downstream. Missing, malformed, stale, or absent
-history cannot change a business plan, establish trust, prove installation, or
-block otherwise valid work.
+Missing, malformed, or incompatible lock state is consequential because it owns
+accepted external resolution. It never creates reachability and AXM never
+reconstructs it from installed bytes or obsolete trust state.
 
 ## Require authority to change content
 
@@ -90,7 +89,8 @@ blocker, not an invitation to take ownership.
 
 Local edits to an installed external extension do not make that extension
 workspace-authored, but ordinary reconciliation also does not erase those
-edits. Adoption and authority changes require an explicit operation.
+edits. AXM does not adopt unowned native content. Manual preservation,
+relocation, or removal owns recovery from an unowned collision.
 
 ## Recover through ordinary operations
 
@@ -102,14 +102,19 @@ need a generic repair command.
 The state model and command boundaries should make invalid states difficult for
 AXM to create, easy to diagnose, and straightforward to leave.
 
-## Limit change to the affected work
+## Change one semantic closure at a time
 
-An operation should establish its promised result for the selected extension and
-the dependencies that must change with it. Unrelated invalid state should not
-block that work, and a failure must not leave it partly changed.
+An operation establishes its promised result for the selected extension and the
+state connected by reachability, combined desired/lock/canonical postconditions,
+shared native ownership units, or jointly validated invariants. That connected
+state is one semantic mutation closure. Physical file co-location alone does
+not join closures.
 
-Independent groups may make truthful progress independently. AXM must not claim
-global success when part of the requested work remains blocked.
+Global sync automatically applies ready independent closures. A blocked closure
+receives no writes; a handled failure rolls back only its closure; later
+independent closures continue. AXM exits nonzero and reports every closure
+outcome when the complete request does not converge, including when some work
+committed.
 
 ## Make repeated use safe
 
@@ -117,19 +122,20 @@ Running a successful command again with the same inputs should produce no
 further change. Plans must be checked against current state before application,
 and concurrent workspace changes must not interleave.
 
-Handled failures roll back the affected business work. Receipt persistence
-occurs afterward; failure to record history is reported without undoing
-completed settings, trust, content, or output changes. After an abrupt process
-exit, AXM protects authored and unowned content so a later run can safely finish
-the work.
+Handled failures roll back the affected semantic closure, including its
+settings, lock, canonical-content, and owned-output changes. After abrupt
+process exit, AXM protects authoritative files, complete canonical-directory
+publication, and authored and unowned content. The next mutation converges from
+surviving authority; it does not finish, resume, or roll back interrupted
+command intent.
 
 ## Keep overrides rare and honest
 
 Routine behavior deserves an explicit mode such as `--preview`, `--reinstall`,
 or `--ignore-release-age`. `--force` is an exceptional escape hatch only for a
 clearly named policy that may safely be bypassed. It never bypasses ownership,
-trust, concurrency safety, stale-plan checks, rollback, or workspace
-invariants.
+accepted-resolution authority, concurrency safety, stale-plan checks, rollback,
+or workspace invariants.
 
 `--yes` controls interaction. It does not broaden permission, and `--force`
 does not imply it.

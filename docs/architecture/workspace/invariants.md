@@ -1,142 +1,158 @@
 ---
 status: stable
-description: How AXM represents workspace validity and proves that invalid states are recoverable.
+description: How AXM represents workspace validity and proves every reported invalid state recoverable.
 depends-on:
   - ../principles.md
   - ./overview.md
+  - ./lockfile.md
 ---
 
 # Workspace invariants
 
-Workspace invariants describe what must be true across workspace configuration,
-desired state, configured agents, workspace capabilities, resolutions, trust,
-canonical extension content, inline configuration, and managed outputs.
-Lint, sync, and commands use the same invariant facts for different purposes.
+Workspace invariants describe what must be true across authored configuration,
+desired state, authoritative lock state, canonical extension content, inline
+configuration, configured agents, workspace capabilities, and managed outputs.
+Lint, sync, and intent commands consume the same intrinsic facts for different
+purposes.
 
 ## Responsibilities
 
 This document owns:
 
-- the shared meaning of an invariant fact;
-- the distinction between invariant violations and operational blockers;
+- the shared meaning and ownership of invariant facts;
+- the distinction between intrinsic violations and operational blockers;
 - root-cause reporting and dependent-check suppression;
-- how lint, sync, and command preflight consume facts; and
-- the requirement that every reported error or blocker has a proven recovery.
+- closure-local evaluation and isolation; and
+- the requirement that every reported lint error and sync blocker have a
+  complete restoring-transition contract.
 
 ## Non-responsibilities
 
-This document does not list rules, findings, blocker codes, recovery commands,
-or test cases. Rule catalogs, schemas, code, and behavior tests own those exact
-contracts. Lint owns diagnostic presentation, sync owns reconciliation, and
-intent commands own changes to workspace configuration.
+This document does not inventory current rule IDs, findings, blocker codes,
+commands, or fixtures. Catalogs, schemas, code, and behavior tests own those
+exact contracts. Lint owns diagnostic presentation, sync owns reconciliation,
+and intent commands own durable configuration changes.
 
 ## Invariant facts
 
-An invariant fact records a durable mismatch between authoritative or derived
-state and observed state. It identifies the affected subject, the authority on
-which the expectation rests, what AXM observed, what must instead be true, and
-the relevant identities or locations.
+The dedicated invariant-fact capability records durable relationships among
+authority, expectation, and observation. Each fact identifies a stable
+predicate, affected subject, scope and view, authoritative source, observed
+state, expected invariant, and relevant identities or locations.
 
-Facts do not prescribe user intent. The same fact remains true regardless of
-whether a user later chooses sync, a lifecycle command, or a direct edit to
-workspace-authored state.
+Facts do not prescribe user intent or suggested commands. A fact remains true
+regardless of which permitted recovery owner later restores validity.
 
-Invariant evaluation is local and deterministic. A temporary network failure,
-an unavailable registry, or a target changing after planning may block an
-operation, but does not thereby become a workspace invariant violation.
+Invariant evaluation is local and deterministic. Temporary network failure,
+Registry availability, acquisition failure, or target change after planning may
+block sync, but does not thereby become a lint violation.
 
 ## Shared consumers
 
-| Consumer        | Use of invariant facts                                                         |
-| --------------- | ------------------------------------------------------------------------------ |
-| Lint            | Reports applicable violations without prescribing a recovery workflow.         |
-| Sync            | Maps reconcilable facts to plan steps and other facts or evidence to blockers. |
-| Intent commands | Preflight only the facts required for the extensions the command must change.  |
+| Consumer        | Use of shared facts                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| Lint            | Renders applicable durable violations without recovery guidance.                                          |
+| Sync            | Maps reconcilable facts to closure-local plan steps and other intrinsic or operational facts to blockers. |
+| Intent commands | Preflight only facts required by the semantic closure they must establish.                                |
 
-Lint and sync cannot disagree about the meaning of a shared fact. Sync may use
-additional operational evidence needed to plan safe reconciliation; that
-evidence does not silently expand lint's responsibilities.
+Lint and sync cannot disagree about an intrinsic predicate. Sync may use
+additional operational evidence without expanding lint's responsibility.
+Publish validation remains separate and may impose fixed distribution
+requirements that do not redefine local workspace validity.
 
-Publish validation remains separate. It may reuse extension analysis, but its
-fixed distribution requirements do not redefine local workspace validity.
+## Authority and reachability facts
 
-## Authority facts
+The desired-state graph is the sole reachability authority. It derives direct
+routes, activation, and Pack dependency routes from settings and authored
+manifests. Lock rows, Pack-member maps, canonical content, and native output
+never create reachability or cleanup authority.
 
-Authority facts distinguish conditions that a single catch-all lifecycle label
-cannot:
+Authority facts distinguish conditions a catch-all lifecycle label cannot:
 
-- workspace-authored canonical content may exist outside desired state;
-- configured agents and workspace capabilities come from settings rather than
-  detection or existing native files;
-- inline definitions are authoritative settings without requiring fabricated
-  canonical content or a resolved extension version;
-- externally acquired canonical content must remain related to accepted source
-  and resolution evidence;
-- an AXM-owned output must remain traceable to the extension and ownership unit
-  that produced it;
-- unowned native content may coexist only where the type contract establishes
-  an independent boundary; and
-- a required unit occupied by unowned content, or one whose authority is
-  ambiguous, blocks only the affected work.
+- workspace-authored canonical inventory may exist outside desired state;
+- external canonical content requires an accepted lock identity but remains
+  valid projection input when its local bytes drift;
+- bundled content derives authority from the running CLI;
+- inline definitions derive authority directly from settings without a
+  fabricated lock row or canonical copy;
+- unreachable AXM-managed installed content differs from authored inventory;
+- unclassifiable canonical content is preserved and reported;
+- an AXM-owned output remains traceable to its smallest ownership unit; and
+- an unowned collision or ambiguous ownership blocks only affected work.
 
-Observed name, path, or content equality may support a fact but cannot establish
-authority by itself.
+Observed name, path, or byte equality may support a fact but never establishes
+authority by itself. Invalid or incompatible legacy settings, lock versions,
+and `trust.json` are reported as unsupported state rather than migrated.
 
 ## Evaluation and isolation
 
 A failed prerequisite suppresses checks whose conclusions would be unreliable
-without it. Those checks do not emit secondary symptoms. Independent checks
+without it. Those rules do not emit cascade symptoms. Independent rules
 continue so one invalid extension does not hide another.
 
-A command is blocked only by invalid state relevant to the selected extension
-and the other extensions that must change with it. Unrelated invalid state does
-not become a global workspace gate.
+Facts and operational blockers identify their semantic mutation closure. A
+command is blocked only by state relevant to the selected closure. Global sync
+applies every ready independent closure automatically, leaves blocked closures
+unwritten, and continues after a handled failure in another closure. Cleanup
+that depends on a complete graph is a separate maintenance closure.
 
 ## Recovery ownership
 
-Every reported lint error and sync blocker has one demonstrated recovery owner:
+Every lint error and sync blocker has one demonstrated recovery owner:
 
-- `lint --fix` for unambiguous, meaning-preserving normalization;
+- `lint --fix` for schema-proven semantic normalization;
 - sync for deterministic reconciliation of AXM-managed state;
-- an intent command when the user must express a workspace choice; or
-- direct correction of workspace-authored settings, manifests, or content.
+- an intent command when the user must express a durable workspace choice;
+- direct correction of workspace-authored settings or manifests; or
+- manual preservation, relocation, or removal of unowned native content.
 
-Recovery ownership is a design and testing classification, not suggested
-command metadata. Some states require a person or agent to choose the desired
-outcome; AXM supplies the facts but does not make that choice.
+Recovery ownership is a test classification, not suggested-action metadata.
+AXM does not adopt unowned native content, even when it is semantically
+equivalent to the required output.
 
-## Testing strategy
+## Recovery-conformance registry
 
-A test-only recovery registry covers every lint error and sync blocker. A
-completeness check fails when a new error or blocker lacks a recovery contract.
+A test-only exhaustive registry is keyed by every lint error and sync blocker.
+A completeness test fails when a shipped error or blocker lacks a recovery
+contract.
 
-Each contract begins from valid state, introduces the smallest relevant
-violation, verifies the primary facts and suppression of dependent symptoms,
-exercises the owning recovery path, constrains permitted changes, forbids
-unrelated or unowned changes, ends converged, and proves a second run makes no
-further change.
+Each entry defines:
 
-The extension conformance suite covers independently coexisting unowned
-content, a direct collision, ambiguous ownership evidence, stale AXM-owned
-output, authored canonical inventory outside desired state, unreachable managed
-content, and unclassifiable canonical content wherever those states apply.
-Type-specific tests add the native merge, ordering, and fallback cases that a
-shared fixture cannot express.
+- authoritative inputs and a valid base state;
+- the minimal perturbation producing the finding or blocker;
+- expected diagnostic facts and dependent-rule suppression;
+- the recovery owner;
+- exact permitted state changes and forbidden effects;
+- post-recovery lint and projection state; and
+- second-run idempotence.
 
-Workspace-surface tests additionally cover configured-agent transitions,
-instruction-region and alias ownership, source-policy precedence, and inline
-configuration without sourced-extension state.
+The cross-type projection family covers missing, stale, obsolete, unowned
+collision, ambiguous ownership, safe owned removal, authored inventory outside
+desired state, unreachable managed content, and unclassifiable canonical
+content wherever applicable. Type-specific tests add native merge, ordering,
+region-boundary, and fallback cases.
 
-Cross-cutting tests prove that handled failure leaves no partial work, unrelated
-invalid state remains isolated, authored content is not incidentally deleted,
-unowned content is not overwritten, sync does not change authored intent, and
-lint fix performs no acquisition or projection work. They also cover stale and
-concurrent plans, interruption, formatter-induced drift in external content,
-replacement disclosure, and truthful partial progress.
+Cross-cutting adversarial coverage proves:
 
-Receipt history is not an invariant input. Metamorphic tests vary missing,
-malformed, stale, and absent receipt rows while holding authoritative and
-observed state fixed and require identical lint facts and business plans.
+- handled failure leaves no partial closure;
+- unrelated invalid closures do not block ready progress;
+- authored canonical and unowned native content are never incidentally deleted,
+  overwritten, or adopted;
+- sync does not change authored intent or advance a satisfying lock;
+- lint fix performs no acquisition, lock, canonical, ownership, or projection
+  work;
+- stale plans write nothing and concurrent plans cannot interleave;
+- interruption at every publication boundary converges from surviving
+  authority on the next mutation;
+- formatter-induced external drift remains valid and projectable;
+- update and reinstall disclose replacement of divergent external content;
+- global sync reports closure-local outcomes and nonzero overall results when
+  any requested closure does not converge, including when others commit;
+- lock-only Pack members never change reachability;
+- invalid lock authority is never reconstructed from obsolete trust state;
+- mutable-source sync and reinstall never substitute a new content identity;
+  and
+- legacy persisted state is rejected without migration or cleanup.
 
-Minimized fixtures derived from real incidents are authoritative; live
-repositories are used only for thin end-to-end confirmation.
+Minimized fixtures derived from real incidents are authoritative. Live
+repositories remain a thin end-to-end confirmation layer.

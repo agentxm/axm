@@ -18,9 +18,8 @@ merges an owned server entry into each supported native configuration. It
 supports both published extension content and explicit inline workspace
 configuration because local server connections are a routine MCP use case.
 
-The MCP command group may add, import, or inspect native server definitions.
-Import is an explicit ownership decision; observation alone never adopts an
-existing entry.
+The MCP command group may add or inspect server definitions. Observation never
+adopts an existing native entry.
 
 ## Non-responsibilities
 
@@ -36,7 +35,7 @@ A server definition from an extension is canonical extension content. An inline
 server definition is authoritative workspace configuration. Native MCP entries
 are derived outputs in both cases. An inline definition has no fabricated
 extension archive, canonical extension content, or resolved extension version;
-successful realization may still produce receipt history. AXM owns only entries
+no artificial lock row is created. AXM owns only entries
 it created and can still identify; unrelated entries and surrounding
 configuration remain untouched.
 
@@ -49,8 +48,8 @@ must realize is a collision, even when its connection details happen to match.
 AXM-managed entries carry type-appropriate provenance that survives ordinary
 serialization changes. AXM may update or remove only that entry. A native
 format that cannot preserve unrelated entries or identify AXM's entry safely is
-unsupported. Import is the explicit transition that brings a selected native
-entry under AXM authority.
+unsupported. Even an equivalent unowned entry remains unowned; manual
+preservation, relocation, or removal owns collision recovery.
 
 ## Invariants
 
@@ -67,6 +66,6 @@ entry under AXM authority.
 
 Behavior tests prove canonical-content and inline authority, input binding,
 secret-safe output, unrelated-entry preservation, same-name collisions,
-provenance drift, import boundaries, target-dialect rendering, shared-target
+provenance drift, manual unowned-collision recovery, target-dialect rendering, shared-target
 concurrency, unsupported transports, activation, safe removal, and repeated
 reconciliation.

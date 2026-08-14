@@ -35,7 +35,8 @@ because they can reach its manifest. Lifecycle commands and sync own those
 transitions.
 
 Pack commands do not use replacement, empty-pack, or dependency-breaking flags
-to bypass authored intent, reachability, trust, or publication requirements.
+to bypass authored intent, reachability, accepted-lock, or publication
+requirements.
 
 ## Testing strategy
 

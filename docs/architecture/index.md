@@ -7,7 +7,7 @@ Navigation for the accepted product and system architecture of AXM.
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and
   major system elements
 - [Glossary](glossary.md) — recurring AXM terms for extension authority,
-  manifests, sources, accepted resolutions, receipt history, workspaces, scopes,
+  manifests, sources, authoritative lock state, workspaces, scopes,
   canonical extension content, projections, and unowned content
 - [Principles](principles.md) — command ownership, recovery, content authority,
   change scope, overrides, and verification

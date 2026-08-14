@@ -35,7 +35,7 @@ standards.
 Every extension has an owner-scoped identity and exactly one type. Published
 versions are immutable. A configured extension participates in desired state,
 activation, and lifecycle through the common workspace and command model.
-Resolution and trust apply when its source requires them.
+Authoritative lock resolution applies when its source is external.
 
 Workspace settings distinguish an extension entry from configuration for a
 capability as a whole. An entry expresses one desired extension, source, and
@@ -51,8 +51,8 @@ dependency route; it does not activate a Pack runtime or erase members that
 remain reachable elsewhere. Inline MCP definitions are an explicit exception
 to the sourced-extension path: settings are authoritative and no extension
 archive, canonical extension content, or resolved extension version is
-fabricated. Successful realization may still produce receipt history.
-Type-specific commands may add authoring, import, inspection, or discovery
+fabricated, and no artificial lock row is created.
+Type-specific commands may add authoring, inspection, or discovery
 capabilities, but do not redefine lifecycle policy.
 
 ## Architectural differences
@@ -98,8 +98,9 @@ ownership from an entry or region to the containing file merely because it must
 use read-modify-write.
 
 Every type document states how its unit is identified, what can coexist, what
-collides, and what AXM may remove. Observation alone never adopts native
-content; any adoption is an explicit type-specific operation.
+collides, and what AXM may remove. AXM does not adopt native content, including
+semantically equivalent content. A person or agent manually preserves,
+relocates, or removes an unowned collision.
 
 ## Invariants
 
@@ -110,7 +111,7 @@ content; any adoption is an explicit type-specific operation.
 - A projection never becomes canonical merely because an agent can use it.
 - Activation changes realized outputs without changing extension identity or
   authorship.
-- Type-specific capabilities do not bypass shared ownership, trust,
+- Type-specific capabilities do not bypass shared ownership, accepted-lock,
   transaction, or lifecycle rules.
 - An output is changed or removed only while AXM can establish authority over
   that type's ownership unit.

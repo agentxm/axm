@@ -21,8 +21,9 @@ desired route retains them. If a Pack still reaches the selected extension,
 AXM keeps it and reports that result truthfully.
 
 Cleanup that depends on the complete dependency graph waits until AXM can
-derive that graph safely. The configuration and managed state that do change
-are applied as one affected operation.
+derive that graph safely. The settings change, lock-row removal, canonical
+cleanup, and owned-output cleanup in one semantic mutation closure commit
+atomically.
 
 ## Non-responsibilities
 

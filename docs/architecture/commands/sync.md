@@ -1,138 +1,140 @@
 ---
 status: stable
-description: Desired-state reconciliation, projection recovery, and failure semantics for AXM sync.
+description: Desired-state reconciliation, closure-local progress, and recovery semantics for AXM sync.
 depends-on:
   - ./overview.md
   - ../workspace/overview.md
   - ../workspace/settings.md
   - ../workspace/lockfile.md
-  - ../workspace/trust.md
   - ../workspace/invariants.md
+  - ../workspace/execution.md
 ---
 
 # Sync
 
-`axm sync` makes AXM-managed installed state and managed outputs agree with
+`axm sync` makes AXM-managed installed state and owned outputs agree with
 desired workspace state. It is reconciliation, not updating, workspace
-configuration editing, or generic repair.
+configuration editing, native-content adoption, or generic repair.
 
 ## Responsibilities
 
-Sync derives desired state from workspace configuration and trusted extension
-metadata. It consumes the same workspace invariant facts as lint, then combines
-them with the operational evidence needed to plan reconciliation. It compares
-desired state with configured agents, source policy, accepted trust and
-resolution, canonical extension content, inline configuration, bundled
-content, instruction surfaces, and other managed outputs. It produces a plan
-that:
+Sync consumes the same intrinsic invariant facts as lint and adds operational
+evidence needed for source acquisition and application. It reconciles desired
+state with:
 
-- resolves and establishes trust for a desired sourced extension that lacks an
-  accepted resolution;
-- reacquires missing external canonical extension content from its accepted
-  resolution where the source supports it;
-- materializes required bundled content;
-- creates or restores required AXM-owned agent and workspace outputs; and
-- removes unreachable AXM-managed trust, canonical content, and projections
-  when the desired graph and ownership evidence are complete.
+- authoritative accepted-resolution state in the lockfile;
+- present canonical extension content and bundled content;
+- authoritative inline configuration;
+- configured agents and workspace capabilities; and
+- adapter-owned native output observations.
 
-Receipt maintenance follows successful application. It is not an input to this
-plan.
+It resolves a desired external extension only when no accepted resolution
+exists, reacquires missing canonical content only from the exact locked
+identity, materializes bundled content, reconciles required owned outputs, and
+removes unreachable AXM-managed state only when desired-graph and ownership
+evidence are complete.
 
-`axm sync --preview` shows the same plan that application would attempt.
+`axm sync --preview` presents the same closure decisions application will
+attempt. Preview performs no workspace writes.
 
 ## Non-responsibilities
 
-Sync does not change workspace configuration, advance a satisfying accepted
-resolution, publish content, overwrite unowned units, or remove
-workspace-authored content merely because it is not desired. It does not choose
-between conflicting explicit choices.
+Sync does not change authored configuration, advance a satisfying accepted
+resolution, publish content, claim unowned native content, or remove
+workspace-authored inventory merely because it is not desired. It does not
+choose between conflicting explicit choices.
 
-An operational blocker used by sync does not become a lint violation merely
-because it prevents reconciliation.
-
-Present external canonical byte drift is left alone by ordinary sync. Use an
-explicit update or reinstall when the user intends AXM to replace that content.
+Present byte drift in installed external canonical content is preserved during
+ordinary sync and remains valid projection input. Explicit update or reinstall
+owns replacement and discloses it.
 
 Sync realizes configured agents, instruction-file behavior, and inline MCP
-definitions without inventing extension archives, canonical extension content,
-or resolved extension versions for them. Successful source-free realization
-may still produce receipt history. Sync does not add detected agents, enable
-instruction management, select a different canonical instruction file, or
-activate a disabled contributor.
+definitions without inventing extension archives, canonical copies, or lock
+rows. It does not add detected agents, enable instruction management, choose a
+different canonical instruction file, or activate a disabled contributor.
 
-## Resolution and trust
+## Accepted resolution and source availability
 
-A desired sourced extension without accepted resolution evidence may resolve
-once and establish trust. An accepted resolution satisfying desired constraints
-remains stable. If its external canonical extension content is missing, sync
-may reacquire the same version or revision where the source supports it; a
-newer available result is update's responsibility.
+A desired external extension without a lock row may resolve and verify once.
+Its lock row, canonical content, and affected owned outputs commit atomically.
+A satisfying locked resolution remains stable; update owns advancement.
 
-Missing, malformed, stale, or absent receipt history does not change this plan
-or become a sync blocker. Receipt history cannot reconstruct trust. AXM does not
-fetch or mutate business state solely to enrich it.
+Sync and reinstall rematerialize only the immutable locked identity. If a Git
+or local-path source no longer reproduces that identity and canonical content
+is missing, the affected closure blocks. AXM never substitutes current source
+bytes. Missing, malformed, or incompatible lock authority is consequential and
+is never reconstructed from legacy `trust.json`, installed content, or Pack
+member metadata.
 
-Registry pack dependencies participate in resolution only from a trusted
-registry manifest or a local manifest that matches it. A divergent local copy
-cannot silently redefine the registry dependency graph.
+A Registry Pack contributes dependencies only from its accepted locked manifest
+or a local manifest that semantically matches that identity. Lock-only member
+maps cannot create dependency routes.
 
-Configured capabilities without external sources do not participate in
-resolution. Their settings and observed output ownership are the relevant
-authorities.
+Source availability and acquisition failure may block sync without becoming
+lint findings. Capabilities without external sources do not participate in
+resolution.
 
 ## Output reconciliation
 
-Every agent adapter and workspace-surface writer applies the same decisions:
+Every projection adapter and workspace-surface writer applies the same family
+of decisions at its smallest independently mutable ownership unit:
 
-| Observed native unit                                   | Sync behavior                   |
-| ------------------------------------------------------ | ------------------------------- |
-| Required and missing                                   | Create it.                      |
-| Required, AXM-owned, and stale                         | Restore it.                     |
-| No longer required and AXM-owned                       | Remove it.                      |
-| Unowned and independently coexisting                   | Preserve it; plan no change.    |
-| Required unit occupied by unowned or ambiguous content | Block and preserve the content. |
+| Observed native unit                                | Sync behavior                                         |
+| --------------------------------------------------- | ----------------------------------------------------- |
+| Required and missing                                | Create it with durable unit-local ownership evidence. |
+| Required, AXM-owned, and stale                      | Restore it.                                           |
+| No longer required and AXM-owned                    | Remove it.                                            |
+| Unowned and independently coexisting                | Preserve it and plan no change.                       |
+| Required unit occupied by unowned content           | Block the affected closure and preserve it.           |
+| Ownership evidence missing, malformed, or ambiguous | Block the affected closure and preserve the content.  |
 
-These decisions apply to skills and every other projected extension type.
-Each type defines its ownership unit and whether independent coexistence is
-possible. Sync does not infer that decision from a different extension type.
+Path, name, matching bytes, or ownership of a surrounding file never prove
+ownership of the unit. AXM does not adopt equivalent native content. Manual
+preservation, relocation, or removal owns recovery from an unowned collision.
 
-## Blockers and partial progress
+## Semantic mutation closures
 
-Sync groups extensions that must change together because of Pack membership or
-shared outputs. A blocker leaves that entire group untouched. A separate group
-that does not depend on the same changes may still apply, and the result reports
-both completed and blocked work honestly.
+A semantic mutation closure connects work through desired reachability,
+combined desired/lock/canonical postconditions, a shared native ownership unit,
+or invariants requiring joint validation. Physical co-location in a settings,
+lock, or native file does not by itself merge closures.
 
-Cleanup that requires a complete desired graph does not run when any missing or
-invalid input prevents that graph from being known. This avoids deleting
-content whose reachability cannot yet be determined.
+Global sync automatically applies every ready closure. A blocker causes no
+writes in its closure. A handled failure rolls back only its closure, and later
+independent closures continue. Human and machine results classify each closure
+as applied, no-op, blocked, failed, or rolled back.
+
+The overall command exits nonzero whenever the complete request does not
+converge, including when independent closures committed successfully. Partial
+progress is therefore truthful state, not global success.
+
+Cleanup that requires a complete graph is a separate maintenance closure and
+runs only when graph construction is complete.
 
 ## Failure and interruption
 
-Before writing, sync checks that authoritative inputs and target state still
-match the plan. A stale plan writes nothing, and `--force` cannot bypass that
-check. Two changes to the same workspace scope must not interleave.
+Before writing, application acquires the workspace OS lock and revalidates all
+material authoritative inputs and target preimages. A stale plan writes
+nothing, and `--force` cannot bypass the check.
 
-Handled application failure rolls back the extensions that were changing
-together. Independent groups already completed remain truthful completed work.
-Receipt persistence follows successful application; its failure does not undo
-completed business work and is reported separately.
+Settings, authoritative lock state, canonical content, and owned outputs in one
+closure commit together. A handled application failure restores the closure's
+pre-application state while preserving independent committed closures.
 
-Abrupt termination must not leave a partly written authoritative file or lose
-authored or unowned content. A later run finishes safely from authoritative
-state without a general repair command.
+Abrupt termination must not tear an authoritative file, expose an incomplete
+canonical directory, or lose authored or unowned content. The next mutation
+converges affected state from surviving authority before evaluating its own
+request; it does not resume or roll back the interrupted command.
 
 ## Testing strategy
 
-Sync tests own the reconciliation scenarios. The shared
-[workspace invariant design](../workspace/invariants.md) owns exhaustive
-blocker recovery coverage. Cross-type tests exercise independent unowned
-content, collisions, ambiguous authority, stale owned outputs, and safe
-removal. Other cross-cutting tests cover preview/application identity,
-independent-group isolation, adapter ownership parity, rollback, stale plans,
-concurrency, interruption, and truthful partial progress.
+The recovery-conformance registry owns exhaustive blocker restoration. Sync
+tests cover shared intrinsic facts, operational blockers, preview/apply
+identity, stable locks, exact source-class rematerialization, adapter ownership
+parity, graph-complete cleanup, closure isolation, rollback, stale plans,
+concurrency, interruption, and nonzero results with committed independent
+closures.
 
-Receipt-independence tests vary, remove, corrupt, and add stale history while
-holding desired, trust, observed, and source state fixed and require the same
-sync plan. Other tests prove post-success receipt maintenance, no fetch solely
-for history, and truthful receipt-write failure without business rollback.
+Cross-type tests exercise missing, stale, obsolete, collision, ambiguous
+ownership, safe removal, and manual unowned-collision recovery. Second-run
+assertions prove convergence and idempotence.

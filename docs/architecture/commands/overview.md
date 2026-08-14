@@ -17,24 +17,24 @@ workspaces easier to recover.
 
 ## Responsibilities
 
-| Responsibility                 | Commands                                           | Result                                                                           |
-| ------------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Initialize a workspace         | `setup`                                            | An uninitialized scope receives explicit starting configuration.                 |
-| Configure coding agents        | `agents add` and `agents remove`                   | The durable target set and affected owned outputs change together.               |
-| Configure instruction files    | `instructions`                                     | Instruction-file management is inspected, enabled, or disabled explicitly.       |
-| Diagnose invariant violations  | [`axm lint`](lint.md)                              | Facts about invalid extension or workspace state; no state change.               |
-| Normalize safe source details  | [`axm lint --fix`](lint.md)                        | Meaning-preserving edits only.                                                   |
-| Realize desired state          | [`axm sync`](sync.md)                              | Managed installed state and projections agree with desired state.                |
-| Add extension configuration    | [`axm install`](install.md)                        | The extension becomes directly desired and required managed state is realized.   |
-| Change an installed resolution | [`axm update`](update.md)                          | A resolution advances, a constraint changes, or accepted content is reinstalled. |
-| Remove extension configuration | [`axm uninstall`](uninstall.md)                    | Direct reachability is removed; other desired routes remain.                     |
-| Change activation              | `enable` and `disable`                             | Leaf projections or a Pack dependency route follow the desired activation.       |
-| Change pack membership         | [`axm packs add` and `axm packs remove`](packs.md) | The authored pack manifest changes.                                              |
-| Inspect extensions             | `list`, `list --outdated`, and `view`              | Inventory, update availability, or extension information; no state change.       |
-| Discover extensions            | `discover`                                         | Project packages produce recommendations without changing intent.                |
-| Use type-specific capabilities | Type command groups                                | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
-| Author extensions              | `new`, copy, import, and type authoring commands   | Workspace-authored canonical content or explicit inline configuration changes.   |
-| Distribute authored extensions | [`publish`](publish.md)                            | Eligible authored content is validated and sent to the registry.                 |
+| Responsibility                    | Commands                                           | Result                                                                           |
+| --------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Initialize a workspace            | `setup`                                            | An uninitialized scope receives explicit starting configuration.                 |
+| Configure coding agents           | `agents add` and `agents remove`                   | The durable target set and affected owned outputs change together.               |
+| Configure instruction files       | `instructions`                                     | Instruction-file management is inspected, enabled, or disabled explicitly.       |
+| Diagnose invariant violations     | [`axm lint`](lint.md)                              | Facts about invalid extension or workspace state; no state change.               |
+| Normalize authored representation | [`axm lint --fix`](lint.md)                        | Schema-proven edits with decoded-domain equivalence.                             |
+| Realize desired state             | [`axm sync`](sync.md)                              | Managed installed state and projections agree with desired state.                |
+| Add extension configuration       | [`axm install`](install.md)                        | The extension becomes directly desired and required managed state is realized.   |
+| Change an installed resolution    | [`axm update`](update.md)                          | A resolution advances, a constraint changes, or accepted content is reinstalled. |
+| Remove extension configuration    | [`axm uninstall`](uninstall.md)                    | Direct reachability is removed; other desired routes remain.                     |
+| Change activation                 | `enable` and `disable`                             | Leaf projections or a Pack dependency route follow the desired activation.       |
+| Change pack membership            | [`axm packs add` and `axm packs remove`](packs.md) | The authored pack manifest changes.                                              |
+| Inspect extensions                | `list`, `list --outdated`, and `view`              | Inventory, update availability, or extension information; no state change.       |
+| Discover extensions               | `discover`                                         | Project packages produce recommendations without changing intent.                |
+| Use type-specific capabilities    | Type command groups                                | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
+| Author extensions                 | `new`, copy, and type authoring commands           | Workspace-authored canonical content or explicit inline configuration changes.   |
+| Distribute authored extensions    | [`publish`](publish.md)                            | Eligible authored content is validated and sent to the registry.                 |
 
 ## Non-responsibilities
 
@@ -82,8 +82,9 @@ semantic differences among types.
 
 Install, update, uninstall, enable, and disable express durable workspace
 choices and realize the selected extension together with the other extensions
-that must change with it. They preflight only that affected work, establish the
-whole promised postcondition, and leave unrelated invalid state alone.
+connected in its semantic mutation closure. They preflight only that closure,
+establish the whole promised postcondition atomically, and leave unrelated
+invalid state alone.
 
 The focused command documents own distinctions that are not evident from this
 shared model. Exact flags, inputs, result fields, and supported extension types
@@ -98,6 +99,10 @@ preview or plan writes nothing.
 `--yes` answers routine prompts. `--force` may bypass only an explicitly
 forceable policy and never a hard invariant. Routine exceptional modes receive
 their own names rather than accumulating narrow override flags.
+
+Global sync applies every ready independent closure. A nonzero result may still
+include committed closures; human and machine output report each closure's
+outcome rather than reducing the request to a misleading all-or-nothing label.
 
 If no policy safely meets the force boundary, no command exposes `--force`.
 

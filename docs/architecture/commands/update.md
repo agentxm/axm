@@ -4,7 +4,6 @@ description: How AXM advances or rematerializes an existing extension resolution
 depends-on:
   - ./overview.md
   - ../workspace/lockfile.md
-  - ../workspace/trust.md
   - ../workspace/invariants.md
 ---
 
@@ -34,11 +33,12 @@ selected.
 
 Update does not broaden a constraint unless the user supplies one, reinterpret
 local drift as workspace authorship, change unrelated resolutions, or bypass
-trust, ownership, stale-plan, locking, and rollback requirements.
+accepted-lock, ownership, stale-plan, locking, and rollback requirements.
 
-Neither update nor reinstall uses receipt history to select a version, establish
-trust, or prove that content is present. Receipt history is maintained only
-after the requested business work succeeds.
+Reinstall uses only the exact immutable identity in the authoritative lockfile.
+If a mutable source no longer reproduces it and canonical content is missing,
+reinstall blocks rather than substituting different bytes. Update may resolve
+and atomically accept a new identity within durable intent.
 
 Reinstall is not repair. It does not choose new intent, resolve an unrelated
 invariant violation, replace workspace-authored content, or adopt an unowned
@@ -47,6 +47,6 @@ path.
 ## Testing strategy
 
 Behavior tests distinguish constraint-preserving update, explicit constraint
-change, and reinstall. They prove replacement disclosure, affected-work
-atomicity, idempotence, unrelated-state preservation, and parity between root
-and type-specific forms.
+change, and reinstall. They prove replacement disclosure, closure atomicity,
+exact source-class rematerialization, idempotence, unrelated-state
+preservation, and parity between root and type-specific forms.

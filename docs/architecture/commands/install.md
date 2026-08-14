@@ -18,9 +18,10 @@ Install:
 
 - adds or updates the extension's direct workspace configuration;
 - resolves Pack members and an exact allowed version when needed;
-- establishes required trust for acquired external content;
+- records the accepted immutable external resolution in the authoritative
+  lockfile;
 - materializes canonical extension content and required agent projections; and
-- applies those affected changes as one safe operation.
+- applies the affected semantic mutation closure atomically.
 
 Installing an extension already desired at the requested constraint is a
 successful no-op. Supplying a different constraint explicitly authorizes
@@ -46,5 +47,6 @@ express the same durable intent and produce the same underlying plan and result.
 ## Testing strategy
 
 Behavior tests prove configuration and realized-state postconditions,
-idempotence, affected-work atomicity, preservation of unrelated and unowned
-state, constraint replacement, and parity between root and type-specific forms.
+idempotence, closure atomicity, preservation of unrelated and unowned state,
+accepted-lock persistence, constraint replacement, and parity between root and
+type-specific forms.

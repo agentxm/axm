@@ -12,8 +12,8 @@ Navigation for AXM workspace state, artifacts, and safe execution.
   agent-specific aliases, and contributed regions
 - [Sources and resolution](sources.md) — source-host precedence and policies
   that constrain external resolution
-- [Lockfile](lockfile.md) — post-success receipt history and its authority boundary
-- [Trust](trust.md) — accepted external source and resolution provenance
+- [Lockfile](lockfile.md) — accepted external resolutions, immutable content
+  identity, and provenance
 - [Invariants](invariants.md) — shared workspace validity facts and recovery
   coverage
 - [Execution](execution.md) — read snapshots, planning, mutation, and adapter

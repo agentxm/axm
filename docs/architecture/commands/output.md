@@ -51,3 +51,8 @@ Preview, confirmation, execution, and rendering refer to one operation
 candidate. Machine mode never prompts. Cancellation, blocked work, partial
 progress, rollback, and interruption remain distinct outcomes when the
 underlying operation distinguishes them.
+
+For closure-based operations, human and machine results identify each closure
+as applied, no-op, blocked, failed, or rolled back. Overall nonzero exit status
+means the complete request did not converge; it does not imply that no
+independent closure committed.

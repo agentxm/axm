@@ -31,15 +31,23 @@ agent expects. Other managed outputs may belong to a shared workspace surface.
 
 The right and responsibility to decide or change a specific unit of workspace
 state. AXM establishes authority from authored configuration, accepted source
-and resolution state, bundled identity, or type-appropriate ownership evidence.
+and resolution state in the authoritative lockfile, bundled identity, or
+type-appropriate ownership evidence.
 A path, name, or matching content alone does not establish authority.
 
 ## Accepted resolution
 
-The exact external version or immutable revision AXM accepted after resolving a
-desired sourced extension. Trust and provenance record this baseline so AXM can
-verify or, where supported, reacquire the same content. An accepted resolution
-does not create desired-state reachability, and receipt history does not pin it.
+The exact external version or immutable content identity AXM accepted after
+resolving a desired sourced extension. The authoritative lockfile records this
+baseline so AXM can verify or, where supported, reacquire the same content. An
+accepted resolution does not create desired-state reachability.
+
+## Authoritative lockfile
+
+The generated, committed `.axm/axm-lock.yaml` state that records accepted
+external resolutions and provenance. It participates in planning and exact
+materialization, but never creates desired membership, activation, Pack
+reachability, projection ownership, or cleanup authority.
 
 ## Bundled extension
 
@@ -86,25 +94,25 @@ An agent output derived from canonical extension content. A projection is
 AXM-owned only when AXM created and still owns it; occupying an expected path
 does not establish ownership.
 
-## Receipt history
-
-The generated record of successful AXM resolution and materialization work,
-stored in `.axm/axm-lock.yaml`. It is written after the work it describes and
-does not express intent, establish trust, prove current installation, pin a
-resolution, or participate in workspace planning. It is not an append-only
-audit log or a reproducible-resolution snapshot.
-
 ## Source
 
 The origin from which an extension's canonical extension content is authored, resolved,
 or acquired. A source may be workspace-authored, registry-hosted, another
 supported external source, or bundled with AXM. A source reference alone does
-not make an extension desired, establish trust, or authorize AXM to overwrite
+not make an extension desired, establish an accepted resolution, or authorize AXM to overwrite
 existing content.
 
 A **source reference** is the user- or configuration-facing value that names a
 source and may include a version constraint. A **source identity** is the
-stable origin AXM accepts and records in trust state.
+stable origin AXM accepts and records in the authoritative lockfile.
+
+## Semantic mutation closure
+
+The smallest set of workspace state that must validate, change, and roll back
+together. Reachability relationships, combined desired/lock/canonical
+postconditions, shared native ownership units, and invariants requiring joint
+validation connect work into a closure. Physical co-location in one settings,
+lock, or native file does not by itself connect otherwise independent work.
 
 ## Source host
 
@@ -118,14 +126,16 @@ Observed content for which AXM cannot establish authority. Unowned describes
 AXM's relationship to a specific occurrence, not the extension's lifecycle or
 the validity of the workspace. Depending on its type and location, unowned
 content may coexist independently, collide with desired output, or make
-authority ambiguous. AXM does not adopt, rewrite, or remove it implicitly.
+authority ambiguous. AXM does not adopt, rewrite, or remove it. Manual
+preservation, relocation, or removal owns recovery when it blocks required AXM
+output.
 
 ## Workspace
 
-The local AXM management boundary whose configuration, trust and provenance,
-canonical extension content, inline definitions, managed outputs, and receipt
-history describe and realize one desired state. A workspace operates in either
-project or user scope.
+The local AXM management boundary whose configuration, authoritative lock
+state, canonical extension content, inline definitions, and managed outputs
+describe and realize one desired state. A workspace operates in either project
+or user scope.
 
 ## Workspace-authored extension
 

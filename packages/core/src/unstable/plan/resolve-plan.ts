@@ -17,7 +17,11 @@ import * as Option from "effect/Option";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
-import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
+import {
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
+  type ExecutionCandidate,
+} from "./execution-candidate.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import type {
@@ -56,6 +60,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   options: {
     execution: PlanExecution;
     displayApplied?: boolean;
+    beforeApply?: (candidate: ExecutionCandidate) => Effect.Effect<void, AppError>;
   },
 ) {
   const ws = yield* WorkspaceMutations;
@@ -146,6 +151,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   const failedPlan = (options: {
     readonly reason: FailedPlan["reason"];
     readonly errorCode: FailedPlan["errorCode"];
+    readonly failure?: AppError;
     readonly suggestions?: FailedPlan["suggestions"];
     readonly executionSteps?: FailedPlan["executionSteps"];
   }): FailedPlan => ({
@@ -156,6 +162,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     jobs: candidatePlan.jobs,
     reason: options.reason,
     errorCode: options.errorCode,
+    ...(options.failure === undefined ? {} : { failure: options.failure }),
     ...(candidatePlan.preconditions === undefined
       ? {}
       : { preconditions: candidatePlan.preconditions }),
@@ -284,6 +291,15 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         detail: "The execution candidate became stale before apply.",
       });
     }
+    if (options.beforeApply !== undefined) {
+      yield* options.beforeApply(candidate);
+      if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: "The execution candidate became stale before apply.",
+        });
+      }
+    }
     const result = yield* applyPlan(candidate.plan);
     attemptedExecution = result;
     const failedStep = result.jobs
@@ -348,6 +364,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     return failedPlan({
       reason: staleCandidate ? "stale-candidate" : "execution-failed",
       errorCode: applyResult.error.code,
+      failure: applyResult.error,
       suggestions: staleCandidate
         ? [{ description: "Rerun the command to resolve a fresh candidate." }]
         : applyResult.error.suggestions,

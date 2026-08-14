@@ -34,6 +34,19 @@ and committed artifacts when recovering a partial result.
 under `result`. Token commands also place their command payload under `result`;
 do not log or forward token result documents.
 
+Publish results are discriminated by `result.contract: "publish-result-v2"`.
+They separate `selection.decisions`, the authoritative `publicationSet`, and
+`execution.outcomes`. A failed item identifies an operation that actually
+failed and carries a typed `cause`; a blocked item was not attempted and names
+its causal item or finding through `blockedBy`. Counts are derived from those
+outcomes, so blocked items never increment `failed`.
+
+After a post-preflight partial publication, `result.recovery.cmd` is a
+credential-free generic `axm publish` command over the exact admitted
+identities. It verifies byte-identical versions created by the earlier attempt
+and retries versions that remain absent. A rejected preflight has findings and
+corrective suggestions instead of a partial-publication recovery command.
+
 Built-in formatter documents are the two success-envelope exceptions:
 
 ```json

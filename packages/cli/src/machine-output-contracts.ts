@@ -93,8 +93,16 @@ const publishFamily = {
   ],
   schemaNames: ["PublishResultSchema"],
   requiredEnvelopeKeys: ["ok", "result"],
-  requiredTopLevelKeys: ["ok", "mode", "results"],
-  optionalTopLevelKeys: ["selection", "summary", "suggestions"],
+  requiredTopLevelKeys: [
+    "ok",
+    "contract",
+    "mode",
+    "selection",
+    "publicationSet",
+    "execution",
+    "counts",
+  ],
+  optionalTopLevelKeys: ["recovery", "summary", "suggestions"],
   scenarios: ["preview", "apply", "no-op", "partial failure"],
   rationale:
     "Publish reconciliation has a purpose-built multi-item result whose actions differ from file plans.",

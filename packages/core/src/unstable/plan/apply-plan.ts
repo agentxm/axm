@@ -57,6 +57,7 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
   switch (step.readiness) {
     case "error":
       return Effect.succeed({
+        ...(step.key === undefined ? {} : { key: step.key }),
         label: step.label,
         result: {
           result: "error",
@@ -71,11 +72,13 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
     case "ready":
       return step.run.pipe(
         Effect.map((result): CompletedJobStep => ({
+          ...(step.key === undefined ? {} : { key: step.key }),
           label: step.label,
           result,
         })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
+            ...(step.key === undefined ? {} : { key: step.key }),
             label: step.label,
             result: {
               result: "error",
@@ -89,11 +92,13 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
     case "warn":
       return step.run.pipe(
         Effect.map((result): CompletedJobStep => ({
+          ...(step.key === undefined ? {} : { key: step.key }),
           label: step.label,
           result: appendReadinessWarning(step, result),
         })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
+            ...(step.key === undefined ? {} : { key: step.key }),
             label: step.label,
             result: {
               result: "error",
@@ -106,8 +111,14 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
   }
 };
 
-const blockStep = (step: PlannedJobStep, message: string): CompletedJobStep => ({
+const blockStep = (
+  step: PlannedJobStep,
+  message: string,
+  blockedBy?: ReadonlyArray<string>,
+): CompletedJobStep => ({
+  ...(step.key === undefined ? {} : { key: step.key }),
   label: step.label,
+  ...(blockedBy === undefined ? {} : { blockedBy }),
   result: {
     result: "error",
     message,
@@ -155,6 +166,72 @@ const executeBestEffortJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJo
     concurrency: job.concurrency,
   });
 
+const executeDependencyAwareJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJobStep>> =>
+  Effect.gen(function* () {
+    const stepsByKey = new Map(
+      job.steps.flatMap((step) => (step.key === undefined ? [] : [[step.key, step] as const])),
+    );
+    const completed = new Map<string, CompletedJobStep>();
+    const unkeyed = job.steps.filter((step) => step.key === undefined);
+    for (const step of unkeyed) {
+      const result = yield* executeStep(step);
+      completed.set(`label:${step.label}`, result);
+    }
+
+    while ([...stepsByKey.keys()].some((key) => !completed.has(key))) {
+      const remaining = [...stepsByKey.entries()].filter(([key]) => !completed.has(key));
+      const blocked = remaining.filter(([, step]) =>
+        (step.dependsOn ?? []).some((dependency) => {
+          const result = completed.get(dependency);
+          return result !== undefined && result.result.result === "error";
+        }),
+      );
+      for (const [key, step] of blocked) {
+        const blockedBy = (step.dependsOn ?? []).filter((dependency) => {
+          const result = completed.get(dependency);
+          return result !== undefined && result.result.result === "error";
+        });
+        completed.set(
+          key,
+          blockStep(step, `blocked by failed dependency: ${blockedBy.join(", ")}`, blockedBy),
+        );
+      }
+
+      const ready = remaining.filter(
+        ([key, step]) =>
+          !completed.has(key) &&
+          (step.dependsOn ?? []).every((dependency) => {
+            const result = completed.get(dependency);
+            return result === undefined
+              ? !stepsByKey.has(dependency)
+              : result.result.result !== "error";
+          }),
+      );
+      if (ready.length === 0) {
+        for (const [key, step] of remaining) {
+          if (completed.has(key)) continue;
+          completed.set(
+            key,
+            blockStep(step, "blocked by an unresolved dependency cycle", step.dependsOn ?? []),
+          );
+        }
+        break;
+      }
+      const results = yield* Effect.forEach(ready, ([, step]) => executeStep(step), {
+        concurrency: job.concurrency,
+      });
+      for (const result of results) {
+        if (result.key !== undefined) completed.set(result.key, result);
+      }
+    }
+
+    return job.steps.map(
+      (step) =>
+        completed.get(step.key ?? `label:${step.label}`) ??
+        blockStep(step, "blocked by an unresolved execution dependency"),
+    );
+  });
+
 /**
  * Apply a plan by iterating jobs and executing step run closures.
  *
@@ -180,9 +257,11 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
               ? Effect.succeed(
                   job.steps.map((step) => blockStep(step, "blocked by earlier job failure")),
                 )
-              : (job.executionPolicy === "best-effort"
-                  ? executeBestEffortJob(job)
-                  : executeFailFastJob(job)
+              : (job.steps.some((step) => (step.dependsOn ?? []).length > 0)
+                  ? executeDependencyAwareJob(job)
+                  : job.executionPolicy === "best-effort"
+                    ? executeBestEffortJob(job)
+                    : executeFailFastJob(job)
                 ).pipe(
                   Effect.tap((steps) => {
                     if (steps.some((step) => step.result.result === "error")) {

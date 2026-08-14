@@ -12,6 +12,7 @@ import * as semver from "semver";
 import {
   exitCodeFor,
   makeAppError,
+  redactSensitiveText,
   type AppError,
   type AppErrorCode,
 } from "@agentxm/client-core/unstable/app-error";
@@ -33,6 +34,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
+  renderConfirmationRecoveryCommand,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -90,6 +92,7 @@ import {
   type PublishExtensionArgs,
   type PreviewPublicationSetRequest,
   type PreviewPublicationSetResponse,
+  PreviewPublicationSetResponseSchema,
   type PublicationCandidateResult,
   type PublicationDescriptor,
   type PublicationPackResult,
@@ -117,6 +120,8 @@ import {
 import {
   emitPublishResult,
   type PublishAdvisoryFinding,
+  type PublishPublicationSet,
+  type PublishSelectionDecision,
   type PublishResultItem,
 } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -221,6 +226,7 @@ interface SelectedEntry extends CatalogEntry {
   readonly sourceType: SourceType;
   readonly authored: boolean;
   readonly includedDependency?: true;
+  readonly includedBy?: ReadonlyArray<string>;
   readonly extensionDir?: string;
   readonly skipReason?: "not_authored" | "not_publishable";
 }
@@ -240,6 +246,25 @@ interface PublishCandidate extends SelectedEntry {
   readonly extensionExists: boolean;
   readonly publishPreview?: ResolvedPublishPreview;
 }
+
+interface PublishPreparationFailure {
+  readonly _tag: "PublishPreparationFailure";
+  readonly reason: "version_exists" | "integrity_drift";
+  readonly error: AppError;
+}
+
+const preparationFailure = (
+  reason: PublishPreparationFailure["reason"],
+  error: AppError,
+): PublishPreparationFailure => ({ _tag: "PublishPreparationFailure", reason, error });
+
+const preparationError = (failure: AppError | PublishPreparationFailure): AppError =>
+  failure._tag === "PublishPreparationFailure" ? failure.error : failure;
+
+const publicPublishCause = (error: AppError) => ({
+  code: error.code,
+  message: redactSensitiveText(error.detail),
+});
 
 export interface LocalPackConstraintConflict {
   readonly memberFqn: string;
@@ -423,39 +448,29 @@ interface PublishPlanCandidate {
   readonly includedDependency?: true;
 }
 
-/**
- * Creates an explicit dependency barrier without expanding the user's
- * selection. Dependencies selected alongside a pack publish concurrently;
- * every remaining candidate waits for that phase to succeed.
- */
+/** Creates dependency edges without expanding the user's selection. */
 export const buildPublishJobs = <Candidate extends PublishPlanCandidate>(
   candidates: ReadonlyArray<Candidate>,
   candidateStep: (candidate: Candidate) => PlannedJobStep,
 ): ReadonlyArray<Job> => {
   const selectedFqns = new Set(candidates.map((candidate) => candidate.fqn));
-  const selectedPackDependencyFqns = new Set(
-    candidates
-      .filter((candidate) => candidate.type === "pack")
-      .flatMap((candidate) => Object.keys(candidate.dependencies ?? {}))
-      .filter((fqn) => selectedFqns.has(fqn)),
-  );
-  const isDependencyPhase = (candidate: Candidate): boolean =>
-    candidate.includedDependency === true || selectedPackDependencyFqns.has(candidate.fqn);
-  const dependencySteps = candidates.filter(isDependencyPhase).map(candidateStep);
-  const remainingSteps = candidates
-    .filter((candidate) => !isDependencyPhase(candidate))
-    .map(candidateStep);
-
-  return dependencySteps.length === 0
-    ? [{ concurrency: 1, steps: remainingSteps }]
-    : [
-        {
-          concurrency: 4,
-          executionPolicy: "best-effort",
-          steps: dependencySteps,
-        },
-        { concurrency: 1, steps: remainingSteps },
-      ];
+  return [
+    {
+      concurrency: 4,
+      executionPolicy: "best-effort",
+      steps: candidates.map((candidate) => ({
+        ...candidateStep(candidate),
+        key: candidate.fqn,
+        ...(candidate.type !== "pack"
+          ? {}
+          : {
+              dependsOn: Object.keys(candidate.dependencies ?? {}).filter((fqn) =>
+                selectedFqns.has(fqn),
+              ),
+            }),
+      })),
+    },
+  ];
 };
 
 interface TargetRegistry {
@@ -484,6 +499,33 @@ export interface RootPublishHandlerArgs {
   readonly recoverySelectors?: ReadonlyArray<string>;
   readonly recoveryExcludes?: ReadonlyArray<string>;
 }
+
+export const makeExactPublishRecovery = (
+  args: Pick<RootPublishHandlerArgs, "registry" | "registryUrl" | "backfill" | "visibility">,
+  candidateFqns: ReadonlyArray<string>,
+) =>
+  makeConfirmationRecovery(
+    ["publish"],
+    [
+      ...Option.match(args.registry, {
+        onNone: () => [],
+        onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
+      }),
+      ...Option.match(args.registryUrl, {
+        onNone: () => [],
+        onSome: (url) => [
+          recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
+        ],
+      }),
+      recoveryOption("--on-existing", publicRecoveryValue("verify")),
+      recoverySwitch("--backfill", args.backfill),
+      ...Option.match(args.visibility, {
+        onNone: () => [],
+        onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
+      }),
+      ...candidateFqns.map((fqn) => recoveryPositional(publicRecoveryValue(fqn))),
+    ],
+  );
 
 export const publishAuthenticationPreconditions = (options: {
   readonly preview: boolean;
@@ -855,6 +897,7 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
               sourceType: "registry",
               authored: false,
               includedDependency: true,
+              includedBy: [pack.fqn],
               skipReason: "not_publishable",
             },
           ];
@@ -866,18 +909,129 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
         selected = [
           ...selected,
           dependency.authored || explicitlyIncluded
-            ? { ...dependency, includedDependency: true }
-            : { ...dependency, includedDependency: true, skipReason: "not_authored" },
+            ? { ...dependency, includedDependency: true, includedBy: [pack.fqn] }
+            : {
+                ...dependency,
+                includedDependency: true,
+                includedBy: [pack.fqn],
+                skipReason: "not_authored",
+              },
         ];
       }
     }
   }
 
   const unique = new Map<string, SelectedEntry>();
-  for (const entry of selected) unique.set(`${entry.type}:${entry.owner}:${entry.name}`, entry);
+  for (const entry of selected) {
+    const key = `${entry.type}:${entry.owner}:${entry.name}`;
+    const existing = unique.get(key);
+    unique.set(
+      key,
+      existing === undefined
+        ? entry
+        : {
+            ...existing,
+            ...entry,
+            includedBy: [...new Set([...(existing.includedBy ?? []), ...(entry.includedBy ?? [])])],
+          },
+    );
+  }
   const entries = [...unique.values()];
+  const selectedByFqn = new Map(entries.map((entry) => [entry.fqn, entry]));
+  const decisions: ReadonlyArray<PublishSelectionDecision> = [
+    ...identities.map((identity): PublishSelectionDecision => {
+      const included = selectedByFqn.get(identity.fqn);
+      const excluded = args.excludes.some((selector) => matchesSelector(identity, selector));
+      const disposition =
+        included?.skipReason === "not_authored"
+          ? "not-authored"
+          : included?.skipReason === "not_publishable"
+            ? "not-publishable"
+            : included !== undefined
+              ? "included"
+              : excluded
+                ? "excluded"
+                : identity.authored
+                  ? "excluded"
+                  : "not-authored";
+      const reason =
+        disposition === "included"
+          ? "selected"
+          : disposition === "not-authored"
+            ? "not_authored"
+            : disposition === "not-publishable"
+              ? "not_publishable"
+              : "excluded";
+      return {
+        id: identity.fqn,
+        ...(args.selectors.find((selector) => matchesSelector(identity, selector)) === undefined
+          ? {}
+          : { selector: args.selectors.find((selector) => matchesSelector(identity, selector)) }),
+        target: {
+          owner: identity.owner,
+          type: identity.type,
+          name: decodeExtensionNameSync(identity.name),
+        },
+        origin:
+          included?.includedDependency === true
+            ? "dependency-expansion"
+            : args.selectors.length > 0
+              ? "explicit-selector"
+              : "bulk-selection",
+        disposition,
+        reason,
+        referencedBy: included?.includedBy ?? [],
+      };
+    }),
+    ...entries.flatMap((entry): ReadonlyArray<PublishSelectionDecision> =>
+      identities.some((identity) => identity.fqn === entry.fqn)
+        ? []
+        : [
+            {
+              id: entry.fqn,
+              target: {
+                owner: entry.owner,
+                type: entry.type,
+                name: decodeExtensionNameSync(entry.name),
+              },
+              origin: "dependency-expansion",
+              disposition: entry.skipReason === "not_authored" ? "not-authored" : "not-publishable",
+              reason: entry.skipReason === "not_authored" ? "not_authored" : "not_publishable",
+              referencedBy: entry.includedBy ?? [],
+            },
+          ],
+    ),
+    ...catalog.flatMap((entry, index): ReadonlyArray<PublishSelectionDecision> =>
+      resolvedIdentities[index] === undefined
+        ? [
+            {
+              id: `unmanaged:${entry.type}:${entry.name}`,
+              origin: args.selectors.length > 0 ? "explicit-selector" : "bulk-selection",
+              disposition: "unmanaged",
+              reason: "unmanaged",
+              referencedBy: [],
+            },
+          ]
+        : [],
+    ),
+    ...args.selectors.flatMap((selector): ReadonlyArray<PublishSelectionDecision> =>
+      identities.some((entry) => matchesSelector(entry, selector))
+        ? []
+        : [
+            {
+              id: `selector:${selector}`,
+              selector,
+              origin: "explicit-selector",
+              disposition: "unmatched",
+              reason: "unmatched_selector",
+              referencedBy: [],
+            },
+          ],
+    ),
+  ];
   return {
     mode,
+    decisions,
     entries: [
       ...entries.filter((entry) => entry.includedDependency === true),
       ...entries.filter((entry) => entry.includedDependency !== true),
@@ -1079,10 +1233,10 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       return yield* alreadyPublishedVersionConflict({
         fqn: selected.fqn,
         version: manifest.version,
-      });
+      }).pipe(Effect.mapError((error) => preparationFailure("version_exists", error)));
     }
     if (policy === "verify" && existing.integrity !== integrity) {
-      return yield* makeAppError({
+      const error = makeAppError({
         code: "conflict",
         detail: `Immutable-version integrity drift for ${selected.fqn}@${manifest.version}`,
         suggestions: [
@@ -1092,6 +1246,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
           },
         ],
       });
+      return yield* Effect.fail(preparationFailure("integrity_drift", error));
     }
     action = "skip";
   } else if (Option.isSome(index)) {
@@ -1138,6 +1293,12 @@ const publishTargetKey = (target: {
   readonly version: Version;
 }): string =>
   `${target.owner}/${extensionTypeToPlural[target.type]}/${target.name}@${target.version}`;
+
+const publishItemId = (target: {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+}): string => formatFqn(target);
 
 const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")(function* (
   dependencies: Readonly<Record<string, unknown>>,
@@ -1288,16 +1449,6 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
     }),
   );
 
-  if (
-    Option.isSome(visibility) &&
-    !prepared.some((candidate) => candidate.publishPreview?.visibility.disposition === "establish")
-  ) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail:
-        "--visibility applies only to extensions created by this publish, but the selection contains no eligible new extension.",
-    });
-  }
   return { candidates: prepared, publicationSet, preview };
 });
 
@@ -1346,14 +1497,16 @@ const selectedResult = (
   if (candidate === undefined) {
     const reason = entry.skipReason ?? "not_publishable";
     return {
+      id: entry.fqn,
       owner: entry.owner,
       type: entry.type,
       name: decodeExtensionNameSync(entry.name),
       sourceType: entry.sourceType,
       authored: entry.authored,
       action: "skip",
+      phase: "selection",
       reason,
-      status: "success",
+      status: "skipped",
       message:
         reason === "not_authored"
           ? "Dependency is not workspace-sourced; include it explicitly to publish"
@@ -1362,6 +1515,7 @@ const selectedResult = (
   }
   if (candidate.action === "skip") {
     return {
+      id: candidate.fqn,
       owner: candidate.owner,
       type: candidate.type,
       name: candidate.name,
@@ -1369,6 +1523,7 @@ const selectedResult = (
       sourceType: candidate.sourceType,
       authored: candidate.authored,
       action: "skip",
+      phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
       ...(candidate.publishPreview === undefined
@@ -1377,6 +1532,7 @@ const selectedResult = (
     };
   }
   return {
+    id: candidate.fqn,
     owner: candidate.owner,
     type: candidate.type,
     name: candidate.name,
@@ -1384,28 +1540,35 @@ const selectedResult = (
     sourceType: candidate.sourceType,
     authored: candidate.authored,
     action: "publish",
+    phase: "authoritative_preflight",
+    reason: "selected",
+    status: "pending",
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
   };
 };
 
-const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishResultItem => {
-  const reason = error.detail.includes("integrity drift")
-    ? "integrity_drift"
-    : error.detail.includes("already published")
-      ? "version_exists"
-      : undefined;
+const failedSelectedResult = (
+  entry: SelectedEntry,
+  failure: AppError | PublishPreparationFailure,
+): PublishResultItem => {
+  const error = preparationError(failure);
+  const reason =
+    failure._tag === "PublishPreparationFailure" ? failure.reason : "candidate_invalid";
   return {
+    id: entry.fqn,
     owner: entry.owner,
     type: entry.type,
     name: decodeExtensionNameSync(entry.name),
     sourceType: entry.sourceType,
     authored: entry.authored,
     action: "error",
+    phase: "selection",
     status: "failed",
-    ...(reason === undefined ? {} : { reason }),
-    message: error.detail,
+    reason,
+    message: redactSensitiveText(error.detail),
+    cause: publicPublishCause(error),
   };
 };
 
@@ -1413,6 +1576,7 @@ const failedCandidateResult = (
   candidate: PublishCandidate,
   error: AppError,
 ): PublishResultItem => ({
+  id: candidate.fqn,
   owner: candidate.owner,
   type: candidate.type,
   name: candidate.name,
@@ -1420,9 +1584,85 @@ const failedCandidateResult = (
   sourceType: candidate.sourceType,
   authored: candidate.authored,
   action: "error",
+  phase: "authoritative_preflight",
+  reason: "candidate_invalid",
   status: "failed",
-  message: error.detail,
+  message: redactSensitiveText(error.detail),
+  cause: publicPublishCause(error),
 });
+
+const publicationSetResult = (options: {
+  readonly candidates: ReadonlyArray<PublishCandidate>;
+  readonly preview?: PreviewPublicationSetResponse;
+  readonly blockedError?: AppError;
+}): PublishPublicationSet => {
+  const packResultsById = new Map(
+    (options.preview?.packs ?? []).map((pack) => [publishItemId(pack.target), pack]),
+  );
+  const candidateOrder = new Map(
+    options.candidates.map((candidate, index) => [candidate.fqn, index]),
+  );
+  const findings = (options.preview?.packs ?? []).flatMap((pack) => {
+    const targetId = publishItemId(pack.target);
+    return pack.findings.map((finding) => ({
+      id: `${targetId}:${finding.ruleId}:${publishItemId(finding.dependency)}`,
+      severity: finding.severity,
+      reason: finding.reason,
+      message: finding.message,
+      targetId,
+      suggestions: finding.suggestions,
+    }));
+  });
+  return {
+    status:
+      options.blockedError !== undefined
+        ? "blocked"
+        : options.preview === undefined
+          ? "unavailable"
+          : options.preview.status,
+    items: options.candidates.map((candidate, selectionOrder) => {
+      const pack = packResultsById.get(candidate.fqn);
+      const dependencyIds = Object.keys(candidate.dependencies ?? {});
+      return {
+        id: candidate.fqn,
+        owner: candidate.owner,
+        type: candidate.type,
+        name: candidate.name,
+        version: candidate.version,
+        participation: candidate.action === "publish" ? "publish" : "verified-existing",
+        dependencyIds,
+        dependencyResolutions: (pack?.resolutions ?? []).map((resolution) => ({
+          dependencyId: publishItemId(resolution.dependency),
+          range: resolution.dependency.range,
+          effectiveVersion: resolution.effectiveVersion,
+        })),
+        selectionOrder,
+        dependencyOrder:
+          dependencyIds.length === 0
+            ? 0
+            : 1 +
+              Math.max(
+                ...dependencyIds.map((dependencyId) => candidateOrder.get(dependencyId) ?? -1),
+              ),
+        ...(candidate.publishPreview === undefined
+          ? {}
+          : { visibility: candidate.publishPreview.visibility }),
+      };
+    }),
+    findings:
+      findings.length > 0 || options.blockedError === undefined
+        ? findings
+        : [
+            {
+              id: "authoritative-publication-set",
+              severity: "error",
+              reason: "authoritative_preflight_failed",
+              message: redactSensitiveText(options.blockedError.detail),
+              suggestions: options.blockedError.suggestions ?? [],
+            },
+          ],
+  };
+};
 
 const runPublish = Effect.fn("Publish.run")(function* (
   args: RootPublishHandlerArgs,
@@ -1478,7 +1718,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
   );
   const decodedPreflightErrors = decoded.flatMap((result) =>
-    Result.isFailure(result) ? [result.failure] : [],
+    Result.isFailure(result) ? [preparationError(result.failure)] : [],
   );
   const shouldCheckLocalPackConstraints = decodedCandidates.some(
     (candidate) => candidate.authored && candidate.type !== "pack",
@@ -1506,6 +1746,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     owners: [...new Set(selected.map((entry) => entry.owner))],
     types: [...new Set(selected.map((entry) => entry.type))],
     registry: registry.name,
+    decisions: selection.decisions,
   } as const;
   if (selected.length === 0) {
     yield* emitPublishResult("publish", {
@@ -1548,6 +1789,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const authoritativePreflightError = Result.isFailure(authoritativePreview)
     ? authoritativePreview.failure
     : undefined;
+  const authoritativeFailurePreview =
+    authoritativePreflightError === undefined
+      ? undefined
+      : Option.getOrUndefined(
+          Schema.decodeUnknownOption(PreviewPublicationSetResponseSchema)(
+            authoritativePreflightError.cause,
+          ),
+        );
   const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.candidates
     : decodedCandidates;
@@ -1561,6 +1810,17 @@ const runPublish = Effect.fn("Publish.run")(function* (
       Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
         ? authoritativePreview.success.preview.packs
         : [],
+  });
+  const publicationSetOutput = publicationSetResult({
+    candidates,
+    ...(Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
+      ? { preview: authoritativePreview.success.preview }
+      : authoritativeFailurePreview === undefined
+        ? {}
+        : { preview: authoritativeFailurePreview }),
+    ...(authoritativePreflightError === undefined
+      ? {}
+      : { blockedError: authoritativePreflightError }),
   });
   const candidatesByTarget = new Map(
     candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
@@ -1585,7 +1845,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       candidate === undefined ? undefined : packDivergenceFindings.get(candidate.fqn);
     return findings === undefined ? selected : { ...selected, findings };
   });
-  let assignedAuthoritativeFailure = false;
+  const localPreflightFailureIds = initialPreflightResults
+    .filter((result) => result.status === "failed")
+    .map((result) => result.id);
   const preflightResults = initialPreflightResults.map((result): PublishResultItem => {
     if (preflightErrors.length > 0) {
       return result.action === "publish"
@@ -1594,24 +1856,25 @@ const runPublish = Effect.fn("Publish.run")(function* (
             status: "blocked",
             reason: "blocked_by_preflight",
             message: "Not attempted because another selected extension failed preflight",
+            blockedBy:
+              localPreflightFailureIds.length === 0
+                ? ["local-publication-preflight"]
+                : localPreflightFailureIds,
           }
         : result;
     }
     if (authoritativePreflightError === undefined || result.version === undefined) return result;
-    if (!assignedAuthoritativeFailure) {
-      assignedAuthoritativeFailure = true;
-      return {
-        ...result,
-        action: "error",
-        status: "failed",
-        message: authoritativePreflightError.detail,
-      };
-    }
+    const causalFindings = publicationSetOutput.findings
+      .filter((finding) => finding.targetId === result.id)
+      .map((finding) => finding.id);
     return {
       ...result,
+      action: "error",
+      phase: "authoritative_preflight",
       status: "blocked",
       reason: "blocked_by_preflight",
       message: "Not attempted because authoritative publish preflight failed",
+      blockedBy: causalFindings.length === 0 ? ["authoritative-publication-set"] : causalFindings,
     };
   });
   const allPreflightErrors = [
@@ -1622,7 +1885,16 @@ const runPublish = Effect.fn("Publish.run")(function* (
     const emitted = yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
       selection: selectionOutput,
+      publicationSet: publicationSetOutput,
       results: preflightResults,
+      ...(authoritativePreflightError === undefined
+        ? {}
+        : {
+            failure: {
+              code: authoritativePreflightError.code,
+              message: redactSensitiveText(authoritativePreflightError.detail),
+            },
+          }),
     });
     const failure = aggregatePublishFailure(allPreflightErrors.length, allPreflightErrors);
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
@@ -1650,6 +1922,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     string,
     ReadonlyArray<PublishAdvisoryFinding>
   > = new Map();
+  let authorizedPublicationPreview: PreviewPublicationSetResponse | undefined;
   let issuedCapabilities: ReadonlyArray<PublishCapabilityResponse> = [];
   const loadExactCapabilities = yield* Effect.cached(
     isRemoteRegistry && Option.isNone(storedToken)
@@ -1664,6 +1937,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
             registryUrl: registry.url,
             publicationSet,
           });
+          authorizedPublicationPreview = exchange.preview;
           if (exchange.status === "blocked") {
             const firstFinding = exchange.preview.packs
               .flatMap((pack) => pack.findings)
@@ -1748,6 +2022,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     yield* emitPublishResult("publish", {
       mode: args.preview ? "preview" : "apply",
       selection: selectionOutput,
+      publicationSet: publicationSetOutput,
       results: preflightResults,
     });
     return;
@@ -1768,48 +2043,27 @@ const runPublish = Effect.fn("Publish.run")(function* (
     executionCapabilities: { rollback: "non-rollbackable" },
     jobs,
   };
-  const typedRecovery = args.recoveryCommand !== undefined;
-  const execution = yield* makePlanExecution(
+  const exactRecovery = makeExactPublishRecovery(
     args,
-    makeConfirmationRecovery(args.recoveryCommand ?? ["publish"], [
-      recoverySwitch("--authored", args.authored),
-      recoverySwitch("--all", args.all),
-      ...args.owners.map((owner) => recoveryOption("--owner", publicRecoveryValue(owner))),
-      ...(typedRecovery
-        ? []
-        : args.types.map((type) => recoveryOption("--type", publicRecoveryValue(type)))),
-      ...(args.recoveryExcludes ?? args.excludes).map((exclude) =>
-        recoveryOption("--exclude", publicRecoveryValue(exclude)),
-      ),
-      ...Option.match(args.registry, {
-        onNone: () => [],
-        onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
-      }),
-      ...Option.match(args.registryUrl, {
-        onNone: () => [],
-        onSome: (url) => [
-          recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
-        ],
-      }),
-      ...Option.match(args.onExisting, {
-        onNone: () => [],
-        onSome: (policy) => [recoveryOption("--on-existing", publicRecoveryValue(policy))],
-      }),
-      recoverySwitch("--backfill", args.backfill),
-      ...Option.match(args.visibility, {
-        onNone: () => [],
-        onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
-      }),
-      recoverySwitch("--include-dependencies", args.includeDependencies),
-      ...args.includeDependency.map((dependency) =>
-        recoveryOption("--include-dependency", publicRecoveryValue(dependency)),
-      ),
-      ...(args.recoverySelectors ?? args.selectors).map((selector) =>
-        recoveryPositional(publicRecoveryValue(selector)),
-      ),
-    ]),
+    candidates.map((candidate) => candidate.fqn),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false }).pipe(
+  const execution = yield* makePlanExecution(args, exactRecovery);
+  const authorizeBeforeApply = loadExactCapabilities.pipe(
+    Effect.asVoid,
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(WorkspaceMutations, workspaceMutations),
+    Effect.provideService(AuthClient, authClient),
+    Effect.provideService(CredentialStore, credentialStore),
+    Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
+    Effect.provideService(RegistryUrl, registryUrl),
+    Effect.provideService(CliRenderer, renderer),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, {
+    execution,
+    displayApplied: false,
+    beforeApply: () => authorizeBeforeApply,
+  }).pipe(
     Effect.ensuring(
       Effect.suspend(() =>
         Effect.forEach(
@@ -1825,7 +2079,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
     resolution._tag === "ExecutedPlan"
       ? resolution.jobs
           .flatMap((job) => job.steps)
-          .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
+          .flatMap((step) =>
+            step.result.result === "error" && step.blockedBy === undefined
+              ? [step.result.error]
+              : [],
+          )
       : [];
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
@@ -1843,7 +2101,19 @@ const runPublish = Effect.fn("Publish.run")(function* (
           : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
       if (step === undefined) return result;
       if (step.result.result === "error") {
+        if (step.blockedBy !== undefined) {
+          return {
+            ...result,
+            action: "error",
+            phase: "dependency_execution",
+            reason: "blocked_by_dependency",
+            status: "blocked",
+            message: step.result.message,
+            blockedBy: step.blockedBy,
+          };
+        }
         const failedResult: PublishResultItem = {
+          id: result.id,
           owner: result.owner,
           type: result.type,
           name: result.name,
@@ -1851,8 +2121,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
           ...(result.authored === undefined ? {} : { authored: result.authored }),
           action: "error",
+          phase: "upload_execution",
+          reason:
+            step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+              ? "publish_precondition_changed"
+              : "upload_failed",
           status: "failed",
           message: step.result.message,
+          cause: publicPublishCause(step.result.error),
         };
         return failedResult;
       }
@@ -1876,6 +2152,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       );
       return {
         ...result,
+        phase: "upload_execution",
         status: "success",
         message: step.result.message,
         ...(authoritativeVisibility === undefined ? {} : { visibility: authoritativeVisibility }),
@@ -1888,15 +2165,77 @@ const runPublish = Effect.fn("Publish.run")(function* (
       result.action === "publish" ? { ...result, status: "pending" } : result,
     );
   }
-  const emitted = yield* emitPublishResult("publish", {
-    mode: args.preview ? "preview" : "apply",
-    ...(authenticationPreconditions.length === 0
-      ? {}
-      : { preconditions: authenticationPreconditions }),
-    selection: selectionOutput,
-    results,
-  });
+  const partialRecovery =
+    resolution._tag === "ExecutedPlan" &&
+    results.some((result) => result.status === "failed" || result.status === "blocked") &&
+    "approvalRecovery" in execution
+      ? renderConfirmationRecoveryCommand(execution.approvalRecovery)
+      : undefined;
+  const finalPublicationSetOutput =
+    authorizedPublicationPreview === undefined
+      ? publicationSetOutput
+      : publicationSetResult({
+          candidates,
+          preview: authorizedPublicationPreview,
+          ...(authorizedPublicationPreview.status === "blocked" && resolution._tag === "FailedPlan"
+            ? {
+                blockedError:
+                  resolution.failure ??
+                  makeAppError({
+                    code: resolution.errorCode,
+                    detail: "The reviewed publication set was blocked before upload.",
+                  }),
+              }
+            : {}),
+        });
+  const emitted = yield* emitPublishResult(
+    "publish",
+    {
+      mode: args.preview ? "preview" : "apply",
+      ...(authenticationPreconditions.length === 0
+        ? {}
+        : { preconditions: authenticationPreconditions }),
+      selection: selectionOutput,
+      publicationSet: finalPublicationSetOutput,
+      results,
+      ...(partialRecovery === undefined
+        ? {}
+        : {
+            recovery: {
+              description: "Verify published versions and continue the exact publication set",
+              cmd: partialRecovery,
+            },
+          }),
+      ...(resolution._tag === "FailedPlan" && !args.preview
+        ? {
+            failure:
+              resolution.reason === "stale-candidate" || resolution.failure === undefined
+                ? {
+                    code: resolution.errorCode,
+                    message:
+                      resolution.reason === "stale-candidate"
+                        ? "Workspace material changed after authorization; no upload was attempted."
+                        : `Publish execution did not start: ${resolution.reason}.`,
+                  }
+                : publicPublishCause(resolution.failure),
+          }
+        : {}),
+    },
+    resolution._tag === "FailedPlan" ? { suggestions: resolution.suggestions ?? [] } : undefined,
+  );
   const failed = results.filter((result) => result.status === "failed");
+  if (resolution._tag === "FailedPlan" && !args.preview) {
+    const failure = makeAppError({
+      code: resolution.errorCode,
+      detail:
+        resolution.reason === "stale-candidate"
+          ? "Workspace material changed after authorization; no upload was attempted."
+          : (resolution.failure?.detail ??
+            `Publish execution did not start: ${resolution.reason}.`),
+      suggestions: resolution.suggestions ?? [],
+    });
+    return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
+  }
   if (failed.length > 0) {
     const failure = aggregatePublishFailure(failed.length, [
       ...preflightErrors,
@@ -1952,6 +2291,13 @@ const publishConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
+  includeDependencies: Flag.boolean("include-dependencies").pipe(
+    Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
+  ),
+  includeDependency: Flag.string("include-dependency").pipe(
+    Flag.withDescription("Explicitly include a non-workspace pack dependency"),
+    Flag.atLeast(0),
+  ),
 } as const;
 
 export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
@@ -1970,8 +2316,8 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     preview: parsed.preview,
     scope: "project",
     visibility: parsed.visibility,
-    includeDependencies: false,
-    includeDependency: [],
+    includeDependencies: parsed.includeDependencies,
+    includeDependency: [...parsed.includeDependency],
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),

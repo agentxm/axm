@@ -141,7 +141,7 @@ describe("root command help", () => {
       for (const retired of retiredFlags) {
         expect(flags, command).not.toContain(retired);
       }
-      if (command === "axm packs publish") {
+      if (command === "axm publish" || command === "axm packs publish") {
         expect(flags).toContain("include-dependencies");
         expect(flags).toContain("include-dependency");
       } else {

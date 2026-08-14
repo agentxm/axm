@@ -31,6 +31,7 @@ import {
   PlanRiskConditionSchema,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  AppErrorCodeSchema,
   redactSensitiveText,
   serializeErrorCauseChain,
 } from "@agentxm/client-core/unstable/app-error";
@@ -354,6 +355,7 @@ const PublishStatusSchema = Schema.Literals([
   "failed",
   "pending",
   "blocked",
+  "skipped",
 ] as const).annotate({
   identifier: "PublishStatus",
   title: "Publish Status",
@@ -361,11 +363,23 @@ const PublishStatusSchema = Schema.Literals([
 });
 
 const PublishReasonSchema = Schema.Literals([
+  "selected",
+  "excluded",
+  "unmanaged",
+  "unmatched_selector",
   "version_already_published",
   "not_authored",
   "not_publishable",
   "invalid_workspace_source",
   "authorization_failed",
+  "authoritative_preflight_failed",
+  "dependency_unavailable",
+  "candidate_invalid",
+  "stale_material",
+  "publish_precondition_changed",
+  "upload_failed",
+  "blocked_by_dependency",
+  "interrupted",
   "version_exists",
   "integrity_drift",
   "verify_failed",
@@ -388,7 +402,29 @@ export const PublishAdvisoryFindingSchema = Schema.Struct({
 });
 export type PublishAdvisoryFinding = typeof PublishAdvisoryFindingSchema.Type;
 
+const PublishPhaseSchema = Schema.Literals([
+  "selection",
+  "authoritative_preflight",
+  "authorization",
+  "dependency_execution",
+  "upload_execution",
+] as const).annotate({
+  identifier: "PublishPhase",
+  title: "Publish Phase",
+  description: "Publish lifecycle phase that produced an item outcome.",
+});
+
+const PublishCauseSchema = Schema.Struct({
+  code: AppErrorCodeSchema,
+  message: Schema.String,
+}).annotate({
+  identifier: "PublishCause",
+  title: "Publish Cause",
+  description: "Redacted typed cause for an operation that actually failed.",
+});
+
 const PublishResultItemSchema = Schema.Struct({
+  id: Schema.String,
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
@@ -398,9 +434,12 @@ const PublishResultItemSchema = Schema.Struct({
   sourceType: Schema.optional(SourceTypeSchema),
   authored: Schema.optional(Schema.Boolean),
   action: PublishActionSchema,
-  reason: Schema.optional(PublishReasonSchema),
-  status: Schema.optional(PublishStatusSchema),
+  phase: PublishPhaseSchema,
+  reason: PublishReasonSchema,
+  status: PublishStatusSchema,
   message: Schema.optional(Schema.String),
+  cause: Schema.optional(PublishCauseSchema),
+  blockedBy: Schema.optional(Schema.Array(Schema.String)),
   findings: Schema.optional(Schema.Array(PublishAdvisoryFindingSchema)),
   visibility: Schema.optional(PublishVisibilitySchema),
   links: Schema.optional(
@@ -414,19 +453,95 @@ const PublishResultItemSchema = Schema.Struct({
   description: "Structured result for one publish reconciliation item.",
 });
 
-export const PublishResultSchema = Schema.Struct({
-  mode: PublishModeSchema,
-  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
-  selection: Schema.optional(
+const PublishSelectionDecisionSchema = Schema.Struct({
+  id: Schema.String,
+  selector: Schema.optional(Schema.String),
+  target: Schema.optional(
     Schema.Struct({
-      mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
-      scope: Schema.Literals(["project", "user"] as const),
-      owners: Schema.Array(HandleSchema),
-      types: Schema.Array(ExtensionTypeSchema),
-      registry: Schema.String,
+      owner: HandleSchema,
+      type: ExtensionTypeSchema,
+      name: ExtensionNameSchema,
     }),
   ),
-  results: Schema.Array(PublishResultItemSchema),
+  origin: Schema.Literals(["explicit-selector", "bulk-selection", "dependency-expansion"]),
+  disposition: Schema.Literals([
+    "included",
+    "excluded",
+    "unmanaged",
+    "not-authored",
+    "not-publishable",
+    "unmatched",
+  ]),
+  reason: PublishReasonSchema,
+  referencedBy: Schema.Array(Schema.String),
+});
+
+const PublishSelectionSchema = Schema.Struct({
+  mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
+  scope: Schema.Literals(["project", "user"] as const),
+  owners: Schema.Array(HandleSchema),
+  types: Schema.Array(ExtensionTypeSchema),
+  registry: Schema.String,
+  dependencyInclusion: Schema.Literal("explicit"),
+  decisions: Schema.Array(PublishSelectionDecisionSchema),
+  counts: Schema.Struct({
+    considered: Schema.Number,
+    included: Schema.Number,
+    excluded: Schema.Number,
+    unmanaged: Schema.Number,
+    unmatched: Schema.Number,
+  }),
+});
+
+const PublishSetFindingSchema = Schema.Struct({
+  id: Schema.String,
+  severity: Schema.Literals(["error", "warning"] as const),
+  reason: Schema.String,
+  message: Schema.String,
+  targetId: Schema.optional(Schema.String),
+  suggestions: Schema.Array(SuggestedActionSchema),
+});
+
+const PublishSetItemSchema = Schema.Struct({
+  id: Schema.String,
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+  version: VersionSchema,
+  participation: Schema.Literals(["publish", "verified-existing"] as const),
+  dependencyIds: Schema.Array(Schema.String),
+  dependencyResolutions: Schema.Array(
+    Schema.Struct({
+      dependencyId: Schema.String,
+      range: Schema.String,
+      effectiveVersion: VersionSchema,
+    }),
+  ),
+  selectionOrder: Schema.Number,
+  dependencyOrder: Schema.Number,
+  visibility: Schema.optional(PublishVisibilitySchema),
+});
+
+const PublishPublicationSetSchema = Schema.Struct({
+  status: Schema.Literals(["admitted", "blocked", "unavailable"] as const),
+  items: Schema.Array(PublishSetItemSchema),
+  findings: Schema.Array(PublishSetFindingSchema),
+});
+
+const PublishExecutionSchema = Schema.Struct({
+  status: Schema.Literals(["not-run", "completed", "partial", "failed"] as const),
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
+  outcomes: Schema.Array(PublishResultItemSchema),
+  failure: Schema.optional(PublishCauseSchema),
+});
+
+export const PublishResultSchema = Schema.Struct({
+  contract: Schema.Literal("publish-result-v2"),
+  mode: PublishModeSchema,
+  selection: PublishSelectionSchema,
+  publicationSet: PublishPublicationSetSchema,
+  execution: PublishExecutionSchema,
+  recovery: Schema.optional(SuggestedActionSchema),
   counts: Schema.Struct({
     selected: Schema.Number,
     published: Schema.Number,
@@ -443,8 +558,21 @@ export const PublishResultSchema = Schema.Struct({
 });
 export type PublishResult = typeof PublishResultSchema.Type;
 export type PublishResultItem = typeof PublishResultItemSchema.Type;
+export type PublishSelectionDecision = typeof PublishSelectionDecisionSchema.Type;
+export type PublishPublicationSet = typeof PublishPublicationSetSchema.Type;
 
-type PublishResultInput = Omit<PublishResult, "counts">;
+interface PublishResultInput {
+  readonly mode: PublishResult["mode"];
+  readonly preconditions?: ReadonlyArray<Schema.Schema.Type<typeof OperationPreconditionSchema>>;
+  readonly selection?: Omit<PublishResult["selection"], "counts" | "dependencyInclusion"> & {
+    readonly counts?: PublishResult["selection"]["counts"];
+    readonly dependencyInclusion?: "explicit";
+  };
+  readonly publicationSet?: PublishPublicationSet;
+  readonly results: ReadonlyArray<PublishResultItem>;
+  readonly failure?: PublishResult["execution"]["failure"];
+  readonly recovery?: SuggestedAction;
+}
 
 export const classifyPublishResults = (
   results: ReadonlyArray<PublishResultItem>,
@@ -473,10 +601,61 @@ export const classifyPublishResults = (
   };
 };
 
-const normalizePublishResult = (result: PublishResultInput): PublishResult => ({
-  ...result,
-  counts: classifyPublishResults(result.results),
+const selectionCounts = (
+  decisions: PublishResult["selection"]["decisions"],
+): PublishResult["selection"]["counts"] => ({
+  considered: decisions.length,
+  included: decisions.filter((decision) => decision.disposition === "included").length,
+  excluded: decisions.filter((decision) => decision.disposition === "excluded").length,
+  unmanaged: decisions.filter((decision) => decision.disposition === "unmanaged").length,
+  unmatched: decisions.filter((decision) => decision.disposition === "unmatched").length,
 });
+
+const executionStatus = (
+  mode: PublishResult["mode"],
+  results: ReadonlyArray<PublishResultItem>,
+  failure: PublishResult["execution"]["failure"] | undefined,
+): PublishResult["execution"]["status"] => {
+  if (mode === "preview") return "not-run";
+  const failed = results.some((item) => item.status === "failed");
+  const blocked = results.some((item) => item.status === "blocked");
+  const succeeded = results.some((item) => item.status === "success");
+  if (failure !== undefined || ((failed || blocked) && !succeeded)) return "failed";
+  if (failed || blocked) return "partial";
+  return "completed";
+};
+
+const normalizePublishResult = (result: PublishResultInput): PublishResult => {
+  const decisions = result.selection?.decisions ?? [];
+  const counts = classifyPublishResults(result.results);
+  return {
+    contract: "publish-result-v2",
+    mode: result.mode,
+    selection: {
+      mode: result.selection?.mode ?? "explicit",
+      scope: result.selection?.scope ?? "project",
+      owners: result.selection?.owners ?? [],
+      types: result.selection?.types ?? [],
+      registry: result.selection?.registry ?? "unknown",
+      dependencyInclusion: "explicit",
+      decisions,
+      counts: result.selection?.counts ?? selectionCounts(decisions),
+    },
+    publicationSet: result.publicationSet ?? {
+      status: result.failure === undefined ? "unavailable" : "blocked",
+      items: [],
+      findings: [],
+    },
+    execution: {
+      status: executionStatus(result.mode, result.results, result.failure),
+      ...(result.preconditions === undefined ? {} : { preconditions: result.preconditions }),
+      outcomes: result.results,
+      ...(result.failure === undefined ? {} : { failure: result.failure }),
+    },
+    counts,
+    ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
+  };
+};
 
 const publishIdentity = (item: PublishResultItem): string => {
   const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });
@@ -484,7 +663,7 @@ const publishIdentity = (item: PublishResultItem): string => {
 };
 
 const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
-  result.results.flatMap((item) =>
+  result.execution.outcomes.flatMap((item) =>
     item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
   );
 
@@ -500,6 +679,11 @@ const publishItemLine = (item: PublishResultItem): string => {
   return item.links === undefined ? withVisibility : `${withVisibility}\n${item.links.html}`;
 };
 
+const publishOutcomeLine = (item: PublishResultItem): string =>
+  `${publishItemLine(item)} — ${item.status ?? "unknown"}/${item.phase}${
+    item.reason === undefined ? "" : `/${item.reason}`
+  }${item.message === undefined ? "" : `: ${item.message}`}`;
+
 const renderHumanPublishResult = (
   renderer: typeof CliRenderer.Service,
   result: PublishResult,
@@ -512,7 +696,7 @@ const renderHumanPublishResult = (
     const verbosity = yield* Verbosity;
     if (verbosity.level === "quiet") return;
 
-    for (const precondition of result.preconditions ?? []) {
+    for (const precondition of result.execution.preconditions ?? []) {
       if (precondition.status === "unmet") {
         yield* renderer.warn(
           `${precondition.label}: ${precondition.detail ?? "Required before apply"}`,
@@ -520,28 +704,58 @@ const renderHumanPublishResult = (
       }
     }
 
-    for (const finding of result.results.flatMap((item) => item.findings ?? [])) {
+    const omittedDecisions = result.selection.decisions.filter(
+      (decision) => decision.disposition !== "included",
+    );
+    if (omittedDecisions.length > 0) {
+      yield* renderer.info(
+        `Selection decisions (${result.selection.counts.included} included; ${omittedDecisions.length} not included)\n${omittedDecisions
+          .map(
+            (decision) =>
+              `${decision.id} — ${decision.disposition}/${decision.reason}${
+                decision.referencedBy.length === 0
+                  ? ""
+                  : `; referenced by ${decision.referencedBy.join(", ")}`
+              }`,
+          )
+          .join("\n")}`,
+      );
+    }
+    if (result.publicationSet.items.length > 0) {
+      yield* renderer.info(
+        `Authoritative publication set (${result.publicationSet.status})\n${result.publicationSet.items
+          .map(
+            (item) =>
+              `${item.id}@${item.version} — ${item.participation}; dependency order ${item.dependencyOrder}`,
+          )
+          .join("\n")}`,
+      );
+    }
+
+    for (const finding of result.execution.outcomes.flatMap((item) => item.findings ?? [])) {
       yield* renderer.warn(
         finding.ruleId === "publish/required-pack-version-unreachable"
           ? `Required pack compatibility review: ${finding.message}`
           : finding.message,
       );
     }
+    for (const finding of result.publicationSet.findings) {
+      if (finding.severity === "error") yield* renderer.error(finding.message);
+      else yield* renderer.warn(finding.message);
+    }
 
-    const published = result.results.filter(
+    const published = result.execution.outcomes.filter(
       (item) => item.action === "publish" && item.status === "success",
     );
-    const publishable = result.results.filter((item) => item.action === "publish");
-    const verifiedExisting = result.results.filter(
+    const publishable = result.execution.outcomes.filter((item) => item.action === "publish");
+    const verifiedExisting = result.execution.outcomes.filter(
       (item) => item.action === "skip" && item.reason === "version_already_published",
     );
-    const skipped = result.results.filter(
+    const skipped = result.execution.outcomes.filter(
       (item) => item.action === "skip" && item.reason !== "version_already_published",
     );
-    const blocked = result.results.filter((item) => item.status === "blocked");
-    const failed = result.results.filter(
-      (item) => item.action === "error" || item.status === "failed",
-    );
+    const blocked = result.execution.outcomes.filter((item) => item.status === "blocked");
+    const failed = result.execution.outcomes.filter((item) => item.status === "failed");
     const suggestions =
       options.suggestions.length === 0
         ? undefined
@@ -552,8 +766,20 @@ const renderHumanPublishResult = (
               : { withoutSuggestions: options.withoutSuggestions }),
           };
 
-    if (result.results.length === 0) {
+    if (result.execution.outcomes.length === 0) {
       yield* renderer.success("No extensions selected for publishing", suggestions);
+      return;
+    }
+
+    if (result.execution.failure !== undefined) {
+      yield* renderer.error(`Publish failed: ${result.execution.failure.message}`, suggestions);
+      if (blocked.length > 0) {
+        yield* renderer.warn(
+          `${count(blocked.length, "extension")} not attempted\n${blocked
+            .map(publishOutcomeLine)
+            .join("\n")}`,
+        );
+      }
       return;
     }
 
@@ -632,7 +858,11 @@ const renderHumanPublishResult = (
       const headline = `Published ${count(published.length, "extension")}; ${count(failed.length, "extension")} failed; ${count(blocked.length, "extension")} not attempted`;
       yield* renderer.error(headline, suggestions);
       yield* renderer.info(
-        [...published, ...failed].map((item) => publishItemLine(item)).join("\n"),
+        [
+          ...published.map((item) => publishItemLine(item)),
+          ...failed.map(publishOutcomeLine),
+          ...blocked.map(publishOutcomeLine),
+        ].join("\n"),
       );
       if (verifiedExisting.length > 0) {
         yield* renderer.info(
@@ -651,6 +881,7 @@ const renderHumanPublishResult = (
           ? `Publish preflight failed for ${publishIdentity(failedItem)}`
           : `Publish preflight failed for ${count(failed.length, "extension")}`;
       yield* renderer.error(headline, suggestions);
+      yield* renderer.info(failed.map(publishOutcomeLine).join("\n"));
       if (verifiedExisting.length > 0) {
         yield* renderer.info(
           `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
@@ -659,7 +890,11 @@ const renderHumanPublishResult = (
         );
       }
       if (blocked.length > 0) {
-        yield* renderer.warn(`${count(blocked.length, "extension")} ready but not attempted`);
+        yield* renderer.warn(
+          `${count(blocked.length, "extension")} ready but not attempted\n${blocked
+            .map(publishOutcomeLine)
+            .join("\n")}`,
+        );
       }
       return;
     }
@@ -1069,11 +1304,13 @@ export const emitPublishResult = <TCommand extends string>(
     const result = normalizePublishResult(input);
     const renderer = yield* CliRenderer;
     const browserSuggestions = publishBrowserSuggestions(result);
-    const findingSuggestions = result.results.flatMap((item) =>
+    const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
     );
     const suggestions = [
       ...(options?.suggestions ?? []),
+      ...(result.recovery === undefined ? [] : [result.recovery]),
+      ...result.publicationSet.findings.flatMap((finding) => finding.suggestions),
       ...findingSuggestions,
       ...browserSuggestions,
     ];
@@ -1084,7 +1321,11 @@ export const emitPublishResult = <TCommand extends string>(
       ...(options?.withoutSuggestions === undefined
         ? {}
         : { withoutSuggestions: options.withoutSuggestions }),
-      ok: summary.failedCount === 0,
+      ok:
+        result.execution.status !== "failed" &&
+        result.execution.status !== "partial" &&
+        result.execution.failure === undefined &&
+        summary.failedCount === 0,
     };
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
@@ -1112,9 +1353,9 @@ export const emitPublishResult = <TCommand extends string>(
  */
 export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
   const appliedCount = result.counts.published;
-  const failedCount = result.counts.failed;
+  const failedCount = result.counts.failed + (result.execution.failure === undefined ? 0 : 1);
   const blockedCount = result.counts.blocked;
-  const types = new Set(result.results.map((item) => item.type));
+  const types = new Set(result.execution.outcomes.map((item) => item.type));
   const [onlyType] = [...types];
   const subjectType: SubjectType =
     onlyType === undefined ? "unknown" : types.size === 1 ? onlyType : "mixed";

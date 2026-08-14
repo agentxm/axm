@@ -81,4 +81,31 @@ describe("extension show", () => {
       );
     });
   }
+
+  it.effect("reports the canonical manifest version without a lock entry", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, {
+      skills: {
+        axm: { source: "workspace:@agentxm/skills/axm", enabled: true },
+      },
+    });
+    const packageRoot = path.join(axmDir, "extensions", "@agentxm", "skills", "axm");
+    fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(packageRoot, "skill.json"),
+      JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "0.27.0" }),
+    );
+    fs.writeFileSync(path.join(packageRoot, "src", "SKILL.md"), "# AXM\n");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleExtensionShow({ type: "skill", name: "axm" });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          item: { source: "workspace:@agentxm/skills/axm", locked: false, version: "0.27.0" },
+        });
+      }),
+    );
+  });
 });

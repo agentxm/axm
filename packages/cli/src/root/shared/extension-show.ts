@@ -1,4 +1,7 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -18,6 +21,10 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 import { inspectMcpServerAcrossAgents } from "@agentxm/client-core/unstable/mcps";
+import {
+  ManifestIdentitySchema,
+  manifestFilenameForType,
+} from "@agentxm/client-core/unstable/publish";
 import {
   WorkspaceMutations,
   configuredRowsByName,
@@ -109,6 +116,42 @@ type ShowAgent = typeof ShowAgentSchema.Type;
 
 const yesNo = (value: boolean): string => (value ? "yes" : "no");
 
+const canonicalManifestVersion = Effect.fn("ExtensionShow.canonicalManifestVersion")(
+  function* (args: {
+    readonly baseDir: string;
+    readonly type: CatalogExtensionType;
+    readonly name: string;
+    readonly paths: ReadonlyArray<string>;
+  }) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const manifestFilename = manifestFilenameForType(args.type);
+    const versions = yield* Effect.forEach(
+      args.paths,
+      (root) =>
+        fs.readFileString(path.resolve(args.baseDir, root, manifestFilename)).pipe(
+          Effect.flatMap((content) =>
+            Effect.try({
+              try: () => JSON.parse(content),
+              catch: () => null,
+            }),
+          ),
+          Effect.map((value) => Schema.decodeUnknownResult(ManifestIdentitySchema)(value)),
+          Effect.map((decoded) =>
+            Result.isSuccess(decoded) &&
+            decoded.success.type === args.type &&
+            decoded.success.name === args.name
+              ? decoded.success.version
+              : null,
+          ),
+          Effect.orElseSucceed(() => null),
+        ),
+      { concurrency: 4 },
+    );
+    return versions.find((version) => version !== null) ?? null;
+  },
+);
+
 export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (args: {
   readonly type: CatalogExtensionType;
   readonly name: string;
@@ -149,6 +192,15 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
     inventoryRow?.origins.join(", ") ??
     "unknown";
   const enabled = configuredEntry?.enabled ?? inventoryRow?.enabled ?? null;
+  const observedManifestVersion =
+    lockEntry === undefined && inventoryRow !== undefined
+      ? yield* canonicalManifestVersion({
+          baseDir: ws.baseDir,
+          type: args.type,
+          name: args.name,
+          paths: inventoryRow.paths,
+        })
+      : null;
 
   let agents: ReadonlyArray<ShowAgent> = (inventoryRow?.agents ?? []).map((agent) => ({
     agent,
@@ -186,7 +238,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       name: args.name,
       enabled,
       source,
-      version: lockEntry === undefined ? null : lockEntryVersion(lockEntry),
+      version: lockEntry === undefined ? observedManifestVersion : lockEntryVersion(lockEntry),
       scope: ws.scope,
       locked: lockEntry !== undefined,
     },

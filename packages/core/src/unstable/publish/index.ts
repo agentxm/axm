@@ -15,7 +15,9 @@ export {
   enforceArchiveContentType,
 } from "./ingest-limits.js";
 export {
+  ManifestIdentitySchema,
   ManifestError,
+  manifestFilenameForType,
   validateDeclaredManifestAlignment,
   type DeclaredPublishIdentity,
   type ManifestIdentity,

@@ -1,3 +1,13 @@
+## 0.27.0 (2026-08-14)
+
+### ⚠️ Breaking Changes
+
+- Make workspace state recoverable from settings and immutable external lock resolutions. ([3601fa39](https://github.com/agentxm/axm/commit/3601fa39))
+
+### ❤️ Thank You
+
+- Test @osintorg
+
 ## 0.26.7 (2026-08-13)
 
 ### 🚀 Features

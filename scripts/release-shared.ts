@@ -469,6 +469,9 @@ export const requireNoExistingGitHubRelease = (tag: string) => {
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const releaseCommitSubjectPattern = (tag: string): string =>
+  `^release: ${escapeRegex(tag)}(?: \\(#[0-9]+\\))?$`;
+
 export const releaseCommitOnOriginMain = (tag: string): string => {
   const output = git(
     "log",
@@ -476,7 +479,7 @@ export const releaseCommitOnOriginMain = (tag: string): string => {
     "--format=%H",
     "--perl-regexp",
     "--grep",
-    `^release: ${escapeRegex(tag)}$`,
+    releaseCommitSubjectPattern(tag),
     "-n",
     "2",
   );

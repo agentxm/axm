@@ -9,6 +9,7 @@ import {
   releaseVersionFromTag,
   readGeneratedSkillCompatibilityFromContent,
   readSkillCompatibility,
+  releaseCommitSubjectPattern,
   stampSkillCompatibility,
   transitionSkillCompatibility,
   validateGeneratedSkillCompatibility,
@@ -25,6 +26,15 @@ afterEach(() => {
 });
 
 describe("release tag helpers", () => {
+  it("matches prepared and GitHub squash-merged release subjects", () => {
+    const pattern = new RegExp(releaseCommitSubjectPattern("cli-v0.27.3"));
+
+    expect(pattern.test("release: cli-v0.27.3")).toBe(true);
+    expect(pattern.test("release: cli-v0.27.3 (#188)")).toBe(true);
+    expect(pattern.test("release: cli-v0.27.30 (#188)")).toBe(false);
+    expect(pattern.test("release: cli-v0.27.3 follow-up")).toBe(false);
+  });
+
   it("validates release tags through the root target", () => {
     const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
       readonly version: string;

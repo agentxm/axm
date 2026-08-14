@@ -137,6 +137,7 @@ describe("CredentialStore", () => {
       isWSL: false,
       isCI: false,
       isRoot: false,
+      isGenericBunExecutable: false,
     };
 
     it("selects keychain for default environment", () => {
@@ -153,6 +154,10 @@ describe("CredentialStore", () => {
 
     it("selects restricted-file for SSH environment", () => {
       expect(selectTier({ ...baseEnv, isSSH: true })).toBe("restricted-file");
+    });
+
+    it("selects restricted-file for the generic Bun development executable", () => {
+      expect(selectTier({ ...baseEnv, isGenericBunExecutable: true })).toBe("restricted-file");
     });
 
     it("selects keychain for WSL desktop environments", () => {
@@ -175,6 +180,7 @@ describe("CredentialStore", () => {
       isWSL: false,
       isCI: false,
       isRoot: false,
+      isGenericBunExecutable: false,
     };
 
     it("allows persisted credentials in normal local environments", () => {

@@ -356,7 +356,13 @@ export interface EnvironmentInfo {
   readonly isWSL: boolean;
   readonly isCI: boolean;
   readonly isRoot: boolean;
+  readonly isGenericBunExecutable: boolean;
 }
+
+const isGenericBunExecutable = (): boolean => {
+  const executable = process.execPath.replaceAll("\\", "/").toLowerCase();
+  return executable.endsWith("/bun") || executable.endsWith("/bun.exe");
+};
 
 export const detectEnvironment = Effect.gen(function* () {
   return {
@@ -365,6 +371,7 @@ export const detectEnvironment = Effect.gen(function* () {
     isWSL: yield* isWSL,
     isCI: yield* isCI,
     isRoot: isRoot(),
+    isGenericBunExecutable: isGenericBunExecutable(),
   } satisfies EnvironmentInfo;
 });
 
@@ -376,7 +383,9 @@ export const detectEnvironment = Effect.gen(function* () {
  * policy decision.
  */
 export const selectTier = (env: EnvironmentInfo): StorageTier =>
-  env.isContainer || env.isCI || env.isSSH ? "restricted-file" : "keychain";
+  env.isContainer || env.isCI || env.isSSH || env.isGenericBunExecutable
+    ? "restricted-file"
+    : "keychain";
 
 export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean => !env.isCI;
 

@@ -209,11 +209,6 @@ See [Effect Guide](contributing/guides/effect.md),
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.
 
-- Never edit or commit directly on `main`; create a task branch or worktree
-  before the first file change
-- All changes land through pull requests; never push directly to `main`
-- Keep the primary checkout clean on `main`; use worktrees for concurrent agent
-  or human tasks
 - This repo is public: never include private Linear IDs, links, titles, content,
   comments, customer details, private-repo links, or screenshots in branches,
   commits, issues, PRs, or release notes

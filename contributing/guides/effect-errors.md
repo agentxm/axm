@@ -38,7 +38,8 @@ pure mapping owned by
   authenticated identity lacks permission.
 - Operational errors may use `suggestions`, or the `recover` and optional `cmd`
   convenience fields, for a direct prerequisite such as authentication. Lint
-  findings follow the fact-only contract in [Lint](../../docs/architecture/lint.md)
+  findings follow the fact-only contract in
+  [Lint](../../docs/architecture/commands/lint.md)
   and never carry recovery suggestions.
 
 ## Registry failures

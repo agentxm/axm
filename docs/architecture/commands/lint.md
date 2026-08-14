@@ -1,0 +1,99 @@
+---
+status: stable
+description: Lint responsibilities, diagnostic behavior, autofix limits, and verification strategy.
+depends-on:
+  - ./overview.md
+  - ../principles.md
+  - ../workspace/overview.md
+  - ../workspace/invariants.md
+---
+
+# Lint
+
+`axm lint` explains extension and workspace invariant violations, including
+configured-agent, instruction-surface, source-policy, and inline-configuration
+state. It helps a person or agent understand what is invalid without guessing
+what they intended or directing them through a recovery workflow.
+
+## Responsibilities
+
+Lint reads local authoritative and observed state and reports what is invalid.
+Its workspace facts come from the shared invariant model rather than a
+lint-specific definition of validity.
+
+Each finding identifies:
+
+- a stable rule;
+- severity and scope;
+- the affected extension or workspace subject;
+- the authoritative source and observed fact;
+- the expected invariant; and
+- relevant identities and locations.
+
+Messages should be understandable without knowing AXM internals. They state the
+problem and its context, not a command to run. Structured output preserves the
+same facts and does not add suggested actions or recovery instructions.
+
+## Non-responsibilities
+
+Lint does not report general inventory, available updates, unpublished authored
+content, registry availability, recovery classifications, or predictions about
+which mutation a finding would block. It does not use the network.
+
+Lint does not guess user intent, choose workspace configuration, install or
+remove extensions, change trust or receipt history, or reconcile agent
+projections. Those responsibilities belong to the user, lifecycle commands, or
+sync.
+
+The presence of unowned native content is not itself an invariant violation.
+Lint reports it only when the relevant extension contract makes the state a
+collision, an authority ambiguity, or another durable invalid condition.
+
+Local byte drift in externally installed canonical extension content is not by
+itself a lint or trust violation. The content remains externally sourced, but
+only an explicit update or reinstall may replace it.
+
+## Views
+
+A lint view selects the local snapshot to inspect, such as the worktree or Git
+index. Views use the same rules and invariant meanings; selecting a view cannot
+turn valid state into a different predicate or add recovery guidance.
+
+## Rule behavior
+
+Rules describe stable conditions rather than particular recovery commands. A
+root-cause rule reports the primary violation; rules that depend on that failed
+precondition skip instead of emitting cascade symptoms. Independent rules
+continue so one broken area does not hide another.
+
+Platform invariant errors cannot be disabled or lowered. Warnings may be
+disabled, retained, or promoted. `--strict` makes warnings affect the exit code
+without relabeling them as errors.
+
+Local lint configuration affects local linting. The registry publish gate owns
+its fixed distribution requirements and remains authoritative for publishing.
+
+## Autofix boundary
+
+`axm lint --fix` is limited to unambiguous, meaning-preserving normalization
+of workspace-authored source or configuration. Examples may include standard
+formatting or an unambiguous metadata normalization.
+
+Autofix performs no network acquisition, lifecycle transition, trust or receipt
+change, projection work, authority change, or rewrite of externally installed
+content. If a correction requires guessing user intent or choosing desired
+state, it is not an autofix.
+
+Fixing evaluates one stable snapshot, checks that every target still matches
+that snapshot, applies all eligible fixes or none, reruns lint, and reports the
+resulting findings. A stale target causes no writes.
+
+## Testing strategy
+
+Lint tests own the rule catalog, views, and exact findings. The shared
+[workspace invariant design](../workspace/invariants.md) owns exhaustive
+recovery coverage. Cross-type tests prevent mere unowned presence from becoming
+a generic error while proving type-specific collision and ambiguity findings.
+Autofix tests additionally prove meaning preservation, all-or-nothing
+application, no external-content rewrite, post-fix reevaluation, and
+stale-target safety.

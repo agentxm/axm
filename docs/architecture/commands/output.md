@@ -1,3 +1,10 @@
+---
+status: stable
+description: Human and machine output responsibilities, channel boundaries, and contract authority.
+depends-on:
+  - ../principles.md
+---
+
 # CLI output
 
 Human terminal output and machine output are separate product surfaces built
@@ -44,8 +51,3 @@ Preview, confirmation, execution, and rendering refer to one operation
 candidate. Machine mode never prompts. Cancellation, blocked work, partial
 progress, rollback, and interruption remain distinct outcomes when the
 underlying operation distinguishes them.
----
-
-status: stable
-description: Human and machine output responsibilities, channel boundaries, and contract authority.
----

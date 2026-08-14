@@ -6,26 +6,31 @@ Navigation for the accepted product and system architecture of AXM.
 
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and
   major system elements
+- [Glossary](glossary.md) — recurring AXM terms for extension authority,
+  manifests, sources, accepted resolutions, receipt history, workspaces, scopes,
+  canonical extension content, projections, and unowned content
 - [Principles](principles.md) — command ownership, recovery, content authority,
   change scope, overrides, and verification
-- [Workspaces](workspaces.md) — desired state, current state, authority,
-  reachability, and ownership
 
-## Product surfaces and capabilities
+## Commands
 
-- [Commands](commands.md) — responsibility boundaries across lifecycle,
-  inspection, lint, sync, and type-specific commands
-- [CLI output](output.md) — human and machine surfaces, channel boundaries, and
-  contract authority
-- [Lint](lint.md) — fact-only diagnostics and meaning-preserving autofix
-- [Sync](sync.md) — reconciliation of managed current state with desired state
-- [Capability targeting](capability-targeting.md) — portable sources with
-  capability-based agent enhancements
+- [Command architecture](commands/index.md) — responsibility boundaries across
+  lifecycle, workspace configuration, inspection, lint, sync, output, and
+  type-specific commands
 
-## Workspace artifacts and execution
+## Extensions
 
-- [Settings](settings.md) — durable workspace configuration and editing
-  authority
-- [Lockfile](lockfile.md) — exact resolution pins and reproducibility
-- [Workspace execution](workspace-execution.md) — read snapshots, planning,
-  mutation, and adapter boundaries
+- [Extension architecture](extensions/index.md) — the common extension contract
+  and the architectural differences among extension types and agent-specific
+  content
+
+## Workspace
+
+- [Workspace architecture](workspace/index.md) — desired state, current state,
+  configured agents, instruction files, sources, artifacts, authority,
+  ownership, and safe execution
+
+## System-wide
+
+- [Telemetry](system-wide/telemetry.md) — CLI observation, local control,
+  privacy boundaries, and separation from Registry request logging

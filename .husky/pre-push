@@ -1,5 +1,5 @@
 export NX_TUI=false
-axm lint --strict
+pnpm axm:local lint --strict
 pnpm sync
 
 if ! git diff --quiet --exit-code; then

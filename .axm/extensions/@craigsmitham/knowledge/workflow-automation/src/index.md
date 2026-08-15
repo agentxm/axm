@@ -20,6 +20,9 @@ may be added separately as guides when they are warranted.
 * [Workflow model](workflow-model-explainer.md) - A portable definition/runtime
   taxonomy for workflow automation and mappings to the object models of major
   platforms.
+* [Agents and agentic workflows](agents-and-agentic-workflows.md) - Distinguishes
+  deterministic automation, LLM workflows, agents, and agents contained within
+  durable workflows by who controls execution.
 
 ## Patterns
 

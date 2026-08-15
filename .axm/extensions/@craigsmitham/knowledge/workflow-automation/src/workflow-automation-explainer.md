@@ -18,8 +18,8 @@ sources:
     resource: https://blog.cloudflare.com/ci-workflows/
     title: Cloudflare — Run CI/CD for millions of repos
 generated:
-  by: openai/gpt-5
-  at: 2026-08-08T16:15:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-14T22:24:33Z
 ---
 
 # Workflow automation
@@ -81,7 +81,7 @@ Other profiles include:
 | Maintenance and operations | Perform scheduled or event-driven operational work |
 | Data processing | Transform, validate, and move data through dependent work |
 | Durable application flow | Coordinate long waits, callbacks, approvals, or human interaction |
-| Agentic work | Bound and observe tool-using or self-revising automated activity |
+| Agent-contained work | Provide durable triggers, dependencies, state, approvals, retries, cancellation, and compensation around bounded agent steps |
 
 One workflow may serve several profiles. Purpose should therefore be recorded as
 context, not inferred from whether the platform calls the definition a pipeline
@@ -132,8 +132,14 @@ does not attempt to cover all business-process modeling, job scheduling,
 distributed systems, testing strategy, or release management. It explains
 those subjects only where they materially shape automated workflow systems.
 
+An LLM call or graph is not automatically an agent. Workflow automation owns
+defined execution structure and durable lifecycle; agent engineering owns
+model-directed choice, replanning, capability policy, delegation, and stopping
+inside an agent boundary. See [Agents and agentic workflows](agents-and-agentic-workflows.md).
+
 ## Related
 
 * [Workflow model](workflow-model-explainer.md)
+* [Agents and agentic workflows](agents-and-agentic-workflows.md)
 * [Pipeline](patterns/pipeline-explainer.md)
 * [Continuous integration](practices/continuous-integration-explainer.md)

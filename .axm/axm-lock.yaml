@@ -54,8 +54,8 @@ knowledge:
     type: registry
     owner: "@craigsmitham"
     name: workflow-automation
-    resolvedVersion: 0.1.0
-    integrity: sha512-KG1DabgJW/vPiV/wTNusU+iFmxO+6bcdWBLSgD4QllBp979MCEp19cUvgcqUu2vqjS/4qxC8pN+67/R9Gk6vyg==
+    resolvedVersion: 0.1.1
+    integrity: sha512-vkIcgesA8pioA8gW5G0LzY78MPJyru65y964nb5g3/taACXLbhoi9V2+9jk3aleQ5Q3O3suCjtkTcrSYwXyNdw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   effect-v4:

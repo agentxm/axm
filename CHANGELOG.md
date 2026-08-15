@@ -1,3 +1,14 @@
+## 0.27.5 (2026-08-15)
+
+### 🚀 Features
+
+- Make extension visibility declarative and remove superseded pre-launch compatibility paths.
+- Make pack publication selection explicit and provide truthful, convergent recovery after partial publication.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.4 (2026-08-14)
 
 ### 🩹 Fixes

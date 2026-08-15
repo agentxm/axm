@@ -47,7 +47,7 @@ export const mutationExecutionInventory = [
   },
   {
     family: "workspace maintenance",
-    commands: ["sync", "lint --fix"],
+    commands: ["sync"],
     classification: "shared-plan-policy",
   },
   {

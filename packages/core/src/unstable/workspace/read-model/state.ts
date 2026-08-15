@@ -9,7 +9,6 @@ import YAML from "yaml";
 import { LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
 import { formatSchemaIssuesToLines } from "../../schema/format-issues.js";
 import { SettingsSchema, type Settings } from "../../settings/schema.js";
-import { LockfileReadToleranceRef } from "../lockfile-read-tolerance.js";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -92,56 +91,6 @@ const loadRawLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw"
 // Settings loader (decode pipeline) — sources bytes from the cached raw cell
 // ---------------------------------------------------------------------------
 
-const containsRemovedAuthoredProperty = (value: unknown): boolean => {
-  if (Array.isArray(value)) return value.some(containsRemovedAuthoredProperty);
-  if (typeof value !== "object" || value === null) return false;
-  if ("authored" in value) return true;
-  return Object.values(value).some(containsRemovedAuthoredProperty);
-};
-
-const REMOVED_SETTINGS_KEY_ISSUES: ReadonlyArray<{
-  readonly key: string;
-  readonly issue: string;
-}> = [
-  {
-    key: "libraries",
-    issue: "libraries: Library workspace state is no longer supported",
-  },
-  {
-    key: "ignored",
-    issue:
-      "ignored: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.",
-  },
-];
-
-const REMOVED_IGNORE_CONFIG_KEYS: ReadonlyArray<string> = [
-  "skillsConfig",
-  "mcpServersConfig",
-  "subagentsConfig",
-  "hooksConfig",
-  "packsConfig",
-];
-
-const removedIgnoreConfigIssues = (value: object): ReadonlyArray<string> =>
-  REMOVED_IGNORE_CONFIG_KEYS.flatMap((key) => {
-    if (!(key in value)) return [];
-    const config = Reflect.get(value, key);
-    if (typeof config !== "object" || config === null || !("ignore" in config)) return [];
-    return [
-      `${key}.ignore: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.`,
-    ];
-  });
-
-const withoutLegacyKnowledgeConfig = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null || !("knowledgeConfig" in value)) return value;
-  const config = Reflect.get(value, "knowledgeConfig");
-  if (typeof config !== "object" || config === null) return value;
-  const current = Object.fromEntries(
-    Object.entries(config).filter(([key]) => key !== "directory" && key !== "ignore"),
-  );
-  return { ...value, knowledgeConfig: current };
-};
-
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
   rawCell: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>,
@@ -155,34 +104,13 @@ const loadSettings = (
       try: (): unknown => JSON.parse(bytes),
       catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
     });
-    // Removed legacy keys fail loudly with targeted guidance; SettingsSchema
-    // itself tolerates unknown top-level keys so newer-AXM data is preserved.
-    if (typeof parsed === "object" && parsed !== null) {
-      const removedKeyIssues = REMOVED_SETTINGS_KEY_ISSUES.filter(({ key }) => key in parsed).map(
-        ({ issue }) => issue,
-      );
-      const removedIgnoreIssues = removedIgnoreConfigIssues(parsed);
-      const removedIssues = [...removedKeyIssues, ...removedIgnoreIssues];
-      if (removedIssues.length > 0) {
-        return yield* new SettingsDecodeError({ path, issues: removedIssues, raw: parsed });
-      }
-    }
-
-    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
-      withoutLegacyKnowledgeConfig(parsed),
-      {
-        onExcessProperty: "error",
-      },
-    ).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
+      onExcessProperty: "error",
+    }).pipe(
       Effect.mapError((error) => {
-        const authoredGuidance = containsRemovedAuthoredProperty(parsed)
-          ? [
-              "The authored property was removed. Replace authored entries with source: workspace:@owner/<plural-type>/<name> and remove authored.",
-            ]
-          : [];
         return new SettingsDecodeError({
           path,
-          issues: [...authoredGuidance, ...formatSchemaIssuesToLines(error.issue)],
+          issues: formatSchemaIssuesToLines(error.issue),
           raw: parsed,
         });
       }),
@@ -207,14 +135,6 @@ const loadLockfile = (
       try: (): unknown => YAML.parse(bytes),
       catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
     });
-    if (typeof parsed === "object" && parsed !== null && "libraries" in parsed) {
-      return yield* new LockfileDecodeError({
-        path,
-        issues: ["libraries: Library workspace state is no longer supported"],
-        raw: parsed,
-      });
-    }
-
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
       Effect.mapError(
         (error) =>
@@ -228,16 +148,6 @@ const loadLockfile = (
     return Option.some(decoded);
   }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
 
-/**
- * A lockfile that exists but cannot be understood — bad YAML or a payload the
- * schema rejects. Distinct from {@link LockfileIoError}, which means the file
- * could not be read at all and is never degraded away.
- */
-const isLockfileContentError = (
-  error: LockfileReadError,
-): error is LockfileParseError | LockfileDecodeError =>
-  error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -249,8 +159,6 @@ export const makeScopedStateApi = (
 ): Effect.Effect<ScopedStateLoaders> =>
   Effect.gen(function* () {
     const { fs, settingsPath, lockfilePath } = deps;
-    const tolerance = yield* LockfileReadToleranceRef;
-
     const settingsRaw = yield* Effect.cached(loadRawSettingsBytes({ fs, settingsPath }));
     const settings = yield* Effect.cached(loadSettings(settingsRaw));
 
@@ -258,21 +166,10 @@ export const makeScopedStateApi = (
       lockfilePath === null
         ? Effect.succeed(Option.none<RawSourceBytes>())
         : yield* Effect.cached(loadRawLockfileBytes({ fs, lockfilePath }));
-    // Under "degrade", an unreadable lockfile reads as absent so pre-reconcile
-    // callers keep working; reconciliation still sees the real state through
-    // `getLockfileState`, which pins itself strict.
-    const decodedLockfile =
-      tolerance === "degrade"
-        ? loadLockfile(lockfileRaw).pipe(
-            Effect.catchIf(isLockfileContentError, () =>
-              Effect.succeed(Option.none<DecodedLockfile>()),
-            ),
-          )
-        : loadLockfile(lockfileRaw);
     const lockfile: ScopedStateLoaders["lockfile"] =
       lockfilePath === null
         ? Effect.succeed(Option.none<DecodedLockfile>())
-        : yield* Effect.cached(decodedLockfile);
+        : yield* Effect.cached(loadLockfile(lockfileRaw));
 
     return { settings, lockfile, settingsRaw, lockfileRaw } satisfies ScopedStateLoaders;
   });

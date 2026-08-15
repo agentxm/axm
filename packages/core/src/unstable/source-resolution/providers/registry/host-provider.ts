@@ -59,21 +59,11 @@ import type {
   RegistrySourceHost,
 } from "../../../sources/index.js";
 import type { ExtensionIndex, VersionEntry } from "../../../registry/index.js";
-import type { Version } from "../../../version-constraints/version-constraints.js";
-
-type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
+type RegistrySourceHostProvider<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly resolveNamed: (
     source: RegistrySource,
     options: NamedRegistryFindOptions,
   ) => Effect.Effect<NamedRegistryResolution, AppError, R>;
-  readonly publishExtension: (
-    owner: Handle,
-    type: ExtensionType,
-    name: ExtensionName,
-    version: Version,
-    archive: Uint8Array,
-    metadata: VersionEntry,
-  ) => Effect.Effect<void, AppError, R>;
 };
 
 // -----------------------------------------------------------------------------
@@ -724,7 +714,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
  */
 export const createLocalRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
+): RegistrySourceHostProvider<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
@@ -770,15 +760,6 @@ export const createLocalRegistrySourceHostProvider = (
     }),
 
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
-
-  publishExtension: (
-    owner: Handle,
-    type: ExtensionType,
-    name: ExtensionName,
-    version: Version,
-    archive: Uint8Array,
-    metadata: VersionEntry,
-  ) => client.publishExtension({ owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------
@@ -795,7 +776,7 @@ export const createLocalRegistrySourceHostProvider = (
  */
 export const createRemoteRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
+): RegistrySourceHostProvider<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "https:"),
@@ -818,15 +799,6 @@ export const createRemoteRegistrySourceHostProvider = (
     }),
 
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
-
-  publishExtension: (
-    owner: Handle,
-    type: ExtensionType,
-    name: ExtensionName,
-    version: Version,
-    archive: Uint8Array,
-    metadata: VersionEntry,
-  ) => client.publishExtension({ owner, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------

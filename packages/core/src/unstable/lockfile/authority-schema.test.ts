@@ -142,7 +142,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
   });
 
-  it("rejects legacy lock versions and unknown top-level state", () => {
+  it("rejects non-canonical lock versions and unknown top-level state", () => {
     expect(() =>
       decodeLockfile({ lockfileVersion: 3, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();

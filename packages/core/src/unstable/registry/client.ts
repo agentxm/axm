@@ -16,7 +16,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
-import type { PublishVisibility } from "../publish/index.js";
+import type {
+  PublishVisibility,
+  VisibilityEvaluation,
+  VisibilityIntent,
+  VisibilityMutationRequest,
+  VisibilityMutationResult,
+} from "../publish/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import type {
   Author,
@@ -38,17 +44,15 @@ import type { Version, VersionRange } from "../version-constraints/version-const
 import type {
   PreviewPublicationSetRequest,
   PreviewPublicationSetResponse,
+  PublicationVisibilityInput,
   Sha256Hex,
 } from "./publication-set.js";
 export {
   MAX_PUBLICATION_SET_CANDIDATES,
   PUBLICATION_SET_CONTRACT,
-  PUBLICATION_SET_V1_CONTRACT,
   PackDependencyFindingSchema,
   PreviewPublicationSetRequestSchema,
   PreviewPublicationSetResponseSchema,
-  PreviewPublicationSetV1RequestSchema,
-  PreviewPublicationSetV1ResponseSchema,
   Sha256HexSchema,
   archiveSha256Hex,
   comparePublicationTargets,
@@ -156,8 +160,10 @@ export interface PublishExtensionArgs {
   readonly version: Version;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
-  /** Visibility applied atomically when the extension is first created. */
-  readonly initialVisibility?: ExtensionVisibility;
+  /** Exact repository/CLI visibility input bound by the publication descriptor digest. */
+  readonly visibilityInput: PublicationVisibilityInput;
+  /** Authoritative establishment value and provenance from publication preview. */
+  readonly visibility?: PublishVisibility;
   /** Ephemeral exact publish capability. Never persisted by the registry client. */
   readonly accessToken?: string;
   /** Opaque authoritative preview condition, sent as If-Match. */
@@ -180,12 +186,14 @@ export interface PublishPreviewTarget {
 export type PreviewExtensionPublishesArgs = PreviewPublicationSetRequest;
 export type PublishPreviewResult = PreviewPublicationSetResponse;
 
-export interface UpdateExtensionVisibilityArgs {
+export interface GetExtensionVisibilityArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly visibility: ExtensionVisibility;
+  readonly intent: VisibilityIntent | null;
 }
+
+export type UpdateExtensionVisibilityArgs = VisibilityMutationRequest;
 
 // -----------------------------------------------------------------------------
 // Extension Exists Args
@@ -359,9 +367,12 @@ export interface RegistryClient {
   readonly previewExtensionPublishes: (
     args: PreviewExtensionPublishesArgs,
   ) => Effect.Effect<PublishPreviewResult, AppError>;
-  readonly updateExtensionVisibility?: (
+  readonly getExtensionVisibility: (
+    args: GetExtensionVisibilityArgs,
+  ) => Effect.Effect<VisibilityEvaluation, AppError>;
+  readonly updateExtensionVisibility: (
     args: UpdateExtensionVisibilityArgs,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<VisibilityMutationResult, AppError>;
   readonly extensionExists: (
     args: ExtensionExistsArgs,
   ) => Effect.Effect<ExtensionExistsResponse, AppError>;

@@ -24,19 +24,6 @@ describe("SkillEntrySchema", () => {
       expect(result).toEqual({ source: "github:owner/repo", enabled: true });
     });
 
-    it("rejects the removed authored field under strict validation", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SkillEntrySchema)(
-          { source: "github:owner/repo", authored: true },
-          { onExcessProperty: "error" },
-        ),
-      ).toThrow();
-    });
-
-    it("rejects { managed: false } (legacy unmanaged marker)", () => {
-      expect(() => Schema.decodeUnknownSync(SkillEntrySchema)({ managed: false })).toThrow();
-    });
-
     it("rejects invalid object", () => {
       expect(() => Schema.decodeUnknownSync(SkillEntrySchema)({ foo: "bar" })).toThrow();
     });

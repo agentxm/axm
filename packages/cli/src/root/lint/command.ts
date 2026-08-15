@@ -24,11 +24,6 @@ const lintConfig = {
       "Scope of the lint run: project (default) or user (lints $AXM_USER_HOME/.axm or $HOME/.axm).",
     ),
   ),
-  fix: Flag.boolean("fix").pipe(
-    Flag.withDescription(
-      "Apply every autofixable finding non-interactively via the plan pipeline.",
-    ),
-  ),
   strict: Flag.boolean("strict").pipe(
     Flag.withDescription("Treat warnings as failing for exit code."),
   ),
@@ -44,19 +39,12 @@ const lintConfig = {
 interface RunLintCommandArgs {
   readonly path: Option.Option<string>;
   readonly scope: WorkspaceScope;
-  readonly fix: boolean;
   readonly strict: boolean;
   readonly details: boolean;
   readonly view: LintView;
 }
 
 const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
-  if (args.view === "git-index" && args.fix) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "--view git-index cannot be combined with --fix because Git-index lint is read-only",
-    });
-  }
   if (args.view === "git-index" && args.scope === "user") {
     return yield* makeAppError({
       code: "validation",
@@ -73,7 +61,6 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
     return yield* handleLint({
       pathArg: Option.some(snapshot.workspaceRoot),
       scope: "project",
-      fix: false,
       strict: args.strict,
       details: args.details,
       displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
@@ -88,7 +75,6 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
   return yield* handleLint({
     pathArg: args.path,
     scope: args.scope,
-    fix: args.fix,
     strict: args.strict,
     details: args.details,
     input: { view: "workspace" },
@@ -98,17 +84,13 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
 export const lintCommand = Command.make(
   "lint",
   lintConfig,
-  ({ path, scope, fix, strict, details, view }) =>
-    runLintCommand({ path, scope, fix, strict, details, view }).pipe(withRuntime("lint")),
+  ({ path, scope, strict, details, view }) =>
+    runLintCommand({ path, scope, strict, details, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
-  Command.withDescription("Check and fix workspace configuration"),
+  Command.withDescription("Check workspace configuration"),
   Command.withExamples([
     { command: "axm lint", description: "Lint the current project workspace" },
-    {
-      command: "axm lint --fix",
-      description: "Lint, then apply every autofixable finding non-interactively",
-    },
     {
       command: "axm lint --scope user",
       description: "Lint the user-scope workspace under $HOME/.axm",

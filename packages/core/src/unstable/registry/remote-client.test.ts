@@ -785,7 +785,20 @@ describe("previewExtensionPublishes", () => {
         },
         participation: "publish" as const,
         archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
-        initialVisibility: "public" as const,
+        visibility: { intent: null, request: "public" as const },
+      };
+      const visibility = {
+        target: "@acme/skills/test-skill",
+        intent: null,
+        request: "public" as const,
+        resolved: {
+          value: "public" as const,
+          disposition: "establish" as const,
+          source: "explicit" as const,
+        },
+        actual: null,
+        comparison: "not-established" as const,
+        findings: [],
       };
       let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
       const httpClient = makeMockHttpClient((request) => {
@@ -801,7 +814,7 @@ describe("previewExtensionPublishes", () => {
                 target: descriptor.target,
                 participation: "publish",
                 descriptorDigest: publicationDescriptorDigest(descriptor),
-                resolvedVisibility: "public",
+                visibility,
                 condition: '"preview-condition"',
               },
             ],
@@ -827,7 +840,7 @@ describe("previewExtensionPublishes", () => {
             target: descriptor.target,
             participation: "publish",
             descriptorDigest: publicationDescriptorDigest(descriptor),
-            resolvedVisibility: "public",
+            visibility,
             condition: '"preview-condition"',
           },
         ],
@@ -904,6 +917,7 @@ const publishArgs = {
     published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
     integrity: "sha512-abc123",
   },
+  visibilityInput: { intent: null, request: null },
   condition: '"pv2-test"',
   publicationSetDigest: archiveSha256Hex(new TextEncoder().encode("publication-set")),
   publicationDescriptorDigest: archiveSha256Hex(new TextEncoder().encode("publication-descriptor")),
@@ -931,7 +945,7 @@ describe("publishExtension", () => {
     }),
   );
 
-  it.effect("applies initial visibility on the publish request", () =>
+  it.effect("applies authoritative establishment visibility on the publish request", () =>
     Effect.gen(function* () {
       let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
       const httpClient = makeMockHttpClient((request) => {
@@ -940,7 +954,14 @@ describe("publishExtension", () => {
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      yield* client.publishExtension({ ...publishArgs, initialVisibility: "private" });
+      yield* client.publishExtension({
+        ...publishArgs,
+        visibility: {
+          value: "private",
+          disposition: "establish",
+          source: "explicit",
+        },
+      });
 
       const requestUrl =
         capturedRequest === undefined

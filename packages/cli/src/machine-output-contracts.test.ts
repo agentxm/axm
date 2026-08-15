@@ -4,6 +4,10 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "@agentxm/client-core/unstable/cli-runtime";
 import { LoginDocumentSchema } from "@agentxm/client-core/unstable/auth";
+import {
+  VisibilityEvaluationSchema,
+  VisibilityMutationResultSchema,
+} from "@agentxm/client-core/unstable/publish";
 import { ExtensionInventorySchema } from "@agentxm/client-core/unstable/workspace";
 
 import {
@@ -98,6 +102,8 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   UpgradeDocumentSchema,
   ViewDocumentSchema,
   ViewFieldValueSchema,
+  VisibilityEvaluationSchema,
+  VisibilityMutationResultSchema,
   WhoamiDocumentSchema,
 };
 

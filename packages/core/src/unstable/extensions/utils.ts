@@ -45,7 +45,7 @@ export const sanitizeName = (name: string): string => {
   }
 
   // Extension names are normally canonical before reaching filesystem code.
-  // Preserve those stable paths. For legacy or defensive non-canonical input,
+  // Preserve those stable paths. For defensive non-canonical input,
   // append a deterministic discriminator so distinct display names that
   // normalize to the same slug cannot address each other's files.
   let high = 0x9e3779b9;

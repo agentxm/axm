@@ -37,6 +37,7 @@ export type {
   SubagentEntry,
   SubagentsMap,
   SourceHostConfig,
+  WorkspacePublishOptions,
 } from "./schema.js";
 export {
   HookEntryObjectSchema,
@@ -67,6 +68,7 @@ export {
   SubagentEntrySchema,
   SubagentsMapSchema,
   SourceHostConfigSchema,
+  WorkspacePublishOptionsSchema,
 } from "./schema.js";
 
 // Settings I/O

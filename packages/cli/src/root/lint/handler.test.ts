@@ -5,7 +5,6 @@
  *
  * - Drift banner appears only when a publish-gate rule is weakened.
  * - WorkspaceMutations-only overrides do not surface the banner.
- * - `--fix` invokes `applyPlan` non-interactively (no prompts, no `--yes`).
  * - Exit-code contract: `--strict` turns warnings into non-zero exit.
  */
 
@@ -15,6 +14,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
@@ -141,14 +141,12 @@ describe("axm lint handler", () => {
 
   const lint = (args: {
     readonly scope?: "project" | "user";
-    readonly fix?: boolean;
     readonly strict?: boolean;
     readonly details?: boolean;
   }) =>
     handleLint({
       pathArg: Option.none(),
       scope: args.scope ?? "project",
-      fix: args.fix ?? false,
       strict: args.strict ?? false,
       details: args.details ?? false,
       input: { view: "workspace" },
@@ -318,8 +316,6 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const logs = logsByTag(rendererState);
-        expect(logs.step.some((m) => m.includes("Auto-fixable"))).toBe(false);
-        expect(logs.step.some((m) => m.includes("axm lint --fix"))).toBe(false);
         expect(logs.message).not.toContain("More output: `axm lint --details` | `axm lint --json`");
         expect(rendererState.suggestions).toEqual([]);
         expect(logs.message.some((message) => message.includes("axm install demo"))).toBe(false);
@@ -369,8 +365,8 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("runs skill rules when the lockfile is invalid", () => {
-    const { provide, rendererState } = makeLayers();
+  it.effect("fails closed when the lockfile is invalid", () => {
+    const { provide } = makeLayers();
     const sourceDir = path.join(tempDir, "source-skills", "demo");
     fs.mkdirSync(sourceDir, { recursive: true });
     writeSettings({
@@ -384,99 +380,13 @@ describe("axm lint handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* lint({ details: true }).pipe(Effect.exit);
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).toContain("skill/frontmatter-parseable");
-        expect(allMessages).toContain("workspace/lockfile-valid");
+        const exit = yield* lint({ details: true }).pipe(Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
       }),
     );
   });
 
-  it.effect("--fix does not perform lifecycle recovery", () => {
-    const { provide, rendererState } = makeLayers();
-    const skillRoot = path.join(tempDir, "source-skills");
-    const skillDir = path.join(skillRoot, "demo");
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(skillDir, "SKILL.md"),
-      '---\nname: "demo"\ndescription: "Test skill"\n---\n\n# demo\n',
-    );
-    writeSettings({
-      agents: ["claude-code"],
-      skills: { demo: skillRoot },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        const outcome = yield* lint({ fix: true }).pipe(Effect.exit);
-        void outcome;
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).not.toMatch(/Applied \d+ (fix|fixes)/);
-        expect(
-          fs.existsSync(
-            path.join(tempDir, ".axm", "extensions", "external", "skills", "demo", "SKILL.md"),
-          ),
-        ).toBe(false);
-      }),
-    );
-  });
-
-  it.effect("--fix preserves the fact-report machine contract", () => {
-    const { provide, rendererState } = makeLayers({ machine: true });
-    const skillRoot = path.join(tempDir, "source-skills");
-    const skillDir = path.join(skillRoot, "demo");
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(skillDir, "SKILL.md"),
-      '---\nname: "demo"\ndescription: "Test skill"\n---\n\n# demo\n',
-    );
-    writeSettings({
-      agents: ["claude-code"],
-      skills: { demo: skillRoot },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({ fix: true }).pipe(Effect.exit);
-        expect(rendererState.results[0]?.data).toMatchObject({
-          result: {
-            findings: expect.any(Array),
-            summary: expect.objectContaining({
-              total: expect.any(Number),
-            }),
-          },
-        });
-        expect(rendererState.results[0]?.ok).toBe(false);
-      }),
-    );
-  });
-
-  it.effect("--fix leaves instruction projection recovery to sync", () => {
-    const { provide, rendererState } = makeLayers();
-    fs.mkdirSync(path.join(tempDir, ".git"));
-    writeSettings({
-      agents: ["claude-code"],
-      rulesConfig: {
-        instructions: {
-          fileName: "AGENTS.md",
-          gitignoreAliases: true,
-        },
-      },
-    });
-    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({ fix: true }).pipe(Effect.exit);
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).not.toMatch(/Applied \d+ (fix|fixes)/);
-        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
-        expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
-      }),
-    );
-  });
-
-  it.effect("--fix reports MCP projection drift without reconciling it", () => {
+  it.effect("reports MCP projection drift without reconciling it", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -518,19 +428,9 @@ describe("axm lint handler", () => {
         expect(reportMessages).toContain("workspace/mcps-agent-drift");
         expect(reportMessages).toContain("workspace/mcps-agent-orphaned");
 
-        yield* lint({ fix: true }).pipe(Effect.exit);
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo.command).toBe("python");
         expect(config.mcpServers.stale).toBeDefined();
-
-        const beforeFinalLint = rendererState.logs.length;
-        yield* lint({}).pipe(Effect.exit);
-        const finalMessages = rendererState.logs
-          .slice(beforeFinalLint)
-          .map((e) => e.message)
-          .join("\n");
-        expect(finalMessages).toMatch(/MCP server 'demo' has drifted/);
-        expect(finalMessages).toMatch(/MCP server 'stale' has an orphaned/);
       }),
     );
   });

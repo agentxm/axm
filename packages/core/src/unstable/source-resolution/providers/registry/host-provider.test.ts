@@ -173,11 +173,9 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
       version: args.version,
       integrity: args.metadata.integrity,
       status: "available",
-      visibility: {
-        value: args.initialVisibility ?? "public",
-        disposition: "establish",
-        source: args.initialVisibility === undefined ? "platform" : "explicit",
-      },
+      visibility:
+        args.visibility ??
+        ({ value: "public", disposition: "establish", source: "platform" } as const),
       warnings: [],
     } as const),
   previewExtensionPublishes: (args) =>
@@ -188,6 +186,10 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
       candidates: [],
       packs: [],
     }),
+  getExtensionVisibility: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+  updateExtensionVisibility: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverPackages: () => Effect.succeed({ results: [] }),
   ...overrides,
@@ -230,6 +232,10 @@ const createFailingClient = (): RegistryClient => ({
       }),
     ),
   previewExtensionPublishes: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+  getExtensionVisibility: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+  updateExtensionVisibility: () =>
     Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
   extensionExists: () =>
     Effect.fail(
@@ -1156,61 +1162,6 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistrySourceHostProvider — publishExtension
-// -----------------------------------------------------------------------------
-
-describe("LocalRegistrySourceHostProvider.publishExtension", () => {
-  it.effect("delegates to client.publishExtension", () => {
-    let capturedArgs: Parameters<RegistryClient["publishExtension"]>[0] | undefined;
-
-    const client = createMockClient({
-      publishExtension: (args) => {
-        capturedArgs = args;
-        return Effect.succeed({
-          published: true,
-          owner: args.owner,
-          type: args.type,
-          name: args.name,
-          version: args.version,
-          integrity: args.metadata.integrity,
-          status: "available",
-          visibility: {
-            value: "public",
-            disposition: "establish",
-            source: "platform",
-          },
-          warnings: [],
-        } as const);
-      },
-    });
-
-    const provider = createLocalRegistrySourceHostProvider(client);
-    const archive = new Uint8Array([1, 2, 3]);
-    const metadata = makeVersionEntry();
-
-    return runEffect(
-      Effect.gen(function* () {
-        yield* provider.publishExtension(
-          handle("@test"),
-          "skill",
-          extensionName("my-skill"),
-          exactVersion("1.0.0"),
-          archive,
-          metadata,
-        );
-
-        expect(capturedArgs?.owner).toBe("@test");
-        expect(capturedArgs?.type).toBe("skill");
-        expect(capturedArgs?.name).toBe("my-skill");
-        expect(capturedArgs?.version).toBe("1.0.0");
-        expect(capturedArgs?.archive).toBe(archive);
-        expect(capturedArgs?.metadata).toBe(metadata);
-      }),
-    );
-  });
-});
-
-// -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider — match
 // -----------------------------------------------------------------------------
 
@@ -1326,30 +1277,6 @@ describe("RemoteRegistrySourceHostProvider", () => {
     return runEffect(
       Effect.gen(function* () {
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
-        expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("internal");
-        }
-      }),
-    );
-  });
-
-  it.effect("publishExtension fails when client returns error", () => {
-    const client = createFailingClient();
-    const provider = createRemoteRegistrySourceHostProvider(client);
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider
-          .publishExtension(
-            handle("@test"),
-            "skill",
-            extensionName("my-skill"),
-            exactVersion("1.0.0"),
-            new Uint8Array(),
-            makeVersionEntry(),
-          )
-          .pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(result.failure.code).toBe("internal");

@@ -47,11 +47,6 @@ describe("validateBundledAxmSkillContract", () => {
       metadata: '  axm.sh/cli-version: "1.2.3"\n  axm.sh/cli-version-range: ">=1.2.0"',
       reason: "compatibility-metadata-malformed",
     },
-    {
-      name: "legacy-only metadata",
-      metadata: '  agentxm.ai/cli-version: "1.2.3"',
-      reason: "compatibility-metadata-missing",
-    },
   ])("rejects $name", ({ metadata, reason }) => {
     expect(() => validateBundledAxmSkillContract("1.2.3", skillMd(metadata))).toThrow(reason);
   });

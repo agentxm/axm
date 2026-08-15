@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import * as Schema from "effect/Schema";
 
-import { decodeExtensionNameSync, decodeHandleSync } from "../extensions/index.js";
+import { decodeExtensionNameSync, decodeHandleSync, formatFqn } from "../extensions/index.js";
+import type { VisibilityEvaluation } from "../publish/index.js";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
@@ -13,7 +13,6 @@ import {
   normalizePublicationSet,
   publicationDescriptorDigest,
   publicationSetDigest,
-  PreviewPublicationSetV1RequestSchema,
   validatePublicationDescriptors,
   validatePublicationSetResponse,
   type PublicationDescriptor,
@@ -28,7 +27,7 @@ const skill: PublicationDescriptor = {
   },
   participation: "publish",
   archiveSha256Hex: archiveSha256Hex(new TextEncoder().encode("skill")),
-  initialVisibility: "public",
+  visibility: { intent: null, request: "public" },
 };
 
 const pack: PublicationDescriptor = {
@@ -40,6 +39,7 @@ const pack: PublicationDescriptor = {
   },
   participation: "publish",
   archiveSha256Hex: archiveSha256Hex(new TextEncoder().encode("pack")),
+  visibility: { intent: null, request: null },
   pack: {
     dependencies: [
       {
@@ -58,16 +58,20 @@ const pack: PublicationDescriptor = {
   },
 };
 
-describe("publication set contract", () => {
-  it("retains the released v1 request shape while the active contract is v2", () => {
-    expect(
-      Schema.decodeUnknownSync(PreviewPublicationSetV1RequestSchema)({
-        contract: "publication-set-v1",
-        candidates: [skill],
-      }).contract,
-    ).toBe("publication-set-v1");
-  });
+const evaluation = (
+  descriptor: PublicationDescriptor,
+  value: "public" | "private",
+): VisibilityEvaluation => ({
+  target: formatFqn(descriptor.target),
+  intent: descriptor.visibility.intent,
+  request: descriptor.visibility.request,
+  resolved: { value, disposition: "establish", source: "explicit" },
+  actual: null,
+  comparison: "not-established",
+  findings: [],
+});
 
+describe("publication set contract", () => {
   it("canonicalizes descriptor and dependency order into stable digests", () => {
     const forward = normalizePublicationSet([pack, skill]);
     const reverse = normalizePublicationSet([skill, pack]);
@@ -75,10 +79,10 @@ describe("publication set contract", () => {
     expect(forward).toEqual(reverse);
     expect(publicationSetDigest(forward)).toBe(publicationSetDigest(reverse));
     expect(publicationDescriptorDigest(pack)).toBe(
-      "9af4f1a9f082bcf1be12f64f1e5afe2e8407b635160a0bb04434eb2eebb54b5c",
+      "f7ee37ff8488e6b4ef99514496ad85f40153fb6defee0e511f9d5342cb60f50d",
     );
     expect(publicationSetDigest(forward)).toBe(
-      "c248d688a825b5c971abceddb2afe7a1a3fbc65b5cb8c548fabb9f75effb80f0",
+      "a7d28ff4005c1596cd373060c13279a58469573e49685fe17b8d767b4c210c6c",
     );
   });
 
@@ -89,7 +93,7 @@ describe("publication set contract", () => {
         {
           target: skill.target,
           participation: "publish",
-          initialVisibility: "public",
+          visibility: { intent: null, request: "public" },
         },
       ]),
     ).toThrow("archiveSha256Hex");
@@ -110,7 +114,7 @@ describe("publication set contract", () => {
           target: skill.target,
           participation: "publish",
           descriptorDigest: publicationDescriptorDigest(skill),
-          resolvedVisibility: "public",
+          visibility: evaluation(skill, "public"),
           condition: '"pv2-vector"',
         },
       ],
@@ -135,13 +139,14 @@ describe("publication set contract", () => {
 
     expect(
       evaluateProspectivePackDependencies({
+        packVisibility: "public",
         dependencies: [dependency],
         snapshots: [],
         candidates: [
           {
             descriptor: skill,
             kind: "resolved",
-            resolvedVisibility: "public",
+            visibility: evaluation(skill, "public"),
           },
         ],
       }),
@@ -149,13 +154,14 @@ describe("publication set contract", () => {
 
     expect(
       evaluateProspectivePackDependencies({
+        packVisibility: "public",
         dependencies: [dependency],
         snapshots: [],
         candidates: [
           {
             descriptor: skill,
             kind: "resolved",
-            resolvedVisibility: "private",
+            visibility: evaluation(skill, "private"),
           },
         ],
       }),
@@ -175,6 +181,7 @@ describe("publication set contract", () => {
 
     expect(
       evaluateProspectivePackDependencyState({
+        packVisibility: "public",
         dependencies: [dependency],
         snapshots: [
           {
@@ -187,6 +194,32 @@ describe("publication set contract", () => {
               { version: "1.2.0", status: "available", yanked: false, purged: false },
               { version: "1.4.0", status: "available", yanked: false, purged: false },
             ],
+          },
+        ],
+        candidates: [],
+      }),
+    ).toMatchObject({
+      findings: [],
+      resolutions: [{ dependency, effectiveVersion: "1.4.0" }],
+    });
+  });
+
+  it("allows a private pack to resolve a readable private dependency", () => {
+    const dependency = pack.pack?.dependencies[1];
+    if (dependency === undefined) throw new Error("Expected the review dependency");
+
+    expect(
+      evaluateProspectivePackDependencyState({
+        packVisibility: "private",
+        dependencies: [dependency],
+        snapshots: [
+          {
+            dependency,
+            exists: true,
+            visibility: "private",
+            lifecycleState: "active",
+            deprecated: false,
+            versions: [{ version: "1.4.0", status: "available", yanked: false, purged: false }],
           },
         ],
         candidates: [],

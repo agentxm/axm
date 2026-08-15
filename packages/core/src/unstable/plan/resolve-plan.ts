@@ -13,7 +13,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
@@ -24,15 +23,7 @@ import {
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
-import type {
-  CancelledPlan,
-  ExecutedPlan,
-  FailedPlan,
-  JobExecutionPolicy,
-  Plan,
-  PlannedJobStep,
-  PreviewedPlan,
-} from "./plan.js";
+import type { CancelledPlan, ExecutedPlan, FailedPlan, Plan, PreviewedPlan } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
@@ -376,52 +367,4 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     yield* showPlan(executed);
   }
   return executed;
-});
-
-// ---------------------------------------------------------------------------
-// Narrow resolver — lint-fix composition path
-// ---------------------------------------------------------------------------
-
-/**
- * Arguments for {@link resolvePlan}.
- */
-export interface ResolvePlanArgs {
-  readonly name: string;
-  readonly description?: string;
-  readonly steps: ReadonlyArray<PlannedJobStep>;
-  readonly concurrency?: "unbounded" | number;
-  readonly executionPolicy?: JobExecutionPolicy;
-}
-
-/**
- * Wrap an array of already-resolved {@link PlannedJobStep}s into a single-job
- * {@link Plan}.
- *
- * `resolvePlan` is the narrow resolver consumed by `axm lint --fix`. The lint
- * runner hands a fully-resolved `PlannedJobStep[]` — each step already carries
- * its own `run` closure wired against the per-extension
- * {@link OperationHandler}s — and `resolvePlan` wraps them into a `Plan` that
- * `applyPlan` can execute directly, without invoking the authoritative-lock
- * health gate {@link previewOrApplyPlan} performs for lifecycle flows.
- *
- * Consumers that need lockfile health gating (install, uninstall, pack) keep
- * calling `previewOrApplyPlan`; lint-fix composes the narrower
- * `collectFixOperations → resolvePlan → applyPlan` pipeline.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const resolvePlan = (args: ResolvePlanArgs): Plan => ({
-  _tag: "Plan" as const,
-  name: args.name,
-  description:
-    args.description !== undefined && args.description.length > 0
-      ? Option.some(args.description)
-      : Option.none(),
-  jobs: [
-    {
-      concurrency: args.concurrency ?? 1,
-      ...(args.executionPolicy === undefined ? {} : { executionPolicy: args.executionPolicy }),
-      steps: args.steps,
-    },
-  ],
 });

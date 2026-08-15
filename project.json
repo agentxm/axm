@@ -155,9 +155,7 @@
         "{workspaceRoot}/packages/e2e-utils/package.json",
         "{workspaceRoot}/packages/e2e-utils/**/tsconfig*.json",
         "{workspaceRoot}/packages/cli-e2e/package.json",
-        "{workspaceRoot}/packages/cli-e2e/**/tsconfig*.json",
-        "{workspaceRoot}/packages/cli-spike-e2e/package.json",
-        "{workspaceRoot}/packages/cli-spike-e2e/**/tsconfig*.json"
+        "{workspaceRoot}/packages/cli-e2e/**/tsconfig*.json"
       ],
       "options": {
         "command": "pnpm verify-e2e-boundaries",

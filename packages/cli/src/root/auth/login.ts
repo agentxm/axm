@@ -108,7 +108,6 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   options: {
     readonly yes: boolean;
     readonly deviceCode: boolean;
-    readonly noBrowser: boolean;
     readonly wait?: boolean;
     readonly timeoutSeconds?: number;
     readonly scopes: ReadonlyArray<string>;
@@ -123,11 +122,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const jsonMode = Option.getOrElse(json, () => false);
 
   const nonInteractive = yield* isNonInteractive;
-  if (options.wait && (options.deviceCode || options.noBrowser)) {
+  if (options.wait && options.deviceCode) {
     return yield* makeAppError({
       code: "usage",
       detail:
-        "--wait resumes an existing device sign-in and cannot be combined with --device-code or --no-browser.",
+        "--wait resumes an existing device sign-in and cannot be combined with --device-code.",
     });
   }
   if (!options.wait && options.timeoutSeconds !== undefined) {
@@ -235,7 +234,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
 
   if (strategy === "device-code") {
-    if (!options.deviceCode && !options.noBrowser) {
+    if (!options.deviceCode) {
       yield* renderer.instruction(
         "This environment appears to be remote or headless; using device-code sign-in.",
       );
@@ -319,10 +318,6 @@ const loginConfig = {
       "Use OAuth device-code sign-in; recommended for SSH and headless environments",
     ),
   ),
-  noBrowser: Flag.boolean("no-browser").pipe(
-    Flag.withDescription("Do not open a browser; use device-code fallback"),
-    Flag.withHidden,
-  ),
   wait: Flag.boolean("wait").pipe(
     Flag.withDescription("Resume and wait for a pending device sign-in"),
   ),
@@ -339,11 +334,10 @@ const loginConfig = {
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, noBrowser, wait, timeout, scope }) =>
+  ({ yes, deviceCode, wait, timeout, scope }) =>
     handleLogin({
       yes,
       deviceCode,
-      noBrowser,
       wait,
       ...Option.match(timeout, {
         onNone: () => ({}),

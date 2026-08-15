@@ -35,6 +35,7 @@ export type {
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,
+  GetExtensionVisibilityArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
   PublishExtensionArgs,
@@ -53,12 +54,10 @@ export { createRegistryClient } from "./client.js";
 export {
   MAX_PUBLICATION_SET_CANDIDATES,
   PUBLICATION_SET_CONTRACT,
-  PUBLICATION_SET_V1_CONTRACT,
   PackDependencyFindingSchema,
   PreviewPublicationSetRequestSchema,
   PreviewPublicationSetResponseSchema,
-  PreviewPublicationSetV1RequestSchema,
-  PreviewPublicationSetV1ResponseSchema,
+  PublicationVisibilityInputSchema,
   Sha256HexSchema,
   archiveSha256Hex,
   comparePublicationTargets,
@@ -85,6 +84,7 @@ export type {
   PublicationDescriptor,
   PublicationPackResult,
   PublicationTarget,
+  PublicationVisibilityInput,
   Sha256Hex,
 } from "./publication-set.js";
 

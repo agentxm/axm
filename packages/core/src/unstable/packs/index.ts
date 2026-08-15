@@ -72,5 +72,3 @@ export type {
   RemoveFromPackOperation,
 } from "./operations/remove-from-pack.js";
 export { removeFromPack } from "./operations/remove-from-pack.js";
-export type { PublishPackOperationArgs, PublishPackOperation } from "./operations/publish.js";
-export { publishPack } from "./operations/publish.js";

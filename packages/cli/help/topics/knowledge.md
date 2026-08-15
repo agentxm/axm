@@ -204,8 +204,7 @@ files.
 `axm sync` restores missing canonical content from exact locked registry
 versions or pinned git trees, treats local and workspace sources as
 authoritative, and reconciles the table without advancing versions. Use
-`axm sync --preview` to preview table changes and conservative cleanup of legacy
-AXM-managed Knowledge projections. Unknown files are preserved.
+`axm sync --preview` to preview table changes. Unknown files are preserved.
 
 ## Discovery
 

@@ -25,7 +25,6 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
@@ -129,14 +128,11 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       const scoped = context.workspace;
-      const settingsResult = yield* Effect.result(scoped.state.settings);
-      if (Result.isFailure(settingsResult)) {
+      const settings = yield* scoped.state.settings.pipe(Effect.orDie);
+      if (Option.isNone(settings)) {
         return EMPTY_LINT_FINDINGS;
       }
-      if (Option.isNone(settingsResult.success)) {
-        return EMPTY_LINT_FINDINGS;
-      }
-      const declaredAgentIds = new Set(settingsResult.success.value.agents ?? []);
+      const declaredAgentIds = new Set(settings.value.agents ?? []);
       if (declaredAgentIds.size === 0) {
         return EMPTY_LINT_FINDINGS;
       }
@@ -150,7 +146,7 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
           .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
           .map((agent) => agent.id),
       );
-      const installed = yield* scoped.skills.installed;
+      const installed = yield* scoped.skills.installed.pipe(Effect.orDie);
       const existenceBySkill = installed.flatMap((row) => {
         const implicit = row.installationOrigin._tag === "pack-member";
         if (implicit && Option.isNone(row.resolved)) {

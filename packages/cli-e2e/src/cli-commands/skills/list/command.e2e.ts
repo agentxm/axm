@@ -76,7 +76,7 @@ describe("axm skills list", () => {
     }
   });
 
-  it("degrades to declared state when the lockfile is malformed", async () => {
+  it("rejects a malformed authoritative lockfile", async () => {
     const temp = createTempDir();
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
@@ -88,10 +88,8 @@ describe("axm skills list", () => {
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
-      // A user whose lockfile is corrupt still needs to see what their
-      // workspace declares in order to understand what broke.
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain("workspace lockfile could not be read");
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Failed to read workspace lockfile");
     } finally {
       temp.cleanup();
     }

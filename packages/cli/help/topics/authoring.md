@@ -34,10 +34,6 @@ target name already has a settings entry, its enabled state is preserved. Use
 `--preview` to inspect canonical and configuration changes without mutating the
 workspace.
 
-`axm skills copy` is retained as a deprecated compatibility command. New
-workflows should use `axm import` so managed packages are rejected with a
-prompt to use `fork`.
-
 ## Description layers
 
 The manifest `description` is common Registry metadata. Some extension types

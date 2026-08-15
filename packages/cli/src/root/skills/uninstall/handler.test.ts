@@ -22,7 +22,6 @@ import {
   type UninstallHandlerArgs,
 } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
-import { writeTrustFromWorkspaceLockfile } from "../../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   makeEffectProvide,
@@ -448,7 +447,6 @@ describe("uninstall.handler", () => {
         { [skillName]: fqn },
         { "my-pack": "@my-ns/packs/my-pack" },
       );
-      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
       createCanonicalSkill(tempDir, skillName);
       createAgentSymlink(tempDir, ".claude", skillName);
 

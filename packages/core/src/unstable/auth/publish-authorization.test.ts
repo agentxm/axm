@@ -32,7 +32,7 @@ const descriptor = {
   },
   participation: "publish" as const,
   archiveSha256Hex: archiveSha256Hex(archive),
-  initialVisibility: "private" as const,
+  visibility: { intent: null, request: "private" as const },
 };
 const input = {
   registryUrl: "https://registry.agentxm.ai",
@@ -51,7 +51,19 @@ const admittedPreview = {
       target: descriptor.target,
       participation: descriptor.participation,
       descriptorDigest: publicationDescriptorDigest(descriptor),
-      resolvedVisibility: "private" as const,
+      visibility: {
+        target: "@alice/skills/review",
+        intent: null,
+        request: "private" as const,
+        resolved: {
+          value: "private" as const,
+          disposition: "establish" as const,
+          source: "explicit" as const,
+        },
+        actual: null,
+        comparison: "not-established" as const,
+        findings: [],
+      },
       condition: '"pv2-reviewed"',
     },
   ],

@@ -15,7 +15,7 @@ describe("Plan pipeline primitives available in shared kernel", () => {
     expect(typeof Plan.applyPlan).toBe("function");
   });
 
-  it("exports previewOrApplyPlan (resolvePlan) from the stable kernel path", () => {
+  it("exports previewOrApplyPlan from the stable kernel path", () => {
     expect(typeof Plan.previewOrApplyPlan).toBe("function");
   });
 

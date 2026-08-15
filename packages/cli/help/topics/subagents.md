@@ -58,7 +58,7 @@ agentOverrides:
   claude-code:
     permissions:
       write: false
-      legacyMode: null
+      writeMode: null
     allowedTools:
       - Read
       - Grep

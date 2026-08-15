@@ -19,9 +19,7 @@ metadata:
    use stdout for primary human data and stderr for diagnostics. Treat an
    ordinary stdout document as compatible only when it owns `result`, or when
    it is the fixed `ok: false` error envelope; `type: help|version` documents
-   are formatter-owned exceptions. Do not infer this contract from 0.24.x
-   version text because that release line contains both legacy and current
-   shapes.
+   are formatter-owned exceptions.
 2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:
    - User explicitly chose to trust AXM for filesystem mutations.
    - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.
@@ -88,7 +86,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 `--json` requests machine-readable output. On installed-state commands,
 `--scope user` targets `$HOME/.axm` instead of the project workspace;
 suggestions and artifacts retain that selection. Authoring commands (`new`,
-skill copy, adopt, demote, version, pack authoring, and publish) are
+import, adopt, demote, version, pack authoring, and publish) are
 project-workspace only and reject `--scope`. Install/uninstall/update accept a
 registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
@@ -132,7 +130,6 @@ and the managed `.gitignore` block atomically; preview reported drift with
 | Task                                      | Command                                   |
 | ----------------------------------------- | ----------------------------------------- |
 | Scaffold a new workspace extension        | `axm <type> new <name>`                   |
-| Copy an external skill for authoring      | `axm skills copy <source> <target-fqn>`   |
 | Adopt a retained canonical package        | `axm adopt <fqn>`                         |
 | Explicitly return authorship to a source  | `axm demote <fqn> <source>`               |
 | Add an extension to a pack                | `axm packs add <pack> <extension>`        |
@@ -175,7 +172,6 @@ archives cannot be bypassed, and `--include-dependencies` /
 | Reconcile one root or extension type | `axm sync <fqn>` / `axm sync --type <type>` |
 | Lint workspace (read-only)           | `axm lint`                                  |
 | Lint the exact Git index             | `axm lint --view git-index`                 |
-| Normalize workspace configuration    | `axm lint --fix`                            |
 
 For workspace-authored pack edits, use `axm packs add`, `remove`, or `version`
 when possible. The authored manifest is desired authority immediately; use
@@ -197,8 +193,8 @@ pack still reaches them.
 Treat `.axm/settings.json` and workspace-authored pack manifests as desired
 state. `.axm/axm-lock.yaml` is accepted immutable external resolution, not
 desired intent or command history. Never reconstruct declarations from lock
-rows or observed files. Use `axm lint` for facts, `axm lint --fix` only for
-meaning-preserving normalization, and `axm sync` for reconciliation.
+rows or observed files. Use `axm lint` for facts and `axm sync` for
+reconciliation.
 
 ### Auth
 

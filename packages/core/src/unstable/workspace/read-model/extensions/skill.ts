@@ -231,7 +231,10 @@ export interface SkillExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: SkillScopedLoaders;
   readonly scanners: SkillScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForSkills>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForSkills>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -243,16 +246,25 @@ export interface SkillExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredSkills>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedSkills>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualSkills>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledSkill>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledSkill>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledSkill>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledSkill>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredSkill>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledSkill>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSkill>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledSkill>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedSkill>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "skill";
 
 const simpleName = (name: ExtensionName): ExtensionName => name;
 
@@ -336,7 +348,6 @@ export const makeSkillExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

@@ -3,6 +3,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
+import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
 import { parseSkillMd } from "./skill-content.js";
 import {
   AXM_SKILL_FQN,
@@ -42,7 +43,7 @@ export interface ReadAxmSkillWorkspaceCompatibilityArgs {
 /** Read and evaluate the authoritative installed AXM skill without mutating the workspace. */
 export const readAxmSkillWorkspaceCompatibility = (
   args: ReadAxmSkillWorkspaceCompatibilityArgs,
-): Effect.Effect<AxmSkillCompatibility> =>
+): Effect.Effect<AxmSkillCompatibility, SettingsReadError | LockfileReadError> =>
   Effect.gen(function* () {
     const installed = yield* args.workspace.skills.byName("axm");
     if (Option.isNone(installed)) {

@@ -163,7 +163,14 @@ interface PreviewDescriptor {
   readonly target: PreviewTarget;
   readonly participation: "publish" | "verified-existing";
   readonly archiveSha256Hex?: string;
-  readonly initialVisibility?: "public" | "private";
+  readonly visibility: {
+    readonly intent: {
+      readonly value: "public" | "private";
+      readonly source: "manifest" | "workspace";
+      readonly fingerprint: string;
+    } | null;
+    readonly request: "public" | "private" | null;
+  };
   readonly pack?: { readonly dependencies: ReadonlyArray<PreviewDependency> };
 }
 
@@ -184,13 +191,26 @@ const parsePreviewDescriptor = (value: unknown): PreviewDescriptor | undefined =
   }
   const archiveSha256Hex = value["archiveSha256Hex"];
   if (archiveSha256Hex !== undefined && typeof archiveSha256Hex !== "string") return undefined;
-  const initialVisibility = value["initialVisibility"];
-  if (
-    initialVisibility !== undefined &&
-    initialVisibility !== "public" &&
-    initialVisibility !== "private"
-  ) {
-    return undefined;
+  const visibilityValue = value["visibility"];
+  if (!isRecord(visibilityValue)) return undefined;
+  const request = visibilityValue["request"];
+  if (request !== null && request !== "public" && request !== "private") return undefined;
+  const intentValue = visibilityValue["intent"];
+  let intent: PreviewDescriptor["visibility"]["intent"] = null;
+  if (intentValue !== null) {
+    if (
+      !isRecord(intentValue) ||
+      (intentValue["value"] !== "public" && intentValue["value"] !== "private") ||
+      (intentValue["source"] !== "manifest" && intentValue["source"] !== "workspace") ||
+      typeof intentValue["fingerprint"] !== "string"
+    ) {
+      return undefined;
+    }
+    intent = {
+      value: intentValue["value"],
+      source: intentValue["source"],
+      fingerprint: intentValue["fingerprint"],
+    };
   }
   const packValue = value["pack"];
   let pack: PreviewDescriptor["pack"];
@@ -225,7 +245,7 @@ const parsePreviewDescriptor = (value: unknown): PreviewDescriptor | undefined =
     },
     participation: value["participation"],
     ...(archiveSha256Hex === undefined ? {} : { archiveSha256Hex }),
-    ...(initialVisibility === undefined ? {} : { initialVisibility }),
+    visibility: { intent, request },
     ...(pack === undefined ? {} : { pack }),
   };
 };
@@ -233,12 +253,10 @@ const parsePreviewDescriptor = (value: unknown): PreviewDescriptor | undefined =
 const normalizeDescriptor = (descriptor: PreviewDescriptor): PreviewDescriptor => ({
   target: descriptor.target,
   participation: descriptor.participation,
+  visibility: descriptor.visibility,
   ...(descriptor.archiveSha256Hex === undefined
     ? {}
     : { archiveSha256Hex: descriptor.archiveSha256Hex }),
-  ...(descriptor.initialVisibility === undefined
-    ? {}
-    : { initialVisibility: descriptor.initialVisibility }),
   ...(descriptor.pack === undefined
     ? {}
     : {
@@ -386,12 +404,16 @@ export const startHttpRegistry = async (
           if (plural === undefined) throw new Error(`Unknown extension type ${type}`);
           const extensionKey = key(owner, plural, name);
           const existingVisibility = extensionVisibilities.get(extensionKey);
+          const desiredVisibility =
+            candidate.visibility.intent?.value ?? candidate.visibility.request ?? "public";
           const visibility =
             existingVisibility === undefined
               ? {
-                  value: candidate.initialVisibility ?? "public",
+                  value: desiredVisibility,
                   disposition: "establish",
-                  source: candidate.initialVisibility === undefined ? "platform" : "explicit",
+                  source:
+                    candidate.visibility.intent?.source ??
+                    (candidate.visibility.request === null ? "platform" : "explicit"),
                 }
               : {
                   value: existingVisibility,
@@ -415,7 +437,25 @@ export const startHttpRegistry = async (
             target: { owner, type, name, version },
             participation: candidate.participation,
             descriptorDigest: candidateDigest,
-            resolvedVisibility: visibility.value,
+            visibility: {
+              target: `${owner}/${plural}/${name}`,
+              intent: candidate.visibility.intent,
+              request: candidate.visibility.request,
+              resolved: visibility,
+              actual:
+                existingVisibility === undefined
+                  ? null
+                  : { value: existingVisibility, revision: '"e2e-visibility-revision"' },
+              comparison:
+                existingVisibility === undefined
+                  ? "not-established"
+                  : candidate.visibility.intent === null && candidate.visibility.request === null
+                    ? "unconfigured"
+                    : desiredVisibility === existingVisibility
+                      ? "match"
+                      : "drift",
+              findings: [],
+            },
             ...(candidate.participation === "publish" ? { condition } : {}),
           };
         });
@@ -451,6 +491,17 @@ export const startHttpRegistry = async (
               participation: preview.participation,
               descriptorDigest: preview.descriptorDigest,
               code: "publish/target-unavailable",
+              visibility: {
+                target: preview.visibility.target,
+                unavailable: true,
+                findings: [
+                  {
+                    code: "visibility/unavailable",
+                    severity: "error",
+                    message: "Visibility is unavailable.",
+                  },
+                ],
+              },
             })),
             packs,
           });

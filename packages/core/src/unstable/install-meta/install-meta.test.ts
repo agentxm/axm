@@ -65,7 +65,11 @@ describe("InstallMeta", () => {
           nodeFs.mkdirSync(dataDir, { recursive: true });
           nodeFs.writeFileSync(
             nodePath.join(dataDir, "install-meta.json"),
-            JSON.stringify({ method: "script", installedAt: "2026-03-31T12:00:00.000Z" }),
+            JSON.stringify({
+              schemaVersion: 2,
+              method: "script",
+              installedAt: "2026-03-31T12:00:00.000Z",
+            }),
           );
 
           const result = yield* readInstallMeta(dataDir);
@@ -141,7 +145,11 @@ describe("InstallMeta", () => {
           nodeFs.mkdirSync(dataDir, { recursive: true });
           nodeFs.writeFileSync(
             nodePath.join(dataDir, "install-meta.json"),
-            JSON.stringify({ method: "homebrew", installedAt: "2026-01-15T08:30:00.000Z" }),
+            JSON.stringify({
+              schemaVersion: 2,
+              method: "homebrew",
+              installedAt: "2026-01-15T08:30:00.000Z",
+            }),
           );
 
           const result = yield* readInstallMeta(dataDir);
@@ -162,6 +170,7 @@ describe("InstallMeta", () => {
       withContext(
         Effect.gen(function* () {
           const meta: InstallMetaData = {
+            schemaVersion: 2,
             method: "script",
             installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
           };
@@ -192,6 +201,7 @@ describe("InstallMeta", () => {
           );
 
           const meta: InstallMetaData = {
+            schemaVersion: 2,
             method: "homebrew",
             installedAt: DateTime.makeUnsafe("2026-06-15T18:00:00.000Z"),
           };
@@ -212,6 +222,7 @@ describe("InstallMeta", () => {
       withContext(
         Effect.gen(function* () {
           const meta: InstallMetaData = {
+            schemaVersion: 2,
             method: "npm",
             installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
           };
@@ -230,6 +241,7 @@ describe("InstallMeta", () => {
       withContext(
         Effect.gen(function* () {
           yield* writeInstallMeta(dataDir, {
+            schemaVersion: 2,
             method: "pnpm",
             installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
             packageName: "axm.sh",
@@ -246,22 +258,6 @@ describe("InstallMeta", () => {
             executablePath: "/tmp/pnpm/bin/axm",
           });
           expect(nodeFs.readdirSync(dataDir)).toEqual(["install-meta.json"]);
-        }),
-      ),
-    );
-
-    it.effect("reads legacy metadata and normalizes it to schema version 2", () =>
-      withContext(
-        Effect.gen(function* () {
-          nodeFs.mkdirSync(dataDir, { recursive: true });
-          nodeFs.writeFileSync(
-            nodePath.join(dataDir, "install-meta.json"),
-            JSON.stringify({ method: "npm", installedAt: "2026-01-15T08:30:00.000Z" }),
-          );
-
-          const result = Option.getOrThrow(yield* readInstallMeta(dataDir));
-          expect(result.schemaVersion).toBe(2);
-          expect(result.method).toBe("npm");
         }),
       ),
     );
@@ -284,6 +280,7 @@ describe("InstallMeta", () => {
       Effect.gen(function* () {
         const service = yield* InstallMeta;
         const meta: InstallMetaData = {
+          schemaVersion: 2,
           method: "script",
           installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
         };
@@ -301,11 +298,13 @@ describe("InstallMeta", () => {
         const service = yield* InstallMeta;
 
         yield* service.write({
+          schemaVersion: 2,
           method: "script",
           installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         });
 
         yield* service.write({
+          schemaVersion: 2,
           method: "homebrew",
           installedAt: DateTime.makeUnsafe("2026-06-15T18:00:00.000Z"),
         });
@@ -324,6 +323,7 @@ describe("InstallMeta", () => {
       Effect.gen(function* () {
         const service = yield* InstallMeta;
         yield* service.write({
+          schemaVersion: 2,
           method: "script",
           installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
         });

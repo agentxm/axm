@@ -3,9 +3,18 @@
   "$ref": "#/definitions/PackManifest",
   "definitions": {
     "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+    "ExtensionVisibility": {
+      "type": "string",
+      "enum": ["public", "private"],
+      "title": "Extension Visibility",
+      "description": "Intended whole-Extension Registry visibility. Establishes new Extensions and must match established Extensions."
+    },
     "PublishOptions": {
       "type": "object",
       "properties": {
+        "visibility": {
+          "anyOf": [{ "$ref": "#/definitions/ExtensionVisibility" }, { "type": "null" }]
+        },
         "ignore": {
           "anyOf": [
             {
@@ -25,7 +34,7 @@
       },
       "additionalProperties": false,
       "title": "Publish Options",
-      "description": "Options that shape the archive this package publishes."
+      "description": "Publication policy and archive options for this extension."
     },
     "Handle": {
       "type": "string",

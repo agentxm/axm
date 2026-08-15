@@ -866,7 +866,22 @@ export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
  *
  * @experimental This API is unstable and may change without notice.
  */
+export const ExtensionVisibilitySchema = Schema.Literals(["public", "private"] as const).annotate({
+  identifier: "ExtensionVisibility",
+  title: "Extension Visibility",
+  description: "Whole-Extension Registry visibility applied to every published version.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ExtensionVisibility = Schema.Schema.Type<typeof ExtensionVisibilitySchema>;
+
 export const PublishOptionsSchema = Schema.Struct({
+  visibility: Schema.optional(
+    ExtensionVisibilitySchema.annotate({
+      description:
+        "Intended whole-Extension Registry visibility. Establishes new Extensions and must match established Extensions.",
+    }),
+  ),
   ignore: Schema.optional(
     Schema.Array(Schema.NonEmptyString)
       .pipe(Schema.check(Schema.isUnique()))
@@ -879,7 +894,7 @@ export const PublishOptionsSchema = Schema.Struct({
 }).annotate({
   identifier: "PublishOptions",
   title: "Publish Options",
-  description: "Options that shape the archive this package publishes.",
+  description: "Publication policy and archive options for this extension.",
 });
 
 /** @experimental This API is unstable and may change without notice. */

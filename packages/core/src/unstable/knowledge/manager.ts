@@ -508,7 +508,6 @@ export const KnowledgeManagerLive = Layer.effect(
         return yield* provide(
           reconcileKnowledgeDiscovery({
             scopeRoot: baseDir,
-            axmDir: ws.path,
             config,
             bundles: [...installed, ...included],
             instructionsPath: instructionsTarget.path,

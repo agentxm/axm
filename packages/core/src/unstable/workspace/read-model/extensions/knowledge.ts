@@ -142,7 +142,10 @@ export interface KnowledgeExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: KnowledgeScopedLoaders;
   readonly scanners: KnowledgeScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForKnowledge>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForKnowledge>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -155,16 +158,28 @@ export interface KnowledgeExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredKnowledge>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedKnowledge>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualKnowledge>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledKnowledgeBundle>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledKnowledgeBundle>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledKnowledgeBundle>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<
+    Option.Option<InstalledKnowledgeBundle>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredKnowledgeBundle>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledKnowledgeBundle>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedKnowledgeBundle>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledKnowledgeBundle>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedKnowledgeBundle>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "knowledge";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -232,7 +247,6 @@ export const makeKnowledgeExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

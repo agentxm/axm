@@ -200,7 +200,19 @@ describe("AuthClient exact publish authorization", () => {
                 },
                 participation: "publish",
                 descriptorDigest: "c".repeat(64),
-                resolvedVisibility: "private",
+                visibility: {
+                  target: "@alice/skills/review",
+                  intent: null,
+                  request: "private",
+                  resolved: {
+                    value: "private",
+                    disposition: "establish",
+                    source: "explicit",
+                  },
+                  actual: null,
+                  comparison: "not-established",
+                  findings: [],
+                },
                 condition: '"pv2-reviewed"',
               },
             ],
@@ -240,7 +252,7 @@ describe("AuthClient exact publish authorization", () => {
         },
         participation: "publish" as const,
         archiveSha256Hex: archiveSha256Hex(archive),
-        initialVisibility: "private" as const,
+        visibility: { intent: null, request: "private" as const },
       };
       yield* client.createPublishAuthorizationRequest({
         registryUrl: REGISTRY_URL,
@@ -281,36 +293,6 @@ describe("AuthClient exact publish authorization", () => {
       });
       expect(publicationSetDigest([descriptor])).toHaveLength(64);
       expect(publicationDescriptorDigest(descriptor)).toHaveLength(64);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("rejects a legacy capability response before upload", () => {
-    const layer = makeTestLayer(
-      () =>
-        new Response(
-          JSON.stringify({
-            access_token: "axm_pub_legacy",
-            expires_at: "2099-01-01T00:15:00.000Z",
-            scope: "extensions:publish:new",
-            publish_request_id: "pubreq_legacy",
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-    );
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client
-        .exchangePublishAuthorizationCode({
-          registryUrl: REGISTRY_URL,
-          code: "code",
-          verifier: "verifier",
-          redirectUri: "http://127.0.0.1:49152/callback",
-        })
-        .pipe(Effect.flip);
-
-      expect(error.code).toBe("internal");
-      expect(error.detail).toContain("incompatible");
     }).pipe(Effect.provide(layer));
   });
 });
@@ -828,10 +810,8 @@ describe("AuthClient step-up requests", () => {
 
   it.effect("retries a token deletion with only the opaque request header", () => {
     let stepUpRequestHeader: string | undefined;
-    let legacyProofHeader: string | undefined;
     const layer = makeTestLayer((request) => {
       stepUpRequestHeader = request.headers["x-axm-step-up-request"];
-      legacyProofHeader = request.headers["x-axm-step-up"];
       return new Response(null, { status: 204 });
     });
 
@@ -841,7 +821,6 @@ describe("AuthClient step-up requests", () => {
         stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
       });
       expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
-      expect(legacyProofHeader).toBeUndefined();
     }).pipe(Effect.provide(layer));
   });
 });

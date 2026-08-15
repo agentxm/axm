@@ -37,7 +37,7 @@ const decodeEnvelope = Schema.decodeUnknownOption(JsonEnvelopeSchema);
 
 /**
  * Structurally detects the current machine-output contract. `None` means the
- * document is malformed or uses a legacy flat payload shape.
+ * document is malformed or uses an unsupported flat payload shape.
  */
 export const detectMachineOutputDocumentKind = (
   input: unknown,

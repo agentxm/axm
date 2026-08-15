@@ -77,12 +77,10 @@ reinstall may replace that content and must disclose the replacement.
 
 Missing, malformed, or incompatible authoritative lock state is consequential.
 Read-only commands may report it, but no command reconstructs accepted
-resolution from legacy `trust.json`, historical metadata, installed content, or
-Pack-member maps.
+resolution from other metadata, installed content, or Pack-member maps.
 
-AXM uses a new strict lockfile version and rejects legacy versions. There are no
-dual readers, automatic migration or cleanup, aliases, or downgrade mode.
-Legacy `trust.json` is unsupported state and never participates in planning.
+AXM accepts only the current strict lockfile version. There are no dual readers,
+automatic migration or cleanup, aliases, or downgrade mode.
 
 ## Persistence and failure
 

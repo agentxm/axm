@@ -114,9 +114,9 @@ formatting of content it did not change.
 
 Preservation does not make an unknown field valid. Lint reports unsupported
 keys, while narrow writes retain unrelated content. Known objects remain strict
-so a misspelled or obsolete option cannot be mistaken for an accepted choice.
-Legacy settings shapes are rejected; AXM provides no dual reader, automatic
-migration or cleanup, alias, or downgrade mode.
+so a misspelled or unsupported option cannot be mistaken for an accepted
+choice. Unsupported settings shapes are rejected; AXM provides no dual reader,
+automatic migration or cleanup, alias, or downgrade mode.
 
 Settings should be committed with the workspace. Because the file is shared,
 it contains no credentials or resolved secret values. Configuration that needs
@@ -132,14 +132,12 @@ files or lock state.
 Malformed or schema-invalid settings are still user-owned configuration. AXM
 reports the invalid facts and does not treat the file as empty, rewrite it from
 observed state, or apply a lifecycle change that depends on guessing its
-meaning. The user or agent corrects the configuration directly. `lint --fix`
-may change it only when before and after decode to the same domain value under
-the current schema.
+meaning. The user or agent corrects the configuration directly.
 
 ## Testing strategy
 
 Behavior tests prove direct-edit equivalence, scope-local desired intent,
 documented fallback precedence for defaults and policy, preservation of
 unrelated and unknown data during semantic edits, refusal to guess malformed
-or legacy intent, schema-level decoded equivalence for lint normalization, and
+or unsupported intent, schema-level decoded equivalence, and
 transactional settings changes with the managed state that depends on them.

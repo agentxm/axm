@@ -70,17 +70,6 @@ const LintJsonSummarySchema = Schema.Struct({
   description: "Finding counts by severity plus the derived exit category.",
 });
 
-const LintJsonFixSchema = Schema.Struct({
-  attempted: Schema.Number,
-  applied: Schema.Number,
-  failed: Schema.Number,
-  warnings: Schema.Array(Schema.String),
-}).annotate({
-  identifier: "LintJsonFix",
-  title: "Lint Fix Summary",
-  description: "Autofix counts for a `--fix` run.",
-});
-
 export const LintInputSchema = Schema.Union([
   Schema.Struct({ view: Schema.Literal("workspace") }),
   Schema.Struct({
@@ -98,8 +87,7 @@ export type LintInput = typeof LintInputSchema.Type;
  * JSON envelope shape returned under `axm lint --json`.
  *
  * Matches the registry publish failure envelope structure (`findings[]`,
- * `displayRoot` per entry, per-finding `path` pre-composed). `--fix` runs add
- * a `fix` summary block.
+ * `displayRoot` per entry, per-finding `path` pre-composed).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -108,7 +96,6 @@ export const LintJsonDocumentSchema = Schema.Struct({
   findings: Schema.Array(LintJsonFindingSchema),
   summary: LintJsonSummarySchema,
   driftBanner: Schema.Array(Schema.String),
-  fix: Schema.optional(LintJsonFixSchema),
 }).annotate({
   identifier: "LintJsonDocument",
   title: "Lint Document",

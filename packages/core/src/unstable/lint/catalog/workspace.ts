@@ -11,7 +11,6 @@
  * | `workspace/initialized`                 | error    | —           |
  * | `workspace/settings-schema-valid`       | error    | —           |
  * | `workspace/settings-keys-recognized`    | error    | —           |
- * | `workspace/knowledge-config-current`    | warning  | autofixing  |
  * | `workspace/lockfile-valid`              | error    | autofixing  |
  * | `workspace/desired-state-reconcilable`  | error    | —           |
  * | `workspace/authored-content-unpublished` | warning  | —           |
@@ -66,7 +65,6 @@ import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
 import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-target-compatible.js";
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
-import { knowledgeConfigCurrentRule } from "./workspace/knowledge-config-current.js";
 import { releaseAgeExcludeOwnerTrustedRule } from "./workspace/release-age-exclude-owner-trusted.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
@@ -88,7 +86,6 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
   releaseAgeExcludeOwnerTrustedRule,
-  knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,
@@ -129,7 +126,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
   releaseAgeExcludeOwnerTrustedRule,
-  knowledgeConfigCurrentRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,

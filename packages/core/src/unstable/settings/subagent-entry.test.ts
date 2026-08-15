@@ -44,15 +44,6 @@ describe("SubagentEntrySchema", () => {
       });
     });
 
-    it("rejects the removed authored field under strict validation", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SubagentEntrySchema)(
-          { source: "@acme/subagents/planner", authored: true },
-          { onExcessProperty: "error" },
-        ),
-      ).toThrow();
-    });
-
     it("rejects a number", () => {
       expect(() => Schema.decodeUnknownSync(SubagentEntrySchema)(42)).toThrow();
     });

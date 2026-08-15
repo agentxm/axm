@@ -84,7 +84,7 @@ export const InstallMethodLiteral = Schema.Literals([
 export type InstallMethodName = typeof InstallMethodLiteral.Type;
 
 const InstallMetaSchema = Schema.Struct({
-  schemaVersion: Schema.optional(Schema.Number),
+  schemaVersion: Schema.Literal(2),
   method: InstallMethodLiteral,
   managerMajorVersion: Schema.optional(Schema.Number),
   executablePath: Schema.optional(Schema.String),
@@ -254,9 +254,6 @@ type InstallMetaRead =
   | { readonly status: "found"; readonly value: DetectionMeta }
   | { readonly status: "missing" | "unreadable" | "invalid" };
 
-const withoutUtf8Bom = (value: string): string =>
-  value.startsWith("\uFEFF") ? value.slice(1) : value;
-
 const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
   Effect.gen(function* () {
     const exists = yield* fs.exists(metaPath).pipe(Effect.option);
@@ -266,7 +263,7 @@ const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
     const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
     if (Option.isNone(content)) return { status: "unreadable" } satisfies InstallMetaRead;
 
-    return yield* decodeInstallMetaFromJsonString(withoutUtf8Bom(content.value)).pipe(
+    return yield* decodeInstallMetaFromJsonString(content.value).pipe(
       Effect.map((value) => ({ status: "found", value }) satisfies InstallMetaRead),
       Effect.catch(() => Effect.succeed({ status: "invalid" } satisfies InstallMetaRead)),
     );

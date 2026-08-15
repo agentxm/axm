@@ -163,7 +163,10 @@ export interface McpServerExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: McpServerScopedLoaders;
   readonly scanners: McpServerScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForMcpServers>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForMcpServers>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -171,16 +174,25 @@ export interface McpServerExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredMcpServers>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedMcpServers>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualMcpServers>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledMcpServer>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledMcpServer>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledMcpServer>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledMcpServer>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredMcpServer>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledMcpServer>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedMcpServer>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledMcpServer>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedMcpServer>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "mcp-server";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -253,7 +265,6 @@ export const makeMcpServerExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

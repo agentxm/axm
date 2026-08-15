@@ -118,21 +118,12 @@ const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir
  * canonical-extensions scanner.
  *
  * - `skill` → `SKILL.md` (fixed)
- * - `subagent` → `${name}.md`
  */
-const subjectFileNameFor = (type: AgentDirSubjectType, name: string): string => {
-  switch (type) {
-    case "skill":
-      return "SKILL.md";
-    case "subagent":
-      return `${name}.md`;
-  }
-};
+const subjectFileNameFor = (): string => "SKILL.md";
 
 /**
- * For directory-style subject roots, skills use one subdirectory per subject.
- * Subagents may use either a legacy subject directory or the flat files AXM's
- * agent renderers actually produce.
+ * Skills use one subdirectory per subject. Subagents use the flat files AXM's
+ * agent renderers produce.
  *
  * For each occurrence, probe the canonical subject file (e.g., `SKILL.md`)
  * via `fs.exists` so subject modules can consume `subjectFileExists` rather
@@ -170,39 +161,38 @@ const scanSubjectDirectory = (
 
     const candidates = yield* childEntries(SCANNER_NAME, fs, diagnostics, path, subjectAbsolute);
     const nameDirs = yield* filterDirectories(fs, candidates);
-    const directoryOccurrences = yield* Effect.forEach(
-      nameDirs,
-      (nameDir) =>
-        Effect.gen(function* () {
-          const name = path.basename(nameDir);
-          const subjectFileName = subjectFileNameFor(subject.type, name);
-          const subjectFilePath = path.join(nameDir, subjectFileName);
-          const subjectFileExists = yield* fileExists(
-            SCANNER_NAME,
-            fs,
-            diagnostics,
-            subjectFilePath,
-          );
-          const contentLocation = makeAbsolutePath(path, nameDir);
-          const occurrence: AgentDirOccurrence = {
-            _tag: "agent-dir",
-            scope,
-            type: subject.type,
-            agentId,
-            ...(subject.readPathStatus === undefined
-              ? {}
-              : { readPathStatus: subject.readPathStatus }),
-            name,
-            contentLocation,
-            pathSegments: splitAbsolutePathSegments(path, nameDir),
-            subjectFile: Option.some(makeAbsolutePath(path, subjectFilePath)),
-            subjectFileExists,
-          };
-          return occurrence;
-        }),
-      { concurrency: "unbounded" },
-    );
-    if (subject.type === "skill") return directoryOccurrences;
+    if (subject.type === "skill") {
+      return yield* Effect.forEach(
+        nameDirs,
+        (nameDir) =>
+          Effect.gen(function* () {
+            const name = path.basename(nameDir);
+            const subjectFilePath = path.join(nameDir, subjectFileNameFor());
+            const subjectFileExists = yield* fileExists(
+              SCANNER_NAME,
+              fs,
+              diagnostics,
+              subjectFilePath,
+            );
+            const contentLocation = makeAbsolutePath(path, nameDir);
+            return {
+              _tag: "agent-dir",
+              scope,
+              type: subject.type,
+              agentId,
+              ...(subject.readPathStatus === undefined
+                ? {}
+                : { readPathStatus: subject.readPathStatus }),
+              name,
+              contentLocation,
+              pathSegments: splitAbsolutePathSegments(path, nameDir),
+              subjectFile: Option.some(makeAbsolutePath(path, subjectFilePath)),
+              subjectFileExists,
+            } satisfies AgentDirOccurrence;
+          }),
+        { concurrency: "unbounded" },
+      );
+    }
 
     const supportedExtensions = [".md", ".json", ".toml"];
     const directorySet = new Set(nameDirs);
@@ -237,7 +227,7 @@ const scanSubjectDirectory = (
         }),
       { concurrency: "unbounded" },
     );
-    return [...directoryOccurrences, ...fileOccurrences.flatMap(Option.toArray)];
+    return fileOccurrences.flatMap(Option.toArray);
   });
 
 // ---------------------------------------------------------------------------

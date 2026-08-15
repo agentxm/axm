@@ -72,7 +72,6 @@ describe("workspace/mcps-agent-drift", () => {
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/mcps-agent-drift");
       expect(findings[0]?.kind).toBe("advisory");
-      expect(findings[0]?.message).not.toContain("axm lint --fix");
       expect("fix" in mcpServerAgentDriftRule).toBe(false);
     }),
   );

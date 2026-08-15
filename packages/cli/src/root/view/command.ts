@@ -13,7 +13,9 @@ const viewConfig = {
     Argument.withDescription("Fully-qualified extension handle (@owner/skills/name)"),
   ),
   field: Argument.string("field").pipe(
-    Argument.withDescription("Optional field: version, versions, latest, description, owner, type"),
+    Argument.withDescription(
+      "Optional field: version, versions, latest, description, owner, type, visibility",
+    ),
     Argument.optional,
   ),
   registry: Flag.string("registry").pipe(

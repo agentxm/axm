@@ -36,7 +36,7 @@ describe("machine-output document contract", () => {
     { type: "help", usage: "axm" },
     { type: "version", name: "axm" },
     "not-json",
-  ])("rejects malformed and legacy flat documents %#", (document) => {
+  ])("rejects malformed and unsupported flat documents %#", (document) => {
     expect(kindOf(document)).toBeUndefined();
     expect(() => Schema.decodeUnknownSync(MachineOutputDocumentSchema)(document)).toThrow();
   });

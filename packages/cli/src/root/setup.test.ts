@@ -1,6 +1,4 @@
-// Raw node:fs/node:os/node:path in test setup is the repo-wide convention for
-// temp-dir fixtures; the old #51 migration marker referenced a tracker entry
-// that no longer exists.
+// Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";

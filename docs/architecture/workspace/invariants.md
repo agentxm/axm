@@ -81,8 +81,8 @@ Authority facts distinguish conditions a catch-all lifecycle label cannot:
 - an unowned collision or ambiguous ownership blocks only affected work.
 
 Observed name, path, or byte equality may support a fact but never establishes
-authority by itself. Invalid or incompatible legacy settings, lock versions,
-and `trust.json` are reported as unsupported state rather than migrated.
+authority by itself. Invalid or incompatible settings and lock state fail
+validation.
 
 ## Evaluation and isolation
 
@@ -100,7 +100,6 @@ that depends on a complete graph is a separate maintenance closure.
 
 Every lint error and sync blocker has one demonstrated recovery owner:
 
-- `lint --fix` for schema-proven semantic normalization;
 - sync for deterministic reconciliation of AXM-managed state;
 - an intent command when the user must express a durable workspace choice;
 - direct correction of workspace-authored settings or manifests; or
@@ -149,10 +148,10 @@ Cross-cutting adversarial coverage proves:
 - global sync reports closure-local outcomes and nonzero overall results when
   any requested closure does not converge, including when others commit;
 - lock-only Pack members never change reachability;
-- invalid lock authority is never reconstructed from obsolete trust state;
+- invalid lock authority is never reconstructed from other state;
 - mutable-source sync and reinstall never substitute a new content identity;
   and
-- legacy persisted state is rejected without migration or cleanup.
+- unsupported persisted state is rejected without migration or cleanup.
 
 Minimized fixtures derived from real incidents are authoritative. Live
 repositories remain a thin end-to-end confirmation layer.

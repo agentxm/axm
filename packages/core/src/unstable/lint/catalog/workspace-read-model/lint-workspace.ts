@@ -39,7 +39,11 @@ import {
   type WorkspaceReadModel,
 } from "../../../workspace/read-model/service.js";
 import { AXM_DIR_NAME } from "../../../workspace/paths.js";
-import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
+import type {
+  LockfileReadError,
+  SettingsReadError,
+  WorkspaceRootEscape,
+} from "../../../workspace/read-model/errors.js";
 import type {
   ActualMcpServer,
   ActualPack,
@@ -175,7 +179,7 @@ export interface LintWorkspace {
  */
 export const buildLintWorkspace = (
   args: BuildLintWorkspaceArgs,
-): Effect.Effect<LintWorkspace, WorkspaceRootEscape> => {
+): Effect.Effect<LintWorkspace, WorkspaceRootEscape | SettingsReadError | LockfileReadError> => {
   const platformLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, args.platform.fs),
     Layer.succeed(Path.Path, args.platform.path),
@@ -224,7 +228,7 @@ export const buildLintWorkspace = (
               platform: args.platform,
               workspace: readModel,
               policy: args.axmSkillCompatibilityPolicy,
-            }),
+            }).pipe(Effect.orDie),
           }),
       displayRoot: args.displayRoot ?? "",
     };
@@ -348,7 +352,11 @@ const joinManifestPath = (root: string, filename: string): string =>
 
 const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
-): Effect.Effect<LintWorkspaceProjection, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  LintWorkspaceProjection,
+  SettingsReadError | LockfileReadError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const [skills, packs, subagents, mcpServers, hooks, rules, knowledge] = yield* Effect.all(
       [

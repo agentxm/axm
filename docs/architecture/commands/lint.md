@@ -1,6 +1,6 @@
 ---
 status: stable
-description: Lint responsibilities, diagnostic behavior, autofix limits, and verification strategy.
+description: Lint responsibilities, diagnostic behavior, and verification strategy.
 depends-on:
   - ./overview.md
   - ../principles.md
@@ -78,23 +78,6 @@ without relabeling them as errors.
 Local lint configuration affects local linting. The registry publish gate owns
 its fixed distribution requirements and remains authoritative for publishing.
 
-## Autofix boundary
-
-`axm lint --fix` is limited to schema-proven semantic normalization of linted
-workspace-authored settings or manifests. AXM must decode the complete before
-and after documents to the same domain value; formatting or representation may
-change, but membership, activation, constraints, and source authority may not.
-
-Autofix performs no network acquisition, lifecycle transition, lock or canonical
-content change, ownership or projection work, or rewrite of externally installed
-content. If a correction requires guessing user intent or choosing desired
-state, it is not an autofix.
-
-Fixing evaluates one stable snapshot, fingerprints every target and relevant
-input, checks that each still matches, applies the complete eligible fix set or
-none, reruns lint, and reports the resulting findings. A stale or incomplete
-target set causes no writes.
-
 ## Testing strategy
 
 Lint tests own the rule catalog, views, and exact findings. The shared
@@ -103,7 +86,4 @@ recovery coverage. Completeness coverage proves that every lint rule emits the
 required diagnostic facts and that the schemas, help, or inspection surfaces
 needed to understand its admissible recovery choices remain available.
 Cross-type tests prevent mere unowned presence from becoming a generic error
-while proving type-specific collision and ambiguity findings. Autofix tests
-additionally prove decoded-domain equivalence, complete fingerprinting,
-all-or-nothing application, no lock/canonical/ownership/output change, post-fix
-reevaluation, and stale-target safety.
+while proving type-specific collision and ambiguity findings.

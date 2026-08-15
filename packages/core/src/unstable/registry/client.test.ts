@@ -115,6 +115,15 @@ const makeIndexArgs = (name = "my-skill", owner = "@test") => ({
   name: extensionName(name),
 });
 
+const noVisibilityInput = { intent: null, request: null } as const;
+const privateVisibilityInput = { intent: null, request: "private" } as const;
+const publicVisibilityInput = { intent: null, request: "public" } as const;
+const establishPrivateVisibility = {
+  value: "private",
+  disposition: "establish",
+  source: "explicit",
+} as const;
+
 const makePackageVersion = (value: string) =>
   /[\^~*<>\s]/.test(value) ? versionRange(value) : exactVersion(value);
 
@@ -143,6 +152,7 @@ const makePublishArgs = (
   version: exactVersion(version),
   archive,
   metadata,
+  visibilityInput: { intent: null, request: null },
 });
 
 const makeRemotePublishArgs = (
@@ -628,6 +638,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
               target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
               participation: "publish",
               archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
+              visibility: noVisibilityInput,
             },
           ],
         });
@@ -635,7 +646,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
 
         expect(result?.kind).toBe("resolved");
         if (result?.kind === "resolved") {
-          expect(result.resolvedVisibility).toBe("public");
+          expect(result.visibility.resolved?.value).toBe("public");
           expect(result.condition).toMatch(/^"pv1-[0-9a-f]{64}"$/);
         }
       }).pipe(
@@ -664,7 +675,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
               target: { ...makeIndexArgs(), version: exactVersion("2.0.0") },
               participation: "publish",
               archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
-              initialVisibility: "public",
+              visibility: publicVisibilityInput,
             },
           ],
         });
@@ -672,7 +683,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
 
         expect(result?.kind).toBe("resolved");
         if (result?.kind === "resolved") {
-          expect(result.resolvedVisibility).toBe("private");
+          expect(result.visibility.resolved?.value).toBe("private");
         }
       }).pipe(
         Effect.ensuring(
@@ -702,7 +713,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
               target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
               participation: "publish",
               archiveSha256Hex: archiveSha256Hex(archive),
-              initialVisibility: "private",
+              visibility: privateVisibilityInput,
             },
           ],
         });
@@ -711,13 +722,13 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
 
         const result = yield* client.publishExtension({
           ...makePublishArgs(archive, entry),
-          initialVisibility: "private",
+          visibility: establishPrivateVisibility,
           condition: preview.condition,
           publicationSetDigest: previewResponse.publicationSetDigest,
           publicationDescriptorDigest: preview.descriptorDigest,
         });
 
-        expect(result.visibility.value).toBe(preview.resolvedVisibility);
+        expect(result.visibility.value).toBe(preview.visibility.resolved?.value);
         expect(result.integrity).toBe(integrity);
         expect(result.status).toBe("available");
       }).pipe(
@@ -744,6 +755,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
               target: { ...makeIndexArgs(), version: exactVersion("1.0.0") },
               participation: "publish",
               archiveSha256Hex: archiveSha256Hex(archive),
+              visibility: noVisibilityInput,
             },
           ],
         });
@@ -814,7 +826,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         const client = yield* makeLocalClient(registryRoot);
         yield* client.publishExtension({
           ...makePublishArgs(archive, entry),
-          initialVisibility: "private",
+          visibility: establishPrivateVisibility,
         });
 
         const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
@@ -851,7 +863,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
                 makeVersionEntry({ version: "2.0.0", integrity: v2Integrity }),
                 "2.0.0",
               ),
-              initialVisibility: "private",
+              visibility: establishPrivateVisibility,
             })
             .pipe(Effect.result);
 
@@ -1505,46 +1517,6 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
         );
       },
     );
-
-    it.effect("no legacy signal field in response entries", () => {
-      const registryRoot = makeRegistryDir();
-      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-
-      return Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        yield* fs.makeDirectory(skillDir, { recursive: true });
-        yield* fs.writeFileString(
-          nodePath.join(skillDir, "index.json"),
-          JSON.stringify(
-            makeCompatibleIndex({
-              name: "my-skill",
-              description: "A test skill",
-              packages: [companionPackage("pkg:npm/react")],
-            }),
-          ),
-        );
-
-        const client = yield* makeLocalClient(registryRoot);
-        const result = yield* client.discoverPackages({
-          packages: [
-            {
-              purl: makeDetectedPackage("npm", "react"),
-              version: "18.2.0",
-              declaredExtensions: [],
-            },
-          ],
-        });
-
-        const entry = at(at(result.results, 0).extensions, 0);
-        expect(entry).not.toHaveProperty("signal");
-        expect(entry).not.toHaveProperty("compatible");
-        expect(entry).not.toHaveProperty("recommended");
-      }).pipe(
-        Effect.ensuring(
-          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-        ),
-      );
-    });
   });
 
   // -----------------------------------------------------------------------------

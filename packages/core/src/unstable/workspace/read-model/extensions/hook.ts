@@ -147,7 +147,10 @@ export interface HookExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: HookScopedLoaders;
   readonly scanners: HookScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForHooks>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForHooks>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -155,16 +158,25 @@ export interface HookExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredHooks>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedHooks>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualHooks>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledHook>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledHook>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledHook>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledHook>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredHook>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledHook>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedHook>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledHook>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedHook>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "hook";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -232,7 +244,6 @@ export const makeHookExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

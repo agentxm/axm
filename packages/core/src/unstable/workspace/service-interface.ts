@@ -16,6 +16,7 @@ import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
 import type { InstallableExtensionType } from "../extensions/installable-types.js";
+import type { ExtensionVisibility } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type {
@@ -355,6 +356,11 @@ export interface WorkspaceMutationsService {
   readonly records: WorkspaceReadModelRecords;
   /** Resolve owner: project settings -> user-scope settings -> Option.none(). */
   readonly getConfiguredOwner: () => Effect.Effect<Option.Option<Handle>, AppError>;
+  /** Repository publication default for this exact workspace scope. */
+  readonly getPublishDefaultVisibility: () => Effect.Effect<
+    Option.Option<ExtensionVisibility>,
+    AppError
+  >;
   /** Resolve minimumReleaseAge: project settings -> user-scope settings -> default. */
   readonly getMinimumReleaseAge: () => Effect.Effect<MinimumReleaseAge, AppError>;
   /** Resolve minimumReleaseAgeExclude with the same scope precedence; an explicit [] wins. */

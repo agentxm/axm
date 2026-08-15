@@ -7,10 +7,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import YAML from "yaml";
 
-import {
-  computePackageContentHashSync,
-  writeTrustFromWorkspaceLockfile,
-} from "../../test-stubs.js";
+import { computePackageContentHashSync } from "../../test-stubs.js";
 import {
   at,
   expectRecord,
@@ -91,7 +88,6 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
       },
     };
     fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
-    writeTrustFromWorkspaceLockfile(path.join(root, ".axm"));
   }
   return path.join(dir, filename);
 };

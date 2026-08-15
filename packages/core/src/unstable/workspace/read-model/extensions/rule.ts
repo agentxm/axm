@@ -146,7 +146,10 @@ export interface RuleExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: RuleScopedLoaders;
   readonly scanners: RuleScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForRules>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -154,16 +157,25 @@ export interface RuleExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredRules>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedRules>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualRules>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledRule>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledRule>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledRule>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledRule>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredRule>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledRule>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedRule>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledRule>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedRule>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "rule";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -231,7 +243,6 @@ export const makeRuleExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

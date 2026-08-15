@@ -34,7 +34,6 @@ import {
 } from "../test-helpers.js";
 import { computeSourceHash } from "../extensions/index.js";
 import { computePackManifestContentIdentity, PackManifestSchema } from "../packs/index.js";
-import { withDegradedLockfileReads } from "./lockfile-read-tolerance.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
   WorkspaceMutations,
@@ -189,23 +188,6 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("rejects removed Library workspace state in settings", () =>
-      Effect.gen(function* () {
-        fs.writeFileSync(
-          path.join(projectDir, ".axm", "settings.json"),
-          JSON.stringify({ libraries: { review: "@acme/libraries/review" } }),
-        );
-
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
-
-        const appError = getAppError(error);
-        expect(appError.code).toBe("validation");
-        expect(appError.detail).toContain("Library workspace state is no longer supported");
-        expect(appError.cause).toMatchObject({ _tag: "SettingsDecodeError" });
-      }),
-    );
-
     it.effect("does not treat malformed lockfiles as absent for inventory", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
@@ -220,24 +202,6 @@ describe("WorkspaceMutationsService", () => {
         expect(appError.code).toBe("validation");
         expect(appError.detail).toBe("Failed to read workspace lockfile");
         expect(appError.cause).toMatchObject({ _tag: "LockfileDecodeError" });
-      }),
-    );
-
-    it.effect("reports removed ignore configuration as invalid", () =>
-      Effect.gen(function* () {
-        fs.writeFileSync(
-          path.join(projectDir, ".axm", "settings.json"),
-          JSON.stringify({ agents: [], skillsConfig: { ignore: "old-*" } }),
-        );
-
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
-        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
-
-        const appError = getAppError(error);
-        expect(appError.code).toBe("validation");
-        expect(appError.detail).toContain("Invalid workspace settings");
-        expect(appError.detail).toContain("skillsConfig");
-        expect(appError.cause).toMatchObject({ _tag: "SettingsDecodeError" });
       }),
     );
   });
@@ -844,62 +808,10 @@ describe("WorkspaceMutationsService", () => {
         expect(state).toBe("ok");
       }),
     );
-
-    it.effect("still reports invalid under degraded lockfile reads", () =>
-      withDegradedLockfileReads(
-        Effect.gen(function* () {
-          fs.writeFileSync(
-            path.join(projectDir, ".axm", "axm-lock.yaml"),
-            "lockfileVersion: 3\nskills: []\n",
-          );
-
-          const ws = yield* getService(defaultOptions);
-
-          // Degrading the reads must not blind the probe that drives recovery.
-          expect(yield* ws.getLockfileState()).toBe("invalid");
-        }),
-      ),
-    );
   });
 
-  describe("degraded lockfile reads", () => {
-    it.effect("reads an unreadable lockfile as absent", () =>
-      withDegradedLockfileReads(
-        Effect.gen(function* () {
-          writeSettingsTo(projectDir, {
-            agents: ["claude-code"],
-            skills: { "code-review": "github:acme/code-review" },
-          });
-          fs.writeFileSync(
-            path.join(projectDir, ".axm", "axm-lock.yaml"),
-            "lockfileVersion: 3\nskills: []\n",
-          );
-
-          const ws = yield* getService({ scope: "project", allowUninitialized: true });
-
-          expect(yield* ws.getLockedSkills()).toEqual({});
-          const inventory = yield* ws.records.getExtensionInventory("skill", {});
-          expect(inventory.count).toBe(1);
-        }),
-      ),
-    );
-
-    it.effect("still propagates unreadable settings", () =>
-      withDegradedLockfileReads(
-        Effect.gen(function* () {
-          fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
-
-          const ws = yield* getService({ scope: "project", allowUninitialized: true });
-          const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
-
-          const appError = getAppError(error);
-          expect(appError.code).toBe("validation");
-          expect(appError.detail).toContain("not valid JSON");
-        }),
-      ),
-    );
-
-    it.effect("suggests axm sync when an unreadable lockfile is still terminal", () =>
+  describe("strict lockfile reads", () => {
+    it.effect("rejects an unreadable lockfile", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
           path.join(projectDir, ".axm", "axm-lock.yaml"),
@@ -909,9 +821,8 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService({ scope: "project", allowUninitialized: true });
         const error = yield* ws.getLockedSkills().pipe(Effect.flip);
 
-        expect(getAppError(error).suggestions).toEqual([
-          expect.objectContaining({ cmd: "axm sync" }),
-        ]);
+        expect(getAppError(error).code).toBe("validation");
+        expect(getAppError(error).suggestions).toBeUndefined();
       }),
     );
   });

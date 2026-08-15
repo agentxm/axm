@@ -200,12 +200,6 @@ const readLockfileIfPresent = (
           cause: error,
         }),
     });
-    if (typeof parsed === "object" && parsed !== null && "libraries" in parsed) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Failed to decode lockfile at ${lockfilePath}: Library workspace state is no longer supported`,
-      });
-    }
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
       onExcessProperty: "error",
     }).pipe(

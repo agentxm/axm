@@ -195,7 +195,6 @@ AXM should make invalid states difficult to create, clear to diagnose, and
 possible to leave through ordinary operations. Recovery belongs to one of five
 places:
 
-- a schema-proven, meaning-preserving `lint --fix` normalization;
 - sync of managed state;
 - the lifecycle command that expresses user intent through configuration; or
 - direct correction of workspace-authored settings or manifests; or

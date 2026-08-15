@@ -170,35 +170,6 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
-  it.effect("accepts legacy Knowledge projection fields for one read horizon", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(
-                JSON.stringify({
-                  knowledgeConfig: {
-                    directory: "docs/legacy-knowledge",
-                    ignore: ["old"],
-                    instructions: false,
-                  },
-                }),
-              ),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const result = Option.getOrThrow(yield* api.settings);
-      expect(result.knowledgeConfig).toEqual({ instructions: false });
-    }),
-  );
-
   it.effect("fails with SettingsIoError when filesystem read fails", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
@@ -285,115 +256,6 @@ describe("makeScopedStateApi.settings", () => {
       if (err._tag === "SettingsDecodeError") {
         expect(err.path).toBe(SETTINGS_PATH);
         expect(err.issues.length).toBeGreaterThan(0);
-      }
-    }),
-  );
-
-  it.effect("fails with SettingsDecodeError for legacy ignored settings", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(JSON.stringify({ ignored: { skills: ["legacy-*"] } })),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const err = yield* Effect.flip(api.settings);
-      expect(err).toBeInstanceOf(SettingsDecodeError);
-      if (err._tag === "SettingsDecodeError") {
-        expect(err.issues.length).toBeGreaterThan(0);
-        expect(err.raw).toEqual({ ignored: { skills: ["legacy-*"] } });
-      }
-    }),
-  );
-
-  it.effect("fails with targeted guidance for legacy per-type ignore settings", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(JSON.stringify({ skillsConfig: { ignore: ["legacy-*"] } })),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const err = yield* Effect.flip(api.settings);
-      expect(err).toBeInstanceOf(SettingsDecodeError);
-      if (err._tag === "SettingsDecodeError") {
-        expect(err.issues).toEqual([
-          "skillsConfig.ignore: Extension ignore state was removed. Declare, adopt, copy, or prune the artifact.",
-        ]);
-      }
-    }),
-  );
-
-  it.effect("fails with SettingsDecodeError for removed Library workspace state", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(
-                JSON.stringify({ libraries: { frontend: "@acme/libraries/frontend" } }),
-              ),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const err = yield* Effect.flip(api.settings);
-      expect(err).toBeInstanceOf(SettingsDecodeError);
-      if (err._tag === "SettingsDecodeError") {
-        expect(err.raw).toEqual({
-          libraries: { frontend: "@acme/libraries/frontend" },
-        });
-      }
-    }),
-  );
-
-  it.effect("explains the authored-to-workspace-source cutover", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(
-                JSON.stringify({
-                  skills: {
-                    review: { source: "@acme/skills/review", authored: true },
-                  },
-                }),
-              ),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const err = yield* Effect.flip(api.settings);
-      expect(err).toBeInstanceOf(SettingsDecodeError);
-      if (err._tag === "SettingsDecodeError") {
-        expect(err.issues.join("\n")).toContain("workspace:@owner/<plural-type>/<name>");
       }
     }),
   );
@@ -572,34 +434,6 @@ describe("makeScopedStateApi.lockfile", () => {
       if (err._tag === "LockfileDecodeError") {
         expect(err.path).toBe(LOCKFILE_PATH);
         expect(err.issues.length).toBeGreaterThan(0);
-      }
-    }),
-  );
-
-  it.effect("fails with LockfileDecodeError for removed Library workspace state", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const raw = [
-        "lockfileVersion: 4",
-        "skills: {}",
-        "libraries:",
-        "  frontend:",
-        "    type: registry",
-      ].join("\n");
-      const fs = buildFs(
-        {
-          readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const err = yield* Effect.flip(api.lockfile);
-      expect(err).toBeInstanceOf(LockfileDecodeError);
-      if (err._tag === "LockfileDecodeError") {
-        expect(err.issues).toContain("libraries: Library workspace state is no longer supported");
       }
     }),
   );

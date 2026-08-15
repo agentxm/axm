@@ -63,8 +63,7 @@ Sync and reinstall rematerialize only the immutable locked identity. If a Git
 or local-path source no longer reproduces that identity and canonical content
 is missing, the affected closure blocks. AXM never substitutes current source
 bytes. Missing, malformed, or incompatible lock authority is consequential and
-is never reconstructed from legacy `trust.json`, installed content, or Pack
-member metadata.
+is never reconstructed from installed content or Pack member metadata.
 
 A Registry Pack contributes dependencies only from its accepted locked manifest
 or a local manifest that semantically matches that identity. Lock-only member

@@ -138,33 +138,11 @@ export const PublishDetails = Schema.Struct({
 });
 export type IsoDateTimeString = typeof DateTimeUtcSchema.Type;
 export const IsoDateTimeString = DateTimeUtcSchema;
-export type PublishVisibility =
-  | {
-      readonly value: "public" | "private";
-      readonly disposition: "establish";
-      readonly source: "explicit" | "account" | "platform";
-    }
-  | {
-      readonly value: "public" | "private";
-      readonly disposition: "preserve";
-      readonly source: "existing";
-    };
-export const PublishVisibility = Schema.Union([
-  Schema.Struct({
-    value: Schema.Literals(["public", "private"]),
-    disposition: Schema.Literal("establish"),
-    source: Schema.Literals(["explicit", "account", "platform"]),
-  }),
-  Schema.Struct({
-    value: Schema.Literals(["public", "private"]),
-    disposition: Schema.Literal("preserve"),
-    source: Schema.Literal("existing"),
-  }),
-]).annotate({
-  title: "Publish Visibility",
-  description:
-    "Complete operation-time visibility resolved for a proposed or completed publication.",
-  identifier: "PublishVisibility",
+export type ExtensionVisibility = "public" | "private";
+export const ExtensionVisibility = Schema.Literals(["public", "private"]).annotate({
+  title: "Extension Visibility",
+  description: "Whole-Extension Registry visibility applied to every published version.",
+  identifier: "ExtensionVisibility",
 });
 export type Union_ = string | null;
 export const Union_ = Schema.Union([Schema.String, Schema.Null]).annotate({ identifier: "Union_" });
@@ -229,6 +207,76 @@ export const Version = Schema.String.check(
     identifier: "Version",
   }),
 );
+export type ExtensionFqn = string;
+export const ExtensionFqn = Schema.String.check(
+  Schema.isPattern(
+    new RegExp(
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    ),
+  ).annotate({
+    expected:
+      "a string matching the RegExp ^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    title: "Extension FQN",
+    description: "Canonical extension identifier in @owner/<type>s/<name> form.",
+    examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
+    identifier: "ExtensionFqn",
+  }),
+);
+export type VisibilityFingerprint = string;
+export const VisibilityFingerprint = Schema.String.check(
+  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
+    expected: "a string matching the RegExp ^[a-f0-9]{64}$",
+    identifier: "VisibilityFingerprint",
+  }),
+);
+export type VisibilityRevision = string;
+export const VisibilityRevision = Schema.String.check(
+  Schema.isMinLength(1).annotate({
+    expected: "a value with a length of at least 1",
+    description: "Opaque revision for conditional whole-Extension visibility mutation.",
+    identifier: "VisibilityRevision",
+  }),
+);
+export type VisibilityComparison = "not-established" | "unconfigured" | "match" | "drift";
+export const VisibilityComparison = Schema.Literals([
+  "not-established",
+  "unconfigured",
+  "match",
+  "drift",
+]).annotate({ identifier: "VisibilityComparison" });
+export type VisibilityFindingCode =
+  | "visibility/intent-conflict"
+  | "visibility/drift"
+  | "visibility/unavailable"
+  | "visibility/intent-required"
+  | "visibility/not-established"
+  | "visibility/stale-source"
+  | "visibility/stale-revision"
+  | "visibility/confirmation-required"
+  | "visibility/authorization-denied"
+  | "visibility/impersonation-denied"
+  | "visibility/verification-required"
+  | "visibility/verification-expired"
+  | "visibility/verification-cancelled"
+  | "visibility/verification-replayed"
+  | "visibility/pack-blocked";
+export const VisibilityFindingCode = Schema.Literals([
+  "visibility/intent-conflict",
+  "visibility/drift",
+  "visibility/unavailable",
+  "visibility/intent-required",
+  "visibility/not-established",
+  "visibility/stale-source",
+  "visibility/stale-revision",
+  "visibility/confirmation-required",
+  "visibility/authorization-denied",
+  "visibility/impersonation-denied",
+  "visibility/verification-required",
+  "visibility/verification-expired",
+  "visibility/verification-cancelled",
+  "visibility/verification-replayed",
+  "visibility/pack-blocked",
+]).annotate({ identifier: "VisibilityFindingCode" });
 export type VersionRange = string;
 export const VersionRange = Schema.String.check(
   Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
@@ -568,36 +616,6 @@ export const ExtensionDeletionOperationId = Schema.String.check(
     identifier: "ExtensionDeletionOperationId",
   }),
 );
-export type PatchVisibilityBody = { readonly visibility: "public" | "private" };
-export const PatchVisibilityBody = Schema.Struct({
-  visibility: Schema.Literals(["public", "private"]).annotate({
-    title: "Visibility",
-    description: "Target visibility tier for the extension.",
-  }),
-}).annotate({
-  title: "Patch Visibility Body",
-  description: "Request body for updating an extension's visibility.",
-  identifier: "PatchVisibilityBody",
-});
-export type ExtensionId = string;
-export const ExtensionId = Schema.String.check(
-  Schema.isPattern(new RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
-    expected: "a string matching the RegExp ^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-    title: "Extension ID",
-    description:
-      "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
-    examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
-    identifier: "ExtensionId",
-  }),
-);
-export type ExtensionLinks = { readonly html: string };
-export const ExtensionLinks = Schema.Struct({
-  html: Schema.String.annotate({ format: "uri" }),
-}).annotate({
-  title: "Extension Links",
-  description: "Hyperlinks for an extension resource. `html` is the canonical web page URL.",
-  identifier: "ExtensionLinks",
-});
 export type Visibility = "public" | "private";
 export const Visibility = Schema.Literals(["public", "private"]).annotate({
   title: "Visibility",
@@ -606,6 +624,14 @@ export const Visibility = Schema.Literals(["public", "private"]).annotate({
 export type Union_8 = "error" | "warning" | "info";
 export const Union_8 = Schema.Literals(["error", "warning", "info"]).annotate({
   identifier: "Union_8",
+});
+export type ExtensionLinks = { readonly html: string };
+export const ExtensionLinks = Schema.Struct({
+  html: Schema.String.annotate({ format: "uri" }),
+}).annotate({
+  title: "Extension Links",
+  description: "Hyperlinks for an extension resource. `html` is the canonical web page URL.",
+  identifier: "ExtensionLinks",
 });
 export type PublishIdentityMismatchEntry = {
   readonly field: "owner" | "type" | "name" | "version";
@@ -735,21 +761,6 @@ export const LibraryMemberId = Schema.String.check(
     identifier: "LibraryMemberId",
   }),
 );
-export type ExtensionFqn = string;
-export const ExtensionFqn = Schema.String.check(
-  Schema.isPattern(
-    new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-    ),
-  ).annotate({
-    expected:
-      "a string matching the RegExp ^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-    title: "Extension FQN",
-    description: "Canonical extension identifier in @owner/<type>s/<name> form.",
-    examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
-    identifier: "ExtensionFqn",
-  }),
-);
 export type DebugStreamEventEncoded = string;
 export const DebugStreamEventEncoded = Schema.String.annotate({
   contentMediaType: "application/json",
@@ -784,7 +795,7 @@ export type PreconditionFailedErrorEncoded = {
   readonly status: number;
   readonly detail: string;
   readonly instance?: string;
-  readonly code: "publish/precondition-changed";
+  readonly code: "publish/precondition-changed" | "visibility/stale-revision";
   readonly details?: PublishDetails;
 };
 export const PreconditionFailedErrorEncoded = Schema.Struct({
@@ -794,7 +805,7 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
   status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("publish/precondition-changed"),
+  code: Schema.Literals(["publish/precondition-changed", "visibility/stale-revision"]),
   details: Schema.optionalKey(PublishDetails),
 }).annotate({ identifier: "PreconditionFailedErrorEncoded" });
 export type StepUpRequestStatusResponse = {
@@ -812,74 +823,33 @@ export type Union_4 = IsoDateTimeString | null;
 export const Union_4 = Schema.Union([IsoDateTimeString, Schema.Null]).annotate({
   identifier: "Union_4",
 });
-export type SessionTokenResponse = {
-  readonly access_token: string;
-  readonly refresh_token?: string | null;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: IsoDateTimeString;
-  readonly scope?: string | null;
-  readonly publish_request_id?: string | null;
-  readonly visibility_contract?: "v1" | "v2" | null;
-  readonly visibility?: PublishVisibility | null;
-  readonly condition?: string | null;
-  readonly publication_set_digest?: Union_;
-  readonly publication_descriptor_digest?: Union_;
-};
-export const SessionTokenResponse = Schema.Struct({
-  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt().annotate({ expected: "an integer" })),
-  expires_at: IsoDateTimeString,
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
-      Schema.Null,
-    ]),
-  ),
-  publish_request_id: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "Publish authorization request that produced a non-refreshable exact capability.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  visibility_contract: Schema.optionalKey(
-    Schema.Union([
-      Schema.Literals(["v1", "v2"]).annotate({
-        description: "Visibility binding contract carried by an exact publish capability.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  visibility: Schema.optionalKey(Schema.Union([PublishVisibility, Schema.Null])),
-  condition: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Opaque reviewed publish condition to send as If-Match during upload.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  publication_set_digest: Schema.optionalKey(Union_),
-  publication_descriptor_digest: Schema.optionalKey(Union_),
-}).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
-  identifier: "SessionTokenResponse",
+export type PublishVisibility =
+  | {
+      readonly value: ExtensionVisibility;
+      readonly disposition: "establish";
+      readonly source: "manifest" | "workspace" | "explicit" | "account" | "platform";
+    }
+  | {
+      readonly value: ExtensionVisibility;
+      readonly disposition: "preserve";
+      readonly source: "existing";
+    };
+export const PublishVisibility = Schema.Union([
+  Schema.Struct({
+    value: ExtensionVisibility,
+    disposition: Schema.Literal("establish"),
+    source: Schema.Literals(["manifest", "workspace", "explicit", "account", "platform"]),
+  }),
+  Schema.Struct({
+    value: ExtensionVisibility,
+    disposition: Schema.Literal("preserve"),
+    source: Schema.Literal("existing"),
+  }),
+]).annotate({
+  title: "Publish Visibility",
+  description:
+    "Authoritative whole-Extension visibility and provenance resolved for a publication.",
+  identifier: "PublishVisibility",
 });
 export type SuggestedAction = {
   readonly description: string;
@@ -929,6 +899,49 @@ export const PublishIdentity = Schema.Struct({
   description: "URL-path identity of the extension version under publish.",
   identifier: "PublishIdentity",
 });
+export type VisibilityIntent = {
+  readonly value: ExtensionVisibility;
+  readonly source: "manifest" | "workspace";
+  readonly fingerprint: VisibilityFingerprint;
+};
+export const VisibilityIntent = Schema.Struct({
+  value: ExtensionVisibility,
+  source: Schema.Literals(["manifest", "workspace"]),
+  fingerprint: VisibilityFingerprint,
+}).annotate({ identifier: "VisibilityIntent" });
+export type VisibilityMutationAuthority =
+  | { readonly kind: "operator" }
+  | {
+      readonly kind: "repository";
+      readonly source: "manifest" | "workspace";
+      readonly fingerprint: VisibilityFingerprint;
+    };
+export const VisibilityMutationAuthority = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("operator") }),
+  Schema.Struct({
+    kind: Schema.Literal("repository"),
+    source: Schema.Literals(["manifest", "workspace"]),
+    fingerprint: VisibilityFingerprint,
+  }),
+]).annotate({ identifier: "VisibilityMutationAuthority" });
+export type VisibilityActual = {
+  readonly value: ExtensionVisibility;
+  readonly revision: VisibilityRevision;
+};
+export const VisibilityActual = Schema.Struct({
+  value: ExtensionVisibility,
+  revision: VisibilityRevision,
+}).annotate({ identifier: "VisibilityActual" });
+export type VisibilityFinding = {
+  readonly code: VisibilityFindingCode;
+  readonly severity: "error" | "warning";
+  readonly message: string;
+};
+export const VisibilityFinding = Schema.Struct({
+  code: VisibilityFindingCode,
+  severity: Schema.Literals(["error", "warning"]),
+  message: Schema.String,
+}).annotate({ identifier: "VisibilityFinding" });
 export type PackDependencyDescriptor = {
   readonly owner: Handle;
   readonly type: "hook" | "knowledge" | "mcp-server" | "rule" | "skill" | "subagent";
@@ -1295,6 +1308,75 @@ export const LibraryMember = Schema.Struct({
   extensionName: ExtensionName,
   addedAt: IsoDateTimeString,
 }).annotate({ title: "Library Member", identifier: "LibraryMember" });
+export type SessionTokenResponse = {
+  readonly access_token: string;
+  readonly refresh_token?: string | null;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: IsoDateTimeString;
+  readonly scope?: string | null;
+  readonly publish_request_id?: string | null;
+  readonly visibility_contract?: "v2" | null;
+  readonly visibility?: PublishVisibility | null;
+  readonly condition?: string | null;
+  readonly publication_set_digest?: Union_;
+  readonly publication_descriptor_digest?: Union_;
+};
+export const SessionTokenResponse = Schema.Struct({
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt().annotate({ expected: "an integer" })),
+  expires_at: IsoDateTimeString,
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
+    ]),
+  ),
+  publish_request_id: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Publish authorization request that produced a non-refreshable exact capability.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  visibility_contract: Schema.optionalKey(
+    Schema.Union([
+      Schema.Literal("v2").annotate({
+        description: "Visibility binding contract carried by an exact publish capability.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  visibility: Schema.optionalKey(Schema.Union([PublishVisibility, Schema.Null])),
+  condition: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Opaque reviewed publish condition to send as If-Match during upload.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  publication_set_digest: Schema.optionalKey(Union_),
+  publication_descriptor_digest: Schema.optionalKey(Union_),
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
+  identifier: "SessionTokenResponse",
+});
 export type ExtensionIdentityMismatchErrorEncoded = {
   readonly kind: "ExtensionIdentityMismatchError";
   readonly type: string;
@@ -1319,6 +1401,71 @@ export const ExtensionIdentityMismatchErrorEncoded = Schema.Struct({
   identity: PublishIdentity,
   mismatches: Schema.Array(PublishIdentityMismatchEntry),
 }).annotate({ identifier: "ExtensionIdentityMismatchErrorEncoded" });
+export type VisibilityMutationRequest = {
+  readonly target: ExtensionFqn;
+  readonly visibility: ExtensionVisibility;
+  readonly revision: VisibilityRevision;
+  readonly authority: VisibilityMutationAuthority;
+  readonly verification?: string | null;
+};
+export const VisibilityMutationRequest = Schema.Struct({
+  target: ExtensionFqn,
+  visibility: ExtensionVisibility,
+  revision: VisibilityRevision,
+  authority: VisibilityMutationAuthority,
+  verification: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({ identifier: "VisibilityMutationRequest" });
+export type VisibilityMutationResult = {
+  readonly target: ExtensionFqn;
+  readonly before: ExtensionVisibility;
+  readonly after: ExtensionVisibility;
+  readonly authority: VisibilityMutationAuthority;
+  readonly result: "already-satisfied" | "changed";
+  readonly revision: VisibilityRevision;
+};
+export const VisibilityMutationResult = Schema.Struct({
+  target: ExtensionFqn,
+  before: ExtensionVisibility,
+  after: ExtensionVisibility,
+  authority: VisibilityMutationAuthority,
+  result: Schema.Literals(["already-satisfied", "changed"]),
+  revision: VisibilityRevision,
+}).annotate({ identifier: "VisibilityMutationResult" });
+export type VisibilityEvaluation = {
+  readonly target: ExtensionFqn;
+  readonly intent: VisibilityIntent | null;
+  readonly request: ExtensionVisibility | null;
+  readonly resolved: PublishVisibility | null;
+  readonly actual: VisibilityActual | null;
+  readonly comparison: VisibilityComparison;
+  readonly findings: ReadonlyArray<VisibilityFinding>;
+};
+export const VisibilityEvaluation = Schema.Struct({
+  target: ExtensionFqn,
+  intent: Schema.Union([VisibilityIntent, Schema.Null]),
+  request: Schema.Union([ExtensionVisibility, Schema.Null]),
+  resolved: Schema.Union([PublishVisibility, Schema.Null]),
+  actual: Schema.Union([VisibilityActual, Schema.Null]),
+  comparison: VisibilityComparison,
+  findings: Schema.Array(VisibilityFinding),
+}).annotate({ identifier: "VisibilityEvaluation" });
+export type VisibilityEvaluationUnavailable = {
+  readonly target: ExtensionFqn;
+  readonly unavailable: true;
+  readonly findings: ReadonlyArray<VisibilityFinding>;
+};
+export const VisibilityEvaluationUnavailable = Schema.Struct({
+  target: ExtensionFqn,
+  unavailable: Schema.Literal(true),
+  findings: Schema.Array(VisibilityFinding),
+}).annotate({ identifier: "VisibilityEvaluationUnavailable" });
 export type PackDependencyFinding = {
   readonly kind: "advisory";
   readonly ruleId: "pack/dependency-version-resolvable" | "pack/dependency-deprecated";
@@ -1376,16 +1523,20 @@ export type PublicationDescriptor = {
   readonly target: PublicationTarget;
   readonly participation: "publish" | "verified-existing";
   readonly archiveSha256Hex?: Sha256Hex | null;
-  readonly initialVisibility?: "public" | "private" | null;
+  readonly visibility: {
+    readonly intent: VisibilityIntent | null;
+    readonly request: ExtensionVisibility | null;
+  };
   readonly pack?: { readonly dependencies: ReadonlyArray<PackDependencyDescriptor> } | null;
 };
 export const PublicationDescriptor = Schema.Struct({
   target: PublicationTarget,
   participation: Schema.Literals(["publish", "verified-existing"]),
   archiveSha256Hex: Schema.optionalKey(Schema.Union([Sha256Hex, Schema.Null])),
-  initialVisibility: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["public", "private"]), Schema.Null]),
-  ),
+  visibility: Schema.Struct({
+    intent: Schema.Union([VisibilityIntent, Schema.Null]),
+    request: Schema.Union([ExtensionVisibility, Schema.Null]),
+  }),
   pack: Schema.optionalKey(
     Schema.Union([
       Schema.Struct({ dependencies: Schema.Array(PackDependencyDescriptor) }),
@@ -1520,7 +1671,7 @@ export type PreviewPublicationSetResponse = {
         readonly target: PublicationTarget;
         readonly participation: "publish" | "verified-existing";
         readonly descriptorDigest: Sha256Hex;
-        readonly resolvedVisibility: "public" | "private";
+        readonly visibility: VisibilityEvaluation;
         readonly condition?: Union_;
       }
     | {
@@ -1529,6 +1680,7 @@ export type PreviewPublicationSetResponse = {
         readonly participation: "publish" | "verified-existing";
         readonly descriptorDigest: Sha256Hex;
         readonly code: "publish/target-unavailable";
+        readonly visibility: VisibilityEvaluationUnavailable;
       }
   >;
   readonly packs: ReadonlyArray<{
@@ -1549,7 +1701,7 @@ export const PreviewPublicationSetResponse = Schema.Struct({
         target: PublicationTarget,
         participation: Schema.Literals(["publish", "verified-existing"]),
         descriptorDigest: Sha256Hex,
-        resolvedVisibility: Schema.Literals(["public", "private"]),
+        visibility: VisibilityEvaluation,
         condition: Schema.optionalKey(Union_),
       }),
       Schema.Struct({
@@ -1558,6 +1710,7 @@ export const PreviewPublicationSetResponse = Schema.Struct({
         participation: Schema.Literals(["publish", "verified-existing"]),
         descriptorDigest: Sha256Hex,
         code: Schema.Literal("publish/target-unavailable"),
+        visibility: VisibilityEvaluationUnavailable,
       }),
     ]),
   ),
@@ -2169,30 +2322,18 @@ export type ExtensionsDeleteExtension410 = ProblemDetails;
 export const ExtensionsDeleteExtension410 = ProblemDetails;
 export type ExtensionsDeleteExtension429 = ProblemDetails;
 export const ExtensionsDeleteExtension429 = ProblemDetails;
-export type ExtensionsUpdateVisibilityParams = { readonly "x-axm-step-up-request"?: Union_1 };
+export type ExtensionsUpdateVisibilityParams = {
+  readonly "x-axm-step-up-request"?: Union_1;
+  readonly "if-match": string;
+};
 export const ExtensionsUpdateVisibilityParams = Schema.Struct({
   "x-axm-step-up-request": Schema.optionalKey(Union_1),
+  "if-match": Schema.String,
 });
-export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
-export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
-export type ExtensionsUpdateVisibility200 = {
-  readonly id: ExtensionId;
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly visibility: string;
-  readonly updatedAt: IsoDateTimeString;
-  readonly links: ExtensionLinks;
-};
-export const ExtensionsUpdateVisibility200 = Schema.Struct({
-  id: ExtensionId,
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  visibility: Schema.String,
-  updatedAt: IsoDateTimeString,
-  links: ExtensionLinks,
-});
+export type ExtensionsUpdateVisibilityRequestJson = VisibilityMutationRequest;
+export const ExtensionsUpdateVisibilityRequestJson = VisibilityMutationRequest;
+export type ExtensionsUpdateVisibility200 = VisibilityMutationResult;
+export const ExtensionsUpdateVisibility200 = VisibilityMutationResult;
 export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const ExtensionsUpdateVisibility400 = Schema.Union([
   ProblemDetails,
@@ -2214,6 +2355,8 @@ export type ExtensionsUpdateVisibility409 = ProblemDetails;
 export const ExtensionsUpdateVisibility409 = ProblemDetails;
 export type ExtensionsUpdateVisibility410 = ProblemDetails;
 export const ExtensionsUpdateVisibility410 = ProblemDetails;
+export type ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
+export const ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
 export type ExtensionsUpdateVisibility429 = ProblemDetails;
 export const ExtensionsUpdateVisibility429 = ProblemDetails;
 export type ExtensionsGetVersion200 = {
@@ -2279,12 +2422,14 @@ export type ExtensionsPublishVersionParams = {
   readonly "if-match": string;
   readonly "x-axm-publication-set-digest": Sha256Hex;
   readonly "x-axm-publication-descriptor-digest": Sha256Hex;
+  readonly "x-axm-visibility-input": string;
   readonly visibility?: Visibility | null;
 };
 export const ExtensionsPublishVersionParams = Schema.Struct({
   "if-match": Schema.String,
   "x-axm-publication-set-digest": Sha256Hex,
   "x-axm-publication-descriptor-digest": Sha256Hex,
+  "x-axm-visibility-input": Schema.String,
   visibility: Schema.optionalKey(Schema.Union([Visibility, Schema.Null])),
 });
 export type ExtensionsPublishVersion201 = {
@@ -2389,6 +2534,34 @@ export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
 export const ExtensionsDownloadArchive500 = ProblemDetails;
+export type ExtensionsGetVisibilityParams = {
+  readonly intent_visibility?: Visibility | null;
+  readonly intent_source?: "manifest" | "workspace" | null;
+  readonly intent_fingerprint?: VisibilityFingerprint | null;
+};
+export const ExtensionsGetVisibilityParams = Schema.Struct({
+  intent_visibility: Schema.optionalKey(Schema.Union([Visibility, Schema.Null])),
+  intent_source: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["manifest", "workspace"]), Schema.Null]),
+  ),
+  intent_fingerprint: Schema.optionalKey(Schema.Union([VisibilityFingerprint, Schema.Null])),
+});
+export type ExtensionsGetVisibility200 = VisibilityEvaluation;
+export const ExtensionsGetVisibility200 = VisibilityEvaluation;
+export type ExtensionsGetVisibility400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const ExtensionsGetVisibility400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponseEncoded,
+]);
+export type ExtensionsGetVisibility401 = ProblemDetails;
+export const ExtensionsGetVisibility401 = ProblemDetails;
+export type ExtensionsGetVisibility403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
+export const ExtensionsGetVisibility403 = Schema.Union([
+  ForbiddenErrorEncoded,
+  ForbiddenErrorEncoded,
+]);
+export type ExtensionsGetVisibility404 = ProblemDetails;
+export const ExtensionsGetVisibility404 = ProblemDetails;
 export type ExtensionsDeprecateRequestJson = DeprecateBody;
 export const ExtensionsDeprecateRequestJson = DeprecateBody;
 export type ExtensionsDeprecate200 = {
@@ -3177,7 +3350,8 @@ export const make = (
     ExtensionsUpdateVisibility: (owner, type, name, options) =>
       HttpClientRequest.patch(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+          "x-axm-step-up-request": options.params["x-axm-step-up-request"] ?? undefined,
+          "if-match": options.params["if-match"] ?? undefined,
         }),
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -3189,6 +3363,7 @@ export const make = (
             "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
             "409": decodeError("ExtensionsUpdateVisibility409", ExtensionsUpdateVisibility409),
             "410": decodeError("ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410),
+            "412": decodeError("ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412),
             "429": decodeError("ExtensionsUpdateVisibility429", ExtensionsUpdateVisibility429),
             orElse: unexpectedStatus,
           }),
@@ -3215,6 +3390,7 @@ export const make = (
             options.params["x-axm-publication-set-digest"] ?? undefined,
           "x-axm-publication-descriptor-digest":
             options.params["x-axm-publication-descriptor-digest"] ?? undefined,
+          "x-axm-visibility-input": options.params["x-axm-visibility-input"] ?? undefined,
         }),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -3284,6 +3460,24 @@ export const make = (
             "400": decodeVoidError("400"),
             "404": decodeVoidError("404"),
             "500": decodeVoidError("500"),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ExtensionsGetVisibility: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/visibility`).pipe(
+        HttpClientRequest.setUrlParams({
+          intent_visibility: options?.params?.["intent_visibility"] as any,
+          intent_source: options?.params?.["intent_source"] as any,
+          intent_fingerprint: options?.params?.["intent_fingerprint"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ExtensionsGetVisibility200),
+            "400": decodeError("ExtensionsGetVisibility400", ExtensionsGetVisibility400),
+            "401": decodeError("ExtensionsGetVisibility401", ExtensionsGetVisibility401),
+            "403": decodeError("ExtensionsGetVisibility403", ExtensionsGetVisibility403),
+            "404": decodeError("ExtensionsGetVisibility404", ExtensionsGetVisibility404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3814,7 +4008,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     options: {
-      readonly params?: typeof ExtensionsUpdateVisibilityParams.Encoded | undefined;
+      readonly params: typeof ExtensionsUpdateVisibilityParams.Encoded;
       readonly payload: typeof ExtensionsUpdateVisibilityRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -3845,6 +4039,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsUpdateVisibility410",
         typeof ExtensionsUpdateVisibility410.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility412",
+        typeof ExtensionsUpdateVisibility412.Type
       >
     | RegistryClientError<
         "ExtensionsUpdateVisibility429",
@@ -3966,6 +4164,28 @@ export interface RegistryClient {
     | RegistryClientError<"400", undefined>
     | RegistryClientError<"404", undefined>
     | RegistryClientError<"500", undefined>
+  >;
+  /**
+   * Evaluate extension visibility
+   */
+  readonly ExtensionsGetVisibility: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options:
+      | {
+          readonly params?: typeof ExtensionsGetVisibilityParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsGetVisibility200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsGetVisibility400", typeof ExtensionsGetVisibility400.Type>
+    | RegistryClientError<"ExtensionsGetVisibility401", typeof ExtensionsGetVisibility401.Type>
+    | RegistryClientError<"ExtensionsGetVisibility403", typeof ExtensionsGetVisibility403.Type>
+    | RegistryClientError<"ExtensionsGetVisibility404", typeof ExtensionsGetVisibility404.Type>
   >;
   /**
    * Deprecate an extension

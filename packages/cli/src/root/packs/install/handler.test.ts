@@ -59,7 +59,6 @@ import {
   dependencyConstraintMap,
   exactVersion,
   extensionName,
-  writeTrustFromWorkspaceLockfile,
 } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 import { toPlanResolutionResult } from "../../../json-output.js";
@@ -875,7 +874,6 @@ describe("packs install handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: { review: "workspace:@acme/skills/review" },
       });
-      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
       const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
 
       return provide(
@@ -1650,7 +1648,6 @@ describe("packs install handler", () => {
           },
         },
       });
-      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
 
       const { provide } = makeLayersWithMockSources(mockService);
 

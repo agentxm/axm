@@ -4,7 +4,7 @@
  * Library-style discriminated unions and a pure evaluator. Rules are plain
  * values generic over a caller-built context; the registry publish gate and
  * `axm lint` each build contexts from their own runtimes and call
- * `evaluateContexts` / `collectFixOperations`.
+ * `evaluateContexts`.
  *
  * Phase 2 ships the primitives, evaluator, rule-context types, narrow accessor
  * surfaces, `composePath` renderer, schema-delegation helper
@@ -116,7 +116,6 @@ export {
   toLintHumanBlocks,
   toLintJsonDocument,
   type FindingCounts,
-  type FixSummary,
   type GroupEvaluations,
   type LintHumanBlock,
   type LintHumanDiagnostic,
@@ -140,14 +139,12 @@ export {
   buildPackRuleContexts,
   buildSkillRuleContexts,
   externalSkillDisplayRoot,
-  isPerExtensionOperationName,
   makePlatformPackFileAccessor,
   makePlatformSkillFileAccessor,
   makeVftPackFileAccessor,
   makeVftSkillFileAccessor,
   makeVftSkillFileAccessorScoped,
   packRules,
-  PER_EXTENSION_OPERATION_NAMES,
   registryNativeSkillDisplayRoot,
   registryPackDisplayRoot,
   skillRules,
@@ -164,7 +161,6 @@ export {
   type LintWorkspaceView,
   type PackAccessorPlatform,
   type PackVFTNode,
-  type PerExtensionOperationName,
   type SkillAccessorPlatform,
   type VFTNode,
 } from "./catalog/index.js";

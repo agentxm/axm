@@ -213,6 +213,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredOwner: () => Effect.succeed(Option.none()),
+    getPublishDefaultVisibility: () => Effect.succeed(Option.none()),
     getMinimumReleaseAge: () => Effect.succeed("24h"),
     getMinimumReleaseAgeExclude: () => Effect.succeed([]),
     addConfiguredSource: () => Effect.void,
@@ -531,9 +532,6 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   }
   return computeSourceHash(hash.digest("hex"));
 };
-
-/** @deprecated Lockfile v4 is authoritative; retained temporarily for test migration. */
-export const writeTrustFromWorkspaceLockfile = (_axmDir: string): void => undefined;
 
 /**
  * Write a workspace-sourced OKF knowledge package under `<axmDir>/extensions`,

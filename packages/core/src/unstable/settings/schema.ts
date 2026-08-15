@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
   ConfigurableAgentIdSchema,
+  ExtensionVisibilitySchema,
   EXTENSION_NAME_PATTERN,
   FQN_PATTERN,
 } from "../extensions/common.js";
@@ -1049,6 +1050,23 @@ export const KnowledgeConfigSchema = Schema.Struct({
 /** @experimental */
 export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
 
+/** Workspace-level publication defaults. */
+export const WorkspacePublishOptionsSchema = Schema.Struct({
+  defaultVisibility: Schema.optional(
+    ExtensionVisibilitySchema.annotate({
+      description:
+        "Fallback whole-Extension Registry visibility when an extension manifest does not declare publish.visibility.",
+    }),
+  ),
+}).annotate({
+  identifier: "WorkspacePublishOptions",
+  title: "Workspace Publish Options",
+  description: "Workspace defaults used when extension publication policy is unconfigured.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type WorkspacePublishOptions = Schema.Schema.Type<typeof WorkspacePublishOptionsSchema>;
+
 /**
  * Each catalog extension type's feature-level config schema, or `null` where
  * none exists yet.
@@ -1080,6 +1098,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "$schema",
   "telemetry",
   "owner",
+  "publish",
   "minimumReleaseAge",
   "minimumReleaseAgeExclude",
   "sources",
@@ -1133,6 +1152,11 @@ const SettingsBaseSchema = Schema.Struct({
   owner: Schema.optionalKey(
     Schema.Union([HandleSchema]).annotate({
       description: "Default owner handle used when AXM scaffolds or resolves workspace extensions.",
+    }),
+  ),
+  publish: Schema.optionalKey(
+    Schema.Union([WorkspacePublishOptionsSchema]).annotate({
+      description: "Workspace-level publication defaults.",
     }),
   ),
   minimumReleaseAge: Schema.optionalKey(
@@ -1228,11 +1252,9 @@ const SettingsBaseSchema = Schema.Struct({
 // Unknown top-level keys are carried by the rest record so a settings file
 // written by a newer AXM survives a read-modify-write cycle instead of being
 // silently rewritten without them. Nested strictness is unchanged: unknown
-// keys inside entry objects still fail decode, and the removed legacy
-// `libraries` key is rejected by an explicit pre-decode guard on the settings
-// read path. The
-// `workspace/settings-keys-recognized` lint rule reports unknown top-level
-// keys at error severity.
+// keys inside entry objects still fail decode. The
+// `workspace/settings-keys-recognized` lint rule reports unknown top-level keys
+// at error severity.
 export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
   Schema.Record(Schema.String, Schema.Unknown),
 ]).annotate({
@@ -1254,7 +1276,7 @@ export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
       agents: ["claude-code", "codex"],
       skills: {
         "code-review": "@acme/skills/code-review@^1.0.0",
-        "legacy-rules": { source: "@acme/skills/legacy-rules@^1.0.0", enabled: false },
+        "disabled-review": { source: "@acme/skills/disabled-review@^1.0.0", enabled: false },
       },
       lint: {
         rules: {

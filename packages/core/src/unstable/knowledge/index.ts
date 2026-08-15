@@ -137,7 +137,6 @@ export {
   type ResolvedKnowledgeDiscoveryConfig,
 } from "./discovery-config.js";
 export {
-  KNOWLEDGE_MATERIALIZATION_STATE,
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryArtifact,
   type KnowledgeDiscoveryBundle,

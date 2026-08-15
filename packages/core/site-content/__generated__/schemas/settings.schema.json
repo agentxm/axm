@@ -19,6 +19,23 @@
         }
       ]
     },
+    "ExtensionVisibility": {
+      "type": "string",
+      "enum": ["public", "private"],
+      "title": "Extension Visibility",
+      "description": "Fallback whole-Extension Registry visibility when an extension manifest does not declare publish.visibility."
+    },
+    "WorkspacePublishOptions": {
+      "type": "object",
+      "properties": {
+        "defaultVisibility": {
+          "anyOf": [{ "$ref": "#/definitions/ExtensionVisibility" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Workspace Publish Options",
+      "description": "Workspace defaults used when extension publication policy is unconfigured."
+    },
     "MinimumReleaseAge": {
       "type": "string",
       "allOf": [
@@ -671,6 +688,10 @@
           "anyOf": [{ "$ref": "#/definitions/Handle" }],
           "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
         },
+        "publish": {
+          "anyOf": [{ "$ref": "#/definitions/WorkspacePublishOptions" }],
+          "description": "Workspace-level publication defaults."
+        },
         "minimumReleaseAge": {
           "anyOf": [{ "$ref": "#/definitions/MinimumReleaseAge" }],
           "description": "Minimum published age for registry versions during unattended sync/update resolution. Defaults to 24h; use 0s to disable."
@@ -743,7 +764,7 @@
           "agents": ["claude-code", "codex"],
           "skills": {
             "code-review": "@acme/skills/code-review@^1.0.0",
-            "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false }
+            "disabled-review": { "source": "@acme/skills/disabled-review@^1.0.0", "enabled": false }
           },
           "lint": { "rules": { "workspace/settings-schema-valid": "error" } }
         }

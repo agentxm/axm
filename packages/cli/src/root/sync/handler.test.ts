@@ -16,10 +16,7 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import {
-  AXM_MANAGED_MARKER,
-  withDegradedLockfileReads,
-} from "@agentxm/client-core/unstable/workspace";
+import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -304,8 +301,6 @@ describe("root sync handler", () => {
       });
 
       yield* provide(handleSync({ preview: false }));
-
-      expect(fs.existsSync(path.join(axmDir, "trust.json"))).toBe(false);
     }),
   );
 
@@ -331,8 +326,6 @@ describe("root sync handler", () => {
       });
 
       yield* provide(handleSync({ preview: true }));
-
-      expect(fs.existsSync(path.join(axmDir, "trust.json"))).toBe(false);
     }),
   );
 
@@ -356,28 +349,17 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, { agents: [] });
       fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
-      // Mirrors the CLI's `withWorkspace` boundary.
-      yield* provide(withDegradedLockfileReads(handleSync({ preview: false })));
+      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
 
-      const payload = expectRecord(rendererState.results[0]?.data);
-      expect(expectRecord(property(payload, "result"))).toMatchObject({
-        outcome: "failed",
-        reason: "hard-blocked",
-        planName: "Sync workspace",
-        steps: [
-          {
-            label: "Read accepted external resolutions",
-            status: "error",
-          },
-        ],
-      });
+      expect(error.code).toBe("validation");
+      expect(rendererState.results).toEqual([]);
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",
       );
     }),
   );
 
-  it.effect("does not fail a dry run against an unreadable lockfile", () =>
+  it.effect("blocks a dry run against an unreadable lockfile", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
@@ -385,9 +367,9 @@ describe("root sync handler", () => {
       const corrupt = "lockfileVersion: 4\nskills: []\n";
       fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), corrupt);
 
-      yield* provide(withDegradedLockfileReads(handleSync({ preview: true })));
+      const error = yield* provide(handleSync({ preview: true })).pipe(Effect.flip);
 
-      // A dry run reports the recovery it would perform without performing it.
+      expect(error.code).toBe("validation");
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
     }),
   );

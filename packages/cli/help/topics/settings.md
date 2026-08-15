@@ -60,15 +60,13 @@ as `enabled: false`. A workspace-authored package uses the intrinsic source
 {
   "skills": {
     "code-review": "@acme/skills/code-review@^1.0.0",
-    "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false },
+    "disabled-review": { "source": "@acme/skills/disabled-review@^1.0.0", "enabled": false },
     "house-style": "workspace:@acme/skills/house-style",
   },
 }
 ```
 
-Feature config lives under `rulesConfig`, `skillsConfig`, `hooksConfig`,
-`knowledgeConfig`, `subagentsConfig`, `packsConfig`,
-and `mcpServersConfig`.
+Feature config lives under `rulesConfig` and `knowledgeConfig`.
 
 `knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
 the canonical instruction source. It defaults to enabled; persist only the
@@ -79,6 +77,17 @@ concept discovery.
 {
   "knowledgeConfig": {
     "instructions": false,
+  },
+}
+```
+
+Workspace publication defaults live under `publish`. An extension manifest's
+`publish.visibility` takes precedence over `publish.defaultVisibility`.
+
+```jsonc
+{
+  "publish": {
+    "defaultVisibility": "private",
   },
 }
 ```
@@ -132,8 +141,8 @@ their lifecycle:
 - **Uninstall removes owned state** — canonical source is deleted when nothing else reaches it; use disable to retain a managed package without activating it.
 - **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <fqn>` first.
 
-The removed `authored` property is invalid. Omit `enabled` unless disabling an
-entry with `enabled: false`; enabled state does not affect authored publishing.
+Omit `enabled` unless disabling an entry with `enabled: false`; enabled state
+does not affect workspace-authored publishing.
 
 ## Where to go next
 

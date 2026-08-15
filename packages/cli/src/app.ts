@@ -51,6 +51,7 @@ import { demoteCommand } from "./root/demote/command.js";
 import { forkCommand } from "./root/fork/command.js";
 import { importCommand } from "./root/import/command.js";
 import { cacheCommand } from "./root/cache/command.js";
+import { visibilityCommand } from "./root/visibility/command.js";
 import {
   deprecateCommand,
   undeprecateCommand,
@@ -101,6 +102,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         uninstallCommand,
         listCommand,
         viewCommand,
+        visibilityCommand,
         versionCommand,
         yankCommand,
         unyankCommand,

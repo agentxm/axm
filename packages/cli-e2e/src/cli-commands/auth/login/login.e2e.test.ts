@@ -99,7 +99,7 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
 };
 
 describe("axm login", () => {
-  it("shows canonical login flags and examples while hiding the compatibility alias", async () => {
+  it("shows the device-code login flags and examples", async () => {
     const result = await runCli(["login", "--help"]);
 
     expect(result.exitCode).toBe(0);
@@ -111,17 +111,7 @@ describe("axm login", () => {
     expect(output).toContain("axm login --device-code");
     expect(output).toContain("--wait");
     expect(output).toContain("--timeout");
-    expect(output).not.toContain("--no-browser");
     expect(output).not.toContain("--device-auth");
-  });
-
-  it("accepts the hidden --no-browser compatibility alias", async () => {
-    const result = await runCli(["login", "--no-browser", "--non-interactive"], {
-      env: { AXM_TOKEN: "", AXM_REGISTRY_URL: "http://127.0.0.1:1" },
-    });
-
-    expect(result.exitCode).not.toBe(2);
-    expect(result.stderr).not.toContain("Unknown option");
   });
 
   it("rejects the unsupported --device-auth spelling", async () => {

@@ -81,11 +81,6 @@ export {
   subagentScaffoldArtifact,
   subagentSourcePath,
 } from "./operations/artifact.js";
-export type {
-  PublishSubagentOperationArgs,
-  PublishSubagentOperation,
-} from "./operations/publish.js";
-export { publishSubagent } from "./operations/publish.js";
 export type { EnableSubagentOperation } from "./operations/enable.js";
 export { enableSubagent } from "./operations/enable.js";
 export type { DisableSubagentOperation } from "./operations/disable.js";

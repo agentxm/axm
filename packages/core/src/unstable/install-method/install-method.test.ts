@@ -161,18 +161,6 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
-    it.effect("returns unknown for legacy Windows AppData layout", () =>
-      Effect.gen(function* () {
-        const inputs: InstallMethodInputs = {
-          ...baseInputs,
-          execPath: "C:\\Users\\testuser\\AppData\\Local\\axm\\axm.exe",
-          homeDir: "C:\\Users\\testuser",
-        };
-        const result = yield* detectFromInputs(inputs);
-        expect(result._tag).toBe("Unknown");
-      }),
-    );
-
     it.effect("script takes priority over homebrew signals", () =>
       Effect.gen(function* () {
         // Even if realpath would resolve to /Cellar/, the script check wins
@@ -301,7 +289,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
     it.effect("reads install-meta.json and returns script method", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
-        nodeFs.writeFileSync(metaPath, JSON.stringify({ method: "script" }));
+        nodeFs.writeFileSync(metaPath, JSON.stringify({ schemaVersion: 2, method: "script" }));
 
         const inputs: InstallMethodInputs = {
           ...baseInputs,
@@ -314,25 +302,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
-    it.effect("reads PowerShell 5.1 UTF-8 BOM install metadata", () =>
-      Effect.gen(function* () {
-        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
-        nodeFs.writeFileSync(metaPath, `\uFEFF${JSON.stringify({ method: "script" })}`);
-
-        const result = yield* detectFromInputs({
-          ...baseInputs,
-          homeDir: tempDir,
-          execPath: "/some/other/bin/bun",
-          importMetaUrl: "file:///some/other/path/main.ts",
-        });
-        expect(result._tag).toBe("Script");
-      }),
-    );
-
     it.effect("reads install-meta.json and returns homebrew method", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
-        nodeFs.writeFileSync(metaPath, JSON.stringify({ method: "homebrew" }));
+        nodeFs.writeFileSync(metaPath, JSON.stringify({ schemaVersion: 2, method: "homebrew" }));
 
         const inputs: InstallMethodInputs = {
           ...baseInputs,
@@ -348,7 +321,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
     it.effect("reads install-meta.json and returns npm method", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
-        nodeFs.writeFileSync(metaPath, JSON.stringify({ method: "npm" }));
+        nodeFs.writeFileSync(metaPath, JSON.stringify({ schemaVersion: 2, method: "npm" }));
 
         const inputs: InstallMethodInputs = {
           ...baseInputs,

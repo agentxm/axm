@@ -12,7 +12,6 @@
     "axm:link:local": "./scripts/axm-link link:local",
     "axm:link:status": "./scripts/axm-link status",
     "axm:unlink": "./scripts/axm-link unlink",
-    "spike": "bun packages/cli-spike/src/main.ts",
     "release-prepare": "bun scripts/release-prepare.ts",
     "release-publish": "bun scripts/release-publish.ts",
     "release-publish-local": "bun scripts/release-publish-local.ts",
@@ -70,7 +69,6 @@
     "generate:check": "pnpm exec nx run-many -t generate --skip-nx-cache --outputStyle=static && git diff --exit-code",
     "generate:registry": "pnpm exec nx run core:generate:registry-client --outputStyle=static",
     "generate:telemetry": "pnpm exec nx run core:generate:telemetry-client --outputStyle=static",
-    "generate:cli-reference": "pnpm exec nx run cli:generate:cli-reference --outputStyle=static",
     "sync:registry": "pnpm exec nx run core:sync:registry-spec --outputStyle=static",
     "sync:telemetry": "pnpm exec nx run core:sync:telemetry-spec --outputStyle=static"
   },

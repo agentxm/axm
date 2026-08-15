@@ -45,11 +45,6 @@ export type {
 export { McpServerManager, McpServerManagerLive } from "./manager.js";
 
 export type {
-  PublishMcpServerOperationArgs,
-  PublishMcpServerOperation,
-} from "./operations/publish.js";
-export { publishMcpServer } from "./operations/publish.js";
-export type {
   InstallMcpServerOperationArgs,
   InstallMcpServerOperation,
 } from "./operations/install.js";

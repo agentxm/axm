@@ -39,6 +39,7 @@ import type {
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
+  GetExtensionVisibilityArgs,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   OwnerExistsResponse,
@@ -112,9 +113,7 @@ const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
     ...(descriptor.archiveSha256Hex === undefined
       ? {}
       : { archiveSha256Hex: descriptor.archiveSha256Hex }),
-    ...(descriptor.initialVisibility === undefined
-      ? {}
-      : { initialVisibility: descriptor.initialVisibility }),
+    visibility: descriptor.visibility,
     ...(descriptor.pack === undefined ? {} : { pack: descriptor.pack }),
   })),
 });
@@ -717,7 +716,8 @@ export const createRemoteRegistryClient = (
           "if-match": args.condition,
           "x-axm-publication-set-digest": args.publicationSetDigest,
           "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
-          ...(args.initialVisibility === undefined ? {} : { visibility: args.initialVisibility }),
+          "x-axm-visibility-input": JSON.stringify(args.visibilityInput),
+          ...(args.visibility === undefined ? {} : { visibility: args.visibility.value }),
         },
       })
       .pipe(
@@ -819,16 +819,32 @@ export const createRemoteRegistryClient = (
         }),
       );
 
-  const updateExtensionVisibility = (
-    args: UpdateExtensionVisibilityArgs,
-  ): Effect.Effect<void, AppError> =>
-    client
-      .ExtensionsUpdateVisibility(args.owner, pluralizeType(args.type), args.name, {
-        payload: { visibility: args.visibility },
+  const updateExtensionVisibility = (args: UpdateExtensionVisibilityArgs) => {
+    const target = parseExtensionFqnParts(args.target);
+    if (target === undefined) {
+      return Effect.fail(
+        makeAppError({ code: "validation", detail: `Invalid extension target: ${args.target}` }),
+      );
+    }
+    const payload = {
+      target: args.target,
+      visibility: args.visibility,
+      authority: args.authority,
+      revision: args.revision,
+      ...(args.verification === undefined ? {} : { verification: args.verification }),
+    };
+    return client
+      .ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
+        params: {
+          "if-match": args.revision,
+          ...(args.verification === undefined
+            ? {}
+            : { "x-axm-step-up-request": args.verification }),
+        },
+        payload,
         config: undefined,
       })
       .pipe(
-        Effect.asVoid,
         Effect.mapError((error) =>
           isHttpClientError(error)
             ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
@@ -837,6 +853,35 @@ export const createRemoteRegistryClient = (
               : makeAppError({
                   code: "network",
                   detail: "Remote extension visibility update failed",
+                  cause: error,
+                }),
+        ),
+      );
+  };
+
+  const getExtensionVisibility = (args: GetExtensionVisibilityArgs) =>
+    client
+      .ExtensionsGetVisibility(args.owner, pluralizeType(args.type), args.name, {
+        ...(args.intent === null
+          ? {}
+          : {
+              params: {
+                intent_visibility: args.intent.value,
+                intent_source: args.intent.source,
+                intent_fingerprint: args.intent.fingerprint,
+              },
+            }),
+        config: undefined,
+      })
+      .pipe(
+        Effect.mapError((error) =>
+          isHttpClientError(error)
+            ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
+            : isAnyRegistryClientError(error)
+              ? registryClientErrorToAppError(error)
+              : makeAppError({
+                  code: "network",
+                  detail: "Remote extension visibility evaluation failed",
                   cause: error,
                 }),
         ),
@@ -957,6 +1002,7 @@ export const createRemoteRegistryClient = (
     getExtensionPackage,
     publishExtension,
     previewExtensionPublishes,
+    getExtensionVisibility,
     updateExtensionVisibility,
     extensionExists,
     discoverPackages,

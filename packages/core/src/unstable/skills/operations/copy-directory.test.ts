@@ -122,8 +122,8 @@ describe("copyExtensionDirectory", () => {
   );
 
   // Regression: canonical materialization must faithfully reproduce the
-  // published package. A lockfile realignment (`axm lint --fix`) pre-cleans the
-  // canonical directory and re-copies from the package archive; if README.md
+  // published package. Reinstallation pre-cleans the canonical directory and
+  // re-copies from the package archive; if README.md
   // (which `publish` includes in the archive) were stripped on copy, it would be
   // permanently deleted. The default copy must include it.
   describe("default (faithful) copy", () => {

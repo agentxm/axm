@@ -11,13 +11,11 @@ const DEPENDENCY_FIELDS = [
 const FORBIDDEN_PACKAGE_NAMES = [
   "@agentxm/client-core",
   "axm.sh",
-  "@agentxm/client-spike",
 ] as const satisfies ReadonlyArray<string>;
 
 const FORBIDDEN_PROJECT_ROOTS = [
   "packages/core",
   "packages/cli",
-  "packages/cli-spike",
 ] as const satisfies ReadonlyArray<string>;
 
 export type BoundaryRule = {
@@ -52,11 +50,6 @@ export const DEFAULT_BOUNDARY_RULES = [
   },
   {
     projectRoot: "packages/cli-e2e",
-    forbiddenPackageNames: FORBIDDEN_PACKAGE_NAMES,
-    forbiddenProjectRoots: FORBIDDEN_PROJECT_ROOTS,
-  },
-  {
-    projectRoot: "packages/cli-spike-e2e",
     forbiddenPackageNames: FORBIDDEN_PACKAGE_NAMES,
     forbiddenProjectRoots: FORBIDDEN_PROJECT_ROOTS,
   },

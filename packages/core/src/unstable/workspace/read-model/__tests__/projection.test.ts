@@ -19,12 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
-import {
-  LockfileDecodeError,
-  type LockfileReadError,
-  SettingsDecodeError,
-  type SettingsReadError,
-} from "../errors.js";
+import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import { projectInstalledExtensions, type SubjectPolicy } from "../extensions/projection.js";
 import { decodeExtensionNameSync } from "../../../extensions/common.js";
 import type { InstalledPackRef } from "../types.js";
@@ -116,8 +111,6 @@ const policy: SubjectPolicy<
   }),
 };
 
-const subjectKey = "test-subject";
-
 const harness = (params: {
   readonly declared: Effect.Effect<Option.Option<TestDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TestResolved>, LockfileReadError>;
@@ -128,7 +121,6 @@ const harness = (params: {
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
     const diagnostics = makeDiagnostics(ref);
     const out = yield* projectInstalledExtensions({
-      subjectKey,
       declared: params.declared,
       resolved: params.resolved,
       actual: params.actual,
@@ -275,44 +267,6 @@ describe("projectInstalledExtensions", () => {
       });
       expect(out.installed).toHaveLength(1);
       expect(out.installed[0]?.installationOrigin._tag).toBe("direct");
-    }),
-  );
-
-  it.effect("source-tolerance: corrupt lockfile -> warning + projection still computes", () =>
-    Effect.gen(function* () {
-      const lockErr = new LockfileDecodeError({
-        path: "/ws/axm-lock.yaml",
-        issues: ["bad shape"],
-        raw: {},
-      });
-      const { out, warnings } = yield* harness({
-        declared: Effect.succeed(Option.some([DECLARED_ENABLED("alpha")])),
-        resolved: Effect.fail(lockErr),
-        actual: Effect.succeed([ACTUAL("alpha")]),
-        installedPacks: Effect.succeed([]),
-      });
-      expect(out.installed).toHaveLength(1);
-      expect(out.installed[0]?.actual).toHaveLength(1);
-      expect(warnings.some((w) => w.source === "lockfile")).toBe(true);
-    }),
-  );
-
-  it.effect("source-tolerance: corrupt settings -> warning + projection still computes", () =>
-    Effect.gen(function* () {
-      const settingsErr = new SettingsDecodeError({
-        path: "/ws/.axm/settings.json",
-        issues: ["bad shape"],
-        raw: {},
-      });
-      const { out, warnings } = yield* harness({
-        declared: Effect.fail(settingsErr),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([ACTUAL("orphan", "claude-code")]),
-        installedPacks: Effect.succeed([]),
-      });
-      expect(out.installed).toHaveLength(0);
-      expect(warnings.some((w) => w.source === "settings")).toBe(true);
-      expect(out.unmanaged).toHaveLength(1);
     }),
   );
 

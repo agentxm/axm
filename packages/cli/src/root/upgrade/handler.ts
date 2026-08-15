@@ -867,6 +867,7 @@ const persistMetadata = (method: InstallMethodType, executablePath: string | nul
     if (name === "unknown") return;
     const managerMajorVersion = method._tag === "Yarn" ? method.managerMajorVersion : undefined;
     yield* installMeta.write({
+      schemaVersion: 2,
       method: name satisfies InstallMethodName,
       installedAt: yield* DateTime.now,
       packageName: name === "npm" || name === "pnpm" || name === "yarn" ? NPM_PACKAGE : undefined,

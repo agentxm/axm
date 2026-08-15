@@ -74,7 +74,9 @@ import {
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
+  resolveVisibilityIntent,
   type PublishVisibility,
+  type VisibilityIntent,
   publishArchiveOptions,
   runPublishLintGate,
   validateArchive,
@@ -95,6 +97,7 @@ import {
   PreviewPublicationSetResponseSchema,
   type PublicationCandidateResult,
   type PublicationDescriptor,
+  type PublicationVisibilityInput,
   type PublicationPackResult,
   type RegistryClient,
   type VersionEntry,
@@ -239,6 +242,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly version: Version;
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
+  readonly publishVisibility?: ExtensionVisibility;
   readonly archive: Uint8Array;
   readonly integrity: string;
   readonly action: "publish" | "skip";
@@ -436,6 +440,7 @@ const localPackConstraintErrors = (
 
 export interface ResolvedPublishPreview {
   readonly visibility: PublishVisibility;
+  readonly visibilityInput: PublicationVisibilityInput;
   readonly condition?: string;
   readonly publicationSetDigest: string;
   readonly publicationDescriptorDigest: string;
@@ -552,11 +557,13 @@ export const publishAuthenticationPreconditions = (options: {
 
 export const exactPublishUploadBinding = (
   capability: PublishCapabilityResponse,
+  visibilityInput: PublicationVisibilityInput,
 ): Pick<
   PublishExtensionArgs,
   | "accessToken"
   | "condition"
-  | "initialVisibility"
+  | "visibility"
+  | "visibilityInput"
   | "publicationSetDigest"
   | "publicationDescriptorDigest"
 > => ({
@@ -564,9 +571,9 @@ export const exactPublishUploadBinding = (
   condition: capability.condition,
   publicationSetDigest: capability.publicationSetDigest,
   publicationDescriptorDigest: capability.publicationDescriptorDigest,
-  ...(capability.visibility.disposition === "establish" &&
-  capability.visibility.source === "explicit"
-    ? { initialVisibility: capability.visibility.value }
+  visibilityInput,
+  ...(capability.visibility.disposition === "establish"
+    ? { visibility: capability.visibility }
     : {}),
 });
 
@@ -574,14 +581,17 @@ export const previewPublishUploadBinding = (
   preview: ResolvedPublishPreview,
 ): Pick<
   PublishExtensionArgs,
-  "condition" | "initialVisibility" | "publicationSetDigest" | "publicationDescriptorDigest"
+  | "condition"
+  | "visibility"
+  | "visibilityInput"
+  | "publicationSetDigest"
+  | "publicationDescriptorDigest"
 > => ({
   ...(preview.condition === undefined ? {} : { condition: preview.condition }),
   publicationSetDigest: preview.publicationSetDigest,
   publicationDescriptorDigest: preview.publicationDescriptorDigest,
-  ...(preview.visibility.disposition === "establish" && preview.visibility.source === "explicit"
-    ? { initialVisibility: preview.visibility.value }
-    : {}),
+  visibilityInput: preview.visibilityInput,
+  ...(preview.visibility.disposition === "establish" ? { visibility: preview.visibility } : {}),
 });
 
 export const validatePublishOwners = (
@@ -1278,6 +1288,9 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     version: manifest.version,
     ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
     ...(manifest.dependencies === undefined ? {} : { dependencies: manifest.dependencies }),
+    ...(manifest.publish?.visibility === undefined
+      ? {}
+      : { publishVisibility: manifest.publish.visibility }),
     archive,
     integrity,
     action,
@@ -1327,6 +1340,7 @@ const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")
 const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescriptor")(function* (
   candidate: PublishCandidate,
   visibility: Option.Option<ExtensionVisibility>,
+  workspaceDefaultVisibility: Option.Option<ExtensionVisibility>,
 ) {
   const pack =
     candidate.type === "pack"
@@ -1334,6 +1348,25 @@ const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescript
           dependencies: yield* packDependencyDescriptors(candidate.dependencies ?? {}),
         }
       : undefined;
+  const intent: VisibilityIntent | null = resolveVisibilityIntent({
+    ...(candidate.publishVisibility === undefined
+      ? {}
+      : {
+          manifest: {
+            value: candidate.publishVisibility,
+            material: JSON.stringify({ publish: { visibility: candidate.publishVisibility } }),
+          },
+        }),
+    ...Option.match(workspaceDefaultVisibility, {
+      onNone: () => ({}),
+      onSome: (defaultVisibility) => ({
+        workspace: {
+          value: defaultVisibility,
+          material: JSON.stringify({ publish: { defaultVisibility } }),
+        },
+      }),
+    }),
+  });
   return {
     target: {
       owner: candidate.owner,
@@ -1342,13 +1375,13 @@ const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescript
       version: candidate.version,
     },
     participation: candidate.action === "publish" ? "publish" : "verified-existing",
+    visibility: {
+      intent,
+      request: Option.getOrNull(visibility),
+    },
     ...(candidate.action === "publish"
       ? {
           archiveSha256Hex: archiveSha256Hex(candidate.archive),
-          ...Option.match(visibility, {
-            onNone: () => ({}),
-            onSome: (initialVisibility) => ({ initialVisibility }),
-          }),
         }
       : {}),
     ...(pack === undefined ? {} : { pack }),
@@ -1358,34 +1391,25 @@ const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescript
 const publicationSetForCandidates = Effect.fn("Publish.publicationSet")(function* (
   candidates: ReadonlyArray<PublishCandidate>,
   visibility: Option.Option<ExtensionVisibility>,
+  workspaceDefaultVisibility: Option.Option<ExtensionVisibility>,
 ) {
   return {
     contract: PUBLICATION_SET_CONTRACT,
     candidates: yield* Effect.forEach(candidates, (candidate) =>
-      publicationDescriptorForCandidate(candidate, visibility),
+      publicationDescriptorForCandidate(candidate, visibility, workspaceDefaultVisibility),
     ),
   } satisfies PreviewPublicationSetRequest;
 });
 
 const resolvedPublishPreview = (
-  candidate: PublishCandidate,
   result: PublicationCandidateResult,
   publicationSetDigest: string,
-  visibility: Option.Option<ExtensionVisibility>,
+  visibilityInput: PublicationVisibilityInput,
 ): Effect.Effect<ResolvedPublishPreview, AppError> =>
-  result.kind === "resolved"
+  result.kind === "resolved" && result.visibility.resolved !== null
     ? Effect.succeed({
-        visibility: candidate.extensionExists
-          ? {
-              value: result.resolvedVisibility,
-              disposition: "preserve",
-              source: "existing",
-            }
-          : {
-              value: result.resolvedVisibility,
-              disposition: "establish",
-              source: Option.isSome(visibility) ? "explicit" : "platform",
-            },
+        visibility: result.visibility.resolved,
+        visibilityInput,
         ...(result.condition === undefined ? {} : { condition: result.condition }),
         publicationSetDigest,
         publicationDescriptorDigest: result.descriptorDigest,
@@ -1399,8 +1423,13 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
   candidates: ReadonlyArray<PublishCandidate>,
   client: Pick<RegistryClient, "previewExtensionPublishes">,
   visibility: Option.Option<ExtensionVisibility>,
+  workspaceDefaultVisibility: Option.Option<ExtensionVisibility>,
 ) {
-  const publicationSet = yield* publicationSetForCandidates(candidates, visibility);
+  const publicationSet = yield* publicationSetForCandidates(
+    candidates,
+    visibility,
+    workspaceDefaultVisibility,
+  );
   const preview = yield* client.previewExtensionPublishes(publicationSet);
   if (preview.status === "blocked") {
     const packErrors = preview.packs.flatMap((pack) =>
@@ -1417,6 +1446,12 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
   }
 
   const resultsByTarget = new Map<string, PublicationCandidateResult>();
+  const visibilityByTarget = new Map(
+    publicationSet.candidates.map((descriptor) => [
+      publishTargetKey(descriptor.target),
+      descriptor.visibility,
+    ]),
+  );
   for (const result of preview.candidates) {
     const key = publishTargetKey(result.target);
     if (resultsByTarget.has(key)) {
@@ -1431,7 +1466,8 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
   const prepared: ReadonlyArray<PublishCandidate> = yield* Effect.forEach(candidates, (candidate) =>
     Effect.gen(function* () {
       const result = resultsByTarget.get(publishTargetKey(candidate));
-      if (result === undefined) {
+      const visibilityInput = visibilityByTarget.get(publishTargetKey(candidate));
+      if (result === undefined || visibilityInput === undefined) {
         return yield* makeAppError({
           code: "internal",
           detail: "The registry returned an incomplete authoritative publish preview.",
@@ -1440,10 +1476,9 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
       return {
         ...candidate,
         publishPreview: yield* resolvedPublishPreview(
-          candidate,
           result,
           preview.publicationSetDigest,
-          visibility,
+          visibilityInput,
         ),
       } satisfies PublishCandidate;
     }),
@@ -1456,6 +1491,7 @@ const publishCandidate = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
   exactCapability: PublishCapabilityResponse | undefined,
+  exactVisibilityInput: PublicationVisibilityInput | undefined,
 ) =>
   Effect.gen(function* () {
     const client = yield* createRegistryClient(registry.url);
@@ -1466,6 +1502,29 @@ const publishCandidate = (
       ...(candidate.packages === undefined ? {} : { packages: candidate.packages }),
       ...(candidate.dependencies === undefined ? {} : { dependencies: candidate.dependencies }),
     };
+    const publishPreview = candidate.publishPreview;
+    if (publishPreview === undefined && exactCapability === undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Missing authoritative visibility input for ${candidate.fqn}.`,
+      });
+    }
+    const visibilityInput = publishPreview?.visibilityInput ?? exactVisibilityInput;
+    if (visibilityInput === undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Missing exact visibility input for ${candidate.fqn}.`,
+      });
+    }
+    const uploadBinding =
+      exactCapability === undefined
+        ? publishPreview === undefined
+          ? yield* makeAppError({
+              code: "internal",
+              detail: `Missing authoritative visibility input for ${candidate.fqn}.`,
+            })
+          : previewPublishUploadBinding(publishPreview)
+        : exactPublishUploadBinding(exactCapability, visibilityInput);
     const response = yield* client.publishExtension({
       owner: candidate.owner,
       type: candidate.type,
@@ -1473,11 +1532,7 @@ const publishCandidate = (
       version: candidate.version,
       archive: candidate.archive,
       metadata,
-      ...(exactCapability === undefined
-        ? candidate.publishPreview === undefined
-          ? {}
-          : previewPublishUploadBinding(candidate.publishPreview)
-        : exactPublishUploadBinding(exactCapability)),
+      ...uploadBinding,
     });
     return {
       stepResult: {
@@ -1760,6 +1815,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const workspaceDefaultVisibility = yield* workspaceMutations.getPublishDefaultVisibility();
   const shouldPreviewAuthoritatively =
     preflightErrors.length === 0 &&
     decodedCandidates.length > 0 &&
@@ -1775,14 +1831,23 @@ const runPublish = Effect.fn("Publish.run")(function* (
     ? yield* Effect.result(
         Effect.gen(function* () {
           const client = yield* createRegistryClient(registry.url);
-          return yield* previewPublishCandidates(decodedCandidates, client, args.visibility);
+          return yield* previewPublishCandidates(
+            decodedCandidates,
+            client,
+            args.visibility,
+            workspaceDefaultVisibility,
+          );
         }),
       )
     : yield* Effect.result(
         Effect.gen(function* () {
           return {
             candidates: decodedCandidates,
-            publicationSet: yield* publicationSetForCandidates(decodedCandidates, args.visibility),
+            publicationSet: yield* publicationSetForCandidates(
+              decodedCandidates,
+              args.visibility,
+              workspaceDefaultVisibility,
+            ),
           };
         }),
       );
@@ -1916,6 +1981,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
       publicationDescriptorDigest(descriptor),
     ]),
   );
+  const visibilityInputsByTarget = new Map(
+    (publicationSet?.candidates ?? []).map((descriptor) => [
+      publishTargetKey(descriptor.target),
+      descriptor.visibility,
+    ]),
+  );
   const publishedVisibilities = new Map<string, PublishVisibility>();
   const publishedWarnings = new Map<string, ReadonlyArray<PublishAdvisoryFinding>>();
   let authorizedPackDivergenceFindings: ReadonlyMap<
@@ -1995,7 +2066,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
           detail: `The exact grant bundle omitted ${candidate.fqn}@${candidate.version}.`,
         });
       }
-      return yield* publishCandidate(candidate, registry, exactCapability);
+      return yield* publishCandidate(
+        candidate,
+        registry,
+        exactCapability,
+        visibilityInputsByTarget.get(publishTargetKey(candidate)),
+      );
     }).pipe(
       Effect.map(({ stepResult, visibility, warnings }) => {
         publishedVisibilities.set(publishTargetKey(candidate), visibility);

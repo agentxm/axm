@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { selectLoginStrategy } from "./login-strategy.js";
 
-const defaultOptions = { deviceCode: false, noBrowser: false, nonInteractive: false };
+const defaultOptions = { deviceCode: false, nonInteractive: false };
 
 describe("selectLoginStrategy", () => {
   it("uses loopback on a normal workstation", () => {
@@ -10,12 +10,9 @@ describe("selectLoginStrategy", () => {
   });
 
   it("uses device code when requested", () => {
-    expect(
-      selectLoginStrategy({ deviceCode: true, noBrowser: false, nonInteractive: false }, {}),
-    ).toBe("device-code");
-    expect(
-      selectLoginStrategy({ deviceCode: false, noBrowser: true, nonInteractive: false }, {}),
-    ).toBe("device-code");
+    expect(selectLoginStrategy({ deviceCode: true, nonInteractive: false }, {})).toBe(
+      "device-code",
+    );
   });
 
   it("uses device code in non-interactive mode", () => {

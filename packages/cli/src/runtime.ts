@@ -77,9 +77,7 @@ import type {
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
-  withDegradedLockfileReads,
   WorkspaceInitializationInteractionLive,
-  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
@@ -329,26 +327,6 @@ const resolveRuntimeConfig = () =>
     } as const;
   });
 
-/**
- * Tell the user their lockfile is unreadable before the command's own output.
- *
- * Every command runs with degraded lockfile reads (see `withWorkspace`), so a
- * corrupt `axm-lock.yaml` no longer aborts anything — read-only commands fall
- * back to what `settings.json` declares, and mutating commands recover through
- * reconciliation. This notice is what keeps that from being silent.
- *
- * A *missing* lockfile is ordinary (fresh clone, first install) and is not
- * flagged.
- */
-const flagUnreadableLockfile = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  if ((yield* ws.getLockfileState()) !== "invalid") return;
-  const renderer = yield* CliRenderer;
-  yield* renderer.warn(
-    "The workspace lockfile could not be read; reporting declared state from settings.json.",
-  );
-}).pipe(Effect.catchCause(() => Effect.void));
-
 export const withWorkspace =
   (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
@@ -362,14 +340,7 @@ export const withWorkspace =
           .withSpinner(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
             successMessage: `Loaded ${resolved.scope} workspace`,
           })
-          .pipe(
-            Effect.flatMap((workspaceContext) =>
-              Effect.provide(
-                flagUnreadableLockfile.pipe(Effect.andThen(program)),
-                workspaceContext,
-              ).pipe(withDegradedLockfileReads),
-            ),
-          ),
+          .pipe(Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext))),
       ).pipe(
         Effect.mapError((error) => {
           if (error._tag !== "AppError" || error.suggestions === undefined) return error;

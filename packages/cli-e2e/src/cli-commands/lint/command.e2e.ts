@@ -6,9 +6,6 @@
  *
  * - 7.6: stale workspace artifacts + missing lockfile + declared skill
  *        produce expected error findings.
- * - 7.7: `axm lint --fix` on the same workspace emits zero findings on
- *        replay (determinism contract). `axm setup` seeds the lockfile so
- *        the empty-lockfile edge case noted in Phase 5 doesn't reappear.
  * - 7.8: `axm lint --scope user` runs against `$AXM_USER_HOME`; the
  *        `workspace/agents-detected-declared` rule is suppressed in the
  *        user scope.
@@ -202,39 +199,6 @@ describe("axm lint (e2e, Phase 7)", () => {
         const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/lockfile-valid");
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
-  describe("Task 7.7 — --fix determinism contract", () => {
-    it("only normalizes schema-proven legacy settings representation", async () => {
-      const temp = createTempDir();
-      try {
-        const init = await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
-        expect(init.exitCode).toBe(0);
-
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.knowledgeConfig = {
-          ...settings.knowledgeConfig,
-          directory: ".legacy-knowledge",
-          ignore: ["drafts/**"],
-        };
-        writeJson(settingsPath, settings);
-
-        const first = await runCli(["lint", "--fix", "--json"], { cwd: temp.path });
-        expect(first.exitCode, `${first.stderr}\n${first.stdout}`).toBe(0);
-        const normalized = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-        expect(normalized.knowledgeConfig).toBeUndefined();
-
-        const beforeSecond = fs.readFileSync(settingsPath, "utf8");
-        const second = await runCli(["lint", "--fix", "--json"], { cwd: temp.path });
-        expect(second.exitCode, `${second.stderr}\n${second.stdout}`).toBe(0);
-        expect(fs.readFileSync(settingsPath, "utf8")).toBe(beforeSecond);
       } finally {
         temp.cleanup();
       }
@@ -520,15 +484,9 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
-    it("rejects mutation, user scope, and non-Git workspaces", async () => {
+    it("rejects user scope and non-Git workspaces", async () => {
       const temp = createTempDir("axm-staged-errors-e2e-");
       try {
-        const fix = await runCli(["lint", "--view", "git-index", "--fix"], {
-          cwd: temp.path,
-        });
-        expect(fix.exitCode).toBe(9);
-        expect(fix.stdout + fix.stderr).toContain("--view git-index cannot be combined with --fix");
-
         const user = await runCli(["lint", "--view", "git-index", "--scope", "user"], {
           cwd: temp.path,
         });

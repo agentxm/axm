@@ -506,6 +506,27 @@ const viewFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/root/view/handler.test.ts"],
 });
 
+const visibilityEvaluationFamily = defineResultFamily({
+  id: "visibility-evaluation",
+  schemaNames: ["VisibilityEvaluationSchema"],
+  requiredTopLevelKeys: ["target", "intent", "actual", "comparison", "findings"],
+  scenarios: ["matching intent", "drift", "unconfigured", "not established", "unavailable"],
+  rationale:
+    "Visibility status reports repository intent and authoritative Registry state without mutation.",
+  commandCoverage: ["packages/cli/src/app.test.ts"],
+});
+
+const visibilityMutationFamily = defineResultFamily({
+  id: "visibility-mutation",
+  schemaNames: ["VisibilityMutationResultSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "authority", "result", "revision"],
+  scenarios: ["changed", "already satisfied", "stale revision", "step-up required"],
+  rationale:
+    "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
+  humanOutputKind: "mutation",
+  commandCoverage: ["packages/cli/src/app.test.ts"],
+});
+
 const formatterPaths = [
   "axm",
   "axm auth",
@@ -566,7 +587,6 @@ const planPaths = [
   "axm rules new",
   "axm rules uninstall",
   "axm rules update",
-  "axm skills copy",
   "axm skills disable",
   "axm skills enable",
   "axm skills install",
@@ -607,6 +627,7 @@ const rowsFor = (
 
 export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRow> = [
   ...rowsFor(helpFamily, formatterPaths),
+  ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(publishFamily, publishPaths),
@@ -664,6 +685,8 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(setupFamily, ["axm setup"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),
+  ...rowsFor(visibilityEvaluationFamily, ["axm visibility status"]),
+  ...rowsFor(visibilityMutationFamily, ["axm visibility set", "axm visibility reconcile"]),
 ];
 
 export const FORMATTER_VERSION_CONTRACT = {

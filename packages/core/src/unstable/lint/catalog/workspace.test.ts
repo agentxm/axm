@@ -19,7 +19,6 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/settings-schema-valid", severity: "error" },
   { id: "workspace/settings-keys-recognized", severity: "error" },
   { id: "workspace/release-age-exclude-owner-trusted", severity: "warning" },
-  { id: "workspace/knowledge-config-current", severity: "warning" },
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/desired-state-reconcilable", severity: "error" },
   { id: "workspace/axm-skill-compatible", severity: "error" },

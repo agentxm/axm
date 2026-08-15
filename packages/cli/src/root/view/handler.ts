@@ -33,7 +33,15 @@ interface TargetRegistry {
   readonly registryUrl: string;
 }
 
-const supportedFields = ["version", "versions", "latest", "description", "owner", "type"] as const;
+const supportedFields = [
+  "version",
+  "versions",
+  "latest",
+  "description",
+  "owner",
+  "type",
+  "visibility",
+] as const;
 type SupportedField = (typeof supportedFields)[number];
 
 const isSupportedField = (field: string): field is SupportedField =>
@@ -53,6 +61,7 @@ const ViewDocumentFields = {
   latest: Schema.optional(ViewVersionSchema),
   versions: Schema.Array(ViewVersionSchema),
   install: Schema.String,
+  visibility: Schema.Literals(["public", "private"] as const),
 } satisfies Schema.Struct.Fields;
 export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
 export type ViewDocument = typeof ViewDocumentSchema.Type;
@@ -220,7 +229,10 @@ const resolveBareViewHandle = (handle: string) =>
     });
   });
 
-const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
+const toDocumentData = (
+  index: ExtensionIndex,
+  visibility: "public" | "private",
+): ViewDocumentData => {
   const [latest] = index.versions;
   const handle = `${index.owner}/${extensionTypeToPlural[index.type]}/${index.name}`;
   return {
@@ -237,6 +249,7 @@ const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
       published: entry.published,
     })),
     install: installCommandFor(index.type, handle),
+    visibility,
   };
 };
 
@@ -256,6 +269,8 @@ const fieldValue = (
       return data.owner;
     case "type":
       return data.type;
+    case "visibility":
+      return data.visibility;
   }
 };
 
@@ -331,7 +346,14 @@ const handleResolvedView = (args: {
       { successMessage: `Loaded ${subject}` },
     );
 
-    const data = toDocumentData(index);
+    const visibility = yield* client.getExtensionVisibility({ ...args.parts, intent: null });
+    if (visibility.actual === null) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Extension ${args.handle} has no established visibility.`,
+      });
+    }
+    const data = toDocumentData(index, visibility.actual.value);
 
     if (Option.isSome(args.field)) {
       const field = args.field.value;
@@ -371,6 +393,7 @@ const handleResolvedView = (args: {
         { field: "Latest", value: latest },
         { field: "Versions", value: versionSummary },
         { field: "Description", value: data.description ?? "" },
+        { field: "Visibility", value: data.visibility },
         { field: "Install", value: data.install },
       ],
       ViewTable,

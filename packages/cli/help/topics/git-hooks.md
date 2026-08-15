@@ -7,8 +7,8 @@ tracked files remain present, and unstaged, untracked, deleted, and pre-rename
 content stay out. The command is read-only, deterministic, and does not need
 Registry access.
 
-`--strict`, `--json`, and `--details` work with `--view git-index`. `--fix` and `--scope
-user` do not. Run formatters first so their intended output is staged before
+`--strict`, `--json`, and `--details` work with `--view git-index`. `--scope user`
+does not. Run formatters first so their intended output is staged before
 AXM reads the index. Generated instruction aliases such as `CLAUDE.md` and
 `GEMINI.md` are intentionally gitignored, so staged lint leaves their currency
 check to the full-workspace pre-push or CI command.

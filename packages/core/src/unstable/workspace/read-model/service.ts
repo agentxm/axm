@@ -26,6 +26,7 @@ import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.j
 import {
   WorkspaceRootEscape,
   type LockfileIoError,
+  type LockfileReadError,
   type SettingsIoError,
   type SettingsReadError,
 } from "./errors.js";
@@ -299,7 +300,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   // Cache the authored-manifest membership rollup once per scope; shared
   // across subjects. Lock rows authorize external Pack resolution but never
   // provide membership.
-  const installedPackMembers: Effect.Effect<ReadonlyArray<PackMemberSets>> = yield* Effect.cached(
+  const installedPackMembers: Effect.Effect<
+    ReadonlyArray<PackMemberSets>,
+    SettingsReadError | LockfileReadError
+  > = yield* Effect.cached(
     Effect.gen(function* () {
       const active = yield* packsApi.active;
       return yield* Effect.forEach(active, (row): Effect.Effect<PackMemberSets> => {
@@ -372,81 +376,93 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     }),
   );
 
-  const skillsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForSkills>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          skills: p.skills.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+  const skillsInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForSkills>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        skills: p.skills.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
+      })),
+    ),
+  );
 
-  const mcpServersInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForMcpServers>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          mcpServers: p.mcpServers.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+  const mcpServersInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForMcpServers>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        mcpServers: p.mcpServers.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
+      })),
+    ),
+  );
 
-  const subagentsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForSubagents>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          subagents: p.subagents.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+  const subagentsInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForSubagents>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        subagents: p.subagents.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
+      })),
+    ),
+  );
 
-  const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          rules: p.rules.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+  const rulesInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForRules>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        rules: p.rules.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
-  const hooksInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForHooks>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          hooks: p.hooks.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+      })),
+    ),
+  );
+  const hooksInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForHooks>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        hooks: p.hooks.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
-  const knowledgeInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForKnowledge>> =
-    installedPackMembers.pipe(
-      Effect.map((packs) =>
-        packs.map((p) => ({
-          ref: { key: p.key },
-          knowledge: p.knowledge.map((name) => ({
-            name,
-            providingPack: { key: p.key },
-          })),
+      })),
+    ),
+  );
+  const knowledgeInstalledPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForKnowledge>,
+    SettingsReadError | LockfileReadError
+  > = installedPackMembers.pipe(
+    Effect.map((packs) =>
+      packs.map((p) => ({
+        ref: { key: p.key },
+        knowledge: p.knowledge.map((name) => ({
+          name,
+          providingPack: { key: p.key },
         })),
-      ),
-    );
+      })),
+    ),
+  );
 
   const skills = yield* makeSkillExtensionsApi({
     scope,

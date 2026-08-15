@@ -236,14 +236,6 @@ export {
 // Plan display
 export { displayPlan } from "./display-plan.js";
 
-// Lockfile read tolerance
-export {
-  type LockfileReadTolerance,
-  LockfileReadToleranceRef,
-  withDegradedLockfileReads,
-  withStrictLockfileReads,
-} from "./lockfile-read-tolerance.js";
-
 // Version currency
 export {
   checkCurrency,

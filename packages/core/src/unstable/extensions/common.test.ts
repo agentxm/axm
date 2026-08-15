@@ -362,6 +362,28 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
+    it("accepts whole-Extension publication visibility", () => {
+      const result = Schema.decodeUnknownSync(TestManifest)({
+        owner: "@wayne",
+        name: "hook",
+        version: "0.1.0",
+        publish: { visibility: "public" },
+      });
+
+      expect(result.publish?.visibility).toBe("public");
+    });
+
+    it("rejects invalid publication visibility", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(TestManifest)({
+          owner: "@wayne",
+          name: "hook",
+          version: "0.1.0",
+          publish: { visibility: "unlisted" },
+        }),
+      ).toThrow();
+    });
+
     it("rejects manifest with invalid name pattern", () => {
       const input = {
         owner: "@wayne",

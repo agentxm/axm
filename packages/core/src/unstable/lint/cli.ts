@@ -2,9 +2,8 @@
  * Lint runner — the reusable core of `axm lint`.
  *
  * The `axm lint` CLI command file is a thin surface over flag parsing and
- * rendering; the logic that evaluates rule catalogs, renders findings, detects
- * publish-gate drift, and (under `--fix`) composes the autofix plan lives in
- * this module.
+ * rendering; the logic that evaluates rule catalogs, renders findings, and
+ * detects publish-gate drift lives in this module.
  *
  * Lint engine entry points:
  *
@@ -71,8 +70,8 @@ export interface RenderedFinding {
 
 /**
  * Per-group evaluation result, one entry per catalog. The raw `Evaluated<*>`
- * list is retained so downstream consumers (render, JSON emitter,
- * `collectFixOperations`) can walk evaluations without re-running rules.
+ * list is retained so downstream consumers can render and emit JSON without
+ * re-running rules.
  *
  * Every group is required: a catalog that produced no findings still reports
  * an empty list, so a missing group means a runner bug rather than "nothing to
@@ -347,17 +346,12 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
 /**
  * Input for the human text renderer.
  *
- * The `fixSummary` slot is reserved for the trailing `--fix` summary line
- * (populated after `applyPlan` completes). When `undefined`, no summary is
- * rendered — the read-only `axm lint` run.
- *
  * @experimental This API is unstable and may change without notice.
  */
 export type LintHumanReporter = "grouped" | "full" | "summary";
 
 export interface RenderFindingsArgs {
   readonly summary: LintSummary;
-  readonly fixSummary?: FixSummary;
   readonly reporter?: LintHumanReporter;
 }
 
@@ -407,19 +401,7 @@ export type LintHumanBlock =
   | {
       readonly kind: "footer";
       readonly message: string;
-    }
-  | {
-      readonly kind: "fixSummary";
-      readonly message: string;
-      readonly summary: FixSummary;
     };
-
-export interface FixSummary {
-  readonly attempted: number;
-  readonly applied: number;
-  readonly failed: number;
-  readonly warnings: ReadonlyArray<string>;
-}
 
 interface ParsedLintHumanFinding {
   readonly path: string;
@@ -1112,30 +1094,14 @@ const appendDiagnosticSection = (
   });
 };
 
-const stripFixHelps = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => {
-  const filtered = diagnostic.helps.filter((h) => !h.includes("axm lint --fix"));
-  return filtered.length === diagnostic.helps.length
-    ? diagnostic
-    : { ...diagnostic, helps: filtered };
-};
-
 const buildSectionedDiagnostics = (args: {
   readonly blocks: Array<LintHumanBlock>;
   readonly diagnostics: ReadonlyArray<LintHumanDiagnostic>;
 }) => {
-  const fixable = args.diagnostics.filter((diagnostic) => diagnostic.fixable);
-  const manual = args.diagnostics.filter(
-    (diagnostic) => diagnostic.severity === "error" && !diagnostic.fixable,
-  );
+  const manual = args.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const warnings = args.diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
   const infos = args.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
 
-  appendDiagnosticSection(
-    args.blocks,
-    "Auto-fixable",
-    fixable.map(stripFixHelps),
-    "auto-fix available",
-  );
   appendDiagnosticSection(args.blocks, "Requires manual attention", manual);
   appendDiagnosticSection(args.blocks, "Warnings", warnings);
   appendDiagnosticSection(args.blocks, "Information", infos);
@@ -1154,7 +1120,7 @@ const makeSummaryDiagnostic = (diagnostic: LintHumanDiagnostic): LintHumanDiagno
 
 const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
   const blocks: Array<LintHumanBlock> = [];
-  const { summary, fixSummary } = args;
+  const { summary } = args;
 
   if (summary.findings.length === 0) {
     blocks.push(
@@ -1174,10 +1140,7 @@ const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHuma
         fixableCount,
       }),
       counts: summary.counts,
-      notes:
-        fixableCount > 0 && fixSummary === undefined
-          ? ["Auto-fixable findings are available."]
-          : [],
+      notes: [],
     });
 
     if (summary.driftBanner.length > 0) {
@@ -1205,21 +1168,12 @@ const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHuma
     });
   }
 
-  if (fixSummary !== undefined) {
-    blocks.push({ kind: "blank" });
-    blocks.push({
-      kind: "fixSummary",
-      message: formatFixSummary(fixSummary),
-      summary: fixSummary,
-    });
-  }
-
   return blocks;
 };
 
 const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
   const blocks: Array<LintHumanBlock> = [];
-  const { summary, fixSummary } = args;
+  const { summary } = args;
 
   if (summary.findings.length === 0) {
     blocks.push(
@@ -1263,15 +1217,6 @@ const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
     });
   }
 
-  if (fixSummary !== undefined) {
-    blocks.push({ kind: "blank" });
-    blocks.push({
-      kind: "fixSummary",
-      message: formatFixSummary(fixSummary),
-      summary: fixSummary,
-    });
-  }
-
   if (summary.findings.length > 0) {
     blocks.push({ kind: "blank" });
     blocks.push({
@@ -1285,7 +1230,7 @@ const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
 
 const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHumanBlock> => {
   const blocks: Array<LintHumanBlock> = [];
-  const { summary, fixSummary } = args;
+  const { summary } = args;
 
   if (summary.findings.length === 0) {
     blocks.push(
@@ -1304,10 +1249,7 @@ const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
         fixableCount,
       }),
       counts: summary.counts,
-      notes:
-        fixableCount > 0 && fixSummary === undefined
-          ? ["Auto-fixable findings are available."]
-          : [],
+      notes: [],
     });
 
     if (summary.driftBanner.length > 0) {
@@ -1328,15 +1270,6 @@ const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       kind: "driftBanner",
       title: "The registry will still block publish on these rules:",
       ruleIds: summary.driftBanner,
-    });
-  }
-
-  if (fixSummary !== undefined) {
-    blocks.push({ kind: "blank" });
-    blocks.push({
-      kind: "fixSummary",
-      message: formatFixSummary(fixSummary),
-      summary: fixSummary,
     });
   }
 
@@ -1419,22 +1352,10 @@ export const renderFindingsText = (args: RenderFindingsArgs): ReadonlyArray<stri
       case "footer":
         lines.push(block.message);
         break;
-      case "fixSummary":
-        lines.push(block.message);
-        for (const warning of block.summary.warnings) {
-          lines.push(`  warning: ${warning}`);
-        }
-        break;
     }
   }
 
   return lines;
-};
-
-const formatFixSummary = (fix: FixSummary): string => {
-  const appliedLabel = pluralize(fix.applied, "normalization", "normalizations");
-  const warningsLabel = pluralize(fix.warnings.length, "warning", "warnings");
-  return `Applied ${fix.applied} ${appliedLabel}; ${fix.warnings.length} ${warningsLabel}, ${fix.failed} failed.`;
 };
 
 // -----------------------------------------------------------------------------
@@ -1469,18 +1390,16 @@ const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
 };
 
 /**
- * Build the `--json` document from a {@link LintSummary} (+ optional fix
- * summary).
+ * Build the `--json` document from a {@link LintSummary}.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const toLintJsonDocument = (args: {
   readonly summary: LintSummary;
   readonly input: LintInput;
-  readonly fixSummary?: FixSummary;
 }): LintJsonDocument => {
-  const { summary, fixSummary } = args;
-  const base: LintJsonDocument = {
+  const { summary } = args;
+  return {
     input: args.input,
     findings: summary.findings.map(toJsonFinding),
     summary: {
@@ -1491,18 +1410,6 @@ export const toLintJsonDocument = (args: {
       exitCategory: summary.exitCategory,
     },
     driftBanner: summary.driftBanner,
-  };
-  if (fixSummary === undefined) {
-    return base;
-  }
-  return {
-    ...base,
-    fix: {
-      attempted: fixSummary.attempted,
-      applied: fixSummary.applied,
-      failed: fixSummary.failed,
-      warnings: fixSummary.warnings,
-    },
   };
 };
 

@@ -68,12 +68,6 @@ export {
   type LintWorkspace,
   type LintWorkspaceView,
 } from "./workspace-read-model/lint-workspace.js";
-export {
-  PER_EXTENSION_OPERATION_NAMES,
-  isPerExtensionOperationName,
-  type PerExtensionOperationName,
-} from "./workspace/helpers/install-ops.js";
-
 /**
  * Concatenated rule-id array across every currently-exported catalog, in the
  * order catalogs were introduced (Phase 3a: `skillRules`; Phase 3b:

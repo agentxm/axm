@@ -73,27 +73,9 @@ describe("root command help", () => {
         command,
       ).toContain(expectedFlag);
     }
-
-    const removedFlags: ReadonlyArray<readonly [string, string]> = [
-      ["axm uninstall", "break-dependencies"],
-      ["axm skills uninstall", "break-dependencies"],
-      ["axm mcps uninstall", "break-dependencies"],
-      ["axm subagents uninstall", "break-dependencies"],
-      ["axm hooks uninstall", "break-dependencies"],
-      ["axm packs uninstall", "break-dependencies"],
-      ["axm rules uninstall", "break-dependencies"],
-      ["axm packs add", "replace-existing"],
-      ["axm packs remove", "allow-empty"],
-    ];
-    for (const [command, removedFlag] of removedFlags) {
-      expect(
-        files.get(command)?.flags.map((flag) => flag.name),
-        command,
-      ).not.toContain(removedFlag);
-    }
   });
 
-  it("keeps every create and skill-copy surface create-only", async () => {
+  it("keeps every create surface create-only", async () => {
     const files = await Effect.runPromise(collectHelpFiles());
     const createCommands = [
       "skills",
@@ -105,7 +87,7 @@ describe("root command help", () => {
       "knowledge",
     ].map((type) => `axm ${type} new`);
 
-    for (const command of [...createCommands, "axm skills copy"]) {
+    for (const command of createCommands) {
       const doc = files.get(command);
       expect(doc, `missing help for ${command}`).toBeDefined();
       expect(
@@ -132,15 +114,10 @@ describe("root command help", () => {
 
   it("exposes only fail-closed publish controls", async () => {
     const files = await Effect.runPromise(collectHelpFiles());
-    const retiredFlags = ["allow-older", "allow-unsafe-archive", "force", "skip-existing"];
-
     for (const [command, doc] of files) {
       if (command !== "axm publish" && !command.endsWith(" publish")) continue;
       const flags = doc.flags.map((flag) => flag.name);
       expect(flags, command).toContain("backfill");
-      for (const retired of retiredFlags) {
-        expect(flags, command).not.toContain(retired);
-      }
       if (command === "axm publish" || command === "axm packs publish") {
         expect(flags).toContain("include-dependencies");
         expect(flags).toContain("include-dependency");
@@ -222,12 +199,6 @@ describe("root command help", () => {
     expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
     expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
   });
-
-  it("does not expose the retired maintainer command", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-
-    expect(files.has("axm maintainer")).toBe(false);
-  });
 });
 
 describe("root command parser output", () => {
@@ -287,58 +258,6 @@ describe("root command parser output", () => {
       expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
         `Unrecognized flag: ${unknownFlag}`,
       );
-    }
-  });
-
-  it("rejects retired publish bypasses and non-pack dependency flags during parsing", async () => {
-    const invocations = [
-      ["publish", "--allow-older"],
-      ["publish", "--allow-unsafe-archive"],
-      ["publish", "--force"],
-      ["publish", "--skip-existing"],
-      ["skills", "publish", "--include-dependencies"],
-      ["skills", "publish", "--include-dependency", "@acme/skills/review"],
-    ];
-
-    for (const invocation of invocations) {
-      stdoutWrites.length = 0;
-      stderrWrites.length = 0;
-      consoleErrorWrites.length = 0;
-      await expect(run([...invocation, "--non-interactive"])).rejects.toMatchObject({
-        code: ExitCode.Usage,
-      });
-      expect(stdoutWrites).toEqual([]);
-      expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(
-        `Unrecognized flag: ${invocation.at(-1)?.startsWith("--") === true ? invocation.at(-1) : invocation.at(-2)}`,
-      );
-    }
-
-    await expect(
-      run(["publish", "--on-existing", "skip", "--non-interactive"]),
-    ).rejects.toMatchObject({ code: ExitCode.Usage });
-  });
-
-  it("rejects every retired global, version, and generic override spelling", async () => {
-    const invocations: ReadonlyArray<{
-      readonly args: ReadonlyArray<string>;
-      readonly detail: string;
-    }> = [
-      { args: ["--wizard", "status"], detail: "Unrecognized flag: --wizard" },
-      { args: ["-vv", "status"], detail: "Unrecognized flag: -vv" },
-      { args: ["skills", "version"], detail: 'Unknown subcommand "version"' },
-      { args: ["upgrade", "--force"], detail: "Unrecognized flag: --force" },
-      { args: ["skills", "install", "--force"], detail: "Unrecognized flag: --force" },
-    ];
-
-    for (const invocation of invocations) {
-      stdoutWrites.length = 0;
-      stderrWrites.length = 0;
-      consoleErrorWrites.length = 0;
-      await expect(run([...invocation.args, "--non-interactive"])).rejects.toMatchObject({
-        code: ExitCode.Usage,
-      });
-      expect(stdoutWrites).toEqual([]);
-      expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(invocation.detail);
     }
   });
 

@@ -151,7 +151,10 @@ export interface SubagentExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: SubagentScopedLoaders;
   readonly scanners: SubagentScanners;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForSubagents>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<InstalledPackForSubagents>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly diagnostics: Diagnostics;
 }
 
@@ -159,16 +162,25 @@ export interface SubagentExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredSubagents>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedSubagents>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualSubagents>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledSubagent>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledSubagent>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledSubagent>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledSubagent>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredSubagent>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledSubagent>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedSubagent>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledSubagent>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedSubagent>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "subagent";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -243,7 +255,6 @@ export const makeSubagentExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

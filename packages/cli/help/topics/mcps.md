@@ -138,7 +138,7 @@ declares exactly one transport — `source`, `command`, or `url`:
   never deleted by reconciliation.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
-configs through `axm sync` or `axm lint --fix`.
+configs through `axm sync`.
 
 ## Secrets
 

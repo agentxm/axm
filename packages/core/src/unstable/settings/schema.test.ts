@@ -38,6 +38,22 @@ describe("Settings schema", () => {
       expect(result.owner).toBe("@myorg");
     });
 
+    it("accepts workspace publication visibility defaults", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        publish: { defaultVisibility: "private" },
+      });
+
+      expect(result.publish?.defaultVisibility).toBe("private");
+    });
+
+    it("rejects invalid workspace publication visibility defaults", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          publish: { defaultVisibility: "unlisted" },
+        }),
+      ).toThrow();
+    });
+
     it("tolerates and retains unknown top-level keys under onExcessProperty error", () => {
       const input = { telemetry: false, futureKey: { x: 1 } };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input, {
@@ -603,19 +619,6 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
-    it("carries removed Library workspace state to the read-path guard", () => {
-      // The removed legacy `libraries` key is rejected by the explicit
-      // pre-decode guard on the settings read path; the schema itself carries
-      // unknown top-level keys so writes never discard them.
-      const result = Schema.decodeUnknownSync(SettingsSchema)(
-        {
-          libraries: { review: "@acme/libraries/review" },
-        },
-        { onExcessProperty: "error" },
-      );
-      expect(result["libraries"]).toEqual({ review: "@acme/libraries/review" });
-    });
-
     it("rejects authored across all settings entry families under strict validation", () => {
       const invalidSettings: ReadonlyArray<unknown> = [
         { skills: { x: { source: "@acme/skills/x", authored: true } } },
@@ -935,15 +938,6 @@ describe("Settings schema", () => {
         });
       });
 
-      it("rejects the removed authored field under strict validation", () => {
-        expect(() =>
-          Schema.decodeUnknownSync(McpServerEntrySchema)(
-            { source: "@wayne/mcps/batcomputer", authored: true },
-            { onExcessProperty: "error" },
-          ),
-        ).toThrow();
-      });
-
       it("decodes an inline stdio object", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
           command: "npx",
@@ -1061,19 +1055,6 @@ describe("Settings schema", () => {
           source: "@wayne/packs/utility-belt@^1.0.0",
           enabled: false,
         });
-      });
-
-      it("rejects the removed authored field under strict validation", () => {
-        expect(() =>
-          Schema.decodeUnknownSync(PackEntrySchema)(
-            { source: "@wayne/packs/utility-belt@^1.0.0", authored: true },
-            { onExcessProperty: "error" },
-          ),
-        ).toThrow();
-      });
-
-      it("rejects invalid object with managed field", () => {
-        expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ managed: false })).toThrow();
       });
 
       it("rejects a number", () => {

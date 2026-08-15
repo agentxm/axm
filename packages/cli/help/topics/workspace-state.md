@@ -37,10 +37,8 @@ AXM stops an affected semantic closure when its desired graph is incomplete,
 its accepted resolution is invalid or incompatible, or a target is unowned or
 ambiguously owned. Independent ready closures may still apply.
 
-Lint reports intrinsic workspace facts. `axm lint --fix` performs only
-deterministic, meaning-preserving normalization; it does not acquire sources,
-write accepted lock state, replace canonical content, or repair projections.
-Use `axm sync` for reconciliation work.
+Lint reports intrinsic workspace facts without modifying state. Use `axm sync`
+for reconciliation work.
 
 Every plan-bearing mutation constructs one execution candidate before writing.
 Preview, human display, JSON output, approval, and apply refer to that same
@@ -59,14 +57,10 @@ death; a later mutation converges surviving authoritative and owned state.
 - Treat `.axm/axm-lock.yaml` as generated accepted-resolution state; do not
   hand-edit it.
 - Check `.axm/` into source control.
-- Use `axm lint` for read-only facts and `axm lint --fix` only for safe
-  normalization.
+- Use `axm lint` for read-only workspace facts.
 - Use `axm sync --preview --json` to inspect reconciliation, then `axm sync` to
   apply it.
 - Use explicit lifecycle commands when desired intent must change.
-
-Legacy lockfile versions and `trust.json` are unsupported state. AXM does not
-reconstruct current authority from them.
 
 ## Extension coverage
 

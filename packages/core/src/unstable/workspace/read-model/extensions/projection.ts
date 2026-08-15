@@ -18,8 +18,6 @@
  * ```
  *
  * The helper owns:
- * - source-tolerance via `Effect.catch` so corrupt declared/resolved sources
- *   degrade through `diagnostics` rather than failing the projection;
  * - direct-over-pack precedence;
  * - disabled-direct still claims actual occurrences (excluded from active and
  *   from unmanaged);
@@ -143,11 +141,13 @@ export interface ProjectInstalledExtensionsInput<
   TInstalled,
   TUnmanaged,
 > {
-  readonly subjectKey: string;
   readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TActual>;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<TPack>>;
+  readonly installedPacks: Effect.Effect<
+    ReadonlyArray<TPack>,
+    SettingsReadError | LockfileReadError
+  >;
   readonly packMembers: (pack: TPack) => ReadonlyArray<TPackMember>;
   readonly packRef: (pack: TPack) => InstalledPackRef;
   readonly policy: SubjectPolicy<
@@ -178,7 +178,10 @@ export const makeProjectedSubjectCells = <
   readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TActual>;
-  readonly project: Effect.Effect<ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>>;
+  readonly project: Effect.Effect<
+    ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>,
+    SettingsReadError | LockfileReadError
+  >;
 }) => ({
   declared: args.declared,
   resolved: args.resolved,
@@ -198,56 +201,6 @@ export const makeProjectedSubjectCells = <
 });
 
 // ---------------------------------------------------------------------------
-// Source-tolerance helpers
-// ---------------------------------------------------------------------------
-
-const tolerateDeclared = <T>(
-  effect: Effect.Effect<Option.Option<T>, SettingsReadError>,
-  diagnostics: Diagnostics,
-  subjectKey: string,
-): Effect.Effect<Option.Option<T>> =>
-  effect.pipe(
-    Effect.catch((err) => {
-      const code =
-        err._tag === "SettingsIoError"
-          ? "settings-io"
-          : err._tag === "SettingsParseError"
-            ? "settings-parse"
-            : "settings-decode";
-      const warning: Warning = {
-        source: "settings",
-        message: `${subjectKey}: degraded settings — ${err._tag}`,
-        path: err.path,
-        code,
-      };
-      return diagnostics.append(warning).pipe(Effect.as(Option.none<T>()));
-    }),
-  );
-
-const tolerateResolved = <T>(
-  effect: Effect.Effect<Option.Option<T>, LockfileReadError>,
-  diagnostics: Diagnostics,
-  subjectKey: string,
-): Effect.Effect<Option.Option<T>> =>
-  effect.pipe(
-    Effect.catch((err) => {
-      const code =
-        err._tag === "LockfileIoError"
-          ? "lockfile-io"
-          : err._tag === "LockfileParseError"
-            ? "lockfile-parse"
-            : "lockfile-decode";
-      const warning: Warning = {
-        source: "lockfile",
-        message: `${subjectKey}: degraded lockfile — ${err._tag}`,
-        path: err.path,
-        code,
-      };
-      return diagnostics.append(warning).pipe(Effect.as(Option.none<T>()));
-    }),
-  );
-
-// ---------------------------------------------------------------------------
 // Public helper
 // ---------------------------------------------------------------------------
 
@@ -255,8 +208,8 @@ const tolerateResolved = <T>(
  * Compose installed, active, and unmanaged rows from declared/resolved/actual
  * plus the installed-pack set, per the projection invariant.
  *
- * The returned effect never fails — it absorbs source-read failures via the
- * supplied `diagnostics` buffer.
+ * Source-read failures propagate so invalid persisted authority is never
+ * treated as absent.
  */
 export const projectInstalledExtensions = <
   TDeclared,
@@ -276,10 +229,12 @@ export const projectInstalledExtensions = <
     TInstalled,
     TUnmanaged
   >,
-): Effect.Effect<ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>> =>
+): Effect.Effect<
+  ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>,
+  SettingsReadError | LockfileReadError
+> =>
   Effect.gen(function* () {
     const {
-      subjectKey,
       declared,
       resolved,
       actual,
@@ -290,10 +245,10 @@ export const projectInstalledExtensions = <
       diagnostics,
     } = input;
 
-    // 1. Read the three layers + installed packs; absorb declared/resolved
-    //    failures into diagnostics.
-    const declaredOpt = yield* tolerateDeclared(declared, diagnostics, subjectKey);
-    const resolvedOpt = yield* tolerateResolved(resolved, diagnostics, subjectKey);
+    // 1. Read the three layers + installed packs. Invalid persisted authority
+    //    fails the projection instead of being treated as absent.
+    const declaredOpt = yield* declared;
+    const resolvedOpt = yield* resolved;
     const actualPayload = yield* actual;
     const packs = yield* installedPacks;
 

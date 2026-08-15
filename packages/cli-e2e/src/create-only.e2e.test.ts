@@ -72,7 +72,7 @@ describe("create-only extension commands", () => {
     }
   });
 
-  it("rejects settings identity and skill-copy destination collisions without mutation", async () => {
+  it("rejects settings identity collisions without mutation", async () => {
     const workspace = createTempDir();
     try {
       await initializeWorkspace(workspace.path);
@@ -98,32 +98,6 @@ describe("create-only extension commands", () => {
       expect(configured.exitCode).not.toBe(0);
       expect(configured.stdout + configured.stderr).toContain("already exists in settings");
       expect(snapshotTree(workspace.path)).toEqual(beforeSettingsCollision);
-
-      const source = path.join(workspace.path, "source-skill");
-      fs.mkdirSync(source, { recursive: true });
-      fs.writeFileSync(
-        path.join(source, "SKILL.md"),
-        "---\nname: source-skill\ndescription: Source\n---\n\nSource\n",
-      );
-      const destination = path.join(
-        workspace.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "skills",
-        "copied",
-      );
-      fs.mkdirSync(destination, { recursive: true });
-      fs.writeFileSync(path.join(destination, "keep.txt"), "keep\n");
-      const beforeCopyCollision = snapshotTree(workspace.path);
-
-      const copied = await runCli(["skills", "copy", source, `${OWNER}/skills/copied`, "--yes"], {
-        cwd: workspace.path,
-      });
-
-      expect(copied.exitCode).not.toBe(0);
-      expect(copied.stdout + copied.stderr).toContain("destination already exists");
-      expect(snapshotTree(workspace.path)).toEqual(beforeCopyCollision);
     } finally {
       workspace.cleanup();
     }

@@ -140,7 +140,6 @@ describe("auth login handler", () => {
         yield* handleLogin({
           yes: false,
           deviceCode: false,
-          noBrowser: false,
           scopes: [],
         });
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -166,7 +165,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: false, scopes: [] },
           {
             confirmRelogin: () => {
               promptCalls += 1;
@@ -191,7 +190,6 @@ describe("auth login handler", () => {
         const result = yield* handleLogin({
           yes: false,
           deviceCode: true,
-          noBrowser: false,
           scopes: [],
         }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
         expect(result).toMatchObject({ error: true, code: "auth_required" });
@@ -203,7 +201,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) =>
@@ -225,7 +223,6 @@ describe("auth login handler", () => {
           {
             yes: false,
             deviceCode: true,
-            noBrowser: false,
             scopes: ["extensions:publish:new"],
           },
           {
@@ -248,7 +245,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: true, scopes: [] },
           {
             runDeviceLogin: (_registryUrl, options) => {
               openBrowserOptions.push(options?.openBrowser);
@@ -270,7 +267,7 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         const error = yield* Effect.flip(
           handleLogin(
-            { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+            { yes: false, deviceCode: false, scopes: [] },
             {
               loginStrategyEnvironment: { DISPLAY: ":0" },
               runLoopbackLogin: () =>
@@ -313,7 +310,7 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         const error = yield* Effect.flip(
           handleLogin(
-            { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+            { yes: false, deviceCode: false, scopes: [] },
             {
               loginStrategyEnvironment: { DISPLAY: ":0" },
               runLoopbackLogin: () =>
@@ -340,7 +337,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: false, scopes: [] },
           { loginStrategyEnvironment: { CI: "1" } },
         );
 
@@ -382,7 +379,7 @@ describe("auth login handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleLogin(
-            { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+            { yes: false, deviceCode: false, scopes: [] },
             {
               loginStrategyEnvironment: { DISPLAY: ":0" },
               runLoopbackLogin: () =>
@@ -430,7 +427,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
@@ -452,7 +449,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: true, scopes: [] },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -484,7 +481,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, noBrowser: false, scopes: [] });
+        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -509,7 +506,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: true, scopes: [] },
           {
             confirmRelogin: (message) => {
               confirmCalls.push(message);
@@ -544,7 +541,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin(
-          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          { yes: false, deviceCode: true, scopes: [] },
           {
             confirmRelogin: () => Effect.succeed(false),
           },
@@ -588,7 +585,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -643,7 +640,7 @@ describe("auth login handler", () => {
     );
 
     return Effect.gen(function* () {
-      yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
+      yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
 
       expect(
         rendererState2.logs.some(

@@ -29,6 +29,7 @@ import type {
   RegistryClient,
   RegistryExtensionManifest,
   GetExtensionPackageArgs,
+  GetExtensionVisibilityArgs,
   PublishExtensionArgs,
   UpdateExtensionVisibilityArgs,
   ExtensionExistsArgs,
@@ -37,7 +38,13 @@ import type {
   DiscoverPackagesArgs,
   PublishPreviewResult,
 } from "./client.js";
-import { toAuthor, type Author, type ExtensionType } from "../extensions/index.js";
+import {
+  ExtensionFqnSchema,
+  toAuthor,
+  type Author,
+  type ExtensionType,
+  type ExtensionVisibility,
+} from "../extensions/index.js";
 import {
   isExtensionTypePlural,
   parseExtensionFqnParts,
@@ -50,7 +57,11 @@ import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./disco
 import { purlMatch } from "../packaging/purl-match.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
-import type { PublishVisibility } from "../publish/index.js";
+import type {
+  PublishVisibility,
+  VisibilityEvaluation,
+  VisibilityFinding,
+} from "../publish/index.js";
 import {
   PUBLICATION_SET_CONTRACT,
   evaluateProspectivePackDependencyState,
@@ -59,6 +70,8 @@ import {
   validatePublicationDescriptors,
   validatePublicationSetResponse,
   type PublicationCandidateResult,
+  type PublicationDescriptor,
+  type ProspectivePublicationCandidate,
   type PublicationPackResult,
   type PublicationDependencySnapshot,
 } from "./publication-set.js";
@@ -74,21 +87,102 @@ const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
 const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
 const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
 
-const resolveLocalPublishVisibility = (
+const localVisibilityRevision = (index: ExtensionIndex): string =>
+  `local-${createHash("sha256")
+    .update(
+      JSON.stringify({
+        owner: index.owner,
+        type: index.type,
+        name: index.name,
+        visibility: index.visibility ?? "public",
+      }),
+    )
+    .digest("hex")}`;
+
+type ResolvedVisibilityEvaluation = Omit<VisibilityEvaluation, "resolved"> & {
+  readonly resolved: PublishVisibility;
+};
+
+const evaluateLocalPublishVisibility = (args: {
+  readonly target: {
+    readonly owner: string;
+    readonly type: ExtensionType;
+    readonly name: string;
+  };
+  readonly index: ExtensionIndex | undefined;
+  readonly input: PublicationDescriptor["visibility"];
+}): ResolvedVisibilityEvaluation => {
+  const target = Schema.decodeUnknownSync(ExtensionFqnSchema)(
+    `${args.target.owner}/${toExtensionTypePlural(args.target.type)}/${args.target.name}`,
+  );
+  const conflict: ReadonlyArray<VisibilityFinding> =
+    args.input.intent !== null &&
+    args.input.request !== null &&
+    args.input.intent.value !== args.input.request
+      ? [
+          {
+            code: "visibility/intent-conflict",
+            severity: "error",
+            message: `Requested visibility '${args.input.request}' conflicts with repository intent '${args.input.intent.value}'.`,
+          },
+        ]
+      : [];
+  if (args.index === undefined) {
+    const resolved: PublishVisibility =
+      args.input.intent !== null
+        ? {
+            value: args.input.intent.value,
+            disposition: "establish",
+            source: args.input.intent.source,
+          }
+        : args.input.request !== null
+          ? { value: args.input.request, disposition: "establish", source: "explicit" }
+          : { value: "public", disposition: "establish", source: "platform" };
+    return {
+      target,
+      intent: args.input.intent,
+      request: args.input.request,
+      resolved,
+      actual: null,
+      comparison: "not-established",
+      findings: conflict,
+    };
+  }
+
+  const actual: ExtensionVisibility = args.index.visibility ?? "public";
+  const drift: ReadonlyArray<VisibilityFinding> =
+    args.input.intent !== null && args.input.intent.value !== actual
+      ? [
+          {
+            code: "visibility/drift",
+            severity: "error",
+            message: `Repository intent '${args.input.intent.value}' does not match Registry visibility '${actual}'.`,
+          },
+        ]
+      : [];
+  return {
+    target,
+    intent: args.input.intent,
+    request: args.input.request,
+    resolved: { value: actual, disposition: "preserve", source: "existing" },
+    actual: { value: actual, revision: localVisibilityRevision(args.index) },
+    comparison:
+      args.input.intent === null
+        ? "unconfigured"
+        : args.input.intent.value === actual
+          ? "match"
+          : "drift",
+    findings: [...conflict, ...drift],
+  };
+};
+
+const resolveLocalUploadVisibility = (
   index: ExtensionIndex | undefined,
-  initialVisibility: "public" | "private" | undefined,
+  visibility: PublishVisibility | undefined,
 ): PublishVisibility =>
   index === undefined
-    ? {
-        value: initialVisibility ?? "public",
-        disposition: "establish",
-        source: initialVisibility === undefined ? "platform" : "explicit",
-      }
-    : {
-        value: index.visibility ?? "public",
-        disposition: "preserve",
-        source: "existing",
-      };
+    ? (visibility ?? { value: "public", disposition: "establish", source: "platform" })
+    : { value: index.visibility ?? "public", disposition: "preserve", source: "existing" };
 
 const makeLocalPublishCondition = (args: {
   readonly target: {
@@ -405,19 +499,23 @@ export const createLocalRegistryClient = (
           return Effect.gen(function* () {
             const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
             const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
-            const visibility = resolveLocalPublishVisibility(index, descriptor.initialVisibility);
+            const visibility = evaluateLocalPublishVisibility({
+              target,
+              index,
+              input: descriptor.visibility,
+            });
             return {
               kind: "resolved",
               target,
               participation: descriptor.participation,
               descriptorDigest: publicationDescriptorDigest(descriptor),
-              resolvedVisibility: visibility.value,
+              visibility,
               ...(descriptor.participation === "verified-existing"
                 ? {}
                 : {
                     condition: makeLocalPublishCondition({
                       target,
-                      visibility,
+                      visibility: visibility.resolved,
                       targetVersionExists:
                         index?.versions.some((entry) => entry.version === target.version) ?? false,
                     }),
@@ -470,18 +568,42 @@ export const createLocalRegistryClient = (
             };
           }),
       );
-      const prospectiveCandidates = descriptors.map((descriptor) => {
-        const result = candidateByTarget.get(
+      const prospectiveCandidates: ReadonlyArray<ProspectivePublicationCandidate> = descriptors.map(
+        (descriptor) => {
+          const result = candidateByTarget.get(
+            `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
+          );
+          if (result?.kind === "resolved") {
+            return { descriptor, kind: "resolved", visibility: result.visibility };
+          }
+          return {
+            descriptor,
+            kind: "unavailable",
+            visibility: {
+              target: Schema.decodeUnknownSync(ExtensionFqnSchema)(
+                `${descriptor.target.owner}/${toExtensionTypePlural(descriptor.target.type)}/${descriptor.target.name}`,
+              ),
+              unavailable: true,
+              findings: [
+                {
+                  code: "visibility/unavailable",
+                  severity: "error",
+                  message: "The visibility target is unavailable.",
+                },
+              ],
+            },
+          };
+        },
+      );
+      const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
+        const packCandidate = candidateByTarget.get(
           `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
         );
-        return {
-          descriptor,
-          kind: result?.kind ?? "unavailable",
-          ...(result?.kind === "resolved" ? { resolvedVisibility: result.resolvedVisibility } : {}),
-        } as const;
-      });
-      const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
         const evaluated = evaluateProspectivePackDependencyState({
+          packVisibility:
+            packCandidate?.kind === "resolved" && packCandidate.visibility.resolved !== null
+              ? packCandidate.visibility.resolved.value
+              : "public",
           dependencies: descriptor.pack?.dependencies ?? [],
           snapshots,
           candidates: prospectiveCandidates,
@@ -494,7 +616,12 @@ export const createLocalRegistryClient = (
           resolutions: blocked ? [] : evaluated.resolutions,
         };
       });
-      const status = packs.some((pack) => pack.status === "blocked") ? "blocked" : "admitted";
+      const status =
+        candidates.some((candidate) =>
+          candidate.visibility.findings.some((finding) => finding.severity === "error"),
+        ) || packs.some((pack) => pack.status === "blocked")
+          ? "blocked"
+          : "admitted";
       const boundCandidates = candidates.map((candidate) =>
         status === "blocked" && candidate.kind === "resolved"
           ? {
@@ -502,7 +629,7 @@ export const createLocalRegistryClient = (
               target: candidate.target,
               participation: candidate.participation,
               descriptorDigest: candidate.descriptorDigest,
-              resolvedVisibility: candidate.resolvedVisibility,
+              visibility: candidate.visibility,
             }
           : candidate,
       );
@@ -716,10 +843,7 @@ export const createLocalRegistryClient = (
                 ),
               )
             : undefined;
-          const resolvedVisibility = resolveLocalPublishVisibility(
-            currentIndex,
-            args.initialVisibility,
-          );
+          const resolvedVisibility = resolveLocalUploadVisibility(currentIndex, args.visibility);
           if (args.condition !== undefined) {
             const currentCondition = makeLocalPublishCondition({
               target: {
@@ -747,7 +871,7 @@ export const createLocalRegistryClient = (
                     detail: "Registry index disappeared during publication.",
                   });
                 }
-                if (args.condition === undefined && args.initialVisibility !== undefined) {
+                if (args.condition === undefined && args.visibility !== undefined) {
                   return yield* makeAppError({
                     code: "conflict",
                     detail: "Initial visibility is only valid when creating an extension.",
@@ -816,9 +940,27 @@ export const createLocalRegistryClient = (
       );
     }),
 
-  updateExtensionVisibility: (args: UpdateExtensionVisibilityArgs) =>
+  getExtensionVisibility: (args: GetExtensionVisibilityArgs) =>
     Effect.gen(function* () {
       const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
+      return evaluateLocalPublishVisibility({
+        target: { owner: args.owner, type: args.type, name: args.name },
+        index,
+        input: { intent: args.intent, request: null },
+      });
+    }),
+
+  updateExtensionVisibility: (args: UpdateExtensionVisibilityArgs) =>
+    Effect.gen(function* () {
+      const target = parseExtensionFqnParts(args.target);
+      if (target === undefined) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `Invalid extension target: ${args.target}`,
+        });
+      }
+      const dir = extensionDir(registryRoot, target.owner, target.type, target.name, path.join);
       const indexPath = path.join(dir, "index.json");
       const content = yield* fs.readFileString(indexPath).pipe(
         Effect.mapError((cause) =>
@@ -834,6 +976,24 @@ export const createLocalRegistryClient = (
           makeAppError({ code: "validation", detail: "Registry index schema is invalid", cause }),
         ),
       );
+      const revision = localVisibilityRevision(index);
+      if (revision !== args.revision) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: "Extension visibility changed; read the current revision and retry.",
+        });
+      }
+      const before = index.visibility ?? "public";
+      if (before === args.visibility) {
+        return {
+          target: args.target,
+          before,
+          after: before,
+          authority: args.authority,
+          result: "already-satisfied",
+          revision,
+        };
+      }
       yield* fs
         .writeFileString(
           indexPath,
@@ -848,6 +1008,15 @@ export const createLocalRegistryClient = (
             }),
           ),
         );
+      const updated = { ...index, visibility: args.visibility };
+      return {
+        target: args.target,
+        before,
+        after: args.visibility,
+        authority: args.authority,
+        result: "changed",
+        revision: localVisibilityRevision(updated),
+      };
     }),
 
   extensionExists: (args: ExtensionExistsArgs) =>

@@ -1066,9 +1066,16 @@ describe("uninstallSkill", () => {
         });
 
         // Also create the non-registry canonical location
-        const legacyPath = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        fs.mkdirSync(legacyPath, { recursive: true });
-        fs.writeFileSync(path.join(legacyPath, "SKILL.md"), "# my-skill");
+        const externalPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
+        fs.mkdirSync(externalPath, { recursive: true });
+        fs.writeFileSync(path.join(externalPath, "SKILL.md"), "# my-skill");
 
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, lockfileSkills)),
@@ -1078,7 +1085,7 @@ describe("uninstallSkill", () => {
 
         // Both locations should be removed
         expect(fs.existsSync(registryPath)).toBe(false);
-        expect(fs.existsSync(legacyPath)).toBe(false);
+        expect(fs.existsSync(externalPath)).toBe(false);
       }),
     );
 

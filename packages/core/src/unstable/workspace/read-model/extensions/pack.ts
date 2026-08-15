@@ -162,16 +162,25 @@ export interface PackExtensionsApi {
   readonly declared: Effect.Effect<Option.Option<DeclaredPacks>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<ResolvedPacks>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualPacks>;
-  readonly installed: Effect.Effect<ReadonlyArray<InstalledPack>>;
-  readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledPack>>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledPack>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledPack>, SettingsReadError | LockfileReadError>;
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredPack>, SettingsReadError>;
-  readonly active: Effect.Effect<ReadonlyArray<InstalledPack>>;
-  readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedPack>>;
+  readonly active: Effect.Effect<
+    ReadonlyArray<InstalledPack>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedPack>,
+    SettingsReadError | LockfileReadError
+  >;
 }
-
-const SUBJECT_KEY = "pack";
 
 const orphanResolvedWarning = (name: string): Warning => ({
   source: "lockfile",
@@ -250,7 +259,6 @@ export const makePackExtensionsApi = (
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
-        subjectKey: SUBJECT_KEY,
         declared,
         resolved,
         actual,

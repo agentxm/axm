@@ -1,6 +1,6 @@
 /**
  * Plan pipeline — the stable kernel export path for the plan primitives
- * consumed by workspace commands, `axm lint --fix`, and any other shared-kernel
+ * consumed by workspace commands and other shared-kernel
  * consumer that composes workspace `Operation`s.
  *
  * The registry Worker SHALL NOT import this module — publish never applies
@@ -54,11 +54,8 @@ export type {
 // Apply plan + operation handler registry
 export { applyPlan, type OperationHandler } from "./apply-plan.js";
 
-// Resolve plan — both the workspace-interactive preview/apply backbone
-// (`previewOrApplyPlan`, used by install/uninstall/pack) and the narrow
-// lint-fix resolver (`resolvePlan`, used by `axm lint --fix` to wrap
-// `PlannedJobStep[]` into a single-job `Plan` without reconciliation).
-export { previewOrApplyPlan, resolvePlan, type ResolvePlanArgs } from "./resolve-plan.js";
+// Workspace-interactive preview/apply backbone used by install/uninstall/pack.
+export { previewOrApplyPlan } from "./resolve-plan.js";
 export {
   isExecutionCandidateFresh,
   makeExecutionCandidate,

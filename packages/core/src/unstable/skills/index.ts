@@ -99,10 +99,6 @@ export type {
   UninstallSkillOperation,
 } from "./operations/uninstall.js";
 export { uninstallSkill } from "./operations/uninstall.js";
-export type { PublishSkillOperationArgs, PublishSkillOperation } from "./operations/publish.js";
-export { publishSkill } from "./operations/publish.js";
-export type { CopySkillOperationArgs, CopySkillOperation } from "./operations/copy.js";
-export { copySkill } from "./operations/copy.js";
 export type { EnableSkillOperation } from "./operations/enable.js";
 export { enableSkill } from "./operations/enable.js";
 export type { DisableSkillOperation } from "./operations/disable.js";

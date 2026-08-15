@@ -44,7 +44,7 @@ import {
   formatFqn,
   parseRegistrySourcePatternParts,
 } from "../extensions/index.js";
-import { type AppError, BC, makeAppError } from "../app-error/index.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   createDefaultSettings,
   type HookEntry,
@@ -76,7 +76,6 @@ import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js"
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 
-import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -178,21 +177,13 @@ const contextReadErrorToAppError = (
     });
   }
 
-  const isUnreadableLockfile =
-    error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
   return makeAppError({
-    code: isUnreadableLockfile ? "validation" : "internal",
+    code:
+      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
+        ? "validation"
+        : "internal",
     detail: `Failed to read workspace ${source}`,
     cause: error,
-    // Where an unreadable lockfile is still terminal, point at the command that
-    // backs the bad file up and regenerates it.
-    ...(isUnreadableLockfile
-      ? {
-          suggestions: [
-            BC.run("axm sync", "Back up the unreadable lockfile and regenerate it from settings."),
-          ],
-        }
-      : {}),
   });
 };
 
@@ -368,10 +359,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return "missing";
         }
 
-        // Pinned strict: this probe is what tells reconciliation the difference
-        // between "invalid" and "ok", so it must never inherit an ambient
-        // degrade policy that would report an unreadable lockfile as absent.
-        return yield* withStrictLockfileReads(readLockfileSafe(workspaceDir)).pipe(
+        return yield* readLockfileSafe(workspaceDir).pipe(
           Effect.as("ok" as const),
           Effect.catch((error) => {
             if (error.code === "validation") {
@@ -520,6 +508,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
+
+      getPublishDefaultVisibility: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((settings) => Option.fromUndefinedOr(settings.publish?.defaultVisibility)),
+        ),
 
       getMinimumReleaseAge: Effect.fn("WorkspaceMutations.getMinimumReleaseAge")(function* () {
         const scopedSettings = yield* readSettingsSafe(workspaceDir);

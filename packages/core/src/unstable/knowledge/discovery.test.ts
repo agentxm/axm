@@ -4,11 +4,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import {
-  KNOWLEDGE_MATERIALIZATION_STATE,
-  reconcileKnowledgeDiscovery,
-  type KnowledgeDiscoveryBundle,
-} from "./discovery.js";
+import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
 
 const makeBundle = (
   root: string,
@@ -33,7 +29,6 @@ const run = (
 ) =>
   reconcileKnowledgeDiscovery({
     scopeRoot: root,
-    axmDir: nodePath.join(root, ".axm"),
     config: { instructions: options?.instructions !== false },
     bundles,
     instructionsPath: nodePath.join(root, "AGENTS.md"),
@@ -112,47 +107,6 @@ describe("reconcileKnowledgeDiscovery", () => {
         writeFileSync(instructions, "# Hand maintained\n");
         yield* run(root, [makeBundle(root, "@acme", "platform")], { management: false });
         expect(readFileSync(instructions, "utf8")).toBe("# Hand maintained\n");
-      } finally {
-        rmSync(root, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("writes the replacement table before removing only recorded legacy projections", () =>
-    Effect.gen(function* () {
-      const root = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-table-"));
-      try {
-        const oldManaged = nodePath.join(root, ".agents", "knowledge", "@acme", "old");
-        const unknown = nodePath.join(root, ".agents", "knowledge", "notes.md");
-        mkdirSync(oldManaged, { recursive: true });
-        writeFileSync(nodePath.join(oldManaged, "index.md"), "# Old\n");
-        writeFileSync(unknown, "keep me\n");
-        const local = nodePath.join(root, ".axm", ".local");
-        mkdirSync(local, { recursive: true });
-        writeFileSync(
-          nodePath.join(local, KNOWLEDGE_MATERIALIZATION_STATE),
-          JSON.stringify({
-            version: 1,
-            root: ".agents/knowledge",
-            indexPath: ".agents/knowledge/index.md",
-            artifacts: [
-              {
-                path: ".agents/knowledge/@acme/old",
-                source: ".axm/extensions/@acme/knowledge/old/src",
-                mechanism: "copy",
-              },
-            ],
-          }),
-        );
-
-        yield* run(root, [makeBundle(root, "@acme", "platform")]);
-
-        expect(readFileSync(nodePath.join(root, "AGENTS.md"), "utf8")).toContain(
-          "## Knowledge Base",
-        );
-        expect(existsSync(oldManaged)).toBe(false);
-        expect(readFileSync(unknown, "utf8")).toBe("keep me\n");
-        expect(existsSync(nodePath.join(local, KNOWLEDGE_MATERIALIZATION_STATE))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

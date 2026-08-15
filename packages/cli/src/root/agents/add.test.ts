@@ -18,7 +18,6 @@ import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { withDegradedLockfileReads } from "@agentxm/client-core/unstable/workspace";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -296,33 +295,22 @@ describe("agents add.handler", () => {
     writeWorkspaceFiles(axmDir, { agents: [] });
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
-    // Mirrors the CLI's `withWorkspace` boundary, which degrades lockfile reads
-    // so a corrupt file cannot abort the command before recovery runs.
     return provide(
-      withDegradedLockfileReads(
-        Effect.gen(function* () {
-          yield* handleAgentsAdd({
-            ids: ["cursor"],
-            detected: false,
-            yes: true,
-            force: false,
-            preview: false,
-          });
+      Effect.gen(function* () {
+        const error = yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: true,
+          force: false,
+          preview: false,
+        }).pipe(Effect.flip);
 
-          const payload = expectRecord(rendererState.results[0]?.data);
-          const result = expectRecord(property(payload, "result"));
-          expect(result).toMatchObject({
-            outcome: "failed",
-            reason: "hard-blocked",
-            planName: "Add coding agents",
-            steps: [{ label: "Read accepted external resolutions", status: "error" }],
-          });
-
-          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(
-            "lockfileVersion: 4\nskills: []\n",
-          );
-        }),
-      ),
+        expect(error.code).toBe("validation");
+        expect(rendererState.results).toEqual([]);
+        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(
+          "lockfileVersion: 4\nskills: []\n",
+        );
+      }),
     );
   });
 

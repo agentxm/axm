@@ -14,7 +14,7 @@ import {
   isEffectCliExit,
   renderConfirmationRecoveryCommand,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
+import { extensionTypes, formatFqn } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
 import {
@@ -605,18 +605,22 @@ describe("root publish", () => {
     };
 
     expect(
-      exactPublishUploadBinding({
-        ...baseCapability,
-        visibility: {
-          value: "private",
-          disposition: "establish",
-          source: "explicit",
+      exactPublishUploadBinding(
+        {
+          ...baseCapability,
+          visibility: {
+            value: "private",
+            disposition: "establish",
+            source: "explicit",
+          },
         },
-      }),
+        { intent: null, request: "private" },
+      ),
     ).toEqual({
       accessToken: "axm_pub_capability",
       condition: '"pv2-reviewed"',
-      initialVisibility: "private",
+      visibility: { value: "private", disposition: "establish", source: "explicit" },
+      visibilityInput: { intent: null, request: "private" },
       publicationSetDigest: publicationSetDigestValue,
       publicationDescriptorDigest: publicationDescriptorDigestValue,
     });
@@ -625,38 +629,49 @@ describe("root publish", () => {
       { value: "private", disposition: "establish", source: "account" },
       { value: "private", disposition: "preserve", source: "existing" },
     ] as const) {
-      expect(exactPublishUploadBinding({ ...baseCapability, visibility })).toEqual({
+      expect(
+        exactPublishUploadBinding(
+          { ...baseCapability, visibility },
+          { intent: null, request: null },
+        ),
+      ).toEqual({
         accessToken: "axm_pub_capability",
         condition: '"pv2-reviewed"',
+        ...(visibility.disposition === "establish" ? { visibility } : {}),
         publicationSetDigest: publicationSetDigestValue,
         publicationDescriptorDigest: publicationDescriptorDigestValue,
+        visibilityInput: { intent: null, request: null },
       });
     }
 
     expect(
       previewPublishUploadBinding({
-        condition: '"pv1-existing"',
+        condition: '"pv2-existing"',
         publicationSetDigest: publicationSetDigestValue,
         publicationDescriptorDigest: publicationDescriptorDigestValue,
         visibility: { value: "public", disposition: "preserve", source: "existing" },
+        visibilityInput: { intent: null, request: null },
       }),
     ).toEqual({
-      condition: '"pv1-existing"',
+      condition: '"pv2-existing"',
       publicationSetDigest: publicationSetDigestValue,
       publicationDescriptorDigest: publicationDescriptorDigestValue,
+      visibilityInput: { intent: null, request: null },
     });
     expect(
       previewPublishUploadBinding({
-        condition: '"pv1-explicit"',
+        condition: '"pv2-explicit"',
         publicationSetDigest: publicationSetDigestValue,
         publicationDescriptorDigest: publicationDescriptorDigestValue,
         visibility: { value: "private", disposition: "establish", source: "explicit" },
+        visibilityInput: { intent: null, request: "private" },
       }),
     ).toEqual({
-      condition: '"pv1-explicit"',
-      initialVisibility: "private",
+      condition: '"pv2-explicit"',
+      visibility: { value: "private", disposition: "establish", source: "explicit" },
       publicationSetDigest: publicationSetDigestValue,
       publicationDescriptorDigest: publicationDescriptorDigestValue,
+      visibilityInput: { intent: null, request: "private" },
     });
   });
 
@@ -752,7 +767,19 @@ describe("root publish", () => {
                 target: candidate.target,
                 participation: candidate.participation,
                 descriptorDigest: publicationDescriptorDigest(candidate),
-                resolvedVisibility: candidate.initialVisibility ?? "private",
+                visibility: {
+                  target: formatFqn(candidate.target),
+                  intent: candidate.visibility.intent,
+                  request: candidate.visibility.request,
+                  resolved: {
+                    value: "private" as const,
+                    disposition: "establish" as const,
+                    source: "explicit" as const,
+                  },
+                  actual: null,
+                  comparison: "not-established" as const,
+                  findings: [],
+                },
                 condition: '"pv2-reviewed"',
               })),
               packs: [],
@@ -810,7 +837,7 @@ describe("root publish", () => {
         expect(authorizationRequest).toMatchObject({
           publicationSet: {
             contract: "publication-set-v2",
-            candidates: [{ initialVisibility: "private" }],
+            candidates: [{ visibility: { intent: null, request: "private" } }],
           },
         });
         expect(uploadRequest?.headers["authorization"]).toBe("Bearer axm_pub_capability");
@@ -984,7 +1011,19 @@ describe("root publish", () => {
                   target: descriptor.target,
                   participation: descriptor.participation,
                   descriptorDigest: publicationDescriptorDigest(descriptor),
-                  resolvedVisibility: "public" as const,
+                  visibility: {
+                    target: formatFqn(descriptor.target),
+                    intent: descriptor.visibility.intent,
+                    request: descriptor.visibility.request,
+                    resolved: {
+                      value: "public" as const,
+                      disposition: "establish" as const,
+                      source: "platform" as const,
+                    },
+                    actual: null,
+                    comparison: "not-established" as const,
+                    findings: [],
+                  },
                   condition: '"pv2-stale"',
                 },
               ],
@@ -1461,7 +1500,6 @@ describe("root publish", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleRootPublish(args(registryUrl, { preview: false }));
-        expect(fs.existsSync(path.join(tempDir, ".axm", "trust.json"))).toBe(false);
 
         yield* handleRootPublish(args(registryUrl, { preview: false }));
         const result = expectPublishResult(at(rendererState.results, 1).data, {
@@ -1475,7 +1513,6 @@ describe("root publish", () => {
           reason: "version_already_published",
           status: "success",
         });
-        expect(fs.existsSync(path.join(tempDir, ".axm", "trust.json"))).toBe(false);
       }),
     );
   });

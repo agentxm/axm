@@ -32,7 +32,7 @@ import { resolveUserScopeDir } from "../workspace/paths.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const InstallMetaDataSchema = Schema.Struct({
-  schemaVersion: Schema.optional(Schema.Literal(2)),
+  schemaVersion: Schema.Literal(2),
   method: InstallMethodLiteral.pipe(
     Schema.annotateKey({ messageMissingKey: "method is required" }),
   ),
@@ -120,7 +120,7 @@ export const readInstallMeta = (dataDir: string) =>
     const decoded = yield* decodeInstallMetaDataFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<InstallMetaData>();
 
-    return Option.some({ ...decoded.value, schemaVersion: 2 as const });
+    return decoded;
   });
 
 /**
@@ -148,7 +148,7 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
       ),
     );
 
-    const encoded = yield* encodeInstallMetaData({ ...data, schemaVersion: 2 as const }).pipe(
+    const encoded = yield* encodeInstallMetaData(data).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",

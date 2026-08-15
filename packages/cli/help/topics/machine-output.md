@@ -6,8 +6,8 @@ line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
 ## Success documents
 
-The `axm.machine-output/result-envelope-v1` contract, first shipped in AXM CLI
-0.24.3, gives every ordinary command result the same envelope:
+The `axm.machine-output/result-envelope-v1` contract gives every ordinary
+command result the same envelope:
 
 ```json
 {
@@ -20,10 +20,6 @@ The command-specific payload always lives under `result`. Collections put
 `items[]`, counts, and cursors inside `result`; queries put their resource
 fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
-
-CLI releases before 0.24.3 used flat command-specific payload keys. Do not use
-the 0.24 minor version alone to choose a parser because the 0.24 line contains
-both shapes.
 
 Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
 `cancelled`, or `previewed`. For every ordinary result, `ok` is `true` exactly
@@ -54,7 +50,7 @@ Built-in formatter documents are the two success-envelope exceptions:
 ```
 
 ```json
-{ "type": "version", "name": "axm", "version": "0.23.0" }
+{ "type": "version", "name": "axm", "version": "1.2.3" }
 ```
 
 ## Errors

@@ -717,18 +717,6 @@ describe("axm knowledge lifecycle", () => {
 
       writeJson(settingsPath, {
         ...readJson(settingsPath),
-        knowledgeConfig: { directory: "docs/legacy", ignore: ["old"] },
-      });
-      const legacyLint = await runCli(["lint", "--json"], { cwd: temp.path });
-      expect(legacyLint.stdout).toContain("workspace/knowledge-config-current");
-      const legacyFix = await runCli(["lint", "--fix", "--json"], {
-        cwd: temp.path,
-      });
-      expect(legacyFix.exitCode, legacyFix.stdout + legacyFix.stderr).toBe(0);
-      expect(readJson(settingsPath)["knowledgeConfig"]).toBeUndefined();
-
-      writeJson(settingsPath, {
-        ...readJson(settingsPath),
         knowledgeConfig: { instructions: false },
       });
       const preview = await runCli(["sync", "--preview", "--non-interactive"], {

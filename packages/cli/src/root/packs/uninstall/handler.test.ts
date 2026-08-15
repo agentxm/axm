@@ -42,7 +42,6 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { expectNoOpPlanResult, expectPreviewedPlanResult } from "../../../test-helpers.js";
-import { writeTrustFromWorkspaceLockfile } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -129,7 +128,6 @@ const initWorkspace = (
       ...(Object.keys(lockfilePacks).length === 0 ? {} : { packs: lockfilePacks }),
     }),
   );
-  writeTrustFromWorkspaceLockfile(axmDir);
 };
 
 const defaultArgs = (

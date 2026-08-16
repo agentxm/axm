@@ -170,16 +170,25 @@ const makeTrackingUpdateCheck = (opts: {
 // =============================================================================
 
 describe("isUpgradeCommand", () => {
-  it("returns true for upgrade command", () => {
-    expect(isUpgradeCommand(["upgrade"])).toBe(true);
+  it.each([
+    [["upgrade"]],
+    [["upgrade", "-C", "/tmp/workspace"]],
+    [["-C", "/tmp/workspace", "upgrade"]],
+    [["--json", "upgrade"]],
+    [["-q", "upgrade"]],
+    [["-qC", "/tmp/workspace", "upgrade"]],
+    [["--directory=/tmp/workspace", "upgrade"]],
+  ])("classifies upgrade regardless of global-flag position: %j", (args) => {
+    expect(isUpgradeCommand(args)).toBe(true);
   });
 
-  it("returns true when upgrade is first arg with flags", () => {
-    expect(isUpgradeCommand(["upgrade", "--reinstall"])).toBe(true);
+  it("accepts the documented literal-operand false positive", () => {
+    expect(isUpgradeCommand(["search", "upgrade"])).toBe(true);
+    expect(isUpgradeCommand(["-C", "upgrade", "lint"])).toBe(true);
   });
 
-  it("returns false when upgrade is not the first arg", () => {
-    expect(isUpgradeCommand(["skills", "upgrade"])).toBe(false);
+  it("does not inspect tokens after the option terminator", () => {
+    expect(isUpgradeCommand(["search", "--", "upgrade"])).toBe(false);
   });
 
   it("returns false for other commands", () => {

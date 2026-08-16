@@ -24,11 +24,13 @@ import {
   logsByTag,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
   WorkspaceInitializationInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
+import { ExecutionDirectory } from "./execution-directory.js";
 
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
@@ -420,6 +422,7 @@ export const makeCliTestContext = (opts?: {
     resolvePlanTest.layer,
     workspaceInitializationTest.layer,
     TestFlagsLayer(opts?.flags),
+    Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
     CredentialStoreTest(),
   );
@@ -467,21 +470,25 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       }
     | undefined;
   readonly machine?: boolean | undefined;
-  readonly wsOptions?: Partial<WorkspaceMutationsOptions> | undefined;
+  readonly wsOptions?:
+    | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
+        readonly projectRoot?: string;
+      })
+    | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);
+  const projectRoot = decodeAbsolutePathSync(opts?.wsOptions?.projectRoot ?? process.cwd());
   const wsOptions = {
     scope: "project",
     ...opts?.wsOptions,
+    projectRoot,
   } satisfies WorkspaceMutationsOptions;
-  const projectRoot =
-    wsOptions.scope === "project" ? (wsOptions.projectRoot ?? process.cwd()) : undefined;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
   if (wsOptions.scope === "project") {
-    const workspaceRoot = projectRoot ?? process.cwd();
+    const workspaceRoot = projectRoot;
 
-    if (wsOptions.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
+    if (opts?.wsOptions?.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
       throw new Error(
         "Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext().",
       );
@@ -490,14 +497,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const workspaceOptions =
-    wsOptions.scope === "project"
-      ? {
-          ...wsOptions,
-          projectRoot: projectRoot ?? process.cwd(),
-        }
-      : wsOptions;
-  const wsLayer = Layer.provide(coreWorkspaceLayer(workspaceOptions), cliTestContext.baseLayer);
+  const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
   const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer, KnowledgeIndexLive);
 
   return {

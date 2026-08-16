@@ -62,6 +62,7 @@ import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { AbsolutePath } from "../utils/path-types.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -597,8 +598,8 @@ export class WorkspaceMutations extends ServiceMap.Service<
 export interface WorkspaceMutationsOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly scope: WorkspaceScope;
-  /** Explicit project root for project-scope workspaces (defaults to process.cwd()) */
-  readonly projectRoot?: string;
+  /** Canonical project root supplied by the transport boundary. */
+  readonly projectRoot: AbsolutePath;
   /** Explicit agent IDs to use during initialization (overrides detection and prompting) */
   readonly agents?: ReadonlyArray<string>;
   /** Auto-accept setup defaults and confirmations */

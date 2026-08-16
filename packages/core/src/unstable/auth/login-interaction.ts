@@ -50,6 +50,8 @@ const runCommand = (
   Effect.gen(function* () {
     const handle = yield* spawner.spawn(
       ChildProcess.make(invocation.command, invocation.args, {
+        // Browser and clipboard helpers have no cwd-dependent behavior. Core
+        // deliberately does not depend on the CLI execution-directory service.
         stdin: invocation.stdinText === undefined ? "ignore" : "pipe",
         stdout: "ignore",
         stderr: "ignore",

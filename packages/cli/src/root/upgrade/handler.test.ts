@@ -35,7 +35,9 @@ import {
 } from "@agentxm/client-core/unstable/install-method";
 import { InstallMeta, type InstallMetaData } from "@agentxm/client-core/unstable/install-meta";
 import type { VersionRelation } from "@agentxm/client-core/unstable/version-resolution";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 
+import { ExecutionDirectory } from "../../execution-directory.js";
 import { expectRecord, property } from "../../test-helpers.js";
 import { loadVersion } from "../../version.js";
 import {
@@ -55,6 +57,10 @@ const TARGET_VERSION = semver.inc(LOCAL_VERSION, "major") ?? "99.0.0";
 const BINARY = new TextEncoder().encode("fixture-binary");
 const BINARY_HASH = createHash("sha256").update(BINARY).digest("hex");
 const platformBinary = Option.getOrThrow(resolvePlatformBinary(process.platform, process.arch));
+const executionDirectoryPath = decodeAbsolutePathSync(process.cwd());
+const executionDirectoryLayer = Layer.succeed(ExecutionDirectory, {
+  path: executionDirectoryPath,
+});
 
 interface Invocation {
   readonly executable: string;
@@ -152,6 +158,7 @@ const makeHarness = (
     NodeServices.layer,
     renderer.layer,
     TestFlagsLayer(),
+    executionDirectoryLayer,
     Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
     Layer.succeed(InstallMeta, {
       read: () => Effect.succeed(Option.none()),
@@ -187,6 +194,7 @@ const makeHumanHarness = (
       NodeServices.layer,
       renderer.layer,
       TestFlagsLayer(flags),
+      executionDirectoryLayer,
       Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
       Layer.succeed(InstallMeta, {
         read: () => Effect.succeed(Option.none()),
@@ -425,6 +433,9 @@ describe("delegated upgrades", () => {
         expect(harness.subprocess.calls).toContainEqual(
           expect.objectContaining({ executable, args }),
         );
+        expect(
+          harness.subprocess.calls.every((call) => call.options?.cwd === executionDirectoryPath),
+        ).toBe(true);
       }).pipe(Effect.provide(harness.layer)),
     );
   });

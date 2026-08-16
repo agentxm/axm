@@ -19,6 +19,8 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+import { ExecutionDirectory } from "../execution-directory.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -73,6 +75,7 @@ const makeSetupTestContext = (opts?: {
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),
+    Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.invalid"),
     Layer.succeed(AgentExecutableResolver, {
       exists: () => Effect.succeed(false),

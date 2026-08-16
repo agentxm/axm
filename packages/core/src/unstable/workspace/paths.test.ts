@@ -11,7 +11,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { decodeAbsolutePathSync } from "../utils/path-types.js";
 import { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
+
+const projectRoot = decodeAbsolutePathSync("/tmp/axm-project");
 
 describe("paths", () => {
   describe("getUserScopeDir", () => {
@@ -71,31 +74,24 @@ describe("paths", () => {
   });
 
   describe("getProjectDir", () => {
-    it.effect("returns path to ./.axm relative to cwd", () =>
+    it.effect("uses the required project root", () =>
       Effect.gen(function* () {
-        const result = yield* getProjectDir();
-        expect(result).toBe(path.join(process.cwd(), ".axm"));
-      }).pipe(Effect.provide(NodeServices.layer)),
-    );
-
-    it.effect("uses an explicit project root when provided", () =>
-      Effect.gen(function* () {
-        const result = yield* getProjectDir("/tmp/axm-project");
+        const result = yield* getProjectDir(projectRoot);
         expect(result).toBe(path.join("/tmp/axm-project", ".axm"));
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
     it.effect("returns an absolute path", () =>
       Effect.gen(function* () {
-        const result = yield* getProjectDir();
+        const result = yield* getProjectDir(projectRoot);
         expect(path.isAbsolute(result)).toBe(true);
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
     it.effect("returns the same value on repeated calls", () =>
       Effect.gen(function* () {
-        const result1 = yield* getProjectDir();
-        const result2 = yield* getProjectDir();
+        const result1 = yield* getProjectDir(projectRoot);
+        const result2 = yield* getProjectDir(projectRoot);
         expect(result1).toBe(result2);
       }).pipe(Effect.provide(NodeServices.layer)),
     );
@@ -112,15 +108,15 @@ describe("paths", () => {
 
     it.effect("returns project dir when scope is project", () =>
       Effect.gen(function* () {
-        const result = yield* getAxmDir("project");
-        const expected = yield* getProjectDir();
+        const result = yield* getAxmDir("project", projectRoot);
+        const expected = yield* getProjectDir(projectRoot);
         expect(result).toBe(expected);
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
     it.effect("uses explicit project root for project scope", () =>
       Effect.gen(function* () {
-        const result = yield* getAxmDir("project", "/tmp/axm-project");
+        const result = yield* getAxmDir("project", projectRoot);
         expect(result).toBe(path.join("/tmp/axm-project", ".axm"));
       }).pipe(Effect.provide(NodeServices.layer)),
     );
@@ -128,7 +124,7 @@ describe("paths", () => {
     it.effect("returns an absolute path regardless of scope", () =>
       Effect.gen(function* () {
         const userResult = yield* getAxmDir("user");
-        const projectResult = yield* getAxmDir("project");
+        const projectResult = yield* getAxmDir("project", projectRoot);
         expect(path.isAbsolute(userResult)).toBe(true);
         expect(path.isAbsolute(projectResult)).toBe(true);
       }).pipe(Effect.provide(NodeServices.layer)),
@@ -137,7 +133,7 @@ describe("paths", () => {
     it.effect("returns different paths for user and project scopes", () =>
       Effect.gen(function* () {
         const userResult = yield* getAxmDir("user");
-        const projectResult = yield* getAxmDir("project");
+        const projectResult = yield* getAxmDir("project", projectRoot);
         expect(typeof userResult).toBe("string");
         expect(typeof projectResult).toBe("string");
         expect(userResult.endsWith(".axm")).toBe(true);

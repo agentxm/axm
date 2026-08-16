@@ -20,6 +20,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
@@ -214,6 +215,7 @@ describe("packs install handler", () => {
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
+      projectRoot: decodeAbsolutePathSync(tempDir),
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({
@@ -264,6 +266,7 @@ describe("packs install handler", () => {
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
+      projectRoot: decodeAbsolutePathSync(tempDir),
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({

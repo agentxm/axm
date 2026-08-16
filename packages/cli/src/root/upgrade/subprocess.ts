@@ -21,6 +21,7 @@ export interface CommandResult {
 }
 
 export interface RunCommandOptions {
+  readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly timeoutMs?: number;
   readonly redactValues?: ReadonlyArray<string>;
@@ -115,6 +116,7 @@ const makeRunCommand =
       const spawned = yield* spawner
         .spawn(
           ChildProcess.make(command, args, {
+            cwd: options?.cwd,
             env: { ...(options?.env ?? {}) },
             extendEnv: true,
           }),

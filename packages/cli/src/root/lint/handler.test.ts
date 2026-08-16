@@ -39,7 +39,9 @@ import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-re
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 
+import { ExecutionDirectory } from "../../execution-directory.js";
 import { InstallHookCommandWorkflowActionsLive } from "../hooks/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
@@ -96,8 +98,12 @@ describe("axm lint handler", () => {
           detail: null,
         }),
       }),
+      Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(tempDir) }),
     );
-    const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
+    const wsOptions: WorkspaceMutationsOptions = {
+      scope: "project",
+      projectRoot: decodeAbsolutePathSync(tempDir),
+    };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);
     const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
     const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceFoundation);

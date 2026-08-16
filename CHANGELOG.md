@@ -1,3 +1,13 @@
+## 0.27.6 (2026-08-16)
+
+### 🚀 Features
+
+- Add structured extension deprecation guidance, conditional publisher transitions, and complete lifecycle inspection across AXM commands.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.5 (2026-08-15)
 
 ### 🚀 Features

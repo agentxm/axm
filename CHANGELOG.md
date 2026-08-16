@@ -1,3 +1,13 @@
+## 0.27.7 (2026-08-16)
+
+### 🩹 Fixes
+
+- Isolate CLI invocation directories from process-wide state and make upgrade detection independent of global flag order.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.6 (2026-08-16)
 
 ### 🚀 Features

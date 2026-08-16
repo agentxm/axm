@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/client-core",
-  "version": "0.27.6",
+  "version": "0.27.7",
   "description": "Core library for the axm agent extension manager. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

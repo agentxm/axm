@@ -14,6 +14,7 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle.js";
@@ -68,6 +69,7 @@ describe("agents list.handler", () => {
       coreWorkspaceLayer({
         scope: "project",
         ...opts?.wsOverrides,
+        projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
       }),
       baseLayer,
     );

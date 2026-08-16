@@ -43,6 +43,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { scopeFlag } from "../cli-flags.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
+import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import {
@@ -309,6 +310,7 @@ export const SetupSkillInstallerLive = Layer.effect(
     const terminal = yield* Terminal.Terminal;
     const nonInteractive = yield* nonInteractiveFlag;
     const registryUrl = yield* RegistryUrl;
+    const executionDirectory = yield* ExecutionDirectory;
     const capturedLayer = Layer.mergeAll(
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -316,6 +318,7 @@ export const SetupSkillInstallerLive = Layer.effect(
       Layer.succeed(Terminal.Terminal, terminal),
       Layer.succeed(nonInteractiveFlag, nonInteractive),
       Layer.succeed(RegistryUrl, registryUrl),
+      Layer.succeed(ExecutionDirectory, executionDirectory),
     );
 
     return {
@@ -634,10 +637,12 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const renderer = yield* CliRenderer;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
+  const executionDirectory = yield* ExecutionDirectory;
   yield* renderSetupBranding(renderer);
 
   const workspaceOptions: WorkspaceMutationsOptions = {
     scope: args.scope,
+    projectRoot: executionDirectory.path,
     ...(args.agents !== undefined && args.agents.length > 0 ? { agents: args.agents } : {}),
     ...(args.yes !== undefined ? { yes: args.yes } : {}),
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
@@ -657,7 +662,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const workspaceDir =
     args.scope === "user"
       ? yield* getUserScopeDir()
-      : path.join(yield* Effect.sync(() => process.cwd()), AXM_DIR_NAME);
+      : path.join(executionDirectory.path, AXM_DIR_NAME);
   const settingsExists = yield* fs.exists(path.join(workspaceDir, "settings.json")).pipe(
     Effect.mapError((error) =>
       makeAppError({

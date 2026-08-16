@@ -1,13 +1,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
 import type { LintView } from "@agentxm/client-core/unstable/lint";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 
 import { scopeFlag } from "../../cli-flags.js";
+import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
 import { materializeGitIndexWorkspace } from "./staged-workspace.js";
@@ -45,6 +48,13 @@ interface RunLintCommandArgs {
 }
 
 const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
+  const executionDirectory = yield* ExecutionDirectory;
+  const path = yield* Path.Path;
+  const projectRoot = Option.match(args.path, {
+    onNone: () => executionDirectory.path,
+    onSome: (value) => resolveExecutionPath(path, executionDirectory, value),
+  });
+
   if (args.view === "git-index" && args.scope === "user") {
     return yield* makeAppError({
       code: "validation",
@@ -54,31 +64,27 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
   }
 
   if (args.view === "git-index") {
-    const startPath = Option.getOrElse(args.path, () => process.cwd());
-    const snapshot = yield* materializeGitIndexWorkspace(startPath, {
+    const snapshot = yield* materializeGitIndexWorkspace(projectRoot, {
       selectRepositoryRoot: Option.isNone(args.path),
     });
+    const snapshotRoot = decodeAbsolutePathSync(snapshot.workspaceRoot);
     return yield* handleLint({
-      pathArg: Option.some(snapshot.workspaceRoot),
+      pathArg: Option.some(snapshotRoot),
       scope: "project",
       strict: args.strict,
       details: args.details,
       displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
       input: { view: "git-index", fingerprint: snapshot.fingerprint },
-    }).pipe(withWorkspace({ scope: "project", projectRoot: snapshot.workspaceRoot }));
+    }).pipe(withWorkspace({ scope: "project", projectRoot: snapshotRoot }));
   }
 
-  const workspaceOptions =
-    args.scope === "project" && Option.isSome(args.path)
-      ? { scope: args.scope, projectRoot: args.path.value }
-      : { scope: args.scope };
   return yield* handleLint({
-    pathArg: args.path,
+    pathArg: args.scope === "project" ? Option.some(projectRoot) : args.path,
     scope: args.scope,
     strict: args.strict,
     details: args.details,
     input: { view: "workspace" },
-  }).pipe(withWorkspace(workspaceOptions));
+  }).pipe(withWorkspace({ scope: args.scope, projectRoot }));
 });
 
 export const lintCommand = Command.make(

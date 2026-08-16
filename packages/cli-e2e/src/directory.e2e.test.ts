@@ -141,6 +141,45 @@ describe("global directory flag", () => {
     }
   });
 
+  it("treats an empty directory value as the launch directory", async () => {
+    const invoking = createTempDir("axm-directory-empty-");
+    try {
+      const result = await runCli(
+        ["--directory=", "setup", "--yes", "--non-interactive", "--json"],
+        { cwd: invoking.path },
+      );
+
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout).result.settingsPath).toBe(
+        path.join(invoking.path, ".axm", "settings.json"),
+      );
+    } finally {
+      invoking.cleanup();
+    }
+  });
+
+  it("canonicalizes a symlinked directory to its physical workspace", async () => {
+    const invoking = createTempDir("axm-directory-symlink-invoking-");
+    const workspace = createTempDir("axm-directory-symlink-workspace-");
+    const selected = path.join(invoking.path, "selected-workspace");
+    fs.symlinkSync(workspace.path, selected, "dir");
+
+    try {
+      const result = await runCli(
+        ["-C", selected, "setup", "--yes", "--non-interactive", "--json"],
+        { cwd: invoking.path },
+      );
+
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout).result.settingsPath).toBe(
+        path.join(workspace.path, ".axm", "settings.json"),
+      );
+    } finally {
+      invoking.cleanup();
+      workspace.cleanup();
+    }
+  });
+
   it("reports invalid and unusable directories as usage errors", async () => {
     const invoking = createTempDir("axm-directory-errors-");
     const restricted = createTempDir("axm-directory-restricted-");

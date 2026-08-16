@@ -24,6 +24,7 @@ import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import {
@@ -234,6 +235,7 @@ describe("packs uninstall handler", () => {
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...wsOverrides,
+      projectRoot: wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
     };
     const WsLayer = Layer.provide(
       coreWorkspaceLayer({

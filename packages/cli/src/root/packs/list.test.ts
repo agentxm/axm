@@ -15,6 +15,7 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { computePackageContentHashSync } from "../../test-stubs.js";
 import { handleList } from "./list.js";
@@ -98,6 +99,7 @@ describe("packs list.handler", () => {
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
       ...opts?.wsOverrides,
+      projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
     };
     const WsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);

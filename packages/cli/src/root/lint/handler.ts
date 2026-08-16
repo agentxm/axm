@@ -59,6 +59,7 @@ import {
 import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
+import { ExecutionDirectory } from "../../execution-directory.js";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -127,7 +128,7 @@ export const remapLintSummaryPaths = (
  *
  * - `--scope=project` (default): use the optional `<path>` argument if
  *   provided, otherwise the caller-supplied `cwd` (defaulting to
- *   `process.cwd()` when loaded via {@link resolveLintRootEffect}).
+ *   the invocation execution directory when loaded via {@link resolveLintRootEffect}).
  * - `--scope=user`: use the parent of the resolved user-scope `.axm`
  *   directory. Ignores `<path>`.
  *
@@ -163,12 +164,12 @@ const resolveLintRootEffect = (args: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const cwd = yield* Effect.sync(() => process.cwd());
+    const executionDirectory = yield* ExecutionDirectory;
     const userScopeDir = yield* getUserScopeDir();
     return resolveLintRoot({
       pathArg: args.pathArg,
       scope: args.scope,
-      cwd,
+      cwd: executionDirectory.path,
       userScopeDir,
       pathDirname: path.dirname,
     });

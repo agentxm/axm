@@ -8,6 +8,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
@@ -16,9 +17,9 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
-const createGit = (baseDir?: string): SimpleGit => {
+const createGit = (baseDir: string): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
-    baseDir: baseDir ?? process.cwd(),
+    baseDir,
     binary: "git",
     maxConcurrentProcesses: 1,
   };
@@ -59,15 +60,18 @@ const mapGitError =
  * @experimental This API is unstable and may change without notice.
  */
 export const shallowClone = (url: string, destination: string, ref?: string) =>
-  Effect.tryPromise({
-    try: () =>
-      createGit().clone(url, destination, [
-        "--depth",
-        "1",
-        "--single-branch",
-        ...(ref ? ["--branch", ref] : []),
-      ]),
-    catch: mapGitError("clone", `Failed to shallow clone ${url}`),
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* Effect.tryPromise({
+      try: () =>
+        createGit(path.dirname(destination)).clone(url, destination, [
+          "--depth",
+          "1",
+          "--single-branch",
+          ...(ref ? ["--branch", ref] : []),
+        ]),
+      catch: mapGitError("clone", `Failed to shallow clone ${url}`),
+    });
   }).pipe(Effect.withSpan("Git.shallowClone"));
 
 /** Get the immutable commit checked out at HEAD. */

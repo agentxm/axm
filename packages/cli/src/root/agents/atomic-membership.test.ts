@@ -17,6 +17,7 @@ import {
   protectWorkspacePath,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -54,7 +55,7 @@ describe("makeAtomicMembershipSteps", () => {
     const renderer = TestRenderer.make();
     const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: root }),
+      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 
@@ -133,7 +134,7 @@ describe("makeAtomicMembershipSteps", () => {
     const renderer = TestRenderer.make();
     const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: root }),
+      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 
@@ -195,7 +196,7 @@ describe("makeAtomicMembershipSteps", () => {
     const renderer = TestRenderer.make();
     const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: root }),
+      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 

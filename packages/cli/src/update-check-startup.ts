@@ -30,7 +30,11 @@ import { isAgent } from "@agentxm/client-utils/unstable/interaction";
 /**
  * Detect whether the command being run is `axm upgrade` from raw argv.
  */
-export const isUpgradeCommand = (args: ReadonlyArray<string>): boolean => args[0] === "upgrade";
+export const isUpgradeCommand = (args: ReadonlyArray<string>): boolean => {
+  const terminatorIndex = args.indexOf("--");
+  const commandTokens = args.slice(0, terminatorIndex === -1 ? args.length : terminatorIndex);
+  return commandTokens.includes("upgrade");
+};
 
 /**
  * Detect non-interactive mode from raw argv and environment.

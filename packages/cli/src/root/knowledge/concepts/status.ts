@@ -17,6 +17,7 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 
+import { ExecutionDirectory } from "../../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
 import { captureInstalledKnowledgeIndex } from "../inspect.js";
@@ -35,13 +36,14 @@ const selectedKnowledgeNames = Effect.gen(function* () {
 
 const crossScopeCollisions = Effect.gen(function* () {
   const workspace = yield* WorkspaceMutations;
+  const executionDirectory = yield* ExecutionDirectory;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const checkedScope: WorkspaceScope = workspace.scope === "project" ? "user" : "project";
   const otherAxmDir =
     checkedScope === "user"
       ? yield* resolveUserScopeDir()
-      : path.join(yield* Effect.sync(() => process.cwd()), ".axm");
+      : path.join(executionDirectory.path, ".axm");
   const settingsResult = yield* Effect.result(
     fs.readFileString(path.join(otherAxmDir, SETTINGS_FILENAME)),
   );

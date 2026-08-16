@@ -48,6 +48,7 @@ import {
   installedRowsByName,
   unmanagedRowsByName,
 } from "./read-model-record-rows.js";
+import { decodeAbsolutePathSync } from "../utils/path-types.js";
 
 describe("WorkspaceMutationsService", () => {
   let tempDir: string;
@@ -55,6 +56,7 @@ describe("WorkspaceMutationsService", () => {
   let homeDir: string;
   let originalCwd: string;
   let originalHome: string | undefined;
+  let defaultOptions: WorkspaceMutationsOptions;
 
   beforeEach(() => {
     originalCwd = process.cwd();
@@ -69,6 +71,10 @@ describe("WorkspaceMutationsService", () => {
 
     process.chdir(projectDir);
     process.env["HOME"] = homeDir;
+    defaultOptions = {
+      scope: "project",
+      projectRoot: decodeAbsolutePathSync(projectDir),
+    };
 
     // Pre-create an initialized workspace so the service doesn't prompt
     const axmDir = path.join(projectDir, ".axm");
@@ -104,6 +110,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         const ws = yield* getService({
           scope: "project",
+          projectRoot: decodeAbsolutePathSync(projectDir),
         });
 
         expect(ws.baseDir).toBe(path.dirname(ws.path));
@@ -114,7 +121,7 @@ describe("WorkspaceMutationsService", () => {
   describe("Knowledge instruction config", () => {
     it.effect("enables the discovery table by default", () =>
       Effect.gen(function* () {
-        const ws = yield* getService({ scope: "project" });
+        const ws = yield* getService(defaultOptions);
         const config = yield* ws.getKnowledgeDiscoveryConfig();
 
         expect(config).toEqual({ instructions: true });
@@ -131,7 +138,7 @@ describe("WorkspaceMutationsService", () => {
           }),
         );
 
-        const ws = yield* getService({ scope: "project" });
+        const ws = yield* getService(defaultOptions);
         const config = yield* ws.getKnowledgeDiscoveryConfig();
 
         expect(config).toEqual({ instructions: false });
@@ -144,7 +151,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.rmSync(path.join(projectDir, ".axm"), { recursive: true, force: true });
 
-        const error = yield* getService({ scope: "project" }).pipe(Effect.flip);
+        const error = yield* getService(defaultOptions).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("internal");
       }),
@@ -157,7 +164,7 @@ describe("WorkspaceMutationsService", () => {
         fs.mkdirSync(skillDir, { recursive: true });
         fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Native only\n");
 
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const inventory = yield* ws.records.getExtensionInventory("skill", {});
 
         expect(inventory).toMatchObject({
@@ -178,7 +185,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
 
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
@@ -195,7 +202,7 @@ describe("WorkspaceMutationsService", () => {
           "lockfileVersion: invalid\n",
         );
 
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
 
         const appError = getAppError(error);
@@ -208,11 +215,6 @@ describe("WorkspaceMutationsService", () => {
 
   // nonInteractive resolution is tested in cli-flags/service.test.ts
   // preview flag is tested in cli-flags
-
-  /** Default options for tests that don't care about prompting/preview. */
-  const defaultOptions: WorkspaceMutationsOptions = {
-    scope: "project",
-  };
 
   /**
    * Helper to write settings JSON to a .axm directory.
@@ -579,7 +581,10 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { minimumReleaseAgeExclude: ["@project/*"] });
         writeSettingsTo(homeDir, { minimumReleaseAgeExclude: ["@user/*"] });
 
-        const ws = yield* getService({ scope: "user" });
+        const ws = yield* getService({
+          scope: "user",
+          projectRoot: decodeAbsolutePathSync(projectDir),
+        });
 
         expect(yield* ws.getMinimumReleaseAgeExclude()).toEqual([
           {
@@ -818,7 +823,7 @@ describe("WorkspaceMutationsService", () => {
           "lockfileVersion: 3\nskills: []\n",
         );
 
-        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const error = yield* ws.getLockedSkills().pipe(Effect.flip);
 
         expect(getAppError(error).code).toBe("validation");
@@ -1633,7 +1638,7 @@ describe("WorkspaceMutationsService", () => {
         workspaceInitInteraction.layer,
         flagsLayer,
       );
-      const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
+      const wsOptions = defaultOptions;
       return {
         run: bootstrapWorkspace(wsOptions).pipe(
           Effect.map((r) => r.settings),

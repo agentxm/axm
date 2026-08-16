@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
@@ -299,5 +302,26 @@ describe("root command parser output", () => {
       detail: "Missing required flag: --name",
     });
     expect(stdoutWrites.join("")).not.toContain('"type":"help"');
+  });
+
+  it("keeps the host working directory unchanged across invocation paths", async () => {
+    const originalCwd = process.cwd();
+    const successDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-app-cwd-success-"));
+    const failureDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-app-cwd-failure-"));
+    try {
+      await run(["-C", successDir, "setup", "--yes", "--non-interactive", "--json"]);
+      expect(process.cwd()).toBe(originalCwd);
+
+      await expect(
+        run(["-C", failureDir, "lint", "--non-interactive", "--json"]),
+      ).rejects.toBeInstanceOf(ExitCalled);
+      expect(process.cwd()).toBe(originalCwd);
+
+      await run(["-C", successDir, "--help"]);
+      expect(process.cwd()).toBe(originalCwd);
+    } finally {
+      fs.rmSync(successDir, { recursive: true, force: true });
+      fs.rmSync(failureDir, { recursive: true, force: true });
+    }
   });
 });

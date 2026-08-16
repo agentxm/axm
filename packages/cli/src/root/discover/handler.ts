@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
@@ -15,6 +16,11 @@ import {
 } from "@agentxm/client-core/unstable/discover";
 import { PackageUrlSchema } from "@agentxm/client-core/unstable/packaging";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import {
+  ExecutionDirectory,
+  resolveExecutionPath,
+  type ExecutionDirectoryService,
+} from "../../execution-directory.js";
 
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
@@ -83,8 +89,15 @@ const defaultRunDiscover = (projectDir: string) =>
     return yield* discover(projectDir, registryClient);
   });
 
-export const resolveDiscoverProjectDir = (path: Option.Option<string>): string =>
-  Option.getOrElse(path, () => process.cwd());
+export const resolveDiscoverProjectDir = (
+  selected: Option.Option<string>,
+  executionDirectory: ExecutionDirectoryService,
+  path: Pick<Path.Path, "resolve">,
+): string =>
+  Option.match(selected, {
+    onNone: () => executionDirectory.path,
+    onSome: (value) => resolveExecutionPath(path, executionDirectory, value),
+  });
 
 export const formatPackageName = (pkg: DiscoverPackageResult): string => {
   const parts = pkg.detectedPackage;
@@ -160,7 +173,9 @@ export const handleDiscoverWith = <E, R>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const projectDir = resolveDiscoverProjectDir(args.path);
+    const executionDirectory = yield* ExecutionDirectory;
+    const path = yield* Path.Path;
+    const projectDir = resolveDiscoverProjectDir(args.path, executionDirectory, path);
     const result = yield* renderer.withSpinner(
       "Scanning project dependencies",
       () => runDiscover(projectDir),

@@ -38,6 +38,7 @@ import {
 } from "@agentxm/client-core/unstable/version-resolution";
 import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
+import { ExecutionDirectory } from "../../execution-directory.js";
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;
@@ -437,7 +438,11 @@ const runRecorded = (
 ) =>
   Effect.gen(function* () {
     const subprocess = yield* Subprocess;
-    const result = yield* subprocess.run(executable, args, options);
+    const executionDirectory = yield* ExecutionDirectory;
+    const result = yield* subprocess.run(executable, args, {
+      ...options,
+      cwd: executionDirectory.path,
+    });
     records.push(commandRecord(purpose, executable, args, result));
     return result;
   });

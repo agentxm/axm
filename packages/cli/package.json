@@ -48,10 +48,12 @@
   "exports": {
     "./app": {
       "types": "./dist/src/app.d.ts",
+      "experimental": "./dist/src/app.js",
       "default": "./dist/src/app.js"
     },
     "./runtime": {
       "types": "./dist/src/runtime.d.ts",
+      "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
     }
   },

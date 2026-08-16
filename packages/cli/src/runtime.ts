@@ -5,9 +5,11 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
@@ -81,6 +83,8 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
+import { decodeAbsolutePathSync, type AbsolutePath } from "@agentxm/client-core/unstable/utils";
+import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
 
@@ -327,12 +331,21 @@ const resolveRuntimeConfig = () =>
     } as const;
   });
 
+type CliWorkspaceOptions = Omit<WorkspaceMutationsOptions, "builtInSources" | "projectRoot"> & {
+  readonly projectRoot?: AbsolutePath;
+};
+
 export const withWorkspace =
-  (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
+  (options: WorkspaceScope | CliWorkspaceOptions) =>
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
       const envConfig = yield* readRuntimeEnvConfig;
-      const resolved = typeof options === "string" ? { scope: options } : options;
+      const executionDirectory = yield* ExecutionDirectory;
+      const configured = typeof options === "string" ? { scope: options } : options;
+      const resolved = {
+        ...configured,
+        projectRoot: configured.projectRoot ?? executionDirectory.path,
+      } satisfies Omit<WorkspaceMutationsOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
       const renderer = yield* CliRenderer;
       return yield* Effect.scoped(
@@ -372,19 +385,26 @@ export const withRuntime =
   <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
-      yield* Option.match(directory, {
-        onNone: () => Effect.void,
-        onSome: (selected) =>
-          Effect.try({
-            try: () => process.chdir(selected),
-            catch: (cause) =>
-              makeAppError({
-                code: "usage",
-                detail: `Could not run from the selected directory '${selected}'.`,
-                cause,
-              }),
-          }),
-      });
+      const selected = Option.getOrElse(directory, () => process.cwd());
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directoryError = (cause: unknown) =>
+        makeAppError({
+          code: "usage",
+          detail: `Could not run from the selected directory '${selected}'.`,
+          cause,
+        });
+      const canonical = yield* fs.realPath(selected).pipe(Effect.mapError(directoryError));
+      const info = yield* fs.stat(canonical).pipe(Effect.mapError(directoryError));
+      if (info.type !== "Directory") {
+        return yield* makeAppError({
+          code: "usage",
+          detail: `Could not run from the selected directory '${selected}'.`,
+          cause: new Error("The selected path is not a directory."),
+        });
+      }
+      yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
+      const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
       const config = yield* resolveRuntimeConfig();
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format, {
@@ -401,9 +421,15 @@ export const withRuntime =
         Layer.mergeAll(foundationLayer, interactionLayer),
       );
 
-      return yield* withCliErrorHandling(program.pipe(Effect.provide(AuthLayer)), {
-        command,
-        format,
-        telemetryConfig: config.telemetryConfig,
-      }).pipe(Effect.provide(appLayer), Effect.scoped);
+      return yield* withCliErrorHandling(
+        program.pipe(
+          Effect.provideService(ExecutionDirectory, executionDirectory),
+          Effect.provide(AuthLayer),
+        ),
+        {
+          command,
+          format,
+          telemetryConfig: config.telemetryConfig,
+        },
+      ).pipe(Effect.provide(appLayer), Effect.scoped);
     }).pipe(Effect.provide(RegistryRuntimeLayer));

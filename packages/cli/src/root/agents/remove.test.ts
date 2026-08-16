@@ -17,6 +17,7 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { ResolvePlanInteractionTest } from "@agentxm/client-core/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -80,6 +81,7 @@ describe("agents remove.handler", () => {
       coreWorkspaceLayer({
         scope: "project",
         ...opts?.wsOverrides,
+        projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
       }),
       baseLayer,
     );

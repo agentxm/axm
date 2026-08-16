@@ -67,6 +67,14 @@ type CommandProgramError = AppError | CliError.CliError;
  * Effect CLI built-ins kept for axm: `--completions` and `--log-level` are
  * intentionally absent — verbosity flags own logger severity instead.
  */
+/**
+ * Experimental AXM command tree for structural inspection and composition.
+ *
+ * Executing the tree through {@link run} is supported for one invocation per
+ * process. Repeated, concurrent, and Worker-hosted invocation are unsupported.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
     "Open extension manager for AI coding agents.\n  Manage skills, MCP servers, subagents, rules, hooks, knowledge, and packs across your AI coding agents from a single CLI.",
@@ -151,6 +159,15 @@ const updateCheckServicesLayer = Layer.provide(
   runtimeBaseLayer,
 );
 
+/**
+ * Run AXM as a process entry point.
+ *
+ * This API supports one invocation per process. It owns stdout, stderr, and
+ * signal handlers for that invocation, and it terminates the process on
+ * failure. Repeated, concurrent, and Worker-hosted invocation are unsupported.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
     (argv) => {

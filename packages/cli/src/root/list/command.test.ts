@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
@@ -26,7 +27,7 @@ describe("root list", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("returns a deterministic cross-type local inventory without remote progress", () => {
+  it.effect("returns a deterministic cross-type inventory with lifecycle summaries", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       skills: { review: { source: "@acme/skills/review", enabled: false } },
@@ -50,7 +51,7 @@ describe("root list", () => {
             }),
           ],
         });
-        expect(rendererState.spinnerMessages).not.toContain("Checking extensions for updates");
+        expect(rendererState.spinnerMessages).toContain("Checking extensions for deprecation");
       }),
     );
   });
@@ -138,6 +139,7 @@ describe("root list", () => {
           type: "skill",
           name: "review",
           publisherBindingId: "hbnd_test",
+          deprecation: null,
           versions: [
             {
               version: "1.1.0",
@@ -188,8 +190,11 @@ describe("root list", () => {
   it.effect("reports structured Registry deprecation metadata", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeInstalledRegistrySkill({
-      deprecatedAt: "2026-03-01T00:00:00.000Z",
-      deprecationNotice: "Use the replacement skill.",
+      deprecation: {
+        deprecatedAt: "2026-03-01T00:00:00.000Z",
+        message: "Use the replacement skill.",
+        replacement: { status: "available", fqn: "@acme/skills/replacement" },
+      },
     });
     return provide(
       Effect.gen(function* () {
@@ -198,12 +203,69 @@ describe("root list", () => {
           filter: "deprecated",
           count: 1,
           items: [
-            expect.objectContaining({
+            {
               assessment: {
                 state: "deprecated",
-                deprecatedAt: "2026-03-01T00:00:00.000Z",
-                deprecationNotice: "Use the replacement skill.",
+                deprecation: {
+                  deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
+                  message: "Use the replacement skill.",
+                  replacement: { status: "available", fqn: "@acme/skills/replacement" },
+                },
               },
+            },
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("summarizes deprecation in the ordinary machine list without full guidance", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeInstalledRegistrySkill({
+      deprecation: {
+        deprecatedAt: "2026-03-01T00:00:00.000Z",
+        message: "Use the replacement skill.",
+        replacement: { status: "available", fqn: "@acme/skills/replacement" },
+      },
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        const result = rendererState.results[0]?.data;
+        expect(result).toMatchObject({
+          filter: "all",
+          count: 1,
+          items: [{ assessment: { state: "deprecated" } }],
+        });
+        const item =
+          typeof result === "object" && result !== null && "items" in result
+            ? result.items
+            : undefined;
+        expect(item).toEqual([
+          expect.objectContaining({
+            assessment: { state: "deprecated" },
+          }),
+        ]);
+      }),
+    );
+  });
+
+  it.effect("points ordinary human list rows to full deprecation detail", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+    writeInstalledRegistrySkill({
+      deprecation: {
+        deprecatedAt: "2026-03-01T00:00:00.000Z",
+        message: "Use the replacement skill.",
+      },
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        expect(rendererState.results[1]?.data).toMatchObject({
+          items: [
+            expect.objectContaining({
+              state: "deprecated",
+              guidance: "axm view @acme/skills/review deprecation",
             }),
           ],
         });

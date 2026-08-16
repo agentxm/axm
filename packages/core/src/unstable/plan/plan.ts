@@ -19,7 +19,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
-import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
+import type { DeprecationView, ReleaseAgeOperationEvidence } from "../registry/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
 export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;
@@ -99,6 +99,8 @@ export interface JobStepArtifact {
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
   readonly source?: JobStepArtifactSource;
+  /** Registry lifecycle evidence captured when the candidate was resolved. */
+  readonly registryLifecycle?: { readonly deprecation: DeprecationView };
 }
 
 export interface JobStepArtifactTarget {
@@ -113,6 +115,10 @@ export interface JobStepArtifactSource {
   readonly ref?: string;
   readonly directory?: string;
   readonly gitTreeHash?: string;
+}
+
+export interface RegistryLifecycleEvidence {
+  readonly deprecation: DeprecationView;
 }
 
 export type JobStepResult =
@@ -140,6 +146,7 @@ export interface ReadyJobStep {
   readonly label: string;
   readonly message?: string;
   readonly artifact?: JobStepArtifact;
+  readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
@@ -150,6 +157,7 @@ export interface WarnJobStep {
   readonly warnMessage: string;
   readonly label: string;
   readonly artifact?: JobStepArtifact;
+  readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 
@@ -160,6 +168,7 @@ export interface ErrorJobStep {
   readonly errorMessage: string;
   readonly label: string;
   readonly artifact?: JobStepArtifact;
+  readonly registryLifecycle?: RegistryLifecycleEvidence;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }
@@ -174,6 +183,7 @@ export interface CompletedJobStep {
   readonly key?: string;
   readonly label: string;
   readonly blockedBy?: ReadonlyArray<string>;
+  readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly result: JobStepResult;
 }
 

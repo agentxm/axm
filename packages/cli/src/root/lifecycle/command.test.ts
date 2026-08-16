@@ -13,7 +13,7 @@ import {
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 
 import { expectAppliedPlanResult, expectRecord, property } from "../../test-helpers.js";
@@ -30,7 +30,11 @@ const jsonResponse = (body: unknown, status = 200): Response =>
     headers: { "content-type": "application/json" },
   });
 
-const lifecycleSuccessBody = (url: string, method: string): unknown => {
+const lifecycleSuccessBody = (
+  url: string,
+  method: string,
+  currentDeprecation: unknown,
+): unknown => {
   if (url.endsWith("/versions/yank")) {
     return {
       selection: "all-available",
@@ -38,13 +42,34 @@ const lifecycleSuccessBody = (url: string, method: string): unknown => {
       futureVersionsAffected: false,
     };
   }
-  if (url.endsWith("/deprecate")) {
+  if (url.endsWith("/deprecation")) {
+    if (method === "GET") {
+      return {
+        deprecation: currentDeprecation,
+        revision: "dep_0",
+      };
+    }
+    if (method === "DELETE") {
+      return {
+        target: EXTENSION,
+        before: {
+          deprecatedAt: "2026-07-29T00:00:00.000Z",
+          message: "Use the replacement.",
+        },
+        after: null,
+        disposition: "restored",
+        revision: "dep_2",
+      };
+    }
     return {
-      owner: "@acme",
-      type: "skill",
-      name: "review",
-      deprecatedAt: method === "DELETE" ? null : "2026-07-29T00:00:00.000Z",
-      deprecationNotice: method === "DELETE" ? null : "Use the replacement.",
+      target: EXTENSION,
+      before: null,
+      after: {
+        deprecatedAt: "2026-07-29T00:00:00.000Z",
+        message: "Use the replacement.",
+      },
+      disposition: "created",
+      revision: "dep_1",
     };
   }
   return {
@@ -59,8 +84,13 @@ const lifecycleSuccessBody = (url: string, method: string): unknown => {
   };
 };
 
-const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized?: boolean }) => {
-  const renderer = TestMachineRenderer.make();
+const makeLayers = (options?: {
+  readonly stepUp?: boolean;
+  readonly unauthorized?: boolean;
+  readonly currentDeprecation?: unknown;
+  readonly machine?: boolean;
+}) => {
+  const renderer = options?.machine === false ? TestRenderer.make() : TestMachineRenderer.make();
   const interaction = AuthLoginInteractionTest({
     openBrowser: () => Effect.succeed(true),
   });
@@ -68,15 +98,24 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
     readonly url: string;
     readonly method: string;
     readonly stepUpRequest?: string;
+    readonly ifMatch?: string;
+    readonly body?: unknown;
   }> = [];
   let challengeSent = false;
   const httpClient = HttpClient.make((request) =>
     Effect.sync(() => {
       const stepUpRequest = request.headers["x-axm-step-up-request"];
+      const ifMatch = request.headers["if-match"];
+      const body: unknown =
+        request.body._tag === "Uint8Array"
+          ? JSON.parse(new TextDecoder().decode(request.body.body))
+          : undefined;
       requests.push({
         url: request.url,
         method: request.method,
         ...(stepUpRequest === undefined ? {} : { stepUpRequest }),
+        ...(ifMatch === undefined ? {} : { ifMatch }),
+        ...(body === undefined ? {} : { body }),
       });
       if (options?.unauthorized === true) {
         return HttpClientResponse.fromWeb(
@@ -122,7 +161,9 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
       }
       return HttpClientResponse.fromWeb(
         request,
-        jsonResponse(lifecycleSuccessBody(request.url, request.method)),
+        jsonResponse(
+          lifecycleSuccessBody(request.url, request.method, options?.currentDeprecation ?? null),
+        ),
       );
     }),
   );
@@ -145,7 +186,7 @@ const makeLayers = (options?: { readonly stepUp?: boolean; readonly unauthorized
 
   const layer = Layer.mergeAll(
     renderer.layer,
-    TestFlagsLayer({ json: true }),
+    TestFlagsLayer({ json: options?.machine !== false }),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(RegistryUrl, REGISTRY_URL),
     credentials,
@@ -217,29 +258,140 @@ describe("extension lifecycle machine output", () => {
     );
   });
 
-  it.effect("emits one plan result for deprecate", () => {
-    const { provide, rendererState } = makeLayers();
+  it.effect("emits one Registry transition for deprecate", () => {
+    const { provide, rendererState, requests } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleDeprecate({ ref: EXTENSION, message: "Use the replacement." });
+        yield* handleDeprecate({
+          ref: EXTENSION,
+          message: Option.some("Use the replacement."),
+          replacement: Option.none(),
+          clearMessage: false,
+          clearReplacement: false,
+        });
         expect(rendererState.results).toHaveLength(1);
-        expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Deprecate extension",
-          warningCount: 1,
+        expect(rendererState.results[0]?.data).toMatchObject({
+          target: EXTENSION,
+          before: null,
+          disposition: "created",
+          revision: "dep_1",
+        });
+        expect(requests.map(({ method }) => method)).toEqual(["GET", "PUT"]);
+        expect(requests[1]).toMatchObject({
+          ifMatch: "dep_0",
+          body: {
+            message: "Use the replacement.",
+            replacement: { kind: "clear" },
+          },
         });
       }),
     );
   });
 
-  it.effect("emits one plan result for undeprecate", () => {
-    const { provide, rendererState } = makeLayers();
+  it.effect("emits one Registry transition for undeprecate", () => {
+    const { provide, rendererState, requests } = makeLayers();
     return provide(
       Effect.gen(function* () {
         yield* handleUndeprecate(EXTENSION);
         expect(rendererState.results).toHaveLength(1);
-        expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Undeprecate extension",
+        expect(rendererState.results[0]?.data).toMatchObject({
+          target: EXTENSION,
+          after: null,
+          disposition: "restored",
+          revision: "dep_2",
         });
+        expect(requests.map(({ method }) => method)).toEqual(["GET", "DELETE"]);
+        expect(requests[1]?.ifMatch).toBe("dep_0");
+      }),
+    );
+  });
+
+  it.effect("renders publisher guidance as human result data rather than a warning", () => {
+    const { provide, rendererState } = makeLayers({ machine: false });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleDeprecate({
+          ref: EXTENSION,
+          message: Option.some("Use the replacement."),
+          replacement: Option.none(),
+          clearMessage: false,
+          clearReplacement: false,
+        });
+        expect(rendererState.logs).toEqual(
+          expect.arrayContaining([
+            { _tag: "success", message: `Deprecated ${EXTENSION}.` },
+            { _tag: "info", message: "Message: Use the replacement." },
+          ]),
+        );
+        expect(rendererState.logs).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ _tag: "warn" })]),
+        );
+      }),
+    );
+  });
+
+  it.effect("composes replacement-only guidance into a conditional PUT", () => {
+    const { provide, requests } = makeLayers();
+    return provide(
+      Effect.gen(function* () {
+        yield* handleDeprecate({
+          ref: EXTENSION,
+          message: Option.none(),
+          replacement: Option.some("@acme/skills/replacement"),
+          clearMessage: false,
+          clearReplacement: false,
+        });
+        expect(requests[1]).toMatchObject({
+          ifMatch: "dep_0",
+          body: {
+            message: null,
+            replacement: { kind: "set", fqn: "@acme/skills/replacement" },
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("preserves a concealed replacement at the observed revision", () => {
+    const { provide, requests } = makeLayers({
+      currentDeprecation: {
+        deprecatedAt: "2026-07-29T00:00:00.000Z",
+        message: "Old guidance.",
+        replacement: { status: "unavailable" },
+      },
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleDeprecate({
+          ref: EXTENSION,
+          message: Option.some("New guidance."),
+          replacement: Option.none(),
+          clearMessage: false,
+          clearReplacement: false,
+        });
+        expect(requests[1]).toMatchObject({
+          ifMatch: "dep_0",
+          body: { message: "New guidance.", replacement: { kind: "preserve" } },
+        });
+      }),
+    );
+  });
+
+  it.effect("rejects conflicting patch flags before making a request", () => {
+    const { provide, requests } = makeLayers();
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          handleDeprecate({
+            ref: EXTENSION,
+            message: Option.some("Guidance."),
+            replacement: Option.none(),
+            clearMessage: true,
+            clearReplacement: false,
+          }),
+        );
+        expect(error).toMatchObject({ code: "validation" });
+        expect(requests).toEqual([]);
       }),
     );
   });

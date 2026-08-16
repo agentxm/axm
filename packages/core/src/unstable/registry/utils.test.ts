@@ -118,6 +118,7 @@ describe("extensionLifecycleWarnings", () => {
           type: "mcp-server",
           name: extensionName("github"),
           publisherBindingId: "hbnd_test",
+          deprecation: null,
           versions: [version],
         },
         version,

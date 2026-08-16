@@ -8,6 +8,8 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildInstallOperation,
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
   targetFromRef,
   toLabel,
   toLabelWithCompanions,
@@ -193,13 +195,19 @@ export const buildPackMemberInstallStep = (args: {
           }),
         ),
       };
-      const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
+      const warnings = extensionRefLifecycleWarnings(ref);
+      const registryLifecycle = extensionRefRegistryLifecycle(ref);
       return warnings.length === 0
-        ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)
+        ? ({
+            ...base,
+            readiness: "ready",
+            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+          } satisfies PlannedJobStep)
         : ({
             ...base,
             readiness: "warn",
             warnMessage: warnings.join("; "),
+            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
           } satisfies PlannedJobStep);
     }
 

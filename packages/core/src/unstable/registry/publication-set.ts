@@ -25,6 +25,7 @@ import {
   type Version,
   type VersionRange,
 } from "../version-constraints/version-constraints.js";
+import { DeprecationViewSchema, type DeprecationView } from "./schema.js";
 
 export const PUBLICATION_SET_CONTRACT = "publication-set-v2" as const;
 export const MAX_PUBLICATION_SET_CANDIDATES = 100;
@@ -123,6 +124,7 @@ export const PackDependencyFindingSchema = Schema.Struct({
   dependency: PackDependencyDescriptorSchema,
   effectiveVisibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
   lifecycle: Schema.optional(Schema.Literals(["active", "unavailable"] as const)),
+  deprecation: Schema.optional(DeprecationViewSchema),
   location: Schema.Struct({ file: Schema.Literal("pack.json") }),
   path: Schema.Literal("./pack.json"),
   message: Schema.String,
@@ -187,7 +189,7 @@ export interface PublicationDependencySnapshot {
   readonly exists: boolean;
   readonly visibility: string | null;
   readonly lifecycleState: string | null;
-  readonly deprecated: boolean;
+  readonly deprecation: DeprecationView | null;
   readonly versions: ReadonlyArray<PublicationDependencyVersionSnapshot>;
 }
 
@@ -425,7 +427,7 @@ const evaluateDependencySnapshot = (
       }),
     ];
   }
-  return snapshot.deprecated
+  return snapshot.deprecation !== null
     ? [
         findingBase({
           ruleId: "pack/dependency-deprecated",
@@ -434,6 +436,7 @@ const evaluateDependencySnapshot = (
           dependency: snapshot.dependency,
           effectiveVisibility: snapshot.visibility === "private" ? "private" : "public",
           lifecycle: "active",
+          deprecation: snapshot.deprecation,
           message: `Dependency ${fqn} requests range "${snapshot.dependency.range}" and resolves to a deprecated extension.`,
           suggestions: [
             { description: `Prefer a supported replacement for ${fqn} when one is available` },
@@ -470,7 +473,7 @@ export const evaluateProspectivePackDependencies = (input: {
           exists: false,
           visibility: null,
           lifecycleState: null,
-          deprecated: false,
+          deprecation: null,
           versions: [],
         } satisfies PublicationDependencySnapshot);
       const selected = candidates.get(dependencyIdentityKey(dependency));
@@ -573,7 +576,7 @@ export const evaluateProspectivePackDependencyState = (input: {
         exists: false,
         visibility: null,
         lifecycleState: null,
-        deprecated: false,
+        deprecation: null,
         versions: [],
       } satisfies PublicationDependencySnapshot);
     const selected = candidates.get(dependencyIdentityKey(dependency));

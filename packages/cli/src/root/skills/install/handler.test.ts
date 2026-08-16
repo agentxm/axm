@@ -94,6 +94,7 @@ const createRegistrySkill = ({
       owner,
       type: "skill",
       publisherBindingId: "hbnd_test",
+      deprecation: null,
       versions: [
         {
           version: "1.0.0",

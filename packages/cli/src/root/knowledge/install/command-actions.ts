@@ -7,6 +7,8 @@ import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
   parseRegistrySourcePatternParts,
   targetFromRef,
   toLabelWithCompanions,
@@ -164,13 +166,19 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
                     }),
                   ),
                 };
-                const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
+                const warnings = extensionRefLifecycleWarnings(ref);
+                const registryLifecycle = extensionRefRegistryLifecycle(ref);
                 return warnings.length === 0
-                  ? { ...base, readiness: "ready" as const }
+                  ? {
+                      ...base,
+                      readiness: "ready" as const,
+                      ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+                    }
                   : {
                       ...base,
                       readiness: "warn" as const,
                       warnMessage: warnings.join("; "),
+                      ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
                     };
               })(),
             ),

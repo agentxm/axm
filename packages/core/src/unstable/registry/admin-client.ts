@@ -13,6 +13,12 @@ import {
 } from "./error-mapping.js";
 import { registryClientErrorToAppError } from "./translate.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
+import type {
+  DeprecationManagementView,
+  DeprecationReplacementIntent,
+  DeprecationTransition,
+  DeprecationView,
+} from "./schema.js";
 
 export interface RegistryExtensionReference {
   readonly owner: string;
@@ -29,6 +35,57 @@ export type YankCategory = "broken" | "security" | "accidental" | "other";
 export interface RegistryLifecycleCallOptions {
   readonly stepUpRequestId?: string;
 }
+
+export interface PutExtensionDeprecationInput {
+  readonly revision: string;
+  readonly message: string | null;
+  readonly replacement: DeprecationReplacementIntent;
+}
+
+const normalizeDeprecation = (
+  value: GeneratedRegistryClient.DeprecationView | null,
+): DeprecationView | null => {
+  if (value === null) return null;
+  const replacement =
+    value.replacement === undefined || value.replacement === null
+      ? undefined
+      : value.replacement.status === "available"
+        ? value.replacement
+        : {
+            status: "unavailable" as const,
+            ...(value.replacement.fqn === undefined || value.replacement.fqn === null
+              ? {}
+              : { fqn: value.replacement.fqn }),
+          };
+  if (value.message !== undefined && value.message !== null) {
+    return {
+      deprecatedAt: value.deprecatedAt,
+      message: value.message,
+      ...(replacement === undefined ? {} : { replacement }),
+    };
+  }
+  if (replacement !== undefined) {
+    return { deprecatedAt: value.deprecatedAt, replacement };
+  }
+  throw new Error("Registry returned deprecation without guidance.");
+};
+
+const normalizeManagementView = (
+  value: GeneratedRegistryClient.DeprecationManagementView,
+): DeprecationManagementView => ({
+  deprecation: normalizeDeprecation(value.deprecation),
+  revision: value.revision,
+});
+
+const normalizeTransition = (
+  value: GeneratedRegistryClient.DeprecationTransition,
+): DeprecationTransition => ({
+  target: value.target,
+  before: normalizeDeprecation(value.before),
+  after: normalizeDeprecation(value.after),
+  disposition: value.disposition,
+  revision: value.revision,
+});
 
 const mapAdminClientError =
   (registryUrl: string) =>
@@ -126,20 +183,40 @@ export const unyankExtensionVersion = (
     );
   });
 
-export const deprecateExtension = (ref: RegistryExtensionReference, notice: string | null) =>
+export const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
   Effect.gen(function* () {
     const { client, registryUrl } = yield* makeLifecycleClient();
-    return yield* runAdminCall(
+    const result = yield* runAdminCall(
       registryUrl,
-      client.ExtensionsDeprecate(ref.owner, ref.type, ref.name, { payload: { notice } }),
+      client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
     );
+    return normalizeManagementView(result);
   });
 
-export const undeprecateExtension = (ref: RegistryExtensionReference) =>
+export const deprecateExtension = (
+  ref: RegistryExtensionReference,
+  input: PutExtensionDeprecationInput,
+) =>
   Effect.gen(function* () {
     const { client, registryUrl } = yield* makeLifecycleClient();
-    return yield* runAdminCall(
+    const result = yield* runAdminCall(
       registryUrl,
-      client.ExtensionsUndeprecate(ref.owner, ref.type, ref.name, undefined),
+      client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
+        params: { "if-match": input.revision },
+        payload: { message: input.message, replacement: input.replacement },
+      }),
     );
+    return normalizeTransition(result);
+  });
+
+export const undeprecateExtension = (ref: RegistryExtensionReference, revision: string) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    const result = yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
+        params: { "if-match": revision },
+      }),
+    );
+    return normalizeTransition(result);
   });

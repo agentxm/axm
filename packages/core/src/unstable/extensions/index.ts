@@ -214,6 +214,8 @@ export {
   buildMaterializeOperation,
   buildNewExtensionStep,
   buildUninstallOperation,
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
   formatPackageUrlParts,
   targetFromRef,
   toLabel,

@@ -18,6 +18,8 @@ import type {
 } from "../workspace/service-interface.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 import { evaluateSourceAuthority } from "./source-authority.js";
+import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
+import { toExtensionTypePlural } from "./common.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -46,6 +48,26 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "knowledge", name: ref.knowledge.name };
   }
 };
+
+export const extensionRefLifecycleWarnings = (ref: ExtensionRef): ReadonlyArray<string> =>
+  ref.refType === "registry"
+    ? [
+        ...(ref.deprecation === undefined
+          ? []
+          : [
+              formatDeprecationWarning(
+                `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+                ref.deprecation,
+              ),
+            ]),
+        ...(ref.lifecycleWarnings ?? []),
+      ]
+    : [];
+
+export const extensionRefRegistryLifecycle = (ref: ExtensionRef) =>
+  ref.refType !== "registry" || ref.deprecation === undefined
+    ? undefined
+    : { deprecation: ref.deprecation };
 
 /**
  * Produce a display label from an ExtensionTarget.
@@ -254,10 +276,16 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     });
     const artifact =
       args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
+    const artifactWithLifecycle =
+      artifact === undefined ||
+      args.ref.refType !== "registry" ||
+      args.ref.deprecation === undefined
+        ? artifact
+        : { ...artifact, registryLifecycle: { deprecation: args.ref.deprecation } };
     return {
       result: "success" as const,
       message: args.message ?? "Applied install operation",
-      ...(artifact === undefined ? {} : { artifact }),
+      ...(artifactWithLifecycle === undefined ? {} : { artifact: artifactWithLifecycle }),
     } satisfies JobStepResult;
   });
 
@@ -273,13 +301,14 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
   const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
-  const lifecycleWarnings =
-    args.ref.refType === "registry" ? (args.ref.lifecycleWarnings ?? []) : [];
+  const lifecycleWarnings = extensionRefLifecycleWarnings(args.ref);
+  const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
 
   const base = {
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
     run: runInstallOperation(manager, args),
+    ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
   };
   return lifecycleWarnings.length === 0
     ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)

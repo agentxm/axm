@@ -94,6 +94,7 @@ const extensionIndexResponse = {
   repository: { url: "https://github.com/acme/test-skill" },
   license: "MIT",
   authors: [{ name: "Test Author", email: "test@acme.com" }],
+  deprecation: null,
   versions: [
     {
       version: "1.0.0",
@@ -221,6 +222,37 @@ describe("getExtensionIndex", () => {
       const result = yield* client.getExtensionIndex(makeIndexArgs("nonexistent"));
 
       expect(Option.isNone(result)).toBe(true);
+    }),
+  );
+
+  it.effect("maps structured deprecation guidance", () =>
+    Effect.gen(function* () {
+      const response = {
+        ...extensionIndexResponse,
+        deprecation: {
+          deprecatedAt: "2025-02-01T00:00:00Z",
+          message: "Use the replacement skill",
+          replacement: {
+            status: "available",
+            fqn: "@acme/skills/replacement",
+          },
+        },
+      };
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify(response), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = Option.getOrThrow(yield* client.getExtensionIndex(makeIndexArgs()));
+
+      expect(result.deprecation).toEqual({
+        deprecatedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
+        message: "Use the replacement skill",
+        replacement: {
+          status: "available",
+          fqn: "@acme/skills/replacement",
+        },
+      });
     }),
   );
 
@@ -545,8 +577,11 @@ describe("getExtensionPackage", () => {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const response = {
         ...extensionIndexResponse,
-        deprecated_at: "2025-02-01T00:00:00Z",
-        deprecation_notice: "Use the replacement skill",
+        deprecation: {
+          deprecatedAt: "2025-02-01T00:00:00Z",
+          message: "Use the replacement skill",
+          replacement: null,
+        },
         versions: extensionIndexResponse.versions.map((version) =>
           version.version === "1.0.0"
             ? {
@@ -568,7 +603,6 @@ describe("getExtensionPackage", () => {
       const result = yield* client.getExtensionPackage(makePackageArgs("test-skill", "1.0.0"));
 
       expect(result.warnings).toEqual([
-        "@acme/skills/test-skill is deprecated: Use the replacement skill",
         "@acme/skills/test-skill@1.0.0 is yanked: security: Do not use for new installs",
       ]);
     }),

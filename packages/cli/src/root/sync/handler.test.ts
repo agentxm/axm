@@ -51,6 +51,7 @@ const writeRegistrySkillIndex = (registryRoot: string, name: string) => {
     type: "skill",
     name,
     publisherBindingId: "hbnd_test",
+    deprecation: null,
     versions: [
       {
         version: "2.0.0",

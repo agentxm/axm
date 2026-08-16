@@ -38,6 +38,12 @@ surfaces use human and machine output channels, not how help requests resolve.
 Handlers produce structured results before rendering. They do not write
 directly to process streams or derive machine data by parsing terminal text.
 
+Workspace mutations report the plan and artifacts AXM applied locally. A
+Registry administration command instead reports the authoritative remote
+transition: its target, before and after state, disposition, and resulting
+revision. A remote-only transition is not represented as a local workspace
+plan because it creates no local artifact.
+
 ## Contract authority
 
 Effect schemas own published wire shapes. The machine-output contract register

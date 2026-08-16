@@ -32,7 +32,7 @@ const initWorkspace = (root: string, registryRoot: string) => {
   fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 };
 
-const writeIndex = (registryRoot: string) => {
+const writeIndex = (registryRoot: string, deprecation: unknown = null) => {
   const dir = path.join(registryRoot, "extensions", "@test", "skills", "code-review");
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
@@ -43,6 +43,7 @@ const writeIndex = (registryRoot: string) => {
       name: "code-review",
       publisherBindingId: "hbnd_test",
       description: "Review code",
+      deprecation,
       versions: [
         {
           version: "1.2.3",
@@ -70,6 +71,7 @@ const writeRuleIndex = (registryRoot: string) => {
       name: "house-style",
       publisherBindingId: "hbnd_test",
       description: "House style rules",
+      deprecation: null,
       versions: [
         {
           version: "1.0.0",
@@ -145,6 +147,59 @@ describe("view handler", () => {
           }),
         );
         expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("exposes full structured deprecation guidance in machine mode", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeIndex(registryRoot, {
+      deprecatedAt: "2026-03-01T00:00:00.000Z",
+      message: "Move review workflows.",
+      replacement: { status: "available", fqn: "@test/skills/reviewer" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/skills/code-review",
+          field: Option.none(),
+          registry: Option.some("local"),
+        });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          deprecation: {
+            deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
+            message: "Move review workflows.",
+            replacement: { status: "available", fqn: "@test/skills/reviewer" },
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("renders unavailable replacement guidance without inventing a target", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+    writeIndex(registryRoot, {
+      deprecatedAt: "2026-03-01T00:00:00.000Z",
+      replacement: { status: "unavailable" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/skills/code-review",
+          field: Option.none(),
+          registry: Option.some("local"),
+        });
+
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            { field: "Lifecycle", value: "deprecated" },
+            { field: "Deprecation message", value: "-" },
+            { field: "Replacement", value: "unavailable or not visible" },
+          ]),
+        );
       }),
     );
   });

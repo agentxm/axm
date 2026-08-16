@@ -78,13 +78,6 @@ export const extensionLifecycleWarnings = (
 ): ReadonlyArray<string> => {
   const warnings: string[] = [];
   const extensionRef = `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`;
-  if (index.deprecatedAt !== undefined) {
-    warnings.push(
-      index.deprecationNotice === undefined
-        ? `${extensionRef} is deprecated`
-        : `${extensionRef} is deprecated: ${index.deprecationNotice}`,
-    );
-  }
   if (version.yankedAt !== undefined) {
     const context = [version.yankCategory, version.yankNotice].filter(
       (value): value is string => value !== undefined,

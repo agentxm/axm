@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -16,7 +17,12 @@ import {
   type IdentifierResourceType,
   type ResolvedIdentifier,
 } from "@agentxm/client-core/unstable/source-resolution";
-import { createRegistryClient, type ExtensionIndex } from "@agentxm/client-core/unstable/registry";
+import {
+  createRegistryClient,
+  DeprecationViewSchema,
+  type DeprecationView,
+  type ExtensionIndex,
+} from "@agentxm/client-core/unstable/registry";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { installCommandFor } from "../shared/per-type-install.js";
@@ -41,6 +47,7 @@ const supportedFields = [
   "owner",
   "type",
   "visibility",
+  "deprecation",
 ] as const;
 type SupportedField = (typeof supportedFields)[number];
 
@@ -62,11 +69,17 @@ const ViewDocumentFields = {
   versions: Schema.Array(ViewVersionSchema),
   install: Schema.String,
   visibility: Schema.Literals(["public", "private"] as const),
+  deprecation: Schema.NullOr(DeprecationViewSchema),
 } satisfies Schema.Struct.Fields;
 export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
 export type ViewDocument = typeof ViewDocumentSchema.Type;
 
-export const ViewFieldValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
+export const ViewFieldValueSchema = Schema.Union([
+  Schema.String,
+  Schema.Array(Schema.String),
+  Schema.Null,
+  DeprecationViewSchema,
+]);
 export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
 
 type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>;
@@ -250,13 +263,11 @@ const toDocumentData = (
     })),
     install: installCommandFor(index.type, handle),
     visibility,
+    deprecation: index.deprecation,
   };
 };
 
-const fieldValue = (
-  data: ViewDocumentData,
-  field: SupportedField,
-): string | ReadonlyArray<string> | undefined => {
+const fieldValue = (data: ViewDocumentData, field: SupportedField): ViewFieldValue | undefined => {
   switch (field) {
     case "version":
     case "latest":
@@ -271,7 +282,18 @@ const fieldValue = (
       return data.type;
     case "visibility":
       return data.visibility;
+    case "deprecation":
+      return data.deprecation;
   }
+};
+
+const deprecationReplacementText = (deprecation: DeprecationView): string => {
+  const replacement = deprecation.replacement;
+  if (replacement === undefined) return "-";
+  if (replacement.status === "available") return replacement.fqn;
+  return replacement.fqn === undefined
+    ? "unavailable or not visible"
+    : `${replacement.fqn} (unavailable)`;
 };
 
 const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
@@ -279,7 +301,15 @@ const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
     const renderer = yield* CliRenderer;
     const emitted = yield* renderer.result(value, ViewFieldValueSchema);
     if (emitted) return;
-    yield* renderer.raw(typeof value === "string" ? `${value}\n` : `${value.join("\n")}\n`);
+    yield* renderer.raw(
+      typeof value === "string"
+        ? `${value}\n`
+        : Array.isArray(value)
+          ? `${value.join("\n")}\n`
+          : value === null
+            ? "active\n"
+            : `${JSON.stringify(value, null, 2)}\n`,
+    );
   });
 
 export const handleView = (args: ViewHandlerArgs) =>
@@ -394,6 +424,20 @@ const handleResolvedView = (args: {
         { field: "Versions", value: versionSummary },
         { field: "Description", value: data.description ?? "" },
         { field: "Visibility", value: data.visibility },
+        {
+          field: "Lifecycle",
+          value: data.deprecation === null ? "active" : "deprecated",
+        },
+        ...(data.deprecation === null
+          ? []
+          : [
+              { field: "Deprecated at", value: DateTime.formatIso(data.deprecation.deprecatedAt) },
+              { field: "Deprecation message", value: data.deprecation.message ?? "-" },
+              {
+                field: "Replacement",
+                value: deprecationReplacementText(data.deprecation),
+              },
+            ]),
         { field: "Install", value: data.install },
       ],
       ViewTable,

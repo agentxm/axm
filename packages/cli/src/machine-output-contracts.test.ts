@@ -52,6 +52,7 @@ import {
   KnowledgeConceptStatusOutputSchema,
 } from "./root/knowledge/concepts/schemas.js";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
+import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
 import { ExtensionListDocumentSchema } from "./root/list/command.js";
 import { PackShowResultSchema } from "./root/packs/show.js";
 import { InstructionsStatusOutputSchema } from "./root/rules/instructions.js";
@@ -87,6 +88,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   KnowledgeConceptRelatedOutputSchema,
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
+  LifecycleTransitionOutputSchema,
   LintResultDocumentSchema,
   LoginDocumentSchema,
   LoginNoOpDocumentSchema,

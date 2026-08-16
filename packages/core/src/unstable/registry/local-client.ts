@@ -56,7 +56,13 @@ import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } 
 import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
-import { extensionDir, pluralizeType, resolveVersionEntry, selectVersion } from "./utils.js";
+import {
+  extensionDir,
+  extensionLifecycleWarnings,
+  pluralizeType,
+  resolveVersionEntry,
+  selectVersion,
+} from "./utils.js";
 import type {
   PublishVisibility,
   VisibilityEvaluation,
@@ -304,6 +310,7 @@ const indexToManifest = (
   if (Option.isNone(selectedVersion)) return Option.none();
 
   const ver = selectedVersion.value;
+  const lifecycleWarnings = extensionLifecycleWarnings(index, ver);
   return Option.some({
     owner: index.owner,
     type: index.type,
@@ -321,6 +328,8 @@ const indexToManifest = (
     version: ver.version,
     integrity: ver.integrity,
     packages: packagesToPackageUrlParts(ver.packages),
+    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
+    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   } satisfies RegistryExtensionManifest);
 };
 
@@ -557,7 +566,7 @@ export const createLocalRegistryClient = (
               exists: index !== undefined,
               visibility: index?.visibility ?? (index === undefined ? null : "public"),
               lifecycleState: index === undefined ? null : "active",
-              deprecated: index?.deprecatedAt !== undefined,
+              deprecation: index?.deprecation ?? null,
               versions:
                 index?.versions.map((version) => ({
                   version: version.version,
@@ -891,6 +900,7 @@ export const createLocalRegistryClient = (
                 type: args.type,
                 publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
                 visibility: resolvedVisibility.value,
+                deprecation: null,
                 versions: [args.metadata],
               } satisfies ExtensionIndex);
 

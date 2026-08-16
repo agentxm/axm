@@ -135,6 +135,7 @@ describe("registry schema", () => {
 
         publisherBindingId: "hbnd_test",
         type: "skill",
+        deprecation: null,
         versions: [
           {
             version: "1.0.0",
@@ -170,6 +171,7 @@ describe("registry schema", () => {
           { name: "Alice", email: "alice@acme.com", url: "https://alice.dev" },
           { name: "Bob" },
         ],
+        deprecation: null,
         versions: [
           {
             version: "2.0.0",
@@ -290,6 +292,7 @@ describe("registry schema", () => {
 
         publisherBindingId: "hbnd_test",
         type: "skill",
+        deprecation: null,
         versions: [],
       };
 
@@ -305,6 +308,7 @@ describe("registry schema", () => {
 
         publisherBindingId: "hbnd_test",
         type: "mcp-server",
+        deprecation: null,
         versions: [],
       };
 
@@ -320,6 +324,7 @@ describe("registry schema", () => {
 
         publisherBindingId: "hbnd_test",
         type: "pack",
+        deprecation: null,
         versions: [],
       };
 
@@ -336,6 +341,7 @@ describe("registry schema", () => {
         publisherBindingId: "hbnd_test",
         type: "skill",
         authors: [{ name: "Alice" }],
+        deprecation: null,
         versions: [],
       };
 

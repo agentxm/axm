@@ -14,6 +14,7 @@ import {
   AuthorSchema,
   BugsSchema,
   ExtensionDependencyConstraintMapSchema,
+  ExtensionFqnSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   RepositorySchema,
@@ -22,6 +23,75 @@ import { HandleSchema } from "../extensions/handle.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
+
+const DeprecationMessageSchema = Schema.String.check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(500),
+).annotate({
+  identifier: "DeprecationMessage",
+  description: "Concise publisher guidance for consumers of a deprecated extension.",
+});
+
+export const DeprecationReplacementSchema = Schema.Union([
+  Schema.Struct({
+    status: Schema.Literal("available"),
+    fqn: ExtensionFqnSchema,
+  }),
+  Schema.Struct({
+    status: Schema.Literal("unavailable"),
+    fqn: Schema.optional(ExtensionFqnSchema),
+  }),
+]).annotate({
+  identifier: "DeprecationReplacement",
+  description: "Authorization-safe current availability of a recorded replacement identity.",
+});
+
+export const DeprecationViewSchema = Schema.Union([
+  Schema.Struct({
+    deprecatedAt: DateTimeUtcSchema,
+    message: DeprecationMessageSchema,
+    replacement: Schema.optional(DeprecationReplacementSchema),
+  }),
+  Schema.Struct({
+    deprecatedAt: DateTimeUtcSchema,
+    message: Schema.optional(DeprecationMessageSchema),
+    replacement: DeprecationReplacementSchema,
+  }),
+]).annotate({
+  identifier: "DeprecationView",
+  description: "Canonical authorization-safe identity deprecation guidance.",
+});
+
+export type DeprecationReplacement = typeof DeprecationReplacementSchema.Type;
+export type DeprecationView = typeof DeprecationViewSchema.Type;
+
+export const DeprecationRevisionSchema = Schema.NonEmptyString.annotate({
+  identifier: "DeprecationRevision",
+  description: "Opaque publisher lifecycle revision used for conditional writes.",
+});
+
+export const DeprecationReplacementIntentSchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("clear") }),
+  Schema.Struct({ kind: Schema.Literal("set"), fqn: ExtensionFqnSchema }),
+  Schema.Struct({ kind: Schema.Literal("preserve") }),
+]).annotate({ identifier: "DeprecationReplacementIntent" });
+
+export const DeprecationManagementViewSchema = Schema.Struct({
+  deprecation: Schema.NullOr(DeprecationViewSchema),
+  revision: DeprecationRevisionSchema,
+}).annotate({ identifier: "DeprecationManagementView" });
+
+export const DeprecationTransitionSchema = Schema.Struct({
+  target: ExtensionFqnSchema,
+  before: Schema.NullOr(DeprecationViewSchema),
+  after: Schema.NullOr(DeprecationViewSchema),
+  disposition: Schema.Literals(["created", "edited", "restored", "unchanged"] as const),
+  revision: DeprecationRevisionSchema,
+}).annotate({ identifier: "DeprecationTransition" });
+
+export type DeprecationReplacementIntent = typeof DeprecationReplacementIntentSchema.Type;
+export type DeprecationManagementView = typeof DeprecationManagementViewSchema.Type;
+export type DeprecationTransition = typeof DeprecationTransitionSchema.Type;
 
 // =============================================================================
 // Version Entry
@@ -112,8 +182,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   visibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
-  deprecatedAt: Schema.optional(DateTimeUtcSchema),
-  deprecationNotice: Schema.optional(Schema.String),
+  deprecation: Schema.NullOr(DeprecationViewSchema),
   versions: Schema.Array(VersionEntrySchema),
 }).annotate({
   identifier: "ExtensionIndex",

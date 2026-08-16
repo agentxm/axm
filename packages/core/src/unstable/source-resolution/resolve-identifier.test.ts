@@ -68,6 +68,7 @@ const writeRegistrySkill = (registryDir: string, ownerValue: string, nameValue: 
       publisherBindingId: "hbnd_test",
       type: "skill",
       name: nameValue,
+      deprecation: null,
       versions: [
         { version: "1.0.0", published: "2025-01-01T00:00:00.000Z", integrity: "sha512-AAAA==" },
       ],

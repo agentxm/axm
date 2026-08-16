@@ -15,6 +15,7 @@ import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
+import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
 import {
   assessExtensionListItems,
   collectExtensionListItems,
@@ -48,8 +49,7 @@ const ExtensionAssessmentSchema = Schema.Struct({
   latestAvailable: Schema.optional(Schema.String),
   installedRevision: Schema.optional(Schema.String),
   currentRevision: Schema.optional(Schema.String),
-  deprecatedAt: Schema.optional(Schema.String),
-  deprecationNotice: Schema.optional(Schema.String),
+  deprecation: Schema.optional(DeprecationViewSchema),
 });
 
 const ExtensionListItemSchema = Schema.Struct({
@@ -89,6 +89,7 @@ interface ListTableRow {
   readonly version: string;
   readonly source: string;
   readonly state: string;
+  readonly guidance: string;
 }
 
 const ExtensionListTable = {
@@ -100,6 +101,7 @@ const ExtensionListTable = {
     version: { header: "Version" },
     source: { header: "Source" },
     state: { header: "Assessment" },
+    guidance: { header: "Guidance" },
   },
 } as const satisfies TableView<ListTableRow>;
 
@@ -126,6 +128,11 @@ const coverageFor = (items: ReadonlyArray<ExtensionListItem>) => ({
   notApplicable: items.filter((item) => item.assessment.state === "not-applicable").length,
 });
 
+const summarizeLifecycle = (item: ExtensionListItem): ExtensionListItem => {
+  const { deprecation: _deprecation, ...assessment } = item.assessment;
+  return { ...item, assessment };
+};
+
 export interface ListHandlerArgs {
   readonly type: Option.Option<InstallableExtensionType>;
   readonly outdated: boolean;
@@ -146,15 +153,15 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     : args.deprecated
       ? "deprecated"
       : "all";
-  const assessed =
-    filter === "all"
-      ? localItems
-      : yield* renderer.withSpinner(
-          `Checking extensions for ${filter === "outdated" ? "updates" : "deprecation"}`,
-          () => Effect.scoped(assessExtensionListItems(localItems, filter)),
-          { successMessage: `Checked extension ${filter} status` },
-        );
-  const items = assessed.filter((item) => matchesFilter(item, filter));
+  const assessmentFilter = filter === "outdated" ? "outdated" : "deprecated";
+  const assessed = yield* renderer.withSpinner(
+    `Checking extensions for ${assessmentFilter === "outdated" ? "updates" : "deprecation"}`,
+    () => Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)),
+    { successMessage: `Checked extension ${assessmentFilter} status` },
+  );
+  const items = assessed
+    .filter((item) => matchesFilter(item, filter))
+    .map((item) => (filter === "all" ? summarizeLifecycle(item) : item));
   const document: ExtensionListDocument = {
     filter,
     items,
@@ -163,6 +170,26 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     ...(filter === "all" ? {} : { coverage: coverageFor(assessed) }),
   };
   if (yield* renderer.result(document, ExtensionListDocumentSchema)) return;
+  const guidanceFor = (item: ExtensionListItem): string => {
+    if (filter === "all") {
+      return item.assessment.state === "deprecated" ? `axm view ${item.ref} deprecation` : "-";
+    }
+    const deprecation = item.assessment.deprecation;
+    if (deprecation === undefined) return "-";
+    const replacement = deprecation.replacement;
+    return [
+      deprecation.message,
+      replacement?.status === "available"
+        ? `Use ${replacement.fqn}`
+        : replacement === undefined
+          ? undefined
+          : replacement.fqn === undefined
+            ? "Replacement unavailable or not visible"
+            : `Replacement ${replacement.fqn} unavailable`,
+    ]
+      .filter((value): value is string => value !== undefined)
+      .join("; ");
+  };
   const tableRows = items.map((item): ListTableRow => ({
     extension: item.ref,
     type: item.type,
@@ -171,6 +198,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     version: item.version ?? "-",
     source: item.sourceName ?? item.source ?? "-",
     state: item.assessment.state,
+    guidance: guidanceFor(item),
   }));
   const coverage = document.coverage;
   const summary =

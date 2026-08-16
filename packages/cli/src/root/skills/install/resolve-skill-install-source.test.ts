@@ -43,6 +43,7 @@ const createSkillIndex = (registryRoot: string, owner: string, name: string) => 
       owner,
       type: "skill",
       publisherBindingId: "hbnd_test",
+      deprecation: null,
       versions: [
         {
           version: "1.0.0",
@@ -69,6 +70,7 @@ const makeRegistryCollectionResponse = () =>
         dependencies: {},
         version: "1.0.0",
         integrity: "sha512-AAAA==",
+        deprecation: null,
       },
     ],
     total: 1,

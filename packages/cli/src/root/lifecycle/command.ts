@@ -8,18 +8,24 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
+  ExtensionFqnSchema,
   fqnInvalidErrorToAppError,
+  formatFqn,
   parseFqn,
   toExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   deprecateExtension,
+  DeprecationTransitionSchema,
+  getExtensionDeprecation,
   undeprecateExtension,
   unyankExtensionVersion,
   yankAvailableExtensionVersions,
   yankExtensionVersion,
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
+  type DeprecationReplacementIntent,
+  type DeprecationTransition,
   type YankCategory,
 } from "@agentxm/client-core/unstable/registry";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
@@ -30,6 +36,10 @@ import { runWithStepUp } from "../step-up.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
+
+export const LifecycleTransitionOutputSchema = DeprecationTransitionSchema.annotate({
+  identifier: "LifecycleTransitionOutput",
+});
 
 const parseExtensionReference = (
   input: string,
@@ -43,6 +53,18 @@ const parseExtensionReference = (
       type: toExtensionTypePlural(parsed.type),
       name: parsed.name,
     };
+  });
+
+const parseExtensionFqn = (input: string) =>
+  Effect.gen(function* () {
+    const parsed = yield* Effect.fromResult(
+      Result.mapError(parseFqn(input), fqnInvalidErrorToAppError),
+    );
+    return yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(formatFqn(parsed)).pipe(
+      Effect.mapError(() =>
+        makeAppError({ code: "validation", detail: `Invalid fully qualified name: ${input}` }),
+      ),
+    );
   });
 
 const parseExactVersionReference = (
@@ -210,46 +232,114 @@ export const handleUnyank = (input: string) =>
     });
   });
 
-export const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
+const emitDeprecationTransition = (transition: DeprecationTransition) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    if (yield* renderer.result(transition, LifecycleTransitionOutputSchema)) return;
+    const verb =
+      transition.disposition === "created"
+        ? "Deprecated"
+        : transition.disposition === "edited"
+          ? "Updated deprecation for"
+          : transition.disposition === "restored"
+            ? "Restored"
+            : transition.after === null
+              ? "Already active"
+              : "Deprecation already current for";
+    yield* renderer.success(`${verb} ${transition.target}.`);
+    if (transition.after?.message !== undefined) {
+      yield* renderer.info(`Message: ${transition.after.message}`);
+    }
+    if (transition.after?.replacement !== undefined) {
+      const replacement = transition.after.replacement;
+      yield* renderer.info(
+        replacement.status === "available"
+          ? `Replacement: ${replacement.fqn}`
+          : replacement.fqn === undefined
+            ? "Replacement: unavailable or not visible"
+            : `Replacement: ${replacement.fqn} (unavailable)`,
+      );
+    }
+  });
+
+export const handleDeprecate = (input: {
+  readonly ref: string;
+  readonly message: Option.Option<string>;
+  readonly replacement: Option.Option<string>;
+  readonly clearMessage: boolean;
+  readonly clearReplacement: boolean;
+}) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input.ref);
-    const message = input.message.trim();
-    if (message.length === 0) {
+    if (Option.isSome(input.message) && input.clearMessage) {
       return yield* makeAppError({
         code: "validation",
-        detail: "Deprecation message must not be empty.",
+        detail: "--message and --clear-message cannot be combined.",
+      });
+    }
+    if (Option.isSome(input.replacement) && input.clearReplacement) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "--replacement and --clear-replacement cannot be combined.",
       });
     }
     const renderer = yield* CliRenderer;
-    yield* renderer.withSpinner(
+    const current = yield* renderer.withSpinner(
+      `Reading deprecation for ${input.ref}`,
+      () => getExtensionDeprecation(ref),
+      { successMessage: `Read deprecation for ${input.ref}` },
+    );
+    const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
+    const message = input.clearMessage
+      ? null
+      : suppliedMessage === undefined
+        ? (current.deprecation?.message ?? null)
+        : suppliedMessage.length === 0
+          ? null
+          : suppliedMessage;
+    const replacement: DeprecationReplacementIntent = input.clearReplacement
+      ? { kind: "clear" }
+      : Option.isSome(input.replacement)
+        ? { kind: "set", fqn: yield* parseExtensionFqn(input.replacement.value) }
+        : current.deprecation?.replacement === undefined
+          ? { kind: "clear" }
+          : current.deprecation.replacement.status === "available"
+            ? { kind: "set", fqn: current.deprecation.replacement.fqn }
+            : { kind: "preserve" };
+    if (message === null && replacement.kind === "clear") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "A deprecation requires a message, a replacement, or both.",
+        suggestions: [
+          {
+            description: "Supply --message or --replacement, or remove the deprecation instead.",
+          },
+        ],
+      });
+    }
+    const transition = yield* renderer.withSpinner(
       `Deprecating ${input.ref}`,
-      () => deprecateExtension(ref, message),
+      () => deprecateExtension(ref, { revision: current.revision, message, replacement }),
       { successMessage: `Deprecated ${input.ref}` },
     );
-    yield* emitLifecycleOutput({
-      command: "deprecate",
-      planName: "Deprecate extension",
-      extension: input.ref,
-      message: `Deprecated ${input.ref}: ${message}`,
-      warnings: [message],
-    });
+    yield* emitDeprecationTransition(transition);
   });
 
 export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
     const renderer = yield* CliRenderer;
-    yield* renderer.withSpinner(
+    const current = yield* renderer.withSpinner(
+      `Reading deprecation for ${input}`,
+      () => getExtensionDeprecation(ref),
+      { successMessage: `Read deprecation for ${input}` },
+    );
+    const transition = yield* renderer.withSpinner(
       `Removing deprecation from ${input}`,
-      () => undeprecateExtension(ref),
+      () => undeprecateExtension(ref, current.revision),
       { successMessage: `Removed deprecation from ${input}` },
     );
-    yield* emitLifecycleOutput({
-      command: "undeprecate",
-      planName: "Undeprecate extension",
-      extension: input,
-      message: `Removed the deprecation warning from ${input}.`,
-    });
+    yield* emitDeprecationTransition(transition);
   });
 
 const yankConfig = {
@@ -279,7 +369,20 @@ const deprecateConfig = {
   ref: Argument.string("extension").pipe(
     Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
   ),
-  message: Flag.string("message").pipe(Flag.withDescription("Public deprecation warning")),
+  message: Flag.string("message").pipe(
+    Flag.withDescription("Concise publisher migration guidance (maximum 500 characters)"),
+    Flag.optional,
+  ),
+  replacement: Flag.string("replacement").pipe(
+    Flag.withDescription("Replacement extension FQN"),
+    Flag.optional,
+  ),
+  clearMessage: Flag.boolean("clear-message").pipe(
+    Flag.withDescription("Remove the current publisher message"),
+  ),
+  clearReplacement: Flag.boolean("clear-replacement").pipe(
+    Flag.withDescription("Remove the current replacement relationship"),
+  ),
 } as const;
 
 const extensionRefConfig = {
@@ -319,11 +422,12 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
   handleDeprecate(input).pipe(withRuntime("deprecate")),
 ).pipe(
   withArgvTracking(deprecateConfig),
-  Command.withDescription("Add a warning-only deprecation notice to an extension"),
+  Command.withDescription("Create or edit warning-only extension deprecation guidance"),
   Command.withExamples([
     {
-      command: 'axm deprecate @acme/skills/code-review --message "Use @acme/skills/reviewer"',
-      description: "Warn consumers and suggest a replacement",
+      command:
+        'axm deprecate @acme/skills/code-review --replacement @acme/skills/reviewer --message "Move review workflows"',
+      description: "Deprecate with structured replacement guidance",
     },
   ]),
 );
@@ -332,11 +436,11 @@ export const undeprecateCommand = Command.make("undeprecate", extensionRefConfig
   handleUndeprecate(ref).pipe(withRuntime("undeprecate")),
 ).pipe(
   withArgvTracking(extensionRefConfig),
-  Command.withDescription("Remove an extension deprecation notice"),
+  Command.withDescription("Restore a deprecated extension identity"),
   Command.withExamples([
     {
       command: "axm undeprecate @acme/skills/code-review",
-      description: "Remove the warning-only deprecation marker",
+      description: "Restore the identity to active lifecycle state",
     },
   ]),
 );

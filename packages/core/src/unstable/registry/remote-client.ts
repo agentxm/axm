@@ -144,8 +144,42 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             url: a.url ?? undefined,
           })),
     visibility: response.visibility ?? undefined,
-    deprecatedAt: response.deprecated_at ?? undefined,
-    deprecationNotice: response.deprecation_notice ?? undefined,
+    deprecation:
+      response.deprecation === null
+        ? null
+        : response.deprecation.message !== undefined && response.deprecation.message !== null
+          ? {
+              deprecatedAt: response.deprecation.deprecatedAt,
+              message: response.deprecation.message,
+              ...(response.deprecation.replacement === undefined ||
+              response.deprecation.replacement === null
+                ? {}
+                : {
+                    replacement:
+                      response.deprecation.replacement.status === "available"
+                        ? response.deprecation.replacement
+                        : {
+                            status: "unavailable" as const,
+                            ...(response.deprecation.replacement.fqn === undefined ||
+                            response.deprecation.replacement.fqn === null
+                              ? {}
+                              : { fqn: response.deprecation.replacement.fqn }),
+                          },
+                  }),
+            }
+          : {
+              deprecatedAt: response.deprecation.deprecatedAt,
+              replacement:
+                response.deprecation.replacement?.status === "available"
+                  ? response.deprecation.replacement
+                  : {
+                      status: "unavailable" as const,
+                      ...(response.deprecation.replacement?.fqn === undefined ||
+                      response.deprecation.replacement.fqn === null
+                        ? {}
+                        : { fqn: response.deprecation.replacement.fqn }),
+                    },
+            },
     versions: response.versions.map((v) => ({
       version: v.version,
       published: v.published,
@@ -188,6 +222,7 @@ const toRegistryManifest = (
     version: latest.version,
     integrity: latest.integrity,
     packages: packagesToPackageUrlParts(latest.packages),
+    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
     ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   });
 };

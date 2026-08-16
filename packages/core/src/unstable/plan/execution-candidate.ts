@@ -104,6 +104,7 @@ const planIdentity = (plan: Plan): string =>
         label: step.label,
         readiness: step.readiness,
         artifact: step.artifact,
+        registryLifecycle: step.registryLifecycle,
       })),
     })),
     preconditions: plan.preconditions,

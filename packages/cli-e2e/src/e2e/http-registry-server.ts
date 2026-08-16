@@ -728,6 +728,7 @@ export const startHttpRegistry = async (
           type,
           publisher_binding_id: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
+          deprecation: null,
           versions: versions.map((entry) => ({
             version: entry.version,
             published: entry.published,

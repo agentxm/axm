@@ -31,7 +31,7 @@ import type {
   ExtensionType,
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
-import type { ExtensionIndex, VersionEntry } from "./schema.js";
+import type { DeprecationView, ExtensionIndex, VersionEntry } from "./schema.js";
 import type { Bugs, Repository } from "../extensions/common.js";
 import type { DiscoverPackagesResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
@@ -335,6 +335,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
   readonly packages: ReadonlyArray<PackageUrlParts>;
+  readonly deprecation?: DeprecationView;
   readonly lifecycleWarnings?: ReadonlyArray<string>;
 }
 

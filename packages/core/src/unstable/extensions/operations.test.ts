@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import {
   buildAuthoredExtensionStep,
@@ -17,7 +18,13 @@ import {
 } from "./operations.js";
 import { makeAppError } from "../app-error/index.js";
 import { computeSourceHash } from "./rendered-files.js";
-import { exactVersion, extensionName, handle, packageUrl } from "../test-helpers.js";
+import {
+  exactVersion,
+  extensionName,
+  fullyQualifiedName,
+  handle,
+  packageUrl,
+} from "../test-helpers.js";
 import type {
   ExtensionManager,
   WorkspaceTransactionRunner,
@@ -165,6 +172,69 @@ describe("buildInstallOperation", () => {
     expect(operation).toMatchObject({
       readiness: "warn",
       warnMessage: "@acme/skills/review@1.0.0 is yanked",
+    });
+  });
+
+  it("retains structured deprecation evidence independently from yank warnings", async () => {
+    const manager = {
+      type: "skill",
+      runTransaction,
+      isInstalled: () => Effect.succeed(true),
+      materializeInstall: () => Effect.void,
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall: () => Effect.void,
+      materializeDeactivate: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const name = extensionName("review");
+    const deprecation = {
+      deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
+      message: "Move review workflows.",
+      replacement: {
+        status: "available" as const,
+        fqn: fullyQualifiedName("@acme/skills/reviewer"),
+      },
+    };
+    const ref: RegistrySkillRef = {
+      type: "skill",
+      refType: "registry",
+      publisherBindingId: "hbnd_test",
+      source: {
+        type: "registry",
+        location: new URL("https://registry.agentxm.ai"),
+        owner: Option.some(handle("@acme")),
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      integrity: Option.none(),
+      packages: [],
+      deprecation,
+      lifecycleWarnings: ["@acme/skills/review@1.0.0 is yanked"],
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+
+    const operation = buildInstallOperation(manager, {
+      ref,
+      versionRange: Option.none(),
+      buildArtifact: () =>
+        Effect.succeed({ path: ".axm/extensions/review", scope: "project", change: "created" }),
+    });
+
+    expect(operation).toMatchObject({
+      readiness: "warn",
+      registryLifecycle: { deprecation },
+    });
+    if (operation.readiness !== "warn") throw new Error("Expected warning-ready install");
+    expect(operation.warnMessage).toContain("@acme/skills/review is deprecated");
+    expect(operation.warnMessage).toContain("@acme/skills/review@1.0.0 is yanked");
+    const result = await Effect.runPromise(operation.run);
+    expect(result).toMatchObject({
+      result: "success",
+      artifact: { registryLifecycle: { deprecation } },
     });
   });
 

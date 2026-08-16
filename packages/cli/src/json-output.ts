@@ -46,6 +46,7 @@ import {
   formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
 
@@ -115,6 +116,11 @@ const StepArtifactSchema = Schema.Struct({
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
   source: Schema.optional(StepArtifactSourceSchema),
+  registryLifecycle: Schema.optional(
+    Schema.Struct({
+      deprecation: DeprecationViewSchema,
+    }),
+  ),
 }).annotate({
   identifier: "StepArtifact",
   title: "Plan Step Artifact",
@@ -150,6 +156,11 @@ const StepSchema = Schema.Struct({
   code: Schema.optional(Schema.String),
   error: Schema.optional(StepErrorSchema),
   artifact: Schema.optional(StepArtifactSchema),
+  registryLifecycle: Schema.optional(
+    Schema.Struct({
+      deprecation: DeprecationViewSchema,
+    }),
+  ),
   links: Schema.optional(
     Schema.Struct({
       html: Schema.String,
@@ -917,6 +928,8 @@ const renderHumanPublishResult = (
 const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOptions): Step => {
   const artifact =
     step.artifact === undefined ? {} : { artifact: artifactForJson(step.artifact, options) };
+  const lifecycle =
+    step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle };
   switch (step.readiness) {
     case "ready":
       return {
@@ -924,6 +937,7 @@ const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOp
         status: "ready",
         ...(step.message !== undefined && step.message.length > 0 ? { message: step.message } : {}),
         ...artifact,
+        ...lifecycle,
       };
     case "warn":
       return {
@@ -931,6 +945,7 @@ const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOp
         status: "warning",
         message: step.warnMessage,
         ...artifact,
+        ...lifecycle,
       };
     case "error":
       return {
@@ -938,6 +953,7 @@ const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOp
         status: "error",
         message: step.errorMessage,
         ...artifact,
+        ...lifecycle,
       };
   }
 };
@@ -951,6 +967,9 @@ const completedStepToStep = (
     return {
       label: step.label,
       status,
+      ...(step.registryLifecycle === undefined
+        ? {}
+        : { registryLifecycle: step.registryLifecycle }),
       ...(step.result.message.length > 0
         ? { message: redactSensitiveText(step.result.message) }
         : {}),

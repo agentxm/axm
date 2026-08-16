@@ -527,6 +527,17 @@ const visibilityMutationFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/app.test.ts"],
 });
 
+const lifecycleTransitionFamily = defineResultFamily({
+  id: "lifecycle-transition",
+  schemaNames: ["LifecycleTransitionOutputSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
+  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
+  rationale:
+    "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
+  humanOutputKind: "mutation",
+  commandCoverage: ["packages/cli/src/root/lifecycle/command.test.ts"],
+});
+
 const formatterPaths = [
   "axm",
   "axm auth",
@@ -546,7 +557,6 @@ const planPaths = [
   "axm agents remove",
   "axm agents rm",
   "axm demote",
-  "axm deprecate",
   "axm fork",
   "axm hooks disable",
   "axm hooks enable",
@@ -600,7 +610,6 @@ const planPaths = [
   "axm subagents uninstall",
   "axm subagents update",
   "axm sync",
-  "axm undeprecate",
   "axm uninstall",
   "axm unyank",
   "axm update",
@@ -630,6 +639,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
+  ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
   ...rowsFor(publishFamily, publishPaths),
   ...rowsFor(agentsListFamily, ["axm agents", "axm agents list", "axm agents ls"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),

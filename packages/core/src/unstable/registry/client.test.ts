@@ -93,6 +93,7 @@ const makeIndex = (overrides?: TestIndexOverrides): ExtensionIndex => ({
   owner: handle(overrides?.owner ?? "@test"),
   type: "skill",
   publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
+  deprecation: null,
   versions: overrides?.versions ?? [makeVersionEntry()],
   ...(overrides?.type === undefined ? {} : { type: overrides.type }),
   ...(overrides?.description === undefined ? {} : { description: overrides.description }),
@@ -1539,7 +1540,13 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
             new Response(
               JSON.stringify({
                 extensions: [
-                  { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+                  {
+                    owner: "@test",
+                    type: "skill",
+                    name: "my-skill",
+                    latestVersion: "1.0.0",
+                    deprecation: null,
+                  },
                 ],
                 total: 1,
               }),
@@ -1554,7 +1561,13 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
             new Response(
               JSON.stringify({
                 extensions: [
-                  { owner: "@test", type: "skill", name: "my-skill", latestVersion: "1.0.0" },
+                  {
+                    owner: "@test",
+                    type: "skill",
+                    name: "my-skill",
+                    latestVersion: "1.0.0",
+                    deprecation: null,
+                  },
                 ],
                 total: 1,
               }),
@@ -1576,6 +1589,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
                 type: "skill",
                 name: "my-skill",
                 publisher_binding_id: "hbnd_test",
+                deprecation: null,
                 versions: [
                   {
                     version: "1.0.0",

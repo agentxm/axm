@@ -1,4 +1,3 @@
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -14,6 +13,7 @@ import {
   type InstallableExtensionType,
 } from "../extensions/index.js";
 import { createRegistryClient } from "../registry/index.js";
+import type { DeprecationView } from "../registry/schema.js";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
@@ -44,8 +44,7 @@ export interface ExtensionAssessment {
   readonly latestAvailable?: string;
   readonly installedRevision?: string;
   readonly currentRevision?: string;
-  readonly deprecatedAt?: string;
-  readonly deprecationNotice?: string;
+  readonly deprecation?: DeprecationView;
 }
 
 export interface ExtensionListItem {
@@ -214,14 +213,11 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
     } satisfies ExtensionAssessment;
   }
   if (filter === "deprecated") {
-    return index.value.deprecatedAt === undefined
+    return index.value.deprecation === null
       ? ({ state: "active" } satisfies ExtensionAssessment)
       : ({
           state: "deprecated",
-          deprecatedAt: DateTime.formatIso(index.value.deprecatedAt),
-          ...(index.value.deprecationNotice === undefined
-            ? {}
-            : { deprecationNotice: index.value.deprecationNotice }),
+          deprecation: index.value.deprecation,
         } satisfies ExtensionAssessment);
   }
   const installedVersion = yield* decodeInstalledVersion(record.resolvedVersion, item.ref);

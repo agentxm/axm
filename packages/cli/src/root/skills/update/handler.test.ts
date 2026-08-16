@@ -199,6 +199,7 @@ const writeRegistrySkill = ({
         name,
         description: "Registry test skill",
         publisherBindingId: publisherBindingId ?? "hbnd_test",
+        deprecation: null,
         versions: versionEntries,
       },
       null,

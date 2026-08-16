@@ -137,6 +137,7 @@ const manifestFromIndex = (
       version: version.version,
       integrity: version.integrity,
       packages: packagesToPackageUrlParts(version.packages),
+      ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
       ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
     } satisfies RegistryExtensionManifest);
   });
@@ -169,6 +170,7 @@ const manifestForVersion = (
     version: version.version,
     integrity: version.integrity,
     packages: packagesToPackageUrlParts(version.packages),
+    ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
     ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   };
 };
@@ -556,6 +558,7 @@ const toExtensionRef = (
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
     packages: entry.packages,
+    ...(entry.deprecation === undefined ? {} : { deprecation: entry.deprecation }),
     ...(entry.lifecycleWarnings === undefined
       ? {}
       : { lifecycleWarnings: entry.lifecycleWarnings }),

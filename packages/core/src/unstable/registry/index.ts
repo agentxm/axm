@@ -9,8 +9,26 @@
  */
 
 // Schema types and schemas
-export type { ExtensionIndex, VersionEntry } from "./schema.js";
-export { packagesToPackageUrlParts, ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
+export type {
+  DeprecationReplacement,
+  DeprecationReplacementIntent,
+  DeprecationManagementView,
+  DeprecationTransition,
+  DeprecationView,
+  ExtensionIndex,
+  VersionEntry,
+} from "./schema.js";
+export {
+  DeprecationReplacementSchema,
+  DeprecationReplacementIntentSchema,
+  DeprecationManagementViewSchema,
+  DeprecationTransitionSchema,
+  DeprecationRevisionSchema,
+  DeprecationViewSchema,
+  packagesToPackageUrlParts,
+  ExtensionIndexSchema,
+  VersionEntrySchema,
+} from "./schema.js";
 
 // Discover schemas
 export type {
@@ -112,6 +130,7 @@ export type {
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
   RegistryLifecycleCallOptions,
+  PutExtensionDeprecationInput,
   YankCategory,
 } from "./admin-client.js";
 export {
@@ -119,6 +138,7 @@ export {
   yankAvailableExtensionVersions,
   unyankExtensionVersion,
   deprecateExtension,
+  getExtensionDeprecation,
   undeprecateExtension,
 } from "./admin-client.js";
 
@@ -145,6 +165,7 @@ export {
   resolveVersionEntryWithReleaseAge,
   selectVersion,
 } from "./utils.js";
+export { formatDeprecationWarning } from "./deprecation-warning.js";
 export type { ReleaseAgeVersionResolution } from "./utils.js";
 
 export {

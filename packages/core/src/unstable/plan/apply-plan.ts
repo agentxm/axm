@@ -53,11 +53,15 @@ const appendReadinessWarning = (step: WarnJobStep, result: JobStepResult): JobSt
 
 const errorStepMessage = (error: AppError): string => `${error.detail} (${error.code})`;
 
+const lifecycleEvidence = (step: PlannedJobStep) =>
+  step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle };
+
 const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, never, never> => {
   switch (step.readiness) {
     case "error":
       return Effect.succeed({
         ...(step.key === undefined ? {} : { key: step.key }),
+        ...lifecycleEvidence(step),
         label: step.label,
         result: {
           result: "error",
@@ -73,12 +77,14 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
       return step.run.pipe(
         Effect.map((result): CompletedJobStep => ({
           ...(step.key === undefined ? {} : { key: step.key }),
+          ...lifecycleEvidence(step),
           label: step.label,
           result,
         })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
             ...(step.key === undefined ? {} : { key: step.key }),
+            ...lifecycleEvidence(step),
             label: step.label,
             result: {
               result: "error",
@@ -93,12 +99,14 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
       return step.run.pipe(
         Effect.map((result): CompletedJobStep => ({
           ...(step.key === undefined ? {} : { key: step.key }),
+          ...lifecycleEvidence(step),
           label: step.label,
           result: appendReadinessWarning(step, result),
         })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
             ...(step.key === undefined ? {} : { key: step.key }),
+            ...lifecycleEvidence(step),
             label: step.label,
             result: {
               result: "error",
@@ -117,6 +125,7 @@ const blockStep = (
   blockedBy?: ReadonlyArray<string>,
 ): CompletedJobStep => ({
   ...(step.key === undefined ? {} : { key: step.key }),
+  ...lifecycleEvidence(step),
   label: step.label,
   ...(blockedBy === undefined ? {} : { blockedBy }),
   result: {

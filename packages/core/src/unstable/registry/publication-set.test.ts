@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import * as DateTime from "effect/DateTime";
+import * as Schema from "effect/Schema";
 
 import { decodeExtensionNameSync, decodeHandleSync, formatFqn } from "../extensions/index.js";
 import type { VisibilityEvaluation } from "../publish/index.js";
@@ -17,6 +19,7 @@ import {
   validatePublicationSetResponse,
   type PublicationDescriptor,
 } from "./publication-set.js";
+import { DeprecationViewSchema } from "./schema.js";
 
 const skill: PublicationDescriptor = {
   target: {
@@ -72,6 +75,31 @@ const evaluation = (
 });
 
 describe("publication set contract", () => {
+  it("decodes every canonical deprecation guidance shape", () => {
+    const deprecatedAt = "2026-08-15T20:00:00.000Z";
+    const decode = Schema.decodeUnknownSync(DeprecationViewSchema);
+    const shapes = [
+      { deprecatedAt, message: "Use the supported workflow." },
+      {
+        deprecatedAt,
+        replacement: { status: "available", fqn: "@acme/skills/review-next" },
+      },
+      {
+        deprecatedAt,
+        message: "Use the maintained replacement.",
+        replacement: { status: "available", fqn: "@acme/skills/review-next" },
+      },
+      {
+        deprecatedAt,
+        replacement: { status: "unavailable", fqn: "@acme/skills/review-next" },
+      },
+      { deprecatedAt, replacement: { status: "unavailable" } },
+    ];
+
+    for (const shape of shapes) expect(() => decode(shape)).not.toThrow();
+    expect(() => decode({ deprecatedAt })).toThrow();
+  });
+
   it("canonicalizes descriptor and dependency order into stable digests", () => {
     const forward = normalizePublicationSet([pack, skill]);
     const reverse = normalizePublicationSet([skill, pack]);
@@ -189,7 +217,7 @@ describe("publication set contract", () => {
             exists: true,
             visibility: "public",
             lifecycleState: "active",
-            deprecated: false,
+            deprecation: null,
             versions: [
               { version: "1.2.0", status: "available", yanked: false, purged: false },
               { version: "1.4.0", status: "available", yanked: false, purged: false },
@@ -218,7 +246,7 @@ describe("publication set contract", () => {
             exists: true,
             visibility: "private",
             lifecycleState: "active",
-            deprecated: false,
+            deprecation: null,
             versions: [{ version: "1.4.0", status: "available", yanked: false, purged: false }],
           },
         ],
@@ -228,5 +256,48 @@ describe("publication set contract", () => {
       findings: [],
       resolutions: [{ dependency, effectiveVersion: "1.4.0" }],
     });
+  });
+
+  it("carries structured lifecycle guidance for deprecated dependencies", () => {
+    const dependency = pack.pack?.dependencies[1];
+    if (dependency === undefined) throw new Error("Expected the review dependency");
+
+    expect(
+      evaluateProspectivePackDependencies({
+        packVisibility: "public",
+        dependencies: [dependency],
+        snapshots: [
+          {
+            dependency,
+            exists: true,
+            visibility: "public",
+            lifecycleState: "active",
+            deprecation: {
+              deprecatedAt: DateTime.makeUnsafe("2026-08-15T20:00:00.000Z"),
+              message: "Use the maintained replacement.",
+              replacement: {
+                status: "available",
+                fqn: "@acme/skills/review-next",
+              },
+            },
+            versions: [{ version: "1.4.0", status: "available", yanked: false, purged: false }],
+          },
+        ],
+        candidates: [],
+      }),
+    ).toMatchObject([
+      {
+        ruleId: "pack/dependency-deprecated",
+        severity: "warning",
+        reason: "deprecated",
+        deprecation: {
+          message: "Use the maintained replacement.",
+          replacement: {
+            status: "available",
+            fqn: "@acme/skills/review-next",
+          },
+        },
+      },
+    ]);
   });
 });

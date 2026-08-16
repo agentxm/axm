@@ -103,7 +103,7 @@ const rendererResultCallPattern = /\brenderer\.result\(/g;
 const resultCallSnippetLength = 2_400;
 
 const planResultCallPattern =
-  /\b(?:PlanResolutionDocumentSchema|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentSchema|UpgradeDocumentSchema|LoginDocumentSchema|LoginNoOpDocumentSchema|DeviceLoginPendingDocumentSchema|LogoutDocumentSchema|CreatedTokenDocumentSchema|RevokeTokenDocumentSchema|LintFixDocumentSchema|VisibilityMutationResultSchema)\b/;
+  /\b(?:PlanResolutionDocumentSchema|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentSchema|UpgradeDocumentSchema|LoginDocumentSchema|LoginNoOpDocumentSchema|DeviceLoginPendingDocumentSchema|LogoutDocumentSchema|CreatedTokenDocumentSchema|RevokeTokenDocumentSchema|LintFixDocumentSchema|VisibilityMutationResultSchema|LifecycleTransitionOutputSchema)\b/;
 
 const readQueryResultCallPattern =
   /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpIndexResultSchema|HelpTopicResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeConceptCorpusChangingFailureSchema|KnowledgeConceptCursorFailureSchema|KnowledgeConceptQueryPageSchema|KnowledgeConceptGetOutputSchema|KnowledgeConceptResolveOutputSchema|KnowledgeConceptRelatedOutputSchema|KnowledgeConceptStatusOutputSchema|KnowledgeLintQueryResultSchema|LintResultDocumentSchema|ExtensionShowResultSchema|ExtensionListDocumentSchema|PackRepairResultSchema|PackShowResultSchema|TokenDocumentSchema|TokenListDocumentSchema|ViewDocumentSchema|ViewFieldValueSchema|VisibilityEvaluationSchema|WhoamiDocumentSchema|WorkspaceStatusSchema)\b/;
@@ -290,7 +290,7 @@ describe("CLI output UX", () => {
     expect(proseActionFindings()).toEqual([]);
   });
 
-  it("keeps bespoke mutation JSON results tied to the plan model", () => {
+  it("keeps bespoke mutation JSON results tied to a known mutation contract", () => {
     expect(directRendererResultFindings()).toEqual([]);
   });
 

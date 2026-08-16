@@ -787,12 +787,14 @@
                           "visibility": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           },
-                          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
-                          "deprecation_notice": {
-                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                          "deprecation": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/DeprecationView" },
+                              { "type": "null" }
+                            ]
                           }
                         },
-                        "required": ["name", "owner", "type", "latestVersion"],
+                        "required": ["name", "owner", "type", "latestVersion", "deprecation"],
                         "additionalProperties": false
                       }
                     }
@@ -878,16 +880,18 @@
                           "visibility": {
                             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                           },
-                          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
-                          "deprecation_notice": {
-                            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                          "deprecation": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/DeprecationView" },
+                              { "type": "null" }
+                            ]
                           }
                         },
-                        "required": ["name", "owner", "type", "latestVersion"],
+                        "required": ["name", "owner", "type", "latestVersion", "deprecation"],
                         "additionalProperties": false
                       }
                     },
-                    "total": { "$ref": "#/components/schemas/Union_5" }
+                    "total": { "$ref": "#/components/schemas/Union_4" }
                   },
                   "required": ["extensions", "total"],
                   "additionalProperties": false
@@ -978,7 +982,7 @@
                     "publisher_binding_id": { "type": "string", "readOnly": true },
                     "description": { "$ref": "#/components/schemas/Union_" },
                     "repository": { "$ref": "#/components/schemas/Union_2" },
-                    "bugs": { "$ref": "#/components/schemas/Union_7" },
+                    "bugs": { "$ref": "#/components/schemas/Union_6" },
                     "license": { "$ref": "#/components/schemas/Union_3" },
                     "authors": {
                       "anyOf": [
@@ -1014,7 +1018,12 @@
                               { "type": "null" }
                             ]
                           },
-                          "yanked_at": { "$ref": "#/components/schemas/Union_4" },
+                          "yanked_at": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/IsoDateTimeString" },
+                              { "type": "null" }
+                            ]
+                          },
                           "yank_category": { "$ref": "#/components/schemas/Union_" },
                           "yank_notice": { "$ref": "#/components/schemas/Union_" }
                         },
@@ -1028,12 +1037,21 @@
                         { "type": "null" }
                       ]
                     },
-                    "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
-                    "deprecation_notice": {
-                      "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+                    "deprecation": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/DeprecationView" },
+                        { "type": "null" }
+                      ]
                     }
                   },
-                  "required": ["name", "owner", "type", "publisher_binding_id", "versions"],
+                  "required": [
+                    "name",
+                    "owner",
+                    "type",
+                    "publisher_binding_id",
+                    "versions",
+                    "deprecation"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1238,10 +1256,10 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": { "$ref": "#/components/schemas/Union_5" },
-                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_5" },
+                        "dependentPackCount": { "$ref": "#/components/schemas/Union_4" },
+                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_4" },
                         "downloadCount": {
-                          "anyOf": [{ "$ref": "#/components/schemas/Union_5" }, { "type": "null" }]
+                          "anyOf": [{ "$ref": "#/components/schemas/Union_4" }, { "type": "null" }]
                         }
                       },
                       "required": [
@@ -1397,7 +1415,7 @@
                     "integrity": { "type": "string", "readOnly": true },
                     "description": { "$ref": "#/components/schemas/Union_" },
                     "repository": { "$ref": "#/components/schemas/Union_2" },
-                    "bugs": { "$ref": "#/components/schemas/Union_7" },
+                    "bugs": { "$ref": "#/components/schemas/Union_6" },
                     "license": { "$ref": "#/components/schemas/Union_3" },
                     "authors": {
                       "anyOf": [
@@ -1433,7 +1451,12 @@
                         { "type": "null" }
                       ]
                     },
-                    "yanked_at": { "$ref": "#/components/schemas/Union_4" },
+                    "yanked_at": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        { "type": "null" }
+                      ]
+                    },
                     "yank_category": { "$ref": "#/components/schemas/Union_" },
                     "yank_notice": { "$ref": "#/components/schemas/Union_" }
                   },
@@ -2021,10 +2044,10 @@
         "summary": "Evaluate extension visibility"
       }
     },
-    "/v1/extensions/{owner}/{type}/{name}/deprecate": {
-      "post": {
+    "/v1/extensions/{owner}/{type}/{name}/deprecation": {
+      "get": {
         "tags": ["Extensions"],
-        "operationId": "Extensions.deprecate",
+        "operationId": "Extensions.getDeprecation",
         "parameters": [
           {
             "name": "owner",
@@ -2048,28 +2071,10 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "DeprecationManagementView",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "owner": { "$ref": "#/components/schemas/Handle" },
-                    "type": { "$ref": "#/components/schemas/ExtensionType" },
-                    "name": { "$ref": "#/components/schemas/ExtensionName" },
-                    "deprecatedAt": {
-                      "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString" },
-                        { "type": "null" }
-                      ]
-                    },
-                    "deprecationNotice": {
-                      "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
-                    }
-                  },
-                  "required": ["owner", "type", "name", "deprecatedAt", "deprecationNotice"],
-                  "additionalProperties": false
-                }
+                "schema": { "$ref": "#/components/schemas/DeprecationManagementView" }
               }
             }
           },
@@ -2093,7 +2098,12 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                  ]
+                }
               }
             }
           },
@@ -2106,17 +2116,112 @@
             }
           }
         },
-        "summary": "Deprecate an extension",
+        "summary": "Get extension deprecation"
+      },
+      "put": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.putDeprecation",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          { "name": "if-match", "in": "header", "schema": { "type": "string" }, "required": true }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "DeprecationTransition",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeprecationTransition" }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "412": {
+            "description": "PreconditionFailedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
+              }
+            }
+          }
+        },
+        "summary": "Create or edit extension deprecation",
         "requestBody": {
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/DeprecateBody" } }
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutDeprecationBody" } }
           },
           "required": true
         }
       },
       "delete": {
         "tags": ["Extensions"],
-        "operationId": "Extensions.undeprecate",
+        "operationId": "Extensions.deleteDeprecation",
         "parameters": [
           {
             "name": "owner",
@@ -2135,34 +2240,29 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/ExtensionName" },
             "required": true
-          }
+          },
+          { "name": "if-match", "in": "header", "schema": { "type": "string" }, "required": true }
         ],
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "DeprecationTransition",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "owner": { "$ref": "#/components/schemas/Handle" },
-                    "type": { "$ref": "#/components/schemas/ExtensionType" },
-                    "name": { "$ref": "#/components/schemas/ExtensionName" },
-                    "deprecatedAt": { "type": "null" },
-                    "deprecationNotice": { "type": "null" }
-                  },
-                  "required": ["owner", "type", "name", "deprecatedAt", "deprecationNotice"],
-                  "additionalProperties": false
-                }
+                "schema": { "$ref": "#/components/schemas/DeprecationTransition" }
               }
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                  ]
+                }
               }
             }
           },
@@ -2178,7 +2278,12 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                  ]
+                }
               }
             }
           },
@@ -2189,9 +2294,25 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "412": {
+            "description": "PreconditionFailedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
+              }
+            }
           }
         },
-        "summary": "Un-deprecate an extension"
+        "summary": "Restore a deprecated extension"
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}/yank": {
@@ -2661,10 +2782,10 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": { "$ref": "#/components/schemas/Union_5" },
-                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_5" },
+                        "dependentPackCount": { "$ref": "#/components/schemas/Union_4" },
+                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_4" },
                         "downloadCount": {
-                          "anyOf": [{ "$ref": "#/components/schemas/Union_5" }, { "type": "null" }]
+                          "anyOf": [{ "$ref": "#/components/schemas/Union_4" }, { "type": "null" }]
                         }
                       },
                       "required": [
@@ -3376,7 +3497,7 @@
                               "type": "object",
                               "properties": {
                                 "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-                                "after": { "$ref": "#/components/schemas/Union_5" }
+                                "after": { "$ref": "#/components/schemas/Union_4" }
                               },
                               "required": ["_tag", "after"],
                               "additionalProperties": false
@@ -3867,6 +3988,73 @@
         "required": ["owner", "type", "name", "range"],
         "additionalProperties": false
       },
+      "DeprecationMessage": {
+        "type": "string",
+        "allOf": [
+          { "minLength": 1 },
+          {
+            "maxLength": 500,
+            "description": "Concise publisher guidance for consumers of a deprecated extension."
+          }
+        ]
+      },
+      "DeprecationReplacement": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["available"] },
+              "fqn": { "$ref": "#/components/schemas/ExtensionFqn" }
+            },
+            "required": ["status", "fqn"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["unavailable"] },
+              "fqn": {
+                "anyOf": [{ "$ref": "#/components/schemas/ExtensionFqn" }, { "type": "null" }]
+              }
+            },
+            "required": ["status"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Authorization-safe current availability of a recorded replacement identity."
+      },
+      "DeprecationView": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "message": { "$ref": "#/components/schemas/DeprecationMessage" },
+              "replacement": {
+                "anyOf": [
+                  { "$ref": "#/components/schemas/DeprecationReplacement" },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "required": ["deprecatedAt", "message"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "message": {
+                "anyOf": [{ "$ref": "#/components/schemas/DeprecationMessage" }, { "type": "null" }]
+              },
+              "replacement": { "$ref": "#/components/schemas/DeprecationReplacement" }
+            },
+            "required": ["deprecatedAt", "replacement"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Canonical authorization-safe identity deprecation guidance."
+      },
       "SuggestedAction": {
         "type": "object",
         "properties": {
@@ -3904,6 +4092,9 @@
           },
           "lifecycle": {
             "anyOf": [{ "type": "string", "enum": ["active", "unavailable"] }, { "type": "null" }]
+          },
+          "deprecation": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
           },
           "location": {
             "type": "object",
@@ -4218,6 +4409,19 @@
         "additionalProperties": false,
         "title": "Step-up Request Status Response"
       },
+      "PublicationVisibilityInput": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
+          },
+          "request": {
+            "anyOf": [{ "$ref": "#/components/schemas/ExtensionVisibility" }, { "type": "null" }]
+          }
+        },
+        "required": ["intent", "request"],
+        "additionalProperties": false
+      },
       "PublicationDescriptor": {
         "type": "object",
         "properties": {
@@ -4226,22 +4430,7 @@
           "archiveSha256Hex": {
             "anyOf": [{ "$ref": "#/components/schemas/Sha256Hex" }, { "type": "null" }]
           },
-          "visibility": {
-            "type": "object",
-            "properties": {
-              "intent": {
-                "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
-              },
-              "request": {
-                "anyOf": [
-                  { "$ref": "#/components/schemas/ExtensionVisibility" },
-                  { "type": "null" }
-                ]
-              }
-            },
-            "required": ["intent", "request"],
-            "additionalProperties": false
-          },
+          "visibility": { "$ref": "#/components/schemas/PublicationVisibilityInput" },
           "pack": {
             "anyOf": [
               {
@@ -4677,17 +4866,14 @@
         "title": "Author",
         "description": "Author details: name, email, and homepage URL."
       },
-      "Union_4": {
-        "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
-      },
       "ExtensionTypePlural": {
         "type": "string",
         "enum": ["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs)."
       },
-      "Union_6": { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
-      "Union_5": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
+      "Union_5": { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
+      "Union_4": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_5" }] },
       "Bugs": {
         "type": "object",
         "properties": {
@@ -4716,7 +4902,7 @@
         "title": "Bugs",
         "description": "Bug reporting details for an extension manifest."
       },
-      "Union_7": { "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }] },
+      "Union_6": { "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }] },
       "PackageIdentityPurl": {
         "type": "string",
         "allOf": [
@@ -4827,41 +5013,113 @@
           "instance": { "type": "string" },
           "code": {
             "type": "string",
-            "enum": ["publish/precondition-changed", "visibility/stale-revision"]
+            "enum": [
+              "publish/precondition-changed",
+              "visibility/stale-revision",
+              "deprecation/stale-revision"
+            ]
           },
           "details": { "$ref": "#/components/schemas/PublishDetails" }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "DeprecateBody": {
+      "DeprecationRevision": {
+        "type": "string",
+        "allOf": [
+          {
+            "minLength": 1,
+            "description": "Opaque publisher lifecycle revision used for conditional writes."
+          }
+        ]
+      },
+      "DeprecationManagementView": {
         "type": "object",
         "properties": {
-          "notice": {
+          "deprecation": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
+          },
+          "revision": { "$ref": "#/components/schemas/DeprecationRevision" }
+        },
+        "required": ["deprecation", "revision"],
+        "additionalProperties": false
+      },
+      "DeprecationReplacementIntent": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": { "kind": { "type": "string", "enum": ["clear"] } },
+            "required": ["kind"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["set"] },
+              "fqn": { "$ref": "#/components/schemas/ExtensionFqn" }
+            },
+            "required": ["kind", "fqn"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": { "kind": { "type": "string", "enum": ["preserve"] } },
+            "required": ["kind"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "PutDeprecationBody": {
+        "type": "object",
+        "properties": {
+          "message": {
             "anyOf": [
               {
                 "type": "string",
-                "description": "Message shown to users explaining why this extension is deprecated.",
-                "examples": ["Use @example/skills/new-skill instead."]
+                "allOf": [
+                  {
+                    "maxLength": 500,
+                    "description": "Publisher migration guidance, normalized by the Registry."
+                  }
+                ]
               },
               { "type": "null" }
             ]
-          }
+          },
+          "replacement": { "$ref": "#/components/schemas/DeprecationReplacementIntent" }
         },
-        "additionalProperties": false,
-        "title": "Deprecate Body",
-        "description": "Request body for deprecating an extension."
+        "required": ["message", "replacement"],
+        "additionalProperties": false
       },
-      "Union_8": { "type": "string", "enum": ["error", "warning", "info"] },
-      "Union_9": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_6" }] },
+      "DeprecationTransition": {
+        "type": "object",
+        "properties": {
+          "target": { "$ref": "#/components/schemas/ExtensionFqn" },
+          "before": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
+          },
+          "after": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
+          },
+          "disposition": {
+            "type": "string",
+            "enum": ["created", "edited", "restored", "unchanged"]
+          },
+          "revision": { "$ref": "#/components/schemas/DeprecationRevision" }
+        },
+        "required": ["target", "before", "after", "disposition", "revision"],
+        "additionalProperties": false
+      },
+      "Union_7": { "type": "string", "enum": ["error", "warning", "info"] },
+      "Union_8": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_5" }] },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
           "file": { "type": "string" },
-          "line": { "$ref": "#/components/schemas/Union_9" },
-          "column": { "$ref": "#/components/schemas/Union_9" },
-          "byteOffset": { "$ref": "#/components/schemas/Union_9" },
-          "byteLength": { "$ref": "#/components/schemas/Union_9" }
+          "line": { "$ref": "#/components/schemas/Union_8" },
+          "column": { "$ref": "#/components/schemas/Union_8" },
+          "byteOffset": { "$ref": "#/components/schemas/Union_8" },
+          "byteLength": { "$ref": "#/components/schemas/Union_8" }
         },
         "required": ["file"],
         "additionalProperties": false,
@@ -4873,7 +5131,7 @@
         "properties": {
           "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
           "ruleId": { "type": "string" },
-          "severity": { "$ref": "#/components/schemas/Union_8" },
+          "severity": { "$ref": "#/components/schemas/Union_7" },
           "message": { "type": "string" },
           "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
           "path": { "type": "string" },
@@ -4923,7 +5181,7 @@
         "properties": {
           "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
           "ruleId": { "type": "string" },
-          "severity": { "$ref": "#/components/schemas/Union_8" },
+          "severity": { "$ref": "#/components/schemas/Union_7" },
           "message": { "type": "string" },
           "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
           "path": { "type": "string" },
@@ -5196,16 +5454,15 @@
               { "type": "null" }
             ]
           },
-          "deprecated_at": { "$ref": "#/components/schemas/Union_4" },
-          "deprecation_notice": {
-            "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
+          "deprecation": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
           },
           "matched_fields": {
             "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
           },
           "visibility": { "type": "string", "enum": ["public", "private"] }
         },
-        "required": ["name", "owner", "type", "latestVersion", "visibility"],
+        "required": ["name", "owner", "type", "latestVersion", "deprecation", "visibility"],
         "additionalProperties": false,
         "title": "Search Hit",
         "description": "A single extension matched by a search query."
@@ -5252,7 +5509,7 @@
         "type": "object",
         "properties": {
           "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-          "after": { "$ref": "#/components/schemas/Union_5" }
+          "after": { "$ref": "#/components/schemas/Union_4" }
         },
         "required": ["_tag", "after"],
         "additionalProperties": false

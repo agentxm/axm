@@ -1,6 +1,7 @@
 {
+  "owner": "@agentxm",
   "agents": ["claude-code"],
-  "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
+  "minimumReleaseAgeExclude": ["@agentxm/*"],
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",

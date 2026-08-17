@@ -46,7 +46,11 @@ import {
   type KnowledgeManifest,
 } from "./manifest-schema.js";
 import { inspectKnowledgeBundle, type KnowledgeInspection } from "./okf.js";
-import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
+import {
+  reconcileKnowledgeDiscovery,
+  type KnowledgeDiscoveryBundle,
+  type KnowledgeDiscoveryResult,
+} from "./discovery.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -460,56 +464,44 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
-    const discoveryReadyAround = (excludeName: string) =>
-      Effect.gen(function* () {
-        const graph = yield* ws.getDesiredStateGraph();
-        if (!graph.complete) return false;
-        const locked = yield* getKnowledgeLockEntries(ws);
-        for (const node of graph.nodes) {
-          if (node.type !== "knowledge" || !node.enabled || node.name === excludeName) continue;
-          const root = yield* Effect.result(desiredCanonicalRoot(node, locked[node.name]));
-          if (Result.isFailure(root)) return false;
-          if (Result.isFailure(yield* Effect.result(inspectPackage(root.success)))) return false;
-        }
-        return true;
-      });
-
+    // The discovery region is an aggregate ownership unit: every write renders
+    // the complete contributor set the complete desired-state graph reaches,
+    // whether a bundle is declared directly or contributed by a Pack.
+    //
+    // With `onUnready: "skip"` a bundle whose accepted resolution or canonical
+    // content is not yet readable defers the write: a later step in the same
+    // closure completes it, and lint and sync detect the region if convergence
+    // never happens. An incomplete desired-state graph always fails.
     const reconcileDiscovery = (options?: {
-      readonly include?: { readonly ref: KnowledgeExtensionRef; readonly root: string };
-      readonly excludeName?: string;
       readonly dryRun?: boolean;
+      readonly onUnready?: "fail" | "skip";
     }) =>
       Effect.gen(function* () {
-        const desired = yield* activeKnowledgeNodes();
-        const locked = yield* getKnowledgeLockEntries(ws);
-        const installed = yield* Effect.forEach(
-          desired.filter(
-            (node) =>
-              node.name !== options?.include?.ref.knowledge.name &&
-              node.name !== options?.excludeName,
-          ),
-          (node) =>
-            Effect.gen(function* () {
-              const root = yield* desiredCanonicalRoot(node, locked[node.name]);
-              return toProjectionBundle(root, yield* inspectPackage(root));
-            }),
+        const resolved = yield* Effect.result(
+          Effect.gen(function* () {
+            const desired = yield* activeKnowledgeNodes();
+            const locked = yield* getKnowledgeLockEntries(ws);
+            return yield* Effect.forEach(desired, (node) =>
+              Effect.gen(function* () {
+                const root = yield* desiredCanonicalRoot(node, locked[node.name]);
+                return toProjectionBundle(root, yield* inspectPackage(root));
+              }),
+            );
+          }),
         );
-        const included =
-          options?.include === undefined
-            ? []
-            : [
-                toProjectionBundle(
-                  options.include.root,
-                  yield* inspectPackage(options.include.root),
-                ),
-              ];
+        if (Result.isFailure(resolved)) {
+          if (options?.onUnready === "skip") {
+            return { changed: false, artifacts: [] } satisfies KnowledgeDiscoveryResult;
+          }
+          return yield* resolved.failure;
+        }
         const config = yield* ws.getKnowledgeDiscoveryConfig();
         const instructionsTarget = yield* getInstructionsTarget();
         return yield* provide(
           reconcileKnowledgeDiscovery({
             scopeRoot: baseDir,
             config,
-            bundles: [...installed, ...included],
+            bundles: resolved.success,
             instructionsPath: instructionsTarget.path,
             instructionManagementEnabled: instructionsTarget.enabled,
             preserveInstructionsSource: instructionsTarget.preserveSource,
@@ -663,7 +655,7 @@ export const KnowledgeManagerLive = Layer.effect(
               });
             }
             const prepared = yield* preparePackage(args.ref);
-            return yield* Effect.gen(function* () {
+            const committed = yield* Effect.gen(function* () {
               lastInstallState.set(name, {
                 relativeLocalSource,
                 sourceHash: prepared.sourceHash,
@@ -681,17 +673,17 @@ export const KnowledgeManagerLive = Layer.effect(
                   enabled: true,
                 });
               }
-              if (yield* discoveryReadyAround(name)) {
-                yield* reconcileDiscovery({
-                  include: { ref: args.ref, root: prepared.root },
-                  excludeName: name,
-                });
-              }
               return { name };
             }).pipe(
               Effect.tapError(() => prepared.rollback),
               Effect.tap(() => prepared.commit),
             );
+            // Desired state and canonical content are committed; render the
+            // discovery region once from the complete contributor set. A
+            // sibling still installing in the same closure defers the write to
+            // the closure's final reconcile.
+            yield* reconcileDiscovery({ onUnready: "skip" });
+            return committed;
           }),
           validate: ({ name }) =>
             isObservedInstalled(ws, "knowledge", name).pipe(
@@ -714,10 +706,11 @@ export const KnowledgeManagerLive = Layer.effect(
           Effect.asVoid,
         );
 
-    const makeMaterializeRemoval = (
-      retainCanonical: boolean,
-    ): ExtensionManager<KnowledgeExtensionRef>["materializeUninstall"] =>
-      Effect.fn("KnowledgeManager.materializeRemoval")(function* ({ target }) {
+    // Canonical removal only. The shared operation flow re-renders the
+    // discovery region after settings and lock removal, once the target has
+    // left the graph.
+    const materializeUninstall: ExtensionManager<KnowledgeExtensionRef>["materializeUninstall"] =
+      Effect.fn("KnowledgeManager.materializeUninstall")(function* ({ target }) {
         const canonical = yield* provide(
           acceptedCanonicalObservation({
             workspace: ws,
@@ -728,7 +721,7 @@ export const KnowledgeManagerLive = Layer.effect(
         const root = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (!retainCanonical && Option.isSome(root)) {
+        if (Option.isSome(root)) {
           yield* protectWorkspacePath(root.value);
           yield* fs.remove(root.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -740,10 +733,14 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           );
         }
-        yield* reconcileDiscovery({ excludeName: target.name });
       }, Effect.asVoid);
-    const materializeUninstall = makeMaterializeRemoval(false);
-    const materializeDeactivate = makeMaterializeRemoval(true);
+    // Deactivation retains canonical content; the caller updates settings
+    // first, so re-rendering the whole region drops this bundle's routing.
+    const materializeDeactivate: ExtensionManager<KnowledgeExtensionRef>["materializeDeactivate"] =
+      Effect.fn("KnowledgeManager.materializeDeactivate")(
+        () => reconcileDiscovery({ onUnready: "skip" }),
+        Effect.asVoid,
+      );
 
     return {
       type: "knowledge",
@@ -761,6 +758,7 @@ export const KnowledgeManagerLive = Layer.effect(
               validate: () => Effect.void,
             }),
       install: installAtomically,
+      reconcileProjections: () => reconcileDiscovery({ onUnready: "skip" }).pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
@@ -778,21 +776,6 @@ export const KnowledgeManagerLive = Layer.effect(
           });
         }
         const prepared = yield* preparePackage(ref, force === true);
-        if (!(yield* discoveryReadyAround(ref.knowledge.name))) {
-          yield* prepared.commit;
-          lastInstallState.set(ref.knowledge.name, {
-            relativeLocalSource,
-            sourceHash: prepared.sourceHash,
-          });
-          return;
-        }
-        const discovery = yield* Effect.result(
-          reconcileDiscovery({ include: { ref, root: prepared.root } }),
-        );
-        if (Result.isFailure(discovery)) {
-          yield* prepared.rollback;
-          return yield* discovery.failure;
-        }
         yield* prepared.commit;
         lastInstallState.set(ref.knowledge.name, {
           relativeLocalSource,

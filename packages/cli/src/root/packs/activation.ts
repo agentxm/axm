@@ -173,6 +173,29 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
   }
 });
 
+// Shared aggregate units render once per closure from the complete
+// desired-state contributor set, after the pack's activation change commits.
+const reconcileAggregateProjections = Effect.fn("PacksActivation.reconcileAggregateProjections")(
+  function* (types: ReadonlySet<string>) {
+    if (types.has("rule")) {
+      const manager = yield* RuleManager;
+      yield* manager.reconcileProjections();
+    }
+    if (types.has("hook")) {
+      const manager = yield* HookManager;
+      yield* manager.reconcileProjections();
+    }
+    if (types.has("knowledge")) {
+      const manager = yield* KnowledgeManager;
+      if (manager.reconcileProjections !== undefined) {
+        yield* manager.reconcileProjections();
+      }
+    }
+  },
+);
+
+const AGGREGATE_UNIT_TYPES = new Set(["rule", "hook", "knowledge"]);
+
 const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(function* (
   packIdentity: string,
 ) {
@@ -312,11 +335,27 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
               yield* ws.runTransaction({
                 transition: Effect.gen(function* () {
                   yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                  const memberTypes = args.enabled
+                    ? new Set(
+                        graph.nodes
+                          .filter(
+                            (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
+                          )
+                          .map((node) => node.type),
+                      )
+                    : new Set(affected.map((node) => node.type));
                   if (args.enabled) {
                     yield* runMaterializeSteps(packIdentity);
                   } else {
-                    yield* Effect.forEach(affected, dematerializeNode, { concurrency: 1 });
+                    // Aggregate units are re-rendered once below instead of
+                    // per contributor.
+                    yield* Effect.forEach(
+                      affected.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
+                      dematerializeNode,
+                      { concurrency: 1 },
+                    );
                   }
+                  yield* reconcileAggregateProjections(memberTypes);
                 }).pipe(Effect.provide(runServices)),
                 validate: () =>
                   validatePackGraphPostcondition({

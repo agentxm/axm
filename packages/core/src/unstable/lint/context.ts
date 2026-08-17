@@ -315,6 +315,8 @@ export interface WorkspaceRuleContext {
   readonly workspace: WorkspaceReadModel;
   readonly axmDirExists: Effect.Effect<boolean>;
   readonly instructions?: WorkspaceInstructionAccessor;
+  /** Read-back currency for aggregate managed output units. */
+  readonly projections?: WorkspaceProjectionsAccessor;
   /**
    * Installed non-pack extension manifests, keyed by nothing — rules walk the
    * list. Landed for `workspace/recommended-packs-retained`, which needs the
@@ -348,6 +350,21 @@ export interface WorkspaceRuleContext {
 export interface WorkspaceInstructionAccessor {
   readonly status: Effect.Effect<Option.Option<InstructionsStatus>>;
   readonly gitignore: Effect.Effect<Option.Option<InstructionsGitignoreStatus>>;
+}
+
+/**
+ * Caller-bound read-back currency for aggregate managed output units. Each
+ * accessor yields `Option.none()` when currency cannot be judged (for example
+ * an incomplete desired-state graph or missing canonical content) so the rule
+ * suppresses instead of cascading a root-cause failure.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface WorkspaceProjectionsAccessor {
+  /** Whether the managed Rules region renders its complete contributor set. */
+  readonly rulesRegionCurrent: Effect.Effect<Option.Option<boolean>>;
+  /** Whether managed hook entries and the fallback region render theirs. */
+  readonly hooksProjectionsCurrent: Effect.Effect<Option.Option<boolean>>;
 }
 
 /**

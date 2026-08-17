@@ -9,6 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import {
@@ -22,17 +23,19 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  decodeExtensionNameSync,
   enabledConfiguredEntries,
-  markerFqnForRef,
+  formatFqn,
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
+import { activeContributors } from "../projection/index.js";
 import {
   frontmatterParseFailureToAppError,
   parseFrontmatterEffect,
 } from "../extensions/frontmatter.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
-import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
+import { type SourceHash } from "../extensions/rendered-files.js";
 import type { RuleLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import {
@@ -77,6 +80,9 @@ import {
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
   readonly reconcileInstructions: Effect.Effect<MaterializedFileTarget, AppError>;
+  /** True when the managed Rules region already renders its complete contributor set. */
+  readonly instructionsRegionCurrent: Effect.Effect<boolean, AppError>;
+  readonly reconcileProjections: () => Effect.Effect<void, AppError>;
 }
 
 export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerService>()(
@@ -169,12 +175,11 @@ export const RuleManagerLive = Layer.effect(
       string,
       {
         readonly ref: RuleExtensionRef;
-        readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
-        readonly materialization: MaterializationObservation;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
       }
     >();
+    let lastProjection: MaterializationObservation | undefined;
 
     const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
       Effect.gen(function* () {
@@ -337,9 +342,6 @@ export const RuleManagerLive = Layer.effect(
         ),
       );
 
-    const markerForRef = (ref: RuleExtensionRef, manifest: RuleManifest): string =>
-      markerFqnForRef({ ref, manifest, type: "rule", name: ref.rule.name });
-
     const renderRuleBlock = (args: {
       readonly marker: string;
       readonly manifest: RuleManifest;
@@ -349,88 +351,77 @@ export const RuleManagerLive = Layer.effect(
         args.manifest.title !== undefined && !args.body.startsWith("#")
           ? `# ${args.manifest.title}\n\n`
           : "";
-      return `<!-- axm:rule ${args.marker}@${args.manifest.version} -->\n${header}${args.body}`;
+      // The blank line after the marker keeps the rendered region stable under
+      // Prettier, which separates block HTML comments from following content.
+      return `<!-- axm:rule ${args.marker}@${args.manifest.version} -->\n\n${header}${args.body}`;
     };
 
-    const renderRuleRef = (args: {
-      readonly ref: RuleExtensionRef;
-      readonly packageRoot: string;
-    }) =>
+    // The Rules region is an aggregate ownership unit: its contributor set is
+    // every enabled Rule the complete desired-state graph reaches, whether
+    // declared directly or contributed by a Pack. Membership never comes from
+    // settings entries, and content is read from accepted canonical packages.
+    //
+    // With `onUnready: "skip"` a contributor whose accepted resolution or
+    // canonical content is not yet readable yields Option.none: a lifecycle
+    // step installing several contributors defers the region write until the
+    // closure's final reconcile can render the complete set. An incomplete
+    // desired-state graph always fails; skipping never drops a contributor
+    // from a rendered set.
+    const renderInstalledRulesRegion = (args?: { readonly onUnready?: "fail" | "skip" }) =>
       Effect.gen(function* () {
-        const manifest = yield* readManifest(args.packageRoot);
-        const body = yield* readRuleBody(args.packageRoot);
-        return {
-          name: args.ref.rule.name,
-          marker: markerForRef(args.ref, manifest),
-          manifest,
-          body,
-        };
-      });
-
-    const renderInstalledRulesRegion = (args?: {
-      readonly include?: {
-        readonly ref: RuleExtensionRef;
-        readonly packageRoot: string;
-      };
-      readonly excludeName?: string;
-    }) =>
-      Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredRuleEntries();
-        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
-        const renderedRules = yield* Effect.forEach(
-          Object.entries(configured).filter(
-            ([name, entry]) =>
-              entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.rule.name,
-          ),
-          ([name, entry]) =>
-            Effect.scoped(
-              provide(resolveConfiguredRule(name, entry.source, releaseAgeEvaluation)),
-            ).pipe(
-              Effect.flatMap(({ ref }) =>
+        const resolved = yield* Effect.result(
+          Effect.gen(function* () {
+            const graph = yield* ws.getDesiredStateGraph();
+            const locked = yield* ws.getLockedRules();
+            const contributors = yield* activeContributors({
+              baseDir,
+              path,
+              type: "rule",
+              extensionDir: RULE_EXTENSION_DIR,
+              graph,
+              locked,
+            });
+            return yield* Effect.forEach(
+              contributors,
+              (contributor) =>
                 Effect.gen(function* () {
-                  const packageRoot = yield* materializePackage(ref);
-                  return yield* renderRuleRef({ ref, packageRoot });
+                  const manifest = yield* readManifest(contributor.packageRoot);
+                  const body = yield* readRuleBody(contributor.packageRoot);
+                  const marker = Option.match(contributor.identityOwner, {
+                    onSome: (owner) =>
+                      formatFqn({
+                        owner,
+                        type: "rule",
+                        name: decodeExtensionNameSync(contributor.node.name),
+                      }),
+                    onNone: () =>
+                      formatFqn({ owner: manifest.owner, type: "rule", name: manifest.name }),
+                  });
+                  return { name: contributor.node.name, marker, manifest, body };
                 }),
-              ),
-            ),
-          { concurrency: "unbounded" },
+              { concurrency: "unbounded" },
+            );
+          }),
         );
+        if (Result.isFailure(resolved)) {
+          if (args?.onUnready === "skip") return Option.none<string>();
+          return yield* resolved.failure;
+        }
 
-        const included = args?.include === undefined ? [] : [yield* renderRuleRef(args.include)];
-        const sorted = [...renderedRules, ...included].sort((a, b) => {
+        const sorted = [...resolved.success].sort((a, b) => {
           const byPriority = (a.manifest.priority ?? 100) - (b.manifest.priority ?? 100);
           if (byPriority !== 0) return byPriority;
           return a.marker.localeCompare(b.marker);
         });
 
-        return sorted.map(renderRuleBlock).join("\n\n");
+        return Option.some(sorted.map(renderRuleBlock).join("\n\n"));
       });
 
     const writeRulesRegion = (args?: {
-      readonly include?: {
-        readonly ref: RuleExtensionRef;
-        readonly packageRoot: string;
-      };
-      readonly excludeName?: string;
+      readonly dryRun?: boolean;
+      readonly onUnready?: "fail" | "skip";
     }) =>
       Effect.gen(function* () {
-        const instructions = yield* activeInstructions();
-        if (Option.isSome(instructions)) {
-          yield* provide(
-            Effect.all(
-              [
-                assertInstructionTargetsSafe({
-                  workspaceRoot: baseDir,
-                  scope: ws.scope,
-                  configuredAgents: instructions.value.agents,
-                  config: instructions.value.config,
-                }),
-                assertInstructionsGitignoreSafe(baseDir),
-              ],
-              { concurrency: 1, discard: true },
-            ),
-          );
-        }
         const target = yield* sourceFileTarget();
         const style = commentStyleForTarget(target.relative);
         if (Option.isNone(style)) {
@@ -440,7 +431,22 @@ export const RuleManagerLive = Layer.effect(
           });
         }
 
-        const rendered = yield* renderInstalledRulesRegion(args);
+        const renderedOption = yield* renderInstalledRulesRegion(args);
+        if (Option.isNone(renderedOption)) {
+          // A contributor is not renderable yet; a later step in the same
+          // closure completes the write, and lint and sync detect the region
+          // if convergence never happens.
+          return {
+            materializedTarget: decodeMaterializedTarget({
+              target: target.relative,
+              mode: "managed-region",
+              region: RULES_REGION,
+            }),
+            materialization: ruleMaterializationObservation(target.relative, []),
+            changed: false,
+          };
+        }
+        const rendered = renderedOption.value;
         // Only treat an absent file as empty; a real read failure on an existing
         // file must propagate, or we would overwrite unreadable user content
         // with just the managed region.
@@ -473,25 +479,58 @@ export const RuleManagerLive = Layer.effect(
                 rendered,
                 style: style.value,
               });
-        yield* protectWorkspacePath(target.absolute);
-        yield* fs.makeDirectory(path.dirname(target.absolute), { recursive: true }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to create rules managed region target directory: ${path.dirname(target.absolute)}`,
-              cause: error,
-            }),
-          ),
-        );
-        yield* fs.writeFileString(target.absolute, updated).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to write rules managed region target: ${target.absolute}`,
-              cause: error,
-            }),
-          ),
-        );
+        const changed = updated !== existing;
+        const materializedTarget = decodeMaterializedTarget({
+          target: target.relative,
+          mode: "managed-region",
+          region: RULES_REGION,
+        });
+        if (args?.dryRun === true) {
+          return {
+            materializedTarget,
+            materialization: ruleMaterializationObservation(target.relative, []),
+            changed,
+          };
+        }
+
+        const instructions = yield* activeInstructions();
+        if (Option.isSome(instructions)) {
+          yield* provide(
+            Effect.all(
+              [
+                assertInstructionTargetsSafe({
+                  workspaceRoot: baseDir,
+                  scope: ws.scope,
+                  configuredAgents: instructions.value.agents,
+                  config: instructions.value.config,
+                }),
+                assertInstructionsGitignoreSafe(baseDir),
+              ],
+              { concurrency: 1, discard: true },
+            ),
+          );
+        }
+        if (changed || !fileExists) {
+          yield* protectWorkspacePath(target.absolute);
+          yield* fs.makeDirectory(path.dirname(target.absolute), { recursive: true }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to create rules managed region target directory: ${path.dirname(target.absolute)}`,
+                cause: error,
+              }),
+            ),
+          );
+          yield* fs.writeFileString(target.absolute, updated).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to write rules managed region target: ${target.absolute}`,
+                cause: error,
+              }),
+            ),
+          );
+        }
 
         const instructionItems = Option.isSome(instructions)
           ? (yield* provide(
@@ -504,15 +543,9 @@ export const RuleManagerLive = Layer.effect(
             )).status.items
           : [];
 
-        return {
-          materializedTarget: decodeMaterializedTarget({
-            target: target.relative,
-            mode: "managed-region",
-            region: RULES_REGION,
-            renderHash: computeSourceHash(rendered),
-          }),
-          materialization: ruleMaterializationObservation(target.relative, instructionItems),
-        };
+        const materialization = ruleMaterializationObservation(target.relative, instructionItems);
+        lastProjection = materialization;
+        return { materializedTarget, materialization, changed };
       });
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
@@ -532,14 +565,9 @@ export const RuleManagerLive = Layer.effect(
         });
       }
 
-      const { materializedTarget, materialization } = yield* writeRulesRegion({
-        include: { ref, packageRoot },
-      });
       const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.rule.name, {
         ref,
-        materializedTargets: [materializedTarget],
-        materialization,
         workspaceRelativeLocalSourcePath,
         sourceHash,
       });
@@ -574,10 +602,10 @@ export const RuleManagerLive = Layer.effect(
         }
       });
 
-    const makeMaterializeRemoval = (
-      retainCanonical: boolean,
-    ): ExtensionManager<RuleExtensionRef>["materializeUninstall"] =>
-      Effect.fn("RuleManager.materializeRemoval")(function* ({ target }) {
+    // Canonical removal only. The shared operation flow re-renders the region
+    // after settings and lock removal, once the target has left the graph.
+    const materializeUninstall: ExtensionManager<RuleExtensionRef>["materializeUninstall"] =
+      Effect.fn("RuleManager.materializeUninstall")(function* ({ target }) {
         const canonical = yield* provide(
           acceptedCanonicalObservation({
             workspace: ws,
@@ -585,11 +613,10 @@ export const RuleManagerLive = Layer.effect(
             name: target.name,
           }),
         );
-        yield* writeRulesRegion({ excludeName: target.name });
         const packageRoot = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (!retainCanonical && Option.isSome(packageRoot)) {
+        if (Option.isSome(packageRoot)) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -602,13 +629,22 @@ export const RuleManagerLive = Layer.effect(
           );
         }
       }, Effect.asVoid);
-    const materializeUninstall = makeMaterializeRemoval(false);
-    const materializeDeactivate = makeMaterializeRemoval(true);
+    // Deactivation retains canonical content; the caller updates settings
+    // first, so re-rendering the whole region drops this rule's contribution.
+    const materializeDeactivate: ExtensionManager<RuleExtensionRef>["materializeDeactivate"] =
+      Effect.fn("RuleManager.materializeDeactivate")(
+        () => writeRulesRegion({ onUnready: "skip" }),
+        Effect.asVoid,
+      );
 
     return {
       type: "rule",
       reconcileInstructions: writeRulesRegion().pipe(
         Effect.map(({ materializedTarget }) => materializedTarget),
+      ),
+      reconcileProjections: () => writeRulesRegion({ onUnready: "skip" }).pipe(Effect.asVoid),
+      instructionsRegionCurrent: writeRulesRegion({ dryRun: true }).pipe(
+        Effect.map(({ changed }) => !changed),
       ),
       runTransaction: ws.runTransaction,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
@@ -617,10 +653,7 @@ export const RuleManagerLive = Layer.effect(
         ),
 
       materializeInstall,
-      getLastMaterialization: ({ target }) =>
-        Effect.succeed(
-          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
-        ),
+      getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredRuleEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

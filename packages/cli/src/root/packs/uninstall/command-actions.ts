@@ -47,6 +47,7 @@ import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import { buildPackProjectionStep } from "../projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 // -----------------------------------------------------------------------------
@@ -354,12 +355,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           if (target.type === "rule") {
             return buildUninstallOperation<RuleExtensionRef>(ruleManager, exclusiveMemberPolicy, {
               target,
+              skipProjections: true,
             });
           }
 
           if (target.type === "hook") {
             return buildUninstallOperation<HookExtensionRef>(hookManager, exclusiveMemberPolicy, {
               target,
+              skipProjections: true,
             });
           }
 
@@ -367,7 +370,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             return buildUninstallOperation<KnowledgeExtensionRef>(
               knowledgeManager,
               exclusiveMemberPolicy,
-              { target },
+              { target, skipProjections: true },
             );
           }
 
@@ -378,6 +381,17 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
+        const projectionStep = yield* buildPackProjectionStep({
+          types: new Set(orderedTargets.map((target) => target.type)),
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              Layer.succeed(RuleManager, ruleManager),
+              Layer.succeed(HookManager, hookManager),
+              Layer.succeed(KnowledgeManager, knowledgeManager),
+            ),
+          ),
+        );
         const graphStep = yield* buildAtomicPackGraphStep({
           label: count(intent.packsToUninstall.length, "pack"),
           message: `Uninstalled ${count(intent.packsToUninstall.length, "pack")} and ${count(depTargets.length, "exclusive member")}`,
@@ -391,7 +405,13 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
               change: "removed",
             })),
           },
-          children: steps.map((step) => ({ step, coverage: "ineligible" })),
+          children: [
+            ...steps.map((step) => ({ step, coverage: "ineligible" as const })),
+            ...Option.toArray(projectionStep).map((step) => ({
+              step,
+              coverage: "ineligible" as const,
+            })),
+          ],
           preTransition: Effect.gen(function* () {
             const currentGraph = yield* ws.getDesiredStateGraph();
             yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);

@@ -241,6 +241,7 @@ export const buildPackMemberInstallStep = (args: {
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        skipProjections: true,
         installedBefore: args.graphComplete
           ? ruleManager.isInstalled({ target: { type: "rule", name: ref.rule.name } })
           : Effect.succeed(false),
@@ -264,6 +265,7 @@ export const buildPackMemberInstallStep = (args: {
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        skipProjections: true,
         installedBefore: args.graphComplete
           ? hookManager.isInstalled({ target: { type: "hook", name: ref.hook.name } })
           : Effect.succeed(false),
@@ -286,6 +288,7 @@ export const buildPackMemberInstallStep = (args: {
       ref,
       versionRange: Option.none(),
       skipSettings: true,
+      skipProjections: true,
       installedBefore: args.graphComplete
         ? knowledgeManager.isInstalled({
             target: { type: "knowledge", name: ref.knowledge.name },

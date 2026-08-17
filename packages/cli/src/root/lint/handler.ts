@@ -30,6 +30,8 @@ import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error"
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/client-core/unstable/skills";
 import {
   buildLintWorkspace,
@@ -444,6 +446,8 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());
+  const ruleManager = yield* RuleManager;
+  const hookManager = yield* HookManager;
   const { rule: workspaceContext, view } = yield* buildLintWorkspace({
     platform: { fs, path },
     workspaceRoot,
@@ -451,6 +455,19 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     scope: args.scope,
     axmSkillCompatibilityPolicy,
     owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+    // Read-back currency for aggregate managed units. A failed judgment (for
+    // example an incomplete desired-state graph) yields no verdict so the
+    // projections rule suppresses instead of duplicating root-cause findings.
+    projections: {
+      rulesRegionCurrent: ruleManager.instructionsRegionCurrent.pipe(
+        Effect.map(Option.some),
+        Effect.catch(() => Effect.succeed(Option.none<boolean>())),
+      ),
+      hooksProjectionsCurrent: hookManager.hooksProjectionCurrent.pipe(
+        Effect.map(Option.some),
+        Effect.catch(() => Effect.succeed(Option.none<boolean>())),
+      ),
+    },
   }).pipe(
     Effect.catchTag("WorkspaceRootEscape", (e) =>
       Effect.fail(

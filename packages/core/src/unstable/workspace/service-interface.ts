@@ -196,6 +196,12 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;
+  /**
+   * Re-render every aggregate ownership unit this type contributes to from the
+   * complete desired-state graph. The shared operation flow invokes this after
+   * settings and lock state commit, once per semantic closure.
+   */
+  readonly reconcileProjections?: () => Effect.Effect<void, AppError, never>;
   readonly getLastUnmaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;

@@ -50,6 +50,7 @@ import { agentsRecognizedRule } from "./workspace/agents-recognized.js";
 import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared.js";
 import { instructionsSourcePresentRule } from "./workspace/instructions-source-present.js";
 import { instructionsTargetCurrentRule } from "./workspace/instructions-target-current.js";
+import { projectionsCurrentRule } from "./workspace/projections-current.js";
 import { instructionsAgentSupportedRule } from "./workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./workspace/instructions-gitignore-current.js";
 import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-valid.js";
@@ -115,6 +116,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
 export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   agentsDetectedDeclaredRule,
   instructionsTargetCurrentRule,
+  projectionsCurrentRule,
   skillsArtifactsCorrectRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
@@ -135,6 +137,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   instructionsTargetCurrentRule,
   instructionsAgentSupportedRule,
   instructionsGitignoreCurrentRule,
+  projectionsCurrentRule,
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,

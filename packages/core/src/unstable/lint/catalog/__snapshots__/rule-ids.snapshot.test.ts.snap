@@ -94,6 +94,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/instructions-target-current",
   "workspace/instructions-agent-supported",
   "workspace/instructions-gitignore-current",
+  "workspace/projections-current",
   "workspace/skills-declarations-valid",
   "workspace/packs-declarations-valid",
   "workspace/configured-but-not-installed",

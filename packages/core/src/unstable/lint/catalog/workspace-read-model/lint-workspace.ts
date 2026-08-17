@@ -65,6 +65,7 @@ import type {
   RuleRuleContext,
   SubagentRuleContext,
   WorkspaceInstructionAccessor,
+  WorkspaceProjectionsAccessor,
   WorkspaceRuleContext,
 } from "../../context.js";
 import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
@@ -147,6 +148,8 @@ export interface BuildLintWorkspaceArgs {
   readonly axmSkillCompatibilityPolicy?: AxmSkillCompatibilityPolicyService;
   /** Caller-bound effective workspace owner accessor. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
+  /** Caller-bound read-back currency for aggregate managed output units. */
+  readonly projections?: WorkspaceProjectionsAccessor;
   /** Test seam for proving one package inspection per selected bundle. */
   readonly inspectKnowledge?: (
     packageRoot: string,
@@ -221,6 +224,7 @@ export const buildLintWorkspace = (
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
       packDependencyReachability: Effect.succeed(projection.packDependencyReachability),
       ...(args.owner === undefined ? {} : { owner: args.owner }),
+      ...(args.projections === undefined ? {} : { projections: args.projections }),
       ...(args.axmSkillCompatibilityPolicy === undefined
         ? {}
         : {

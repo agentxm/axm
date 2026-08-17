@@ -9,6 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
@@ -24,22 +25,21 @@ import {
   installable,
 } from "../agent-capabilities/index.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
-import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
+import { type SourceHash } from "../extensions/rendered-files.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  decodeExtensionNameSync,
   enabledConfiguredEntries,
-  markerFqnForRef,
+  formatFqn,
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
+import { activeContributors } from "../projection/index.js";
 import { validatePathSafety } from "../extensions/utils.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import type { HookLockEntry } from "../lockfile/index.js";
-import {
-  MaterializedFileTargetSchema,
-  type MaterializedFileTarget,
-} from "../workspace/materialized-file-target.js";
+import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
@@ -78,10 +78,17 @@ import {
 } from "./index.js";
 import { updateHooksJson } from "./managed-groups.js";
 
-export class HookManager extends ServiceMap.Service<
-  HookManager,
-  ExtensionManager<HookExtensionRef>
->()("@agentxm/client-core/unstable/hooks/manager/HookManager") {}
+export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
+  /** True when every managed hook unit already renders its complete contributor set. */
+  readonly hooksProjectionCurrent: Effect.Effect<boolean, AppError>;
+  readonly reconcileProjections: () => Effect.Effect<void, AppError>;
+  /** Strict reconcile for sync: fails instead of deferring when a contributor is unreadable. */
+  readonly reconcileHooksProjections: Effect.Effect<void, AppError>;
+}
+
+export class HookManager extends ServiceMap.Service<HookManager, HookManagerService>()(
+  "@agentxm/client-core/unstable/hooks/manager/HookManager",
+) {}
 
 const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 
@@ -398,12 +405,11 @@ export const HookManagerLive = Layer.effect(
       string,
       {
         readonly ref: HookExtensionRef;
-        readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
-        readonly materialization: MaterializationObservation;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
       }
     >();
+    let lastProjection: MaterializationObservation | undefined;
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
       Effect.gen(function* () {
@@ -546,63 +552,77 @@ export const HookManagerLive = Layer.effect(
         return workspaceRelative.value;
       });
 
-    const markerForRef = (ref: HookExtensionRef, manifest: HookManifest): string =>
-      markerFqnForRef({ ref, manifest, type: "hook", name: ref.hook.name });
-
-    const renderHookRef = (args: {
-      readonly ref: HookExtensionRef;
-      readonly packageRoot: string;
-    }) =>
+    // Both hook ownership units are aggregates: the AXM-owned entries in one
+    // agent's hook configuration and the fallback region each carry every
+    // enabled Hook the complete desired-state graph reaches, whether declared
+    // directly or contributed by a Pack. Membership never comes from settings
+    // entries, and content is read from accepted canonical packages.
+    // With `onUnready: "skip"` a contributor whose accepted resolution or
+    // canonical content is not yet readable yields Option.none: a lifecycle
+    // step installing several contributors defers the unit writes until the
+    // closure's final reconcile can render the complete set. An incomplete
+    // desired-state graph always fails; skipping never drops a contributor
+    // from a rendered set.
+    const renderedHookContributors = (args?: { readonly onUnready?: "fail" | "skip" }) =>
       Effect.gen(function* () {
-        const manifest = yield* readManifest(args.packageRoot);
-        const entrypoint = yield* entrypointPath(args.packageRoot, manifest);
-        const command = `${interpreterForRuntime(manifest.runtime)} ${entrypoint}`;
-        return {
-          name: args.ref.hook.name,
-          marker: markerForRef(args.ref, manifest),
-          manifest,
-          command,
-        };
+        const resolved = yield* Effect.result(
+          Effect.gen(function* () {
+            const graph = yield* ws.getDesiredStateGraph();
+            const locked = yield* ws.getLockedHooks();
+            const contributors = yield* activeContributors({
+              baseDir,
+              path,
+              type: "hook",
+              extensionDir: HOOK_EXTENSION_DIR,
+              graph,
+              locked,
+            });
+            return yield* Effect.forEach(
+              contributors,
+              (contributor) =>
+                Effect.gen(function* () {
+                  const manifest = yield* readManifest(contributor.packageRoot);
+                  const entrypoint = yield* entrypointPath(contributor.packageRoot, manifest);
+                  const command = `${interpreterForRuntime(manifest.runtime)} ${entrypoint}`;
+                  const marker = Option.match(contributor.identityOwner, {
+                    onSome: (owner) =>
+                      formatFqn({
+                        owner,
+                        type: "hook",
+                        name: decodeExtensionNameSync(contributor.node.name),
+                      }),
+                    onNone: () =>
+                      formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
+                  });
+                  return { name: contributor.node.name, marker, manifest, command };
+                }),
+              { concurrency: "unbounded" },
+            );
+          }),
+        );
+        if (Result.isFailure(resolved)) {
+          if (args?.onUnready === "skip") {
+            return Option.none<ReadonlyArray<RenderedHookContributor>>();
+          }
+          return yield* resolved.failure;
+        }
+        return Option.some([...resolved.success].sort((a, b) => a.marker.localeCompare(b.marker)));
       });
+
+    interface RenderedHookContributor {
+      readonly name: string;
+      readonly marker: string;
+      readonly manifest: HookManifest;
+      readonly command: string;
+    }
 
     const renderInstalledHookGroups = (
       target: HookWriterTarget,
-      args?: {
-        readonly include?: {
-          readonly ref: HookExtensionRef;
-          readonly packageRoot: string;
-        };
-        readonly excludeName?: string;
-      },
+      contributors: ReadonlyArray<RenderedHookContributor>,
     ) =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredHookEntries();
-        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
-        const renderedHooks = yield* Effect.forEach(
-          Object.entries(configured).filter(
-            ([name, entry]) =>
-              entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.hook.name,
-          ),
-          ([name, entry]) =>
-            Effect.scoped(
-              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)),
-            ).pipe(
-              Effect.flatMap(({ ref }) =>
-                Effect.gen(function* () {
-                  const packageRoot = yield* materializePackage(ref);
-                  return yield* renderHookRef({ ref, packageRoot });
-                }),
-              ),
-            ),
-          { concurrency: "unbounded" },
-        );
-
-        const included = args?.include === undefined ? [] : [yield* renderHookRef(args.include)];
-        const sorted = [...renderedHooks, ...included].sort((a, b) =>
-          a.marker.localeCompare(b.marker),
-        );
         const hooks: Record<string, unknown> = {};
-        for (const rendered of sorted) {
+        for (const rendered of contributors) {
           for (const binding of rendered.manifest.bindings) {
             yield* appendCommandHookBinding(
               hooks,
@@ -618,57 +638,10 @@ export const HookManagerLive = Layer.effect(
         return hooks;
       });
 
-    const renderInstalledFallbackHooks = (args?: {
-      readonly include?: {
-        readonly ref: HookExtensionRef;
-        readonly packageRoot: string;
-      };
-      readonly excludeName?: string;
-    }) =>
-      Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredHookEntries();
-        const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
-        const installed = yield* Effect.forEach(
-          Object.entries(configured).filter(
-            ([name, entry]) =>
-              entry.enabled && name !== args?.excludeName && name !== args?.include?.ref.hook.name,
-          ),
-          ([name, entry]) =>
-            Effect.scoped(
-              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)),
-            ).pipe(
-              Effect.flatMap(({ ref }) =>
-                Effect.gen(function* () {
-                  const packageRoot = yield* materializePackage(ref);
-                  return { ref, rendered: yield* renderHookRef({ ref, packageRoot }) };
-                }),
-              ),
-            ),
-          { concurrency: "unbounded" },
-        );
-        const included =
-          args?.include === undefined
-            ? []
-            : [
-                {
-                  ref: args.include.ref,
-                  rendered: yield* renderHookRef(args.include),
-                },
-              ];
-        return [...installed, ...included].sort((left, right) =>
-          left.rendered.marker.localeCompare(right.rendered.marker),
-        );
-      });
-
     const writeHookFallbackRules = (
       fallbackAgents: ReadonlyArray<CapabilityAgent>,
-      args?: {
-        readonly include?: {
-          readonly ref: HookExtensionRef;
-          readonly packageRoot: string;
-        };
-        readonly excludeName?: string;
-      },
+      contributors: ReadonlyArray<RenderedHookContributor>,
+      options?: { readonly dryRun?: boolean },
     ) =>
       Effect.gen(function* () {
         const config = yield* ws.getInstructionsConfig();
@@ -691,18 +664,18 @@ export const HookManagerLive = Layer.effect(
           });
         }
 
-        const hooks = fallbackAgents.length === 0 ? [] : yield* renderInstalledFallbackHooks(args);
+        const hooks = fallbackAgents.length === 0 ? [] : contributors;
         for (const hook of hooks) {
-          if ((hook.ref.fallback ?? hook.rendered.manifest.fallback) === "none") {
+          if (hook.manifest.fallback === "none") {
             return yield* makeAppError({
               code: "validation",
-              detail: `Hook ${hook.rendered.name} requires native hook support because fallback is none`,
+              detail: `Hook ${hook.name} requires native hook support because fallback is none`,
             });
           }
         }
         const rendered = hooks
           .map(
-            ({ rendered: hook }) =>
+            (hook) =>
               `### ${hook.manifest.title ?? hook.name}\n\nFor agents without native hook support (${fallbackAgents.map((agent) => agent.id).join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
           )
           .join("\n\n");
@@ -735,7 +708,8 @@ export const HookManagerLive = Layer.effect(
                 rendered,
                 style: style.value,
               });
-        if (updated !== existing) {
+        const changed = updated !== existing;
+        if (changed && options?.dryRun !== true) {
           yield* protectWorkspacePath(targetPath);
           yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
             Effect.mapError((cause) =>
@@ -756,25 +730,24 @@ export const HookManagerLive = Layer.effect(
             ),
           );
         }
-        if (fallbackAgents.length > 0 && rendered.length > 0) {
+        if (options?.dryRun !== true && fallbackAgents.length > 0 && rendered.length > 0) {
           yield* Effect.logWarning(
             `Degraded hooks to advisory rules for ${fallbackAgents.map((agent) => agent.id).join(", ")}`,
           );
         }
-        return decodeMaterializedTarget({
-          target: decodeRelativePathSync(workspaceRelative.value),
-          mode: "managed-region",
-          region: HOOK_FALLBACKS_REGION,
-          renderHash: computeSourceHash(rendered),
-        });
+        return {
+          changed,
+          materializedTarget: decodeMaterializedTarget({
+            target: decodeRelativePathSync(workspaceRelative.value),
+            mode: "managed-region",
+            region: HOOK_FALLBACKS_REGION,
+          }),
+        };
       });
 
     const writeHooksConfig = (args?: {
-      readonly include?: {
-        readonly ref: HookExtensionRef;
-        readonly packageRoot: string;
-      };
-      readonly excludeName?: string;
+      readonly dryRun?: boolean;
+      readonly onUnready?: "fail" | "skip";
     }) =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
@@ -782,12 +755,24 @@ export const HookManagerLive = Layer.effect(
           path.resolve(baseDir, configPath),
         );
         const fallbackAgents = configuredHookFallbackAgents(configuredAgents);
+        const contributorsOption = yield* renderedHookContributors(args);
+        if (Option.isNone(contributorsOption)) {
+          // A contributor is not renderable yet; a later step in the same
+          // closure completes the writes, and lint and sync detect the units
+          // if convergence never happens.
+          return {
+            changed: false,
+            materializedTargets: [],
+            materialization: { agents: [], targets: [] },
+          };
+        }
+        const contributors = contributorsOption.value;
 
         const renderedTargets = yield* Effect.forEach(
           targets,
           (target) =>
             Effect.gen(function* () {
-              const rendered = yield* renderInstalledHookGroups(target, args);
+              const rendered = yield* renderInstalledHookGroups(target, contributors);
               return { target, rendered };
             }),
           { concurrency: "unbounded" },
@@ -804,7 +789,12 @@ export const HookManagerLive = Layer.effect(
                 raw,
                 rendered,
               );
-              yield* provide(writeIfChanged(target.configPath, raw, next));
+              // An absent or empty config with nothing to render stays absent;
+              // normalization alone is not a required change.
+              const changed = next !== raw && !(raw.trim().length === 0 && next.trim() === "{}");
+              if (changed && args?.dryRun !== true) {
+                yield* provide(writeIfChanged(target.configPath, raw, next));
+              }
 
               const workspaceRelative = makeWorkspaceRelativePath(path, baseDir, target.configPath);
               if (Option.isNone(workspaceRelative)) {
@@ -816,16 +806,17 @@ export const HookManagerLive = Layer.effect(
 
               return {
                 agentId: target.agent.id,
+                changed,
                 materializedTarget: decodeMaterializedTarget({
                   target: decodeRelativePathSync(workspaceRelative.value),
                   mode: "sync-always",
-                  renderHash: computeSourceHash(JSON.stringify(rendered)),
                 }),
               };
             }),
           { concurrency: "unbounded" },
         );
-        const fallbackTarget = yield* writeHookFallbackRules(fallbackAgents, args);
+        const fallback = yield* writeHookFallbackRules(fallbackAgents, contributors, args);
+        const fallbackTarget = fallback.materializedTarget;
         const agentsByTarget = new Map<string, Array<string>>();
         for (const { agentId, materializedTarget } of nativeTargets) {
           const agents = agentsByTarget.get(materializedTarget.target) ?? [];
@@ -842,7 +833,8 @@ export const HookManagerLive = Layer.effect(
           ...nativeTargets.map(({ materializedTarget }) => materializedTarget),
           fallbackTarget,
         ];
-        return {
+        const result = {
+          changed: fallback.changed || nativeTargets.some(({ changed }) => changed),
           materializedTargets,
           materialization: {
             agents: configuredAgents.filter((agentId) =>
@@ -862,6 +854,10 @@ export const HookManagerLive = Layer.effect(
               }),
           },
         };
+        if (args?.dryRun !== true) {
+          lastProjection = result.materialization;
+        }
+        return result;
       });
 
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
@@ -881,14 +877,9 @@ export const HookManagerLive = Layer.effect(
         });
       }
 
-      const { materializedTargets, materialization } = yield* writeHooksConfig({
-        include: { ref, packageRoot },
-      });
       const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.hook.name, {
         ref,
-        materializedTargets,
-        materialization,
         workspaceRelativeLocalSourcePath,
         sourceHash,
       });
@@ -923,10 +914,10 @@ export const HookManagerLive = Layer.effect(
         }
       });
 
-    const makeMaterializeRemoval = (
-      retainCanonical: boolean,
-    ): ExtensionManager<HookExtensionRef>["materializeUninstall"] =>
-      Effect.fn("HookManager.materializeRemoval")(function* ({ target }) {
+    // Canonical removal only. The shared operation flow re-renders the hook
+    // units after settings and lock removal, once the target has left the graph.
+    const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
+      Effect.fn("HookManager.materializeUninstall")(function* ({ target }) {
         const canonical = yield* provide(
           acceptedCanonicalObservation({
             workspace: ws,
@@ -934,12 +925,10 @@ export const HookManagerLive = Layer.effect(
             name: target.name,
           }),
         );
-        yield* writeHooksConfig({ excludeName: target.name });
-
         const packageRoot = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (!retainCanonical && Option.isSome(packageRoot)) {
+        if (Option.isSome(packageRoot)) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
@@ -952,22 +941,29 @@ export const HookManagerLive = Layer.effect(
           );
         }
       }, Effect.asVoid);
-    const materializeUninstall = makeMaterializeRemoval(false);
-    const materializeDeactivate = makeMaterializeRemoval(true);
+    // Deactivation retains canonical content; the caller updates settings
+    // first, so re-rendering the whole unit set drops this hook's entries.
+    const materializeDeactivate: ExtensionManager<HookExtensionRef>["materializeDeactivate"] =
+      Effect.fn("HookManager.materializeDeactivate")(
+        () => writeHooksConfig({ onUnready: "skip" }),
+        Effect.asVoid,
+      );
 
     return {
       type: "hook",
       runTransaction: ws.runTransaction,
+      reconcileProjections: () => writeHooksConfig({ onUnready: "skip" }).pipe(Effect.asVoid),
+      reconcileHooksProjections: writeHooksConfig().pipe(Effect.asVoid),
+      hooksProjectionCurrent: writeHooksConfig({ dryRun: true }).pipe(
+        Effect.map(({ changed }) => !changed),
+      ),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
         ),
 
       materializeInstall,
-      getLastMaterialization: ({ target }) =>
-        Effect.succeed(
-          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
-        ),
+      getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredHookEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

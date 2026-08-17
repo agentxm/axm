@@ -150,8 +150,10 @@ describe("global directory flag", () => {
       );
 
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout).result.settingsPath).toBe(
-        path.join(invoking.path, ".axm", "settings.json"),
+      // Temp-dir paths may or may not be symlink-resolved depending on the
+      // platform, so compare real paths instead of raw strings.
+      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
+        fs.realpathSync(path.join(invoking.path, ".axm", "settings.json")),
       );
     } finally {
       invoking.cleanup();
@@ -171,8 +173,10 @@ describe("global directory flag", () => {
       );
 
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout).result.settingsPath).toBe(
-        path.join(workspace.path, ".axm", "settings.json"),
+      // The physical workspace, not the symlink, owns the settings path; temp
+      // directories may themselves be symlinks, so compare real paths.
+      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
+        fs.realpathSync(path.join(workspace.path, ".axm", "settings.json")),
       );
     } finally {
       invoking.cleanup();

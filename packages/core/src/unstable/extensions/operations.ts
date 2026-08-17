@@ -141,6 +141,11 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly force?: boolean;
   /** When true, skip writing to settings (e.g. pack dependency installs). */
   readonly skipSettings?: boolean;
+  /**
+   * When true, skip the trailing shared-projection reconcile (e.g. pack
+   * dependency steps, whose closure runs one projection write at the end).
+   */
+  readonly skipProjections?: boolean;
   /** Optional pre-install state probe for artifact change labels. */
   readonly installedBefore?: Effect.Effect<boolean, AppError, never>;
   /** Optional presenter metadata computed after materialization/settings writes. */
@@ -252,6 +257,11 @@ const runInstallOperation = <TRef extends ExtensionRef>(
           });
         }
         yield* manager.upsertLockfileEntry({ ref: args.ref });
+        // Desired state and canonical content are committed; render every
+        // shared aggregate unit once from the complete contributor set.
+        if (args.skipProjections !== true && manager.reconcileProjections !== undefined) {
+          yield* manager.reconcileProjections();
+        }
         return installedBefore;
       }),
       validate: () =>
@@ -373,6 +383,10 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
             }
             if (args.enabled === false && args.materializeWhenDisabled === true) {
               yield* manager.materializeDeactivate({ target });
+            } else if (args.enabled !== false && manager.reconcileProjections !== undefined) {
+              // Desired state is committed; render shared aggregate units once
+              // from the complete contributor set.
+              yield* manager.reconcileProjections();
             }
             return { ref, installedBefore };
           }),
@@ -510,6 +524,11 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
 
 export interface UninstallOperationArgs<TRef extends ExtensionRef> {
   readonly target: ExtensionTargetFor<TRef>;
+  /**
+   * When true, skip the trailing shared-projection reconcile (e.g. pack
+   * dependency steps, whose closure runs one projection write at the end).
+   */
+  readonly skipProjections?: boolean;
 }
 
 /**
@@ -553,11 +572,17 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         };
       }
 
+      const reconcileProjections = () =>
+        args.skipProjections !== true && manager.reconcileProjections !== undefined
+          ? manager.reconcileProjections()
+          : Effect.void;
+
       const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
         target: args.target,
       });
       if (stillRequiredByPack) {
         yield* manager.removeSettingsEntry({ target: args.target });
+        yield* reconcileProjections();
         return {
           job: {
             result: "success" as const,
@@ -570,6 +595,9 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       yield* manager.materializeUninstall({ target: args.target });
       yield* manager.removeSettingsEntry({ target: args.target });
       yield* manager.removeLockfileEntry({ target: args.target });
+      // The target has left the desired-state graph; re-render every shared
+      // aggregate unit once so only reachable contributors remain.
+      yield* reconcileProjections();
       return {
         job: {
           result: "success" as const,

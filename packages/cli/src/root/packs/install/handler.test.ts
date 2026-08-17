@@ -887,17 +887,17 @@ describe("packs install handler", () => {
             versionRange: Option.none(),
           });
           expect(plan.riskConditions).toBeUndefined();
-          expect(plan.jobs[0]?.steps[0]).toMatchObject({
-            readiness: "ready",
-            artifact: {
-              targets: expect.arrayContaining([
-                expect.objectContaining({
-                  path: workspaceSkill.root,
-                  change: "unchanged",
-                }),
-              ]),
-            },
-          });
+          const step = plan.jobs[0]?.steps[0];
+          if (step?.readiness !== "ready") throw new Error("Expected a ready graph step");
+          // Temp-dir paths may or may not be symlink-resolved depending on the
+          // platform, so compare real paths instead of raw strings.
+          const reusedTarget = (step.artifact?.targets ?? []).find(
+            (target) =>
+              path.isAbsolute(target.path) &&
+              fs.existsSync(target.path) &&
+              fs.realpathSync(target.path) === workspaceSkill.root,
+          );
+          expect(reusedTarget).toMatchObject({ change: "unchanged" });
           expect(find).not.toHaveBeenCalled();
 
           fs.appendFileSync(path.join(workspaceSkill.root, "SKILL.md"), "changed after preview\n");

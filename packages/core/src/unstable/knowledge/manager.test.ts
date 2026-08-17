@@ -12,6 +12,7 @@ import { decodeExtensionNameSync } from "../extensions/index.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { decodeRelativePathSync } from "../utils/path-types.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 import type { LocalKnowledgeRef } from "./refs.js";
@@ -56,6 +57,20 @@ const localRef = (name: string, root: string): LocalKnowledgeRef => ({
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
+/** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
+const desiredHandbookOverrides = (): NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> => ({
+  getConfiguredKnowledgeEntries: () =>
+    Effect.succeed({ handbook: { source: "./source", enabled: true } }),
+  getLockedKnowledge: () =>
+    Effect.succeed({
+      handbook: {
+        type: "local" as const,
+        path: decodeRelativePathSync("source"),
+        contentIdentity: TEST_CONTENT_IDENTITY,
+      },
+    }),
+});
+
 const managerLayer = (
   workspaceRoot: string,
   overrides: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> = {},
@@ -94,7 +109,10 @@ describe("KnowledgeManager", () => {
         yield* Effect.gen(function* () {
           const manager = yield* KnowledgeManager;
           yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
-        }).pipe(Effect.provide(managerLayer(workspaceRoot)));
+          if (manager.reconcileProjections !== undefined) {
+            yield* manager.reconcileProjections();
+          }
+        }).pipe(Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides())));
 
         expect(
           existsSync(
@@ -365,10 +383,13 @@ describe("KnowledgeManager", () => {
           yield* Effect.gen(function* () {
             const manager = yield* KnowledgeManager;
             yield* manager.materializeInstall({ ref: localRef("handbook", validRoot) });
+            if (manager.reconcileProjections !== undefined) {
+              yield* manager.reconcileProjections();
+            }
             yield* manager
               .materializeInstall({ ref: localRef("handbook", invalidRoot) })
               .pipe(Effect.flip);
-          }).pipe(Effect.provide(managerLayer(workspaceRoot)));
+          }).pipe(Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides())));
 
           const canonicalConcept = nodePath.join(
             workspaceRoot,

@@ -100,6 +100,7 @@ import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
+import { buildPackProjectionStep } from "../projection-step.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -1150,12 +1151,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           if (target.type === "rule") {
             return buildUninstallOperation<RuleExtensionRef>(ruleManager, retentionPolicy, {
               target,
+              skipProjections: true,
             });
           }
 
           if (target.type === "hook") {
             return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
               target,
+              skipProjections: true,
             });
           }
 
@@ -1163,7 +1166,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             return buildUninstallOperation<KnowledgeExtensionRef>(
               knowledgeManager,
               retentionPolicy,
-              { target },
+              { target, skipProjections: true },
             );
           }
 
@@ -1195,6 +1198,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             change: "removed",
           })),
         ];
+        const projectionStep = yield* buildPackProjectionStep({
+          types: new Set([
+            ...refs.map((ref) => ref.type),
+            ...droppedTargets.map(({ target }) => target.type),
+          ]),
+        }).pipe(provide);
         const graphStep = yield* buildAtomicPackGraphStep({
           label: packIdentity,
           message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
@@ -1211,6 +1220,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               coverage: packInstallCoverage(refs[index]),
             })),
             ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
+            ...Option.toArray(projectionStep).map((step) => ({
+              step,
+              coverage: "ineligible" as const,
+            })),
           ],
           preTransition: Effect.gen(function* () {
             const refreshed = yield* scanWorkspaceAuthority(intent.packToInstall);

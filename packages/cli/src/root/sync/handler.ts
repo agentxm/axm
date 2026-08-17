@@ -557,6 +557,10 @@ const isObservedMaterializationCurrent = (
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
         if (observed === undefined) return Effect.succeed(false);
         if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
+          // Rule, hook, and knowledge outputs are aggregate units whose
+          // currency is judged by reading the unit back (collectInstructionStep,
+          // collectHooksStep, collectKnowledgeStep). Canonical presence decides
+          // only whether this node needs canonical rematerialization.
           return Effect.succeed(true);
         }
         if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
@@ -1060,6 +1064,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 const makeSyncPlan = ({
   materializeSteps,
   knowledgeStep,
+  hooksStep,
   cleanupStep,
   instructionStep,
   releaseAge,
@@ -1069,6 +1074,7 @@ const makeSyncPlan = ({
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
   readonly knowledgeStep: Option.Option<PlannedJobStep>;
+  readonly hooksStep: Option.Option<PlannedJobStep>;
   readonly cleanupStep: Option.Option<PlannedJobStep>;
   readonly instructionStep: Option.Option<PlannedJobStep>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
@@ -1087,6 +1093,10 @@ const makeSyncPlan = ({
   }
   if (ruleSteps.length > 0) {
     jobs.push({ concurrency: "unbounded", steps: ruleSteps });
+  }
+  // Aggregate hook units render after canonical hook materialization.
+  if (Option.isSome(hooksStep)) {
+    jobs.push({ concurrency: 1, steps: [hooksStep.value] });
   }
   if (Option.isSome(cleanupStep)) {
     jobs.push({ concurrency: 1, steps: [cleanupStep.value] });
@@ -1199,6 +1209,55 @@ const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
   });
 });
 
+// When a unit's currency cannot be judged (failed render), plan its reconcile
+// step only if the complete graph still reaches enabled contributors — the
+// canonical steps planned alongside will restore the render inputs. On an
+// incomplete graph the blocked closure owns the outcome.
+const plannableAfterFailedJudgment = (
+  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
+  type: "hook" | "rule",
+): Effect.Effect<boolean> =>
+  Effect.result(ws.getDesiredStateGraph()).pipe(
+    Effect.map(
+      (graph) =>
+        graph._tag === "Success" &&
+        graph.success.complete &&
+        graph.success.nodes.some((node) => node.type === type && node.enabled),
+    ),
+  );
+
+const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* () {
+  const manager = yield* HookManager;
+  const ws = yield* WorkspaceMutations;
+  // Judge the managed hook units from the outputs themselves.
+  const status = yield* Effect.result(manager.hooksProjectionCurrent);
+  if (status._tag === "Success" && status.success) return Option.none<PlannedJobStep>();
+  if (status._tag === "Failure" && !(yield* plannableAfterFailedJudgment(ws, "hook"))) {
+    return Option.none<PlannedJobStep>();
+  }
+  return Option.some<PlannedJobStep>({
+    key: "hook:projections",
+    label: "managed hook projections",
+    readiness: "ready",
+    artifact: {
+      path: "managed hook projections",
+      scope: ws.scope,
+      change: "updated",
+    },
+    run: manager.reconcileHooksProjections.pipe(
+      Effect.as({
+        result: "success",
+        message: "Reconciled managed hook entries and the fallback region",
+        artifact: {
+          path: "managed hook projections",
+          scope: ws.scope,
+          change: "updated",
+        },
+      } satisfies JobStepResult),
+    ),
+  });
+});
+
 const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* () {
   const ws = yield* WorkspaceMutations;
   const config = yield* ws.getInstructionsConfig();
@@ -1219,6 +1278,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   });
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const manager = yield* RuleManager;
   const sourcesExist = yield* Effect.forEach(
     status.roots,
     (root) =>
@@ -1227,9 +1287,19 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
         .pipe(Effect.catch(() => Effect.succeed(false))),
     { concurrency: "unbounded" },
   );
+  // Judge the managed Rules region from the unit itself: an incomplete or
+  // stale region is reconcilable work even when every canonical package is
+  // installed. A failed judgment plans the step only while the complete graph
+  // still reaches enabled rules, so canonical restoration can precede it.
+  const regionResult = yield* Effect.result(manager.instructionsRegionCurrent);
+  const regionCurrent =
+    regionResult._tag === "Success"
+      ? regionResult.success
+      : !(yield* plannableAfterFailedJudgment(ws, "rule"));
   const current =
     sourcesExist.every(Boolean) &&
     gitignore.current &&
+    regionCurrent &&
     status.items.every(
       (item) => (item.mechanism !== "symlink" && item.mechanism !== "copy") || item.health === "ok",
     );
@@ -1258,7 +1328,6 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     });
   }
 
-  const manager = yield* RuleManager;
   return Option.some<PlannedJobStep>({
     key: "instruction:reconcile",
     readiness: "ready",
@@ -1322,20 +1391,33 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
           ignoreReleaseAge: args.ignoreReleaseAge === true,
           ...(packRecovery === undefined ? {} : { packRecovery }),
         });
+        const selectionTouches = (unitType: "rule" | "hook"): boolean => {
+          if (!scoped) return true;
+          if (Option.isSome(type) && type.value === unitType) return true;
+          if (Option.isSome(target)) {
+            const parsedType = parseExtensionFqnParts(target.value)?.type;
+            return parsedType === unitType || parsedType === "pack";
+          }
+          return false;
+        };
         const knowledgeStep: Option.Option<PlannedJobStep> =
           scoped || !cleanupSafe
             ? Option.none<PlannedJobStep>()
             : yield* collectKnowledgeStep({ deferPreview: knowledgeMayChange });
+        const hooksStep: Option.Option<PlannedJobStep> = selectionTouches("hook")
+          ? yield* collectHooksStep()
+          : Option.none<PlannedJobStep>();
         const cleanupStep: Option.Option<PlannedJobStep> =
           scoped || !cleanupSafe
             ? Option.none<PlannedJobStep>()
             : yield* collectCleanupStep(expectedSubagentNames);
-        const instructionStep: Option.Option<PlannedJobStep> = scoped
-          ? Option.none<PlannedJobStep>()
-          : yield* collectInstructionStep();
+        const instructionStep: Option.Option<PlannedJobStep> = selectionTouches("rule")
+          ? yield* collectInstructionStep()
+          : Option.none<PlannedJobStep>();
         return {
           steps,
           knowledgeStep,
+          hooksStep,
           cleanupStep,
           instructionStep,
           releaseAge,
@@ -1344,8 +1426,15 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
       }),
     { successMessage: `Resolved ${scopeLabel} sync` },
   );
-  const { steps, knowledgeStep, cleanupStep, instructionStep, releaseAge, serialMaterialization } =
-    preflight;
+  const {
+    steps,
+    knowledgeStep,
+    hooksStep,
+    cleanupStep,
+    instructionStep,
+    releaseAge,
+    serialMaterialization,
+  } = preflight;
   const materializeSteps = steps.map((step, index): PlannedJobStep => {
     if (index !== 0 || hooks.beforeMaterialization === undefined || step.readiness === "error") {
       return step;
@@ -1359,6 +1448,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
   const baseSteps = [
     ...materializeSteps,
     ...Option.toArray(knowledgeStep),
+    ...Option.toArray(hooksStep),
     ...Option.toArray(cleanupStep),
     ...Option.toArray(instructionStep),
   ];
@@ -1377,6 +1467,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
   const plan = makeSyncPlan({
     materializeSteps,
     knowledgeStep,
+    hooksStep,
     cleanupStep,
     instructionStep,
     releaseAge,

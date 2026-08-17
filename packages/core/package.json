@@ -127,6 +127,10 @@
       "types": "./dist/src/unstable/plan/index.d.ts",
       "default": "./dist/src/unstable/plan/index.js"
     },
+    "./unstable/projection": {
+      "types": "./dist/src/unstable/projection/index.d.ts",
+      "default": "./dist/src/unstable/projection/index.js"
+    },
     "./unstable/lint": {
       "types": "./dist/src/unstable/lint/index.d.ts",
       "default": "./dist/src/unstable/lint/index.js"

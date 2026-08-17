@@ -16,8 +16,9 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
+import { decodeRelativePathSync } from "../utils/path-types.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
 import { HookManager, HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "./refs.js";
 
@@ -77,21 +78,41 @@ const makeSourceHostProviders = () =>
 
 const makeHookManagerLayer = (
   workspaceRoot: string,
-  options?: { readonly configuredAgents?: ReadonlyArray<string> },
-) =>
-  HookManagerLive.pipe(
+  options?: {
+    readonly configuredAgents?: ReadonlyArray<string>;
+    /** Hook names exposed as desired local-source hooks with accepted lock rows. */
+    readonly hooks?: ReadonlyArray<string>;
+  },
+) => {
+  const hookNames = options?.hooks ?? [];
+  const entries = Object.fromEntries(
+    hookNames.map((name) => [name, { source: "./source-hook", enabled: true }]),
+  );
+  const locked = Object.fromEntries(
+    hookNames.map((name) => [
+      name,
+      {
+        type: "local" as const,
+        path: decodeRelativePathSync("source-hook"),
+        contentIdentity: TEST_CONTENT_IDENTITY,
+      },
+    ]),
+  );
+  return HookManagerLive.pipe(
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,
         makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
           getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
-          getConfiguredHookEntries: () => Effect.succeed({}),
+          getConfiguredHookEntries: () => Effect.succeed(entries),
+          getLockedHooks: () => Effect.succeed(locked),
         }),
       ),
     ),
     Layer.provide(makeSourceHostProviders()),
     Layer.provide(NodeServices.layer),
   );
+};
 
 describe("HookManager", () => {
   it.effect("updates Claude Code settings without a workspace backup", () =>
@@ -114,6 +135,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("identity-check", packageRoot),
           });
+          yield* manager.reconcileProjections();
           if (manager.getLastMaterialization === undefined) {
             throw new Error("Hook materialization observation is unavailable");
           }
@@ -128,7 +150,7 @@ describe("HookManager", () => {
               { path: "AGENTS.md" },
             ],
           });
-        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)));
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["identity-check"] })));
 
         const raw = readFileSync(settingsPath, "utf8");
         expect(raw).toContain("echo keep");
@@ -157,7 +179,8 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("shell-check", packageRoot),
           });
-        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)));
+          yield* manager.reconcileProjections();
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["shell-check"] })));
 
         const claudeRaw = readFileSync(
           nodePath.join(workspaceRoot, ".claude", "settings.json"),
@@ -182,8 +205,14 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("devin-check", packageRoot),
           });
+          yield* manager.reconcileProjections();
         }).pipe(
-          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["devin"] })),
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["devin"],
+              hooks: ["devin-check"],
+            }),
+          ),
         );
 
         const raw = readFileSync(nodePath.join(workspaceRoot, ".devin", "config.json"), "utf8");
@@ -209,6 +238,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("unsupported-agent", packageRoot),
           });
+          yield* manager.reconcileProjections();
           if (manager.getLastMaterialization === undefined) {
             throw new Error("Hook materialization observation is unavailable");
           }
@@ -221,7 +251,12 @@ describe("HookManager", () => {
             targets: [{ path: "AGENTS.md", agentIds: ["windsurf"] }],
           });
         }).pipe(
-          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["windsurf"],
+              hooks: ["unsupported-agent"],
+            }),
+          ),
         );
 
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
@@ -247,8 +282,14 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("native-only", packageRoot),
           });
+          yield* manager.reconcileProjections();
         }).pipe(
-          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["windsurf"],
+              hooks: ["native-only"],
+            }),
+          ),
           Effect.flip,
         );
 
@@ -276,7 +317,11 @@ describe("HookManager", () => {
             yield* manager.materializeInstall({
               ref: makeLocalHookRef("decision-check", packageRoot),
             });
-          }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)), Effect.flip);
+            yield* manager.reconcileProjections();
+          }).pipe(
+            Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["decision-check"] })),
+            Effect.flip,
+          );
 
           expect(error.detail).toContain("cannot satisfy block decisions");
           expect(existsSync(settingsPath)).toBe(false);

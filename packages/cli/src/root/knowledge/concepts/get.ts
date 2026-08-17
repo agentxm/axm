@@ -119,6 +119,7 @@ const getConfig = {
   ),
   raw: Flag.boolean("raw").pipe(
     Flag.withDescription("Include the exact source document in machine output"),
+    Flag.withDefault(false),
   ),
   ...scopeConfig,
 } as const;

@@ -348,6 +348,7 @@ const yankConfig = {
   ),
   allVersions: Flag.boolean("all-versions").pipe(
     Flag.withDescription("Atomically yank all versions currently available"),
+    Flag.withDefault(false),
   ),
   category: Flag.choice("category", categoryValues).pipe(
     Flag.withDescription("Public yank category"),
@@ -379,9 +380,11 @@ const deprecateConfig = {
   ),
   clearMessage: Flag.boolean("clear-message").pipe(
     Flag.withDescription("Remove the current publisher message"),
+    Flag.withDefault(false),
   ),
   clearReplacement: Flag.boolean("clear-replacement").pipe(
     Flag.withDescription("Remove the current replacement relationship"),
+    Flag.withDefault(false),
   ),
 } as const;
 

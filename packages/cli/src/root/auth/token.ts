@@ -446,6 +446,7 @@ const createTokenConfig = {
   ),
   bypassMfa: Flag.boolean("bypass-mfa").pipe(
     Flag.withDescription("Allow this automation token to bypass step-up MFA"),
+    Flag.withDefault(false),
   ),
 } as const;
 

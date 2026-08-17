@@ -147,8 +147,14 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List agents from project (default) or user-level configuration"),
   ),
-  detected: Flag.boolean("detected").pipe(Flag.withDescription("Show detected agents only")),
-  available: Flag.boolean("available").pipe(Flag.withDescription("Show all supported agent IDs")),
+  detected: Flag.boolean("detected").pipe(
+    Flag.withDescription("Show detected agents only"),
+    Flag.withDefault(false),
+  ),
+  available: Flag.boolean("available").pipe(
+    Flag.withDescription("Show all supported agent IDs"),
+    Flag.withDefault(false),
+  ),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, detected, available }) =>

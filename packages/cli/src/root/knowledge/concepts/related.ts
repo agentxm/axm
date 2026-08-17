@@ -99,6 +99,7 @@ const relatedConfig = {
   ),
   includeIndexBacklinks: Flag.boolean("include-index-backlinks").pipe(
     Flag.withDescription("Include backlinks authored by reserved index documents"),
+    Flag.withDefault(false),
   ),
   ...scopeConfig,
 } as const;

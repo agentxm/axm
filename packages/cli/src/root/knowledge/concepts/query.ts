@@ -363,6 +363,7 @@ const queryConfig = {
   cursor: optionalString("cursor", "Continue from a previous opaque cursor"),
   explain: Flag.boolean("explain").pipe(
     Flag.withDescription("Include deterministic ranking rules in machine output"),
+    Flag.withDefault(false),
   ),
   ...scopeConfig,
 } as const;

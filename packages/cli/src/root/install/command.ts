@@ -27,6 +27,7 @@ const installConfig = {
     Flag.withDescription(
       "Allow an untargeted configured install to select releases newer than minimumReleaseAge",
     ),
+    Flag.withDefault(false),
   ),
 } as const;
 

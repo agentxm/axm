@@ -2340,8 +2340,12 @@ const publishConfig = {
   ),
   authored: Flag.boolean("authored").pipe(
     Flag.withDescription("Publish extensions authored in this workspace"),
+    Flag.withDefault(false),
   ),
-  all: Flag.boolean("all").pipe(Flag.withDescription("Publish all managed local packages")),
+  all: Flag.boolean("all").pipe(
+    Flag.withDescription("Publish all managed local packages"),
+    Flag.withDefault(false),
+  ),
   owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
   type: Flag.choice("type", selectableTypes).pipe(
     Flag.withDescription("Filter by extension type"),
@@ -2369,6 +2373,7 @@ const publishConfig = {
   preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
   includeDependencies: Flag.boolean("include-dependencies").pipe(
     Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
+    Flag.withDefault(false),
   ),
   includeDependency: Flag.string("include-dependency").pipe(
     Flag.withDescription("Explicitly include a non-workspace pack dependency"),

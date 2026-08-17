@@ -151,7 +151,10 @@ export const runtimeBaseLayer = Layer.mergeAll(
 );
 
 const versionGlobalFlag = GlobalFlag.action({
-  flag: Flag.boolean("version").pipe(Flag.withDescription("Show version information")),
+  flag: Flag.boolean("version").pipe(
+    Flag.withDescription("Show version information"),
+    Flag.withDefault(false),
+  ),
   run: Effect.fnUntraced(function* (_, context) {
     const formatter = yield* CliOutput.Formatter;
     yield* Console.log(formatter.formatVersion(context.command.name, context.version));

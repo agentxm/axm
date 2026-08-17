@@ -799,7 +799,10 @@ const importConfig = {
     Flag.withDescription("Create one managed MCP package at the target FQN"),
     Flag.optional,
   ),
-  enable: Flag.boolean("enable").pipe(Flag.withDescription("Enable a package created with --as")),
+  enable: Flag.boolean("enable").pipe(
+    Flag.withDescription("Enable a package created with --as"),
+    Flag.withDefault(false),
+  ),
 } as const;
 
 export const importCommand = Command.make(

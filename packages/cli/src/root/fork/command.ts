@@ -397,6 +397,7 @@ const config = {
   ),
   enable: Flag.boolean("enable").pipe(
     Flag.withDescription("Enable and materialize a newly forked extension"),
+    Flag.withDefault(false),
   ),
   yes: yesFlag,
   preview: previewFlag,

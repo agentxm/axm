@@ -22,6 +22,7 @@ const installConfig = {
   ),
   all: Flag.boolean("all").pipe(
     Flag.withDescription("Install every subagent found in the source without prompting"),
+    Flag.withDefault(false),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a subagent that already exists")),

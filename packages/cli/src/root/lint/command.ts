@@ -29,9 +29,11 @@ const lintConfig = {
   ),
   strict: Flag.boolean("strict").pipe(
     Flag.withDescription("Treat warnings as failing for exit code."),
+    Flag.withDefault(false),
   ),
   details: Flag.boolean("details").pipe(
     Flag.withDescription("Show the full human report instead of the grouped summary."),
+    Flag.withDefault(false),
   ),
   view: Flag.choice("view", ["workspace", "git-index"] as const).pipe(
     Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),

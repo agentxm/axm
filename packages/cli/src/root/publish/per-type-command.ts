@@ -42,8 +42,12 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     authored: Flag.boolean("authored").pipe(
       Flag.withDescription("Publish extensions authored in this workspace"),
+      Flag.withDefault(false),
     ),
-    all: Flag.boolean("all").pipe(Flag.withDescription(`Publish all managed ${plural} packages`)),
+    all: Flag.boolean("all").pipe(
+      Flag.withDescription(`Publish all managed ${plural} packages`),
+      Flag.withDefault(false),
+    ),
     owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
     exclude: Flag.string("exclude").pipe(
       Flag.withDescription("Exclude a matching name, glob, or FQN"),
@@ -83,6 +87,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       ...commonConfig,
       includeDependencies: Flag.boolean("include-dependencies").pipe(
         Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
+        Flag.withDefault(false),
       ),
       includeDependency: Flag.string("include-dependency").pipe(
         Flag.withDescription("Explicitly include a non-workspace pack dependency"),

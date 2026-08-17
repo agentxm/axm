@@ -14,6 +14,7 @@ const upgradeLayer = Layer.mergeAll(InstallMethodLive, InstallMetaLive, Subproce
 const upgradeConfig = {
   reinstall: Flag.boolean("reinstall").pipe(
     Flag.withDescription("Reinstall an equal version; never permits a downgrade"),
+    Flag.withDefault(false),
   ),
 } as const;
 

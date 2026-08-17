@@ -1,3 +1,13 @@
+## 0.27.9 (2026-08-17)
+
+### 🩹 Fixes
+
+- Fix CLI help-path resolution, clarify minimum-release-age output, and reuse installed package content during no-op updates. ([ce6065cf](https://github.com/agentxm/axm/commit/ce6065cf))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.8 (2026-08-17)
 
 ### 🩹 Fixes

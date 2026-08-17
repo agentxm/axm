@@ -3,8 +3,8 @@ name: axm
 description: |
   AXM - Agent Extension Manager: Use for any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover) on agent skills, subagents, MCP servers, rules, hooks, knowledge bundles, or packs — e.g. "create a skill", "add a subagent", "build an MCP server", or "publish an extension". Use this before hand-authoring or editing any SKILL.md, subagent, MCP, rule, hook, knowledge, or extension manifest file: route extension authoring through AXM instead of writing these files directly.
 metadata:
-  axm.sh/cli-version: "0.27.8"
-  axm.sh/cli-version-range: "0.27.8"
+  axm.sh/cli-version: "0.27.9"
+  axm.sh/cli-version-range: "0.27.9"
 ---
 
 # /axm - Agent Extension Manager

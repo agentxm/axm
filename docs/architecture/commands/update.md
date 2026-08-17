@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM advances or rematerializes an existing extension resolution.
 depends-on:

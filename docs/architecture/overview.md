@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM commands, workspace state, ownership, and verification fit together.
 depends-on:

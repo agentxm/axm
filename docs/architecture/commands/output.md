@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Human and machine output responsibilities, channel boundaries, and contract authority.
 depends-on:

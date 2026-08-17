@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Command responsibilities, lifecycle symmetry, interaction, and recovery boundaries for AXM.
 depends-on:

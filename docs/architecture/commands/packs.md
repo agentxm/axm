@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How pack commands edit authored dependency intent without becoming recovery commands.
 depends-on:

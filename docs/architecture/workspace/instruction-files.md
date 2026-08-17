@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM manages canonical instruction files, agent aliases, and contributed regions.
 depends-on:

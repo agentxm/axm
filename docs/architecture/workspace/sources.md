@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How source hosts, immutable identity, and resolution policy constrain external acquisition.
 depends-on:

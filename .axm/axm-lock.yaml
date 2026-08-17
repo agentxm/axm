@@ -88,6 +88,14 @@ skills:
     integrity: sha512-fe2Z7Wqhc91yYee5XqiO6fBfuoggW8baZbYABBu0FKjRrqPShtzWoeojXjUY7YgrIF7Swd61L7sL26jmujwNaA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  author-okf:
+    type: registry
+    owner: "@craigsmitham"
+    name: author-okf
+    resolvedVersion: 0.0.3
+    integrity: sha512-eCOIJoTShr8MdFY3mF3NNTvAxdVkFVdvrPELNjccP+xyPbaU0wlasRrEyiXMeI65aCfUkg83KAi+BI1PbPNSsQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
   field-notes:
     type: registry

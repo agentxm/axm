@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Desired-state reconciliation, closure-local progress, and recovery semantics for AXM sync.
 depends-on:

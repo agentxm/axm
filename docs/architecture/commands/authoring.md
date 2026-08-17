@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM creates, converts, and changes workspace-authored extension packages.
 depends-on:

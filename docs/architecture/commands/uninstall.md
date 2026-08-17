@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM removes direct extension intent while preserving other desired routes.
 depends-on:

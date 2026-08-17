@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: The relationship among user intent, desired state, current state, ownership, and safe workspace changes.
 depends-on:

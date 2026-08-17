@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM composes enabled Rule extensions into a managed instruction region.
 depends-on:

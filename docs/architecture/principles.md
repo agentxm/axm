@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Principles governing AXM command design, state recovery, ownership, and overrides.
 depends-on:

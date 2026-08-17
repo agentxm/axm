@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM projects portable lifecycle Hooks into supported agent hook systems.
 depends-on:

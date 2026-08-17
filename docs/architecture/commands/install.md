@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM install expresses direct extension intent and realizes the affected workspace state.
 depends-on:

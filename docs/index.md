@@ -1,3 +1,7 @@
+---
+okf_version: "0.2"
+---
+
 # AXM documentation
 
 Navigation for maintained documentation in the AXM repository.

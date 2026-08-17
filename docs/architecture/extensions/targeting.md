@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How portable extension content gains bounded agent-specific enhancements.
 depends-on:

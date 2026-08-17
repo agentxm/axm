@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM manages isolated knowledge bundles and makes their concepts discoverable on demand.
 depends-on:

@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: The shared fact, plan, closure, and mutation boundaries used by AXM workspace operations.
 depends-on:

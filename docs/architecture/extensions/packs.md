@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How Packs expand dependency intent while preserving member identity, authority, and reachability.
 depends-on:

@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: The common AXM extension contract and the architectural axes on which extension types differ.
 depends-on:

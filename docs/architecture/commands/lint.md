@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Lint responsibilities, diagnostic behavior, and verification strategy.
 depends-on:

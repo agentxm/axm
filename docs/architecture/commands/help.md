@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: CLI help surfaces, resolution, authority, discoverability, and verification.
 depends-on:

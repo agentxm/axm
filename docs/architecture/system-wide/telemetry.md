@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Telemetry ownership, control, privacy, and failure boundaries across the AXM CLI.
 depends-on:

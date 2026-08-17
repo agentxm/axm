@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Authority and recovery semantics of AXM workspace settings.
 depends-on:

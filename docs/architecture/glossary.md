@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: AXM-specific meanings of terms used throughout the architecture corpus.
 depends-on:

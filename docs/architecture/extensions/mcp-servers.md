@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM manages MCP server definitions from extension content or inline configuration across native agent configuration.
 depends-on:

@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM preserves portable Agent Skills content and realizes it for configured agents.
 depends-on:

@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How configured coding agents determine the native surfaces AXM manages.
 depends-on:

@@ -80,6 +80,9 @@ product responsibilities, command boundaries, workspace state, package
 responsibilities, dependency direction, output contracts, or workspace
 execution boundaries.
 
+`docs/` is an OKF v0.2 bundle. Before adding or editing anything under it, read
+[docs/AGENTS.md](docs/AGENTS.md) and use the `author-okf` skill.
+
 ## Pre-launch backward compatibility
 
 Until public launch, backward compatibility is out of scope unless the task

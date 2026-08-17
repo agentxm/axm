@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM represents portable subagents and renders them into agent-specific delegated-agent surfaces.
 depends-on:

@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: Authority, reproducibility, and failure boundaries of the AXM lockfile.
 depends-on:

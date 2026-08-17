@@ -1,4 +1,5 @@
 ---
+type: Architecture
 status: stable
 description: How AXM represents workspace validity and proves every reported invalid state recoverable.
 depends-on:

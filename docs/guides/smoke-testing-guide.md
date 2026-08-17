@@ -1,3 +1,9 @@
+---
+type: Guide
+status: stable
+description: Repository-specific manual verification across the AXM CLI and registry boundary.
+---
+
 # Smoke Testing Guide
 
 ## Install Smoke

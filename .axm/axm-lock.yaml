@@ -146,36 +146,12 @@ knowledge:
     integrity: sha512-sqZhG75eekqJikGM1iIPuXyFt+zw2K20TCvO5PFSsLzNmgxFtjgIZD/Z3SOFp/DRrcFx6iXAkEGwUXKBKxbojg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-  eval-engineering:
-    type: registry
-    owner: "@agentxm"
-    name: eval-engineering
-    resolvedVersion: 0.1.1
-    integrity: sha512-emR6ug7rlKz6c7tEjGuo35J2v2Z0oJ7RdqfJ2ORKG4MxJHubqrgMC4j8KOxyS0cHYNJw1M1hvTPrqMdm7aYbAg==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   agent-engineering:
     type: registry
     owner: "@agentxm"
     name: agent-engineering
     resolvedVersion: 0.3.0
     integrity: sha512-zGSf5hqEqanTRzYop7AZAtRhpgRFsklrAe230EcSP9Y/ynslV2r1NJaTpsWua4yiXZ/1I+csq5ELatUWf4x9cw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-  prompt-engineering:
-    type: registry
-    owner: "@agentxm"
-    name: prompt-engineering
-    resolvedVersion: 0.2.0
-    integrity: sha512-H1sahacIOQ0hdBV8CxneQfDjqbgh7CP0CFeCM+45W0Pds38w491SyPwm26th2ppV76Kb0HUSZ123KJ3Ik3q9Fg==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-  harness-engineering:
-    type: registry
-    owner: "@agentxm"
-    name: harness-engineering
-    resolvedVersion: 0.2.0
-    integrity: sha512-4LKsiynv6fcVDL4GoMF7i0ui1iuBHrEPtm8P0M0MuNrXwu75BbUabfzdPW9D3/lpz8l2C1sgp9+3W5dzvohUkw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   software-engineering:

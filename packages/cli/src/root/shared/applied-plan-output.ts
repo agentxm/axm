@@ -42,7 +42,7 @@ const formatArtifactSource = (artifact: JobStepArtifact): string | undefined => 
 };
 
 const formatCompletedArtifactStep = (
-  step: CompletedJobStep,
+  step: CompletedJobStep<unknown>,
   options: { readonly debug?: boolean } = {},
 ): string | undefined => {
   if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
@@ -60,7 +60,7 @@ const formatCompletedArtifactStep = (
 };
 
 const formatFailedStep = (
-  step: CompletedJobStep,
+  step: CompletedJobStep<unknown>,
   options: { readonly verbose?: boolean; readonly debug?: boolean } = {},
 ): string | undefined => {
   if (step.result.result !== "error") return undefined;
@@ -84,13 +84,13 @@ const formatFailedStep = (
   return [row, ...causeRows].join("\n");
 };
 
-const formatPlainSuccessStep = (step: CompletedJobStep): string | undefined => {
+const formatPlainSuccessStep = (step: CompletedJobStep<unknown>): string | undefined => {
   if (step.result.result !== "success" || step.result.artifact !== undefined) return undefined;
   const message = step.result.message.trim();
   return message.length === 0 ? undefined : `${step.label}   ${message}`;
 };
 
-export const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
+export const summarizeExecutedArtifacts = (plan: ExecutedPlan<unknown>): string | undefined => {
   const rows = plan.jobs
     .flatMap((job) => job.steps)
     .flatMap((step) => {
@@ -101,7 +101,7 @@ export const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefin
 };
 
 export const summarizeExecutedOutcome = (
-  plan: ExecutedPlan,
+  plan: ExecutedPlan<unknown>,
   options: { readonly verbose?: boolean; readonly debug?: boolean } = {},
 ): string | undefined => {
   const rows = plan.jobs
@@ -117,7 +117,7 @@ export const summarizeExecutedOutcome = (
   return rows.length === 0 ? undefined : rows.join("\n");
 };
 
-const hasFailedSteps = (plan: ExecutedPlan): boolean =>
+const hasFailedSteps = (plan: ExecutedPlan<unknown>): boolean =>
   plan.jobs.some((job) => job.steps.some((step) => step.result.result === "error"));
 
 export const failureHeadline = (headline: string): string => {
@@ -154,7 +154,9 @@ export interface InstallationCoverage {
   readonly scope: "project" | "user";
 }
 
-export const installationCoverage = (plan: ExecutedPlan): InstallationCoverage | undefined => {
+export const installationCoverage = (
+  plan: ExecutedPlan<unknown>,
+): InstallationCoverage | undefined => {
   const agents = new Set<string>();
   let scope: "project" | "user" | undefined;
 
@@ -194,7 +196,10 @@ const materializationSuggestion = (scope: InstallationCoverage["scope"]): Sugges
 const materializationWarning = (scope: InstallationCoverage["scope"]): string =>
   `No coding-agent targets were materialized. Run \`axm agents add --detected${scope === "user" ? " --scope user" : ""}\`, then reinstall.`;
 
-export const unchangedPlanHeadline = (resolution: PlanResolution, fallback: string): string => {
+export const unchangedPlanHeadline = (
+  resolution: PlanResolution<unknown, unknown>,
+  fallback: string,
+): string => {
   if (resolution._tag !== "ExecutedPlan") return fallback;
 
   const unchangedStep = resolution.jobs
@@ -213,7 +218,7 @@ export const unchangedPlanHeadline = (resolution: PlanResolution, fallback: stri
 export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
   readonly command: TCommand;
   readonly headline: string;
-  readonly resolution: PlanResolution;
+  readonly resolution: PlanResolution<unknown, unknown>;
   readonly suggestions: ReadonlyArray<SuggestedAction>;
   readonly failureSuggestions?: ReadonlyArray<SuggestedAction>;
   readonly reportInstallationCoverage?: boolean;

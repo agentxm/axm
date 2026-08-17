@@ -22,8 +22,8 @@ export type LockfileState = "ok" | "missing" | "invalid";
 
 export type DegradedLockfileState = Exclude<LockfileState, "ok">;
 
-export interface AugmentedPlanResult {
-  readonly plan: Plan;
+export interface AugmentedPlanResult<Requirements = never, Output = never> {
+  readonly plan: Plan<Requirements, Output>;
   readonly reconciliationTriggered: boolean;
   readonly reason?: DegradedLockfileState;
 }
@@ -36,10 +36,10 @@ export interface AugmentedPlanResult {
  * Return the plan unchanged when authority is readable or absent. Replace it
  * with one explicit blocker when the authoritative file is unreadable.
  */
-export const augmentPlanWithReconciliation = (
-  plan: Plan,
+export const augmentPlanWithReconciliation = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
   getLockfileState: () => Effect.Effect<LockfileState, AppError>,
-): Effect.Effect<AugmentedPlanResult, AppError> =>
+): Effect.Effect<AugmentedPlanResult<Requirements, Output>, AppError> =>
   Effect.gen(function* () {
     const lockfileState = yield* getLockfileState();
 

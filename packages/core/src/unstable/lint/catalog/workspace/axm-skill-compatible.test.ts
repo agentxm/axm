@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
+import { SettingsIoError } from "../../../workspace/read-model/errors.js";
 import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
 import type { AxmSkillCompatibility } from "../../../skills/axm-skill-compatibility.js";
 import { axmSkillCompatibleRule } from "./axm-skill-compatible.js";
@@ -70,6 +71,25 @@ describe("workspace/axm-skill-compatible", () => {
         displayRoot: "",
       });
       expect(findings).toEqual([]);
+    }).pipe(Effect.provide(testWorkspace)),
+  );
+
+  it.effect("reports an unreadable compatibility state as a lint finding", () =>
+    Effect.gen(function* () {
+      const workspace = yield* makeWorkspaceReadModel("project");
+      const findings = yield* axmSkillCompatibleRule.check({
+        subject: { root: "/workspace", scope: "project" },
+        workspace,
+        axmDirExists: Effect.succeed(true),
+        axmSkillCompatibility: Effect.fail(
+          new SettingsIoError({ path: "/workspace/.axm/settings.json", cause: "denied" }),
+        ),
+        displayRoot: "",
+      });
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("SettingsIoError");
+      expect(findings[0]?.message).toContain("Repair the workspace state");
     }).pipe(Effect.provide(testWorkspace)),
   );
 });

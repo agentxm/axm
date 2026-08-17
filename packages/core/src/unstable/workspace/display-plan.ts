@@ -38,7 +38,7 @@ import type {
  *
  * Reads verbosity settings from the `Verbosity` service.
  */
-export const displayPlan = (plan: Plan | ExecutedPlan) =>
+export const displayPlan = (plan: Plan<unknown, unknown> | ExecutedPlan<unknown>) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const v = yield* Verbosity;
@@ -107,17 +107,21 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
     }
   });
 
-const countFailedSteps = (allSteps: ReadonlyArray<CompletedJobStep>): string => {
+const countFailedSteps = (allSteps: ReadonlyArray<CompletedJobStep<unknown>>): string => {
   const failCount = allSteps.filter((step) => step.result.result === "error").length;
   return count(failCount, "step");
 };
 
-const successMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
+const successMessages = (
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
+): ReadonlyArray<string> =>
   allSteps.flatMap((step) =>
     step.result.result === "success" && step.result.message.length > 0 ? [step.result.message] : [],
   );
 
-const successWarnings = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
+const successWarnings = (
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
+): ReadonlyArray<string> =>
   allSteps.flatMap((step) =>
     step.result.result === "success" && step.result.warnings !== undefined
       ? step.result.warnings.map((warning) => `${step.label}: ${warning}`)
@@ -156,7 +160,10 @@ const plannedVerb = (planName: string): string => {
   return "apply";
 };
 
-const renderPlannedHeading = (plan: Plan, allSteps: ReadonlyArray<PlannedJobStep>): string => {
+const renderPlannedHeading = (
+  plan: Plan<unknown, unknown>,
+  allSteps: ReadonlyArray<PlannedJobStep<unknown, unknown>>,
+): string => {
   if (plan.name === "Add MCP server") {
     const headline = `Would apply ${count(allSteps.length, "change")}`;
     return Option.match(plan.description, {
@@ -178,7 +185,7 @@ const renderPlannedHeading = (plan: Plan, allSteps: ReadonlyArray<PlannedJobStep
 };
 
 const renderPlannedStep = (
-  step: PlannedJobStep,
+  step: PlannedJobStep<unknown, unknown>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
 ) =>
   Effect.gen(function* () {
@@ -207,7 +214,7 @@ const renderPlannedStep = (
   });
 
 const renderCompletedStep = (
-  step: CompletedJobStep,
+  step: CompletedJobStep<unknown>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
   verbosity: { readonly verbose: boolean; readonly debug: boolean; readonly quiet: boolean },
 ) => {
@@ -233,7 +240,7 @@ const renderCompletedStep = (
 };
 
 const renderPlannedSummary = (
-  allSteps: ReadonlyArray<PlannedJobStep>,
+  allSteps: ReadonlyArray<PlannedJobStep<unknown, unknown>>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
 ) =>
   Effect.gen(function* () {
@@ -252,7 +259,7 @@ const renderPlannedSummary = (
   });
 
 const renderCompletedSummary = (
-  allSteps: ReadonlyArray<CompletedJobStep>,
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
 ) =>
   Effect.gen(function* () {
@@ -417,7 +424,7 @@ const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): str
     : `-> ${artifact.path}   ${details.join(" | ")}`;
 };
 
-const formatArtifactRow = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
+const formatArtifactRow = (step: CompletedJobStep<unknown>, artifact: JobStepArtifact): string => {
   const targetPaths =
     artifact.targets === undefined || artifact.targets.length === 0
       ? artifact.path
@@ -518,7 +525,7 @@ const inspectDescriptionForType = (type: string): string =>
     ? "Inspect instruction-file management"
     : `Inspect installed ${artifactPluralType(type)}`;
 
-const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
+const unchangedHeadline = (step: CompletedJobStep<unknown>, artifact: JobStepArtifact): string => {
   const version = artifact.version === undefined ? "" : ` ${artifact.version}`;
   return `Already up to date — ${step.label}${version}`;
 };
@@ -526,7 +533,7 @@ const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): s
 const singleArtifactHeadline = (
   verb: string,
   type: string,
-  step: CompletedJobStep,
+  step: CompletedJobStep<unknown>,
   artifact: JobStepArtifact,
   options?: { readonly configured: boolean },
 ): string => {
@@ -538,13 +545,15 @@ const singleArtifactHeadline = (
   return `${verb} ${configuredPrefix}${type} ${cleanStepLabel(step.label)} ${targetPhrase}`;
 };
 
-const mcpAddServerName = (allSteps: ReadonlyArray<CompletedJobStep>): string | undefined => {
+const mcpAddServerName = (
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
+): string | undefined => {
   const configureStep = allSteps.find((step) => step.label.startsWith("Configure "));
   return configureStep?.label.slice("Configure ".length);
 };
 
 const renderMcpAddOutcome = (
-  allSteps: ReadonlyArray<CompletedJobStep>,
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
   verbosity: { readonly quiet: boolean; readonly verbose: boolean },
 ) =>
@@ -581,8 +590,8 @@ const renderMcpAddOutcome = (
   });
 
 const renderExecutedOutcome = (
-  plan: ExecutedPlan,
-  allSteps: ReadonlyArray<CompletedJobStep>,
+  plan: ExecutedPlan<unknown>,
+  allSteps: ReadonlyArray<CompletedJobStep<unknown>>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
   verbosity: { readonly quiet: boolean; readonly verbose: boolean },
 ) =>

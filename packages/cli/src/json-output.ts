@@ -925,7 +925,10 @@ const renderHumanPublishResult = (
     });
   });
 
-const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOptions): Step => {
+const plannedStepToStep = (
+  step: PlannedJobStep<unknown, unknown>,
+  options: PlanResolutionResultOptions,
+): Step => {
   const artifact =
     step.artifact === undefined ? {} : { artifact: artifactForJson(step.artifact, options) };
   const lifecycle =
@@ -959,7 +962,7 @@ const plannedStepToStep = (step: PlannedJobStep, options: PlanResolutionResultOp
 };
 
 const completedStepToStep = (
-  step: CompletedJobStep,
+  step: CompletedJobStep<unknown>,
   options: PlanResolutionResultOptions,
 ): Step => {
   if (step.result.result === "success") {
@@ -1009,13 +1012,14 @@ const completedStepToStep = (
   };
 };
 
-const flattenExecutedSteps = (plan: ExecutedPlan): ReadonlyArray<CompletedJobStep> =>
-  plan.jobs.flatMap((job) => [...job.steps]);
+const flattenExecutedSteps = (
+  plan: ExecutedPlan<unknown>,
+): ReadonlyArray<CompletedJobStep<unknown>> => plan.jobs.flatMap((job) => [...job.steps]);
 
-const planDescription = (resolution: PlanResolution): string | undefined =>
+const planDescription = (resolution: PlanResolution<unknown, unknown>): string | undefined =>
   Option.getOrUndefined(resolution.description);
 
-const releaseAgeResultFields = (resolution: PlanResolution) =>
+const releaseAgeResultFields = (resolution: PlanResolution<unknown, unknown>) =>
   resolution.releaseAge === undefined
     ? {}
     : {
@@ -1030,7 +1034,7 @@ const targetedUpdateResultFields = (options: PlanResolutionResultOptions) =>
   options.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate };
 
 export const toPlanResolutionResult = (
-  resolution: PlanResolution,
+  resolution: PlanResolution<unknown, unknown>,
   options: PlanResolutionResultOptions = {},
 ): PlanResolutionResult => {
   switch (resolution._tag) {
@@ -1160,7 +1164,7 @@ export const toPlanResolutionResult = (
 
 export const emitPlanResolutionResult = <TCommand extends string>(
   command: TCommand,
-  resolution: PlanResolution,
+  resolution: PlanResolution<unknown, unknown>,
   options?: {
     readonly summary?: string;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
@@ -1398,7 +1402,7 @@ export const publishResultToSummary = (result: PublishResult): CommandOutcomeSum
  * Produces normalized outcome, counts, and optional subject/source context.
  */
 export const planResolutionToSummary = (
-  resolution: PlanResolution,
+  resolution: PlanResolution<unknown, unknown>,
   files: { readonly subjectType?: SubjectType; readonly sourceKind?: SourceKind },
 ): CommandOutcomeSummary => {
   const result = toPlanResolutionResult(resolution);

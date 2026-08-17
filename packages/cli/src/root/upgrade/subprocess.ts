@@ -161,6 +161,8 @@ const makeResolveExecutable =
   (fs: FileSystem.FileSystem, pathService: Path.Path): SubprocessService["resolveExecutable"] =>
   (command) =>
     Effect.gen(function* () {
+      // Both strings have defaults and no decoder constraints. Config errors
+      // here can only indicate a broken provider invariant.
       const pathValue = yield* Config.string("PATH").pipe(Config.withDefault(""), Effect.orDie);
       const extensions =
         process.platform === "win32"

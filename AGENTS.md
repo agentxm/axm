@@ -178,8 +178,20 @@ See [Effect Guide](contributing/guides/effect.md),
 [Effect Errors Guide](contributing/guides/effect-errors.md), and
 [Effect Layers Guide](contributing/guides/effect-layers.md).
 
+- Before writing or reviewing Effect code, use the installed
+  `craft-effect-v4` skill and its routed Knowledge guide.
 - Use `../external/Effect-TS/effect` for repo-matched Effect v4 references.
-- No raw Promises or async/await in production code.
+- Keep expected failures typed; use defects only for violated invariants.
+- Keep dependencies in `R` through orchestration and provide them once at the
+  owning boundary. Plan steps return typed outputs; do not communicate through
+  captured mutable state.
+- Use scoped resources and Effect coordination primitives for shared state and
+  lifetimes. Do not retain dynamic keys in module-global maps.
+- Choose traversal concurrency from workload cardinality, capacity, ordering,
+  and failure semantics. Do not default to `"unbounded"` or invent a numeric
+  limit without evidence; see the Effect Guide.
+- Raw Promises and `async`/`await` are allowed only at host bootstrap or foreign
+  API adapters; wrap them immediately in cancellation-aware Effect APIs.
 - Use `effect/FileSystem` and `effect/Path`, never `node:fs` or `node:path`.
 - Run `pnpm typecheck` or `pnpm typecheck:affected` and fix all
   `@effect/language-service` diagnostics as part of the change.

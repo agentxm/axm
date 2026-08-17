@@ -4,9 +4,10 @@
  * This is the sole public gateway for all settings and lockfile read/write
  * operations. It reads through `WorkspaceReadModel`, writes settings directly,
  * and commits lockfile snapshots through the lockfile module so cross-process
- * updates are serialized and merged per entry. It also serializes in-process
- * mutations via a single Semaphore(1). No other service should perform settings
- * or lockfile I/O in production; the per-service semaphores in
+ * updates are serialized and merged per entry. It serializes in-process
+ * mutations with one service-owned semaphore and transaction admission with a
+ * distinct service-owned semaphore so nested mutation calls cannot deadlock.
+ * No other service should perform settings or lockfile I/O in production; the per-service semaphores in
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * Supporting logic is split into focused modules:
@@ -252,6 +253,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const semaphore = yield* Semaphore.make(1);
+    // Transaction admission must be distinct from the mutation mutex: a
+    // transaction calls the same service's mutation methods while it owns the
+    // outer admission permit.
+    const transactionSemaphore = yield* Semaphore.make(1);
     const settingsPath = path.join(workspaceDir, SETTINGS_FILENAME);
 
     const baseDir = path.dirname(workspaceDir);
@@ -321,6 +326,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const runTransaction: WorkspaceTransactionRunner = (args) =>
       runWorkspaceTransaction({
         workspaceDir,
+        semaphore: transactionSemaphore,
         targets: [settingsPath, ...(args.targets ?? [])],
         transition: args.transition,
         validate: args.validate,

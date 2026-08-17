@@ -25,6 +25,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
@@ -128,7 +129,11 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       const scoped = context.workspace;
-      const settings = yield* scoped.state.settings.pipe(Effect.orDie);
+      const settingsResult = yield* Effect.result(scoped.state.settings);
+      // The schema/readability rules own these failures and emit the precise
+      // finding. This dependent rule cannot evaluate artifact correctness.
+      if (Result.isFailure(settingsResult)) return EMPTY_LINT_FINDINGS;
+      const settings = settingsResult.success;
       if (Option.isNone(settings)) {
         return EMPTY_LINT_FINDINGS;
       }
@@ -146,7 +151,11 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
           .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
           .map((agent) => agent.id),
       );
-      const installed = yield* scoped.skills.installed.pipe(Effect.orDie);
+      const installedResult = yield* Effect.result(scoped.skills.installed);
+      // The lockfile/readability rules own this failure; avoid turning it into
+      // a defect or duplicating a less precise finding here.
+      if (Result.isFailure(installedResult)) return EMPTY_LINT_FINDINGS;
+      const installed = installedResult.success;
       const existenceBySkill = installed.flatMap((row) => {
         const implicit = row.installationOrigin._tag === "pack-member";
         if (implicit && Option.isNone(row.resolved)) {

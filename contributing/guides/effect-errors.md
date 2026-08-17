@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-12
-version: 0.3.0
+last-reviewed: 2026-08-17
+version: 0.4.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
   - ./effect.md
@@ -9,8 +9,9 @@ depends-on:
 
 # Effect Errors in AXM
 
-Portable error modeling belongs to the installed
-[error-modeling skill](../../.axm/extensions/@craigsmitham/skills/effect-v4-error-modeling/src/SKILL.md).
+Portable error modeling belongs to the Effect v4 Knowledge guide for
+[error modeling](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/error-modeling.md),
+routed by the installed `craft-effect-v4` skill.
 This guide defines AXM's application boundary.
 
 ## Boundary model
@@ -18,6 +19,11 @@ This guide defines AXM's application boundary.
 Services may expose focused typed errors when callers need distinct recovery.
 Command handlers translate every expected failure to `AppError` before
 `withRuntime`.
+
+Do not use `Effect.orDie`, `Effect.die`, thrown exceptions, or unchecked
+Promise rejection to erase configuration, filesystem, network, registry,
+authentication, validation, or persistence failures. Defects are reserved for
+violated internal invariants that callers cannot recover from.
 
 ```text
 service errors -> command translation -> AppError | PromptCancelled -> runtime

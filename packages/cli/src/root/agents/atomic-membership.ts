@@ -4,24 +4,29 @@ import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/wo
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 
-interface AtomicMembershipStepsArgs {
+interface AtomicMembershipStepsArgs<Requirements, Output> {
   readonly ws: WorkspaceMutationsService;
-  readonly steps: ReadonlyArray<PlannedJobStep>;
-  readonly validate: (results: ReadonlyArray<JobStepResult>) => Effect.Effect<void, AppError>;
+  readonly steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>;
+  readonly validate: (
+    results: ReadonlyArray<JobStepResult<Output>>,
+  ) => Effect.Effect<void, AppError, Requirements>;
 }
 
-interface AtomicAttempt {
-  readonly results: ReadonlyArray<JobStepResult>;
+interface AtomicAttempt<Output> {
+  readonly results: ReadonlyArray<JobStepResult<Output>>;
   readonly failedIndex?: number;
 }
 
-const failedResult = (error: AppError, message: string = error.detail): JobStepResult => ({
+const failedResult = <Output>(
+  error: AppError,
+  message: string = error.detail,
+): JobStepResult<Output> => ({
   result: "error",
   message,
   error,
 });
 
-const blockedResult = (message: string): JobStepResult =>
+const blockedResult = <Output>(message: string): JobStepResult<Output> =>
   failedResult(
     makeAppError({
       code: "conflict",
@@ -30,11 +35,13 @@ const blockedResult = (message: string): JobStepResult =>
     message,
   );
 
-const rollbackResults = (
-  executable: ReadonlyArray<Exclude<PlannedJobStep, { readonly readiness: "error" }>>,
-  attempt: AtomicAttempt,
+const rollbackResults = <Requirements, Output>(
+  executable: ReadonlyArray<
+    Exclude<PlannedJobStep<Requirements, Output>, { readonly readiness: "error" }>
+  >,
+  attempt: AtomicAttempt<Output>,
   transactionError: AppError,
-): ReadonlyArray<JobStepResult> => {
+): ReadonlyArray<JobStepResult<Output>> => {
   const actualFailureIndex = attempt.failedIndex ?? Math.max(0, attempt.results.length - 1);
   const failedLabel = executable[actualFailureIndex]?.label ?? "atomic agent membership validation";
 
@@ -56,23 +63,26 @@ const rollbackResults = (
  * Keep plan-level preview and per-step results while applying every membership
  * and artifact step through one workspace transaction.
  */
-export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipSteps")(function* (
-  args: AtomicMembershipStepsArgs,
-) {
+export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipSteps")(function* <
+  Requirements,
+  Output,
+>(args: AtomicMembershipStepsArgs<Requirements, Output>) {
   if (args.steps.some((step) => step.readiness === "error")) return args.steps;
 
   const executable = args.steps.filter(
-    (step): step is Exclude<PlannedJobStep, { readonly readiness: "error" }> =>
+    (
+      step,
+    ): step is Exclude<PlannedJobStep<Requirements, Output>, { readonly readiness: "error" }> =>
       step.readiness !== "error",
   );
-  const attemptRef = yield* Ref.make<AtomicAttempt>({ results: [] });
+  const attemptRef = yield* Ref.make<AtomicAttempt<Output>>({ results: [] });
   const transition = args.ws
     .runTransaction({
       transition: Effect.gen(function* () {
-        const results: Array<JobStepResult> = [];
+        const results: Array<JobStepResult<Output>> = [];
         for (const [index, step] of executable.entries()) {
           const result = yield* step.run.pipe(
-            Effect.catch((error) => Effect.succeed(failedResult(error))),
+            Effect.catch((error) => Effect.succeed(failedResult<Output>(error))),
           );
           results.push(result);
           yield* Ref.set(attemptRef, {
@@ -97,7 +107,7 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
   const sharedTransition = yield* Effect.cached(transition);
   let resultIndex = 0;
 
-  return args.steps.map((step): PlannedJobStep => {
+  return args.steps.map((step): PlannedJobStep<Requirements, Output> => {
     if (step.readiness === "error") return step;
     const index = resultIndex;
     resultIndex += 1;

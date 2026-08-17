@@ -1,8 +1,11 @@
 import * as DateTime from "effect/DateTime";
+import * as ServiceMap from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -18,7 +21,6 @@ import {
 } from "@agentxm/client-core/unstable/app-error";
 import {
   AuthClient,
-  CredentialStore,
   DeviceLoginInteraction,
   RegistryUrl,
   resolveRequestToken,
@@ -453,11 +455,47 @@ interface PublishPlanCandidate {
   readonly includedDependency?: true;
 }
 
+interface PublishAuthorizationState {
+  readonly exactCapabilities: ReadonlyMap<string, PublishCapabilityResponse>;
+  readonly issuedCapabilities: ReadonlyArray<PublishCapabilityResponse>;
+  readonly packDivergenceFindings: ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>>;
+  readonly preview?: PreviewPublicationSetResponse;
+}
+
+interface PublishAuthorizationService {
+  readonly authorize: Effect.Effect<void, AppError>;
+  readonly state: Effect.Effect<PublishAuthorizationState, AppError>;
+}
+
+class PublishAuthorization extends ServiceMap.Service<
+  PublishAuthorization,
+  PublishAuthorizationService
+>()("axm.sh/root/publish/command/PublishAuthorization") {}
+
+type PublishPlanOutput =
+  | {
+      readonly _tag: "PublishAuthorizationOutput";
+      readonly packDivergenceFindings: ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>>;
+      readonly preview?: PreviewPublicationSetResponse;
+    }
+  | {
+      readonly _tag: "PublishedCandidateOutput";
+      readonly targetKey: string;
+      readonly visibility: PublishVisibility;
+      readonly warnings: ReadonlyArray<PublishAdvisoryFinding>;
+    };
+
+type PublishPlanRequirements = PublishAuthorization | FileSystem.FileSystem | Path.Path;
+
 /** Creates dependency edges without expanding the user's selection. */
-export const buildPublishJobs = <Candidate extends PublishPlanCandidate>(
+export const buildPublishJobs = <
+  Candidate extends PublishPlanCandidate,
+  Requirements = never,
+  Output = never,
+>(
   candidates: ReadonlyArray<Candidate>,
-  candidateStep: (candidate: Candidate) => PlannedJobStep,
-): ReadonlyArray<Job> => {
+  candidateStep: (candidate: Candidate) => PlannedJobStep<Requirements, Output>,
+): ReadonlyArray<Job<Requirements, Output>> => {
   const selectedFqns = new Set(candidates.map((candidate) => candidate.fqn));
   return [
     {
@@ -1727,7 +1765,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const path = yield* Path.Path;
   const workspaceMutations = yield* WorkspaceMutations;
   const authClient = yield* AuthClient;
-  const credentialStore = yield* CredentialStore;
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
@@ -1785,7 +1822,15 @@ const runPublish = Effect.fn("Publish.run")(function* (
           workspaceRoot: workspaceMutations.baseDir,
           userHome: workspaceMutations.scope === "user" ? workspaceMutations.baseDir : os.homedir(),
           scope: workspaceMutations.scope,
-        }).pipe(Effect.orDie);
+        }).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: "Failed to build the workspace model for publish preflight",
+              cause,
+            }),
+          ),
+        );
         return yield* lintWorkspace.rule.packDependencyReachability ?? Effect.succeed([]);
       })
     : [];
@@ -1987,15 +2032,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
       descriptor.visibility,
     ]),
   );
-  const publishedVisibilities = new Map<string, PublishVisibility>();
-  const publishedWarnings = new Map<string, ReadonlyArray<PublishAdvisoryFinding>>();
-  let authorizedPackDivergenceFindings: ReadonlyMap<
-    string,
-    ReadonlyArray<PublishAdvisoryFinding>
-  > = new Map();
-  let authorizedPublicationPreview: PreviewPublicationSetResponse | undefined;
-  let issuedCapabilities: ReadonlyArray<PublishCapabilityResponse> = [];
-  const loadExactCapabilities = yield* Effect.cached(
+  const acquirePublishAuthorization: Effect.Effect<
+    PublishAuthorizationState,
+    AppError,
+    CliRenderer | AuthClient | DeviceLoginInteraction
+  > =
     isRemoteRegistry && Option.isNone(storedToken)
       ? Effect.gen(function* () {
           if (publicationSet === undefined) {
@@ -2008,7 +2049,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
             registryUrl: registry.url,
             publicationSet,
           });
-          authorizedPublicationPreview = exchange.preview;
           if (exchange.status === "blocked") {
             const firstFinding = exchange.preview.packs
               .flatMap((pack) => pack.findings)
@@ -2022,12 +2062,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
               cause: exchange.preview,
             });
           }
-          authorizedPackDivergenceFindings = findPackPublishDivergenceFindings({
+          const packDivergenceFindings = findPackPublishDivergenceFindings({
             candidates,
             reachability: packDependencyReachability,
             packs: exchange.preview.packs,
           });
-          issuedCapabilities = exchange.grants;
           const byDescriptor = new Map<string, PublishCapabilityResponse>();
           for (const capability of exchange.grants) {
             if (
@@ -2047,46 +2086,62 @@ const runPublish = Effect.fn("Publish.run")(function* (
               detail: "The registry returned an incomplete exact publish grant bundle.",
             });
           }
-          return byDescriptor;
+          return {
+            exactCapabilities: byDescriptor,
+            issuedCapabilities: exchange.grants,
+            packDivergenceFindings,
+            preview: exchange.preview,
+          } satisfies PublishAuthorizationState;
         })
-      : Effect.succeed(new Map<string, PublishCapabilityResponse>()),
-  );
+      : Effect.succeed<PublishAuthorizationState>({
+          exactCapabilities: new Map<string, PublishCapabilityResponse>(),
+          issuedCapabilities: [],
+          packDivergenceFindings: new Map<string, ReadonlyArray<PublishAdvisoryFinding>>(),
+        });
 
-  const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
+  const releasePublishAuthorization = (authorization: PublishAuthorizationState) =>
+    Effect.forEach(
+      authorization.issuedCapabilities,
+      (capability) =>
+        authClient.revokeToken(capability.accessToken).pipe(Effect.catch(() => Effect.void)),
+      { concurrency: 4, discard: true },
+    );
+
+  const candidateStep = (
+    candidate: PublishCandidate,
+  ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
     const run = Effect.gen(function* () {
-      const exactCapabilities = yield* loadExactCapabilities;
+      const authorizationService = yield* PublishAuthorization;
+      const authorization = yield* authorizationService.state;
       const descriptorDigest =
         candidate.publishPreview?.publicationDescriptorDigest ??
         descriptorDigestsByTarget.get(publishTargetKey(candidate));
       const exactCapability =
-        descriptorDigest === undefined ? undefined : exactCapabilities.get(descriptorDigest);
+        descriptorDigest === undefined
+          ? undefined
+          : authorization.exactCapabilities.get(descriptorDigest);
       if (isRemoteRegistry && Option.isNone(storedToken) && exactCapability === undefined) {
         return yield* makeAppError({
           code: "internal",
           detail: `The exact grant bundle omitted ${candidate.fqn}@${candidate.version}.`,
         });
       }
-      return yield* publishCandidate(
+      const published = yield* publishCandidate(
         candidate,
         registry,
         exactCapability,
         visibilityInputsByTarget.get(publishTargetKey(candidate)),
       );
-    }).pipe(
-      Effect.map(({ stepResult, visibility, warnings }) => {
-        publishedVisibilities.set(publishTargetKey(candidate), visibility);
-        publishedWarnings.set(publishTargetKey(candidate), warnings);
-        return stepResult;
-      }),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(WorkspaceMutations, workspaceMutations),
-      Effect.provideService(AuthClient, authClient),
-      Effect.provideService(CredentialStore, credentialStore),
-      Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
-      Effect.provideService(RegistryUrl, registryUrl),
-      Effect.provideService(CliRenderer, renderer),
-    );
+      return {
+        ...published.stepResult,
+        output: {
+          _tag: "PublishedCandidateOutput",
+          targetKey: publishTargetKey(candidate),
+          visibility: published.visibility,
+          warnings: published.warnings,
+        },
+      } satisfies JobStepResult<PublishPlanOutput>;
+    });
     return {
       readiness: "ready",
       label: `${candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
@@ -2104,9 +2159,40 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return;
   }
 
-  const jobs = buildPublishJobs(uploadCandidates, candidateStep);
+  const authorizationJobs: ReadonlyArray<Job<PublishPlanRequirements, PublishPlanOutput>> =
+    isRemoteRegistry && Option.isNone(storedToken)
+      ? [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "Authorize exact publication set",
+                run: PublishAuthorization.pipe(
+                  Effect.flatMap((authorizationService) => authorizationService.state),
+                  Effect.map(
+                    (authorization) =>
+                      ({
+                        result: "success",
+                        message: "Authorized exact publication set",
+                        output: {
+                          _tag: "PublishAuthorizationOutput",
+                          packDivergenceFindings: authorization.packDivergenceFindings,
+                          ...(authorization.preview === undefined
+                            ? {}
+                            : { preview: authorization.preview }),
+                        },
+                      }) satisfies JobStepResult<PublishPlanOutput>,
+                  ),
+                ),
+              },
+            ],
+          },
+        ]
+      : [];
+  const jobs = [...authorizationJobs, ...buildPublishJobs(uploadCandidates, candidateStep)];
 
-  const plan: Plan = {
+  const plan: Plan<PublishPlanRequirements, PublishPlanOutput> = {
     _tag: "Plan",
     name: "Publish extensions",
     description: Option.some(
@@ -2124,31 +2210,57 @@ const runPublish = Effect.fn("Publish.run")(function* (
     candidates.map((candidate) => candidate.fqn),
   );
   const execution = yield* makePlanExecution(args, exactRecovery);
-  const authorizeBeforeApply = loadExactCapabilities.pipe(
-    Effect.asVoid,
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-    Effect.provideService(WorkspaceMutations, workspaceMutations),
-    Effect.provideService(AuthClient, authClient),
-    Effect.provideService(CredentialStore, credentialStore),
-    Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
-    Effect.provideService(RegistryUrl, registryUrl),
-    Effect.provideService(CliRenderer, renderer),
-  );
-  const resolution = yield* previewOrApplyPlan(plan, {
-    execution,
-    displayApplied: false,
-    beforeApply: () => authorizeBeforeApply,
-  }).pipe(
-    Effect.ensuring(
-      Effect.suspend(() =>
-        Effect.forEach(
-          issuedCapabilities,
-          (capability) =>
-            authClient.revokeToken(capability.accessToken).pipe(Effect.catch(() => Effect.void)),
-          { concurrency: 4, discard: true },
+  const resolution = yield* Effect.scoped(
+    Effect.gen(function* () {
+      const authorizationDeferred = yield* Deferred.make<PublishAuthorizationState, AppError>();
+      const acquiredAuthorization = yield* Ref.make(Option.none<PublishAuthorizationState>());
+      yield* Effect.addFinalizer(() =>
+        Ref.get(acquiredAuthorization).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: releasePublishAuthorization,
+            }),
+          ),
         ),
-      ),
+      );
+      const authorize = yield* Effect.cached(
+        acquirePublishAuthorization.pipe(
+          Effect.provideService(AuthClient, authClient),
+          Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
+          Effect.provideService(CliRenderer, renderer),
+          Effect.tap((authorization) => Ref.set(acquiredAuthorization, Option.some(authorization))),
+          Effect.tap((authorization) => Deferred.succeed(authorizationDeferred, authorization)),
+          Effect.asVoid,
+        ),
+      );
+      const authorization: PublishAuthorizationService = {
+        authorize,
+        state: Deferred.await(authorizationDeferred),
+      };
+      return yield* previewOrApplyPlan(plan, {
+        execution,
+        displayApplied: false,
+        beforeApply: () => authorization.authorize,
+      }).pipe(Effect.provideService(PublishAuthorization, authorization));
+    }),
+  );
+  const executionOutputs =
+    resolution._tag === "ExecutedPlan"
+      ? resolution.jobs.flatMap((job) =>
+          job.steps.flatMap((step) =>
+            step.result.result === "success" && step.result.output !== undefined
+              ? [step.result.output]
+              : [],
+          ),
+        )
+      : [];
+  const authorizationOutput = executionOutputs.find(
+    (output) => output._tag === "PublishAuthorizationOutput",
+  );
+  const publishedOutputs = new Map(
+    executionOutputs.flatMap((output) =>
+      output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
     ),
   );
   const failedStepErrors =
@@ -2208,18 +2320,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
         };
         return failedResult;
       }
-      const authoritativeVisibility =
-        candidate === undefined
-          ? undefined
-          : publishedVisibilities.get(publishTargetKey(candidate));
+      const publishedOutput =
+        candidate === undefined ? undefined : publishedOutputs.get(publishTargetKey(candidate));
       const findings = [
         ...(result.findings ?? []),
         ...(candidate === undefined
           ? []
-          : (authorizedPackDivergenceFindings.get(candidate.fqn) ?? [])),
-        ...(candidate === undefined
-          ? []
-          : (publishedWarnings.get(publishTargetKey(candidate)) ?? [])),
+          : (authorizationOutput?.packDivergenceFindings.get(candidate.fqn) ?? [])),
+        ...(publishedOutput?.warnings ?? []),
       ].sort(
         (left, right) =>
           Number(right.ruleId === "publish/required-pack-version-unreachable") -
@@ -2231,7 +2339,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         phase: "upload_execution",
         status: "success",
         message: step.result.message,
-        ...(authoritativeVisibility === undefined ? {} : { visibility: authoritativeVisibility }),
+        ...(publishedOutput === undefined ? {} : { visibility: publishedOutput.visibility }),
         ...(step.result.links === undefined ? {} : { links: step.result.links }),
         ...(findings.length === 0 ? {} : { findings }),
       };
@@ -2247,6 +2355,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     "approvalRecovery" in execution
       ? renderConfirmationRecoveryCommand(execution.approvalRecovery)
       : undefined;
+  const authorizedPublicationPreview = authorizationOutput?.preview;
   const finalPublicationSetOutput =
     authorizedPublicationPreview === undefined
       ? publicationSetOutput

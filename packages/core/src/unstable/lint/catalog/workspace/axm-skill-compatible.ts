@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
@@ -14,7 +15,19 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       if (context.axmSkillCompatibility === undefined) return EMPTY_ADVISORY_FINDINGS;
-      const compatibility = yield* context.axmSkillCompatibility;
+      const compatibilityResult = yield* Effect.result(context.axmSkillCompatibility);
+      if (Result.isFailure(compatibilityResult)) {
+        return [
+          {
+            kind: "advisory" as const,
+            ruleId: RULE_ID,
+            severity: "error" as const,
+            message: `The official AXM skill compatibility state is unreadable: ${compatibilityResult.failure._tag}. Repair the workspace state, then rerun lint.`,
+            location: { file: ".axm" },
+          },
+        ];
+      }
+      const compatibility = compatibilityResult.success;
       if (compatibility.status === "compatible") return EMPTY_ADVISORY_FINDINGS;
       return [
         {

@@ -122,11 +122,11 @@ const filterMaterializationArtifact = (
   };
 };
 
-const attachMaterializationArtifact = (
+const attachMaterializationArtifact = <Requirements, Output>(
   ws: WorkspaceMutationsService,
   agentIds: ReadonlyArray<string>,
-  step: PlannedJobStep,
-): PlannedJobStep => {
+  step: PlannedJobStep<Requirements, Output>,
+): PlannedJobStep<Requirements, Output> => {
   if (step.readiness === "error") return step;
   const artifact =
     step.artifact === undefined
@@ -152,7 +152,10 @@ const attachMaterializationArtifact = (
   };
 };
 
-const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
+const makePlan = <Requirements, Output>(
+  agentIds: ReadonlyArray<string>,
+  steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>,
+): Plan<Requirements, Output> => ({
   _tag: "Plan",
   name: "Add coding agents",
   description: Option.some(`Configure ${agentIds.join(", ")} and materialize installed extensions`),
@@ -259,16 +262,16 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
       ),
   });
   const basePlan = makePlan(agentIds, atomicSteps);
-  const plan: Plan =
+  const plan =
     lifecycleWarnings.length === 0
       ? basePlan
       : {
           ...basePlan,
           riskConditions: [
             {
-              level: "override-required",
+              level: "override-required" as const,
               id: "retired-agent-lifecycle-warnings",
-              policy: "accept-warnings",
+              policy: "accept-warnings" as const,
               requiredFlag: "--accept-warnings",
               detail: lifecycleWarnings.join("; "),
             },

@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Semaphore from "effect/Semaphore";
 
 import { makeAppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
@@ -553,10 +554,12 @@ describe("previewOrApplyPlan", () => {
       const target = path.join(directory, "managed.txt");
       yield* fs.writeFileString(target, "original");
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+      const semaphore = Semaphore.makeUnsafe(1);
       const workspace: WorkspaceMutationsService = {
         ...baseWorkspace,
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            semaphore,
             workspaceDir,
             targets: args.targets ?? [],
             transition: args.transition,

@@ -1,9 +1,10 @@
 /**
  * Plan types for workspace operations.
  *
- * Uses a readiness-based model where each step carries its own `run` closure
- * (for ready/warn steps) or an error message (for error steps). Plans and jobs
- * are non-generic; operation-specific details are captured in step closures.
+ * Uses a readiness-based model where each step carries its own `run` effect
+ * (for ready/warn steps) or an error message (for error steps). A plan retains
+ * the environment required by its executable steps so callers can compose
+ * dependencies once at the command boundary.
  *
  * This module is the stable kernel home for the plan-pipeline primitives. It
  * is imported by the CLI, the lint module, and any shared-kernel consumer that
@@ -121,13 +122,14 @@ export interface RegistryLifecycleEvidence {
   readonly deprecation: DeprecationView;
 }
 
-export type JobStepResult =
+export type JobStepResult<Output = never> =
   | {
       readonly result: "success";
       readonly message: string;
       readonly warnings?: ReadonlyArray<string>;
       readonly links?: { readonly html: string };
       readonly artifact?: JobStepArtifact;
+      readonly output?: Output;
     }
   | {
       readonly result: "error";
@@ -139,7 +141,7 @@ export type JobStepResult =
 // Planned step types (readiness-based discriminated union)
 // -----------------------------------------------------------------------------
 
-export interface ReadyJobStep {
+export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   readonly readiness: "ready";
@@ -147,10 +149,10 @@ export interface ReadyJobStep {
   readonly message?: string;
   readonly artifact?: JobStepArtifact;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly run: Effect.Effect<JobStepResult, AppError, never>;
+  readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
 }
 
-export interface WarnJobStep {
+export interface WarnJobStep<Requirements = never, Output = never> {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   readonly readiness: "warn";
@@ -158,7 +160,7 @@ export interface WarnJobStep {
   readonly label: string;
   readonly artifact?: JobStepArtifact;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly run: Effect.Effect<JobStepResult, AppError, never>;
+  readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
 }
 
 export interface ErrorJobStep {
@@ -173,28 +175,29 @@ export interface ErrorJobStep {
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }
 
-export type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
+export type PlannedJobStep<Requirements = never, Output = never> =
+  ReadyJobStep<Requirements, Output> | WarnJobStep<Requirements, Output> | ErrorJobStep;
 
 // -----------------------------------------------------------------------------
 // Completed step type (after execution)
 // -----------------------------------------------------------------------------
 
-export interface CompletedJobStep {
+export interface CompletedJobStep<Output = never> {
   readonly key?: string;
   readonly label: string;
   readonly blockedBy?: ReadonlyArray<string>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly result: JobStepResult;
+  readonly result: JobStepResult<Output>;
 }
 
 // -----------------------------------------------------------------------------
-// Job and Plan types (non-generic)
+// Job and Plan types
 // -----------------------------------------------------------------------------
 
 export type JobExecutionPolicy = "fail-fast" | "best-effort";
 
-export interface Job {
-  readonly steps: ReadonlyArray<PlannedJobStep>;
+export interface Job<Requirements = never, Output = never> {
+  readonly steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>;
   readonly concurrency: "unbounded" | number;
   /**
    * Defaults to ordered fail-fast execution. Use `best-effort` only when every
@@ -228,11 +231,11 @@ export const OperationPreconditionSchema = Schema.Struct({
 
 export type OperationPrecondition = typeof OperationPreconditionSchema.Type;
 
-export interface Plan {
+export interface Plan<Requirements = never, Output = never> {
   readonly _tag: "Plan";
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job>;
+  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   /** Optional extra sections rendered after the plan steps. */
@@ -253,50 +256,50 @@ export interface Plan {
 // Executed plan types (after apply)
 // -----------------------------------------------------------------------------
 
-export interface ExecutedJob {
-  readonly steps: ReadonlyArray<CompletedJobStep>;
+export interface ExecutedJob<Output = never> {
+  readonly steps: ReadonlyArray<CompletedJobStep<Output>>;
   readonly concurrency: "unbounded" | number;
   readonly executionPolicy?: JobExecutionPolicy;
 }
 
-export interface ExecutedPlan {
+export interface ExecutedPlan<Output = never> {
   readonly _tag: "ExecutedPlan";
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<ExecutedJob>;
+  readonly jobs: ReadonlyArray<ExecutedJob<Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
 }
 
-export interface PreviewedPlan {
+export interface PreviewedPlan<Requirements = never, Output = never> {
   readonly _tag: "PreviewedPlan";
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job>;
+  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
 }
 
-export interface CancelledPlan {
+export interface CancelledPlan<Requirements = never, Output = never> {
   readonly _tag: "CancelledPlan";
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job>;
+  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
 }
 
-export interface FailedPlan {
+export interface FailedPlan<Requirements = never, Output = never> {
   readonly _tag: "FailedPlan";
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job>;
+  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly reason: PlanExecutionReason;
   readonly errorCode: AppErrorCode;
@@ -312,4 +315,8 @@ export interface FailedPlan {
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
 
-export type PlanResolution = ExecutedPlan | PreviewedPlan | CancelledPlan | FailedPlan;
+export type PlanResolution<Requirements = never, Output = never> =
+  | ExecutedPlan<Output>
+  | PreviewedPlan<Requirements, Output>
+  | CancelledPlan<Requirements, Output>
+  | FailedPlan<Requirements, Output>;

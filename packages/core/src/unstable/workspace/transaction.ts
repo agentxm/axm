@@ -16,16 +16,6 @@ const LOCK_RETRY_DELAY = Duration.millis(25);
 const LOCK_STALE_MILLIS = 2_000;
 const LOCK_UPDATE_MILLIS = 1_000;
 
-const transactionSemaphores = new Map<string, Semaphore.Semaphore>();
-
-const semaphoreFor = (workspaceDir: string): Semaphore.Semaphore => {
-  const current = transactionSemaphores.get(workspaceDir);
-  if (current !== undefined) return current;
-  const created = Semaphore.makeUnsafe(1);
-  transactionSemaphores.set(workspaceDir, created);
-  return created;
-};
-
 type Snapshot =
   | { readonly target: string; readonly state: "absent" }
   | { readonly target: string; readonly state: "copied"; readonly backup: string }
@@ -48,6 +38,8 @@ const CurrentWorkspaceTransaction = ServiceMap.Reference<
 
 export interface WorkspaceTransactionArgs<A, E, R> {
   readonly workspaceDir: string;
+  /** In-process admission owned by the workspace service instance. */
+  readonly semaphore: Semaphore.Semaphore;
   /** Authoritative files or directories that the transition may mutate. */
   readonly targets: ReadonlyArray<string>;
   /** Desired, lock, canonical, projection, and native-configuration mutation. */
@@ -253,9 +245,8 @@ export const runWorkspaceTransaction = <A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspaceDir = path.resolve(args.workspaceDir);
-    const semaphore = semaphoreFor(workspaceDir);
 
-    return yield* semaphore.withPermits(1)(
+    return yield* args.semaphore.withPermits(1)(
       Effect.gen(function* () {
         yield* fs
           .makeDirectory(workspaceDir, { recursive: true })

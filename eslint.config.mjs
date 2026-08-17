@@ -162,6 +162,28 @@ export default [
     },
   },
   {
+    // These workflows deliberately preserve expected failures. Keep the
+    // remediated boundaries from regressing while the broader census is
+    // disposed feature by feature.
+    files: [
+      "packages/core/src/unstable/plan/**/*.ts",
+      "packages/core/src/unstable/workspace/transaction.ts",
+      "packages/cli/src/root/publish/command.ts",
+      "packages/cli/src/root/sync/handler.ts",
+    ],
+    ignores: ["**/*.test.ts", "**/*.spec.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='Effect'][property.name='orDie']",
+          message:
+            "Preserve expected failures in the Effect error channel and translate them at the owning boundary.",
+        },
+      ],
+    },
+  },
+  {
     files: [
       "**/*.test.ts",
       "**/*.test.tsx",

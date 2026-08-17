@@ -322,6 +322,8 @@ export const makeUserArchiveCache = (): Effect.Effect<
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    // Every field is Config.option(string), so missing values are represented
+    // by Option and decoding cannot fail. A failure is a provider invariant.
     const environment = yield* Effect.orDie(archiveCacheEnvironmentConfig);
     const axmUserHome = Option.getOrUndefined(environment.axmUserHome);
     const localAppData = Option.getOrUndefined(environment.localAppData);

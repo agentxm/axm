@@ -402,11 +402,15 @@ const noMutationResult = (
 });
 
 const resolveGithubRepo = () =>
+  // A string with a default cannot fail through the environment provider;
+  // preserve a defect only for a broken ConfigProvider invariant.
   Effect.orDie(
     Config.string("AXM_INSTALL_GITHUB_REPO").pipe(Config.withDefault(DEFAULT_GITHUB_REPO)),
   );
 
 const resolveGithubApiBase = () =>
+  // A string with a default cannot fail through the environment provider;
+  // preserve a defect only for a broken ConfigProvider invariant.
   Effect.orDie(
     Config.string("AXM_UPGRADE_GITHUB_API_URL").pipe(Config.withDefault("https://api.github.com")),
   );

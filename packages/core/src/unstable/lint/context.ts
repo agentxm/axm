@@ -23,6 +23,7 @@ import type * as Option from "effect/Option";
 import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/instructions.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
+import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
 import type { AppError } from "../app-error/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { CanonicalObservation } from "../workspace/canonical-observation.js";
@@ -332,7 +333,10 @@ export interface WorkspaceRuleContext {
   /** Effective configured owner (project, then user scope), when available. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** One caller-built evaluation over the authoritative installed AXM skill. */
-  readonly axmSkillCompatibility?: Effect.Effect<AxmSkillCompatibility>;
+  readonly axmSkillCompatibility?: Effect.Effect<
+    AxmSkillCompatibility,
+    SettingsReadError | LockfileReadError
+  >;
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */
   readonly health?: {
     readonly desiredState: Effect.Effect<DesiredStateGraph, AppError>;

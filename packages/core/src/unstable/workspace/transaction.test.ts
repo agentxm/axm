@@ -5,9 +5,20 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
+import * as Semaphore from "effect/Semaphore";
 
 import { makeAppError } from "../app-error/index.js";
-import { protectWorkspacePath, runWorkspaceTransaction } from "./transaction.js";
+import {
+  protectWorkspacePath,
+  runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
+  type WorkspaceTransactionArgs,
+} from "./transaction.js";
+
+let transactionSemaphore: Semaphore.Semaphore;
+
+const runWorkspaceTransaction = <A, E, R>(
+  args: Omit<WorkspaceTransactionArgs<A, E, R>, "semaphore">,
+) => runWorkspaceTransactionWithSemaphore({ ...args, semaphore: transactionSemaphore });
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -19,6 +30,7 @@ describe("runWorkspaceTransaction", () => {
   let canonicalPath: string;
 
   beforeEach(() => {
+    transactionSemaphore = Semaphore.makeUnsafe(1);
     tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "workspace-transaction-test-"));
     workspaceDir = nodePath.join(tempDir, ".axm");
     settingsPath = nodePath.join(workspaceDir, "settings.json");

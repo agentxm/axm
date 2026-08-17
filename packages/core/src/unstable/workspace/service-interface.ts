@@ -163,15 +163,15 @@ export interface MaterializationObservation {
   }>;
 }
 
-export interface WorkspaceLifecycleTransactionArgs<A> {
+export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly targets?: ReadonlyArray<string>;
-  readonly transition: Effect.Effect<A, AppError, never>;
-  readonly validate: (value: A) => Effect.Effect<void, AppError, never>;
+  readonly transition: Effect.Effect<A, E, R>;
+  readonly validate: (value: A) => Effect.Effect<void, E, R>;
 }
 
-export type WorkspaceTransactionRunner = <A>(
-  args: WorkspaceLifecycleTransactionArgs<A>,
-) => Effect.Effect<A, AppError, never>;
+export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(
+  args: WorkspaceLifecycleTransactionArgs<A, E, R>,
+) => Effect.Effect<A, AppError | E, R>;
 
 // ---------------------------------------------------------------------------
 // Extension Manager Interface

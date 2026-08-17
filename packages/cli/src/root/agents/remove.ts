@@ -150,7 +150,10 @@ const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): Planne
   ),
 });
 
-const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
+const makePlan = <Requirements, Output>(
+  agentIds: ReadonlyArray<string>,
+  steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>,
+): Plan<Requirements, Output> => ({
   _tag: "Plan",
   name: "Remove coding agents",
   description: Option.some(`Remove ${agentIds.join(", ")} and clean up managed artifacts`),

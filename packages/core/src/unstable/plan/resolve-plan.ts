@@ -35,6 +35,11 @@ import {
 } from "../cli-runtime/confirmation-recovery.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
+interface PlanApplyFailure<Output> {
+  readonly error: AppError;
+  readonly attemptedExecution?: ExecutedPlan<Output>;
+}
+
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
  *
@@ -46,12 +51,14 @@ import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
  * 5. Preview or approve confirmable semantic risk
  * 6. Revalidate and apply the same candidate
  */
-export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
-  plan: Plan,
+export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
   options: {
     execution: PlanExecution;
     displayApplied?: boolean;
-    beforeApply?: (candidate: ExecutionCandidate) => Effect.Effect<void, AppError>;
+    beforeApply?: (
+      candidate: ExecutionCandidate<Requirements, Output>,
+    ) => Effect.Effect<void, AppError, Requirements>;
   },
 ) {
   const ws = yield* WorkspaceMutations;
@@ -66,7 +73,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
 
-  const showPlan = (targetPlan: Plan | ExecutedPlan) =>
+  const showPlan = (targetPlan: Plan<Requirements, Output> | ExecutedPlan<Output>) =>
     displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
 
   // Step 1: Lockfile reconciliation
@@ -120,7 +127,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     ...readinessBlockers,
     ...preconditionBlockers,
   ];
-  const candidatePlan: Plan = {
+  const candidatePlan: Plan<Requirements, Output> = {
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
     ...(riskConditions.length === 0
@@ -145,7 +152,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     readonly failure?: AppError;
     readonly suggestions?: FailedPlan["suggestions"];
     readonly executionSteps?: FailedPlan["executionSteps"];
-  }): FailedPlan => ({
+  }): FailedPlan<Requirements, Output> => ({
     _tag: "FailedPlan",
     name: candidatePlan.name,
     description: candidatePlan.description,
@@ -207,7 +214,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       ...(riskConditions.length === 0 ? {} : { riskConditions }),
       candidateId: candidate.id,
       jobs: candidatePlan.jobs,
-    } satisfies PreviewedPlan;
+    } satisfies PreviewedPlan<Requirements, Output>;
   }
 
   if (!("approvalRecovery" in options.execution)) {
@@ -269,13 +276,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         ...(riskConditions.length === 0 ? {} : { riskConditions }),
         candidateId: candidate.id,
         jobs: candidatePlan.jobs,
-      } satisfies CancelledPlan;
+      } satisfies CancelledPlan<Requirements, Output>;
     }
   }
 
   // Step 6: Revalidate under the local transaction lock and apply the exact candidate.
-  let attemptedExecution: ExecutedPlan | undefined;
-  const applyCandidate = Effect.gen(function* () {
+  const applyFreshCandidate = Effect.gen(function* () {
     if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
       return yield* makeAppError({
         code: "conflict",
@@ -291,8 +297,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
         });
       }
     }
-    const result = yield* applyPlan(candidate.plan);
-    attemptedExecution = result;
+    return yield* applyPlan(candidate.plan);
+  });
+  const applyCandidate = Effect.gen(function* () {
+    const result = yield* applyFreshCandidate.pipe(
+      Effect.mapError((error) => ({ error }) satisfies PlanApplyFailure<Output>),
+    );
     const failedStep = result.jobs
       .flatMap((job) => job.steps)
       .find((step) => step.result.result === "error");
@@ -301,25 +311,33 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       failedStep !== undefined &&
       failedStep.result.result === "error"
     ) {
-      return yield* makeAppError({
-        code: failedStep.result.error.code,
-        detail: failedStep.result.message,
-        cause: failedStep.result.error,
-        ...(failedStep.result.error.suggestions === undefined
-          ? {}
-          : { suggestions: failedStep.result.error.suggestions }),
+      return yield* Effect.fail({
+        error: makeAppError({
+          code: failedStep.result.error.code,
+          detail: failedStep.result.message,
+          cause: failedStep.result.error,
+          ...(failedStep.result.error.suggestions === undefined
+            ? {}
+            : { suggestions: failedStep.result.error.suggestions }),
+        }),
+        attemptedExecution: result,
       });
     }
-    return { ...result, candidateId: candidate.id } satisfies ExecutedPlan;
+    return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
   });
-  const guardedApply =
+  const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"
       ? applyCandidate
       : ws.runTransaction({
           targets: [],
           transition: applyCandidate,
           validate: () => Effect.void,
-        });
+        })
+  ).pipe(
+    Effect.mapError((failure): PlanApplyFailure<Output> =>
+      "error" in failure ? failure : { error: failure },
+    ),
+  );
   const applyResult = yield* renderer.withSpinner(
     `Applying ${candidatePlan.name}`,
     () =>
@@ -332,10 +350,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     { successMessage: `Processed ${candidatePlan.name}` },
   );
   if (applyResult.type === "failure") {
+    const failure = applyResult.error.error;
     const staleCandidate =
-      applyResult.error.code === "conflict" &&
-      applyResult.error.detail === "The execution candidate became stale before apply.";
-    const executionSteps = attemptedExecution?.jobs.flatMap((job) =>
+      failure.code === "conflict" &&
+      failure.detail === "The execution candidate became stale before apply.";
+    const executionSteps = applyResult.error.attemptedExecution?.jobs.flatMap((job) =>
       job.steps.map((step) => {
         if (step.result.result === "success") {
           return {
@@ -354,11 +373,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     );
     return failedPlan({
       reason: staleCandidate ? "stale-candidate" : "execution-failed",
-      errorCode: applyResult.error.code,
-      failure: applyResult.error,
+      errorCode: failure.code,
+      failure,
       suggestions: staleCandidate
         ? [{ description: "Rerun the command to resolve a fresh candidate." }]
-        : applyResult.error.suggestions,
+        : failure.suggestions,
       ...(executionSteps === undefined ? {} : { executionSteps }),
     });
   }

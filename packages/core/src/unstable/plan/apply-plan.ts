@@ -40,7 +40,10 @@ export type OperationHandler<Op, R = never> = (op: Op) => Effect.Effect<JobStepR
 // Implementation
 // -----------------------------------------------------------------------------
 
-const appendReadinessWarning = (step: WarnJobStep, result: JobStepResult): JobStepResult => {
+const appendReadinessWarning = <Output>(
+  step: WarnJobStep<unknown, Output>,
+  result: JobStepResult<Output>,
+): JobStepResult<Output> => {
   if (result.result === "error") {
     return result;
   }
@@ -53,10 +56,12 @@ const appendReadinessWarning = (step: WarnJobStep, result: JobStepResult): JobSt
 
 const errorStepMessage = (error: AppError): string => `${error.detail} (${error.code})`;
 
-const lifecycleEvidence = (step: PlannedJobStep) =>
+const lifecycleEvidence = (step: PlannedJobStep<unknown, unknown>) =>
   step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle };
 
-const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, never, never> => {
+const executeStep = <Requirements, Output>(
+  step: PlannedJobStep<Requirements, Output>,
+): Effect.Effect<CompletedJobStep<Output>, never, Requirements> => {
   switch (step.readiness) {
     case "error":
       return Effect.succeed({
@@ -75,13 +80,13 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
 
     case "ready":
       return step.run.pipe(
-        Effect.map((result): CompletedJobStep => ({
+        Effect.map((result): CompletedJobStep<Output> => ({
           ...(step.key === undefined ? {} : { key: step.key }),
           ...lifecycleEvidence(step),
           label: step.label,
           result,
         })),
-        Effect.catch((error): Effect.Effect<CompletedJobStep> => {
+        Effect.catch((error): Effect.Effect<CompletedJobStep<Output>> => {
           return Effect.succeed({
             ...(step.key === undefined ? {} : { key: step.key }),
             ...lifecycleEvidence(step),
@@ -97,13 +102,13 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
 
     case "warn":
       return step.run.pipe(
-        Effect.map((result): CompletedJobStep => ({
+        Effect.map((result): CompletedJobStep<Output> => ({
           ...(step.key === undefined ? {} : { key: step.key }),
           ...lifecycleEvidence(step),
           label: step.label,
           result: appendReadinessWarning(step, result),
         })),
-        Effect.catch((error): Effect.Effect<CompletedJobStep> => {
+        Effect.catch((error): Effect.Effect<CompletedJobStep<Output>> => {
           return Effect.succeed({
             ...(step.key === undefined ? {} : { key: step.key }),
             ...lifecycleEvidence(step),
@@ -119,11 +124,11 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
   }
 };
 
-const blockStep = (
-  step: PlannedJobStep,
+const blockStep = <Output>(
+  step: PlannedJobStep<unknown, Output>,
   message: string,
   blockedBy?: ReadonlyArray<string>,
-): CompletedJobStep => ({
+): CompletedJobStep<Output> => ({
   ...(step.key === undefined ? {} : { key: step.key }),
   ...lifecycleEvidence(step),
   label: step.label,
@@ -138,7 +143,9 @@ const blockStep = (
   },
 });
 
-const applyReadinessGate = (plan: Plan): ReadonlyArray<ReadonlyArray<CompletedJobStep>> =>
+const applyReadinessGate = <Output>(
+  plan: Plan<unknown, Output>,
+): ReadonlyArray<ReadonlyArray<CompletedJobStep<Output>>> =>
   plan.jobs.map((job) =>
     job.steps.map((step) =>
       step.readiness === "error"
@@ -154,9 +161,11 @@ const applyReadinessGate = (plan: Plan): ReadonlyArray<ReadonlyArray<CompletedJo
     ),
   );
 
-const executeFailFastJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJobStep>> =>
+const executeFailFastJob = <Requirements, Output>(
+  job: Job<Requirements, Output>,
+): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
   Effect.gen(function* () {
-    const completed: CompletedJobStep[] = [];
+    const completed: CompletedJobStep<Output>[] = [];
     let failed = false;
     for (const step of job.steps) {
       if (failed) {
@@ -170,17 +179,21 @@ const executeFailFastJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJobS
     return completed;
   });
 
-const executeBestEffortJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJobStep>> =>
+const executeBestEffortJob = <Requirements, Output>(
+  job: Job<Requirements, Output>,
+): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
   Effect.forEach(job.steps, (step) => executeStep(step), {
     concurrency: job.concurrency,
   });
 
-const executeDependencyAwareJob = (job: Job): Effect.Effect<ReadonlyArray<CompletedJobStep>> =>
+const executeDependencyAwareJob = <Requirements, Output>(
+  job: Job<Requirements, Output>,
+): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
   Effect.gen(function* () {
     const stepsByKey = new Map(
       job.steps.flatMap((step) => (step.key === undefined ? [] : [[step.key, step] as const])),
     );
-    const completed = new Map<string, CompletedJobStep>();
+    const completed = new Map<string, CompletedJobStep<Output>>();
     const unkeyed = job.steps.filter((step) => step.key === undefined);
     for (const step of unkeyed) {
       const result = yield* executeStep(step);
@@ -251,7 +264,9 @@ const executeDependencyAwareJob = (job: Job): Effect.Effect<ReadonlyArray<Comple
  *
  * Never fails — catches AppError and converts to error results.
  */
-export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never> =>
+export const applyPlan = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+): Effect.Effect<ExecutedPlan<Output>, never, Requirements> =>
   Effect.gen(function* () {
     const hasReadinessError = plan.jobs.some((job) =>
       job.steps.some((step) => step.readiness === "error"),
@@ -263,7 +278,7 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
           plan.jobs,
           (job) =>
             blocked
-              ? Effect.succeed(
+              ? Effect.succeed<ReadonlyArray<CompletedJobStep<Output>>>(
                   job.steps.map((step) => blockStep(step, "blocked by earlier job failure")),
                 )
               : (job.steps.some((step) => (step.dependsOn ?? []).length > 0)
@@ -296,5 +311,5 @@ export const applyPlan = (plan: Plan): Effect.Effect<ExecutedPlan, never, never>
           : { executionPolicy: plan.jobs[i].executionPolicy }),
         steps,
       })),
-    } satisfies ExecutedPlan;
+    } satisfies ExecutedPlan<Output>;
   }).pipe(Effect.withSpan("Plan.applyPlan"));

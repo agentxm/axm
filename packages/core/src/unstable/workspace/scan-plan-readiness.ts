@@ -29,7 +29,7 @@ export interface PlanReadinessReport {
  *
  * Pure function: no side effects, no service dependencies.
  */
-export const scanPlanReadiness = (plan: Plan): PlanReadinessReport => {
+export const scanPlanReadiness = (plan: Plan<unknown, unknown>): PlanReadinessReport => {
   const errorMessages: string[] = [];
   const warnMessages: string[] = [];
 

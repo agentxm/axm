@@ -176,6 +176,9 @@ const makeStreamProgressHandle = (
 };
 
 const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
+  // Renderer documents are constructed from the schema's own Type. An encode
+  // failure therefore indicates a violated internal renderer invariant, not a
+  // recoverable user or transport error.
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
 
 // ---------------------------------------------------------------------------

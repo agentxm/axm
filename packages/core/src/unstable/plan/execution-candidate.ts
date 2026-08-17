@@ -9,14 +9,14 @@ import { LOCKFILE_NAME } from "../lockfile/index.js";
 import { SETTINGS_FILENAME } from "../settings/index.js";
 import type { Plan } from "./plan.js";
 
-export interface ExecutionCandidate {
+export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly id: string;
-  readonly plan: Plan;
+  readonly plan: Plan<Requirements, Output>;
   readonly materialPaths: ReadonlyArray<string>;
   readonly materialFingerprint: string;
 }
 
-const collectArtifactPaths = (plan: Plan): ReadonlyArray<string> =>
+const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<string> =>
   plan.jobs.flatMap((job) =>
     job.steps.flatMap((step) => {
       if (step.artifact === undefined) return [];
@@ -25,7 +25,7 @@ const collectArtifactPaths = (plan: Plan): ReadonlyArray<string> =>
   );
 
 const resolveMaterialPaths = (
-  plan: Plan,
+  plan: Plan<unknown, unknown>,
   workspaceDir: string,
   baseDir: string,
   path: Path.Path,
@@ -92,7 +92,7 @@ const fingerprintMaterials = (
     return hash.digest("hex");
   });
 
-const planIdentity = (plan: Plan): string =>
+const planIdentity = (plan: Plan<unknown, unknown>): string =>
   JSON.stringify({
     name: plan.name,
     jobs: plan.jobs.map((job) => ({
@@ -112,11 +112,15 @@ const planIdentity = (plan: Plan): string =>
     releaseAge: plan.releaseAge,
   });
 
-export const makeExecutionCandidate = (
-  plan: Plan,
+export const makeExecutionCandidate = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
   workspaceDir: string,
   baseDir: string,
-): Effect.Effect<ExecutionCandidate, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ExecutionCandidate<Requirements, Output>,
+  AppError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -132,7 +136,7 @@ export const makeExecutionCandidate = (
   });
 
 export const isExecutionCandidateFresh = (
-  candidate: ExecutionCandidate,
+  candidate: ExecutionCandidate<unknown, unknown>,
 ): Effect.Effect<boolean, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

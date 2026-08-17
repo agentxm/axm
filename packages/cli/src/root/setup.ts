@@ -33,6 +33,7 @@ import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
@@ -676,6 +677,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     args.preview === true || settingsExists
       ? yield* initialize
       : yield* runWorkspaceTransaction({
+          semaphore: Semaphore.makeUnsafe(1),
           workspaceDir,
           targets: [],
           transition: initialize,

@@ -232,7 +232,7 @@ export const buildLintWorkspace = (
               platform: args.platform,
               workspace: readModel,
               policy: args.axmSkillCompatibilityPolicy,
-            }).pipe(Effect.orDie),
+            }),
           }),
       displayRoot: args.displayRoot ?? "",
     };

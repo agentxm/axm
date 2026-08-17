@@ -1,3 +1,13 @@
+## 0.27.8 (2026-08-17)
+
+### 🩹 Fixes
+
+- Upgrade Effect to 4.0.0-rc.110 ([cdc296a0](https://github.com/agentxm/axm/commit/cdc296a0))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.7 (2026-08-16)
 
 ### 🩹 Fixes

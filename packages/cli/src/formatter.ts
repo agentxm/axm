@@ -1,6 +1,6 @@
 /**
- * Custom CLI output formatter that renders compact root help and appends a
- * "learn more" footer from command annotations.
+ * Custom CLI output formatter that renders metadata-driven root help and
+ * appends a "learn more" footer from command annotations.
  */
 
 import * as Option from "effect/Option";
@@ -51,35 +51,17 @@ export const formatLearnMore = (
 
 const getLearnMore = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, LearnMore);
 
-type RootSubcommandDoc = {
-  readonly name: string;
-  readonly alias?: string | undefined;
-  readonly shortDescription?: string | undefined;
-  readonly description?: string | undefined;
-};
-
 const groupLabel = (group: string | undefined): string => {
   if (group === undefined) return "commands";
 
   return group.toUpperCase();
 };
 
-/** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = ["agents", "hooks", "mcps", "packs", "rules", "skills", "subagents"];
-const CORE_GROUP_LABEL = "CORE";
-
-/** Compact group that should render above the descriptive Core block. */
-const LEADING_COMPACT_GROUP = "GETTING STARTED";
+/** Registered group that should render before the other command groups. */
+const LEADING_GROUP = "GETTING STARTED";
 
 /**
- * Parent commands whose subcommands are promoted to the root command set.
- * The parent is omitted from the root listing to avoid duplicating its
- * children (e.g. `auth` — `login`/`logout`/`whoami`/`token` appear at root).
- */
-const PROMOTED_PARENT_COMMANDS = ["auth"];
-
-/**
- * Display labels for the compact (description-free) command groups. Only
+ * Display labels for command groups. Only
  * defined when the display label differs from the group key.
  */
 const COMPACT_GROUP_LABELS: Record<string, string> = {
@@ -126,43 +108,8 @@ const wrapCommandRows = (
   return rows;
 };
 
-const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
-  agents: "Manage target coding agents",
-  auth: "Manage registry authentication",
-  discover: "Find extensions for this project",
-  help: "Show topic and command help",
-  install: "Install extensions from the registry",
-  lint: "Check workspace configuration",
-  login: "Sign in to a registry",
-  logout: "Sign out of a registry",
-  mcps: "Manage MCP server configuration and extensions",
-  outdated: "Show extensions with updates",
-  packs: "Manage extension bundles",
-  prune: "Remove unmanaged extension files",
-  rules: "Manage instruction files and rule extensions",
-  setup: "Set up AXM in this project",
-  skills: "Manage agent skills",
-  subagents: "Manage subagent extensions",
-  sync: "Render configured extensions",
-  token: "Print the current auth token",
-  uninstall: "Remove installed extensions",
-  update: "Update installed extensions",
-  upgrade: "Update the AXM CLI",
-  version: "Bump extension versions",
-  view: "View published extension metadata",
-  whoami: "Show the signed-in account",
-};
-
 const formatSubcommandName = (name: string, alias: string | undefined): string =>
   alias === undefined ? name : `${name}, ${alias}`;
-
-const rootCommandDisplayName = (
-  command: string,
-  files: ReadonlyMap<string, RootSubcommandDoc>,
-): string => {
-  const doc = files.get(command);
-  return formatSubcommandName(command, doc?.alias);
-};
 
 interface HelpColors {
   readonly bold: (text: string) => string;
@@ -189,56 +136,37 @@ const makeHelpColors = (enabled: boolean): HelpColors => {
   };
 };
 
-const rootCommandDescription = (
-  command: string,
-  files: ReadonlyMap<string, RootSubcommandDoc>,
-): string => {
-  const customDescription = ROOT_COMMAND_DESCRIPTIONS[command];
-  if (customDescription !== undefined) return customDescription;
-
-  const doc = files.get(command);
-  return doc?.shortDescription ?? doc?.description ?? "";
-};
-
 const renderCommandRow = (
-  command: string,
-  description: string,
+  command: {
+    readonly name: string;
+    readonly alias?: string | undefined;
+    readonly shortDescription?: string | undefined;
+    readonly description?: string | undefined;
+  },
   columnWidth: number,
-  files: ReadonlyMap<string, RootSubcommandDoc>,
   colors: HelpColors,
 ): string => {
-  const displayName = rootCommandDisplayName(command, files);
+  const displayName = formatSubcommandName(command.name, command.alias);
   const padding = " ".repeat(Math.max(1, columnWidth - displayName.length));
-  return `  ${colors.cyan(displayName)}${padding}${description}`;
+  return `  ${colors.cyan(displayName)}${padding}${command.shortDescription ?? command.description ?? ""}`;
 };
 
 const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
-  const commandFiles = new Map(
-    (doc.subcommands ?? []).flatMap((group) =>
-      group.commands.map((command) => [command.name, command]),
-    ),
-  );
-
-  const renderCoreGroup = (commands: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const renderCommandGroup = (
+    label: string,
+    commands: NonNullable<HelpDoc["subcommands"]>[number]["commands"],
+  ): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
     const columnWidth =
       commands.reduce(
-        (max, command) => Math.max(max, rootCommandDisplayName(command, commandFiles).length),
+        (max, command) => Math.max(max, formatSubcommandName(command.name, command.alias).length),
         0,
       ) + 1;
 
     return [
-      colors.bold(CORE_GROUP_LABEL),
-      ...commands.map((command) =>
-        renderCommandRow(
-          command,
-          rootCommandDescription(command, commandFiles),
-          columnWidth,
-          commandFiles,
-          colors,
-        ),
-      ),
+      colors.bold(COMPACT_GROUP_LABELS[label] ?? label),
+      ...commands.map((command) => renderCommandRow(command, columnWidth, colors)),
     ];
   };
 
@@ -261,19 +189,13 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
     ];
   };
 
-  const leadingCompact: Array<ReadonlyArray<string>> = [];
-  const trailingCompact: Array<ReadonlyArray<string>> = [];
+  const leadingGroups: Array<ReadonlyArray<string>> = [];
+  const trailingGroups: Array<ReadonlyArray<string>> = [];
   for (const group of doc.subcommands ?? []) {
     const label = groupLabel(group.group);
-    const commands = group.commands
-      .map((command) => command.name)
-      .filter(
-        (command) =>
-          !CORE_COMMANDS.includes(command) && !PROMOTED_PARENT_COMMANDS.includes(command),
-      );
-    const rendered = renderCompactGroup(label, commands);
+    const rendered = renderCommandGroup(label, group.commands);
     if (rendered.length === 0) continue;
-    (label === LEADING_COMPACT_GROUP ? leadingCompact : trailingCompact).push(rendered);
+    (label === LEADING_GROUP ? leadingGroups : trailingGroups).push(rendered);
   }
 
   const globalFlagRow = renderCompactGroup(
@@ -281,13 +203,11 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
     (doc.globalFlags ?? []).map((flag) => `--${flag.name}`),
     colors.green,
   );
-  if (globalFlagRow.length > 0) trailingCompact.push(globalFlagRow);
+  if (globalFlagRow.length > 0) trailingGroups.push(globalFlagRow);
 
-  const sections: Array<ReadonlyArray<string>> = [
-    ...leadingCompact,
-    renderCoreGroup(CORE_COMMANDS),
-    ...trailingCompact,
-  ].filter((section) => section.length > 0);
+  const sections: Array<ReadonlyArray<string>> = [...leadingGroups, ...trailingGroups].filter(
+    (section) => section.length > 0,
+  );
   const body = sections.flatMap((section, index) =>
     index === 0 ? [...section] : ["", ...section],
   );
@@ -477,7 +397,7 @@ const renderSubcommandHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
  * Creates a custom CLI output formatter that wraps the Effect default
  * formatter with axm-specific adjustments:
  *
- * 1. Compact branded root help output
+ * 1. Branded root help derived from registered command metadata
  * 2. "Learn more" footer from the {@link LearnMore} command annotation
  */
 export const makeAxmFormatter = (options?: {

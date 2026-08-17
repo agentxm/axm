@@ -42,7 +42,7 @@ import { listCommand } from "./root/list/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
 import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
-import { helpCommand } from "./root/help/command.js";
+import { makeHelpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
 import { publishCommand } from "./root/publish/command.js";
@@ -62,6 +62,8 @@ import {
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
 type CommandProgramError = AppError | CliError.CliError;
+
+const helpCommand = makeHelpCommand(() => rootCommand);
 
 /**
  * Effect CLI built-ins kept for axm: `--completions` and `--log-level` are

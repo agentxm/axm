@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import { Command } from "effect/unstable/cli";
 
 import {
   formatMarkdown,
@@ -9,7 +9,9 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { extensionTypePluralSegments } from "@agentxm/client-core/unstable/extensions";
 import { HELP_TOPICS, HELP_TOPIC_KINDS } from "../../__generated__/help-topics.js";
-import { handleHelpTopic, ORDERED_TOPIC_NAMES } from "./command.js";
+import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./command.js";
+
+const testRootCommand = Command.make("axm");
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
 const stripAnsi = (value: string): string => value.replace(ansiPattern, "");
@@ -32,7 +34,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();
 
-      yield* handleHelpTopic(Option.none()).pipe(Effect.provide(layer));
+      yield* handleHelpPath([], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.results).toHaveLength(1);
       expect(state.markdown).toEqual([]);
@@ -53,7 +55,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
 
-      yield* handleHelpTopic(Option.none()).pipe(Effect.provide(layer));
+      yield* handleHelpPath([], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.tables).toEqual([]);
       expect(state.logs).toEqual([]);
@@ -69,7 +71,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();
 
-      yield* handleHelpTopic(Option.some("basic-usage")).pipe(Effect.provide(layer));
+      yield* handleHelpPath(["basic-usage"], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.results).toHaveLength(1);
       expect(state.markdown).toEqual([HELP_TOPICS["basic-usage"]]);
@@ -81,7 +83,7 @@ describe("help topic command", () => {
       for (const topic of nonPackExtensionHelpTopics) {
         const { layer, state } = TestRenderer.make();
 
-        yield* handleHelpTopic(Option.some(topic)).pipe(Effect.provide(layer));
+        yield* handleHelpPath([topic], testRootCommand).pipe(Effect.provide(layer));
 
         expect(state.markdown[0]).toContain("self-contained");
         expect(state.markdown[0]).toContain("axm help packs");
@@ -93,7 +95,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();
 
-      yield* handleHelpTopic(Option.some("packs")).pipe(Effect.provide(layer));
+      yield* handleHelpPath(["packs"], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.markdown[0]).toContain("## Cross-extension dependencies and references");
       expect(state.markdown[0]).toMatch(/direct dependencies of the\s+same pack/);
@@ -105,7 +107,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestMachineRenderer.make();
 
-      yield* handleHelpTopic(Option.some("basic-usage")).pipe(Effect.provide(layer));
+      yield* handleHelpPath(["basic-usage"], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.markdown).toEqual([]);
       expect(state.results[0]?.data).toEqual({
@@ -115,42 +117,23 @@ describe("help topic command", () => {
     }),
   );
 
-  it.effect("recovers a publish-shaped topic with command help and publishing guidance", () =>
+  it.effect("keeps unknown topics on the generic recovery path", () =>
     Effect.gen(function* () {
       const { layer } = TestRenderer.make();
       const error = yield* Effect.flip(
-        handleHelpTopic(Option.some("publish")).pipe(Effect.provide(layer)),
+        handleHelpPath(["bogus"], testRootCommand).pipe(Effect.provide(layer)),
       );
 
-      expect(error.code).toBe("not_found");
-      expect(error.detail).toContain("Unknown help topic 'publish'");
-      expect(error.suggestions).toEqual([
-        {
-          description: "Show publish command help.",
-          cmd: "axm publish --help",
-        },
-        {
-          description: "Read publishing guidance.",
-          cmd: "axm help basic-usage",
-        },
-      ]);
-    }),
-  );
-
-  it.effect("keeps unrelated unknown topics on the generic recovery path", () =>
-    Effect.gen(function* () {
-      const { layer } = TestRenderer.make();
-      const error = yield* Effect.flip(
-        handleHelpTopic(Option.some("bogus")).pipe(Effect.provide(layer)),
-      );
-
-      expect(error.code).toBe("not_found");
-      expect(error.suggestions).toEqual([
-        {
-          description: "List available help topics.",
-          cmd: "axm help",
-        },
-      ]);
+      expect(error).toMatchObject({
+        _tag: "AppError",
+        code: "not_found",
+        suggestions: [
+          {
+            description: "List available help topics.",
+            cmd: "axm help",
+          },
+        ],
+      });
     }),
   );
 
@@ -158,7 +141,7 @@ describe("help topic command", () => {
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();
 
-      yield* handleHelpTopic(Option.some("skill-schema")).pipe(Effect.provide(layer));
+      yield* handleHelpPath(["skill-schema"], testRootCommand).pipe(Effect.provide(layer));
 
       expect(state.markdown).toEqual([]);
       expect(state.logs).toEqual([

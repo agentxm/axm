@@ -119,7 +119,7 @@ describe("makeAxmFormatter", () => {
   });
 
   describe("human help rendering", () => {
-    it("renders compact branded root help", () => {
+    it("renders branded root help from the supplied command metadata", () => {
       const doc = makeHelpDoc({
         usage: "axm <subcommand> [flags]",
         subcommands: [
@@ -153,13 +153,15 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
-      expect(output).toMatch(/CORE\n {2}agents\s+Manage target coding agents/);
-      expect(output).toMatch(/ {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server configuration and extensions/);
+      expect(output).toMatch(/EXTENSIONS\n {2}mcps, mcps\s+MCP servers/);
       expect(output).not.toMatch(/^ {2}(commands|files)\b/m);
-      expect(output).toContain("START HERE\n  help, setup");
-      expect(output).toContain("AUTH\n  login");
+      expect(output).toMatch(/START HERE\n {2}help\s+Help\n {2}setup\s+Set up/);
+      expect(output).toMatch(/AUTH\n {2}login\s+Log in/);
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
+      expect(output).not.toContain("agents");
+      expect(output).not.toContain("skills");
+      expect(output).not.toContain("outdated");
+      expect(output).not.toContain("prune");
       expect(output).not.toContain("All commands:");
       expect(output).not.toContain("COMMON");
       expect(output).not.toContain("More:");
@@ -168,7 +170,7 @@ describe("makeAxmFormatter", () => {
       expect(output.split("\n").length).toBeLessThanOrEqual(40);
     });
 
-    it("colors compact root help when colors are enabled", () => {
+    it("colors root help when colors are enabled", () => {
       const doc = makeHelpDoc({
         usage: "axm <subcommand> [flags]",
         subcommands: [
@@ -185,8 +187,9 @@ describe("makeAxmFormatter", () => {
 
       expect(output).toContain("\u001b[1mUSAGE\u001b[0m");
       expect(output).toContain("\u001b[36maxm <command> [flags]\u001b[0m");
-      expect(output).toContain("[1mCORE[0m");
-      expect(output).toContain("[1mAUTH[0m\n  [36mlogin[0m");
+      expect(output).not.toContain("CORE");
+      expect(output).toContain("\u001b[1mAUTH\u001b[0m\n  \u001b[36mlogin\u001b[0m");
+      expect(output).toContain("Log in");
       expect(output).toContain("[32m--json[0m");
     });
 
@@ -224,7 +227,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("authored source\n\nEXAMPLES");
     });
 
-    it("renders Start here above Core, with remaining compact groups after", () => {
+    it("renders Start here above the remaining registered groups", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
         subcommands: [
@@ -245,20 +248,17 @@ describe("makeAxmFormatter", () => {
       });
       const output = formatter.formatHelpDoc(doc);
       const usageIdx = output.indexOf("USAGE");
-      const coreIdx = output.indexOf("CORE");
       const startHereIdx = output.indexOf("START HERE");
       const authIdx = output.indexOf("AUTH");
       const footerIdx = output.indexOf("GLOBAL FLAGS");
 
       expect(usageIdx).toBeGreaterThan(-1);
-      expect(coreIdx).toBeGreaterThan(-1);
       expect(startHereIdx).toBeGreaterThan(-1);
       expect(authIdx).toBeGreaterThan(-1);
       expect(footerIdx).toBeGreaterThan(-1);
 
       expect(usageIdx).toBeLessThan(startHereIdx);
-      expect(startHereIdx).toBeLessThan(coreIdx);
-      expect(coreIdx).toBeLessThan(authIdx);
+      expect(startHereIdx).toBeLessThan(authIdx);
       expect(authIdx).toBeLessThan(footerIdx);
     });
 
@@ -281,7 +281,7 @@ describe("makeAxmFormatter", () => {
         globalFlags,
       });
       const output = formatter.formatHelpDoc(doc);
-      expect(output).toContain("CUSTOM SECTION\n  custom");
+      expect(output).toMatch(/CUSTOM SECTION\n {2}custom\s+Custom command/);
     });
 
     it("trims trailing blank lines from sections", () => {

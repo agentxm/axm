@@ -74,3 +74,8 @@ Operational attention outcomes carry a failed or blocked plan step, report
 `ok: false`, and exit 1. Release lookup, network, validation, and unexpected
 transaction failures use the normal `ok: false` error envelope and canonical
 exit codes documented by `axm help exit-codes`.
+
+## Where to go next
+
+- `axm upgrade --help` — command arguments, flags, and examples
+- `axm help exit-codes` — canonical failure classes and process exit codes

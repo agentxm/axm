@@ -1,0 +1,40 @@
+{
+  "skill_name": "author-agent-instructions",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create or revise the repository instruction system described in the fixture. Keep the effective surface small and verify it from representative working locations.",
+      "expected_output": "Canonical broad and local instruction sources with distinct scope, concise routes, and entry-point validation.",
+      "files": ["evals/files/scoped-instructions.md"],
+      "assertions": [
+        "The response resolves the stated harness discovery and precedence contract rather than assuming a universal hierarchy.",
+        "Repository-wide guidance remains broad while package-specific commands live only in the package scope.",
+        "The long deployment procedure is routed to its existing guide rather than copied into persistent instructions.",
+        "Validation checks both representative package work and adjacent repository work that must not receive package-specific guidance."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Fix the stale command and projection drift in the supplied instruction system. Apply the change.",
+      "expected_output": "A canonical-source revision followed by the owning reconciliation mechanism, without hand-editing the alias.",
+      "files": ["evals/files/managed-projection.md"],
+      "assertions": [
+        "The response edits AGENTS.md as the declared canonical source rather than CLAUDE.md.",
+        "The stale command is corrected from locally supplied authority rather than invented.",
+        "The managed alias is reconciled through the declared owner and then verified.",
+        "Unrelated instruction content remains unchanged."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Apply findings I-02 and I-04 from the supplied audit, then certify that the instruction system now conforms.",
+      "expected_output": "A bounded revision with remediation evidence and an explicit handoff to audit closure rather than self-certification.",
+      "files": ["evals/files/scoped-instructions.md"],
+      "assertions": [
+        "The response confirms each finding against the current surface before editing.",
+        "Only the smallest responsible instruction surfaces change.",
+        "The author reports finding dispositions and entry-point evidence without declaring independent audit closure."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "author-agent-instructions",
+  "version": "0.1.1",
+  "description": "Creates or revises scoped repository agent instruction systems while preserving canonical authority, progressive disclosure, and effective-entry-point behavior",
+  "keywords": [
+    "agents.md",
+    "agent-instructions",
+    "repository-instructions",
+    "context-engineering",
+    "progressive-disclosure"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": ".axm/extensions/@agentxm/skills/author-agent-instructions"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": ["@agentxm/packs/context-engineering", "@agentxm/packs/harness-engineering"],
+  "standalone": false
+}

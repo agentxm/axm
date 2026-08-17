@@ -1,0 +1,40 @@
+{
+  "skill_name": "audit-agent-instructions",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Audit the supplied repository instruction system. Do not modify it.",
+      "expected_output": "A snapshot-bound, read-only audit of the effective broad and local surfaces with evidence-backed findings.",
+      "files": ["evals/files/instruction-system.md"],
+      "assertions": [
+        "The audit binds the declared harness contract, canonical sources, scopes, and representative working locations.",
+        "It identifies duplicate procedure, wrong-layer command, weak route, and projection drift with exact evidence.",
+        "It protects the useful migration route instead of recommending removal merely to reduce length.",
+        "No source or projection is modified."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Audit and remediate the supplied repository instruction system, then verify the result.",
+      "expected_output": "A preserved pre-change audit, an authoring revision of canonical sources, reconciliation, and a post-change closure matrix.",
+      "files": ["evals/files/instruction-system.md"],
+      "assertions": [
+        "The response preserves pre-change source identities and findings before mutation.",
+        "Remediation uses the author-agent-instructions workflow and changes canonical sources rather than aliases.",
+        "Affected and adjacent entry points are retested after reconciliation.",
+        "The final pass is labeled closure verification rather than independent approval."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Audit which instruction wins for the conflicting task in this fixture.",
+      "expected_output": "An Inconclusive precedence finding because the host contract is unavailable, without guessing that the narrower file wins.",
+      "files": ["evals/files/unknown-precedence.md"],
+      "assertions": [
+        "Scope, applicability, composition, and precedence are treated as distinct questions.",
+        "Directory proximity is not treated as proof of runtime precedence.",
+        "The report identifies the missing host evidence and recommends removing the conflict until behavior is authoritative."
+      ]
+    }
+  ]
+}

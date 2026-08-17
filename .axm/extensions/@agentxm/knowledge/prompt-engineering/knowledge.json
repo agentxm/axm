@@ -1,0 +1,38 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@agentxm",
+  "name": "prompt-engineering",
+  "version": "0.2.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Prompt design, templating, evaluation, trust, versioning, and adaptation across model-facing instruction surfaces",
+  "keywords": [
+    "prompt-engineering",
+    "prompt-design",
+    "prompt-templates",
+    "prompt-evaluation",
+    "output-contracts",
+    "few-shot",
+    "tool-descriptions",
+    "prompt-security",
+    "model-portability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": ".axm/extensions/@agentxm/knowledge/prompt-engineering"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "CC-BY-4.0",
+  "recommendedPacks": [
+    "@agentxm/packs/context-engineering",
+    "@agentxm/packs/harness-engineering",
+    "@agentxm/packs/skill-engineering",
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": true
+}

@@ -21,6 +21,7 @@
   },
   "packs": {
     "field-notes": "@craigsmitham/packs/field-notes",
-    "effect-v4": "@craigsmitham/packs/effect-v4"
+    "effect-v4": "@craigsmitham/packs/effect-v4",
+    "agent-engineering": "@agentxm/packs/agent-engineering"
   }
 }

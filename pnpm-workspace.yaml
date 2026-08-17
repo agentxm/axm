@@ -4,10 +4,10 @@ packages:
 catalog:
   "@effect/eslint-plugin": ^0.3.2
   "@effect/language-service": ^0.87.2
-  "@effect/openapi-generator": 4.0.0-beta.107
-  "@effect/platform-node": 4.0.0-beta.107
-  "@effect/tsgo": ^0.36.4
-  "@effect/vitest": 4.0.0-beta.107
+  "@effect/openapi-generator": 4.0.0-rc.110
+  "@effect/platform-node": 4.0.0-rc.110
+  "@effect/tsgo": ^0.36.5
+  "@effect/vitest": 4.0.0-rc.110
   "@eslint/js": ^10.0.0
   "@nx/eslint": 23.1.1
   "@nx/eslint-plugin": 23.1.1
@@ -19,7 +19,7 @@ catalog:
   "@types/semver": ^7.5.8
   "@typescript-eslint/parser": ^8.66.0
   "@typescript/native": npm:typescript@^7.0.2
-  effect: 4.0.0-beta.107
+  effect: 4.0.0-rc.110
   eslint: ^10.3.0
   execa: ^9.6.1
   fflate: ^0.8.3
@@ -49,7 +49,12 @@ allowBuilds:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@agentxm/*"
+  - "@effect/openapi-generator@4.0.0-rc.110"
+  - "@effect/platform-node-shared@4.0.0-rc.110"
+  - "@effect/platform-node@4.0.0-rc.110"
+  - "@effect/vitest@4.0.0-rc.110"
   - axm.sh
+  - effect@4.0.0-rc.110
 
 overrides:
   "@babel/plugin-transform-modules-systemjs@<7.29.4": 7.29.4
@@ -64,4 +69,4 @@ overrides:
   undici@>=8.0.0 <8.9.0: 8.9.0
 
 patchedDependencies:
-  "@effect/openapi-generator@4.0.0-beta.107": patches/@effect__openapi-generator@4.0.0-beta.107.patch
+  "@effect/openapi-generator@4.0.0-rc.110": patches/@effect__openapi-generator@4.0.0-rc.110.patch

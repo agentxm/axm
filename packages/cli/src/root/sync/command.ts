@@ -21,11 +21,13 @@ const syncConfig = {
   scope: scopeFlag.pipe(Flag.withDescription("Sync project (default) or user-level configuration")),
   preview: Flag.boolean("preview").pipe(
     Flag.withDescription("Preview the materialization plan without applying it"),
+    Flag.withDefault(false),
   ),
   ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
     Flag.withDescription(
       "Allow configured Registry releases newer than minimumReleaseAge for this sync",
     ),
+    Flag.withDefault(false),
   ),
 } as const;
 

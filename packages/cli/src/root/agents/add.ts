@@ -302,7 +302,10 @@ const addConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Add agents to project (default) or user-level configuration"),
   ),
-  detected: Flag.boolean("detected").pipe(Flag.withDescription("Add detected agents")),
+  detected: Flag.boolean("detected").pipe(
+    Flag.withDescription("Add detected agents"),
+    Flag.withDefault(false),
+  ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),

@@ -20,8 +20,8 @@ skills:
     type: registry
     owner: "@craigsmitham"
     name: craft-effect-v4
-    resolvedVersion: 0.0.2
-    integrity: sha512-iyYMCrJeqFiFk2sQvd+qp2kKSCthIuNascIlflxWTIQbTBpoyAxPqY5I3K/zrGajQ+aBf4u21UrIDqqdKtyvRw==
+    resolvedVersion: 0.0.3
+    integrity: sha512-RYoKw1jXlHV1lxxZcgKg+4/qjwWdceRt5RZLetua7pOHdcbwXkxzRLtsVpkd4cVIi1QqLJJZm6iRyJFKzRxMZg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
@@ -62,8 +62,8 @@ knowledge:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 0.1.0
-    integrity: sha512-5nGrMmI43YG4hxNHDIkHCYyBALSIJSKK2ZiCXqP+rzswYMeLHOC2BxLSQ5A6crSwUaFw26HG/YrbKl9A+4tc7w==
+    resolvedVersion: 0.1.1
+    integrity: sha512-d7NDHebGL1oOMrBb0PR0Lhtp9GRr0vha5Wpm0i+zNLAlPa/sM09ppjM3OfZVI144PQ/MFQJIjs+5a1/PMeBsGg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 packs:
@@ -80,8 +80,8 @@ packs:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 0.2.1
-    integrity: sha512-UCD1GRHAAVGnLfnOaKBajB4lOn1CLvsbsp0W5zeuDa7JUCOSYjSN/Ubqt/i6grkSgaS/s8JSdN021SOoBW2kEA==
-    manifestContentIdentity: 35589e6c038923755ddafff929f4128324125a64f88f156d21a52084c2e10f9f
+    resolvedVersion: 0.2.2
+    integrity: sha512-Zge9K+WZob3cL8xgr49CajoVC1PRZPlgLGnr8fSzIvuVuQkIMmQDqprPPs7b9ZqkcumyKyKvYjqoRjqh/4y+Vw==
+    manifestContentIdentity: bc751a2862c8f13f38607e59c374ae21d4ddd9332709e9c621767659c83c4a47
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7

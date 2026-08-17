@@ -3,6 +3,7 @@ import { Flag } from "effect/unstable/cli";
 
 export const backfillFlag = Flag.boolean("backfill").pipe(
   Flag.withDescription("Publish an unpublished version lower than the highest published version"),
+  Flag.withDefault(false),
 );
 
 export const onExistingPolicies = ["error", "verify"] as const;

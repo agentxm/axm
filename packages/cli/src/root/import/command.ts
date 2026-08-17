@@ -244,6 +244,7 @@ const config = {
   target: Argument.string("target").pipe(Argument.withDescription("New managed target FQN")),
   enable: Flag.boolean("enable").pipe(
     Flag.withDescription("Enable and materialize a newly imported extension"),
+    Flag.withDefault(false),
   ),
   yes: yesFlag,
   preview: previewFlag,

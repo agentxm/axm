@@ -224,9 +224,11 @@ const listConfig = {
   ),
   outdated: Flag.boolean("outdated").pipe(
     Flag.withDescription("Only list installed extensions with available updates"),
+    Flag.withDefault(false),
   ),
   deprecated: Flag.boolean("deprecated").pipe(
     Flag.withDescription("Only list installed extensions deprecated by their registry"),
+    Flag.withDefault(false),
   ),
 } as const;
 

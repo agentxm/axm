@@ -1,5 +1,11 @@
 # Directory Update Log
 
+## 2026-08-17
+
+* **Update**: Advanced the bundle target from Effect 4.0.0-beta.107 to
+  4.0.0-rc.110 after checking the marked Schema and HttpApi claims against the
+  rc.110 source and tests.
+
 ## 2026-08-12
 
 * **Creation**: Established the Effect v4 knowledge bundle with twenty guides

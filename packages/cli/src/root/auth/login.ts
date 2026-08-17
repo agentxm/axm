@@ -317,9 +317,11 @@ const loginConfig = {
     Flag.withDescription(
       "Use OAuth device-code sign-in; recommended for SSH and headless environments",
     ),
+    Flag.withDefault(false),
   ),
   wait: Flag.boolean("wait").pipe(
     Flag.withDescription("Resume and wait for a pending device sign-in"),
+    Flag.withDefault(false),
   ),
   timeout: Flag.integer("timeout").pipe(
     Flag.withDescription("Maximum seconds to wait for device approval"),

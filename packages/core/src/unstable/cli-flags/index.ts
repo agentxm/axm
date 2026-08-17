@@ -26,12 +26,14 @@ export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
     Flag.withAlias("v"),
     Flag.withDescription("Show additional diagnostic details for errors"),
+    Flag.withDefault(false),
   ),
 });
 
 export const debugFlag = GlobalFlag.setting("axm-debug")({
   flag: Flag.boolean("debug").pipe(
     Flag.withDescription("Show full debug details for errors (implies --verbose)"),
+    Flag.withDefault(false),
   ),
 });
 
@@ -39,6 +41,7 @@ export const quietFlag = GlobalFlag.setting("axm-quiet")({
   flag: Flag.boolean("quiet").pipe(
     Flag.withAlias("q"),
     Flag.withDescription("Suppress non-essential output"),
+    Flag.withDefault(false),
   ),
 });
 
@@ -76,26 +79,32 @@ export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
 export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withAlias("y"),
   Flag.withDescription("Auto-accept confirmation prompts"),
+  Flag.withDefault(false),
 );
 
 export const reinstallFlag = Flag.boolean("reinstall").pipe(
   Flag.withDescription("Reinstall content that is already installed"),
+  Flag.withDefault(false),
 );
 
 export const refreshFlag = Flag.boolean("refresh").pipe(
   Flag.withDescription("Run update even when the installed version is already current"),
+  Flag.withDefault(false),
 );
 
 export const ignoreVersionConstraintsFlag = Flag.boolean("ignore-version-constraints").pipe(
   Flag.withDescription("Update even when the configured version constraint excludes the result"),
+  Flag.withDefault(false),
 );
 
 export const acceptWarningsFlag = Flag.boolean("accept-warnings").pipe(
   Flag.withDescription("Apply the plan even when preflight reports unresolved warnings"),
+  Flag.withDefault(false),
 );
 
 export const previewFlag = Flag.boolean("preview").pipe(
   Flag.withDescription("Display plan without applying"),
+  Flag.withDefault(false),
 );
 
 // ---------------------------------------------------------------------------

@@ -10,9 +10,9 @@ depends-on:
 
 # Effect in AXM
 
-AXM consumes `@craigsmitham/packs/effect-v4@0.1.0` for portable Effect
-4.0.0-beta.107 guidance. This guide owns only AXM-specific policy; choose the
-installed topic skill for general API patterns.
+AXM consumes the installed `@craigsmitham/packs/effect-v4` for portable Effect
+4.0.0-rc.110 guidance. This guide owns only AXM-specific policy; use its routing
+skill to choose general API guidance.
 
 > [Effect](../../AGENTS.md#effect) — required repository policy
 

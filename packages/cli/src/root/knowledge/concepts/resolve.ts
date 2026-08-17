@@ -77,6 +77,7 @@ const resolveConfig = {
   ),
   fuzzy: Flag.boolean("fuzzy").pipe(
     Flag.withDescription("Opt into bounded concept ID and title candidate matching"),
+    Flag.withDefault(false),
   ),
   ...scopeConfig,
 } as const;

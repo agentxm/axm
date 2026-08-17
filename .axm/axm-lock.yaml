@@ -20,8 +20,8 @@ skills:
     type: registry
     owner: "@craigsmitham"
     name: craft-effect-v4
-    resolvedVersion: 0.0.4
-    integrity: sha512-m+4i52SBaJPJPBg/aO4/W/tGzK0eEnQoPt/yVjHGe8+ILgnUoXrn0uCV8aCdRbC0JPQ8ynqiOflr+y97iOa9jA==
+    resolvedVersion: 0.0.5
+    integrity: sha512-OpyrgnNXhddtDDToiLIwbSHV9rqlAc0tnFKyXJ9LTRqDksBcHs3VqPbjEWpmXdFkj9MWjuyD6byqvf/N4AXcDg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   audit-agent-skill:
@@ -121,6 +121,14 @@ rules:
     integrity: sha512-DdenLEmw+PN6uzKmHLk1JIbT9eXCYaxm+ZrjKu+1cN4AXZNDpZrRcZkAyDhUcmFvIzi2mqiZEyeWz19ArdlCxQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  use-effect-v4:
+    type: registry
+    owner: "@craigsmitham"
+    name: use-effect-v4
+    resolvedVersion: 0.1.0
+    integrity: sha512-f2OkBamSLeaySSmCeM6HTESJzMH64ULVBIXrJ60eYo/dHUkKrHZ3dY1M81y69w3m35yO7k3ZN6cp0Pxxl/EBuA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 knowledge:
   agentxm:
     type: registry
@@ -150,8 +158,8 @@ knowledge:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 0.2.0
-    integrity: sha512-sqZhG75eekqJikGM1iIPuXyFt+zw2K20TCvO5PFSsLzNmgxFtjgIZD/Z3SOFp/DRrcFx6iXAkEGwUXKBKxbojg==
+    resolvedVersion: 0.3.0
+    integrity: sha512-qBZFDcXmIdE24vM/0Y5a73aud2Z+X6L8eZMQg0EDqmAWwzE2xbHRXzwDsFS9mTn5pNKZaPDDQAAQzMvSg5J3JQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   agent-engineering:
@@ -192,9 +200,9 @@ packs:
     type: registry
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 0.3.0
-    integrity: sha512-OSDSK+STSYFUZ3apVzaL84wn8Dk7ndpGcydv2eKogXRY20FiWDoZ7LaW+LcFjivQeY/mWCUL8jGnlrnjHLDzhw==
-    manifestContentIdentity: 763c10fdb0f34356f4c6cc7ff2cde54551920a3ce861547dd842a58871edcea1
+    resolvedVersion: 0.4.0
+    integrity: sha512-5LsUbXfsA4U479d/E4KsuPLO7kAIy/7dUyogvr0kliCZw4rSyTZbUGuU5Lo8xONMxesoTVt2aQUJRAYVAjXTzw==
+    manifestContentIdentity: 94ddce4a9ecda8d220e070b0690a1ad82972a8f081c327354a509a1004f259fd
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   agent-engineering:

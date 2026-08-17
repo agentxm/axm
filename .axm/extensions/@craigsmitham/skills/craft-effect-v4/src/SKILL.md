@@ -35,6 +35,7 @@ Route Effect v4 work to the smallest relevant part of
 | Same-representation IDs or units getting swapped, or a scalar invariant re-checked at every call site | `branded-types.md` |
 | Repeated null checks, lookups that miss without failing, or nullable wire fields leaking into the domain | `option.md` |
 | Unsafe indexing, value-based keys, multi-pass array code | `collections.md` |
+| Timestamps in the domain or on the wire, instants versus spans, clock reads, time-dependent tests | `date-and-time.md` |
 | Nested path updates repeated across modules, or focusing optional data and union variants immutably | `optics.md` |
 | `process.env` reads, repeated parsing or defaults, leaked secrets, startup before validation | `config.md` |
 | Throws, `catch (unknown)`, stringified failures, broad recovery, blind retries | `error-modeling.md` |
@@ -52,6 +53,7 @@ Route Effect v4 work to the smallest relevant part of
 | Declarative HTTP endpoints, OpenAPI, middleware, clients derived from your own contract | `http-api.md` |
 | Outbound calls to a third-party HTTP API, scattered `fetch`, per-call URL and auth assembly | `http-client.md` |
 | Worker bindings, `waitUntil`, isolate reuse, Hyperdrive | `cloudflare-workers.md` |
+| Relational access, transaction ownership, dialect client wiring, constraint-violation errors | `sql.md` |
 
 3. Follow the selected guides and repository-local requirements. Open the
    guides they cross-link only when the requested scope needs them.

@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "craft-effect-v4",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Routes Effect v4 TypeScript architecture, implementation, and review work to opinionated guides on modeling, services, failure, lifetimes, concurrency, platforms, and verification",
   "keywords": [
     "effect",

@@ -1,16 +1,18 @@
 # Effect v4
 
-This pack installs two members for Effect 4.0.0-rc.110:
+This pack installs three members for Effect 4.0.0-rc.110:
 
+- `@craigsmitham/rules/use-effect-v4` — instructs agents to use Effect v4 APIs
+  and conventions rather than carrying Effect v3 patterns forward.
 - `@craigsmitham/skills/craft-effect-v4` — routes Effect v4 architecture,
   implementation, and review work to the guide that applies.
-- `@craigsmitham/knowledge/effect-v4` — an OKF 0.2 bundle of twenty-two
+- `@craigsmitham/knowledge/effect-v4` — an OKF 0.2 bundle of twenty-four
   guides, each opening with the conditions it applies to and what it leaves
   alone, so you can route from a symptom rather than a topic.
 
-Install the pack rather than a member. Both members set `standalone: false`:
-the skill routes to guides the bundle supplies, and the bundle expects the
-skill to route to it.
+Install the pack rather than a member. The skill and bundle set `standalone:
+false`: the skill routes to guides the bundle supplies, and the bundle expects
+the skill to route to it.
 
 See the [bundle
 index](https://github.com/craigsmitham/agent-extensions/blob/main/.axm/extensions/%40craigsmitham/knowledge/effect-v4/src/index.md)
@@ -58,13 +60,13 @@ Focused references, small enough to read end to end:
 
 ## Guides
 
-- **Model data** — schema boundaries, branded types, option, collections,
-  optics.
+- **Model data** — schema boundaries, branded types, option, collections, date
+  and time, optics.
 - **Model failure** — error modeling, wrapping.
 - **Structure the application** — services and layers, config.
 - **Own lifetimes and concurrency** — resource safety, structured concurrency,
   iteration, async coordination, streams, request batching and cache, keyed
   resource sharing.
 - **Integrate with platforms** — filesystem, HTTP API, HTTP client, Cloudflare
-  Workers.
+  Workers, SQL.
 - **Operate and verify** — observability, testing.

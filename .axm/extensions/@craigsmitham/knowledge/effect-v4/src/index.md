@@ -19,6 +19,17 @@ Every concept here is `type: Guide` — normative decision guidance consulted
 while making a judgment. `Playbook` is reserved for step-wise procedures, which
 this bundle does not yet contain.
 
+## How sources are cited
+
+Every per-claim footnote resolves to the most pinned form that exists, in this
+order: an immutable permalink carrying a tag or commit (Effect source at
+`effect@4.0.0-rc.110`, applied references at a revision); a versioned publisher
+doc URL where the publisher versions its docs; and only where neither exists, a
+live URL. Live entries additionally carry `author` and `last_modified` so their
+recency is visible — for pinned entries the tag or version is that signal. The
+Effect v4 API reference is not version-pinned, so guides link it once as a
+browsable route rather than citing it per claim.
+
 The `craft-effect-v4` skill routes work through these guides.
 
 ## Model data
@@ -35,6 +46,9 @@ The `craft-effect-v4` skill routes work through these guides.
   or schemas encode nullish fields.
 * [Collections](collections.md) - Choosing among Array, Chunk, Record, and
   HashMap; use for unsafe indexing, value-based keys, or multi-pass array code.
+* [Date and time](date-and-time.md) - Choosing the instant carrier, the boundary
+  transform, and where "now" comes from; use when Date leaks through the domain,
+  timestamps decode inconsistently per driver, or tests cannot control time.
 * [Optics](optics.md) - Reusable immutable reads and updates; use when nested
   paths repeat, updates target optional data or union variants, or focus logic
   should compose across modules.
@@ -43,17 +57,20 @@ The `craft-effect-v4` skill routes work through these guides.
 
 * [Error modeling](error-modeling.md) - Keeping expected failure, defects, and
   interruption distinct; use for throws, `catch (unknown)`, stringified
-  failures, broad recovery, or indiscriminate retry.
+  failures, broad recovery, indiscriminate retry, or a `Result` used as an
+  error channel.
 * [Wrapping](wrapping.md) - Turning Promise, callback, and synchronous
-  foreign APIs into truthful Effect boundaries; use for raw promises, thrown
-  `unknown` failures, cancellation that must propagate, and vendor SDKs
-  becoming injectable capabilities.
+  foreign APIs into truthful Effect boundaries, and deciding what crosses back
+  out; use for raw promises, thrown `unknown` failures, cancellation that must
+  propagate, vendor SDKs becoming injectable capabilities, and Effect results
+  handed to non-Effect callers.
 
 ## Structure the application
 
 * [Services and layers](services-and-layers.md) - Designing service boundaries
-  and Layer graphs; use when dependencies are threaded through parameters,
-  hidden in globals, or hard to replace in tests.
+  and Layer graphs and running the result; use when dependencies are threaded
+  through parameters, hidden in globals, hard to replace in tests, or when a
+  runner is handed an unexhausted error channel.
 * [Config](config.md) - Centralizing typed, validated configuration; use when
   code reads `process.env`, repeats defaults, starts before validation, or
   mishandles secrets.
@@ -104,6 +121,9 @@ The `craft-effect-v4` skill routes work through these guides.
   Workers independently of any web framework; use for bindings as Layers,
   request-scoped runtimes, `waitUntil`, isolate reuse, and Hyperdrive or SQL
   bindings.
+* [SQL](sql.md) - Accessing relational databases with effect/unstable/sql; use
+  for client wiring, statement construction, SqlError reason handling,
+  SqlSchema boundaries, transaction ownership, and query text in traces.
 
 ## Operate and verify
 

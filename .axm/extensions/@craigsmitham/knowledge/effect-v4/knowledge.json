@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "effect-v4",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
@@ -34,7 +34,13 @@
     "httpapi",
     "http-client",
     "keyed-resources",
-    "rcmap"
+    "rcmap",
+    "sql",
+    "transactions",
+    "datetime",
+    "duration",
+    "clock",
+    "opentelemetry"
   ],
   "repository": {
     "type": "git",

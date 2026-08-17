@@ -2,6 +2,59 @@
 
 ## 2026-08-17
 
+* **Creation**: Added [SQL](sql.md) and [Date and time](date-and-time.md). SQL
+  earned a concept because `SqlError` carries exactly one tag and discriminates
+  one level deeper in `reason`, so the reflex `Effect.catchTag("UniqueViolation")`
+  does not compile and the correct move (`Effect.catchReason`) is not guessable
+  from the type; transaction ownership and query text in traces have no other
+  owner in this bundle. Date and time earned a concept because the instant
+  carrier, the boundary transform, and where "now" comes from are three separate
+  decisions that get conflated: `DateTime.now` reads the `Clock` reference and is
+  therefore testable, while `DateTime.nowUnsafe` is not, and the Schema transform
+  family (`DateTimeUtc`, `DateTimeUtcFromDate`, `DateTimeUtcFromString`,
+  `DateTimeUtcFromMillis`) must match the driver's storage representation.
+* **Convention**: Adopted a three-tier source preference, documented in the root
+  [index](index.md). Prefer an immutable permalink carrying a tag or commit;
+  then a versioned publisher doc URL where the publisher versions its docs; and
+  only where neither exists, a live URL. Tier-3 entries must carry `author` and
+  `last_modified`, because a live URL has no other recency signal; tier-1 and
+  tier-2 entries do not, because the tag or version already is that signal. The
+  Effect v4 API reference is not version-pinned, so it is linked once per guide
+  as a browsable route and never used as a per-claim footnote — nothing that
+  verifies a claim may silently drift. Source-id prefixes were extended with
+  `api-`, `otel-`, `pg-`, and `sqlite-` alongside the existing `src-`, `docs-`,
+  `test-`, `schema-`, `applied-`, `origin-`, and `cf-`.
+* **Correction**: The post-response telemetry flush ordering in
+  [Cloudflare Workers](cloudflare-workers.md) was inverted. Scope close *is* the
+  flush: `OtlpExporter.make` registers a scope finalizer that performs the final
+  export, and a `Flusher.flush` issued after close is a no-op because the
+  finalizer already deregistered the exporter. The guide previously implied
+  flush-then-close. Recorded alongside it: `Otlp.layer`, `Otlp.layerJson`, and
+  `Otlp.layerProtobuf` are annotated `Layer<never, …>`, and that annotation
+  legally erases `OtlpExporter.Flusher` — so a Worker wired through `Otlp.layer`
+  cannot `yield* OtlpExporter.Flusher` at all, and must wire `OtlpTracer.layer`,
+  `OtlpLogger.layer`, and `OtlpMetrics.layer` individually if it intends to
+  flush explicitly.
+* **Boundary**: Declined six candidate entries as application-specific rather
+  than portable Effect knowledge. RFC 9457 problem-details — an HTTP
+  representation choice, not an Effect failure-modeling decision. Log-level
+  selection — an operational policy that varies per deployment. Optimistic-
+  concurrency version columns — a data-model pattern independent of the SQL
+  client. "Do not test config plumbing" — a testing-taste claim with no
+  version-specific Effect content. Server/client layer-module placement — a
+  repository layout convention, not a Layer semantics rule. "Raw millisecond
+  arithmetic is prohibited" — overstated as a prohibition: `Duration.Input`
+  admits a bare millis number by design, so the honest guidance is to choose the
+  carrier deliberately, which [Date and time](date-and-time.md) now does.
+* **Provenance**: [SQL](sql.md) deliberately follows the spine observed in the
+  applied corpus — client wiring, statement construction, `SqlError` reason
+  handling, `SqlSchema` at the boundary, transaction ownership — rather than
+  upstream's documented `Model.Class` -> `Migrator` -> `SqlModel` spine. The
+  applied references reach for `SqlSchema` and raw statements far more than for
+  `Model.Class`, dialect clients differ materially in what they support (D1 ships
+  no migrator; sqlite-do rejects nested transactions), and the upstream spine
+  front-loads a modeling commitment most readers arrive after having already
+  made. Upstream's spine is reachable from the guide; it is not the entry route.
 * **Retarget**: Re-pinned the corpus target to `Effect 4.0.0-rc.110` in the
   root index (previously `4.0.0-beta.107`) after verifying from npm dist-tags
   and the `effect@4.0.0-rc.110` tag that the rc line directly continues the

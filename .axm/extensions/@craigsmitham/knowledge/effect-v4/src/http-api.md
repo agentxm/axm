@@ -8,9 +8,12 @@ sources:
   - id: origin-skill
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-http-api/src/SKILL.md
     title: effect-v4-http-api skill 0.1.0 (retired into this bundle)
+  - id: effect-rc110-httpapi
+    resource: https://github.com/Effect-TS/effect/tree/66114151c2b4640bf773f2b3456ce70d679422f6/packages/effect/src/unstable/httpapi
+    title: Effect 4.0.0-rc.110 HttpApi source
 generated:
-  by: claude/opus-5
-  at: 2026-08-12T16:20:19Z
+  by: openai/gpt-5
+  at: 2026-08-17T13:54:16Z
 ---
 
 # HTTP API
@@ -28,7 +31,7 @@ Related: [Cloudflare Workers](cloudflare-workers.md) for the runtime and binding
 model, [Schema boundaries](schema-boundaries.md) for the endpoint schemas,
 [Error modeling](error-modeling.md) for what may become a public response.
 
-This guide makes several `4.0.0-beta.107`-specific API claims; they are marked
+This guide makes several `4.0.0-rc.110`-specific API claims; they are marked
 inline. Verify them against the installed version before relying on them.
 
 ## Define the contract
@@ -64,7 +67,7 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
 ```
 
 - Put path params, query, headers, payload, success, and expected errors in the
-  endpoint constructor options. In beta.107, API/group/endpoint values do not
+  endpoint constructor options. In rc.110, API/group/endpoint values do not
   expose `addError` or `addSuccess`.
 - Ordinary success schemas default to 200. Use `HttpApiSchema.NoContent` for
   204 or another named/explicit empty schema for a different empty status.
@@ -85,7 +88,7 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
   typed endpoint surface, such as a genuinely custom streaming protocol.
 - Put authentication, CORS, request context, and other transport-wide behavior
   in typed middleware. Declare each middleware's security and failure schema.
-- Beta.107 schema decode failures are `HttpApiError.HttpApiSchemaError`. A
+- Rc.110 schema decode failures are `HttpApiError.HttpApiSchemaError`. A
   schema-error transform must return an `HttpServerResponse` or fail with its
   declared error; succeeding with an error value is not a valid transform.
 - `HttpApiSecurity.basic` supplies `{ username, password }`; only the password
@@ -128,7 +131,7 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
 
 - One contract drives server, OpenAPI, and client behavior.
 - All endpoint input/output/error alternatives are schema-declared.
-- Beta.107 names and status semantics are used; no stale decode-error,
+- Rc.110 names and status semantics are used; no stale decode-error,
   `addError`, `addSuccess`, or `Schema.Void`-means-204 assumptions remain.
 - Transport middleware and domain services retain separate responsibilities.
 - The Fetch/Cloudflare composition has explicit binding, lifetime, and

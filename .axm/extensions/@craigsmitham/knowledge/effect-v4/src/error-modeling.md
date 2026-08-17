@@ -8,9 +8,12 @@ sources:
   - id: origin-skill
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-error-modeling/src/SKILL.md
     title: effect-v4-error-modeling skill 0.1.0 (retired into this bundle)
+  - id: effect-rc110-schema
+    resource: https://github.com/Effect-TS/effect/blob/66114151c2b4640bf773f2b3456ce70d679422f6/packages/effect/src/Schema.ts
+    title: Effect 4.0.0-rc.110 Schema source
 generated:
-  by: claude/opus-5
-  at: 2026-08-12T16:20:19Z
+  by: openai/gpt-5
+  at: 2026-08-17T13:54:16Z
 ---
 
 # Error modeling
@@ -77,7 +80,7 @@ class NotFoundResponse extends Schema.TaggedError<NotFoundResponse>()(
   service object; put recovery logic beside the owning operation.
 - Yield tagged errors directly inside `Effect.gen` or fail explicitly when that
   makes the boundary clearer.
-- As of `4.0.0-beta.107` the Schema constructor is `Schema.TaggedError`, not the
+- As of `4.0.0-rc.110` the Schema constructor is `Schema.TaggedError`, not the
   removed `Schema.TaggedErrorClass` name.
 
 ## Narrow and observe

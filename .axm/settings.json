@@ -21,7 +21,7 @@
   },
   "packs": {
     "field-notes": "@craigsmitham/packs/field-notes",
-    "effect-v4": "@craigsmitham/packs/effect-v4@^0.2.0"
+    "effect-v4": "@craigsmitham/packs/effect-v4"
   },
   "lint": {
     "rules": {

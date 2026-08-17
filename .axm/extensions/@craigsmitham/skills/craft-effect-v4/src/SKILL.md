@@ -11,7 +11,7 @@ description: >
   `console.log` telemetry, or direct `node:fs` use — even where Effect is absent
   but warranted. Not for Effect v3 conventions or codebases that deliberately
   use another runtime model.
-compatibility: Effect 4.0.0-beta.107
+compatibility: Effect 4.0.0-rc.110
 ---
 
 # Craft Effect v4

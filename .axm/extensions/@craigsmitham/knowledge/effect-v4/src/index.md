@@ -10,9 +10,10 @@ verify the result. Each guide opens with the conditions it applies to and what
 it deliberately leaves alone, so you can route from a symptom rather than a
 topic.
 
-Guidance targets **Effect 4.0.0-beta.107**. Guides that make version-specific
-API claims mark them inline; the rest describe design decisions that outlast a
-beta. Effect v3 conventions do not carry forward and are not documented here.
+Guidance targets **Effect 4.0.0-rc.110**. Guides that make version-specific API
+claims mark them inline; the rest describe design decisions that outlast a
+prerelease. Effect v3 conventions do not carry forward and are not documented
+here.
 
 Every concept here is `type: Guide` — normative decision guidance consulted
 while making a judgment. `Playbook` is reserved for step-wise procedures, which

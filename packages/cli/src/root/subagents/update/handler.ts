@@ -264,7 +264,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               type: "skip",
               name,
               source: sourceStr,
-              reason: `Subagent "${name}" is held by minimumReleaseAge until ${holdback.eligibleAt}`,
+              reason: `Subagent "${name}" is held by the minimum release age until ${holdback.eligibleAt}`,
               holdback,
             } satisfies ResolveResult;
           }

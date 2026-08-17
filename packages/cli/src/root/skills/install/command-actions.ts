@@ -409,7 +409,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         }
 
         return Option.some(
-          `Installing brand-new version ${ref.owner}/skills/${ref.name}@${ref.version}; it is newer than minimumReleaseAge ${minimumReleaseAge}`,
+          `${ref.owner}/skills/${ref.name}@${ref.version} was published less than ${minimumReleaseAge} ago — installing it because you requested this version explicitly`,
         );
       }).pipe(Effect.catch(() => Effect.succeed(Option.none<string>())));
 

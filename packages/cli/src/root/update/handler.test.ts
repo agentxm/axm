@@ -944,11 +944,58 @@ describe("root update handler", () => {
         handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }),
       );
 
-      expect(logs.warn).toContain("Held by minimum release age (1 release)");
+      expect(logs.warn).toContain("1 newer release held by the 24h minimum release age");
       expect(logs.info).toContain(
-        "@acme/skills/reviewer 2.0.0 is eligible at 2026-08-12T12:00:00.000Z",
+        "@acme/skills/reviewer 2.0.0 published 2026-08-11T12:00:00.000Z, eligible 2026-08-12T12:00:00.000Z",
       );
       expect(logs.info.some((message) => message.includes("--ignore-release-age"))).toBe(true);
+    }),
+  );
+
+  it.effect("names the exemption and both timestamps when a release skips the age gate", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, logs } = makeLayers(calls, {
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) =>
+            selectedSourceHostProviders.resolveNamedRegistry(source, options).pipe(
+              Effect.map((resolution) =>
+                resolution.kind === "selected"
+                  ? {
+                      ...resolution,
+                      kind: "exempted" as const,
+                      exemption: {
+                        bypassCause: "exclude" as const,
+                        exemptionScope: "project" as const,
+                      },
+                      bypassed: {
+                        version: "1.0.0",
+                        publishedAt: "2026-08-11T12:00:00.000Z",
+                        eligibleAt: "2026-08-12T12:00:00.000Z",
+                        minimumReleaseAgeSeconds: 86_400,
+                      },
+                    }
+                  : resolution,
+              ),
+            ),
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer" },
+      });
+
+      yield* provide(
+        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }),
+      );
+
+      expect(logs.warn).toContain("1 release skipped the 24h minimum release age");
+      expect(logs.info).toContain(
+        "Selected @acme/skills/reviewer 1.0.0 ahead of its eligibility at 2026-08-12T12:00:00.000Z (published 2026-08-11T12:00:00.000Z) — exempt via minimumReleaseAgeExclude in project settings",
+      );
     }),
   );
 

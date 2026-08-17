@@ -550,7 +550,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 type: "skip",
                 name,
                 source: sourceStr,
-                reason: `Skill "${name}" is held by minimumReleaseAge until ${registryResolved.value.record.eligibleAt}`,
+                reason: `Skill "${name}" is held by the minimum release age until ${registryResolved.value.record.eligibleAt}`,
                 holdback: registryResolved.value.record,
               } satisfies ResolveResult;
             }

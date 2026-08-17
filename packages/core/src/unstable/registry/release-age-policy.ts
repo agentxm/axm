@@ -162,6 +162,23 @@ export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Du
   return Option.none();
 };
 
+/**
+ * Render a release-age window in the compact grammar the setting accepts, so
+ * output names the policy in the same units the reader would configure.
+ *
+ * Days are used only from two days up: the default window is written `24h`,
+ * and reporting it as `1d` would not match the setting the reader would edit.
+ * Falls back to whole seconds when the window is not a clean larger unit.
+ */
+export const formatMinimumReleaseAgeSeconds = (seconds: number): string => {
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole === 0) return "0s";
+  if (whole % 86_400 === 0 && whole >= 172_800) return `${whole / 86_400}d`;
+  if (whole % 3_600 === 0) return `${whole / 3_600}h`;
+  if (whole % 60 === 0) return `${whole / 60}m`;
+  return `${whole}s`;
+};
+
 export const isVersionEntryMature = (
   entry: VersionEntry,
   minimumAge: Duration.Duration,
@@ -210,4 +227,4 @@ export const releaseAgeHoldbackWarning = (args: {
   readonly heldVersion: string;
   readonly minimumReleaseAge: string;
 }): string =>
-  `${args.fqn} held at ${args.selectedVersion} because ${args.heldVersion} is newer than minimumReleaseAge ${args.minimumReleaseAge}`;
+  `${args.fqn} held at ${args.selectedVersion} — ${args.heldVersion} has not reached the ${args.minimumReleaseAge} minimum release age`;

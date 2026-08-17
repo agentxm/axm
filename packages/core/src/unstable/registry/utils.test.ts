@@ -23,6 +23,7 @@ import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { computeIntegrity } from "../utils/index.js";
 import {
   filterMatureVersions,
+  formatMinimumReleaseAgeSeconds,
   isVersionEntryMature,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
@@ -145,6 +146,16 @@ describe("minimum release age", () => {
     expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("1440m")))).toBe(86_400_000);
     expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("0s")))).toBe(0);
     expect(Option.isNone(parseMinimumReleaseAge("tomorrow"))).toBe(true);
+  });
+
+  it("renders release-age windows in the units the setting accepts", () => {
+    expect(formatMinimumReleaseAgeSeconds(86_400)).toBe("24h");
+    expect(formatMinimumReleaseAgeSeconds(172_800)).toBe("2d");
+    expect(formatMinimumReleaseAgeSeconds(604_800)).toBe("7d");
+    expect(formatMinimumReleaseAgeSeconds(129_600)).toBe("36h");
+    expect(formatMinimumReleaseAgeSeconds(900)).toBe("15m");
+    expect(formatMinimumReleaseAgeSeconds(90)).toBe("90s");
+    expect(formatMinimumReleaseAgeSeconds(0)).toBe("0s");
   });
 
   it.effect("filters versions newer than the configured age", () =>

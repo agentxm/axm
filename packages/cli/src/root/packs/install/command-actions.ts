@@ -1064,7 +1064,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             name: "Install pack",
             description: Option.some(
               blocked
-                ? "The selected pack graph includes a release held by minimumReleaseAge"
+                ? "The selected pack graph includes a release held by the minimum release age"
                 : "The current pack graph is unchanged while a required release ages",
             ),
             jobs: [],

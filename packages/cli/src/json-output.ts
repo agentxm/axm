@@ -46,7 +46,10 @@ import {
   formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
-import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
+import {
+  DeprecationViewSchema,
+  formatMinimumReleaseAgeSeconds,
+} from "@agentxm/client-core/unstable/registry";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
 
@@ -193,6 +196,43 @@ const ReleaseAgeRecordSchema = Schema.Struct({
   title: "Release Age Record",
   description: "One deterministic minimum-release-age holdback or bypass record.",
 });
+
+type ReleaseAgeRecordView = typeof ReleaseAgeRecordSchema.Type;
+
+/**
+ * Name the policy window in the same compact units the reader would configure,
+ * but only when every record shares one window.
+ */
+const releaseAgeWindowLabel = (records: ReadonlyArray<ReleaseAgeRecordView>): string => {
+  const windows = new Set(records.map((record) => record.minimumReleaseAgeSeconds));
+  const [only] = windows;
+  return windows.size === 1 && only !== undefined
+    ? `${formatMinimumReleaseAgeSeconds(only)} minimum release age`
+    : "minimum release age";
+};
+
+/** Attribute a transitive record to the root the reader actually configured. */
+const releaseAgeRequiredBy = (record: ReleaseAgeRecordView): string => {
+  const root = record.dependencyPath[0];
+  return root === undefined || root === record.target ? "" : ` (required by ${root})`;
+};
+
+const releaseAgeExemption = (record: ReleaseAgeRecordView): string =>
+  record.bypassCause === "exclude"
+    ? `exempt via minimumReleaseAgeExclude in ${record.exemptionScope ?? "unknown"} settings`
+    : "exempt via --ignore-release-age (this run only)";
+
+/** State what was kept and label every timestamp with its role. */
+const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
+  const kept = record.selectedVersion ?? record.currentVersion;
+  const held = `${record.candidateVersion}${releaseAgeRequiredBy(record)} published ${record.publishedAt}, eligible ${record.eligibleAt}`;
+  return kept === undefined
+    ? `${record.target} ${held}`
+    : `${record.target} kept at ${kept} — ${held}`;
+};
+
+const releaseAgeBypassLine = (record: ReleaseAgeRecordView): string =>
+  `Selected ${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} ahead of its eligibility at ${record.eligibleAt} (published ${record.publishedAt}) — ${releaseAgeExemption(record)}`;
 
 const TargetedUpdateEffectSchema = Schema.Literals(["unchanged", "may-update"] as const);
 const TargetedUpdateContextSchema = Schema.Struct({
@@ -1274,22 +1314,21 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       }
     }
     if (!emitted && result.holdbacks !== undefined && result.holdbacks.length > 0) {
+      const holdbacks = result.holdbacks;
       yield* renderer.warn(
-        `Held by minimum release age (${count(result.holdbacks.length, "release")})`,
+        `${count(holdbacks.length, "newer release")} held by the ${releaseAgeWindowLabel(holdbacks)}`,
       );
-      for (const holdback of result.holdbacks) {
-        yield* renderer.info(
-          `${holdback.target} ${holdback.candidateVersion} is eligible at ${holdback.eligibleAt}`,
-        );
+      for (const holdback of holdbacks) {
+        yield* renderer.info(releaseAgeHoldbackLine(holdback));
       }
       const targets = Array.from(
-        new Set(result.holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
+        new Set(holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
       );
       yield* renderer.info(
-        `Wait until eligible, choose an eligible version, or change minimumReleaseAge.${
+        `Wait for the eligible time, pin an eligible version, or change minimumReleaseAge in settings.${
           targets.length === 1
-            ? ` For a one-shot bypass, run axm update ${targets[0]} --ignore-release-age.`
-            : " For a one-shot bypass, target one held Registry extension with axm update <fqn> --ignore-release-age."
+            ? ` To take it now for this run only, run axm update ${targets[0]} --ignore-release-age.`
+            : " To take one now for this run only, run axm update <fqn> --ignore-release-age."
         }`,
       );
     }
@@ -1298,17 +1337,12 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       result.releaseAgeBypasses !== undefined &&
       result.releaseAgeBypasses.length > 0
     ) {
+      const bypasses = result.releaseAgeBypasses;
       yield* renderer.warn(
-        `${count(result.releaseAgeBypasses.length, "release")} bypassed minimumReleaseAge`,
+        `${count(bypasses.length, "release")} skipped the ${releaseAgeWindowLabel(bypasses)}`,
       );
-      for (const bypass of result.releaseAgeBypasses) {
-        const cause =
-          bypass.bypassCause === "exclude"
-            ? `settings exclude (${bypass.exemptionScope ?? "unknown"} scope)`
-            : "--ignore-release-age";
-        yield* renderer.info(
-          `${bypass.target} ${bypass.candidateVersion} was selected before ${bypass.eligibleAt} via ${cause}`,
-        );
+      for (const bypass of bypasses) {
+        yield* renderer.info(releaseAgeBypassLine(bypass));
       }
     }
     return emitted;

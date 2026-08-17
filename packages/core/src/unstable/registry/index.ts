@@ -172,6 +172,7 @@ export {
   DEFAULT_MINIMUM_RELEASE_AGE,
   DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
   filterMatureVersions,
+  formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
   isVersionEntryMature,
   parseMinimumReleaseAge,

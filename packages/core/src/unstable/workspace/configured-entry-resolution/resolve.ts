@@ -91,8 +91,8 @@ const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) 
     if (resolution.kind === "policy_held") {
       return yield* makeAppError({
         code: "conflict",
-        title: "Release held by minimumReleaseAge",
-        detail: `${resolution.target}@${resolution.candidate.version} is held by minimumReleaseAge until ${resolution.candidate.eligibleAt}`,
+        title: "Release held by minimum release age",
+        detail: `${resolution.target}@${resolution.candidate.version} is held by the minimum release age until ${resolution.candidate.eligibleAt}`,
       });
     }
 

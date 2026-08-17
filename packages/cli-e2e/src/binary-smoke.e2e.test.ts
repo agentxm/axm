@@ -96,7 +96,7 @@ describe("compiled binary smoke", () => {
 
     expect(result.exitCode).toBe(0);
     expect(getOutput(result)).toContain("USAGE\n  axm <command> [flags]");
-    expect(getOutput(result)).toContain("CORE");
+    expect(getOutput(result)).toContain("EXTENSIONS");
   });
 
   it("exposes the complete Knowledge concept-discovery surface", async () => {

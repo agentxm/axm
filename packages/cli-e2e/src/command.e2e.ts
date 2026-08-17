@@ -67,70 +67,37 @@ describe("axm (root command)", () => {
       expect(result.stdout).toContain("axm view");
     });
 
-    it("fails for unknown topics and lists known topics", async () => {
+    it("fails for unknown topic and command paths and points to the help index", async () => {
       const result = await runCli(["help", "bogus"]);
       const output = getOutput(result);
 
       expect(result.exitCode).toBe(3);
-      expect(output).toContain("Unknown help topic 'bogus'");
-      expect(output).toContain("basic-usage");
+      expect(output).toContain("Unknown help topic or command path 'bogus'");
       expect(output).toContain("axm help");
       expect(output).not.toContain("axm publish --help");
     });
 
-    it("guides a publish-shaped topic to command help and conceptual guidance", async () => {
+    it("resolves command-shaped paths to command help", async () => {
       const result = await runCli(["help", "publish"]);
       const output = getOutput(result);
 
-      expect(result.exitCode).toBe(3);
-      expect(output).toContain("Unknown help topic 'publish'");
-      expect(output.indexOf("axm publish --help")).toBeGreaterThan(-1);
-      expect(output.indexOf("axm help basic-usage")).toBeGreaterThan(
-        output.indexOf("axm publish --help"),
-      );
+      expect(result.exitCode).toBe(0);
+      expect(output).toContain("Publish project-workspace extensions to a registry");
+      expect(output).toContain("axm publish [flags] [<selectors...>]");
+      expect(output).toContain("--authored");
     });
 
-    it("emits ordered publish recovery through the structured error channels", async () => {
+    it("emits command help as a formatter-owned machine document", async () => {
       const result = await runCli(["help", "publish", "--json"]);
-      const envelope: unknown = JSON.parse(result.stdout);
-      const events: ReadonlyArray<unknown> = result.stderr
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line));
+      const document: unknown = JSON.parse(result.stdout);
 
-      expect(result.exitCode).toBe(3);
-      expect(envelope).toMatchObject({
-        ok: false,
-        code: "not_found",
-        detail: expect.stringContaining("Unknown help topic 'publish'"),
-        suggestions: [
-          {
-            description: "Show publish command help.",
-            cmd: "axm publish --help",
-          },
-          {
-            description: "Read publishing guidance.",
-            cmd: "axm help basic-usage",
-          },
-        ],
+      expect(result.exitCode).toBe(0);
+      expect(document).toMatchObject({
+        type: "help",
+        description: "Publish project-workspace extensions to a registry",
+        usage: "axm publish [flags] [<selectors...>]",
       });
-      expect(events).toEqual([
-        {
-          type: "suggestion",
-          description: "Show publish command help.",
-          cmd: "axm publish --help",
-        },
-        {
-          type: "suggestion",
-          description: "Read publishing guidance.",
-          cmd: "axm help basic-usage",
-        },
-        {
-          type: "error",
-          code: "not_found",
-          message: expect.stringContaining("Unknown help topic 'publish'"),
-        },
-      ]);
+      expect(result.stderr).toBe("");
     });
   });
 });
@@ -142,7 +109,7 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Agent Extension Manager");
-    expect(output).toContain("CORE");
+    expect(output).toContain("EXTENSIONS");
     expect(output).toContain("WORKSPACE");
     expect(output).toContain("AUTH");
     expect(output).toContain("START HERE");

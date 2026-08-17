@@ -1,0 +1,49 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "docs",
+  "version": "0.9.1",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns",
+  "keywords": [
+    "docs",
+    "documentation",
+    "diataxis",
+    "tutorial",
+    "how-to",
+    "reference",
+    "explanation",
+    "authoring",
+    "workflow",
+    "quality",
+    "audit",
+    "organization",
+    "naming",
+    "information-architecture",
+    "discovery",
+    "remediation",
+    "principle",
+    "normative",
+    "judgment",
+    "pattern",
+    "pattern-library",
+    "playbook",
+    "runbook"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "recommendedPacks": [
+    "@craigsmitham/packs/docs"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/knowledge/docs"
+  }
+}

@@ -22,6 +22,8 @@
   "packs": {
     "field-notes": "@craigsmitham/packs/field-notes",
     "effect-v4": "@craigsmitham/packs/effect-v4",
-    "agent-engineering": "@agentxm/packs/agent-engineering"
+    "agent-engineering": "@agentxm/packs/agent-engineering",
+    "software-engineering": "@craigsmitham/packs/software-engineering",
+    "docs": "@craigsmitham/packs/docs"
   }
 }

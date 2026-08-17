@@ -1,0 +1,49 @@
+{
+  "skill_name": "author-architecture-docs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create an architecture document for reservations. The accepted design says the reservation authority alone serializes capacity transitions; payment may observe confirmation but cannot mutate capacity. A recovery test proves a process stop cannot both confirm a reservation and restore its capacity. Preserve that meaning and route exact mechanics to evidence.",
+      "expected_output": "A concise architecture document organized around reservation responsibility, functional and recovery concerns, authority and invariants, with an evidence route to the test rather than copied mechanics.",
+      "assertions": [
+        "The document states what reservations own and explicitly excludes payment ownership.",
+        "The recovery concern is connected to the serialization boundary and invariant.",
+        "Exact transition cases remain owned by the recovery test rather than being transcribed into prose.",
+        "No unrelated component inventory or empty template sections are added."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Write our new architecture overview. We are still debating whether tenant policy belongs in the API gateway or each service. Pick whichever is cleaner so the document is decisive.",
+      "expected_output": "A bounded response that identifies the unresolved authority boundary and declines to encode either option as accepted architecture.",
+      "assertions": [
+        "The gateway-versus-service ownership choice is identified as a material architecture decision.",
+        "Neither alternative is presented as accepted desired state.",
+        "Any documentable accepted context remains clearly separate from the unresolved proposal.",
+        "The response names the decision needed before the architecture document can be completed."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review an accepted architecture document that says the billing service owns invoice numbering. Current code generates numbers in the checkout service. The code changed last week, so update the document to match it.",
+      "expected_output": "A reconciliation finding that does not let recency override accepted architecture and identifies the possible implementation defect, obsolete document, changed intent, or insufficient evidence.",
+      "assertions": [
+        "Accepted desired state and current implementation are treated as different authorities.",
+        "The document is not silently changed solely because the code is newer.",
+        "The response identifies the evidence or acceptance needed to resolve the disagreement.",
+        "No source-code change is made or proposed as though already authorized."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Generate architecture docs by listing every package, class, endpoint, dependency, and environment variable in this repository so the prose is complete.",
+      "expected_output": "A refusal to create a prose mirror, paired with a smaller architecture-documentation approach centered on durable, consequential meaning and links to executable reference sources.",
+      "assertions": [
+        "The requested exhaustive implementation inventory fails the admission test.",
+        "The response proposes cohesive subjects or concerns rather than forced catalog symmetry.",
+        "Exact current facts remain with code, schemas, configuration, or generated references.",
+        "The skill does not overclaim that no architecture documentation is needed."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.4.0",
+  "description": "Portable craft for understanding, authoring, organizing, auditing, and improving documentation",
+  "keywords": [
+    "docs",
+    "documentation",
+    "diataxis",
+    "guides",
+    "authoring",
+    "audit",
+    "quality",
+    "organization",
+    "remediation",
+    "principles",
+    "patterns"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/packs/docs"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "CC-BY-SA-4.0",
+  "type": "pack",
+  "name": "docs",
+  "dependencies": {
+    "@craigsmitham/knowledge/docs": "^0.9.0",
+    "@craigsmitham/skills/author-docs": "^0.3.0",
+    "@craigsmitham/skills/audit-docs": "^0.1.0"
+  }
+}

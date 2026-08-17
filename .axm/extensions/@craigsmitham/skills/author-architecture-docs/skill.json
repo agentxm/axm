@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "author-architecture-docs",
+  "version": "0.0.1",
+  "description": "Create and revise small, durable software architecture documentation grounded in accepted intent and executable evidence",
+  "keywords": [
+    "software-architecture",
+    "architecture-documentation",
+    "architecture-corpus",
+    "system-design",
+    "quality-attributes",
+    "boundaries",
+    "invariants",
+    "documentation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/author-architecture-docs"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-engineering"
+  ],
+  "standalone": false
+}

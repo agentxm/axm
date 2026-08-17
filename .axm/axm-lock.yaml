@@ -56,6 +56,38 @@ skills:
     integrity: sha512-hZWzZHpiYy1VaUi16ruJJEg6UzjLCm/IR302gdYhNJdmczndlnFq9aE2ofcebC6VLv8bbVvL3/cs//ebkCPtdg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
+  author-architecture-docs:
+    type: registry
+    owner: "@craigsmitham"
+    name: author-architecture-docs
+    resolvedVersion: 0.0.1
+    integrity: sha512-u5mysMeGErQfBSxQjhsoxwM5DNu/rH9N7CnjeGobrwXIvh0vlP7mArKf1lzREGVlhufBG8bfcgHKtxHrfdMe9g==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  author-software-work-items:
+    type: registry
+    owner: "@craigsmitham"
+    name: author-software-work-items
+    resolvedVersion: 0.0.1
+    integrity: sha512-0hBh5E+6clnSgP4AWZQewCAg72/AJP7G1Y17jQlWUSQyS41Momk+16VU4bC7OBUfxWJk7cOmcCf0OB6upnlA0w==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  audit-docs:
+    type: registry
+    owner: "@craigsmitham"
+    name: audit-docs
+    resolvedVersion: 0.1.0
+    integrity: sha512-xzZcJE/qRuhl7fP7SLVbH+y1KsEdAraRj70esZRkkxdtqrtdNOZXqoItxjc/5XSLczCgMe2O0R1yz1FxH0HAKQ==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  author-docs:
+    type: registry
+    owner: "@craigsmitham"
+    name: author-docs
+    resolvedVersion: 0.3.1
+    integrity: sha512-fe2Z7Wqhc91yYee5XqiO6fBfuoggW8baZbYABBu0FKjRrqPShtzWoeojXjUY7YgrIF7Swd61L7sL26jmujwNaA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
   field-notes:
     type: registry
@@ -63,6 +95,22 @@ rules:
     name: field-notes
     resolvedVersion: 0.2.0
     integrity: sha512-dlpfr9dqR1Lm5JqrA8OwzUes7iAMIvM4fTWetJHOyMaDsBmDRrB4Fkn7vVVp5DX18n8sR4XxE5HZYYgelGnGTA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  yagni:
+    type: registry
+    owner: "@craigsmitham"
+    name: yagni
+    resolvedVersion: 0.1.1
+    integrity: sha512-2fQnO6oLQkWFYX2XHmJeZ5Gs9zz85vMQ187Z2ac7nG9huZs/uDnBvfbLO2KfwOHtJYwzDBznJ5bAr2ut3zSLzg==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  tidy-first:
+    type: registry
+    owner: "@craigsmitham"
+    name: tidy-first
+    resolvedVersion: 0.1.1
+    integrity: sha512-DdenLEmw+PN6uzKmHLk1JIbT9eXCYaxm+ZrjKu+1cN4AXZNDpZrRcZkAyDhUcmFvIzi2mqiZEyeWz19ArdlCxQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 knowledge:
@@ -130,6 +178,22 @@ knowledge:
     integrity: sha512-4LKsiynv6fcVDL4GoMF7i0ui1iuBHrEPtm8P0M0MuNrXwu75BbUabfzdPW9D3/lpz8l2C1sgp9+3W5dzvohUkw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
+  software-engineering:
+    type: registry
+    owner: "@craigsmitham"
+    name: software-engineering
+    resolvedVersion: 0.4.0
+    integrity: sha512-2rfXwwhTB6RRAW0kr/1lwyT6FYjBCqqe2HheeVrPps9MkrJjC81yVLusdk32TbwNyl3COORrVI60MjhTTFfMww==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  docs:
+    type: registry
+    owner: "@craigsmitham"
+    name: docs
+    resolvedVersion: 0.9.1
+    integrity: sha512-LkqY2fjZ5AJ27e4AZuLXJgpV6lv9W4QsvBDqxLKfLMColTQSDq3TCTtZi0PJ67RfzvZmCj93fxPkUdFHYMZymw==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 packs:
   field-notes:
     type: registry
@@ -158,3 +222,21 @@ packs:
     manifestContentIdentity: 9e63b86c6f2c85a2f195d110e9864cb7e1b154a0e6604911f8ffc6052acd9581
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
+  software-engineering:
+    type: registry
+    owner: "@craigsmitham"
+    name: software-engineering
+    resolvedVersion: 0.4.0
+    integrity: sha512-HCTBwogBSJrUiKtKne0lRtKGqj7J5qULaDHX/FdWhrjYvVA0FLRqhbqotY2R38jHoB19l+Zp+vT8TogMB7PfGA==
+    manifestContentIdentity: e0cee7601bc362335d769598e6616942c418dcf870aac43438bcef6602c653ac
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  docs:
+    type: registry
+    owner: "@craigsmitham"
+    name: docs
+    resolvedVersion: 0.4.0
+    integrity: sha512-qGTRT7X5ntDe1fFptDeZIIewckaVoyN1rl2HlQFAbwFwtcHNP9es/9Ac8VYrEo5Y6j1d9lwxBWG5HdTRl28Trw==
+    manifestContentIdentity: 8fa2dd2da4b893c9bc25a50d3b7563d23f52364fbccb6705df43197da05a4cdc
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7

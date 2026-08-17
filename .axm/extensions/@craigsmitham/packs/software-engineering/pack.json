@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.4.0",
+  "description": "Software engineering guidance and authoring workflows for durable architecture docs, evidence-rich work items, YAGNI, and Tidy First",
+  "keywords": [
+    "software-engineering",
+    "architecture-documentation",
+    "work-items",
+    "defect-reporting",
+    "incident-management",
+    "feature-requests",
+    "quality-attributes",
+    "yagni",
+    "tidy-first",
+    "simple-design",
+    "refactoring",
+    "progressive-disclosure"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/packs/software-engineering"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "software-engineering",
+  "dependencies": {
+    "@craigsmitham/knowledge/software-engineering": "^0.4.0",
+    "@craigsmitham/rules/yagni": "^0.1.0",
+    "@craigsmitham/rules/tidy-first": "^0.1.0",
+    "@craigsmitham/skills/author-architecture-docs": ">=0.0.1",
+    "@craigsmitham/skills/author-software-work-items": ">=0.0.1"
+  }
+}

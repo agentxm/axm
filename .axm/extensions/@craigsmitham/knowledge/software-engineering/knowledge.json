@@ -1,0 +1,44 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "software-engineering",
+  "version": "0.4.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Software engineering guidance for architecture documentation, functional and quality concerns, boundaries, changeability, invariants, and actionable work items",
+  "keywords": [
+    "software-engineering",
+    "software-architecture",
+    "system-design",
+    "architecture-documentation",
+    "quality-attributes",
+    "functional-semantics",
+    "yagni",
+    "tidy-first",
+    "refactoring",
+    "evolutionary-design",
+    "changeability",
+    "work-items",
+    "incident-management",
+    "defect-reporting",
+    "feature-requests",
+    "issue-titles",
+    "work-item-summaries",
+    "backlog-legibility"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-engineering"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/knowledge/software-engineering"
+  }
+}

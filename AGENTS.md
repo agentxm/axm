@@ -255,12 +255,34 @@ Wait for the user to review changes and decide when to commit.
 
 | Bundle | Description |
 | --- | --- |
+| [docs](.axm/extensions/@craigsmitham/knowledge/docs/src/index.md) | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
 | [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md) | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification |
 | [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action |
+| [software-engineering](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/index.md) | Software engineering guidance for architecture documentation, functional and quality concerns, boundaries, changeability, invariants, and actionable work items |
 | [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 <!-- axm:end region=knowledge-base -->
 <!-- prettier-ignore-end -->
 <!-- axm:start region=rules -->
+<!-- axm:rule @craigsmitham/rules/yagni@0.1.1 -->
+
+## YAGNI
+
+Before adding capability, structure, process, or scope for future use, consult
+the [YAGNI principle](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/yagni-and-speculative-complexity.md).
+Defer the commitment unless it serves a current feature, constraint, invariant,
+or concrete risk. If delay would close an option that is costly to recover,
+take only the cheapest safe action that preserves it.
+
+<!-- axm:rule @craigsmitham/rules/tidy-first@0.1.1 -->
+
+## Tidy First
+
+When current structure materially increases the difficulty or risk of an
+authorized software behavior change, consult the [Tidy First
+pattern](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/tidy-first.md).
+Choose first, after, later, or never. If tidying first, make only the smallest
+behavior-preserving change that makes the authorized change easier.
+
 <!-- axm:rule @craigsmitham/rules/field-notes@0.2.0 -->
 
 ## Field notes

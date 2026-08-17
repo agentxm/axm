@@ -1,0 +1,60 @@
+{
+  "skill_name": "author-software-work-items",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Draft a bug report. On build 184, exporting an invoice with tax details omits zero-value lines. The accepted invoice specification says every line must be present. It reproduces in Chrome and Firefox. We suspect the CSV serializer but have not confirmed that.",
+      "expected_output": "A tracker-ready defect report with authoritative expected behavior, observed behavior, reproduction context, impact or unknown impact, verification conditions, and the serializer theory labeled as a hypothesis.",
+      "assertions": [
+        "The item is classified as a defect report rather than a feature request or implementation task.",
+        "Expected and actual behavior are stated separately and the expectation cites the supplied specification.",
+        "Build and browser evidence are preserved without invented environment details or impact.",
+        "The serializer cause remains explicitly unconfirmed and the brief reflects the discrepancy."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Write a feature request from this customer note: 'Add a CSV button.' The customer needs account owners to reconcile invoice history in an external accounting system. This is one request; we have no usage study or delivery commitment.",
+      "expected_output": "A feature request centered on the reconciliation need and desired outcome, with the CSV button retained only as a possible solution and evidence accurately limited to one request.",
+      "assertions": [
+        "The title and summary describe the affected party, limitation, and desired outcome rather than only the button.",
+        "CSV is visibly optional unless the supplied need makes that format mandatory.",
+        "Demand is not generalized beyond the single customer note.",
+        "The item does not imply accepted requirements, priority, design, or implementation authorization."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Update the live incident record. Checkout has returned to normal in Europe after traffic was shifted at 14:32 UTC, but the root cause is still unknown. The incident lead is Sam. Preserve the earlier 14:10 hypothesis that the database pool was exhausted even though later metrics did not support it.",
+      "expected_output": "An updated incident record with current restored impact and response state first, timestamped mitigation and evidence, explicit ownership, and a retained but corrected hypothesis chronology.",
+      "assertions": [
+        "The title and summary are re-derived for the current incident state.",
+        "14:32 UTC mitigation and restoration evidence are distinguished from unknown root cause.",
+        "The 14:10 hypothesis remains in the timeline and is not rewritten as fact or deleted.",
+        "Permanent correction and post-incident work remain separate follow-up artifacts."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Rewrite only the title and summary of this issue. Its body says mobile users cannot complete checkout when a saved address contains a newline. Do not change scope, priority, owner, acceptance criteria, or status.",
+      "expected_output": "A concise, discriminating title and one- or two-sentence summary derived only from the existing body, with every other field unchanged.",
+      "assertions": [
+        "The title identifies the affected behavior, result, and material condition.",
+        "The summary says what is wrong and why it matters without adding unsupported facts.",
+        "No scope, priority, owner, acceptance criterion, status, or proposed fix is introduced.",
+        "The response makes clear that only the brief changed."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Turn this untriaged feature request into file-by-file implementation tasks so engineering can start today. The request says teams want faster audit exports but has no accepted behavior, threshold, or design.",
+      "expected_output": "A boundary response that preserves the feature request as intake and declines to create implementation tasks from missing accepted behavior and design.",
+      "assertions": [
+        "The item remains a feature request rather than being silently advanced to delivery work.",
+        "Missing accepted behavior, performance threshold, and design are named.",
+        "No file-by-file tasks, estimates, priority, or implementation authorization are produced.",
+        "The response identifies the next decision or workflow needed without inventing it."
+      ]
+    }
+  ]
+}

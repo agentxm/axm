@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Field notes
-description: What the field notes practice is — the gap between work-as-imagined and work-as-done, why capture happens in-situ, why successful improvisation counts, and why notes and findings stay separate.
+description: How field notes preserve one operational occurrence with observed facts, impact, detection, recovery, and explicitly tentative interpretation.
 tags: [field-notes, observation, continuous-improvement, resilience-engineering, explanation]
 status: draft
 sources:
@@ -17,9 +17,15 @@ sources:
   - id: esm-survey
     resource: https://dl.acm.org/doi/10.1145/3123988
     title: The Experience Sampling Method on Mobile Devices (ACM Computing Surveys)
+  - id: who-minimal-information
+    resource: https://qualityhealthservices.who.int/quality-toolkit/qt-catalog-item/minimal-information-model-for-patient-safety-incident-reporting-and-learning-systems-user-guide
+    title: WHO — Minimal Information Model for Patient Safety Incident Reporting and Learning Systems
+  - id: ahrq-report-design
+    resource: https://www.ahrq.gov/patient-safety/reports/hotline/design2.html
+    title: AHRQ — Developing and Testing the Health Care Safety Hotline
 generated:
-  by: claude/claude-opus-5
-  at: 2026-08-08T14:42:20Z
+  by: codex/gpt-5.6
+  at: 2026-08-15T23:32:51Z
 ---
 
 # Field notes
@@ -64,10 +70,38 @@ counted, and traced; ten impressions cannot.
 "The CLI is confusing" is not a field note. "`init` exited 0 but wrote no
 config, so I ran it twice before checking the exit path" is.
 
-The note body uses four questions drawn from after-action review
-practice:[^army-aar] what was expected, what actually happened, why they differed,
-and what should change. The third question is where most of the value is — it
-forces a claim about mechanism rather than a description of symptoms.
+The note combines a small common structure with a free evidence narrative. That
+shape follows mature incident-learning systems: enough standard fields to
+compare reports, while preserving the reporter's account in their own
+terms.[^who-minimal-information] It records what was expected, what was
+observed, impact, recovery, detection, and conditions directly seen. The
+expected-versus-observed comparison retains the practical core of after-action
+review.[^army-aar]
+
+Cause is deliberately separate. `Observed factors` carries facts;
+`Hypothesis` carries the reporter's tentative explanation; `Suggests` carries
+an optional improvement idea. A hypothesis is useful intake, but repeating it
+does not make it true. Reporting-form research similarly limits structured
+contributing factors to conditions reporters can observe reliably.[^ahrq-report-design]
+
+It also records **observed impact**: what this incident delayed, degraded,
+repeated, or prevented, plus directly measured cost such as retries, extra
+steps, elapsed time, rework, or unusable output. Impact is evidence about the
+incident, not a severity score. The observer does not predict how often it will
+recur, extrapolate to people or systems not observed, or estimate hypothetical
+harm. An unmeasured cost stays `not measured` rather than becoming a guess.
+
+Each note has a unique occurrence identity, an observation time, and an opaque
+session identity. The occurrence ID prevents same-day repeats from colliding;
+the session ID lets later triage distinguish two reports from two independent
+occasions. The pattern key is only a candidate classification and never replaces
+either identity.
+
+Detection and recovery complete the operational account. Detection says how the
+gap became visible — command output, a test, user correction, inspection, or
+another signal. Recovery says what restored progress and whether the original
+task completed. Together they distinguish obvious, easily reversible friction
+from delayed or silent behavior with an expensive workaround.
 
 ## Why capture is in-situ
 
@@ -86,7 +120,8 @@ escalating what was just observed.
 Two artifacts, deliberately separate:
 
 - A **field note** is raw, cheap, unreviewed, and possibly duplicated. Volume is
-  expected. One incident, one file, appended and abandoned.
+  expected. One incident, one file, appended and abandoned. Single incidents
+  remain notes even when their observed cost deserves attention.
 - A **finding** is curated: a recurring pattern, promoted deliberately, carrying
   provenance back to the notes that produced it and a claim about what to change.
 
@@ -105,3 +140,5 @@ failure, or the records quietly stop appearing.
 [^flanagan-cit]: Flanagan, *The Critical Incident Technique*, 1954.
 [^army-aar]: FM 7-0 Appendix K, *After Action Reviews*.
 [^esm-survey]: *The Experience Sampling Method on Mobile Devices*.
+[^who-minimal-information]: WHO, *Minimal Information Model for Patient Safety Incident Reporting and Learning Systems*.
+[^ahrq-report-design]: AHRQ, *Developing and Testing the Health Care Safety Hotline*.

@@ -222,17 +222,17 @@ describe("packs-add.handler", () => {
         yield* handlePacksAdd(defaultArgs("@acme/packs/frontend-tools", "@acme/skills/review"));
 
         expect(readPackDependencies(tempDir, "frontend-tools")).toEqual({
-          "@acme/skills/review": "^1.2.3",
+          "@acme/skills/review": ">=1.2.3",
         });
       }),
     );
   });
 
   it.effect.each([
-    { family: "0.0.x", version: "0.0.5", range: "^0.0.5" },
-    { family: "0.y.z", version: "0.4.2", range: "^0.4.2" },
-    { family: "1.x", version: "1.7.3", range: "^1.7.3" },
-  ])("generates and replaces the exact caret range for $family members", ({ version, range }) => {
+    { family: "0.0.x", version: "0.0.5", range: ">=0.0.5" },
+    { family: "0.y.z", version: "0.4.2", range: ">=0.4.2" },
+    { family: "1.x", version: "1.7.3", range: ">=1.7.3" },
+  ])("generates and replaces the lower-bound range for $family members", ({ version, range }) => {
     const { provide } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       profile: "@acme",
@@ -294,7 +294,7 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
+          expect(manifest.dependencies["@acme/skills/code-review"]).toBe(">=1.2.0");
           expect(logs.success).toContain("Added 1 extension to pack frontend-tools");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
@@ -342,7 +342,7 @@ describe("packs-add.handler", () => {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "deploy"));
 
           expect(readPackDependencies(tempDir, "frontend-tools")["@acme/hooks/deploy"]).toBe(
-            "^2.1.0",
+            ">=2.1.0",
           );
         }),
       );
@@ -364,7 +364,7 @@ describe("packs-add.handler", () => {
 
           expect(
             readPackDependencies(tempDir, "frontend-tools")["@acme/knowledge/domain-model"],
-          ).toBe("^3.0.0");
+          ).toBe(">=3.0.0");
         }),
       );
     });
@@ -397,7 +397,7 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("docs", "@acme/knowledge/docs"));
 
-          expect(readPackDependencies(tempDir, "docs")["@acme/knowledge/docs"]).toBe("^0.6.0");
+          expect(readPackDependencies(tempDir, "docs")["@acme/knowledge/docs"]).toBe(">=0.6.0");
         }),
       );
     });
@@ -417,7 +417,7 @@ describe("packs-add.handler", () => {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "style-guide"));
 
           expect(readPackDependencies(tempDir, "frontend-tools")["@acme/rules/style-guide"]).toBe(
-            "^1.5.0",
+            ">=1.5.0",
           );
         }),
       );
@@ -450,9 +450,9 @@ describe("packs-add.handler", () => {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "shared-*"));
 
           const dependencies = readPackDependencies(tempDir, "frontend-tools");
-          expect(dependencies["@acme/skills/shared-review"]).toBe("^1.0.0");
-          expect(dependencies["@acme/hooks/shared-deploy"]).toBe("^2.0.0");
-          expect(dependencies["@acme/knowledge/shared-model"]).toBe("^3.0.0");
+          expect(dependencies["@acme/skills/shared-review"]).toBe(">=1.0.0");
+          expect(dependencies["@acme/hooks/shared-deploy"]).toBe(">=2.0.0");
+          expect(dependencies["@acme/knowledge/shared-model"]).toBe(">=3.0.0");
         }),
       );
     });
@@ -514,7 +514,7 @@ describe("packs-add.handler", () => {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "@acme/hooks/review"));
 
           const dependencies = readPackDependencies(tempDir, "frontend-tools");
-          expect(dependencies["@acme/hooks/review"]).toBe("^2.0.0");
+          expect(dependencies["@acme/hooks/review"]).toBe(">=2.0.0");
           expect(dependencies["@acme/skills/review"]).toBeUndefined();
         }),
       );
@@ -615,8 +615,8 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.dependencies["@acme/skills/effect-basics"]).toBe("^1.0.0");
-          expect(manifest.dependencies["@acme/skills/effect-streams"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/effect-basics"]).toBe(">=1.0.0");
+          expect(manifest.dependencies["@acme/skills/effect-streams"]).toBe(">=2.0.0");
           expect(manifest.dependencies["@acme/skills/other-skill"]).toBeUndefined();
         }),
       );
@@ -747,8 +747,8 @@ describe("packs-add.handler", () => {
             "pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.dependencies["@acme/skills/skill-a"]).toBe("^1.0.0");
-          expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
+          expect(manifest.dependencies["@acme/skills/skill-a"]).toBe(">=1.0.0");
+          expect(manifest.dependencies["@acme/skills/skill-b"]).toBe(">=2.0.0");
         }),
       );
     });
@@ -776,7 +776,7 @@ describe("packs-add.handler", () => {
         type: "pack",
         name: "my-pack",
         version: "0.0.1",
-        dependencies: { "@acme/skills/code-review": "^1.2.0" },
+        dependencies: { "@acme/skills/code-review": ">=1.2.0" },
       });
 
       return provide(
@@ -815,7 +815,7 @@ describe("packs-add.handler", () => {
         type: "pack",
         name: "my-pack",
         version: "0.0.1",
-        dependencies: { "@acme/skills/code-review": "^1.2.0" },
+        dependencies: { "@acme/skills/code-review": ">=1.2.0" },
       });
 
       return provide(

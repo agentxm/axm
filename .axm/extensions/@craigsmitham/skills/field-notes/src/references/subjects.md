@@ -60,9 +60,10 @@ Test: could a note plausibly say "this was blocked"? If not, it is a wish.
 `survey` → `target`. Run this whenever a survey subject has accumulated notes.
 
 1. Read every open note for the subject.
-2. Cluster by cause, not by symptom.
+2. Cluster by recurring observed behavior and conditions; do not let a
+   reporter's hypothesis establish cause.
 3. Ask whether the dominant cluster can be restated as a condition the process
-   would satisfy if that cluster disappeared. If yes, that is the target
+   would satisfy if that behavior disappeared. If yes, that is the target
    condition. If no, the subject stays in `survey` mode.
 4. Propose: new mode, target condition, narrowed scope, retirement condition.
 5. On confirm, update the row. Leave existing notes in place — they are the

@@ -12,33 +12,92 @@ inline during other work.
 ### 1. Collect
 
 Read every note with `status: open`, grouped by subject. Notes are
-`field-notes/<subject>/<YYYY-MM-DD>-<key>.md`.
+`field-notes/<subject>/<occurrence-id>-<key>.md`. Accept legacy date-key names
+and legacy bodies without the newer observation fields. For a legacy note, use
+its path as its occurrence identity and treat absent evidence as unknown; never
+backfill from memory or implication.
 
 ### 2. Collapse exact repeats
 
-Notes sharing a `key` are the same incident recurring. Count them; keep the
-earliest as the representative. This is mechanical — do it before any judgment.
+Treat `key` as a candidate pattern label, not proof that notes are equivalent.
+Collapse notes as exact repeats only when their observed behavior and material
+conditions match. Count unique occurrence IDs and preserve every contributing
+ID; never count two files describing one incident twice.
 
-### 3. Cluster by cause
+### 3. Establish independent occurrences
 
-Group the remainder by **why** they happened, not by where they surfaced. Two
-notes from different commands with the same root cause are one pattern. Two
-notes from the same command with different causes are two.
+Use the explicit `session` field to establish independence. For legacy or
+`unknown` sessions, use dates and evidence only when they prove separate
+sessions. When independence is uncertain, count the reports but only one
+independent occurrence toward promotion.
 
-The `**Gap:**` line is the field to cluster on. If a note's gap line is empty or
-restates the symptom, treat it as weak evidence and say so rather than counting
-it toward a threshold.
+### 4. Cluster by observed pattern
 
-### 4. Apply the threshold
+Group notes by recurring **observed behavior and material conditions**, even
+when they surfaced in different commands or workflows. Do not cluster on
+`Hypothesis`, `Suggests`, or the legacy `Gap` field; those are reporter
+interpretations. Two similar hypotheses are not corroboration.
 
-A cluster is promotable at **two or more notes from separate sessions**. Check
-the dates and evidence — two notes written in one session are one occurrence.
+For each cluster, distinguish:
 
-Below threshold: leave open. Do not promote a compelling singleton; the
-threshold is what keeps capture cheap and the backlog convergent. Say how many
-singletons are being held.
+- `Pattern`: the recurring observed behavior;
+- `Contributing factors`: conditions directly supported across notes;
+- `Cause`: an established cause, or `unknown — needs investigation`; and
+- `Cause confidence`: `corroborated`, `plausible`, or `weak`.
 
-### 5. Promote
+`corroborated` requires objective or independent evidence beyond repeated
+reporter interpretation. `plausible` fits the observations but is not
+independently established. `weak` means evidence is missing, conflicting, or
+mostly inferential. Unknown cause does not block promotion; it makes
+`investigate` the honest proposed action type.
+
+### 5. Check extent and corroboration
+
+Check readily available sources implicated by the notes or supplied by the user,
+such as existing issues, tests, logs, support reports, or documentation. Use
+them to assess corroboration and the affected surfaces, versions, roles, or
+workflows. Do not start broad debugging or infer unobserved reach; record
+`unknown` when the extent cannot be established cheaply.
+
+### 6. Build the priority basis
+
+For each cluster, preserve these dimensions separately:
+
+- `Actual impact`: typical and worst observed consequences and comparable
+  measured costs;
+- `Recurrence`: independent occurrences and exposure or opportunity count when
+  established;
+- `Extent`: affected surfaces, versions, roles, or workflows actually
+  established;
+- `Urgency`: evidence that delay changes the cost or consequence, or `none
+  known`;
+- `Potential consequence`: an evidence-supported plausible outcome beyond what
+  occurred, or `not assessed`;
+- `Detectability`: `obvious`, `delayed`, `silent`, or `unknown`;
+- `Recoverability`: `automatic`, `simple workaround`, `costly workaround`,
+  `blocked`, or `unknown`;
+- `Evidence confidence`: `corroborated`, `plausible`, or `weak`; and
+- `Change cost`: known implementation, migration, maintenance, and regression
+  risk, or `unknown`.
+
+Aggregate costs only when their units and evidence are comparable. Keep
+incomparable observations separate. A report count is a numerator, not an
+incidence rate: write `N occurrences / exposure unknown` unless observed
+sessions or opportunities provide a defensible denominator. Keep actual impact,
+potential consequence, urgency, and priority distinct. Do not reduce the
+dimensions to a severity or risk score.
+
+Finish with `Priority basis`: a short evidence-backed explanation of the
+recommended disposition. Do not investigate an unknown change cost during
+triage.
+
+### 7. Apply the threshold
+
+A cluster is promotable at **two or more independent occurrences from separate
+sessions**. Below threshold, leave it open. Do not promote a compelling
+singleton; say how many singletons are held.
+
+### 8. Promote
 
 Write `field-notes/findings/<key>.md`:
 
@@ -47,44 +106,94 @@ Write `field-notes/findings/<key>.md`:
 finding: <slug>
 subject: <subject key>
 status: promoted
-notes: [<note key>, <note key>]
+decision: proposed
+notes: [<occurrence id>, <occurrence id>]
 date: <YYYY-MM-DD>
 ---
 
 **Pattern:** what recurs, in one sentence
-**Cause:** why it recurs
+**Contributing factors:** conditions supported across the notes
+**Cause:** established cause, or `unknown — needs investigation`
+**Cause confidence:** corroborated | plausible | weak
+**Actual impact:** observed consequences and typical or worst occurrence
+**Cost evidence:** comparable measured costs and material unknowns
+**Recurrence:** independent occurrences / observed exposure, or `exposure unknown`
+**Extent:** affected surfaces, versions, roles, or workflows established
+**Urgency:** why delay matters, or `none known`
+**Potential consequence:** evidence-supported plausible outcome, or `not assessed`
+**Detectability:** obvious | delayed | silent | unknown
+**Recoverability:** automatic | simple workaround | costly workaround | blocked | unknown
+**Evidence confidence:** corroborated | plausible | weak
 **Change:** the smallest durable change that would stop it
-**Verify by:** the observation that would confirm it worked
+**Change cost:** known implementation, migration, maintenance, and regression risk, or `unknown`
+**Proposed action type:** investigate | prevent | mitigate | detect | document
+**Priority basis:** why this disposition follows from the evidence
+**Verify by:** evidence that would confirm effectiveness
+**Adverse effects to check:** material regressions to test for, or `none identified`
 ```
 
-`Verify by` is not optional. A finding without it cannot be closed, only
-abandoned.
+`Verify by` and `Adverse effects to check` are not optional. A finding without
+them cannot be closed, only abandoned. Then set contributing notes to
+`status: promoted`.
 
-Then set the contributing notes to `status: promoted`.
+When several clusters qualify, present them in descending decision relevance
+using their priority bases. Never present a promoted finding as accepted.
 
-### 6. Drop what will not be acted on
+### 9. Surface costly singletons
 
-Mark `status: dropped` with a one-line reason. Dropping is a real outcome and
-recording it is what stops the same observation returning every cycle.
+A singleton remains an open note and is not a finding. Report it separately as
+a **costly singleton** when its priority basis shows blocked work, substantial
+measured delay or rework, broad observed extent, an evidence-supported serious
+potential consequence, or a user-defined threshold. Offer three dispositions:
+act on it directly outside field-note triage, keep observing, or drop it.
 
-Drop when: the note describes a transient condition, the cost of the change
-clearly exceeds the friction, or the behavior is intended and the note reflects
-a documentation gap already covered elsewhere.
+This is a review lane, not an exception to the recurrence threshold. Do not
+promote the singleton or describe it as a recurring pattern.
+
+### 10. Drop what will not continue through field notes
+
+Mark `status: dropped` with a one-line reason. Dropping removes a note from
+field-note triage; it does not deny that the incident occurred. Include an
+external reference when the user moved a singleton directly into another
+workflow.
+
+Drop when: the note describes a transient condition, the change cost clearly
+exceeds the friction, the behavior is intended and already documented, or the
+user chose another action path. Recording the disposition stops the same note
+returning every review cycle.
 
 ## Close
 
 A finding closes when the change is **verified to have worked**, not when it
 ships.
 
-1. Confirm the change landed.
-2. Check whether the subject has produced new notes of that class since. If it
-   has, the finding is not closed — set it back to `promoted` and say why.
-3. If the class stopped appearing, set `status: closed` with the date.
-4. If the subject's target condition now holds, consider retirement
-   (`references/subjects.md`).
+### Accept and apply
 
-Between landing and confirmation, a finding is `applied`. Do not skip that
-state — it is where changes that looked right and did nothing get caught.
+Promotion proposes a change; the user decides. When the user accepts one, add:
+
+```yaml
+decision: accepted
+decision_date: <YYYY-MM-DD>
+owner: <one accountable person or team>
+action_type: investigate | prevent | mitigate | detect | document
+verify_after: <date, sessions, or opportunities>
+```
+
+Do not invent the owner or verification window. When the change lands, set
+`status: applied` and add `applied_at`. Keep the finding open until the stated
+verification window has elapsed.
+
+### Verify and close
+
+1. Confirm the accepted change landed and the `verify_after` window is
+   satisfied.
+2. Apply `Verify by` and check every named adverse effect.
+3. Check whether the subject produced new notes of that class. If it did, the
+   finding is not closed — set it back to `promoted` and say why.
+4. If effectiveness is supported, set `status: closed`, add the date, and
+   preserve the verification evidence.
+5. If the subject's target condition now holds, consider retirement
+   (`references/subjects.md`).
 
 ## Prune
 

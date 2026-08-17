@@ -2,8 +2,9 @@
 name: field-notes
 description: >
   Set up and operate field notes: declare what work to observe, then triage
-  recorded observations into verified improvements. Use when asked to "watch
-  this area", "track friction with X", "what have we been hitting", "review the
+  recorded occurrences into evidence-prioritized, verified improvements. Use
+  when asked to "watch this area", "track friction with X", "what have we been
+  hitting", "review the
   field notes", "promote these observations", or when setting up observation of
   a CLI, a build, a workflow, or an onboarding path. Not for recording an
   individual observation during work — the field-notes rule does that inline.
@@ -39,7 +40,7 @@ retire), and `closure-explainer.md` (triage / promote / close).
 | Artifact | Contract |
 | --- | --- |
 | Active subjects | `## Field note subjects` in the human-authored part of the workspace instruction file, outside `axm:` managed regions |
-| Observed notes | Read and triage `field-notes/<subject>/<YYYY-MM-DD>-<key>.md` |
+| Observed notes | Read and triage `field-notes/<subject>/<occurrence-id>-<key>.md`; accept legacy date-key names |
 | Findings | Write and maintain `field-notes/findings/<key>.md` |
 
 ## Operations
@@ -74,6 +75,8 @@ Report counts and decisions, not note bodies:
 ```
 Subjects: 2 active (1 survey, 1 target)
 Notes:    14 open — 9 clustered into 3 patterns, 5 singletons held
+Exposure: leading pattern 3 occurrences / 12 observed sessions; others unknown
+Costly singletons: 1 surfaced, still held open
 Promoted: 2 findings
 Dropped:  1 (transient; recorded so it is not re-litigated)
 ```

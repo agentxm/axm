@@ -177,7 +177,8 @@ For workspace-authored pack edits, use `axm packs add`, `remove`, or `version`
 when possible. The authored manifest is desired authority immediately; use
 `axm sync --preview` to review the resulting reconciliation. Configured
 workspace members satisfy pack dependencies before Registry lookup, and
-`packs add` records a caret constraint by default.
+`packs add` records a `>=` lower bound by default so members track their latest
+release. Narrow a range by hand only to exclude a known-breaking member release.
 
 Pack install, update, enable/disable, uninstall, and unpack operate on one pack
 and its complete member graph atomically. Use `--preview` to inspect the exact

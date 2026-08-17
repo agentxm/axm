@@ -10,8 +10,9 @@ cheaply, while the work is still happening.
 
 You declare two or three **subjects** worth watching. During ordinary work, an
 agent that hits a gap in one of them appends a small **field note** and keeps
-going. Later, a review clusters those notes and promotes what recurs into a
-**finding** with a proposed change and a way to verify it worked.
+going. Later, a review clusters observed patterns, tests causal confidence, and
+promotes what recurs into a **finding** with an evidence-backed priority basis,
+a proposed change, and a way to verify it worked.
 
 Nothing is captured until you declare a subject. With no subjects, the rule is
 inert.
@@ -60,9 +61,16 @@ Then work normally. Ask for a review when notes have accumulated:
 
 ## What gets recorded
 
-Specific incidents with observable detail, not impressions. Each note answers
-four questions: what was expected, what happened, why they differed, and what
-should change.
+Specific incidents with observable detail, not impressions. Each occurrence has
+a unique ID and opaque session identity, so repeats can be counted without
+confusing a pattern key for an event. A note records what was expected and
+observed, direct impact and cost, how the issue was detected, what restored
+progress, and relevant conditions seen during the incident.
+
+Observed factors remain separate from the reporter's tentative causal
+hypothesis and optional improvement idea. Unknown values stay unknown rather
+than triggering an inline investigation or becoming a confident-sounding
+guess. Existing date-key notes remain valid during triage.
 
 Successes count. An undocumented workaround that *worked* is knowledge the
 project depends on and has not written down — those notes are often the most
@@ -76,8 +84,21 @@ valuable in the set.
 - **Recurrence is the threshold.** Nothing is promoted below two notes from
   separate sessions. One incident may be a bad session; a pattern is a signal.
   This is also what makes cheap capture affordable.
+- **Reports are signals, not rates.** Triage reports recurrence against observed
+  sessions or opportunities when available and says `exposure unknown` when no
+  defensible denominator exists.
+- **Priority preserves its evidence.** Actual impact, recurrence, extent,
+  urgency, potential consequence, detectability, recoverability, confidence,
+  and change cost remain separate instead of becoming a severity score. A
+  costly singleton is surfaced separately but remains a note rather than a
+  recurring finding.
+- **Cause is earned.** Triage clusters observed behavior, treats reporter
+  explanations as hypotheses, checks readily available corroboration, and may
+  promote a pattern with `cause: unknown` and an `investigate` action.
 - **Closure means verified, not shipped.** A finding closes when its class of
-  note stops appearing — not when a change lands.
+  note stops appearing and named adverse effects have been checked — not when a
+  change lands. Accepted findings carry one owner, an action type, and a
+  verification window.
 - **Subjects retire.** Every subject states its end condition when created.
 
 ## Prior art

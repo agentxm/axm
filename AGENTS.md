@@ -243,12 +243,12 @@ Wait for the user to review changes and decide when to commit.
 | Bundle | Description |
 | --- | --- |
 | [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md) | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Observing work in progress and converting it into durable improvement: work-as-imagined vs work-as-done, survey and target subjects, recurrence thresholds, and verified closure |
+| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action |
 | [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 <!-- axm:end region=knowledge-base -->
 <!-- prettier-ignore-end -->
 <!-- axm:start region=rules -->
-<!-- axm:rule @craigsmitham/rules/field-notes@0.1.0 -->
+<!-- axm:rule @craigsmitham/rules/field-notes@0.2.0 -->
 
 ## Field notes
 
@@ -259,66 +259,33 @@ Subjects under observation are declared in the `## Field note subjects` table in
 this file. **If that section is missing or has no rows, this rule is inactive —
 do nothing.**
 
-Recording a field note is expected behavior, not an admission of failure. Notes
-about your own confusion, retries, and improvised workarounds are the most
-valuable kind.
-
 ### When to record
 
-While doing ordinary work, if the work falls within a declared subject and any
-of these hold, append one field note:
+While doing ordinary work within a declared subject, record one note when:
 
-- What happened differed from what the instructions, docs, or command output led
-  you to expect.
-- You retried, guessed, or searched to get past something.
-- You succeeded by improvising a step no document describes. Record these — an
-  undocumented workaround that worked is a finding, not a non-event.
-- A subject in `target` mode was blocked from its target condition.
+- reality differs from instructions, documentation, or command output;
+- you retry, guess, search, or improvise an undocumented workaround; or
+- a `target`-mode subject is blocked from its target condition.
 
-Do not record your own typos, a restatement of a note you already wrote this
-session, or speculation with no observed incident behind it.
+Do not record your own typo, the same incident twice in one session, or
+speculation without an observed incident.
 
 ### How to record
 
-Write one new file per note. Never edit an existing note — a second occurrence
-is a second file, and that recurrence is the signal.
-
-Path: `field-notes/<subject>/<YYYY-MM-DD>-<key>.md`, where `<key>` is a short
-kebab slug of surface and symptom. Use a different root if the subjects section
-names one.
-
-```markdown
----
-subject: <subject key>
-key: <slug>
-date: <YYYY-MM-DD>
-kind: gap | workaround | blocked
-status: open
----
-
-**Expected:** what should have happened, and what led you to expect it
-**Actual:** what happened instead
-**Gap:** why the two differed
-**Suggests:** the smallest durable change that would close the gap
-
-Evidence: commands run, exit codes, paths, quoted output.
-```
-
-Report a specific incident with observable detail. A general impression is not a
-field note.
+On the first qualifying incident in a session, read the
+[capture instructions](.axm/extensions/@craigsmitham/rules/field-notes/src/capture.md).
+Append one note for each qualifying incident. Recording it is expected behavior,
+not an admission of failure.
 
 ### Stay in the work
 
 Log and continue. Do not investigate the note, fix what it describes, open an
 issue, or discuss it beyond one short line at the end of your response.
 
-Two exceptions:
-
-- What you observed is a live correctness, data-loss, or security problem —
-  raise it now rather than filing it.
-- You are genuinely blocked on ambiguous architecture, data model, or
-  destructive scope — stop and ask, naming the ambiguity in one sentence with
-  two or three options.
+Raise a live correctness, data-loss, or security problem immediately instead of
+filing it. Stop to ask only when genuinely blocked on ambiguous architecture,
+data model, or destructive scope; name the ambiguity in one sentence with two or
+three options.
 
 To declare subjects, triage notes, or promote them into findings, use the
 `field-notes` skill. Never do that work inline.

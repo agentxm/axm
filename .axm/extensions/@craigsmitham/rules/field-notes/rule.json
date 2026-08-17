@@ -2,11 +2,11 @@
   "$schema": "https://axm.sh/schemas/rule.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "rule",
   "title": "Field notes",
   "priority": 200,
-  "description": "Record specific observations about how work actually goes, within declared subjects, without derailing the work in progress",
+  "description": "Capture uniquely identified operational occurrences, observed impact, detection, recovery, and tentative interpretation without derailing work",
   "keywords": [
     "field-notes",
     "observation",

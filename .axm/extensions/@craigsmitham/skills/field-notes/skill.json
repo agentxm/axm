@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "field-notes",
-  "version": "0.1.1",
-  "description": "Declare what work to observe, then triage recorded observations into verified improvements",
+  "version": "0.2.0",
+  "description": "Declare what work to observe, then triage occurrences into evidence-prioritized findings and verified improvements",
   "keywords": [
     "field-notes",
     "observation",

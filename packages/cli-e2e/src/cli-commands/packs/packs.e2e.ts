@@ -409,8 +409,8 @@ describe("axm packs add/remove", () => {
         ),
       );
       expect(manifest.dependencies).toEqual({
-        "@test/skills/registry-member": "^0.0.1",
-        "@test/skills/workspace-member": "^0.0.1",
+        "@test/skills/registry-member": ">=0.0.1",
+        "@test/skills/workspace-member": ">=0.0.1",
       });
       const lock = readLock();
       expect(lock.packs?.["mixed-pack"]).toBeUndefined();

@@ -2,9 +2,36 @@
 
 ## 2026-08-17
 
-* **Update**: Advanced the bundle target from Effect 4.0.0-beta.107 to
-  4.0.0-rc.110 after checking the marked Schema and HttpApi claims against the
-  rc.110 source and tests.
+* **Retarget**: Re-pinned the corpus target to `Effect 4.0.0-rc.110` in the
+  root index (previously `4.0.0-beta.107`) after verifying from npm dist-tags
+  and the `effect@4.0.0-rc.110` tag that the rc line directly continues the
+  beta line. Every materially version-specific claim was re-verified against
+  the rc.110 sources rather than mechanically renamed.
+* **Provenance**: Replaced each guide's sole retired-skill source with
+  official Effect sources (ai-docs documents, module source, and tests,
+  tag-pinned to `effect@4.0.0-rc.110`) plus revision-pinned applied
+  references where a pattern was actually observed; retired-skill sources
+  remain as lineage only. Added machine `verified` events recording when each
+  guide was checked.
+* **Correction**: Removed Effect v3 carryovers and stale beta-era notes:
+  `Effect.iterate`/`Effect.loop` (gone in v4) replaced with `Effect.whileLoop`,
+  `Effect.gen` loops, `Stream.iterate`, and `Effect.repeat` in
+  [Iteration](iteration.md); `Record.partitionMap` and Option-based
+  `Array.filterMap` corrected in [Collections](collections.md); the `it.scoped`
+  trap documented in [Testing](testing.md); the wrong `beta.107` rename note
+  removed from [Error modeling](error-modeling.md).
+* **Boundary**: Re-scoped [HTTP API](http-api.md) as platform-neutral (its
+  claims verify on any platform) and made
+  [Cloudflare Workers](cloudflare-workers.md) the sole owner of Workers
+  runtime semantics; Cloudflare-platform assertions now cite Cloudflare
+  documentation explicitly. Duplicated rules across neighboring guides were
+  consolidated to single owners with cross-references.
+* **Creation**: Added [HTTP client](http-client.md) (outbound HTTP with typed
+  failure, retry, and substitution) and
+  [Keyed resource sharing](keyed-resource-sharing.md) (RcMap, LayerMap, Pool)
+  after an evidence review of current official rc.110 API support and applied
+  references; six other candidate guides were declined as folds into existing
+  guides.
 
 ## 2026-08-12
 
@@ -23,5 +50,5 @@
   `Playbook` concepts.
 * **Convention**: Pinned the target version (`Effect 4.0.0-beta.107`) once in
   the root index instead of repeating it in every concept. Version-specific API
-  claims are marked inline in the guides that make them, currently
-  [Error modeling](/error-modeling.md) and [HTTP API](/http-api.md).
+  claims were marked inline in the guides that made them, at the time
+  [Error modeling](error-modeling.md) and [HTTP API](http-api.md).

@@ -61,10 +61,14 @@ export interface PacksAddHandlerArgs {
 const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 /**
- * Derive a caret version range from a resolved version.
- * e.g., "1.2.3" -> "^1.2.3"
+ * Derive a lower-bound version range from a resolved version.
+ * e.g., "1.2.3" -> ">=1.2.3"
+ *
+ * A lower bound tracks the latest published member while recording the version
+ * observed when the member was added. A caret would pin pre-1.0 members to their
+ * current minor (`^0.4.2` stops before `0.5.0`), stranding every later release.
  */
-const toVersionRange = (version: string): string => `^${version}`;
+const toVersionRange = (version: string): string => `>=${version}`;
 
 /** Every type a pack can depend on — packs cannot nest. */
 type PackAddExtensionType = CatalogExtensionType;

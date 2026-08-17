@@ -1,15 +1,8 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.1.0",
-  "type": "pack",
-  "name": "field-notes",
-  "dependencies": {
-    "@craigsmitham/knowledge/field-notes": "^0.1.1",
-    "@craigsmitham/rules/field-notes": "^0.1.0",
-    "@craigsmitham/skills/field-notes": "^0.1.0"
-  },
-  "description": "Observe how work actually goes and convert recurring obstacles into verified improvements: an always-on capture rule, a triage skill, and the underlying concepts",
+  "version": "0.2.0",
+  "description": "Capture operational occurrences and turn recurring patterns into evidence-prioritized findings and verified improvements",
   "keywords": [
     "field-notes",
     "observation",
@@ -19,11 +12,18 @@
     "retrospective",
     "kaizen"
   ],
-  "license": "CC-BY-SA-4.0",
-  "homepage": "https://github.com/craigsmitham/agent-extensions",
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
     "directory": ".axm/extensions/@craigsmitham/packs/field-notes"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "CC-BY-SA-4.0",
+  "type": "pack",
+  "name": "field-notes",
+  "dependencies": {
+    "@craigsmitham/knowledge/field-notes": "^0.2.0",
+    "@craigsmitham/rules/field-notes": "^0.2.0",
+    "@craigsmitham/skills/field-notes": "^0.2.0"
   }
 }

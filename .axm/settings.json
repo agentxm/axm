@@ -1,7 +1,7 @@
 {
   "owner": "@agentxm",
   "agents": ["claude-code"],
-  "minimumReleaseAgeExclude": ["@agentxm/*"],
+  "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",
@@ -26,7 +26,8 @@
   "lint": {
     "rules": {
       "workspace/agents-detected-declared": "off",
-      "workspace/instructions-target-current": "off"
+      "workspace/instructions-target-current": "off",
+      "workspace/release-age-exclude-owner-trusted": "off"
     }
   }
 }

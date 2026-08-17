@@ -1,19 +1,40 @@
 ---
 type: Guide
 title: HTTP API
-description: Declarative HttpApi services on Cloudflare Workers; use for endpoints, schemas, middleware, typed HTTP failures, OpenAPI, and derived clients.
-tags: [effect, effect-v4, httpapi, http, openapi, middleware, cloudflare-workers, fetch, api-client]
+description: One declarative HttpApi contract driving routing, validation, OpenAPI, and typed clients; use for endpoints, schemas, middleware, security, typed HTTP failures, and derived clients on any platform.
+tags: [effect, effect-v4, httpapi, http, openapi, middleware, security, fetch, api-client, testing]
 status: stable
 sources:
+  - id: docs-http-server
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/10_basics.ts
+    title: Official Effect docs — HttpApi server wiring and toWebHandler (effect 4.0.0-rc.110)
+  - id: docs-http-endpoints
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/fixtures/api/Users.ts
+    title: Official Effect docs — endpoint options, response alternatives, status annotations (effect 4.0.0-rc.110)
+  - id: docs-http-testing
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/20_testing.ts
+    title: Official Effect docs — HttpApiTest in-memory typed-client testing (effect 4.0.0-rc.110)
+  - id: src-httpapi-endpoint
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts
+    title: HttpApiEndpoint source — constructor options, delete alias, client response modes (effect 4.0.0-rc.110)
+  - id: src-httpapi-middleware
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts
+    title: HttpApiMiddleware source — middleware config, layerSchemaErrorTransform (effect 4.0.0-rc.110)
+  - id: src-httpapi-schema
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiSchema.ts
+    title: HttpApiSchema source — NoContent, status defaults, WithHeaders, StreamSse (effect 4.0.0-rc.110)
+  - id: applied-opencode
+    resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/server/src/routes.ts
+    title: opencode@2cba7e2 — production HttpApi server, schema-error transform, OpenAPI route
   - id: origin-skill
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-http-api/src/SKILL.md
-    title: effect-v4-http-api skill 0.1.0 (retired into this bundle)
-  - id: effect-rc110-httpapi
-    resource: https://github.com/Effect-TS/effect/tree/66114151c2b4640bf773f2b3456ce70d679422f6/packages/effect/src/unstable/httpapi
-    title: Effect 4.0.0-rc.110 HttpApi source
+    title: effect-v4-http-api skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: openai/gpt-5
-  at: 2026-08-17T13:54:16Z
+  by: claude/fable-5
+  at: 2026-08-17T14:10:36Z
+verified:
+  - by: claude/fable-5
+    at: 2026-08-17T14:10:36Z
 ---
 
 # HTTP API
@@ -22,17 +43,22 @@ Keep one declarative API contract as the source for routing, validation,
 handlers, OpenAPI, and typed clients.
 
 **Applies when** defining endpoints, schemas, handlers, middleware, security,
-typed HTTP failures, OpenAPI, derived clients, Fetch handlers, or HttpApi tests.
+typed HTTP failures, OpenAPI, derived clients, or HttpApi tests, and when
+converting the assembled router to a Fetch handler — on any platform.
 
-**Leave alone** React Router actions, generic Fetch routing, and non-Cloudflare
-hosting policy.
+**Leave alone** framework-specific routing such as React Router actions,
+hosting policy, and platform runtime semantics — for Workers those are owned
+by [Cloudflare Workers](cloudflare-workers.md).
 
-Related: [Cloudflare Workers](cloudflare-workers.md) for the runtime and binding
-model, [Schema boundaries](schema-boundaries.md) for the endpoint schemas,
-[Error modeling](error-modeling.md) for what may become a public response.
+Related: [Schema boundaries](schema-boundaries.md) for the endpoint schemas,
+[Error modeling](error-modeling.md) for what may become a public response,
+[HTTP client](http-client.md) for calling APIs you do not define,
+[Cloudflare Workers](cloudflare-workers.md) for the Workers runtime and
+binding model.
 
-This guide makes several `4.0.0-rc.110`-specific API claims; they are marked
-inline. Verify them against the installed version before relying on them.
+`HttpApi` lives under `effect/unstable/httpapi`; expect higher churn than
+core modules and re-verify names against the installed version when they
+disagree with this guide.
 
 ## Define the contract
 
@@ -66,45 +92,51 @@ const Users = HttpApiGroup.make("Users").add(getUser, deleteUser).prefix("/users
 const Api = HttpApi.make("Api").add(Users).prefix("/v1")
 ```
 
-- Put path params, query, headers, payload, success, and expected errors in the
-  endpoint constructor options. In rc.110, API/group/endpoint values do not
-  expose `addError` or `addSuccess`.
+- Put path params, query, headers, payload, success, and expected errors in
+  the endpoint constructor options. API, group, and endpoint values expose no
+  `addError` or `addSuccess`; the constructor options are the whole input
+  surface.[^src-httpapi-endpoint]
 - Ordinary success schemas default to 200. Use `HttpApiSchema.NoContent` for
-  204 or another named/explicit empty schema for a different empty status.
+  204 or another named/explicit empty schema for a different empty
+  status.[^src-httpapi-schema]
 - Use arrays of response schemas when an endpoint has multiple legitimate
-  status/content-type alternatives; keep their selection unambiguous.
-- Model typed response headers with `HttpApiSchema.WithHeaders` and
-  `encodeToWithHeaders`; do not fall back to raw handlers merely because a
-  response owns headers.
-- Define expected schema-backed failures with `Schema.TaggedError`; reserve
-  defects for unmodeled failures that must not become public responses.
+  status/content-type alternatives; keep their selection
+  unambiguous.[^docs-http-endpoints]
+- Model typed response headers with `HttpApiSchema.WithHeaders(schema,
+  headerFields)` for declared responses, or pipe a schema through
+  `encodeToWithHeaders({ body, headers }, { decode, encode })` when the wire
+  shape differs; do not fall back to raw handlers merely because a response
+  owns headers.[^src-httpapi-schema]
+- Define expected schema-backed failures with `Schema.TaggedError` and status
+  annotations; reserve defects for unmodeled failures that must not become
+  public responses.
 
 ## Implement handlers and middleware
 
 - Build handlers with `HttpApiBuilder.group(Api, groupName, ...)`. Handler
   inputs are already decoded; call domain services and return the declared
   success or error values.
-- Use raw handlers only when the response contract cannot be expressed by the
-  typed endpoint surface, such as a genuinely custom streaming protocol.
+- Type streaming responses with `HttpApiSchema.StreamSse` or
+  `HttpApiSchema.StreamUint8Array`. Use raw handlers only when the response
+  contract cannot be expressed by the typed surface at all.[^src-httpapi-schema]
 - Put authentication, CORS, request context, and other transport-wide behavior
   in typed middleware. Declare each middleware's security and failure schema.
-- Rc.110 schema decode failures are `HttpApiError.HttpApiSchemaError`. A
-  schema-error transform must return an `HttpServerResponse` or fail with its
-  declared error; succeeding with an error value is not a valid transform.
+- Schema decode failures are `HttpApiError.HttpApiSchemaError`. Reshape them
+  with `HttpApiMiddleware.layerSchemaErrorTransform`: the transform must
+  return an `HttpServerResponse` or fail with its declared error; succeeding
+  with an error value is not a valid transform.[^src-httpapi-middleware]
 - `HttpApiSecurity.basic` supplies `{ username, password }`; only the password
   is redacted. Bearer, API-key, and custom HTTP schemes expose their own
   credential shapes — inspect the constructor rather than assuming one shape.
 
-## Compose for Fetch and Cloudflare
+## Convert to a Fetch handler
 
-- Assemble the API and handler layers once, then convert the router with
-  `HttpRouter.toWebHandler` for a Fetch-compatible entry point.
-- Inject request-time bindings or request context through the handler context;
-  keep heavy construction out of module global scope.
-- A warm isolate is an optimization, never a correctness requirement. Ensure
-  request-scoped resources and finalizers complete within the invocation model.
-- Use `ctx.waitUntil` only for bounded post-response work. It is not durable job
-  storage and must not be the sole owner of required business state.
+- Assemble the API and handler layers once, then convert with
+  `HttpRouter.toWebHandler`, providing `HttpServer.layerServices`, for a
+  Fetch-compatible entry point on any Fetch-based host.[^docs-http-server]
+- Everything platform-specific about that host — bindings, runtime lifetime,
+  post-response work — belongs to the platform guide; for Workers see
+  [Cloudflare Workers](cloudflare-workers.md).
 
 ## OpenAPI and clients
 
@@ -114,25 +146,34 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
   Swagger and Scalar layers mount interactive pages, not the raw spec itself.
 - Derive clients with `HttpApiClient.make`; provide the base URL and auth as
   client construction/transform policy rather than per-call string assembly.
-- Keep decoded-only mode for ordinary calls and select response-inclusive modes
-  only when callers need status or headers.
+- Keep decoded-only mode for ordinary calls and select response-inclusive
+  modes only when callers need status or headers.
 
 ## Verify the boundary
 
-- Unit-test exported handler effects with test service layers and typed errors.
+- Test groups in memory with `HttpApiTest.groups`: a typed client against the
+  handler layers, no server required.[^docs-http-testing]
 - Use `NodeHttpServer.layerTest` or the matching platform test server for full
   transport tests; share a server with `it.layer` when the suite owns it.
 - Assert ordinary calls with the typed client. Use a raw client only for wire
   details the typed contract intentionally abstracts.
-- Test schema failures, middleware rejection, response headers, empty statuses,
-  OpenAPI output, Cloudflare context injection, and defect non-disclosure.
+- Test schema failures, middleware rejection, response headers, empty
+  statuses, OpenAPI output, and defect non-disclosure.
 
 ## Review checklist
 
 - One contract drives server, OpenAPI, and client behavior.
-- All endpoint input/output/error alternatives are schema-declared.
-- Rc.110 names and status semantics are used; no stale decode-error,
-  `addError`, `addSuccess`, or `Schema.Void`-means-204 assumptions remain.
+- All endpoint input/output/error alternatives are schema-declared, including
+  streaming and header-bearing responses.
 - Transport middleware and domain services retain separate responsibilities.
-- The Fetch/Cloudflare composition has explicit binding, lifetime, and
-  post-response-work semantics.
+- The Fetch conversion is one boundary; platform runtime semantics live in the
+  platform guide.
+- API names have been verified against the installed `unstable/httpapi`
+  version.
+
+[^src-httpapi-endpoint]: `packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts` at `effect@4.0.0-rc.110`; no `addError`/`addSuccess` exists anywhere under `unstable/httpapi`.
+[^src-httpapi-schema]: `packages/effect/src/unstable/httpapi/HttpApiSchema.ts` at `effect@4.0.0-rc.110` — `NoContent` (204), success default 200, `WithHeaders`/`encodeToWithHeaders`, `StreamSse`, `StreamUint8Array`.
+[^src-httpapi-middleware]: `packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts` at `effect@4.0.0-rc.110`; applied in opencode@2cba7e2 `packages/server/src/middleware/schema-error.ts`.
+[^docs-http-endpoints]: `ai-docs/src/51_http-server/fixtures/api/Users.ts` at `effect@4.0.0-rc.110`.
+[^docs-http-server]: `ai-docs/src/51_http-server/10_basics.ts` at `effect@4.0.0-rc.110`; `HttpRouter.toWebHandler` at `packages/effect/src/unstable/http/HttpRouter.ts`.
+[^docs-http-testing]: `ai-docs/src/51_http-server/20_testing.ts` and `packages/effect/src/unstable/httpapi/HttpApiTest.ts` at `effect@4.0.0-rc.110`.

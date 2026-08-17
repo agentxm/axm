@@ -40,20 +40,22 @@ Bundle extensions by defining the pack dependencies in `pack.json`. Each key use
 
 ```
 "dependencies": {
-  "@acme/skills/brick-building": "^1.2.3",
-  "@acme/subagents/brick-layer": "^1.0.0"
+  "@acme/skills/brick-building": ">=1.2.3",
+  "@acme/subagents/brick-layer": ">=1.0.0"
 }
 ```
 
-`axm packs add` writes a caret range from the member's resolved version. This
-accepts compatible releases while preserving the version intent observed when
-the member was added. Caret boundaries follow SemVer: `^0.0.4` stops before
-`0.0.5`, `^0.4.2` stops before `0.5.0`, and `^1.2.3` stops before `2.0.0`.
-That means `0.0.x` members need a constraint review for every patch release and
-other pre-1.0 members need one for every minor release. Review compatibility
-and deliberately replace the range at those points; AXM does not widen it
-automatically. A manually authored `"*"` remains valid, but is not the generated
-default.
+`axm packs add` writes a lower-bound range from the member's resolved version.
+This tracks the latest published member while recording the version observed
+when the member was added, so publishing a new member release does not require
+republishing the pack.
+
+A narrower hand-authored range stays valid and is never widened automatically.
+Prefer that only when a member release is known to break the pack, and note the
+SemVer caret boundaries when you do: `^0.0.4` stops before `0.0.5`, `^0.4.2`
+stops before `0.5.0`, and `^1.2.3` stops before `2.0.0`. For pre-1.0 members a
+caret is effectively a pin to the current patch or minor, so every later member
+release needs a manual constraint review.
 
 Pack `dependencies` are install-time constraints: AXM selects and installs a
 member version satisfying each range. The common manifest `packages` field is

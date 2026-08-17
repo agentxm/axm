@@ -13,6 +13,7 @@ import { AppError, makeAppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
   parseExtensionFqnParts,
@@ -151,33 +152,25 @@ export const KnowledgeManagerLive = Layer.effect(
       ref: KnowledgeExtensionRef,
       options?: {
         readonly baseDir?: string;
-        readonly canonicalPath?: string;
-        readonly force?: boolean;
+        readonly destinationPath?: string;
       },
     ) => {
-      const canonicalPath = options?.canonicalPath ?? canonicalPathForRef(ref);
+      const canonicalPath = options?.destinationPath ?? canonicalPathForRef(ref);
       const materializationBaseDir = options?.baseDir ?? baseDir;
       switch (ref.refType) {
         case "registry":
           return Effect.gen(function* () {
-            const lockedVersion = acceptedRegistryVersionForRef(
-              yield* ws.getLockedKnowledgeEntry(ref.knowledge.name),
-              ref,
-            );
             return yield* provide(
               materializeRegistryPackage({
                 baseDir: materializationBaseDir,
-                canonicalPath,
+                destinationPath: canonicalPath,
                 sourceLocation: ref.source.location,
                 owner: ref.owner,
                 type: "knowledge",
                 name: ref.name,
                 version: ref.version,
                 integrity: ref.integrity,
-                force: options?.force ?? false,
-                ...(lockedVersion === undefined ? {} : { lockedVersion }),
                 messages: {
-                  existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
                   integrityMismatchCode: "network",
                   integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
                   tempDirectoryFailureDetail: "Temporary knowledge directory could not be created",
@@ -283,7 +276,7 @@ export const KnowledgeManagerLive = Layer.effect(
       Effect.gen(function* () {
         const canonicalPath = canonicalPathForRef(ref);
         if (ref.refType === "workspace") {
-          const root = yield* materializePackage(ref, { force });
+          const root = yield* materializePackage(ref);
           yield* inspectPackage(root);
           return {
             root,
@@ -291,6 +284,33 @@ export const KnowledgeManagerLive = Layer.effect(
             commit: Effect.void,
             rollback: Effect.void,
           };
+        }
+        // Decide against the canonical tree before staging: the staged path
+        // never exists, so a decision made there would re-extract every time
+        // and revert workspace-owned content on a no-op install.
+        if (ref.refType === "registry") {
+          const lockedVersion = acceptedRegistryVersionForRef(
+            yield* ws.getLockedKnowledgeEntry(ref.knowledge.name),
+            ref,
+          );
+          const reuse = yield* provide(
+            canReuseInstalledPackage({
+              installedPath: canonicalPath,
+              force,
+              integrity: ref.integrity,
+              version: ref.version,
+              ...(lockedVersion === undefined ? {} : { lockedVersion }),
+              existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
+            }),
+          );
+          if (reuse) {
+            return {
+              root: canonicalPath,
+              sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
+              commit: Effect.void,
+              rollback: Effect.void,
+            };
+          }
         }
         const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
@@ -306,8 +326,7 @@ export const KnowledgeManagerLive = Layer.effect(
         );
         const stagedRoot = yield* materializePackage(ref, {
           baseDir: tempDir,
-          canonicalPath: stagedPath,
-          force,
+          destinationPath: stagedPath,
         });
         yield* inspectPackage(stagedRoot).pipe(Effect.tapError(() => removeTemp));
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));

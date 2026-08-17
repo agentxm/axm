@@ -260,8 +260,10 @@ export {
 } from "./managed-file-banner.js";
 
 export {
+  canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
+  type CanReuseInstalledPackageArgs,
   type MaterializeExternalPackageArgs,
   type MaterializeRegistryPackageArgs,
   type RegistryPackageMaterializationMessages,

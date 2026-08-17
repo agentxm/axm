@@ -23,19 +23,70 @@ const registryLocationForClient = (location: URL): string =>
   location.protocol === "file:" ? location.pathname : location.href;
 
 export interface RegistryPackageMaterializationMessages {
-  readonly existsFailureDetail: (canonicalPath: string) => string;
   readonly integrityMismatchDetail: string;
   readonly integrityMismatchCode: AppErrorCode;
   readonly tempDirectoryFailureDetail: string;
-  readonly createDirectoryFailureDetail: (canonicalPath: string) => string;
+  readonly createDirectoryFailureDetail: (destinationPath: string) => string;
   readonly inspectExtractedFailureDetail: string;
   readonly copyEntryFailureDetail: (entry: string) => string;
   readonly copyEntryFailureCode: AppErrorCode;
 }
 
+export interface CanReuseInstalledPackageArgs {
+  /**
+   * Canonical installed tree for this extension. Always the workspace location
+   * the extension is installed to — never a staging destination, whose absence
+   * would make every install look like a first install.
+   */
+  readonly installedPath: string;
+  /** Caller demanded an unconditional re-materialization. */
+  readonly force: boolean;
+  /** Pinned archive integrity carried by the ref being installed. */
+  readonly integrity: Option.Option<string>;
+  /** Exact version requested by the ref being installed. */
+  readonly version: Version | VersionRange;
+  /** Resolved version recorded in the current lockfile entry, when any. */
+  readonly lockedVersion?: string;
+  readonly existsFailureDetail: (installedPath: string) => string;
+}
+
+/**
+ * Decide whether the installed tree already satisfies the requested ref, so no
+ * archive needs to be fetched or written.
+ *
+ * Callers that stage into a temporary directory must call this against the
+ * canonical installed path before staging: the decision is about the installed
+ * tree, while `materializeRegistryPackage` only answers where bytes go.
+ */
+export const canReuseInstalledPackage = (args: CanReuseInstalledPackageArgs) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const canonicalExists = yield* fs.exists(args.installedPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: args.existsFailureDetail(args.installedPath),
+          cause: error,
+        }),
+      ),
+    );
+    return shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: args.force,
+      hasIntegrity: Option.isSome(args.integrity),
+      refVersion: args.version,
+      lockedVersion: args.lockedVersion,
+    });
+  });
+
 export interface MaterializeRegistryPackageArgs {
   readonly baseDir: string;
-  readonly canonicalPath: string;
+  /**
+   * Directory that receives the extracted package bytes. Equals the canonical
+   * installed path for in-place installs, and a staging directory for callers
+   * that swap the tree into place after validating it.
+   */
+  readonly destinationPath: string;
   readonly sourceLocation: URL;
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -43,36 +94,21 @@ export interface MaterializeRegistryPackageArgs {
   readonly version: Version | VersionRange;
   readonly integrity: Option.Option<string>;
   readonly messages: RegistryPackageMaterializationMessages;
-  /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
-  readonly force?: boolean;
-  /** Resolved version recorded in the current lockfile entry, when any. */
-  readonly lockedVersion?: string;
 }
 
+/**
+ * Fetch, verify, and extract a registry package into `destinationPath`.
+ *
+ * Always writes. Whether new bytes are needed at all is
+ * `canReuseInstalledPackage`'s decision, which the caller makes against the
+ * canonical installed path before choosing a destination.
+ */
 export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    yield* validatePathSafety(args.baseDir, args.canonicalPath);
-
-    const canonicalExists = yield* fs.exists(args.canonicalPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: args.messages.existsFailureDetail(args.canonicalPath),
-          cause: error,
-        }),
-      ),
-    );
-    const useExisting = shouldReuseCanonicalInstall({
-      canonicalExists,
-      force: args.force === true,
-      hasIntegrity: Option.isSome(args.integrity),
-      refVersion: args.version,
-      lockedVersion: args.lockedVersion,
-    });
-    if (useExisting) return args.canonicalPath;
+    yield* validatePathSafety(args.baseDir, args.destinationPath);
 
     const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
     const { archive } = yield* client.getExtensionPackage({
@@ -113,21 +149,21 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
     );
     yield* Effect.gen(function* () {
       yield* extractZip(archive, tmpDir);
-      yield* protectWorkspacePath(args.canonicalPath);
-      yield* fs.remove(args.canonicalPath, { recursive: true, force: true }).pipe(
+      yield* protectWorkspacePath(args.destinationPath);
+      yield* fs.remove(args.destinationPath, { recursive: true, force: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
-            detail: `Failed to replace canonical package at ${args.canonicalPath}`,
+            detail: `Failed to replace canonical package at ${args.destinationPath}`,
             cause: error,
           }),
         ),
       );
-      yield* fs.makeDirectory(args.canonicalPath, { recursive: true }).pipe(
+      yield* fs.makeDirectory(args.destinationPath, { recursive: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
             code: "validation",
-            detail: args.messages.createDirectoryFailureDetail(args.canonicalPath),
+            detail: args.messages.createDirectoryFailureDetail(args.destinationPath),
             cause: error,
           }),
         ),
@@ -144,7 +180,7 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
       yield* Effect.forEach(
         entries,
         (entry) =>
-          fs.copy(path.join(tmpDir, entry), path.join(args.canonicalPath, entry)).pipe(
+          fs.copy(path.join(tmpDir, entry), path.join(args.destinationPath, entry)).pipe(
             Effect.mapError((error) =>
               makeAppError({
                 code: args.messages.copyEntryFailureCode,
@@ -160,7 +196,7 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
       Effect.tap(() => cleanup),
     );
 
-    return args.canonicalPath;
+    return args.destinationPath;
   });
 
 export interface MaterializeExternalPackageArgs {

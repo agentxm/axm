@@ -15,6 +15,11 @@
  * Decide whether a registry install may reuse the existing canonical tree
  * instead of re-downloading and re-extracting the archive.
  *
+ * `canonicalExists` must describe the canonical installed tree. Probing a
+ * staging destination instead makes it permanently false, which silently
+ * defeats the reuse contract above; prefer `canReuseInstalledPackage`, which
+ * takes the installed path by name.
+ *
  * - `force` always re-materializes (the internal repair path for `--reinstall` installs
  *   and lint autofix reinstalls).
  * - Refs without integrity (synthetic refs from publish) reuse an existing

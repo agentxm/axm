@@ -33,6 +33,7 @@ import {
   enabledConfiguredEntries,
   formatFqn,
   materializeExternalPackage,
+  canReuseInstalledPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { activeContributors } from "../projection/index.js";
@@ -413,30 +414,40 @@ export const HookManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
       Effect.gen(function* () {
+        const canonicalPath = path.join(
+          baseDir,
+          REGISTRY_EXTENSIONS_DIR,
+          ref.owner,
+          HOOK_EXTENSION_DIR,
+          ref.name,
+        );
         const lockedVersion = acceptedRegistryVersionForRef(
           yield* ws.getLockedHookEntry(ref.hook.name),
           ref,
         );
+        const reuse = yield* provide(
+          canReuseInstalledPackage({
+            installedPath: canonicalPath,
+            force: false,
+            integrity: ref.integrity,
+            version: ref.version,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            existsFailureDetail: (target) =>
+              `Failed to check if canonical hook package path exists: ${target}`,
+          }),
+        );
+        if (reuse) return canonicalPath;
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
-            canonicalPath: path.join(
-              baseDir,
-              REGISTRY_EXTENSIONS_DIR,
-              ref.owner,
-              HOOK_EXTENSION_DIR,
-              ref.name,
-            ),
+            destinationPath: canonicalPath,
             sourceLocation: ref.source.location,
             owner: ref.owner,
             type: "hook",
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
-            ...(lockedVersion === undefined ? {} : { lockedVersion }),
             messages: {
-              existsFailureDetail: (canonicalPath) =>
-                `Failed to check if canonical hook package path exists: ${canonicalPath}`,
               integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
               tempDirectoryFailureDetail:

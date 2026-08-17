@@ -7,24 +7,9 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import {
-  decodeExtensionNameSync,
-  decodeHandleSync,
-  materializeExternalPackage,
-  materializeRegistryPackage,
-  type RegistryPackageMaterializationMessages,
-} from "./index.js";
+import { canReuseInstalledPackage, materializeExternalPackage } from "./index.js";
 
-const messages: RegistryPackageMaterializationMessages = {
-  existsFailureDetail: (canonicalPath) => `failed to check ${canonicalPath}`,
-  integrityMismatchCode: "internal",
-  integrityMismatchDetail: "integrity mismatch",
-  tempDirectoryFailureDetail: "temp failed",
-  createDirectoryFailureDetail: (canonicalPath) => `failed to create ${canonicalPath}`,
-  inspectExtractedFailureDetail: "inspect failed",
-  copyEntryFailureCode: "validation",
-  copyEntryFailureDetail: (entry) => `copy failed ${entry}`,
-};
+const existsFailureDetail = (installedPath: string) => `failed to check ${installedPath}`;
 
 describe("package materialization helpers", () => {
   let tempDir: string;
@@ -46,7 +31,7 @@ describe("package materialization helpers", () => {
   it.effect("reuses an existing registry canonical package when integrity is absent", () =>
     run(
       Effect.gen(function* () {
-        const canonicalPath = nodePath.join(
+        const installedPath = nodePath.join(
           workspaceRoot,
           ".axm",
           "extensions",
@@ -54,25 +39,82 @@ describe("package materialization helpers", () => {
           "hooks",
           "review",
         );
-        nodeFs.mkdirSync(canonicalPath, { recursive: true });
-        nodeFs.writeFileSync(nodePath.join(canonicalPath, "review.md"), "existing");
+        nodeFs.mkdirSync(installedPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "existing");
 
-        const result = yield* materializeRegistryPackage({
-          baseDir: workspaceRoot,
-          canonicalPath,
-          sourceLocation: pathToFileURL(nodePath.join(tempDir, "missing-registry")),
-          owner: decodeHandleSync("@acme"),
-          type: "hook",
-          name: decodeExtensionNameSync("review"),
-          version: decodeVersionSync("1.0.0"),
+        const reuse = yield* canReuseInstalledPackage({
+          installedPath,
+          force: false,
           integrity: Option.none(),
-          messages,
+          version: decodeVersionSync("1.0.0"),
+          existsFailureDetail,
         });
 
-        expect(result).toBe(canonicalPath);
-        expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
-          "existing",
+        expect(reuse).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("decides reuse from the installed tree, not the staging destination", () =>
+    run(
+      Effect.gen(function* () {
+        // Regression: knowledge installs extract into a temporary staging
+        // directory and swap it into place. When the reuse decision was made
+        // against that staging path it was always absent, so every update
+        // re-extracted and reverted workspace-owned edits.
+        const installedPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "knowledge",
+          "handbook",
         );
+        nodeFs.mkdirSync(installedPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(installedPath, "index.md"), "locally formatted");
+        const stagingDestination = nodePath.join(tempDir, "staging", "staged");
+
+        const reuse = yield* canReuseInstalledPackage({
+          installedPath,
+          force: false,
+          integrity: Option.some("sha512-pinned"),
+          version: decodeVersionSync("0.3.0"),
+          lockedVersion: "0.3.0",
+          existsFailureDetail,
+        });
+
+        expect(reuse).toBe(true);
+        expect(nodeFs.existsSync(stagingDestination)).toBe(false);
+        expect(nodeFs.readFileSync(nodePath.join(installedPath, "index.md"), "utf8")).toBe(
+          "locally formatted",
+        );
+      }),
+    ),
+  );
+
+  it.effect("re-materializes when the installed tree is behind the requested version", () =>
+    run(
+      Effect.gen(function* () {
+        const installedPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "knowledge",
+          "handbook",
+        );
+        nodeFs.mkdirSync(installedPath, { recursive: true });
+
+        const reuse = yield* canReuseInstalledPackage({
+          installedPath,
+          force: false,
+          integrity: Option.some("sha512-pinned"),
+          version: decodeVersionSync("0.4.0"),
+          lockedVersion: "0.3.0",
+          existsFailureDetail,
+        });
+
+        expect(reuse).toBe(false);
       }),
     ),
   );

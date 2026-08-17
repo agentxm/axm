@@ -27,6 +27,7 @@ import {
   enabledConfiguredEntries,
   formatFqn,
   materializeExternalPackage,
+  canReuseInstalledPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { activeContributors } from "../projection/index.js";
@@ -183,31 +184,40 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
       Effect.gen(function* () {
+        const canonicalPath = path.join(
+          baseDir,
+          REGISTRY_EXTENSIONS_DIR,
+          ref.owner,
+          RULE_EXTENSION_DIR,
+          ref.name,
+        );
         const lockedVersion = acceptedRegistryVersionForRef(
           yield* ws.getLockedRuleEntry(ref.rule.name),
           ref,
         );
+        const reuse = yield* provide(
+          canReuseInstalledPackage({
+            installedPath: canonicalPath,
+            force,
+            integrity: ref.integrity,
+            version: ref.version,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            existsFailureDetail: (target) =>
+              `Failed to check if canonical rule package path exists: ${target}`,
+          }),
+        );
+        if (reuse) return canonicalPath;
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
-            canonicalPath: path.join(
-              baseDir,
-              REGISTRY_EXTENSIONS_DIR,
-              ref.owner,
-              RULE_EXTENSION_DIR,
-              ref.name,
-            ),
+            destinationPath: canonicalPath,
             sourceLocation: ref.source.location,
             owner: ref.owner,
             type: "rule",
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
-            force,
-            ...(lockedVersion === undefined ? {} : { lockedVersion }),
             messages: {
-              existsFailureDetail: (canonicalPath) =>
-                `Failed to check if canonical rule package path exists: ${canonicalPath}`,
               integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
               tempDirectoryFailureDetail:

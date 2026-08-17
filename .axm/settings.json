@@ -22,12 +22,5 @@
   "packs": {
     "field-notes": "@craigsmitham/packs/field-notes",
     "effect-v4": "@craigsmitham/packs/effect-v4"
-  },
-  "lint": {
-    "rules": {
-      "workspace/agents-detected-declared": "off",
-      "workspace/instructions-target-current": "off",
-      "workspace/release-age-exclude-owner-trusted": "off"
-    }
   }
 }

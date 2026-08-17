@@ -23,9 +23,7 @@ an exact FQN (`@owner/skills/name`), an owner/type pattern
 (`@owner/skills/*`), or an owner pattern (`@owner/*`). Project settings take
 precedence over user settings, including an explicit empty array. AXM resolves
 the Registry index first and matches its authoritative owner, type, and name;
-an excluded pack exempts its complete Registry dependency graph. `axm lint`
-warns when an excluded publisher differs from the workspace's declared
-`owner`.
+an excluded pack exempts its complete Registry dependency graph.
 
 An update chooses the newest version that both satisfies the configured range
 and has reached the minimum age. If a newer matching version is still too new,

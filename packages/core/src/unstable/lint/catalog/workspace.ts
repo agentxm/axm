@@ -66,7 +66,6 @@ import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
 import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-target-compatible.js";
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
-import { releaseAgeExcludeOwnerTrustedRule } from "./workspace/release-age-exclude-owner-trusted.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 
@@ -86,7 +85,6 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
-  releaseAgeExcludeOwnerTrustedRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,
@@ -127,7 +125,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
-  releaseAgeExcludeOwnerTrustedRule,
   lockfileValidRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,

@@ -42,12 +42,18 @@ instruction-file capability.
 AXM owns the aggregate Rule region, not the surrounding instruction file. User
 prose and other independently marked regions coexist outside it. Shared marker,
 alias, collision, and disablement behavior follows the instruction-file
-contract. Removing the last active Rule removes the owned Rule region, never
-the remaining authored content or unrelated contribution regions.
+contract.
+
+The region is an aggregate ownership unit under the shared
+[output reconciliation contract](../workspace/overview.md#output-reconciliation).
+Its contributor set is every active Rule the desired state reaches, whether
+directly declared or contributed by a Pack, so at every committed state the
+region contains every active reachable Rule exactly once, in deterministic
+order. Removing the last active Rule removes the owned Rule region, never the
+remaining authored content or unrelated contribution regions.
 
 ## Invariants
 
-- Rule composition is deterministic and does not duplicate contributions.
 - Activation and global instruction management remain separate choices.
 - Disabled rules retain canonical content but contribute no active guidance.
 - Rule removal never affects unrelated instruction contributors.
@@ -57,4 +63,6 @@ the remaining authored content or unrelated contribution regions.
 Behavior tests prove deterministic composition, ordering, activation,
 instruction-management interaction, surrounding prose and contribution
 preservation, formatter changes, safe removal, and idempotent reconciliation.
-Shared instruction-file tests own marker and alias behavior.
+The shared [multi-route contributor coverage](overview.md#testing-strategy)
+applies to the Rule region. Shared instruction-file tests own marker and alias
+behavior.

@@ -63,6 +63,15 @@ AXM-owned regions. Each contribution region is a derived output with its own
 type-specific identity. AXM owns an alias only when it created the alias for the
 configured canonical source and can still prove that relationship.
 
+A contribution region is owned by its contributing capability, not by any
+single extension. It is an aggregate ownership unit under the shared
+[output reconciliation contract](overview.md#output-reconciliation): its
+content is the deterministic rendering of every enabled extension the desired
+state routes into it, whether the route is a direct declaration or Pack
+membership. Enabling, disabling, or removing one contributing extension
+re-renders the region from the remaining set; it never rewrites the region to
+contain only the extension being operated on.
+
 An absent region may be created when instruction management authorizes it. A
 one-sided, duplicate, nested, or malformed marker sequence makes ownership
 ambiguous and blocks the affected reconciliation. An unowned file at a required
@@ -79,12 +88,15 @@ contributors.
 - Canonical authored prose survives enablement, reconciliation, and disablement.
 - Each managed region is identifiable independently of the surrounding file
   and other regions.
+- Each managed region contains every desired contribution routed into it,
+  exactly once, regardless of which operation last wrote the region.
 - Composition order is deterministic and repeated reconciliation adds no
   duplicate content.
 - Agent aliases refer to the selected canonical source without becoming new
   canonical copies.
-- Disabling a contributor removes only its owned region; disabling instruction
-  management removes only AXM-owned regions and aliases.
+- Disabling a contributing capability removes only its owned region; disabling
+  one contributing extension removes only that extension's contribution; and
+  disabling instruction management removes only AXM-owned regions and aliases.
 
 ## Testing strategy
 

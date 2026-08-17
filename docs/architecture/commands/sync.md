@@ -82,10 +82,17 @@ of decisions at its smallest independently mutable ownership unit:
 | --------------------------------------------------- | ----------------------------------------------------- |
 | Required and missing                                | Create it with durable unit-local ownership evidence. |
 | Required, AXM-owned, and stale                      | Restore it.                                           |
+| Required, AXM-owned, and incomplete                 | Restore it from its complete contributor set.         |
 | No longer required and AXM-owned                    | Remove it.                                            |
 | Unowned and independently coexisting                | Preserve it and plan no change.                       |
 | Required unit occupied by unowned content           | Block the affected closure and preserve it.           |
 | Ownership evidence missing, malformed, or ambiguous | Block the affected closure and preserve the content.  |
+
+Sync decides these cases from the unit's own ownership evidence and content, as
+[projection facts](../workspace/invariants.md#projection-facts) define.
+Installed canonical content is not evidence that the unit derived from it
+exists, is complete, or is current. An incomplete unit is work for sync to
+reconcile, never a no-op.
 
 Path, name, matching bytes, or ownership of a surrounding file never prove
 ownership of the unit. AXM does not adopt equivalent native content. Manual

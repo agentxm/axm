@@ -20,9 +20,9 @@ URL namespace component or a repository namespace, remain unchanged.
 ## Managed output
 
 A file, configuration entry, directory, alias, or managed region AXM derives
-from desired workspace state. A projection is a managed output derived from
-canonical extension content. Other outputs, such as inline MCP entries and
-instruction aliases, may derive directly from workspace configuration.
+from desired workspace state. Most managed outputs derive from canonical
+extension content; others, such as inline MCP entries and instruction aliases,
+derive directly from workspace configuration.
 
 An **agent output** is a managed output in the form and location a configured
 agent expects. Other managed outputs may belong to a shared workspace surface.
@@ -80,6 +80,14 @@ An agent may be supported by AXM or detected on the machine without being
 configured for the workspace. Detection and support do not create configuration
 or grant authority over the agent's native files.
 
+## Contributor set
+
+The set of extensions whose realization one ownership unit carries, derived
+only from the desired-state graph — settings plus Pack expansion. A
+single-contributor unit carries exactly one extension. An aggregate unit
+carries every extension its membership rule reaches and is always written as a
+whole from that set.
+
 ## External extension
 
 An extension AXM acquired from a registry or another supported source, rather
@@ -95,11 +103,23 @@ and allowed fields depend on the extension type. A workspace-authored manifest
 is editable workspace configuration; a manifest acquired from an external
 source is managed extension content.
 
+## Ownership unit
+
+The smallest native unit of a managed output that AXM can own, observe, and
+change independently — a directory, file, named entry, or marked region. Each
+extension type declares its units and whether each carries one contributor or
+many; the ownership table in the
+[extension architecture](extensions/overview.md#ownership-and-coexistence) is
+authoritative.
+
 ## Projection
 
-An agent output derived from canonical extension content. A projection is
-AXM-owned only when AXM created and still owns it; occupying an expected path
-does not establish ownership.
+An AXM-owned managed output unit derived from desired workspace state, whether
+from canonical extension content or, as with inline MCP entries and
+instruction aliases, directly from workspace configuration. All projections
+follow the same ownership, reconciliation, and projection-fact rules. A
+projection is AXM-owned only when AXM created and still owns it; occupying an
+expected path does not establish ownership.
 
 ## Source
 

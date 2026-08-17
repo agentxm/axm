@@ -99,17 +99,29 @@ treating every type as an AXM-specific file format.
 ## Ownership and coexistence
 
 Each extension type defines the smallest native unit AXM can own. That unit is
-the boundary for observation, collision detection, reconciliation, and removal:
+the boundary for observation, collision detection, reconciliation, and removal.
+A unit's **contributor set** is the set of extensions whose realization it
+carries. A **single-contributor unit** carries exactly one extension; an
+**aggregate unit** carries every extension its membership rule reaches:
 
-| Type       | Native ownership unit                                   |
-| ---------- | ------------------------------------------------------- |
-| Skill      | One agent-facing Skill directory                        |
-| MCP Server | One named native configuration entry                    |
-| Subagent   | One native profile file or named entry                  |
-| Rule       | The managed Rule contribution region                    |
-| Hook       | One identifiable hook entry or the Hook fallback region |
-| Knowledge  | The derived index and the managed discovery region      |
-| Pack       | None; a Pack realizes only desired-state relationships  |
+| Type       | Native ownership unit                                        | Contributors | Contributor set                                    |
+| ---------- | ------------------------------------------------------------ | ------------ | -------------------------------------------------- |
+| Skill      | One agent-facing Skill directory                             | One          | That Skill                                         |
+| MCP Server | One named native configuration entry                         | One          | That MCP Server or inline definition               |
+| Subagent   | One native profile file or named entry                       | One          | That Subagent                                      |
+| Hook       | The AXM-owned hook entries in one agent's hook configuration | Many         | Every active Hook realized natively for that agent |
+| Hook       | The Hook fallback region                                     | Many         | Every active Hook realized through the fallback    |
+| Rule       | The managed Rule contribution region                         | Many         | Every active Rule                                  |
+| Knowledge  | The managed discovery region                                 | Many         | Every active bundle admitted to publish discovery  |
+| Pack       | None; a Pack realizes only desired-state relationships       | —            | —                                                  |
+
+A single-contributor unit's content is a function of one extension, so
+per-extension work composes safely. An aggregate unit's content is a function
+of its whole contributor set, so it is always rendered whole from that set; no
+operation can produce correct content from one member's view. This table is
+authoritative for each unit's classification. A type document that declares an
+aggregate unit states its exact membership rule, and a new type or realization
+target states whether its unit carries one extension or many before it ships.
 
 Different unowned units may coexist when the native format preserves them
 independently. The same required unit, malformed ownership evidence, or a format
@@ -136,6 +148,9 @@ invoked type-specific import contract is outside this recovery boundary.
   transaction, or lifecycle rules.
 - An output is changed or removed only while AXM can establish authority over
   that type's ownership unit.
+- An operation acting on one extension writes only the units that carry it.
+  When such a unit is aggregate, the operation re-renders it from the complete
+  contributor set, leaving every other contributor's content unchanged.
 - Unsupported realization blocks only the affected work and does not justify
   a lossy fallback.
 
@@ -149,3 +164,13 @@ architectural differences: canonical form, supported sources, ownership unit,
 projection or merge behavior, type-specific capabilities, and unsupported
 targets. Behavior tests remain the source of truth for exact scenarios and
 formats.
+
+Every aggregate unit is additionally proved over a contributor set reached by
+more than one route: at least one direct declaration and members of two
+different Packs. Those cases prove that installing, updating, activating,
+deactivating, and removing one contributor leaves every other reachable
+contributor rendered exactly once, and that a unit missing a reachable
+contributor is reported and reconciled rather than treated as current. The
+conformance suite derives this obligation from the shared unit registry, so a
+type declaring an aggregate unit without that coverage fails the suite's
+completeness gate.

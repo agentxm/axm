@@ -69,6 +69,12 @@ itself merge otherwise independent closures. Cleanup that requires a complete
 desired graph is a separate maintenance closure and does not run when graph
 construction is incomplete.
 
+Contributors to one aggregate ownership unit share that unit and therefore join
+one closure. An operation touching several of them plans one write of the unit
+from the complete contributor set rather than one write per contributor, so no
+two steps in a mutation write the same unit and no intermediate state renders a
+subset.
+
 ## Mutation boundary
 
 Application takes one atomic process lock for the selected AXM workspace
@@ -89,7 +95,7 @@ committed.
 Authoritative files publish through atomic replacement. Canonical directories
 publish as complete directories rather than partially populated destinations.
 Read-modify-write adapters validate their independently owned entry or region
-and preserve surrounding unowned content.
+and preserve all surrounding content, owned and unowned.
 
 ## Interruption and recovery
 
@@ -112,12 +118,30 @@ for shared outputs such as instruction files. Each adapter owns observation,
 serialization, and durable ownership evidence for its smallest independently
 mutable unit—not workspace intent, resolution, or canonical authority.
 
-Every adapter distinguishes missing, stale, obsolete, divergent, unowned
-collision, and ambiguous ownership. AXM creates, restores, or removes only
-proven owned units. Unowned or ambiguous units are preserved and block only
+Every adapter distinguishes missing, incomplete, stale, obsolete, divergent,
+unowned collision, and ambiguous ownership. AXM creates, restores, or removes
+only proven owned units. Unowned or ambiguous units are preserved and block only
 their affected closure.
 
+An adapter receives the complete contributor set its unit requires from shared
+planning; it does not derive membership from settings, lock state, canonical
+content, or the unit's current content. When the desired-state graph cannot be
+resolved completely, the write is blocked and the unit is left as it stands
+rather than rewritten from partial knowledge.
+
+An operation's postcondition is established by reading back the units it
+claimed to change, as [projection facts](invariants.md#projection-facts)
+require. Completing the canonical, settings, and lock work for an extension is
+not evidence that its outputs exist or are correct.
+
 ## Structural enforcement
+
+Every ownership unit is declared once in a shared unit registry: its target,
+whether it carries one contributor or many, and its membership rule. That one
+declaration drives planning, reconciliation, projection facts, and the
+conformance suite. Render inputs carrying a complete contributor set are
+constructed only by shared planning code from the desired-state graph, so an
+adapter that could enumerate its own membership has no write path.
 
 Code-package boundaries, workspace service interfaces, plan contracts,
 transaction and atomic-publication tests, adapter conformance, and interruption

@@ -46,12 +46,20 @@ second copy of its knowledge.
 
 ## Ownership and coexistence
 
-AXM owns its derived Knowledge index and the managed discovery region, not
-unrelated workspace documents or the surrounding instruction file. Authored
-prose and other independently marked regions coexist outside the discovery
-region. An absent region may be created when instruction management authorizes
-it. A one-sided, duplicate, or malformed marker sequence makes ownership
-ambiguous and blocks reconciliation.
+AXM owns the managed discovery region, not unrelated workspace documents or
+the surrounding instruction file. Authored prose and other independently marked
+regions coexist outside the discovery region. An absent region may be created
+when instruction management authorizes it. A one-sided, duplicate, or malformed
+marker sequence makes ownership ambiguous and blocks reconciliation. Search
+indexes and concept graphs are derived, rebuildable working state, not native
+ownership units.
+
+The discovery region is an aggregate ownership unit under the shared
+[output reconciliation contract](../workspace/overview.md#output-reconciliation).
+Its contributor set is every active bundle the desired state reaches that the
+workspace's discovery configuration permits to publish, whether reached
+directly or through a Pack. Every write renders that whole set, so one bundle's
+lifecycle never drops another bundle's discovery routing.
 
 A workspace-authored Knowledge bundle may exist without being desired or
 discoverable; it remains authoring inventory. Removing activation strips only

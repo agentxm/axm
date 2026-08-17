@@ -99,6 +99,13 @@ workspace-authored, but ordinary reconciliation also does not erase those
 edits. AXM does not adopt unowned native content. Manual preservation,
 relocation, or removal owns recovery from an unowned collision.
 
+Authority to change a unit is not authority to decide its contents. Where one
+owned unit carries the realization of several extensions, its required content
+follows from complete desired state, so an operation acting on one extension
+still writes what all of them require. Proving ownership while writing from a
+narrower view of desired state destroys the other extensions' realization
+without ever violating an ownership rule.
+
 ## Recover through ordinary operations
 
 Known invalid states should be recoverable through the command that expresses

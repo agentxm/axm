@@ -182,10 +182,32 @@ authority. Every agent adapter and workspace-surface writer follows the same
 rules:
 
 - Create a missing AXM-owned projection.
-- Restore a stale AXM-owned projection.
+- Restore a stale or incomplete AXM-owned projection.
 - Remove an obsolete AXM-owned projection.
 - Preserve independently coexisting unowned content.
 - Block on an unowned collision or ambiguous ownership and never overwrite it.
+
+An owned unit's required content is the deterministic rendering of its complete
+contributor set: every enabled extension the desired state routes into that
+unit, each represented exactly once. Ownership decides what AXM may change; the
+contributor set decides what the unit must then contain.
+[Extensions](../extensions/overview.md) defines each type's units and the
+membership rule for each contributor set.
+
+Writers enumerate contributors from the fully derived desired-state graph —
+settings plus Pack expansion — never from raw settings entries, which omit
+Pack-contributed members. An extension reached only through a Pack contributes
+exactly as a directly declared one does. Lock rows, canonical content, and the
+unit's own prior content never define membership. An operation that cannot
+enumerate the complete contributor set writes nothing to that unit rather than
+a partial rendering. Whether a written unit is current is a separate question,
+answered by [projection facts](invariants.md#projection-facts) from the unit
+itself.
+
+Removing one contributor removes only that contributor's representation. A unit
+is removed entirely only when its contributor set becomes empty, mirroring the
+retention rule that an extension survives while any desired route still reaches
+it.
 
 Unowned native content may coexist only when the extension type establishes an
 independent boundary. Content occupying a required unit is a collision; content

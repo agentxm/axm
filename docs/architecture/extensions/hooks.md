@@ -34,15 +34,24 @@ otherwise the target is unsupported.
 
 ## Ownership and coexistence
 
-The native ownership unit is one independently identifiable hook entry or
-group. Other events, groups, and entries coexist, and their relative order and
-content remain unchanged. Recognizing ownership from an executable path or
-command text alone is insufficient.
+Hooks realize through two aggregate ownership units, both under the shared
+[output reconciliation contract](../workspace/overview.md#output-reconciliation).
 
-If a native format cannot identify AXM's entry, preserve unrelated ordering, or
-represent the Hook without merging ownership, reconciliation is unsupported.
-Fallback instructions use one managed Hook region under the shared
+The native unit is the set of AXM-owned entries in one configured agent's hook
+configuration. Its contributor set is every active Hook the desired state
+reaches that realizes natively for that agent. Unrelated events, groups, and
+entries coexist, and their relative order and content remain unchanged. Each
+owned entry stays traceable to its one Hook, but no entry is written in
+isolation: every write renders the whole set. Recognizing ownership from an
+executable path or command text alone is insufficient.
+
+The Hook fallback region is the shared-instruction-surface unit. Its
+contributor set is every active Hook the desired state reaches that realizes
+through the fallback. It is written under the shared
 [instruction-file](../workspace/instruction-files.md) ownership rules.
+
+If a native format cannot identify AXM's entries, preserve unrelated ordering,
+or represent the Hook without merging ownership, reconciliation is unsupported.
 
 ## Invariants
 
@@ -57,4 +66,6 @@ Fallback instructions use one managed Hook region under the shared
 Behavior tests prove event and target capability checks, independent native
 entries, same-entry collisions, ordering preservation, ownership provenance,
 fallback-region boundaries, executable-content preservation, activation, safe
-removal, rollback, and repeated reconciliation.
+removal, rollback, and repeated reconciliation. The shared
+[multi-route contributor coverage](overview.md#testing-strategy) applies to
+both the native unit and the fallback region.

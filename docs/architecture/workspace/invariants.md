@@ -60,12 +60,22 @@ additional operational evidence without expanding lint's responsibility.
 Publish validation remains separate and may impose fixed distribution
 requirements that do not redefine local workspace validity.
 
+Inspection surfaces are bound by the same facts. If an extension's required
+contribution to an owned unit is absent or stale, a projection fact records it.
+Because inventory, lint, and sync consume the same facts, inventory can never
+report an extension as realized while lint and sync find nothing to reconcile.
+
 ## Authority and reachability facts
 
 The desired-state graph is the sole reachability authority. It derives direct
 routes, activation, and Pack dependency routes from settings and authored
 manifests. Lock rows, Pack-member maps, canonical content, and native output
 never create reachability or cleanup authority.
+
+This authority binds writers as well as evaluators. Any operation that creates,
+restores, or removes an owned output enumerates the contributors it renders
+from the fully derived desired-state graph — settings plus Pack expansion —
+never from raw settings entries, which omit Pack-contributed members.
 
 Authority facts distinguish conditions a catch-all lifecycle label cannot:
 
@@ -83,6 +93,22 @@ Authority facts distinguish conditions a catch-all lifecycle label cannot:
 Observed name, path, or byte equality may support a fact but never establishes
 authority by itself. Invalid or incompatible settings and lock state fail
 validation.
+
+## Projection facts
+
+The projection fact family is cross-type and relates each owned output unit to
+the contributor set the desired state requires of it. A unit is **incomplete**
+when it is well formed and correctly owned but renders only part of its
+required contributor set. Incomplete is a distinct violation beyond missing,
+stale, obsolete, colliding, or ambiguously owned; without it an aggregate unit
+can lose content while every other predicate remains satisfied.
+
+Evidence for projection facts is read from the output: the contributor
+identities, versions, and content read back from the unit decide which
+contributors it carries and whether each is current. The presence, version, or
+content of the canonical extension content that produced a unit is never
+evidence about the unit, so an extension whose canonical content is installed
+and reachable can still be absent from, or stale in, its projection.
 
 ## Evaluation and isolation
 
@@ -125,11 +151,17 @@ Each entry defines:
 - post-recovery lint and projection state; and
 - second-run idempotence.
 
-The cross-type projection family covers missing, stale, obsolete, unowned
-collision, ambiguous ownership, safe owned removal, authored inventory outside
-desired state, unreachable managed content, and unclassifiable canonical
+The cross-type projection family covers missing, incomplete, stale, obsolete,
+unowned collision, ambiguous ownership, safe owned removal, authored inventory
+outside desired state, unreachable managed content, and unclassifiable canonical
 content wherever applicable. Type-specific tests add native merge, ordering,
 region-boundary, and fallback cases.
+
+Every aggregate unit registers the incomplete case using the shared multi-route
+contributor fixture defined by the
+[extension testing strategy](../extensions/overview.md#testing-strategy), so a
+lifecycle transition affecting one contributor is proved not to drop another
+and an incomplete unit is proved unable to produce a sync no-op.
 
 Cross-cutting adversarial coverage proves:
 
@@ -137,6 +169,8 @@ Cross-cutting adversarial coverage proves:
 - unrelated invalid closures do not block ready progress;
 - authored canonical and unowned native content are never incidentally deleted,
   overwritten, or adopted;
+- a lifecycle transition on one contributor to an aggregate unit never removes,
+  duplicates, or makes stale another reachable contributor;
 - sync does not change authored intent or advance a satisfying lock;
 - lint fix performs no acquisition, lock, canonical, ownership, or projection
   work;

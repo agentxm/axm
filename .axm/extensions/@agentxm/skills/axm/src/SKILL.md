@@ -36,6 +36,8 @@ metadata:
    - `mcp-server/*` → `axm help mcp-schema`
    - `hook/*` → `axm help hook-schema`
    - `pack/*` → `axm help packs`
+   - `workspace/axm-skill-compatible` → `axm help upgrade` and
+     "CLI & skill compatibility" below
    - workspace/config findings → `axm help settings`
 4. **Review Git hooks before editing**: For Git-hook setup, read `axm help
 git-hooks`, inspect the existing hook manager and CI gate, and propose the
@@ -124,6 +126,29 @@ separate capability under `axm rules instructions enable|disable|status`.
 These transitions reconcile the canonical Rules region, every configured alias,
 and the managed `.gitignore` block atomically; preview reported drift with
 `axm sync --preview`, then reconcile it with `axm sync`.
+
+### CLI & skill compatibility
+
+This skill's frontmatter declares the CLI releases it supports
+(`axm.sh/cli-version-range`). When the running CLI falls outside that range,
+`axm lint` reports `workspace/axm-skill-compatible` as an error and strict lint
+exits 1. Never resolve a mismatch by editing that metadata, the skill version,
+or the generated bundled-skill module; release tooling owns the CLI and skill
+as one fixed pair. Realign whichever side is behind, honoring the mutation gate
+in invariant 2:
+
+| Situation                                | Command                                            |
+| ---------------------------------------- | -------------------------------------------------- |
+| CLI older than the skill                 | `axm upgrade`                                      |
+| Skill stale for a newer CLI              | `axm skills update @agentxm/skills/axm`            |
+| No compatible published release resolves | `axm skills install @agentxm/skills/axm --bundled` |
+
+`--bundled` replaces the canonical source at
+`.axm/extensions/@agentxm/skills/axm` with the copy embedded in the running
+CLI. Preview it first, and do not run it in a workspace that authors this
+skill, where it would overwrite in-flight authoring; upgrade the CLI there
+instead. Read `axm help upgrade` before acting on a refused or incomplete
+upgrade.
 
 ### Creating & publishing extensions
 

@@ -787,7 +787,7 @@ const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> =
     collect: workspaceUpdateCollectorsByType[type],
   }));
 
-const makePlan = (
+export const makeWorkspaceUpdatePlan = (
   name: string,
   description: Option.Option<string>,
   steps: ReadonlyArray<PlannedJobStep>,
@@ -797,7 +797,8 @@ const makePlan = (
   _tag: "Plan",
   name,
   description,
-  jobs: [{ concurrency: 1 as const, steps }],
+  executionCapabilities: { rollback: "non-rollbackable" },
+  jobs: [{ concurrency: 1 as const, executionPolicy: "best-effort", steps }],
   ...(releaseAge === undefined ? {} : { releaseAge }),
   ...(sections === undefined ? {} : { sections }),
 });
@@ -851,7 +852,7 @@ export const buildWorkspaceUpdatePlan = (args: {
 
     return {
       _tag: "WorkspaceUpdatePlan",
-      plan: makePlan(
+      plan: makeWorkspaceUpdatePlan(
         args.planName,
         args.planDescription,
         fragments.map((fragment) => fragment.step),

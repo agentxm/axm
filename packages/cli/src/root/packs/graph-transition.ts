@@ -238,9 +238,19 @@ export const validatePackGraphPostcondition = (args: {
         normalizedIdentity(node.identity) !== normalizedIdentity(expected.identity) ||
         (expected.enabled !== undefined && node.enabled !== expected.enabled)
       ) {
+        const expectedPredicate = [
+          `identity ${normalizedIdentity(expected.identity)}`,
+          ...(expected.enabled === undefined
+            ? []
+            : [`activation ${expected.enabled ? "enabled" : "disabled"}`]),
+        ].join(", ");
+        const observedPredicate =
+          node === undefined
+            ? "absent"
+            : `identity ${normalizedIdentity(node.identity)}, activation ${node.enabled ? "enabled" : "disabled"}`;
         return yield* makeAppError({
           code: "internal",
-          detail: `Pack ${expected.identity} did not reach its required desired-state postcondition`,
+          detail: `Pack graph closure ${expected.identity} failed its desired-state predicate: expected ${expectedPredicate}; observed ${observedPredicate}`,
         });
       }
     }
@@ -266,9 +276,30 @@ export const validatePackGraphPostcondition = (args: {
         !hasDirectOrigin ||
         (expected.enabled !== undefined && node.enabled !== expected.enabled)
       ) {
+        const expectedPredicate = [
+          ...(packIdentity === undefined
+            ? []
+            : [`Pack ownership ${normalizedIdentity(packIdentity)}`]),
+          ...(expected.direct === true ? ["direct ownership"] : []),
+          ...(expected.enabled === undefined
+            ? []
+            : [`activation ${expected.enabled ? "enabled" : "disabled"}`]),
+        ].join(", ");
+        const observedPredicate =
+          node === undefined
+            ? "absent"
+            : `origins ${
+                node.origins
+                  .map((origin) =>
+                    origin.type === "pack"
+                      ? `Pack ${normalizedIdentity(origin.pack)}`
+                      : "direct settings",
+                  )
+                  .join(", ") || "none"
+              }, activation ${node.enabled ? "enabled" : "disabled"}`;
         return yield* makeAppError({
           code: "internal",
-          detail: `Pack member ${expected.type} "${expected.name}" did not reach its required desired-state postcondition`,
+          detail: `Pack graph closure ${packIdentity ?? "unknown"} failed the ${expected.type} "${expected.name}" desired-state predicate: expected ${expectedPredicate || "reachable"}; observed ${observedPredicate}`,
         });
       }
     }

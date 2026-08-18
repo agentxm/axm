@@ -4,12 +4,21 @@ import * as path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import {
+  previewOrApplyPlan,
+  type JobStepResult,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
+import { logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
+import { toPlanResolutionResult } from "../../json-output.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import { makeWorkspaceUpdatePlan } from "../update/workspace-update.js";
 import { buildAtomicPackGraphStep } from "./graph-transition.js";
 
 describe("atomic pack graph transition", () => {
@@ -89,6 +98,119 @@ describe("atomic pack graph transition", () => {
             expect(fs.readFileSync(target, "utf8")).toBe("before\n");
           }
         }
+      }),
+    );
+  });
+
+  it.effect("isolates a failed Pack closure from an independent successful update", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
+      wsOptions: { projectRoot: tempDir },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        const workspace = yield* WorkspaceMutations;
+        const failedTarget = path.join(tempDir, ".axm", "extensions", "failed", "content.txt");
+        const healthyTarget = path.join(tempDir, ".axm", "extensions", "healthy", "content.txt");
+        for (const target of [failedTarget, healthyTarget]) {
+          fs.mkdirSync(path.dirname(target), { recursive: true });
+          fs.writeFileSync(target, "before\n");
+        }
+
+        const makeClosure = (
+          label: string,
+          target: string,
+          validate: Effect.Effect<void, ReturnType<typeof makeAppError>>,
+        ) =>
+          buildAtomicPackGraphStep({
+            label,
+            message: `Updated ${label}`,
+            artifact: { path: target, scope: "project", change: "updated" },
+            children: [
+              {
+                coverage: "ineligible",
+                step: {
+                  readiness: "ready",
+                  label: `${label} member`,
+                  run: workspace.runTransaction({
+                    targets: [target],
+                    transition: Effect.sync(() => {
+                      fs.writeFileSync(target, "after\n");
+                      return { result: "success", message: `Updated ${label} member` } as const;
+                    }),
+                    validate: () => Effect.void,
+                  }),
+                },
+              },
+            ],
+            validate,
+          });
+
+        const failed = yield* makeClosure(
+          "@test/packs/failed",
+          failedTarget,
+          Effect.fail(
+            makeAppError({
+              code: "internal",
+              detail:
+                "Pack graph closure @test/packs/failed failed its desired-state predicate: expected activation disabled; observed activation enabled",
+            }),
+          ),
+        );
+        const healthy = yield* makeClosure("@test/packs/healthy", healthyTarget, Effect.void);
+        const plan = makeWorkspaceUpdatePlan(
+          "Update configured extensions",
+          Option.none(),
+          [failed, healthy],
+          undefined,
+          undefined,
+        );
+
+        const resolution = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        });
+        expect(resolution).toMatchObject({
+          _tag: "ExecutedPlan",
+          jobs: [
+            {
+              executionPolicy: "best-effort",
+              steps: [
+                {
+                  label: "@test/packs/failed",
+                  result: {
+                    result: "error",
+                    message: expect.stringContaining("expected activation disabled"),
+                  },
+                },
+                {
+                  label: "@test/packs/healthy",
+                  result: { result: "success" },
+                },
+              ],
+            },
+          ],
+        });
+        expect(fs.readFileSync(failedTarget, "utf8")).toBe("before\n");
+        expect(fs.readFileSync(healthyTarget, "utf8")).toBe("after\n");
+        expect(toPlanResolutionResult(resolution)).toMatchObject({
+          outcome: "partial",
+          appliedCount: 1,
+          failedCount: 1,
+          steps: [
+            {
+              label: "@test/packs/failed",
+              status: "failed",
+              message: expect.stringContaining(
+                "expected activation disabled; observed activation enabled",
+              ),
+            },
+            { label: "@test/packs/healthy", status: "applied" },
+          ],
+        });
+        const logs = logsByTag(rendererState);
+        const humanError = logs.error.join("\n");
+        expect(humanError).toContain("@test/packs/failed");
+        expect(humanError).toContain("expected activation disabled; observed activation enabled");
       }),
     );
   });

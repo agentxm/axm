@@ -20,7 +20,10 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsOptions,
+} from "@agentxm/client-core/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
@@ -1681,6 +1684,122 @@ describe("packs install handler", () => {
               change: "removed",
             },
           ]);
+        }),
+      );
+    });
+
+    it.effect("preserves disabled Pack and member activation while updating", () => {
+      const currentManifest = {
+        owner: "@acme",
+        type: "pack" as const,
+        name: "disabled-pack",
+        version: "1.0.0",
+        dependencies: { "@acme/skills/review": "^2.0.0" },
+      };
+      const nextManifest = {
+        ...currentManifest,
+        version: "2.0.0",
+      };
+      const packRef = {
+        ...makePackRef("disabled-pack", {
+          skills: constraints(nextManifest.dependencies),
+        }),
+        version: exactVersion("2.0.0"),
+      } satisfies PackRef;
+      const currentPackDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "packs",
+        "disabled-pack",
+      );
+      const nextPackDir = path.join(tempDir, "next-disabled-pack");
+      const currentSkillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+      fs.mkdirSync(currentPackDir, { recursive: true });
+      fs.mkdirSync(nextPackDir, { recursive: true });
+      fs.mkdirSync(path.join(currentSkillDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(currentPackDir, "pack.json"), JSON.stringify(currentManifest));
+      fs.writeFileSync(path.join(nextPackDir, "pack.json"), JSON.stringify(nextManifest));
+      fs.writeFileSync(
+        path.join(currentSkillDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "2.0.0" }),
+      );
+      fs.writeFileSync(
+        path.join(currentSkillDir, "src", "SKILL.md"),
+        "---\nname: review\ndescription: Reviews code.\n---\n\n# Review\n",
+      );
+      const currentSkillContentIdentity = computePackageContentHashSync(currentSkillDir);
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: () => Effect.succeed([]),
+        fetch: (ref) =>
+          ref.type === "pack"
+            ? Effect.succeed({ directory: nextPackDir })
+            : Effect.fail(makeAppError({ code: "internal", detail: "Unexpected Pack member" })),
+      };
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        settingsPacks: {
+          "disabled-pack": { source: "@acme/packs/disabled-pack", enabled: false },
+        },
+        settingsSkills: {
+          review: {
+            source: "workspace:@acme/skills/review",
+            enabled: false,
+          },
+        },
+        lockfilePacks: {
+          "disabled-pack": {
+            type: "registry",
+            owner: ACME,
+            name: "disabled-pack",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
+            resolvedSkills: {
+              "@acme/skills/review": {
+                source: "workspace",
+                version: "2.0.0",
+                sourceIdentity: "workspace:@acme/skills/review",
+                contentIdentity: currentSkillContentIdentity,
+              },
+            },
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+          },
+        },
+      });
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const plan = yield* actions.buildPlan({
+            packToInstall: packRef,
+            versionRange: Option.none(),
+          });
+          expect(plan.sections).toContainEqual({
+            title: "Pack activation",
+            items: ["@acme/packs/disabled-pack: preserve disabled activation"],
+          });
+
+          const resolution = yield* previewOrApplyPlan(plan, {
+            execution: preapprovedPlanExecution,
+          });
+          expect(resolution).toMatchObject({ _tag: "ExecutedPlan" });
+
+          const workspace = yield* WorkspaceMutations;
+          const graph = yield* workspace.getDesiredStateGraph();
+          expect(graph.nodes).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ type: "pack", name: "disabled-pack", enabled: false }),
+              expect.objectContaining({ type: "skill", name: "review", enabled: false }),
+            ]),
+          );
         }),
       );
     });

@@ -46,7 +46,10 @@ import {
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  isDesiredExtensionActive,
+} from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
@@ -1088,6 +1091,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         }
         const refs = expansion.refs;
         const graph = authority.graph;
+        const currentPackNode = graph.nodes.find(
+          (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
+        );
+        const preservedPackActivation = currentPackNode?.enabled ?? true;
         // Installing is also the recovery path for a configured pack whose
         // canonical manifest or accepted resolution is unavailable. Preserve
         // fail-closed cleanup by suppressing dropped-member removal until the
@@ -1181,6 +1188,20 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         });
 
         const resolvedTargets = refs.map(targetFromRef);
+        const expectedMemberActivation = (target: PackDependencyTarget): boolean => {
+          const currentNode = graph.nodes.find(
+            (node) => node.type === target.type && node.name === target.name,
+          );
+          const preservedOrigins = (currentNode?.origins ?? []).filter(
+            (origin) =>
+              origin.type !== "pack" ||
+              origin.pack.replace(/^workspace:/, "") !== packIdentity.replace(/^workspace:/, ""),
+          );
+          return isDesiredExtensionActive([
+            ...preservedOrigins,
+            { type: "pack", enabled: preservedPackActivation },
+          ]);
+        };
         const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
           ...refs.map((ref): JobStepArtifactTarget => {
             const target = targetFromRef(ref);
@@ -1246,7 +1267,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               {
                 name: intent.packToInstall.name,
                 identity: packIdentity,
-                enabled: true,
+                enabled: preservedPackActivation,
               },
             ],
             requiredMembers: resolvedTargets.flatMap((target) =>
@@ -1257,7 +1278,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                       type: target.type,
                       name: target.name,
                       packIdentity,
-                      enabled: true,
+                      enabled: expectedMemberActivation(target),
                     },
                   ],
             ),
@@ -1275,6 +1296,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           jobs: [{ concurrency: 1, steps: [graphStep] }],
           ...(releaseAge === undefined ? {} : { releaseAge }),
           sections: [
+            {
+              title: "Pack activation",
+              items: [
+                `${packIdentity}: preserve ${preservedPackActivation ? "enabled" : "disabled"} activation`,
+              ],
+            },
             {
               title: "Pack graph transition",
               items: [

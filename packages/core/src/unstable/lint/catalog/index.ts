@@ -88,3 +88,17 @@ export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...knowledgeRules.map((r) => r.id),
   ...workspaceRules.map((r) => r.id),
 ];
+
+/** Error-severity rule identities that require an exhaustive recovery contract. */
+export const allCatalogErrorRuleIds: ReadonlyArray<string> = [
+  ...skillRules,
+  ...packRules,
+  ...subagentRules,
+  ...mcpServerRules,
+  ...hookRules,
+  ...ruleRules,
+  ...knowledgeRules,
+  ...workspaceRules,
+]
+  .filter((rule) => rule.severity === "error")
+  .map((rule) => rule.id);

@@ -58,6 +58,10 @@ const problemSummary = (problems: ReadonlyArray<DesiredStateProblem>): string =>
     .map((problem) => ("pack" in problem ? `${problem.type} (${problem.pack})` : problem.type))
     .join("; ");
 
+/** Stable recovery-conformance identity for aggregate writes blocked by an incomplete graph. */
+export const INCOMPLETE_DESIRED_STATE_BLOCKER_ID =
+  "projection/desired-state-graph-complete" as const;
+
 /**
  * Gate aggregate-unit writes on a complete desired-state graph. An operation
  * that cannot enumerate the complete contributor set writes nothing.

@@ -132,6 +132,7 @@ export {
 // catalog's module-load `registerLintRuleIds(...)` call so
 // `.axm/settings.json` `lint.rules` keys can reference any exported rule id.
 export {
+  allCatalogErrorRuleIds,
   allCatalogRuleIds,
   buildExternalInstalledSkillInfo,
   buildInstalledPackInfo,

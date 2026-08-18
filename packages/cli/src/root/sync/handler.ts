@@ -105,6 +105,19 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
+export const SYNC_RECOVERY_IDS = {
+  inlineMcpCollision: "mcp-server:inline",
+  hookProjections: "hook:projections",
+  instructionReconcile: "instruction:reconcile",
+} as const;
+
+/** Executable sync recovery and blocker identities covered by recovery conformance. */
+export const syncRecoveryIdentifiers = [
+  SYNC_RECOVERY_IDS.inlineMcpCollision,
+  SYNC_RECOVERY_IDS.hookProjections,
+  SYNC_RECOVERY_IDS.instructionReconcile,
+] as const;
+
 export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
@@ -873,7 +886,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");
         if (conflicts.length > 0) {
           return Option.some<PlannedJobStep<SyncPlanRequirements>>({
-            key: `mcp-server:inline:${name}`,
+            key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${name}`,
             label: `mcp-server ${name}`,
             readiness: "error",
             errorMessage: `Inline MCP server ${name} collides with unowned native config at ${conflicts
@@ -1201,7 +1214,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   if (!projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncPlanRequirements>>();
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
-    key: "hook:projections",
+    key: SYNC_RECOVERY_IDS.hookProjections,
     label: projectionDivergenceLabel("managed hook projections", facts),
     readiness: "ready",
     artifact: {
@@ -1281,7 +1294,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   );
   if (readiness._tag === "Failure") {
     return Option.some<PlannedJobStep<SyncPlanRequirements>>({
-      key: "instruction:reconcile",
+      key: SYNC_RECOVERY_IDS.instructionReconcile,
       readiness: "error",
       label: "instruction files",
       errorMessage: readiness.failure.detail,
@@ -1289,7 +1302,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   }
 
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
-    key: "instruction:reconcile",
+    key: SYNC_RECOVERY_IDS.instructionReconcile,
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact: {

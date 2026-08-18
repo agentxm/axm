@@ -78,5 +78,14 @@ export type SingletonOwnershipUnitId = Extract<
   { readonly contributors: "one" }
 >["unitId"];
 
-export const aggregateOwnershipUnits: ReadonlyArray<OwnershipUnitDeclaration> =
-  ownershipUnits.filter((unit) => unit.contributors === "many");
+type AggregateOwnershipUnitDeclaration = Extract<
+  (typeof ownershipUnits)[number],
+  { readonly contributors: "many" }
+>;
+
+const isAggregateOwnershipUnit = (
+  unit: (typeof ownershipUnits)[number],
+): unit is AggregateOwnershipUnitDeclaration => unit.contributors === "many";
+
+export const aggregateOwnershipUnits: ReadonlyArray<AggregateOwnershipUnitDeclaration> =
+  ownershipUnits.filter(isAggregateOwnershipUnit);

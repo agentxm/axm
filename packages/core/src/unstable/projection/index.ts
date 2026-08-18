@@ -9,6 +9,7 @@ export {
   activeContributors,
   activeNodesOfType,
   contributorForNode,
+  INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   requireCompleteGraph,
   type AggregateContributor,
   type SourceLockEntryLike,

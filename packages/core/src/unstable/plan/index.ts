@@ -16,6 +16,7 @@
 
 // Plan types
 export {
+  ConfiguredAgentOutcomeSchema,
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
@@ -29,6 +30,7 @@ export type {
   ArtifactMechanism,
   CancelledPlan,
   CompletedJobStep,
+  ConfiguredAgentOutcome,
   ErrorJobStep,
   ExecutedJob,
   ExecutedPlan,

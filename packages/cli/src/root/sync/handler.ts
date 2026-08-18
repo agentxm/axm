@@ -1286,24 +1286,36 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   const ws = yield* WorkspaceMutations;
   if (!projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncPlanRequirements>>();
+  const agentOutcomes =
+    manager.configuredAgentOutcomes === undefined ? [] : yield* manager.configuredAgentOutcomes();
+  const artifact = {
+    path: "managed hook projections",
+    scope: ws.scope,
+    change: "updated",
+    agentOutcomes,
+  } satisfies JobStepArtifact;
+  const blocked = agentOutcomes.filter(({ outcome }) => outcome === "blocked");
+  if (blocked.length > 0) {
+    return Option.some<PlannedJobStep<SyncPlanRequirements>>({
+      key: SYNC_RECOVERY_IDS.hookProjections,
+      label: projectionDivergenceLabel("managed hook projections", facts),
+      readiness: "error",
+      errorMessage: blocked
+        .map(({ name, agent, reason }) => `${name} for ${agent}: ${reason}`)
+        .join("; "),
+      artifact,
+    });
+  }
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
     key: SYNC_RECOVERY_IDS.hookProjections,
     label: projectionDivergenceLabel("managed hook projections", facts),
     readiness: "ready",
-    artifact: {
-      path: "managed hook projections",
-      scope: ws.scope,
-      change: "updated",
-    },
+    artifact,
     run: applyPlannedProjections(manager).pipe(
       Effect.as({
         result: "success",
         message: "Reconciled managed hook entries and the fallback region",
-        artifact: {
-          path: "managed hook projections",
-          scope: ws.scope,
-          change: "updated",
-        },
+        artifact,
       } satisfies JobStepResult),
     ),
   });

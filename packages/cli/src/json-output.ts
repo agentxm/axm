@@ -26,6 +26,7 @@ import type {
 import {
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
+  ConfiguredAgentOutcomeSchema,
   OperationPreconditionSchema,
   PlanExecutionReasonSchema,
   PlanRiskConditionSchema,
@@ -118,6 +119,7 @@ const StepArtifactSchema = Schema.Struct({
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
+  agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   source: Schema.optional(StepArtifactSourceSchema),
   registryLifecycle: Schema.optional(
     Schema.Struct({

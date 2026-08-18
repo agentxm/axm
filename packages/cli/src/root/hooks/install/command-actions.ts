@@ -20,6 +20,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
+  ConfiguredAgentOutcome,
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
@@ -70,6 +71,7 @@ export const hookInstallArtifact = (args: {
   readonly scope: JobStepArtifact["scope"];
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
 }): JobStepArtifact => {
   const version = hookLockEntryVersion(args.lockEntry);
 
@@ -79,6 +81,7 @@ export const hookInstallArtifact = (args: {
     agents: args.agents,
     ...(version === undefined ? {} : { version }),
     change: args.installedBefore ? "updated" : "created",
+    ...(args.agentOutcomes === undefined ? {} : { agentOutcomes: args.agentOutcomes }),
     ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
@@ -198,92 +201,158 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
         };
       });
 
-    const buildPlan = (intent: InstallHookCommandIntent): Effect.Effect<Plan, AppError> => {
-      const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
-      const memberSteps = intent.refs.map(({ ref, versionRange }) =>
-        buildInstallOperation(hookManager, {
-          ref,
-          versionRange,
-          skipProjections: deferProjections,
-          installedBefore: hookManager.isInstalled({
-            target: { type: "hook", name: ref.hook.name },
-          }),
-          message: `Installed ${ref.hook.name}`,
-          buildArtifact: ({ installedBefore }) =>
+    const buildPlan = (intent: InstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
+      Effect.gen(function* () {
+        const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
+        const memberSteps = yield* Effect.forEach(
+          intent.refs,
+          ({ ref, versionRange }): Effect.Effect<PlannedJobStep, AppError> =>
             Effect.gen(function* () {
-              const materialization =
-                hookManager.getLastMaterialization === undefined
-                  ? { agents: [], targets: [] }
-                  : yield* hookManager.getLastMaterialization({
-                      target: { type: "hook", name: ref.hook.name },
-                    });
-              const currentLockEntry = yield* ws
-                .getLockedHookEntry(ref.hook.name)
-                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              if (Option.isNone(currentLockEntry)) {
-                const path =
-                  ref.refType === "registry" || ref.refType === "workspace"
-                    ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
-                    : ref.hook.name;
-                const change = installedBefore ? "updated" : "created";
-                return {
-                  path,
-                  scope: ws.scope,
-                  ...(ref.refType === "registry" || ref.refType === "workspace"
-                    ? { version: ref.version }
-                    : {}),
-                  agents: materialization.agents,
-                  change,
-                  targets:
-                    materialization.targets.length === 0
-                      ? [{ path, change }]
-                      : materialization.targets.map((target) => ({
-                          ...target,
-                          change,
-                        })),
-                } satisfies JobStepArtifact;
-              }
-              return hookInstallArtifact({
-                lockEntry: currentLockEntry.value,
-                installedBefore,
-                scope: ws.scope,
-                agents: materialization.agents,
-                targets: materialization.targets.map((target) => ({
-                  ...target,
-                  change: installedBefore ? "updated" : "created",
-                })),
+              const installedBefore = yield* hookManager.isInstalled({
+                target: { type: "hook", name: ref.hook.name },
               });
-            }),
-        }),
-      );
-      const projectionSteps: ReadonlyArray<PlannedJobStep> =
-        deferProjections && intent.deferProjections !== true
-          ? [
-              {
-                key: "projection:hook:units",
-                label: "hook projections",
-                readiness: "ready",
-                run: applyPlannedProjections(hookManager).pipe(
-                  Effect.as({
-                    result: "success",
-                    message: "Rendered installed Hooks from the complete contributor set",
-                  } satisfies JobStepResult),
+              const agentOutcomes =
+                hookManager.configuredAgentOutcomesForRef === undefined
+                  ? []
+                  : yield* hookManager.configuredAgentOutcomesForRef(ref);
+              const previewPath =
+                ref.refType === "registry" || ref.refType === "workspace"
+                  ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
+                  : ref.hook.name;
+              const previewArtifact = {
+                path: previewPath,
+                scope: ws.scope,
+                agents: agentOutcomes
+                  .filter(({ outcome }) => outcome !== "blocked")
+                  .map(({ agent }) => agent),
+                ...(ref.refType === "registry" || ref.refType === "workspace"
+                  ? { version: ref.version }
+                  : {}),
+                change: installedBefore ? "updated" : "created",
+                agentOutcomes,
+                targets: Array.from(
+                  new Map(
+                    agentOutcomes.flatMap((outcome) =>
+                      outcome.path === undefined
+                        ? []
+                        : [
+                            [
+                              outcome.path,
+                              {
+                                path: outcome.path,
+                                change: installedBefore ? "updated" : "created",
+                                agentIds: agentOutcomes
+                                  .filter(({ path }) => path === outcome.path)
+                                  .map(({ agent }) => agent),
+                              },
+                            ] as const,
+                          ],
+                    ),
+                  ).values(),
                 ),
-              },
-            ]
-          : [];
-      return Effect.succeed({
-        _tag: "Plan",
-        name: "Install hooks",
-        description: Option.some("Install hooks package"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: [...memberSteps, ...projectionSteps],
-          },
-        ],
-      } satisfies Plan);
-    };
+              } satisfies JobStepArtifact;
+              const operation = buildInstallOperation(hookManager, {
+                ref,
+                versionRange,
+                skipProjections: deferProjections,
+                installedBefore: Effect.succeed(installedBefore),
+                message: `Installed ${ref.hook.name}`,
+                buildArtifact: ({ installedBefore }) =>
+                  Effect.gen(function* () {
+                    const materialization =
+                      hookManager.getLastMaterialization === undefined
+                        ? { agents: [], targets: [] }
+                        : yield* hookManager.getLastMaterialization({
+                            target: { type: "hook", name: ref.hook.name },
+                          });
+                    const appliedOutcomes =
+                      hookManager.configuredAgentOutcomesForRef === undefined
+                        ? []
+                        : yield* hookManager.configuredAgentOutcomesForRef(ref);
+                    const currentLockEntry = yield* ws
+                      .getLockedHookEntry(ref.hook.name)
+                      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+                    if (Option.isNone(currentLockEntry)) {
+                      const path =
+                        ref.refType === "registry" || ref.refType === "workspace"
+                          ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
+                          : ref.hook.name;
+                      const change = installedBefore ? "updated" : "created";
+                      return {
+                        path,
+                        scope: ws.scope,
+                        ...(ref.refType === "registry" || ref.refType === "workspace"
+                          ? { version: ref.version }
+                          : {}),
+                        agents: materialization.agents,
+                        change,
+                        agentOutcomes: appliedOutcomes,
+                        targets:
+                          materialization.targets.length === 0
+                            ? [{ path, change }]
+                            : materialization.targets.map((target) => ({
+                                ...target,
+                                change,
+                              })),
+                      } satisfies JobStepArtifact;
+                    }
+                    return hookInstallArtifact({
+                      lockEntry: currentLockEntry.value,
+                      installedBefore,
+                      scope: ws.scope,
+                      agents: materialization.agents,
+                      agentOutcomes: appliedOutcomes,
+                      targets: materialization.targets.map((target) => ({
+                        ...target,
+                        change: installedBefore ? "updated" : "created",
+                      })),
+                    });
+                  }),
+              });
+              const blocked = agentOutcomes.filter(({ outcome }) => outcome === "blocked");
+              if (blocked.length > 0) {
+                return {
+                  ...(operation.key === undefined ? {} : { key: operation.key }),
+                  label: operation.label,
+                  readiness: "error",
+                  errorMessage: blocked
+                    .map(({ agent, reason }) => `${agent}: ${reason}`)
+                    .join("; "),
+                  artifact: previewArtifact,
+                } satisfies PlannedJobStep;
+              }
+              return { ...operation, artifact: previewArtifact } satisfies PlannedJobStep;
+            }),
+          { concurrency: 1 },
+        );
+        const projectionSteps: ReadonlyArray<PlannedJobStep> =
+          deferProjections && intent.deferProjections !== true
+            ? [
+                {
+                  key: "projection:hook:units",
+                  label: "hook projections",
+                  readiness: "ready",
+                  run: applyPlannedProjections(hookManager).pipe(
+                    Effect.as({
+                      result: "success",
+                      message: "Rendered installed Hooks from the complete contributor set",
+                    } satisfies JobStepResult),
+                  ),
+                },
+              ]
+            : [];
+        return {
+          _tag: "Plan",
+          name: "Install hooks",
+          description: Option.some("Install hooks package"),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [...memberSteps, ...projectionSteps],
+            },
+          ],
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

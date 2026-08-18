@@ -127,6 +127,14 @@ describe("root command help", () => {
     }),
   );
 
+  it.effect("keeps hook inspection on show without a global portability command", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      expect(files.has("axm hooks show")).toBe(true);
+      expect(files.has("axm hooks info")).toBe(false);
+    }),
+  );
+
   it.effect("exposes only fail-closed publish controls", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();

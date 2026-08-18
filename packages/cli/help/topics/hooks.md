@@ -93,6 +93,17 @@ that requirement.
 3. Merges a generated command into the target agent's settings through the
    JSONC-aware writer.
 
+Install and sync plans report the effective result for every configured agent:
+
+- `native` writes a supported agent-native hook integration.
+- `advisory-fallback` represents an observational hook in AXM's managed
+  instruction region when no usable native writer or binding exists.
+- `blocked` means neither native integration nor an allowed behavior-preserving
+  fallback can satisfy the hook. A blocked plan performs no writes.
+
+Preview and apply use the same reconciliation decision. Run
+`axm hooks show <name>` to inspect the current per-agent outcomes and reasons.
+
 For the generated command, AXM joins the runtime and the materialized
 entrypoint:
 
@@ -149,6 +160,8 @@ All commands live under `axm hooks` and accept `--scope project` (default) or
   files.
 - `axm hooks list` (`ls`) — show installed hooks with status, source, and lock
   state.
+- `axm hooks show <name>` — inspect one installed hook and its effective
+  configured-agent outcomes.
 - `axm hooks disable <name>` — set `enabled: false` and strip the generated
   settings entry, keeping the package.
 - `axm hooks enable <name>` — re-serialize a disabled hook.

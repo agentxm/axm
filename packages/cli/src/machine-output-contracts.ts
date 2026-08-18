@@ -336,15 +336,6 @@ const helpTopicFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/root/help/command.test.ts"],
 });
 
-const hooksInfoFamily = defineResultFamily({
-  id: "hooks-info",
-  schemaNames: ["HookPortabilityResultSchema"],
-  requiredTopLevelKeys: ["items", "count"],
-  scenarios: ["portable hooks", "unsupported hooks", "empty"],
-  rationale: "Hook portability inspection is a read query.",
-  commandCoverage: ["packages/cli/src/root/hooks/info.test.ts"],
-});
-
 const knowledgeLintFamily = defineResultFamily({
   id: "knowledge-lint",
   schemaNames: ["KnowledgeLintQueryResultSchema"],
@@ -685,7 +676,6 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ]),
   ...rowsFor(packShowFamily, ["axm packs show"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
-  ...rowsFor(hooksInfoFamily, ["axm hooks info"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
   ...rowsFor(knowledgeListFamily, ["axm knowledge list", "axm knowledge ls"]),
   ...rowsFor(knowledgeConceptResolveFamily, ["axm knowledge concepts resolve"]),

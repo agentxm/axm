@@ -89,6 +89,22 @@ export type ArtifactChange = typeof ArtifactChangeSchema.Type;
 export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
 export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
 
+export const ConfiguredAgentOutcomeSchema = Schema.Struct({
+  extensionType: Schema.String,
+  name: Schema.String,
+  agent: Schema.String,
+  outcome: Schema.Literals(["native", "advisory-fallback", "blocked"] as const),
+  reason: Schema.String,
+  path: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "ConfiguredAgentOutcome",
+  title: "Configured Agent Outcome",
+  description:
+    "Effective native, fallback, or blocked result for one configured agent and extension.",
+});
+
+export type ConfiguredAgentOutcome = typeof ConfiguredAgentOutcomeSchema.Type;
+
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
@@ -99,6 +115,7 @@ export interface JobStepArtifact {
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly source?: JobStepArtifactSource;
   /** Registry lifecycle evidence captured when the candidate was resolved. */
   readonly registryLifecycle?: { readonly deprecation: DeprecationView };

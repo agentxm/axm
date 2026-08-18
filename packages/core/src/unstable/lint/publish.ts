@@ -20,6 +20,7 @@ import { knowledgeEnvelopeRules } from "./catalog/knowledge/envelope.js";
 import { orderedEnvelopeRules } from "./catalog/shared/envelope-rules.js";
 import { entrypointExistsRule as hookEntrypointExistsRule } from "./catalog/hook/entrypoint-exists.js";
 import { matcherRawPortabilityRule as hookMatcherRawPortabilityRule } from "./catalog/hook/matcher-raw-portability.js";
+import { decisionPortabilityRule as hookDecisionPortabilityRule } from "./catalog/hook/decision-portability.js";
 import { frontmatterParseableRule as skillFrontmatterParseableRule } from "./catalog/skill/frontmatter-parseable.js";
 import { frontmatterStandardValidRule as skillFrontmatterStandardValidRule } from "./catalog/skill/frontmatter-standard-valid.js";
 import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from "./catalog/skill/manifest-keys-recognized.js";
@@ -123,6 +124,7 @@ export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   hookEnvelopeRules.manifestPresent,
   hookEnvelopeRules.manifestSchemaValid,
   hookEnvelopeRules.manifestKeysRecognized,
+  hookDecisionPortabilityRule,
   hookMatcherRawPortabilityRule,
   hookEntrypointExistsRule,
   hookEnvelopeRules.standaloneDeclarationValid,

@@ -39,7 +39,6 @@ import {
 } from "./root/cache/command.js";
 import { DiscoverOutputSchema } from "./root/discover/handler.js";
 import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
-import { HookPortabilityResultSchema } from "./root/hooks/info.js";
 import { KnowledgeLintQueryResultSchema } from "./root/knowledge/lint.js";
 import { KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
 import {
@@ -75,7 +74,6 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   ExtensionShowResultSchema,
   HelpIndexResultSchema,
   HelpTopicResultSchema,
-  HookPortabilityResultSchema,
   InstructionsStatusOutputSchema,
   JsonHelpDocSchema,
   JsonVersionDocSchema,

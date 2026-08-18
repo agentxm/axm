@@ -252,6 +252,17 @@ describe("HookManager", () => {
             agents: ["windsurf"],
             targets: [{ path: "AGENTS.md", agentIds: ["windsurf"] }],
           });
+          if (manager.configuredAgentOutcomes === undefined) {
+            throw new Error("Hook configured-agent outcomes are unavailable");
+          }
+          expect(yield* manager.configuredAgentOutcomes()).toMatchObject([
+            {
+              name: "unsupported-agent",
+              agent: "windsurf",
+              outcome: "advisory-fallback",
+              path: "AGENTS.md",
+            },
+          ]);
         }).pipe(
           Effect.provide(
             makeHookManagerLayer(workspaceRoot, {
@@ -295,7 +306,7 @@ describe("HookManager", () => {
           Effect.flip,
         );
 
-        expect(error.detail).toContain("requires native hook support");
+        expect(error.detail).toContain("forbids advisory fallback");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }

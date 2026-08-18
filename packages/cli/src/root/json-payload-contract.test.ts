@@ -15,7 +15,6 @@ import { MACHINE_OUTPUT_CONTRACT_ROWS } from "../machine-output-contracts.js";
 import { AgentsListOutputSchema } from "./agents/list.js";
 import { TokenListDocumentSchema } from "./auth/token.js";
 import { DiscoverOutputSchema } from "./discover/handler.js";
-import { HookPortabilityResultSchema } from "./hooks/info.js";
 import { KnowledgeListQueryResultSchema } from "./knowledge/list.js";
 import { KnowledgeConceptQueryPageSchema } from "./knowledge/concepts/schemas.js";
 import { ExtensionListDocumentSchema } from "./list/command.js";
@@ -32,7 +31,6 @@ const COLLECTION_PAYLOADS = [
     DiscoverOutputSchema.fields,
     ["items", "count", "totalDetected", "registryAvailable"],
   ],
-  ["axm hooks info", HookPortabilityResultSchema.fields, ["items", "count"]],
   ["axm knowledge list", KnowledgeListQueryResultSchema.fields, ["items", "count"]],
   [
     "axm knowledge concepts search",

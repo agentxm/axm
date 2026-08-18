@@ -37,6 +37,7 @@ import {
   materializeRegistryPackage,
   registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
+import type { ConfiguredAgentOutcome } from "../plan/plan.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
@@ -51,7 +52,7 @@ import type { HookLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
@@ -82,9 +83,17 @@ import {
   type RegistryHookRef,
 } from "./index.js";
 import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
+import { evaluateHookAgentOutcome } from "./outcomes.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
+  readonly configuredAgentOutcomes?: () => Effect.Effect<
+    ReadonlyArray<ConfiguredAgentOutcome>,
+    AppError
+  >;
+  readonly configuredAgentOutcomesForRef?: (
+    ref: HookExtensionRef,
+  ) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, AppError>;
 }
 
 export class HookManager extends ServiceMap.Service<HookManager, HookManagerService>()(
@@ -171,19 +180,6 @@ const configuredHookWriterTargets = (
       });
     }
     return targets;
-  });
-
-const configuredHookFallbackAgents = (
-  configuredAgents: ReadonlyArray<string>,
-): ReadonlyArray<CapabilityAgent> =>
-  configuredAgents.flatMap((id) => {
-    const agent = capabilityAgentById(id);
-    const hook = agent?.capabilities.hook;
-    return agent !== undefined &&
-      hook !== undefined &&
-      (hook.native.availability.via === "none" || hook.axm.writer === null)
-      ? [agent]
-      : [];
   });
 
 const hookEventsFor = (agent: CapabilityAgent): ReadonlyArray<HookEventMapping> => {
@@ -611,6 +607,55 @@ export const HookManagerLive = Layer.effect(
       readonly command: string;
     }
 
+    interface HookFallbackContributor extends RenderedHookContributor {
+      readonly fallbackAgentIds: ReadonlyArray<string>;
+    }
+
+    const readManifestForRef = (ref: HookExtensionRef) =>
+      ref.refType === "registry"
+        ? Effect.scoped(
+            sources.fetch(ref).pipe(Effect.flatMap(({ directory }) => readManifest(directory))),
+          )
+        : readManifest(stripFileProtocol(ref.location));
+
+    const evaluateConfiguredOutcomes = (args: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly targets: ReadonlyArray<HookWriterTarget>;
+      readonly fallbackPath: string;
+      readonly contributors: ReadonlyArray<RenderedHookContributor>;
+    }): ReadonlyArray<ConfiguredAgentOutcome> =>
+      args.contributors
+        .flatMap((contributor) =>
+          args.configuredAgents.map((agentId): ConfiguredAgentOutcome => {
+            const agent = capabilityAgentById(agentId);
+            if (agent === undefined) {
+              return {
+                extensionType: "hook",
+                name: contributor.name,
+                agent: agentId,
+                outcome: "blocked",
+                reason: `Configured agent ${agentId} is absent from the agent capability catalog.`,
+              };
+            }
+            const nativeTarget = args.targets.find((target) => target.agent.id === agentId);
+            return evaluateHookAgentOutcome({
+              agent,
+              manifest: contributor.manifest,
+              target: {
+                fallbackPath: args.fallbackPath,
+                ...(nativeTarget === undefined
+                  ? {}
+                  : { nativePath: path.relative(baseDir, nativeTarget.configPath) }),
+              },
+            });
+          }),
+        )
+        .sort((left, right) =>
+          left.name === right.name
+            ? left.agent.localeCompare(right.agent)
+            : left.name.localeCompare(right.name),
+        );
+
     const renderInstalledHookGroups = (
       target: HookWriterTarget,
       contributors: ReadonlyArray<RenderedHookContributor>,
@@ -652,24 +697,14 @@ export const HookManagerLive = Layer.effect(
 
     const reconcileHookFallback = (
       target: { readonly targetPath: string; readonly workspaceRelative: string },
-      fallbackAgents: ReadonlyArray<CapabilityAgent>,
-      input: ProjectionRenderInput<RenderedHookContributor>,
+      input: ProjectionRenderInput<HookFallbackContributor>,
       options?: { readonly dryRun?: boolean },
     ) =>
       Effect.gen(function* () {
-        const hooks = fallbackAgents.length === 0 ? [] : input.contributors;
-        for (const hook of hooks) {
-          if (hook.manifest.fallback === "none") {
-            return yield* makeAppError({
-              code: "validation",
-              detail: `Hook ${hook.name} requires native hook support because fallback is none`,
-            });
-          }
-        }
-        const rendered = hooks
+        const rendered = input.contributors
           .map(
             (hook) =>
-              `### ${hook.manifest.title ?? hook.name}\n\nFor agents without native hook support (${fallbackAgents.map((agent) => agent.id).join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
+              `### ${hook.manifest.title ?? hook.name}\n\nFor agents without a usable native hook mapping (${hook.fallbackAgentIds.join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
           )
           .join("\n\n");
         const { changed, observedRegion } = yield* provide(
@@ -682,9 +717,12 @@ export const HookManagerLive = Layer.effect(
             unsupportedTargetDetail: `Hook fallback target does not support managed regions: ${target.workspaceRelative}`,
           }),
         );
-        if (options?.dryRun !== true && fallbackAgents.length > 0 && rendered.length > 0) {
+        const fallbackAgentIds = Array.from(
+          new Set(input.contributors.flatMap(({ fallbackAgentIds }) => fallbackAgentIds)),
+        );
+        if (options?.dryRun !== true && fallbackAgentIds.length > 0 && rendered.length > 0) {
           yield* Effect.logWarning(
-            `Degraded hooks to advisory rules for ${fallbackAgents.map((agent) => agent.id).join(", ")}`,
+            `Degraded hooks to advisory rules for ${fallbackAgentIds.join(", ")}`,
           );
         }
         return {
@@ -699,11 +737,13 @@ export const HookManagerLive = Layer.effect(
             path: `${target.workspaceRelative}#${HOOK_FALLBACKS_REGION}`,
             present: Option.isSome(observedRegion),
             current: !changed,
-            expectedContributors: hooks.map(({ marker }) => marker),
+            expectedContributors: input.contributors.map(({ marker }) => marker),
             observedContributors: Option.match(observedRegion, {
               onNone: () => [],
               onSome: (region) =>
-                hooks.filter(({ command }) => region.includes(command)).map(({ marker }) => marker),
+                input.contributors
+                  .filter(({ command }) => region.includes(command))
+                  .map(({ marker }) => marker),
             }),
           } satisfies ProjectionUnitObservation,
         };
@@ -760,12 +800,51 @@ export const HookManagerLive = Layer.effect(
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
-        const fallbackAgents = configuredHookFallbackAgents(configuredAgents);
         const fallbackTarget = yield* hookFallbackTarget();
         const graph = yield* ws.getDesiredStateGraph();
         const locked = yield* ws.getLockedHooks();
-        const select = (completeGraph: typeof graph) =>
-          selectHookContributors({ graph: completeGraph, locked });
+        const contributors = yield* selectHookContributors({ graph, locked });
+        const outcomes = evaluateConfiguredOutcomes({
+          configuredAgents,
+          targets,
+          fallbackPath: fallbackTarget.workspaceRelative,
+          contributors,
+        });
+        const blocked = outcomes.filter(({ outcome }) => outcome === "blocked");
+        if (blocked.length > 0) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: blocked
+              .map(({ name, agent, reason }) => `Hook ${name} is blocked for ${agent}: ${reason}`)
+              .join("; "),
+          });
+        }
+        const fallbackContributors: ReadonlyArray<HookFallbackContributor> = contributors.flatMap(
+          (contributor) => {
+            const fallbackAgentIds = outcomes
+              .filter(
+                (outcome) =>
+                  outcome.name === contributor.name && outcome.outcome === "advisory-fallback",
+              )
+              .map(({ agent }) => agent);
+            return fallbackAgentIds.length === 0 ? [] : [{ ...contributor, fallbackAgentIds }];
+          },
+        );
+        const selectNative = (agentId: string) => () =>
+          Effect.succeed(
+            contributors.filter((contributor) =>
+              outcomes.some(
+                (outcome) =>
+                  outcome.name === contributor.name &&
+                  outcome.agent === agentId &&
+                  outcome.outcome === "native",
+              ),
+            ),
+          );
+        const selectFallback = () => Effect.succeed(fallbackContributors);
+        const fallbackAgentIds = Array.from(
+          new Set(fallbackContributors.flatMap(({ fallbackAgentIds }) => fallbackAgentIds)),
+        );
         const materialization = {
           agents: configuredAgents,
           targets: [
@@ -775,9 +854,7 @@ export const HookManagerLive = Layer.effect(
             })),
             {
               path: fallbackTarget.workspaceRelative,
-              ...(fallbackAgents.length === 0
-                ? {}
-                : { agentIds: fallbackAgents.map(({ id }) => id) }),
+              ...(fallbackAgentIds.length === 0 ? {} : { agentIds: fallbackAgentIds }),
             },
           ],
         };
@@ -794,7 +871,7 @@ export const HookManagerLive = Layer.effect(
             unitId: "hook:agent-hook-entries",
             targetFile: target.configPath,
             graph,
-            select,
+            select: selectNative(target.agent.id),
             adapter: {
               observe: (input) => reconcileNativeHookTarget({ target, input, dryRun: true }),
               apply: (input) =>
@@ -808,19 +885,60 @@ export const HookManagerLive = Layer.effect(
           unitId: "hook:fallback-region",
           targetFile: fallbackTarget.targetPath,
           graph,
-          select,
+          select: selectFallback,
           adapter: {
             observe: (input) =>
-              reconcileHookFallback(fallbackTarget, fallbackAgents, input, {
+              reconcileHookFallback(fallbackTarget, input, {
                 dryRun: true,
               }).pipe(Effect.map(({ projectionUnitObservation }) => projectionUnitObservation)),
             apply: (input) =>
-              recordMaterialization(
-                reconcileHookFallback(fallbackTarget, fallbackAgents, input),
-              ).pipe(Effect.asVoid),
+              recordMaterialization(reconcileHookFallback(fallbackTarget, input)).pipe(
+                Effect.asVoid,
+              ),
           },
         });
         return [...nativePlans, fallbackPlan];
+      });
+
+    const configuredAgentOutcomes = () =>
+      Effect.gen(function* () {
+        const configuredAgents = yield* ws.getConfiguredAgents();
+        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
+          path.resolve(baseDir, configPath),
+        );
+        const fallbackTarget = yield* hookFallbackTarget();
+        const graph = yield* ws.getDesiredStateGraph();
+        const locked = yield* ws.getLockedHooks();
+        const contributors = yield* selectHookContributors({ graph, locked });
+        return evaluateConfiguredOutcomes({
+          configuredAgents,
+          targets,
+          fallbackPath: fallbackTarget.workspaceRelative,
+          contributors,
+        });
+      });
+
+    const configuredAgentOutcomesForRef = (ref: HookExtensionRef) =>
+      Effect.gen(function* () {
+        const configuredAgents = yield* ws.getConfiguredAgents();
+        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
+          path.resolve(baseDir, configPath),
+        );
+        const fallbackTarget = yield* hookFallbackTarget();
+        const manifest = yield* readManifestForRef(ref);
+        return evaluateConfiguredOutcomes({
+          configuredAgents,
+          targets,
+          fallbackPath: fallbackTarget.workspaceRelative,
+          contributors: [
+            {
+              name: manifest.name,
+              marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
+              manifest,
+              command: "",
+            },
+          ],
+        });
       });
 
     const projectionPlans = () => makeHookProjectionPlans();
@@ -916,6 +1034,8 @@ export const HookManagerLive = Layer.effect(
       type: "hook",
       runTransaction: ws.runTransaction,
       projectionPlans,
+      configuredAgentOutcomes,
+      configuredAgentOutcomesForRef,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -25,6 +26,7 @@ import {
   ManifestIdentitySchema,
   manifestFilenameForType,
 } from "@agentxm/client-core/unstable/publish";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import {
   WorkspaceMutations,
   configuredRowsByName,
@@ -228,6 +230,23 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         fields: [...inspection.fields],
         warnings: [...inspection.warnings],
         ...(inspection.reason === undefined ? {} : { reason: inspection.reason }),
+      }));
+    }
+  }
+
+  if (args.type === "hook" && enabled !== false && inventoryRow !== undefined) {
+    const manager = yield* Effect.serviceOption(HookManager);
+    if (Option.isSome(manager) && manager.value.configuredAgentOutcomes !== undefined) {
+      const outcomes = (yield* manager.value.configuredAgentOutcomes()).filter(
+        ({ name }) => name === args.name,
+      );
+      agents = outcomes.map(({ agent, outcome, path, reason }) => ({
+        agent,
+        status: outcome,
+        ...(path === undefined ? {} : { path }),
+        fields: [],
+        warnings: [],
+        reason,
       }));
     }
   }

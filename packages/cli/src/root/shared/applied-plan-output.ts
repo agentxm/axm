@@ -41,6 +41,16 @@ const formatArtifactSource = (artifact: JobStepArtifact): string | undefined => 
   return details.length === 0 ? undefined : `  source: ${details.join("   ")}`;
 };
 
+const formatAgentOutcomes = (artifact: JobStepArtifact): string | undefined => {
+  if (artifact.agentOutcomes === undefined || artifact.agentOutcomes.length === 0) return undefined;
+  return artifact.agentOutcomes
+    .map(
+      ({ agent, outcome, reason, path }) =>
+        `  ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+    )
+    .join("\n");
+};
+
 const formatCompletedArtifactStep = (
   step: CompletedJobStep<unknown>,
   options: { readonly debug?: boolean } = {},
@@ -54,9 +64,11 @@ const formatCompletedArtifactStep = (
     formatArtifactTargets(artifact),
   ].filter((part): part is string => part !== undefined && part.length > 0);
   const row = `${step.label}   ${details.join("   ")}`;
-  if (options.debug !== true) return row;
+  const outcomes = formatAgentOutcomes(artifact);
+  const rowWithOutcomes = outcomes === undefined ? row : `${row}\n${outcomes}`;
+  if (options.debug !== true) return rowWithOutcomes;
   const source = formatArtifactSource(artifact);
-  return source === undefined ? row : `${row}\n${source}`;
+  return source === undefined ? rowWithOutcomes : `${rowWithOutcomes}\n${source}`;
 };
 
 const formatFailedStep = (

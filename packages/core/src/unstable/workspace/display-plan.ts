@@ -211,6 +211,11 @@ const renderPlannedStep = (
     for (const target of targets) {
       yield* renderer.message(`    ${target.change}: ${target.path}`);
     }
+    for (const { agent, outcome, reason, path } of step.artifact.agentOutcomes ?? []) {
+      yield* renderer.message(
+        `    ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+      );
+    }
   });
 
 const renderCompletedStep = (
@@ -399,6 +404,10 @@ const artifactTargetPhrase = (artifact: JobStepArtifact): string | undefined =>
       : `for ${count(artifact.targets.length, "location")}`;
 
 const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): string => {
+  const outcomeRows = (artifact.agentOutcomes ?? []).map(
+    ({ agent, outcome, reason, path }) =>
+      `   ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+  );
   const details = [
     artifact.version,
     artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
@@ -408,7 +417,7 @@ const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): str
       details.length === 0
         ? `-> ${count(artifact.targets.length, "location")}`
         : `-> ${count(artifact.targets.length, "location")}   ${details.join(" | ")}`;
-    if (!verbose) return summary;
+    if (!verbose && outcomeRows.length === 0) return summary;
     const rows = artifact.targets.map((target) => {
       const agents =
         target.agentIds === undefined || target.agentIds.length === 0
@@ -418,11 +427,11 @@ const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): str
         ? `   -> ${target.path}   ${target.change}`
         : `   -> ${target.path}   ${target.change}   ${agents}`;
     });
-    return [summary, ...rows].join("\n");
+    return [summary, ...rows, ...outcomeRows].join("\n");
   }
-  return details.length === 0
-    ? `-> ${artifact.path}`
-    : `-> ${artifact.path}   ${details.join(" | ")}`;
+  const summary =
+    details.length === 0 ? `-> ${artifact.path}` : `-> ${artifact.path}   ${details.join(" | ")}`;
+  return outcomeRows.length === 0 ? summary : [summary, ...outcomeRows].join("\n");
 };
 
 const formatArtifactRow = (step: CompletedJobStep<unknown>, artifact: JobStepArtifact): string => {

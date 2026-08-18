@@ -259,9 +259,8 @@ describe("Windows workspace mutation contract", () => {
       const instructionSource = path.join(workspace.path, "AGENTS.md");
       const sourceBeforeFailure = fs.readFileSync(instructionSource, "utf8");
       const instructionTarget = path.join(workspace.path, "CLAUDE.md");
-      const gitignorePath = path.join(workspace.path, ".gitignore");
-      fs.rmSync(gitignorePath, { recursive: true, force: true });
-      fs.mkdirSync(gitignorePath);
+      fs.rmSync(instructionTarget, { recursive: true, force: true });
+      fs.mkdirSync(instructionTarget);
 
       const failedEnable = await runCli(["instructions", "enable", "--json", "--non-interactive"], {
         cwd: workspace.path,
@@ -270,9 +269,9 @@ describe("Windows workspace mutation contract", () => {
       expect(failedEnable.exitCode).not.toBe(0);
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBeforeFailure);
       expect(fs.readFileSync(instructionSource, "utf8")).toBe(sourceBeforeFailure);
-      expect(fs.existsSync(instructionTarget)).toBe(false);
+      expect(fs.statSync(instructionTarget).isDirectory()).toBe(true);
 
-      fs.rmSync(gitignorePath, { recursive: true, force: true });
+      fs.rmSync(instructionTarget, { recursive: true, force: true });
       expectSuccess(
         await runCli(["instructions", "enable", "--json", "--non-interactive"], {
           cwd: workspace.path,

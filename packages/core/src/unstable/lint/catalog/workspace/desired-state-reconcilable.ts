@@ -1,5 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import {
+  extensionConstraintFactText,
+  makeExtensionConstraintInvariantFact,
+} from "../../../projection/index.js";
 import { isWorkspaceSourceLocator } from "../../../sources/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
@@ -37,7 +41,13 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           message:
             problem.type === "projection-collision"
               ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
-              : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.constraints.join(", ")}.`,
+              : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
+                  .map((contributor) =>
+                    contributor.source === "pack"
+                      ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
+                      : `settings range=${contributor.range} location=${contributor.location}`,
+                  )
+                  .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
           location: { file: ".axm/settings.json" },
         };
       });
@@ -55,6 +65,25 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           }
           const identity = desired.identity.replace(/^workspace:/, "");
           const label = `${observation.type} '${identity}'`;
+          if (observation.status === "constraint-mismatch") {
+            const blockedByConflict = graph.success.problems.some(
+              (problem) =>
+                problem.type === "constraint-conflict" &&
+                problem.extensionType === desired.type &&
+                problem.name === desired.name,
+            );
+            if (blockedByConflict) return [];
+            const fact = makeExtensionConstraintInvariantFact(desired, observation);
+            return [
+              {
+                kind: "advisory",
+                ruleId: RULE_ID,
+                severity: "error",
+                message: `${extensionConstraintFactText(fact)}; decision=reconcilable.`,
+                location: { file: observation.path ?? ".axm/settings.json" },
+              },
+            ];
+          }
           if (
             observation.status === "locally-modified" &&
             isWorkspaceSourceLocator(desired.source)

@@ -43,6 +43,13 @@ export interface DesiredExtensionNode {
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
 }
 
+export interface DesiredConstraintContributor {
+  readonly source: "settings" | "pack";
+  readonly range: string;
+  readonly location: string;
+  readonly dependingPack?: string;
+}
+
 export type DesiredStateProblem =
   | {
       readonly type: "pack-manifest-unavailable";
@@ -86,6 +93,7 @@ export type DesiredStateProblem =
       readonly extensionType: ExtensionType;
       readonly name: string;
       readonly constraints: ReadonlyArray<string>;
+      readonly contributors: ReadonlyArray<DesiredConstraintContributor>;
     };
 
 export interface DesiredStateGraph {
@@ -201,6 +209,50 @@ const intersectConstraints = (constraints: ReadonlyArray<string>): string | unde
   }
   return intersections.join(" || ");
 };
+
+export const collectDesiredConstraintContributors = (
+  path: Path.Path,
+  origins: ReadonlyArray<DesiredExtensionOrigin>,
+): ReadonlyArray<DesiredConstraintContributor> =>
+  origins
+    .flatMap((origin): ReadonlyArray<DesiredConstraintContributor> => {
+      if (origin.constraint === undefined) return [];
+      if (origin.type === "settings") {
+        return [
+          {
+            source: "settings",
+            range: origin.constraint,
+            location: path.join(".axm", "settings.json"),
+          },
+        ];
+      }
+      const parsed = parseExtensionFqnParts(origin.pack.replace(/^workspace:/, ""));
+      const location =
+        parsed === undefined || parsed.type !== "pack"
+          ? path.join(".axm", "extensions")
+          : path.join(
+              ".axm",
+              "extensions",
+              parsed.owner,
+              "packs",
+              parsed.name,
+              PACK_MANIFEST_FILENAME,
+            );
+      return [
+        {
+          source: "pack",
+          dependingPack: origin.pack.replace(/^workspace:/, ""),
+          range: origin.constraint,
+          location,
+        },
+      ];
+    })
+    .sort((left, right) => {
+      const byPack = (left.dependingPack ?? "").localeCompare(right.dependingPack ?? "");
+      if (byPack !== 0) return byPack;
+      const byRange = left.range.localeCompare(right.range);
+      return byRange === 0 ? left.location.localeCompare(right.location) : byRange;
+    });
 
 const parsePackManifest = (raw: string) => {
   let parsed: unknown;
@@ -398,6 +450,7 @@ export const buildDesiredStateGraph = ({
           extensionType: node.type,
           name: node.name,
           constraints: node.constraints,
+          contributors: collectDesiredConstraintContributors(path, node.origins),
         });
       }
     }

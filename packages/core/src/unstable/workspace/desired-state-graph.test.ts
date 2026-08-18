@@ -106,6 +106,22 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
           }),
         ]),
       );
+      expect(
+        graph.problems.find((problem) => problem.type === "constraint-conflict"),
+      ).toMatchObject({
+        contributors: [
+          {
+            source: "pack",
+            dependingPack: "@acme/packs/one",
+            range: "^1.0.0",
+          },
+          {
+            source: "pack",
+            dependingPack: "@acme/packs/two",
+            range: "^2.0.0",
+          },
+        ],
+      });
     }),
   );
 

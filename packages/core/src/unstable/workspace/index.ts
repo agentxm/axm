@@ -59,6 +59,7 @@ export {
   buildDesiredStateGraph,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
+  type DesiredConstraintContributor,
   type DesiredStateGraph,
   type DesiredStateProblem,
 } from "./desired-state-graph.js";
@@ -70,6 +71,8 @@ export { validateDesiredPackLock } from "./desired-pack-lock.js";
 export {
   observeCanonicalExtension,
   canonicalPathForAcceptedExtension,
+  type CanonicalConstraintContributor,
+  type CanonicalConstraintMismatchObservation,
   type CanonicalObservation,
   type CanonicalObservationStatus,
 } from "./canonical-observation.js";

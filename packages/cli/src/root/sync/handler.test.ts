@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -77,6 +79,30 @@ const writeRegistrySkillIndex = (registryRoot: string, name: string) => {
         version: "1.0.0",
         published: "1960-01-01T00:00:00Z",
         integrity: "sha512-AAAA==",
+      },
+    ],
+  });
+};
+
+const writeRegistrySkillPackage = (registryRoot: string, name: string, version: string): void => {
+  const skillDir = path.join(registryRoot, "extensions", "@acme", "skills", name);
+  const stagingDir = path.join(skillDir, "staging");
+  writeSkillPackage(stagingDir, name, version);
+  const archivePath = path.join(skillDir, `${version}.zip`);
+  execFileSync("zip", ["-qr", archivePath, "skill.json", "src"], { cwd: stagingDir });
+  fs.rmSync(stagingDir, { recursive: true, force: true });
+  const archive = fs.readFileSync(archivePath);
+  writeJson(path.join(skillDir, "index.json"), {
+    owner: "@acme",
+    type: "skill",
+    name,
+    publisherBindingId: "hbnd_test",
+    deprecation: null,
+    versions: [
+      {
+        version,
+        published: "1960-01-01T00:00:00Z",
+        integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
       },
     ],
   });
@@ -388,6 +414,135 @@ const expectPackRollbackPreimages = (
   expect(fs.readFileSync(paths.canonicalSkillManifest, "utf8")).toBe(before.canonicalSkillManifest);
   expect(fs.readFileSync(paths.canonicalSkillContent, "utf8")).toBe(before.canonicalSkillContent);
   expect(fs.readFileSync(paths.ownedOutput, "utf8")).toBe(before.ownedOutput);
+};
+
+const makeConstraintMismatchFixture = (
+  baseDir: string,
+  constraints: readonly [string, string] = [">=2.0.0 <3.0.0", "^2.1.0"],
+) => {
+  const registryRoot = path.join(baseDir, "registry");
+  const registrySource = {
+    type: "registry",
+    location: new URL(`file://${registryRoot}`),
+    owner: Option.none(),
+  } satisfies SkillExtensionRef["source"];
+  const manifests = [
+    {
+      owner: "@acme",
+      type: "pack",
+      name: "alpha",
+      version: "1.0.0",
+      dependencies: { "@acme/skills/review": constraints[0] },
+    },
+    {
+      owner: "@acme",
+      type: "pack",
+      name: "beta",
+      version: "1.0.0",
+      dependencies: { "@acme/skills/review": constraints[1] },
+    },
+  ] as const;
+  const availableSkillSource = path.join(baseDir, "registry-fixtures", "review-2");
+  writeSkillPackage(availableSkillSource, "review", "2.2.0");
+  writeRegistrySkillPackage(registryRoot, "review", "2.2.0");
+  const availableSkill = {
+    type: "skill",
+    refType: "registry",
+    skill: {
+      name: extensionName("review"),
+      description: Option.none(),
+      metadata: Option.none(),
+    },
+    source: registrySource,
+    owner: handle("@acme"),
+    name: extensionName("review"),
+    version: exactVersion("2.2.0"),
+    integrity: Option.none(),
+    publisherBindingId: "hbnd_test",
+    packages: [],
+  } satisfies SkillExtensionRef;
+  const lookupCalls: string[] = [];
+  const sources = {
+    find: () => Effect.die("unexpected Registry search"),
+    resolveNamedRegistry: (_source, options) => {
+      lookupCalls.push(options.type);
+      return options.type === "skill"
+        ? Effect.succeed({
+            kind: "selected" as const,
+            target: `${options.owner}/skills/${options.name}`,
+            ref: availableSkill,
+          })
+        : Effect.die("unexpected Registry type");
+    },
+    fetch: (ref) =>
+      ref.type === "skill" && ref.refType === "registry" && ref.version === "2.2.0"
+        ? Effect.succeed({ directory: availableSkillSource })
+        : Effect.fail(makeAppError({ code: "not_found", detail: "Unexpected fixture ref" })),
+    cloneUrl: () => Option.none(),
+    origin: () => "test-registry",
+  } satisfies SourceHostProvidersService;
+
+  const axmDir = path.join(baseDir, ".axm");
+  writeWorkspaceFiles(axmDir, {
+    agents: [],
+    packs: {
+      alpha: "@acme/packs/alpha",
+      beta: "@acme/packs/beta",
+    },
+    sources: [{ type: "registry", name: "default", location: registrySource.location.href }],
+    lockfilePacks: {
+      alpha: {
+        type: "registry",
+        owner: "@acme",
+        name: "alpha",
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
+      },
+      beta: {
+        type: "registry",
+        owner: "@acme",
+        name: "beta",
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
+      },
+    },
+    lockfileSkills: {
+      review: {
+        type: "registry",
+        owner: "@acme",
+        name: "review",
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+      },
+    },
+  });
+  for (const manifest of manifests) {
+    writePackPackage(path.join(axmDir, "extensions", "@acme", "packs", manifest.name), manifest);
+  }
+  writeSkillPackage(
+    path.join(axmDir, "extensions", "@acme", "skills", "review"),
+    "review",
+    "1.0.0",
+  );
+
+  return {
+    lookupCalls,
+    sources,
+    paths: {
+      lockfile: path.join(axmDir, "axm-lock.yaml"),
+      settings: path.join(axmDir, "settings.json"),
+      canonicalSkill: path.join(axmDir, "extensions", "@acme", "skills", "review", "skill.json"),
+      materializedSkill: path.join(baseDir, ".agents", "skills", "review", "SKILL.md"),
+    },
+  };
 };
 
 describe("root sync handler", () => {
@@ -858,6 +1013,120 @@ describe("root sync handler", () => {
 
       expect(fs.readFileSync(independentOutput, "utf8")).toBe(committedIndependentOutput);
       expectPackRollbackPreimages(fixture.paths, beforeFailure);
+    }),
+  );
+
+  it.effect(
+    "plans and converges one deterministic transition for every depending Pack constraint",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makeConstraintMismatchFixture(tempDir);
+        const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
+        const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
+        const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
+        const human = makeLayers(undefined, fixture.sources);
+        const machine = makeLayers({ machine: true }, fixture.sources);
+
+        yield* human.provide(handleSync({ preview: true }));
+        yield* machine.provide(handleSync({ preview: true }));
+
+        const humanPreview = expectPreviewedPlanResult(human.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        const machinePreview = expectPreviewedPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        const humanLabel = property(planResultSteps(humanPreview)[0], "label");
+        const machineLabel = property(planResultSteps(machinePreview)[0], "label");
+        expect(machineLabel).toBe(humanLabel);
+        expect(machineLabel).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
+        expect(machineLabel).toContain("@acme/packs/beta range=^2.1.0");
+        expect(machineLabel).toContain("accepted version=1.0.0");
+        expect(machineLabel).toContain("observed version=1.0.0");
+        expect(machineLabel).toContain("decision=reconcilable; proposed version=2.2.0");
+        expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
+        expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(fixture.paths.canonicalSkill, "utf8")).toBe(canonicalBefore);
+
+        machine.rendererState.results.length = 0;
+        yield* machine.provide(handleSync({ preview: false }));
+        const applied = expectAppliedPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        expect(property(planResultSteps(applied)[0], "label")).toBe(machineLabel);
+        expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
+          skills: { review: { resolvedVersion: "2.2.0" } },
+        });
+        expect(JSON.parse(fs.readFileSync(fixture.paths.settings, "utf8"))).toEqual(
+          JSON.parse(settingsBefore),
+        );
+        expect(JSON.parse(fs.readFileSync(fixture.paths.canonicalSkill, "utf8"))).toMatchObject({
+          version: "2.2.0",
+        });
+        expect(fixture.lookupCalls).toEqual(["skill", "skill", "skill"]);
+
+        machine.rendererState.results.length = 0;
+        yield* machine.provide(handleSync({ preview: true }));
+        expectNoOpPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+        });
+      }),
+  );
+
+  it.effect(
+    "reports every unsatisfiable Pack constraint as one stable blocker without writes",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makeConstraintMismatchFixture(tempDir, ["^2.0.0", "^3.0.0"]);
+        const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
+        const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
+        const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
+        const { provide } = makeLayers({ machine: true }, fixture.sources);
+
+        const error = yield* provide(handleSync({ preview: true })).pipe(Effect.flip);
+
+        expect(error.code).toBe("conflict");
+        expect(error.detail).toContain("@acme/packs/alpha range=^2.0.0");
+        expect(error.detail).toContain("@acme/packs/beta range=^3.0.0");
+        expect(error.detail).toContain("decision=blocked; reason=no-satisfying-version");
+        expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
+        expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(fixture.paths.canonicalSkill, "utf8")).toBe(canonicalBefore);
+        expect(fs.existsSync(fixture.paths.materializedSkill)).toBe(false);
+      }),
+  );
+
+  it.effect("rolls back a constraint repair when its apply closure fails", () =>
+    Effect.gen(function* () {
+      const fixture = makeConstraintMismatchFixture(tempDir);
+      const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
+      const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
+      const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
+      const { provide, rendererState } = makeLayers({ machine: true }, fixture.sources);
+
+      yield* provide(
+        handleSync(
+          { preview: false },
+          {
+            afterMaterialization: () =>
+              Effect.fail(makeAppError({ code: "internal", detail: "Injected repair failure" })),
+          },
+        ),
+      );
+
+      expect(
+        expectRecord(property(expectRecord(rendererState.results[0]?.data), "result")),
+      ).toMatchObject({
+        outcome: "failed",
+        reason: "execution-failed",
+      });
+      expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
+      expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(fixture.paths.canonicalSkill, "utf8")).toBe(canonicalBefore);
+      expect(fs.existsSync(fixture.paths.materializedSkill)).toBe(false);
     }),
   );
 

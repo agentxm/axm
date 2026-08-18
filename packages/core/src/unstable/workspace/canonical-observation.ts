@@ -18,7 +18,11 @@ import { SkillManifestSchema } from "../skills/index.js";
 import { SubagentManifestSchema } from "../subagents/index.js";
 import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
-import type { DesiredExtensionNode } from "./desired-state-graph.js";
+import {
+  collectDesiredConstraintContributors,
+  type DesiredConstraintContributor,
+  type DesiredExtensionNode,
+} from "./desired-state-graph.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -31,13 +35,32 @@ export type CanonicalObservationStatus =
   | "locally-modified"
   | "usable";
 
-export interface CanonicalObservation {
+export type CanonicalConstraintContributor = DesiredConstraintContributor;
+
+interface CanonicalObservationBase {
   readonly type: ExtensionType;
   readonly name: string;
-  readonly status: CanonicalObservationStatus;
   readonly path?: string;
   readonly contentIdentity?: string;
 }
+
+export interface CanonicalConstraintMismatchObservation extends CanonicalObservationBase {
+  readonly status: "constraint-mismatch";
+  readonly authority: {
+    readonly source: "desired-state-graph";
+    readonly identity: string;
+    readonly locator: string;
+    readonly constraints: ReadonlyArray<CanonicalConstraintContributor>;
+  };
+  readonly acceptedVersion?: string;
+  readonly observedVersion?: string;
+}
+
+export type CanonicalObservation =
+  | CanonicalConstraintMismatchObservation
+  | (CanonicalObservationBase & {
+      readonly status: Exclude<CanonicalObservationStatus, "constraint-mismatch">;
+    });
 
 interface ObserveCanonicalArgs {
   readonly baseDir: string;
@@ -128,6 +151,27 @@ const parseJson = (raw: string): unknown | undefined => {
   }
 };
 
+const constraintMismatchObservation = (args: {
+  readonly path: Path.Path;
+  readonly desired: DesiredExtensionNode;
+  readonly canonicalPath?: string;
+  readonly acceptedVersion?: string;
+  readonly observedVersion?: string;
+}): CanonicalConstraintMismatchObservation => ({
+  type: args.desired.type,
+  name: args.desired.name,
+  status: "constraint-mismatch",
+  ...(args.canonicalPath === undefined ? {} : { path: args.canonicalPath }),
+  authority: {
+    source: "desired-state-graph",
+    identity: args.desired.identity,
+    locator: args.desired.source,
+    constraints: collectDesiredConstraintContributors(args.path, args.desired.origins),
+  },
+  ...(args.acceptedVersion === undefined ? {} : { acceptedVersion: args.acceptedVersion }),
+  ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),
+});
+
 export const observeCanonicalExtension = ({
   baseDir,
   desired,
@@ -172,23 +216,24 @@ export const observeCanonicalExtension = ({
         status: "wrong-origin",
       };
     }
-    if (
+    const acceptedConstraintMismatch =
       !workspaceAuthored &&
       desired.constraints.length > 0 &&
       (accepted?.type !== "registry" ||
         desired.constraints.some(
           (constraint) => !semver.satisfies(accepted.resolvedVersion, constraint),
-        ))
-    ) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "constraint-mismatch",
-      };
-    }
+        ));
+    const acceptedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : undefined;
 
     const root = canonicalPathForAcceptedExtension(path, baseDir, desired, accepted);
     if (root === undefined) {
+      if (acceptedConstraintMismatch) {
+        return constraintMismatchObservation({
+          path,
+          desired,
+          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+        });
+      }
       return {
         type: desired.type,
         name: desired.name,
@@ -197,6 +242,14 @@ export const observeCanonicalExtension = ({
     }
     const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
+      if (acceptedConstraintMismatch) {
+        return constraintMismatchObservation({
+          path,
+          desired,
+          canonicalPath: root,
+          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+        });
+      }
       return { type: desired.type, name: desired.name, status: "missing", path: root };
     }
 
@@ -206,18 +259,50 @@ export const observeCanonicalExtension = ({
     let manifestVersion: string | undefined;
     if (!(desired.type === "skill" && !manifestExists)) {
       if (!manifestExists) {
+        if (acceptedConstraintMismatch) {
+          return constraintMismatchObservation({
+            path,
+            desired,
+            canonicalPath: root,
+            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+          });
+        }
         return { type: desired.type, name: desired.name, status: "incomplete", path: root };
       }
       const raw = yield* fs.readFileString(manifestPath).pipe(Effect.result);
       if (Result.isFailure(raw)) {
+        if (acceptedConstraintMismatch) {
+          return constraintMismatchObservation({
+            path,
+            desired,
+            canonicalPath: root,
+            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+          });
+        }
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
       const parsed = parseJson(raw.success);
       if (parsed === undefined) {
+        if (acceptedConstraintMismatch) {
+          return constraintMismatchObservation({
+            path,
+            desired,
+            canonicalPath: root,
+            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+          });
+        }
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
       const decoded = Schema.decodeUnknownResult(contract.schema)(parsed);
       if (Result.isFailure(decoded)) {
+        if (acceptedConstraintMismatch) {
+          return constraintMismatchObservation({
+            path,
+            desired,
+            canonicalPath: root,
+            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+          });
+        }
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
       if (
@@ -231,17 +316,21 @@ export const observeCanonicalExtension = ({
     }
 
     if (
-      workspaceAuthored &&
       desired.constraints.length > 0 &&
-      (manifestVersion === undefined ||
-        desired.constraints.some((constraint) => !semver.satisfies(manifestVersion, constraint)))
+      (acceptedConstraintMismatch ||
+        (workspaceAuthored &&
+          (manifestVersion === undefined ||
+            desired.constraints.some(
+              (constraint) => !semver.satisfies(manifestVersion, constraint),
+            ))))
     ) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "constraint-mismatch",
-        path: root,
-      };
+      return constraintMismatchObservation({
+        path,
+        desired,
+        canonicalPath: root,
+        ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+        ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
+      });
     }
 
     const payloadComplete = yield* hasRequiredPayload(

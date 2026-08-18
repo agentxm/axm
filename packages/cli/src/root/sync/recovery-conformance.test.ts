@@ -286,6 +286,14 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "canonicalContent",
     evidence: ["packages/cli/src/root/sync/handler.test.ts"],
   }),
+  makeEntry("extension:constraint-mismatch", {
+    owner: "sync",
+    field: "lockAuthority",
+    evidence: [
+      "packages/core/src/unstable/projection/constraint-invariant-fact.test.ts",
+      "packages/cli/src/root/sync/handler.test.ts",
+    ],
+  }),
   makeEntry(INCOMPLETE_DESIRED_STATE_BLOCKER_ID, {
     owner: "direct-correction",
     field: "authoredIntent",

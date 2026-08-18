@@ -6,6 +6,14 @@
  */
 
 export {
+  EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
+  extensionConstraintFactText,
+  makeExtensionConstraintInvariantFact,
+  planExtensionConstraintFact,
+  type ExtensionConstraintInvariantFact,
+  type ExtensionConstraintPlanningDecision,
+} from "./constraint-invariant-fact.js";
+export {
   activeContributors,
   activeNodesOfType,
   contributorForNode,

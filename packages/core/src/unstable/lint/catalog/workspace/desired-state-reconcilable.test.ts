@@ -5,9 +5,19 @@ import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures
 import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
 import type { DesiredExtensionNode } from "../../../workspace/desired-state-graph.js";
 import type { WorkspaceRuleContext } from "../../context.js";
+import type { CanonicalObservation } from "../../../workspace/canonical-observation.js";
 import { desiredStateReconcilableRule } from "./desired-state-reconcilable.js";
 
-const makeContext = (desired: DesiredExtensionNode): Effect.Effect<WorkspaceRuleContext> =>
+const makeContext = (
+  desired: DesiredExtensionNode,
+  observation: CanonicalObservation = {
+    type: desired.type,
+    name: desired.name,
+    status: "locally-modified",
+    path: `/workspace/.axm/extensions/${desired.name}`,
+    contentIdentity: "sha256-working",
+  },
+): Effect.Effect<WorkspaceRuleContext> =>
   Effect.gen(function* () {
     const workspace = yield* makeWorkspaceReadModel("project");
     return {
@@ -23,13 +33,7 @@ const makeContext = (desired: DesiredExtensionNode): Effect.Effect<WorkspaceRule
         canonicalObservations: Effect.succeed([
           {
             desired,
-            observation: {
-              type: desired.type,
-              name: desired.name,
-              status: "locally-modified",
-              path: `/workspace/.axm/extensions/${desired.name}`,
-              contentIdentity: "sha256-working",
-            },
+            observation,
           },
         ]),
       },
@@ -48,6 +52,15 @@ const makeContext = (desired: DesiredExtensionNode): Effect.Effect<WorkspaceRule
 const runCheck = (desired: DesiredExtensionNode) =>
   Effect.gen(function* () {
     const context = yield* makeContext(desired);
+    return yield* desiredStateReconcilableRule.check(context);
+  });
+
+const runCheckWithObservation = (
+  desired: DesiredExtensionNode,
+  observation: CanonicalObservation,
+) =>
+  Effect.gen(function* () {
+    const context = yield* makeContext(desired, observation);
     return yield* desiredStateReconcilableRule.check(context);
   });
 
@@ -89,6 +102,48 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
         severity: "error",
         message: "skill '@test/skills/installed-skill' has canonical state locally-modified.",
       });
+    });
+  });
+
+  it.effect("names every depending Pack and range for a constraint mismatch", () => {
+    const desired = {
+      type: "skill",
+      name: "review",
+      identity: "@test/skills/review",
+      source: "@test/skills/review@^2.0.0",
+      enabled: true,
+      constraints: ["^2.0.0"],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+    const observation = {
+      type: "skill",
+      name: "review",
+      status: "constraint-mismatch",
+      acceptedVersion: "1.0.0",
+      observedVersion: "1.0.0",
+      authority: {
+        source: "desired-state-graph",
+        identity: desired.identity,
+        locator: desired.source,
+        constraints: [
+          {
+            source: "pack",
+            dependingPack: "@test/packs/alpha",
+            range: "^2.0.0",
+            location: "/workspace/.axm/extensions/@test/packs/alpha/pack.json",
+          },
+        ],
+      },
+    } satisfies CanonicalObservation;
+
+    return Effect.gen(function* () {
+      const findings = yield* runCheckWithObservation(desired, observation);
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("@test/packs/alpha range=^2.0.0");
+      expect(findings[0]?.message).toContain("accepted version=1.0.0");
+      expect(findings[0]?.message).toContain("observed version=1.0.0");
+      expect(findings[0]?.message).toContain("decision=reconcilable");
     });
   });
 });

@@ -66,6 +66,9 @@ import {
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
   applyPlannedProjections,
+  extensionConstraintFactText,
+  makeExtensionConstraintInvariantFact,
+  planExtensionConstraintFact,
   WorkspaceInvariantFacts,
   projectionFactRequiresReconciliation,
   type ProjectionInvariantFact,
@@ -107,6 +110,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export const SYNC_RECOVERY_IDS = {
   packManifestDivergence: "pack:manifest-divergence",
+  extensionConstraintMismatch: "extension:constraint-mismatch",
   inlineMcpCollision: "mcp-server:inline",
   hookProjections: "hook:projections",
   instructionReconcile: "instruction:reconcile",
@@ -115,6 +119,7 @@ export const SYNC_RECOVERY_IDS = {
 /** Executable sync recovery and blocker identities covered by recovery conformance. */
 export const syncRecoveryIdentifiers = [
   SYNC_RECOVERY_IDS.packManifestDivergence,
+  SYNC_RECOVERY_IDS.extensionConstraintMismatch,
   SYNC_RECOVERY_IDS.inlineMcpCollision,
   SYNC_RECOVERY_IDS.hookProjections,
   SYNC_RECOVERY_IDS.instructionReconcile,
@@ -161,7 +166,13 @@ const desiredStateProblemText = (graph: DesiredStateGraph): string =>
         case "projection-collision":
           return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
         case "constraint-conflict":
-          return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.constraints.join(", ")}`;
+          return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.contributors
+            .map((contributor) =>
+              contributor.source === "pack"
+                ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
+                : `settings range=${contributor.range} location=${contributor.location}`,
+            )
+            .join(", ")}; decision=blocked; reason=no-satisfying-version`;
       }
     })
     .join("; ");
@@ -303,13 +314,17 @@ const resolveDesiredExtensionRef = (
   node: DesiredExtensionNode,
   canonicalStatus: CanonicalObservationStatus,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  constraintDetail?: string,
 ) => {
   const annotate = <A, R>(effect: Effect.Effect<A, AppError, R>) =>
     effect.pipe(
       Effect.mapError((cause) =>
         makeAppError({
-          code: cause.code,
-          detail: `${node.type} ${node.name}: ${cause.detail} (canonical status: ${canonicalStatus})`,
+          code: constraintDetail === undefined ? cause.code : "conflict",
+          detail:
+            constraintDetail === undefined
+              ? `${node.type} ${node.name}: ${cause.detail} (canonical status: ${canonicalStatus})`
+              : `${constraintDetail}; decision=blocked; reason=no-satisfying-version; ${cause.detail}`,
           cause,
         }),
       ),
@@ -721,6 +736,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ? canonical.value.observation
           : { type: node.type, name: node.name, status: "missing-resolution" as const };
         const accepted = Option.isSome(canonical) ? canonical.value.accepted : undefined;
+        const constraintFact =
+          observation.status === "constraint-mismatch"
+            ? makeExtensionConstraintInvariantFact(node, observation)
+            : undefined;
         const materializationCurrent = yield* isObservedMaterializationCurrent(
           ws,
           node,
@@ -743,7 +762,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
               return { ref: usable.value.ref, versionRange: Option.none() };
             }
           }
-          if (accepted !== undefined) {
+          if (accepted !== undefined && constraintFact === undefined) {
             const immutable = yield* acceptedResolutionRef({
               workspace: ws,
               type: node.type,
@@ -765,9 +784,30 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
               ],
             });
           }
-          return yield* resolveDesiredExtensionRef(node, observation.status, releaseAgeEvaluation);
+          return yield* resolveDesiredExtensionRef(
+            node,
+            observation.status,
+            releaseAgeEvaluation,
+            constraintFact === undefined ? undefined : extensionConstraintFactText(constraintFact),
+          );
         });
         const ref = resolved.ref;
+        const resolvedVersion =
+          ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;
+        const constraintDecision =
+          constraintFact === undefined
+            ? undefined
+            : planExtensionConstraintFact(constraintFact, resolvedVersion);
+        if (constraintFact !== undefined && constraintDecision?.readiness === "blocked") {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `${extensionConstraintFactText(constraintFact)}; decision=blocked; reason=${constraintDecision.reason}${constraintDecision.candidateVersion === undefined ? "" : `; candidate version=${constraintDecision.candidateVersion}`}`,
+          });
+        }
+        const constraintTransition =
+          constraintFact !== undefined && constraintDecision?.readiness === "ready"
+            ? `${extensionConstraintFactText(constraintFact)}; decision=reconcilable; proposed version=${constraintDecision.version}`
+            : undefined;
         const releaseAge = configuredReleaseAge(resolved);
         return {
           ref,
@@ -783,7 +823,13 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
             `previous version=${accepted?.type === "registry" ? accepted.resolvedVersion : "none"}`,
             `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
-            `reason=${observation.status !== "usable" ? observation.status : "stale-projection"}`,
+            `reason=${
+              constraintFact === undefined
+                ? observation.status !== "usable"
+                  ? observation.status
+                  : "stale-projection"
+                : constraintTransition
+            }`,
             `downgrade=${
               accepted?.type === "registry" &&
               (ref.refType === "registry" || ref.refType === "workspace") &&

@@ -89,7 +89,16 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         source,
         enabled: true,
         constraints: ["^2.0.0"],
-        origins: [{ type: "settings", source, enabled: true }],
+        origins: [
+          { type: "settings", source, constraint: "^2.0.0", enabled: true },
+          {
+            type: "pack",
+            pack: "@acme/packs/platform",
+            source: "@acme/rules/release",
+            constraint: "^2.0.0",
+            enabled: true,
+          },
+        ],
       };
       const observed = yield* observeCanonicalExtension({
         baseDir: root,
@@ -105,6 +114,22 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         },
       });
       expect(observed.status).toBe("constraint-mismatch");
+      if (observed.status === "constraint-mismatch") {
+        expect(observed.acceptedVersion).toBe("1.9.0");
+        expect(observed.authority).toMatchObject({
+          source: "desired-state-graph",
+          identity: "@acme/rules/release",
+          locator: source,
+          constraints: [
+            { source: "settings", range: "^2.0.0" },
+            {
+              source: "pack",
+              dependingPack: "@acme/packs/platform",
+              range: "^2.0.0",
+            },
+          ],
+        });
+      }
     }),
   );
 

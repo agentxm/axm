@@ -635,8 +635,28 @@ describe("HTTP registry transport", () => {
         throw new Error("Expected executable recovery command");
       }
       expect(recovery["cmd"]).toContain("axm publish --on-existing verify");
-      expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-first`);
+      expect(recovery["cmd"]).not.toContain(`${OWNER}/skills/retry-first`);
       expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-second`);
+      expect(recovery).toMatchObject({
+        remainingItems: [`${OWNER}/skills/retry-second`],
+        blockedDependents: [],
+      });
+      expect(initialOutput["result"]["execution"]).toMatchObject({
+        outcomes: [
+          { name: "retry-first", status: "success" },
+          {
+            name: "retry-second",
+            status: "failed",
+            cause: {
+              retryable: true,
+              attemptCount: 1,
+              maxAttempts: 1,
+              attemptsExhausted: true,
+              retryStoppedBy: "replay-unsafe",
+            },
+          },
+        ],
+      });
 
       const recoveryArgs = recovery["cmd"].split(" ").slice(1);
       const firstRecovery = await runCli(recoveryArgs, {
@@ -646,7 +666,6 @@ describe("HTTP registry transport", () => {
       expect(firstRecovery.exitCode, firstRecovery.stderr).toBe(0);
       expect(registry.publishes).toHaveLength(2);
       expect(JSON.parse(firstRecovery.stdout).result.execution.outcomes).toMatchObject([
-        { name: "retry-first", reason: "version_already_published", status: "success" },
         { name: "retry-second", status: "success" },
       ]);
 
@@ -658,7 +677,7 @@ describe("HTTP registry transport", () => {
       expect(registry.publishes).toHaveLength(2);
       expect(JSON.parse(secondRecovery.stdout).result.counts).toMatchObject({
         published: 0,
-        alreadyPublished: 2,
+        alreadyPublished: 1,
         failed: 0,
         blocked: 0,
       });
@@ -707,7 +726,8 @@ describe("HTTP registry transport", () => {
       expect(registry.publishes.map((entry) => `${entry.plural}/${entry.name}`)).toEqual([
         "skills/independent-member",
       ]);
-      const outcomes = JSON.parse(published.stdout).result.execution.outcomes;
+      const publishResult = JSON.parse(published.stdout).result;
+      const outcomes = publishResult.execution.outcomes;
       expect(outcomes).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -729,6 +749,11 @@ describe("HTTP registry transport", () => {
         failed: 1,
         blocked: 1,
       });
+      expect(publishResult.recovery).toMatchObject({
+        remainingItems: [`${OWNER}/skills/failing-member`, `${OWNER}/packs/blocked-pack`],
+        blockedDependents: [`${OWNER}/packs/blocked-pack`],
+      });
+      expect(publishResult.recovery.cmd).not.toContain(`${OWNER}/skills/independent-member`);
     } finally {
       await registry.close();
       workspace.cleanup();

@@ -160,6 +160,7 @@ export const redactAppErrorMetadata = (
             : { body: redactSensitiveValue(metadata.response.body, { secrets }) }),
         },
       }),
+  ...(metadata.requestPolicy === undefined ? {} : { requestPolicy: metadata.requestPolicy }),
 });
 
 export const redactSuggestedAction = (

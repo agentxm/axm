@@ -158,6 +158,14 @@ export type AppErrorMetadata = {
     readonly problemCode?: string;
     readonly body?: unknown;
   };
+  readonly requestPolicy?: {
+    readonly retryable: boolean;
+    readonly attemptCount: number;
+    readonly maxAttempts: number;
+    readonly exhausted: boolean;
+    readonly stoppedBy?: "attempt-limit" | "deadline" | "replay-unsafe";
+    readonly replaySafety: "safe" | "mutation" | "idempotency-keyed";
+  };
 };
 
 export type AppErrorAction = {

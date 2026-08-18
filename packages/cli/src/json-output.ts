@@ -469,7 +469,16 @@ const PublishPhaseSchema = Schema.Literals([
 
 const PublishCauseSchema = Schema.Struct({
   code: AppErrorCodeSchema,
+  class: Schema.Literals(["internal", "user", "external"] as const),
   message: Schema.String,
+  retryable: Schema.Boolean,
+  attemptCount: Schema.optional(Schema.Number),
+  maxAttempts: Schema.optional(Schema.Number),
+  attemptsExhausted: Schema.optional(Schema.Boolean),
+  retryStoppedBy: Schema.optional(
+    Schema.Literals(["attempt-limit", "deadline", "replay-unsafe"] as const),
+  ),
+  requestId: Schema.optional(Schema.String),
 }).annotate({
   identifier: "PublishCause",
   title: "Publish Cause",
@@ -588,13 +597,20 @@ const PublishExecutionSchema = Schema.Struct({
   failure: Schema.optional(PublishCauseSchema),
 });
 
+const PublishRecoverySchema = Schema.Struct({
+  description: Schema.String,
+  cmd: Schema.String,
+  remainingItems: Schema.Array(Schema.String),
+  blockedDependents: Schema.Array(Schema.String),
+});
+
 export const PublishResultSchema = Schema.Struct({
   contract: Schema.Literal("publish-result-v2"),
   mode: PublishModeSchema,
   selection: PublishSelectionSchema,
   publicationSet: PublishPublicationSetSchema,
   execution: PublishExecutionSchema,
-  recovery: Schema.optional(SuggestedActionSchema),
+  recovery: Schema.optional(PublishRecoverySchema),
   counts: Schema.Struct({
     selected: Schema.Number,
     published: Schema.Number,
@@ -624,7 +640,7 @@ interface PublishResultInput {
   readonly publicationSet?: PublishPublicationSet;
   readonly results: ReadonlyArray<PublishResultItem>;
   readonly failure?: PublishResult["execution"]["failure"];
-  readonly recovery?: SuggestedAction;
+  readonly recovery?: PublishResult["recovery"];
 }
 
 export const classifyPublishResults = (
@@ -735,6 +751,16 @@ const publishItemLine = (item: PublishResultItem): string => {
 const publishOutcomeLine = (item: PublishResultItem): string =>
   `${publishItemLine(item)} — ${item.status ?? "unknown"}/${item.phase}${
     item.reason === undefined ? "" : `/${item.reason}`
+  }${
+    item.cause?.retryable === true
+      ? ` (retryable; attempts exhausted${
+          item.cause.attemptCount === undefined || item.cause.maxAttempts === undefined
+            ? ""
+            : `: ${item.cause.attemptCount}/${item.cause.maxAttempts}`
+        })`
+      : item.cause === undefined
+        ? ""
+        : " (terminal)"
   }${item.message === undefined ? "" : `: ${item.message}`}`;
 
 const renderHumanPublishResult = (
@@ -929,10 +955,13 @@ const renderHumanPublishResult = (
 
     if (failed.length > 0) {
       const [failedItem] = failed;
+      const failureLabel = failed.some((item) => item.phase === "upload_execution")
+        ? "Publish failed"
+        : "Publish preflight failed";
       const headline =
         failedItem !== undefined && failed.length === 1
-          ? `Publish preflight failed for ${publishIdentity(failedItem)}`
-          : `Publish preflight failed for ${count(failed.length, "extension")}`;
+          ? `${failureLabel} for ${publishIdentity(failedItem)}`
+          : `${failureLabel} for ${count(failed.length, "extension")}`;
       yield* renderer.error(headline, suggestions);
       yield* renderer.info(failed.map(publishOutcomeLine).join("\n"));
       if (verifiedExisting.length > 0) {

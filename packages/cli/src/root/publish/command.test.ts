@@ -53,6 +53,8 @@ import {
   findPackPublishDivergenceFindings,
   handleRootPublish,
   makeExactPublishRecovery,
+  publicPublishCause,
+  publishRecoverySelection,
   previewPublishUploadBinding,
   publishAuthenticationPreconditions,
   validatePublishOwners,
@@ -1150,6 +1152,65 @@ describe("root publish", () => {
         }),
       );
     });
+
+    it.effect("renders retryable upload evidence and an exact continuation", () => {
+      const { provide, logs, rendererState } = makeContext(false);
+      const retryableCause = publicPublishCause(
+        makeAppError({
+          code: "unavailable",
+          detail: "Registry upload is temporarily unavailable.",
+          metadata: {
+            response: { status: 503, requestId: "req_retry" },
+            requestPolicy: {
+              retryable: true,
+              attemptCount: 1,
+              maxAttempts: 1,
+              exhausted: true,
+              stoppedBy: "replay-unsafe",
+              replaySafety: "mutation",
+            },
+          },
+        }),
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult("publish", {
+            mode: "apply",
+            results: [
+              {
+                id: "@acme/skills/review",
+                owner: handle("@acme"),
+                type: "skill",
+                name: extensionName("review"),
+                version: exactVersion("1.0.0"),
+                action: "error",
+                phase: "upload_execution",
+                status: "failed",
+                reason: "upload_failed",
+                message: "Registry upload is temporarily unavailable.",
+                cause: retryableCause,
+              },
+            ],
+            recovery: {
+              description: "Continue the failed items and their blocked dependents",
+              cmd: "axm publish --on-existing verify --yes @acme/skills/review",
+              remainingItems: ["@acme/skills/review"],
+              blockedDependents: [],
+            },
+          });
+
+          expect(logs.error).toContain("Publish failed for @acme/skills/review@1.0.0");
+          expect(logs.info.join("\n")).toContain("retryable; attempts exhausted: 1/1");
+          expect(
+            rendererState.suggestions.some(
+              (suggestion) =>
+                suggestion.cmd === "axm publish --on-existing verify --yes @acme/skills/review",
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
   });
 
   it.effect("returns a machine-readable no-op for an empty authored selection", () => {
@@ -2153,6 +2214,25 @@ describe("aggregatePublishFailure", () => {
 
     expect(error.code).toBe("internal");
   });
+
+  it("preserves an external classification for mixed retryable Registry failures", () => {
+    const retryableMetadata = {
+      requestPolicy: {
+        retryable: true,
+        attemptCount: 1,
+        maxAttempts: 1,
+        exhausted: true,
+        stoppedBy: "replay-unsafe" as const,
+        replaySafety: "mutation" as const,
+      },
+    };
+    const error = aggregatePublishFailure(2, [
+      makeAppError({ code: "network", metadata: retryableMetadata }),
+      makeAppError({ code: "unavailable", metadata: retryableMetadata }),
+    ]);
+
+    expect(error.code).toBe("network");
+  });
 });
 
 describe("publish recovery", () => {
@@ -2171,6 +2251,111 @@ describe("publish recovery", () => {
       "axm publish --registry private --on-existing verify --visibility private --yes @acme/skills/review @acme/packs/toolkit",
     );
   });
+
+  it("selects only failed items and dependents blocked by them", () => {
+    const base = {
+      owner: handle("@acme"),
+      type: "skill" as const,
+      sourceType: "workspace" as const,
+      authored: true,
+      phase: "upload_execution" as const,
+    };
+    const selection = publishRecoverySelection([
+      {
+        ...base,
+        id: "@acme/skills/published",
+        name: extensionName("published"),
+        action: "publish",
+        reason: "selected",
+        status: "success",
+      },
+      {
+        ...base,
+        id: "@acme/skills/review",
+        name: extensionName("review"),
+        action: "error",
+        reason: "upload_failed",
+        status: "failed",
+      },
+      {
+        ...base,
+        id: "@acme/packs/toolkit",
+        type: "pack",
+        name: extensionName("toolkit"),
+        action: "error",
+        phase: "dependency_execution",
+        reason: "blocked_by_dependency",
+        status: "blocked",
+        blockedBy: ["@acme/skills/review"],
+      },
+    ]);
+
+    expect(selection).toEqual({
+      remainingItems: ["@acme/skills/review", "@acme/packs/toolkit"],
+      blockedDependents: ["@acme/packs/toolkit"],
+    });
+    expect(
+      renderConfirmationRecoveryCommand(
+        makeExactPublishRecovery(
+          {
+            registry: Option.some("private"),
+            registryUrl: Option.none(),
+            backfill: false,
+            visibility: Option.none(),
+          },
+          selection.remainingItems,
+        ),
+      ),
+    ).toBe(
+      "axm publish --registry private --on-existing verify --yes @acme/skills/review @acme/packs/toolkit",
+    );
+  });
+
+  it.each([
+    ["timeout", "deadline"],
+    ["network", "replay-unsafe"],
+    ["rate_limit", "replay-unsafe"],
+    ["unavailable", "replay-unsafe"],
+  ] as const)("projects exhausted %s failures as retryable publish causes", (code, stoppedBy) => {
+    const cause = publicPublishCause(
+      makeAppError({
+        code,
+        detail: "Transient Registry failure",
+        metadata: {
+          response: { status: code === "rate_limit" ? 429 : 503, requestId: "req_public" },
+          requestPolicy: {
+            retryable: true,
+            attemptCount: 1,
+            maxAttempts: 1,
+            exhausted: true,
+            stoppedBy,
+            replaySafety: "mutation",
+          },
+        },
+      }),
+    );
+
+    expect(cause).toMatchObject({
+      code,
+      class: "external",
+      retryable: true,
+      attemptCount: 1,
+      maxAttempts: 1,
+      attemptsExhausted: true,
+      retryStoppedBy: stoppedBy,
+      requestId: "req_public",
+    });
+  });
+
+  it.each(["auth", "validation", "conflict", "internal"] as const)(
+    "projects deterministic %s failures as terminal publish causes",
+    (code) => {
+      expect(publicPublishCause(makeAppError({ code }))).toMatchObject({
+        code,
+        retryable: false,
+      });
+    },
+  );
 });
 
 describe("root publish dependency planning", () => {

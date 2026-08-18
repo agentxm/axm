@@ -124,6 +124,61 @@ const isReplaySafe = (safety: RegistryRequestReplaySafety): boolean =>
   safety.kind === "safe" ||
   (safety.kind === "idempotency-keyed" && safety.idempotencyKey.length > 0);
 
+const retryStopReason = (args: {
+  readonly retryable: boolean;
+  readonly replaySafe: boolean;
+  readonly attemptCount: number;
+  readonly maxAttempts: number;
+  readonly deadlineExpired: boolean;
+}): "attempt-limit" | "deadline" | "replay-unsafe" | undefined => {
+  if (!args.retryable) return undefined;
+  if (!args.replaySafe) return "replay-unsafe";
+  if (args.deadlineExpired || args.attemptCount < args.maxAttempts) return "deadline";
+  return "attempt-limit";
+};
+
+const withRequestPolicyMetadata = (
+  error: AppError,
+  args: {
+    readonly request: NonNullable<AppErrorMetadata["request"]>;
+    readonly replaySafety: RegistryRequestReplaySafety;
+    readonly attemptCount: number;
+    readonly maxAttempts: number;
+    readonly retryable: boolean;
+    readonly deadlineExpired: boolean;
+  },
+): AppError => {
+  const replaySafe = isReplaySafe(args.replaySafety);
+  const stoppedBy = retryStopReason({
+    retryable: args.retryable,
+    replaySafe,
+    attemptCount: args.attemptCount,
+    maxAttempts: args.maxAttempts,
+    deadlineExpired: args.deadlineExpired,
+  });
+  return makeAppError({
+    code: error.code,
+    title: error.title,
+    detail: error.detail,
+    metadata: {
+      ...error.metadata,
+      request: error.metadata?.request ?? args.request,
+      requestPolicy: {
+        retryable: args.retryable,
+        attemptCount: args.attemptCount,
+        maxAttempts: replaySafe ? args.maxAttempts : 1,
+        exhausted: args.retryable,
+        ...(stoppedBy === undefined ? {} : { stoppedBy }),
+        replaySafety: args.replaySafety.kind,
+      },
+    },
+    ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
+    ...(error.action === undefined ? {} : { action: error.action }),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    cause: error.cause,
+  });
+};
+
 export const executeRegistryRequest = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   args: {
@@ -135,6 +190,7 @@ export const executeRegistryRequest = <A, E, R>(
   },
 ): Effect.Effect<A, AppError, R> => {
   const policy = args.policy ?? DEFAULT_REGISTRY_REQUEST_POLICY;
+  const maxAttempts = Math.max(1, policy.maxAttempts);
   const attempt = effect.pipe(Effect.timeout(policy.requestTimeout));
 
   return Effect.gen(function* () {
@@ -159,18 +215,27 @@ export const executeRegistryRequest = <A, E, R>(
                 : { requestId: requestIdFromError(error) }),
             }),
           ),
-          Effect.flatMap(() =>
-            Cause.isTimeoutError(error)
-              ? Effect.fail(
-                  makeAppError({
-                    code: "timeout",
-                    detail: "Registry request did not complete within the configured deadline.",
-                    metadata: { request: args.request },
-                    cause: error,
-                  }),
-                )
-              : Effect.fail(args.mapError(error)),
-          ),
+          Effect.flatMap((attemptCount) => {
+            const deadlineExpired = Cause.isTimeoutError(error);
+            const mapped = deadlineExpired
+              ? makeAppError({
+                  code: "timeout",
+                  detail: "Registry request did not complete within the configured deadline.",
+                  metadata: { request: args.request },
+                  cause: error,
+                })
+              : args.mapError(error);
+            return Effect.fail(
+              withRequestPolicyMetadata(mapped, {
+                request: args.request,
+                replaySafety: args.replaySafety,
+                attemptCount,
+                maxAttempts,
+                retryable: deadlineExpired || isRetryableRegistryError(error),
+                deadlineExpired,
+              }),
+            );
+          }),
         ),
       ),
     );

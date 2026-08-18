@@ -235,6 +235,14 @@ describe("executeRegistryRequest", () => {
         "Registry request did not complete within the configured deadline.",
       );
       expect(error.metadata?.request).toEqual(requestMetadata);
+      expect(error.metadata?.requestPolicy).toEqual({
+        retryable: true,
+        attemptCount: 1,
+        maxAttempts: 1,
+        exhausted: true,
+        stoppedBy: "replay-unsafe",
+        replaySafety: "mutation",
+      });
       expect(renderAppError(error)).toBe(
         [
           "✖  Registry request did not complete within the configured deadline. (timeout)",
@@ -263,6 +271,14 @@ describe("executeRegistryRequest", () => {
 
       expect(error.code).toBe("timeout");
       expect(error.metadata?.request).toEqual(requestMetadata);
+      expect(error.metadata?.requestPolicy).toMatchObject({
+        retryable: true,
+        attemptCount: 1,
+        maxAttempts: 3,
+        exhausted: true,
+        stoppedBy: "deadline",
+        replaySafety: "safe",
+      });
     }),
   );
 

@@ -47,6 +47,18 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
           body: Schema.optional(Schema.Unknown),
         }),
       ),
+      requestPolicy: Schema.optional(
+        Schema.Struct({
+          retryable: Schema.Boolean,
+          attemptCount: Schema.Number,
+          maxAttempts: Schema.Number,
+          exhausted: Schema.Boolean,
+          stoppedBy: Schema.optional(
+            Schema.Literals(["attempt-limit", "deadline", "replay-unsafe"] as const),
+          ),
+          replaySafety: Schema.Literals(["safe", "mutation", "idempotency-keyed"] as const),
+        }),
+      ),
     }),
   ),
   blockedOn: Schema.optional(Schema.Literal("human")),

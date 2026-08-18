@@ -15,6 +15,7 @@ import * as os from "node:os";
 import * as semver from "semver";
 
 import {
+  errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
   redactSensitiveText,
@@ -189,8 +190,11 @@ export const aggregatePublishFailure = (
   errors: ReadonlyArray<AppError>,
 ): AppError => {
   const [firstError] = errors;
+  const allRetryable =
+    errors.length > 0 && errors.every((error) => error.metadata?.requestPolicy?.retryable === true);
   const commonCode: AppErrorCode =
-    firstError !== undefined && errors.every((error) => error.code === firstError.code)
+    firstError !== undefined &&
+    (allRetryable || errors.every((error) => error.code === firstError.code))
       ? firstError.code
       : "internal";
 
@@ -274,9 +278,24 @@ const preparationFailure = (
 const preparationError = (failure: AppError | PublishPreparationFailure): AppError =>
   failure._tag === "PublishPreparationFailure" ? failure.error : failure;
 
-const publicPublishCause = (error: AppError) => ({
+export const publicPublishCause = (error: AppError) => ({
   code: error.code,
+  class: errorClassForAppErrorCode(error.code),
   message: redactSensitiveText(error.detail),
+  retryable: error.metadata?.requestPolicy?.retryable ?? false,
+  ...(error.metadata?.requestPolicy === undefined
+    ? {}
+    : {
+        attemptCount: error.metadata.requestPolicy.attemptCount,
+        maxAttempts: error.metadata.requestPolicy.maxAttempts,
+        attemptsExhausted: error.metadata.requestPolicy.exhausted,
+        ...(error.metadata.requestPolicy.stoppedBy === undefined
+          ? {}
+          : { retryStoppedBy: error.metadata.requestPolicy.stoppedBy }),
+      }),
+  ...(error.metadata?.response?.requestId === undefined
+    ? {}
+    : { requestId: redactSensitiveText(error.metadata.response.requestId) }),
 });
 
 interface LocalPackConstraintCandidate {
@@ -516,6 +535,20 @@ export const makeExactPublishRecovery = (
       ...candidateFqns.map((fqn) => recoveryPositional(publicRecoveryValue(fqn))),
     ],
   );
+
+export const publishRecoverySelection = (
+  results: ReadonlyArray<PublishResultItem>,
+): {
+  readonly remainingItems: ReadonlyArray<string>;
+  readonly blockedDependents: ReadonlyArray<string>;
+} => ({
+  remainingItems: results
+    .filter((result) => result.status === "failed" || result.status === "blocked")
+    .map((result) => result.id),
+  blockedDependents: results
+    .filter((result) => result.status === "blocked")
+    .map((result) => result.id),
+});
 
 export const publishAuthenticationPreconditions = (options: {
   readonly preview: boolean;
@@ -1949,10 +1982,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ...(authoritativePreflightError === undefined
         ? {}
         : {
-            failure: {
-              code: authoritativePreflightError.code,
-              message: redactSensitiveText(authoritativePreflightError.detail),
-            },
+            failure: publicPublishCause(authoritativePreflightError),
           }),
     });
     const failure = aggregatePublishFailure(allPreflightErrors.length, allPreflightErrors);
@@ -2298,11 +2328,17 @@ const runPublish = Effect.fn("Publish.run")(function* (
       result.action === "publish" ? { ...result, status: "pending" } : result,
     );
   }
+  const recoverySelection = publishRecoverySelection(results);
+  const recoveryExecution =
+    resolution._tag === "ExecutedPlan" && recoverySelection.remainingItems.length > 0
+      ? yield* makePlanExecution(
+          args,
+          makeExactPublishRecovery(args, recoverySelection.remainingItems),
+        )
+      : undefined;
   const partialRecovery =
-    resolution._tag === "ExecutedPlan" &&
-    results.some((result) => result.status === "failed" || result.status === "blocked") &&
-    "approvalRecovery" in execution
-      ? renderConfirmationRecoveryCommand(execution.approvalRecovery)
+    recoveryExecution !== undefined && "approvalRecovery" in recoveryExecution
+      ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery)
       : undefined;
   const authorizedPublicationPreview = authorizationOutput?.preview;
   const finalPublicationSetOutput =
@@ -2336,21 +2372,25 @@ const runPublish = Effect.fn("Publish.run")(function* (
         ? {}
         : {
             recovery: {
-              description: "Verify published versions and continue the exact publication set",
+              description: "Continue the failed items and their blocked dependents",
               cmd: partialRecovery,
+              remainingItems: recoverySelection.remainingItems,
+              blockedDependents: recoverySelection.blockedDependents,
             },
           }),
       ...(resolution._tag === "FailedPlan" && !args.preview
         ? {
             failure:
               resolution.reason === "stale-candidate" || resolution.failure === undefined
-                ? {
-                    code: resolution.errorCode,
-                    message:
-                      resolution.reason === "stale-candidate"
-                        ? "Workspace material changed after authorization; no upload was attempted."
-                        : `Publish execution did not start: ${resolution.reason}.`,
-                  }
+                ? publicPublishCause(
+                    makeAppError({
+                      code: resolution.errorCode,
+                      detail:
+                        resolution.reason === "stale-candidate"
+                          ? "Workspace material changed after authorization; no upload was attempted."
+                          : `Publish execution did not start: ${resolution.reason}.`,
+                    }),
+                  )
                 : publicPublishCause(resolution.failure),
           }
         : {}),

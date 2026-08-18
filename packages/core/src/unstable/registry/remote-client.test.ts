@@ -1018,6 +1018,14 @@ describe("publishExtension", () => {
       const error = yield* runFailure(client.publishExtension(publishArgs));
 
       expect(error.code).toBe("unavailable");
+      expect(error.metadata?.requestPolicy).toEqual({
+        retryable: true,
+        attemptCount: 1,
+        maxAttempts: 1,
+        exhausted: true,
+        stoppedBy: "replay-unsafe",
+        replaySafety: "mutation",
+      });
       expect(attempts).toBe(1);
     }),
   );

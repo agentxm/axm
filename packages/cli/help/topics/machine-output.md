@@ -46,10 +46,20 @@ its causal item or finding through `blockedBy`. Counts are derived from those
 outcomes, so blocked items never increment `failed`.
 
 After a post-preflight partial publication, `result.recovery.cmd` is a
-credential-free generic `axm publish` command over the exact admitted
-identities. It verifies byte-identical versions created by the earlier attempt
-and retries versions that remain absent. A rejected preflight has findings and
-corrective suggestions instead of a partial-publication recovery command.
+credential-free generic `axm publish` command over only the failed items and
+their blocked dependents. `result.recovery.remainingItems[]` names that exact
+continuation set, while `blockedDependents[]` identifies the subset that was
+not attempted. The command verifies byte-identical versions created by an
+earlier attempt and retries versions that remain absent. A rejected preflight
+has findings and corrective suggestions instead of a partial-publication
+recovery command.
+
+An upload failure's `cause` includes a stable error `class`, `retryable`, and,
+when a Registry request policy ran, `attemptCount`, `maxAttempts`,
+`attemptsExhausted`, and `retryStoppedBy`. Retry stop reasons are
+`attempt-limit`, `deadline`, or `replay-unsafe`. `requestId` is included when
+the Registry supplied one. Automation should use these fields rather than
+matching error messages.
 
 Built-in formatter documents are the two success-envelope exceptions:
 
@@ -94,8 +104,11 @@ backoff only when the next attempt still fits inside the total deadline.
 AXM does not automatically retry a Registry mutation unless the request has a
 Registry-supported idempotency key that makes exact replay safe. Cancellation
 interrupts an active request or retry delay immediately. After retries are
-exhausted, automation receives one final error envelope and nonzero exit; use
-its stable `code`, request metadata, response request ID, and problem code for
+exhausted, automation receives one final error envelope and nonzero exit. Its
+`metadata.requestPolicy` records whether the failure remains retryable, the
+attempt and policy bounds, whether recovery was exhausted, the stop reason,
+and the request's replay-safety class. Use those typed fields with the stable
+`code`, request metadata, response request ID, and problem code for
 diagnostics. Debug stderr records attempt evidence without changing the stdout
 contract.
 

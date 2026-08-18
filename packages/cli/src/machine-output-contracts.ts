@@ -480,7 +480,7 @@ const instructionsFamily = defineResultFamily({
   scenarios: ["enabled", "disabled", "mixed roots"],
   rationale: "Instructions status is a read query; enable and disable remain plan mutations.",
   humanOutputKind: "mixed",
-  commandCoverage: ["packages/cli/src/root/rules/instructions.test.ts"],
+  commandCoverage: ["packages/cli/src/root/instructions.test.ts"],
 });
 
 const setupFamily = defineResultFamily({
@@ -599,8 +599,8 @@ const planPaths = [
   "axm rules disable",
   "axm rules enable",
   "axm rules install",
-  "axm rules instructions disable",
-  "axm rules instructions enable",
+  "axm instructions disable",
+  "axm instructions enable",
   "axm rules new",
   "axm rules uninstall",
   "axm rules update",
@@ -698,7 +698,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(knowledgeConceptStatusFamily, ["axm knowledge concepts status"]),
   ...rowsFor(lintFamily, ["axm lint"]),
   ...rowsFor(extensionListFamily, ["axm list"]),
-  ...rowsFor(instructionsFamily, ["axm rules instructions", "axm rules instructions status"]),
+  ...rowsFor(instructionsFamily, ["axm instructions"]),
   ...rowsFor(setupFamily, ["axm setup"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),

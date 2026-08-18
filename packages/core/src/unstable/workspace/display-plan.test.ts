@@ -1114,8 +1114,8 @@ describe("displayPlan", () => {
           "Enabled instruction-file management to this project",
         );
         expect(state.suggestions).toEqual([
-          { description: "Inspect instruction-file management", cmd: "axm rules instructions" },
-          { description: "Undo", cmd: "axm rules instructions disable" },
+          { description: "Inspect instruction-file management", cmd: "axm instructions" },
+          { description: "Undo", cmd: "axm instructions disable" },
         ]);
       }),
     ),

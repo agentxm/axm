@@ -36,8 +36,8 @@ the ordinary workspace lifecycle and sync boundaries.
 Top-level `instructionFiles` settings record the workspace choice. An absent
 value means the capability has not been configured. An object enables it by
 default and records the canonical `fileName` and `gitignoreAliases` preference.
-`enabled: false` disables reconciliation while retaining those preferences for
-later re-enablement.
+The literal `false` disables reconciliation. Re-enabling establishes the
+requested preferences again.
 
 The root `axm instructions` command inspects this surface; `axm instructions
 enable` and `axm instructions disable` express its activation. The family is

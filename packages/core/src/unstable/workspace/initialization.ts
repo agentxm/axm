@@ -182,7 +182,7 @@ interface SetupPlanRow {
   readonly detail: string;
 }
 
-const instructionValueFromSettings = (settings: Settings) => settings.rulesConfig?.instructions;
+const instructionValueFromSettings = (settings: Settings) => settings.instructionFiles;
 
 const currentInstructionFileName = (settings: Settings): string => {
   const value = instructionValueFromSettings(settings);
@@ -636,15 +636,12 @@ const configureProjectWorkspace = (args: {
       ...args.existingSettings,
       agents: agentIds,
       skills: args.existingSettings.skills ?? DEFAULT_SETUP_SKILLS,
-      rulesConfig: {
-        ...(args.existingSettings.rulesConfig ?? {}),
-        instructions: instructionSetup.enabled
-          ? {
-              fileName: instructionSetup.fileName,
-              gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
-            }
-          : false,
-      },
+      instructionFiles: instructionSetup.enabled
+        ? {
+            fileName: instructionSetup.fileName,
+            gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
+          }
+        : false,
     };
     const sourceContent = sourceContentForApply({
       selectedFileName: instructionSetup.fileName,
@@ -665,7 +662,7 @@ const configureProjectWorkspace = (args: {
         })
       : [
           {
-            target: "rulesConfig",
+            target: "instructionFiles",
             action: "skip",
             detail: "instructions disabled",
           } satisfies SetupPlanRow,

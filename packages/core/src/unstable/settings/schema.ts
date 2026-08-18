@@ -1010,55 +1010,6 @@ export type InstructionsConfig = Schema.Schema.Type<typeof InstructionsConfigSch
 /** @experimental */
 export type InstructionsConfigValue = false | InstructionsConfig;
 
-type RulesConfigInput = {
-  readonly instructions?: InstructionsConfigValue | null;
-};
-
-/**
- * Rules capability feature config.
- *
- * `instructions: null` decodes to an absent key so setup can treat null and
- * unset consistently.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RulesConfigSchema = Schema.Struct({
-  instructions: Schema.optionalKey(
-    Schema.Union([Schema.Literal(false), InstructionsConfigSchema, Schema.Null]).annotate({
-      description:
-        "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
-      examples: [false, { fileName: "AGENTS.md", gitignoreAliases: true }],
-    }),
-  ),
-})
-  .pipe(
-    Schema.decodeTo(
-      Schema.Struct({
-        instructions: Schema.optionalKey(
-          Schema.Union([Schema.Literal(false), InstructionsConfigSchema]),
-        ),
-      }),
-      SchemaTransformation.transform<
-        { readonly instructions?: InstructionsConfigValue },
-        RulesConfigInput
-      >({
-        decode: (config) => {
-          if (config.instructions === null || config.instructions === undefined) return {};
-          return { instructions: config.instructions };
-        },
-        encode: (config) => config,
-      }),
-    ),
-  )
-  .annotate({
-    identifier: "RulesConfig",
-    title: "Rules Config",
-    description: "Rules capability settings.",
-  });
-
-/** @experimental */
-export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
-
 export const KnowledgeConfigSchema = Schema.Struct({
   instructions: Schema.optionalKey(
     Schema.Boolean.annotate({
@@ -1109,7 +1060,7 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
   skill: null,
   "mcp-server": null,
   subagent: null,
-  rule: RulesConfigSchema,
+  rule: null,
   hook: null,
   knowledge: KnowledgeConfigSchema,
 } as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
@@ -1131,7 +1082,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "minimumReleaseAgeExclude",
   "sources",
   "agents",
-  "rulesConfig",
+  "instructionFiles",
   "skills",
   "rules",
   "hooks",
@@ -1152,7 +1103,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - minimumReleaseAgeExclude: Registry extension identities exempt from minimum release age
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
- * - rulesConfig: Feature-level configuration for rules capabilities
+ * - instructionFiles: Workspace instruction-file propagation settings
  * - skills: Desired skills by name to source string
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
@@ -1214,9 +1165,11 @@ const SettingsBaseSchema = Schema.Struct({
       })
       .check(Schema.isUnique()),
   ),
-  rulesConfig: Schema.optionalKey(
-    Schema.Union([RulesConfigSchema]).annotate({
-      description: "Feature-level options for rules capabilities.",
+  instructionFiles: Schema.optionalKey(
+    Schema.Union([Schema.Literal(false), InstructionsConfigSchema]).annotate({
+      description:
+        "Instruction-file management: false for manual management, an object for enabled propagation, or absent when unset.",
+      examples: [false, { fileName: "AGENTS.md", gitignoreAliases: true }],
     }),
   ),
   sources: Schema.optionalKey(

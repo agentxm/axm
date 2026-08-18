@@ -874,7 +874,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
   const settingsPath = joinDisplayPath(path, location.path, "settings.json");
-  const instructionsValue = settings.rulesConfig?.instructions;
+  const instructionsValue = settings.instructionFiles;
   const instructions =
     instructionsValue === undefined
       ? undefined

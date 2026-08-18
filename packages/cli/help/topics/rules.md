@@ -1,175 +1,82 @@
 # Rules
 
-A workspace's instruction file is the source of truth that tells every coding
-agent how to work in this repo. AXM keeps one file under your control and
-propagates it to each configured agent's native convention so you never have to
-hand-maintain `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, and friends in parallel.
-
-The governing standard for this extension type is
-[AGENTS.md](https://agents.md), the cross-vendor convention for a single
-instruction file at the root of a repository. AXM treats that file as the
-source of truth and derives every agent-specific alias from it.
-
-## Source of truth
-
-The default source file is `AGENTS.md` at the workspace root. AXM also walks
-nested directories: any subdirectory that contains its own `AGENTS.md` becomes
-an additional propagation root (e.g., `packages/app/AGENTS.md`).
-
-Pick a different name with `--file` on enable; the choice is persisted in
-settings.
-
-## Configuration
-
-Instruction-file management is controlled by `rulesConfig.instructions` in
-`.axm/settings.json`.
-
-```jsonc
-{
-  "agents": ["claude-code", "codex", "gemini-cli"],
-  "rulesConfig": {
-    "instructions": {
-      "fileName": "AGENTS.md",
-      "gitignoreAliases": true,
-    },
-  },
-}
-```
-
-Three forms:
-
-- **Absent** — unset. AXM does not propagate or report on instruction files.
-- **`false`** — explicitly disabled. AXM leaves instruction files alone and
-  treats them as manually managed.
-- **Object** `{ fileName?, gitignoreAliases? }` — enabled. AXM keeps each
-  configured agent's instruction file in sync with the source file.
-
-Prefer the CLI over hand-editing — it normalizes the shape and reconciles
-existing on-disk files through `axm sync`.
-
-## Per-agent propagation
-
-Each agent declares how it consumes instructions. AXM picks the mechanism
-automatically:
-
-- **Native `AGENTS.md`** — the agent reads `AGENTS.md` directly. No
-  propagation needed.
-- **Own file** — the agent expects its own filename (e.g., `CLAUDE.md`,
-  `GEMINI.md`). AXM symlinks that file to the source `AGENTS.md`, falling back
-  to a copy when the filesystem does not support symlinks (e.g., Windows
-  without developer mode).
-- **Rules directory** — agents that only read a `rules/` directory (e.g., some
-  Cursor setups) are currently reported as `unsupported`; manage those files
-  manually.
-
-Run `axm rules instructions` to see the mechanism, target file, and health for
-each configured agent and propagation root.
-
-## Installable rule extensions
-
 Rule extensions are installable guidance packages. A rule package has a
-`rule.json` manifest and a `src/RULE.md` body. Installing a rule injects the
-body into the managed `region=rules` block in the workspace instruction source,
-then the existing instruction propagation sends that source to configured
-agents.
+`rule.json` manifest and a `src/RULE.md` body. When instruction-file management
+is enabled, active Rules contribute their bodies to the complete managed
+`region=rules` block in the canonical instruction source.
 
-Install, inspect, and remove rules through the `axm rules` group:
+Rule guidance targets the [AGENTS.md](https://agents.md) cross-vendor standard.
+AXM owns only the managed Rules region; authored prose and other contributors
+retain their own ownership.
+
+Global instruction-file propagation is a separate workspace capability. Use
+`axm instructions` and `axm help instructions` to inspect or configure it.
+
+## Install and manage Rules
+
+Install, inspect, activate, and remove Rules through the `axm rules` group:
 
 ```bash
 axm rules install @owner/rules/<name>
 axm rules list
 axm rules show <name>
+axm rules disable <name>
+axm rules enable <name>
 axm rules uninstall <name>
 ```
 
 Rules are tracked in `.axm/settings.json` under `rules` and in
-`.axm/axm-lock.yaml` under `rules`. `axm rules disable <name>` keeps a rule
-installed but omits it from the rendered guidance region; `axm rules enable
-<name>` restores it. The rule name is always required. Bare `rules enable` and
-`rules disable` commands are usage errors; global instruction-file ownership
-lives under `axm rules instructions`.
+`.axm/axm-lock.yaml` under `rules`. The rule name is always required for
+activation. Bare `rules enable` and `rules disable` commands are usage errors.
 
-Every rule install, update, activation, deactivation, uninstall, and sync
-recomputes the complete `region=rules` block and reconciles all configured
-instruction aliases plus the managed `.gitignore` block in one transaction.
-Other managed regions, including Knowledge discovery, retain their content and
-relative order.
+Every Rule install, update, activation, deactivation, uninstall, and sync
+recomputes the complete Rules contribution. When instruction-file management is
+enabled, AXM reconciles that contribution with all configured instruction
+aliases and the managed `.gitignore` block in one transaction. Other managed
+regions, including Knowledge discovery, retain their content and relative
+order.
 
 Run `axm help rule-schema` to inspect the raw `rule.json` schema.
 
 ## Commands
 
-All commands live under `axm rules` and accept `--scope project` (default) or
-`--scope user`.
+Rule lifecycle commands accept `--scope project` (default) or `--scope user`:
 
-Rule extensions:
-
-- `axm rules new <name>` — scaffold a rule package.
-- `axm rules install [source]` — install one rule, or reinstall the configured
+- `axm rules new <name>` — scaffold a Rule package in the project workspace.
+- `axm rules install [source]` — install one Rule, or reinstall the configured
   set when the source is omitted.
-- `axm rules list` — inventory detected rules and their lifecycle
+- `axm rules list` — inventory detected Rules and their lifecycle
   classification.
-- `axm rules show <name>` — installed-state detail for one rule.
+- `axm rules show <name>` — inspect installed state for one Rule.
 - `axm rules enable <name>` / `axm rules disable <name>` — activate or
-  deactivate an installed rule.
-- `axm rules update [source] [--name <glob>]` — update configured rules.
-- `axm rules uninstall <name>` — remove a rule.
+  deactivate an installed Rule.
+- `axm rules update [source] [--name <glob>]` — update configured Rules.
+- `axm rules uninstall <name>` — remove a Rule.
+- `axm rules publish` — publish a project-authored Rule.
 
-Instruction-file management:
+## Reconciliation and ownership
 
-- `axm rules instructions` / `axm rules instructions status` — show source
-  file, target file, mechanism, and health for each configured agent.
-- `axm rules instructions enable [--file AGENTS.md] [--gitignore|--no-gitignore]`
-  — turn management on, preserve or seed the canonical source, and reconcile
-  owned aliases and `.gitignore`. Add `--preview` to inspect the plan.
-- `axm rules instructions disable` — remove only current AXM-owned aliases and
-  the managed `.gitignore` block, preserve the canonical source and its human
-  content, then set `instructions: false`. Add `--preview` to inspect the plan.
+The Rules region is an aggregate ownership unit. It contains every active Rule
+that desired state routes into the workspace, in deterministic order. Enabling,
+disabling, or removing one Rule re-renders the region from the remaining active
+set; it never replaces the region with only the Rule being operated on.
 
-## Diagnosis and reconciliation
+AXM preserves authored prose outside its markers. A malformed, duplicate, or
+otherwise ambiguous managed region blocks the transition without changing
+settings or files. Use `axm lint` for diagnostics and `axm sync --preview` to
+inspect reconciliation.
 
-Use `axm lint` for instruction-file diagnostics. It reports missing source
-files, missing or drifted agent targets, unsupported agent conventions, and
-stale managed `.gitignore` blocks.
+## Self-containment and Packs
 
-Use `axm sync --preview` to inspect instruction reconciliation, then `axm sync`
-to restore missing or drifted AXM-owned aliases and propagate configured
-instruction files after materializing extension artifacts.
-
-Rule and instruction-management transitions fail closed when an alias is
-unowned; settings and files remain unchanged. Inspect the ownership evidence,
-then move, remove, or adopt the unowned target before rerunning sync. There is
-no generic force flag for these transitions.
-
-## Alias gitignore propagation
-
-The `gitignoreAliases` option controls whether AXM writes managed ignore entries
-for propagated alias files in `.gitignore`. AXM only manages a single block
-between `# >>> axm:instructions >>>` and `# <<< axm:instructions <<<` markers,
-so hand-edited entries outside the block are left untouched. The source-of-truth
-file named by `fileName` is never added to the managed ignore block.
-
-- `true` (default) — manage the block inside `.gitignore` so collaborators do
-  not see propagated alias files such as `CLAUDE.md` or `GEMINI.md`.
-- `false` — do not write any ignore entries.
-
-## Authoring the source file
-
-Edit `AGENTS.md` directly. Once enabled, `axm sync` (and any install/remove
-that touches agent state) keeps each agent's instruction file aligned with the
-source on every run.
-
-## Self-containment and packs
-
-Keep rule extensions self-contained. If a rule requires another extension,
-follow `axm help packs` for the only supported direct-sibling pack composition.
-`recommendedPacks` alone does not install the pack or its members.
+Keep Rule extensions self-contained. If a Rule requires another extension,
+follow `axm help packs` for supported direct-sibling Pack composition.
+`recommendedPacks` alone does not install the Pack or its members.
 
 ## Where to go next
 
-- `axm rules --help` — full command surface
-- `axm help settings` — workspace state and `rulesConfig`
-- `axm help settings-schema` — exact `rulesConfig.instructions` shape
-- `axm help workspace-state` — package and instruction-region reconciliation
-- `axm help packs` — optional recommendations and required sibling composition
-- `axm agents list` — configured, detected, and supported coding-agent IDs
+- `axm rules --help` — full Rule command surface
+- `axm instructions --help` — global instruction-file management
+- `axm help rule-schema` — exact Rule manifest shape
+- `axm help settings` — workspace desired state
+- `axm help workspace-state` — accepted and observed reconciliation state
+- `axm help packs` — extension composition

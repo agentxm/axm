@@ -506,11 +506,11 @@ const commandGroupForType = (type: string): string => {
 
 const inverseCommand = (type: string, verb: "enable" | "disable", target: string): string =>
   type === INSTRUCTIONS_ARTIFACT
-    ? `axm rules instructions ${verb}`
+    ? `axm instructions ${verb}`
     : `axm ${commandGroupForType(type)} ${verb} ${target}`;
 
 const listCommandForType = (type: string): string | undefined => {
-  if (type === INSTRUCTIONS_ARTIFACT) return "axm rules instructions";
+  if (type === INSTRUCTIONS_ARTIFACT) return "axm instructions";
   const extensionType = extensionTypeByArtifactName.get(type);
   return extensionType === undefined
     ? undefined

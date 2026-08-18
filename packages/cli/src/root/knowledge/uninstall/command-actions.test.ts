@@ -63,7 +63,7 @@ const enableManagedInstructions = (axmDir: string, fileName = "AGENTS.md"): void
     settingsPath,
     JSON.stringify({
       ...settings,
-      rulesConfig: { instructions: { fileName, gitignoreAliases: false } },
+      instructionFiles: { fileName, gitignoreAliases: false },
     }),
   );
 };

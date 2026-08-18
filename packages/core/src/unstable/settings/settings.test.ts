@@ -250,35 +250,27 @@ describe("settings", () => {
 }\n`,
           next: {
             owner: "@acme",
-            rulesConfig: {
-              instructions: {
-                fileName: "TEAM.md",
-                gitignoreAliases: false,
-              },
+            instructionFiles: {
+              fileName: "TEAM.md",
+              gitignoreAliases: false,
             },
           },
           expected: `{
   "owner": "@acme",
-  "rulesConfig": {
-    "instructions": {
-      "fileName": "TEAM.md",
-      "gitignoreAliases": false
-    }
+  "instructionFiles": {
+    "fileName": "TEAM.md",
+    "gitignoreAliases": false
   }
 }\n`,
         },
         {
           name: "drops empty feature config blocks",
           prior: `{
-  "rulesConfig": {
-    "instructions": false
-  },
   "knowledgeConfig": {
     "instructions": false
   }
 }\n`,
           next: {
-            rulesConfig: {},
             knowledgeConfig: {},
           },
           expected: "{}\n",
@@ -758,7 +750,6 @@ ${lintBlock}
       withContext(
         Effect.gen(function* () {
           const settings: Settings = {
-            rulesConfig: {},
             knowledgeConfig: {},
           };
 

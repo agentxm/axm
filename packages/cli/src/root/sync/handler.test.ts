@@ -1385,9 +1385,7 @@ describe("root sync handler", () => {
       writeSettings(tempDir, {
         agents: ["claude-code"],
         skills: { release: "workspace:@acme/skills/release" },
-        rulesConfig: {
-          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
-        },
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
       fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human-owned\n");
@@ -1418,9 +1416,7 @@ describe("root sync handler", () => {
       writeSettings(tempDir, {
         agents: ["claude-code"],
         skills: { release: "workspace:@acme/skills/release" },
-        rulesConfig: {
-          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
-        },
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
       writeRenderedSubagent(tempDir, ".claude", "stale", true);
@@ -1455,9 +1451,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["claude-code"] });
       writeSettings(tempDir, {
         agents: ["claude-code"],
-        rulesConfig: {
-          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
-        },
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
       writeRenderedSubagent(tempDir, ".claude", "stale", true);
@@ -1754,9 +1748,7 @@ describe("root sync handler", () => {
         knowledge: {
           handbook: "workspace:@acme/knowledge/handbook",
         },
-        rulesConfig: {
-          instructions: { fileName: "AGENTS.md", gitignoreAliases: true },
-        },
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
 
       yield* provide(handleSync({ preview: false }));
@@ -1843,11 +1835,9 @@ describe("root sync handler", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeSettings(tempDir, {
         agents: ["claude-code"],
-        rulesConfig: {
-          instructions: {
-            fileName: "AGENTS.md",
-            gitignoreAliases: true,
-          },
+        instructionFiles: {
+          fileName: "AGENTS.md",
+          gitignoreAliases: true,
         },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");

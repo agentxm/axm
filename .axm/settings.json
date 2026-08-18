@@ -2,11 +2,9 @@
   "owner": "@agentxm",
   "agents": ["claude-code"],
   "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
-  "rulesConfig": {
-    "instructions": {
-      "fileName": "AGENTS.md",
-      "gitignoreAliases": true
-    }
+  "instructionFiles": {
+    "fileName": "AGENTS.md",
+    "gitignoreAliases": true
   },
   "skills": {
     "code-review": "workspace:@agentxm/skills/code-review",

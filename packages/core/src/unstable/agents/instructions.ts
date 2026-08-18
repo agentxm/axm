@@ -628,7 +628,7 @@ export const assertInstructionTargetsSafe = (args: {
       suggestions: [
         {
           description: "Inspect instruction-file ownership and drift",
-          cmd: "axm rules instructions",
+          cmd: "axm instructions",
         },
       ],
     });
@@ -655,7 +655,7 @@ export const removeManagedInstructionTargets = (args: {
         suggestions: [
           {
             description: "Inspect instruction-file ownership and drift",
-            cmd: "axm rules instructions",
+            cmd: "axm instructions",
           },
         ],
       });
@@ -815,7 +815,7 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
       suggestions: [
         {
           description: "Inspect instruction-file ownership and drift",
-          cmd: "axm rules instructions",
+          cmd: "axm instructions",
         },
       ],
     });
@@ -860,7 +860,7 @@ const writeGitignoreRegion = (args: {
         suggestions: [
           {
             description: "Inspect instruction-file ownership and drift",
-            cmd: "axm rules instructions",
+            cmd: "axm instructions",
           },
         ],
       });

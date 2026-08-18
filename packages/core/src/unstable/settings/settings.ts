@@ -55,14 +55,11 @@ export const createDefaultSettings = (): Settings => ({});
  *
  * @experimental This API is unstable and may change without notice.
  */
-const settingsConfigKeys = new Set(["rulesConfig", "knowledgeConfig"]);
-
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
-  if (!settingsConfigKeys.has(key) || !isRecord(value)) return false;
-  if (key === "rulesConfig") return value["instructions"] === undefined;
+  if (key !== "knowledgeConfig" || !isRecord(value)) return false;
   return value["instructions"] !== false;
 };
 

@@ -553,7 +553,7 @@ describe("setup.handler", () => {
 
           const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
           expect(settings.agents).toEqual(["claude-code"]);
-          expect(settings.rulesConfig?.instructions).toEqual({
+          expect(settings.instructionFiles).toEqual({
             fileName: "AGENTS.md",
             gitignoreAliases: true,
           });

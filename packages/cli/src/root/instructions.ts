@@ -24,11 +24,11 @@ import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/u
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
-import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { emitPlanResolutionResult } from "../json-output.js";
+import { scopeFlag } from "../cli-flags.js";
+import { withRuntime, withWorkspace } from "../runtime.js";
+import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
+import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import {
   disableInstructionManagement,
   instructionReconciliationReadiness,
@@ -86,7 +86,7 @@ registerEntity<InstructionTableItem>("agent-rule", {
   },
 });
 
-const currentInstructionsConfig = Effect.fn("Rules.instructions.currentConfig")(function* () {
+const currentInstructionsConfig = Effect.fn("Instructions.currentConfig")(function* () {
   const ws = yield* WorkspaceMutations;
   const config = yield* ws.getInstructionsConfig();
   if (Option.isNone(config) || config.value === false) return Option.none();
@@ -121,7 +121,7 @@ const makeInstructionsConfigPlan = (args: {
   ],
 });
 
-export const handleInstructionsStatus = Effect.fn("Rules.instructions.status")(function* () {
+export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const config = yield* currentInstructionsConfig();
@@ -173,7 +173,7 @@ export const handleInstructionsStatus = Effect.fn("Rules.instructions.status")(f
   });
 });
 
-export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(function* (args: {
+export const handleInstructionsEnable = Effect.fn("Instructions.enable")(function* (args: {
   readonly fileName: string;
   readonly gitignore: boolean;
   readonly preview?: boolean;
@@ -202,7 +202,7 @@ export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(f
     rawInstructionsConfigEquals(current.value, config) &&
     (yield* instructionStateIsCurrent({ ws, config: resolvedConfig }));
   if (alreadyCurrent) {
-    yield* emitNoOpOutcome("rules.instructions.enable", {
+    yield* emitNoOpOutcome("instructions.enable", {
       planName: "Enable instruction-file management",
       message: "Instruction-file management is already enabled.",
       withoutSuggestions: true,
@@ -280,10 +280,10 @@ export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(f
     }),
     { preview: args.preview === true },
   );
-  yield* emitPlanResolutionResult("rules.instructions.enable", resolution);
+  yield* emitPlanResolutionResult("instructions.enable", resolution);
 });
 
-export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")(function* (args?: {
+export const handleInstructionsDisable = Effect.fn("Instructions.disable")(function* (args?: {
   readonly preview?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -292,7 +292,7 @@ export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")
   const current = yield* ws.getInstructionsConfig();
 
   if (Option.isNone(current) || current.value === false) {
-    yield* emitNoOpOutcome("rules.instructions.disable", {
+    yield* emitNoOpOutcome("instructions.disable", {
       planName: "Disable instruction-file management",
       message: "Instruction-file management is already disabled.",
       withoutSuggestions: true,
@@ -345,7 +345,7 @@ export const handleInstructionsDisable = Effect.fn("Rules.instructions.disable")
     }),
     { preview: args?.preview === true },
   );
-  yield* emitPlanResolutionResult("rules.instructions.disable", resolution);
+  yield* emitPlanResolutionResult("instructions.disable", resolution);
 });
 
 const instructionsStatusConfig = {
@@ -382,15 +382,15 @@ const instructionsEnableCommand = Command.make(
   ({ scope, fileName, gitignore, preview }) =>
     handleInstructionsEnable({ fileName, gitignore, preview }).pipe(
       withWorkspace(scope),
-      withRuntime("rules instructions enable"),
+      withRuntime("instructions enable"),
     ),
 ).pipe(
   withArgvTracking(instructionsEnableConfig),
   Command.withDescription("Enable instruction-file management"),
   Command.withExamples([
-    { command: "axm rules instructions enable", description: "Enable instruction files" },
+    { command: "axm instructions enable", description: "Enable instruction files" },
     {
-      command: "axm rules instructions enable --no-gitignore",
+      command: "axm instructions enable --no-gitignore",
       description: "Enable without writing alias gitignore entries",
     },
   ]),
@@ -402,47 +402,29 @@ const instructionsDisableCommand = Command.make(
   ({ scope, preview }) =>
     handleInstructionsDisable({ preview }).pipe(
       withWorkspace(scope),
-      withRuntime("rules instructions disable"),
+      withRuntime("instructions disable"),
     ),
 ).pipe(
   withArgvTracking(instructionsDisableConfig),
   Command.withDescription("Disable instruction-file management"),
   Command.withExamples([
-    { command: "axm rules instructions disable", description: "Disable instruction files" },
-  ]),
-);
-
-const instructionsStatusCommand = Command.make("status", instructionsStatusConfig, ({ scope }) =>
-  handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("rules instructions status")),
-).pipe(
-  withArgvTracking(instructionsStatusConfig),
-  Command.withDescription("Inspect instruction-file management status"),
-  Command.withExamples([
-    {
-      command: "axm rules instructions status",
-      description: "Inspect instruction files",
-    },
+    { command: "axm instructions disable", description: "Disable instruction files" },
   ]),
 );
 
 export const instructionsCommand = Command.make(
   "instructions",
   instructionsStatusConfig,
-  ({ scope }) =>
-    handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("rules instructions")),
+  ({ scope }) => handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("instructions")),
 ).pipe(
   withArgvTracking(instructionsStatusConfig),
   Command.withDescription("Inspect and manage workspace instruction files"),
   Command.withExamples([
-    { command: "axm rules instructions", description: "Inspect instruction files" },
+    { command: "axm instructions", description: "Inspect instruction files" },
     {
       command: "axm sync --preview",
       description: "Preview instruction-file reconciliation",
     },
   ]),
-  Command.withSubcommands([
-    instructionsStatusCommand,
-    instructionsEnableCommand,
-    instructionsDisableCommand,
-  ]),
+  Command.withSubcommands([instructionsEnableCommand, instructionsDisableCommand]),
 );

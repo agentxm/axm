@@ -146,6 +146,53 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("instruction-file config", () => {
+    it.effect("reads the top-level instructionFiles setting", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "settings.json"),
+          JSON.stringify({
+            agents: ["claude-code"],
+            instructionFiles: {
+              fileName: "TEAM.md",
+              gitignoreAliases: false,
+            },
+          }),
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const config = yield* ws.getInstructionsConfig();
+
+        expect(config).toEqual(
+          Option.some({
+            fileName: "TEAM.md",
+            gitignoreAliases: false,
+          }),
+        );
+      }),
+    );
+
+    it.effect("writes instructionFiles without creating rule-owned config", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService(defaultOptions);
+
+        yield* ws.setInstructionsConfig(false);
+
+        const settings: unknown = JSON.parse(
+          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf-8"),
+        );
+        expect(settings).toMatchObject({
+          agents: ["claude-code"],
+          instructionFiles: false,
+        });
+        if (typeof settings !== "object" || settings === null) {
+          throw new Error("Expected settings to decode as an object");
+        }
+        expect(Reflect.get(settings, "rulesConfig")).toBeUndefined();
+      }),
+    );
+  });
+
   describe("workspace readiness", () => {
     it.effect("fails fast when settings.json is missing", () =>
       Effect.gen(function* () {

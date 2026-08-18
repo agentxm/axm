@@ -197,9 +197,9 @@ Discovery is enabled by default. Disable only the table with:
 ```
 
 This does not uninstall, distrust, or disable Knowledge, and concept discovery
-remains available. Global instruction ownership remains under `rulesConfig.instructions`;
-when that setting is absent or false, Knowledge does not mutate instruction
-files.
+remains available. Global instruction ownership remains under the top-level
+`instructionFiles` setting; when that setting is absent or false, Knowledge
+does not mutate instruction files.
 
 `axm sync` restores missing canonical content from exact locked registry
 versions or pinned git trees, treats local and workspace sources as

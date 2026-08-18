@@ -64,7 +64,22 @@ as `enabled: false`. A workspace-authored package uses the intrinsic source
 }
 ```
 
-Feature config lives under `rulesConfig` and `knowledgeConfig`.
+Workspace instruction-file management lives at top-level `instructionFiles`:
+
+```jsonc
+{
+  "instructionFiles": {
+    "fileName": "AGENTS.md",
+    "gitignoreAliases": true,
+  },
+}
+```
+
+The object enables propagation, `false` explicitly disables it, and absence
+means it has not been configured. Use `axm instructions` to inspect the
+effective state and `axm instructions enable|disable` to change it.
+
+Knowledge contribution config lives under `knowledgeConfig`.
 
 `knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
 the canonical instruction source. It defaults to enabled; persist only the

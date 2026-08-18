@@ -228,20 +228,18 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("rulesConfig.instructions", () => {
+  describe("instructionFiles", () => {
     it("accepts enabled instruction-file management config", () => {
       const input = {
-        rulesConfig: {
-          instructions: {
-            fileName: "AGENTS.md",
-            gitignoreAliases: true,
-          },
+        instructionFiles: {
+          fileName: "AGENTS.md",
+          gitignoreAliases: true,
         },
       };
 
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.rulesConfig?.instructions).toEqual({
+      expect(result.instructionFiles).toEqual({
         fileName: "AGENTS.md",
         gitignoreAliases: true,
       });
@@ -249,11 +247,9 @@ describe("Settings schema", () => {
 
     it("rejects the old instruction-file gitignore key under strict settings validation", () => {
       const input = {
-        rulesConfig: {
-          instructions: {
-            fileName: "AGENTS.md",
-            gitignore: true,
-          },
+        instructionFiles: {
+          fileName: "AGENTS.md",
+          gitignore: true,
         },
       };
 
@@ -264,18 +260,23 @@ describe("Settings schema", () => {
 
     it("accepts explicit manual instruction-file management", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({
+        instructionFiles: false,
+      });
+
+      expect(result.instructionFiles).toBe(false);
+    });
+
+    it("rejects null instruction-file management", () => {
+      expect(() => Schema.decodeUnknownSync(SettingsSchema)({ instructionFiles: null })).toThrow();
+    });
+
+    it("does not interpret the legacy rules config as instruction settings", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
         rulesConfig: { instructions: false },
       });
 
-      expect(result.rulesConfig?.instructions).toBe(false);
-    });
-
-    it("normalizes null instruction-file management to absent", () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        rulesConfig: { instructions: null },
-      });
-
-      expect(result.rulesConfig).toEqual({});
+      expect(result.instructionFiles).toBeUndefined();
+      expect(Reflect.get(result, "rulesConfig")).toEqual({ instructions: false });
     });
   });
 

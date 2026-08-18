@@ -10,9 +10,10 @@ import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-re
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectPreviewedPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../test-helpers.js";
 import {
   handleInstructionsDisable,
   handleInstructionsEnable,
@@ -22,7 +23,7 @@ import {
 const initWorkspace = (
   baseDir: string,
   agents: ReadonlyArray<string>,
-  rulesConfig?: Readonly<Record<string, unknown>>,
+  instructionFiles?: false | Readonly<Record<string, unknown>>,
 ) => {
   const axmDir = path.join(baseDir, ".axm");
   fs.mkdirSync(axmDir, { recursive: true });
@@ -31,7 +32,7 @@ const initWorkspace = (
     JSON.stringify(
       {
         agents,
-        ...(rulesConfig === undefined ? {} : { rulesConfig }),
+        ...(instructionFiles === undefined ? {} : { instructionFiles }),
       },
       null,
       2,
@@ -40,7 +41,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 };
 
-describe("rules instructions handler", () => {
+describe("instructions handler", () => {
   let tempDir: string;
   let homeDir: string;
   let originalCwd: string;
@@ -49,7 +50,7 @@ describe("rules instructions handler", () => {
   beforeEach(() => {
     originalCwd = process.cwd();
     originalHome = process.env["HOME"];
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "rules-handler-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "instructions-handler-"));
     homeDir = path.join(tempDir, "home");
     fs.mkdirSync(homeDir, { recursive: true });
     process.chdir(tempDir);
@@ -91,7 +92,7 @@ describe("rules instructions handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.rulesConfig.instructions).toEqual({
+        expect(settings.instructionFiles).toEqual({
           fileName: "AGENTS.md",
           gitignoreAliases: true,
         });
@@ -113,6 +114,30 @@ describe("rules instructions handler", () => {
 
         expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Enable instruction-file management",
+        });
+      }),
+    );
+  });
+
+  it.effect("previews enable without changing settings or instruction aliases", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(tempDir, ["claude-code"]);
+    const settingsPath = path.join(tempDir, ".axm", "settings.json");
+    const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstructionsEnable({
+          fileName: "AGENTS.md",
+          gitignore: true,
+          preview: true,
+        });
+
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+        expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Enable instruction-file management",
+          totalSteps: 1,
         });
       }),
     );
@@ -145,10 +170,8 @@ describe("rules instructions handler", () => {
   it.effect("atomically changes the canonical instruction source", () => {
     const { provide } = makeLayers();
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: false,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: false,
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Original source\n");
     fs.writeFileSync(path.join(tempDir, "TEAM.md"), "# Team source\n");
@@ -161,7 +184,7 @@ describe("rules instructions handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.rulesConfig.instructions).toEqual({
+        expect(settings.instructionFiles).toEqual({
           fileName: "TEAM.md",
           gitignoreAliases: false,
         });
@@ -176,9 +199,7 @@ describe("rules instructions handler", () => {
 
   it.effect("emits a structured disabled status in human mode", () => {
     const { provide, rendererState } = makeLayers();
-    initWorkspace(tempDir, ["claude-code"], {
-      instructions: false,
-    });
+    initWorkspace(tempDir, ["claude-code"], false);
 
     return provide(
       Effect.gen(function* () {
@@ -197,10 +218,8 @@ describe("rules instructions handler", () => {
   it.effect("emits a structured empty status when no agents need propagation", () => {
     const { provide, rendererState } = makeLayers();
     initWorkspace(tempDir, [], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: true,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: true,
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
@@ -221,10 +240,8 @@ describe("rules instructions handler", () => {
   it.effect("emits configured agent status as a single list payload in human mode", () => {
     const { provide, rendererState } = makeLayers();
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: true,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: true,
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
@@ -251,10 +268,8 @@ describe("rules instructions handler", () => {
   it.effect("emits machine-readable status in machine mode", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: true,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: true,
     });
 
     return provide(
@@ -278,10 +293,8 @@ describe("rules instructions handler", () => {
   it.effect("emits JSON no-op when instruction-file management is already enabled", () => {
     const { provide, logs, rendererState } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: true,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: true,
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
     fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
@@ -301,9 +314,7 @@ describe("rules instructions handler", () => {
 
   it.effect("reports no-op when instruction-file management is already disabled", () => {
     const { provide, logs } = makeLayers();
-    initWorkspace(tempDir, ["claude-code"], {
-      instructions: false,
-    });
+    initWorkspace(tempDir, ["claude-code"], false);
 
     return provide(
       Effect.gen(function* () {
@@ -316,9 +327,7 @@ describe("rules instructions handler", () => {
 
   it.effect("emits JSON no-op when instruction-file management is already disabled", () => {
     const { provide, logs, rendererState } = makeLayers({ machine: true });
-    initWorkspace(tempDir, ["claude-code"], {
-      instructions: false,
-    });
+    initWorkspace(tempDir, ["claude-code"], false);
 
     return provide(
       Effect.gen(function* () {
@@ -336,10 +345,8 @@ describe("rules instructions handler", () => {
   it.effect("emits applied JSON when disabling instruction-file management", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: true,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: true,
     });
     fs.mkdirSync(path.join(tempDir, ".git"));
     fs.writeFileSync(
@@ -359,7 +366,7 @@ describe("rules instructions handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.rulesConfig.instructions).toBe(false);
+        expect(settings.instructionFiles).toBe(false);
         expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
         expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toContain(
           "# Human instructions",
@@ -375,13 +382,36 @@ describe("rules instructions handler", () => {
     );
   });
 
+  it.effect("previews disable without changing settings or instruction aliases", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(tempDir, ["claude-code"], {
+      fileName: "AGENTS.md",
+      gitignoreAliases: false,
+    });
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+    fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+    const settingsPath = path.join(tempDir, ".axm", "settings.json");
+    const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstructionsDisable({ preview: true });
+
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
+        expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Disable instruction-file management",
+          totalSteps: 1,
+        });
+      }),
+    );
+  });
+
   it.effect("blocks disable when an instruction alias is unowned", () => {
     const { provide } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"], {
-      instructions: {
-        fileName: "AGENTS.md",
-        gitignoreAliases: false,
-      },
+      fileName: "AGENTS.md",
+      gitignoreAliases: false,
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
     fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human override\n");
@@ -393,7 +423,7 @@ describe("rules instructions handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.rulesConfig.instructions).toEqual({
+        expect(settings.instructionFiles).toEqual({
           fileName: "AGENTS.md",
           gitignoreAliases: false,
         });

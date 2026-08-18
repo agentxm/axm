@@ -147,12 +147,13 @@ project scope. Keep `--scope user` on follow-up `agents list`, `sync --preview`,
 | Preview unattended setup without writes | `axm setup --preview --scope project --json --non-interactive` |
 | Find extensions for the current project | `axm discover`                                                 |
 | Add / remove a coding agent harness     | `axm agents <add\|remove> <id>`                                |
-| Inspect agent instruction files         | `axm rules instructions`                                       |
+| Inspect agent instruction files         | `axm instructions`                                             |
 | Update AXM itself                       | `axm upgrade`                                                  |
 
 Rule activation always requires an installed rule name: use `axm rules enable
 <name>` or `axm rules disable <name>`. Global instruction-file ownership is a
-separate capability under `axm rules instructions enable|disable|status`.
+separate capability under `axm instructions`, `axm instructions enable`, and
+`axm instructions disable`. There is no `status` subcommand.
 These transitions reconcile the canonical Rules region, every configured alias,
 and the managed `.gitignore` block atomically; preview reported drift with
 `axm sync --preview`, then reconcile it with `axm sync`.

@@ -19,7 +19,7 @@ import { HookPortabilityResultSchema } from "./hooks/info.js";
 import { KnowledgeListQueryResultSchema } from "./knowledge/list.js";
 import { KnowledgeConceptQueryPageSchema } from "./knowledge/concepts/schemas.js";
 import { ExtensionListDocumentSchema } from "./list/command.js";
-import { InstructionsStatusOutputSchema } from "./rules/instructions.js";
+import { InstructionsStatusOutputSchema } from "./instructions.js";
 
 const COLLECTION_PAYLOADS = [
   [
@@ -45,7 +45,7 @@ const COLLECTION_PAYLOADS = [
     ["filter", "items", "count", "totalCount", "coverage"],
   ],
   [
-    "axm rules instructions",
+    "axm instructions",
     InstructionsStatusOutputSchema.fields,
     ["enabled", "sourceFileName", "gitignoreAliases", "roots", "items"],
   ],

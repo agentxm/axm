@@ -23,7 +23,7 @@ import {
   activeInstructionsConfig,
   instructionReconciliationReadiness,
   reconcileInstructionTransition,
-} from "./instruction-reconciliation.js";
+} from "../instruction-reconciliation.js";
 
 export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args: {
   readonly name: string;

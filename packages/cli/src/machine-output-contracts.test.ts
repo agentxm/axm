@@ -55,7 +55,7 @@ import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
 import { ExtensionListDocumentSchema } from "./root/list/command.js";
 import { PackShowResultSchema } from "./root/packs/show.js";
-import { InstructionsStatusOutputSchema } from "./root/rules/instructions.js";
+import { InstructionsStatusOutputSchema } from "./root/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
 import { ExtensionShowResultSchema } from "./root/shared/extension-show.js";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";

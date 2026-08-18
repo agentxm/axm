@@ -264,7 +264,7 @@ const makeInstructionAccessor = (args: {
         readonly config: ReturnType<typeof resolveInstructionsConfig>;
       }>();
     }
-    const rawConfig = Option.fromUndefinedOr(settings.value.rulesConfig?.instructions);
+    const rawConfig = Option.fromUndefinedOr(settings.value.instructionFiles);
     if (Option.isNone(rawConfig) || rawConfig.value === false) {
       return Option.none<{
         readonly configuredAgents: ReadonlyArray<string>;

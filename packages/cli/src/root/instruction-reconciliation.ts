@@ -24,7 +24,7 @@ const ownedTargetsCurrent = (status: InstructionsStatus): boolean =>
 
 const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
 
-export const activeInstructionsConfig = Effect.fn("Rules.instructions.activeConfig")(function* (
+export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(function* (
   ws: WorkspaceMutationsService,
 ) {
   const value = yield* ws.getInstructionsConfig();
@@ -34,63 +34,61 @@ export const activeInstructionsConfig = Effect.fn("Rules.instructions.activeConf
   return Option.some(resolveInstructionsConfig(value.value));
 });
 
-export const instructionStateIsCurrent = Effect.fn("Rules.instructions.stateIsCurrent")(
+export const instructionStateIsCurrent = Effect.fn("Instructions.stateIsCurrent")(function* (args: {
+  readonly ws: WorkspaceMutationsService;
+  readonly config: ResolvedInstructionsConfig;
+}) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agents = yield* configuredAgents(args.ws);
+  const status = yield* getInstructionsStatus({
+    workspaceRoot: args.ws.baseDir,
+    scope: args.ws.scope,
+    configuredAgents: agents,
+    config: args.config,
+  });
+  const gitignore = yield* getInstructionsGitignoreStatus({
+    workspaceRoot: args.ws.baseDir,
+    configuredAgents: agents,
+    config: args.config,
+  });
+  const sourcesExist = yield* Effect.forEach(
+    status.roots,
+    (root) =>
+      fs
+        .exists(path.join(root, args.config.fileName))
+        .pipe(Effect.catch(() => Effect.succeed(false))),
+    { concurrency: "unbounded" },
+  );
+  return sourcesExist.every(Boolean) && ownedTargetsCurrent(status) && gitignore.current;
+});
+
+export const instructionReconciliationReadiness = Effect.fn("Instructions.reconciliationReadiness")(
   function* (args: {
     readonly ws: WorkspaceMutationsService;
     readonly config: ResolvedInstructionsConfig;
   }) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const agents = yield* configuredAgents(args.ws);
-    const status = yield* getInstructionsStatus({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
-      configuredAgents: agents,
-      config: args.config,
-    });
-    const gitignore = yield* getInstructionsGitignoreStatus({
-      workspaceRoot: args.ws.baseDir,
-      configuredAgents: agents,
-      config: args.config,
-    });
-    const sourcesExist = yield* Effect.forEach(
-      status.roots,
-      (root) =>
-        fs
-          .exists(path.join(root, args.config.fileName))
-          .pipe(Effect.catch(() => Effect.succeed(false))),
-      { concurrency: "unbounded" },
+    return yield* Effect.result(
+      Effect.all(
+        [
+          assertInstructionTargetsSafe({
+            workspaceRoot: args.ws.baseDir,
+            scope: args.ws.scope,
+            configuredAgents: agents,
+            config: args.config,
+          }),
+          assertInstructionsGitignoreSafe(args.ws.baseDir),
+        ],
+        { concurrency: 1, discard: true },
+      ),
+    ).pipe(
+      Effect.map((result) =>
+        result._tag === "Success" ? Option.none<AppError>() : Option.some(result.failure),
+      ),
     );
-    return sourcesExist.every(Boolean) && ownedTargetsCurrent(status) && gitignore.current;
   },
 );
-
-export const instructionReconciliationReadiness = Effect.fn(
-  "Rules.instructions.reconciliationReadiness",
-)(function* (args: {
-  readonly ws: WorkspaceMutationsService;
-  readonly config: ResolvedInstructionsConfig;
-}) {
-  const agents = yield* configuredAgents(args.ws);
-  return yield* Effect.result(
-    Effect.all(
-      [
-        assertInstructionTargetsSafe({
-          workspaceRoot: args.ws.baseDir,
-          scope: args.ws.scope,
-          configuredAgents: agents,
-          config: args.config,
-        }),
-        assertInstructionsGitignoreSafe(args.ws.baseDir),
-      ],
-      { concurrency: 1, discard: true },
-    ),
-  ).pipe(
-    Effect.map((result) =>
-      result._tag === "Success" ? Option.none<AppError>() : Option.some(result.failure),
-    ),
-  );
-});
 
 export const reconcileInstructionTransition = <A>(args: {
   readonly ws: WorkspaceMutationsService;
@@ -128,9 +126,9 @@ export const reconcileInstructionTransition = <A>(args: {
       });
     }
     return transitionResult;
-  }).pipe(Effect.withSpan("Rules.instructions.reconcileTransition"));
+  }).pipe(Effect.withSpan("Instructions.reconcileTransition"));
 
-export const disableInstructionManagement = Effect.fn("Rules.instructions.disableManagement")(
+export const disableInstructionManagement = Effect.fn("Instructions.disableManagement")(
   function* (args: {
     readonly ws: WorkspaceMutationsService;
     readonly config: ResolvedInstructionsConfig;

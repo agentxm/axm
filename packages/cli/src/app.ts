@@ -24,6 +24,7 @@ import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 
 import { setupCommand } from "./root/setup.js";
+import { instructionsCommand } from "./root/instructions.js";
 import { agentsCommand } from "./root/agents/_agents.js";
 import {
   extensionGroupCommands,
@@ -125,6 +126,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         syncCommand,
         agentsCommand,
+        instructionsCommand,
         ...workspaceCapabilityCommands,
         lintCommand,
         cacheCommand,

@@ -33,27 +33,29 @@ describe("rules command group", () => {
   it.effect("lists the extension lifecycle verbs", () =>
     Effect.gen(function* () {
       const output = yield* captureHelp(["rules"]);
-      for (const verb of [
-        "new",
-        "install",
-        "uninstall",
-        "list",
-        "enable",
-        "disable",
-        "update",
-        "instructions",
-      ]) {
+      for (const verb of ["new", "install", "uninstall", "list", "enable", "disable", "update"]) {
         expect(output).toContain(verb);
       }
+      expect(output).not.toContain("instructions");
     }),
   );
 
-  it.effect("keeps instruction-file management under the instructions subcommand", () =>
+  it.effect("keeps instruction-file management at the root command", () =>
     Effect.gen(function* () {
-      const output = yield* captureHelp(["rules", "instructions"]);
-      expect(output).toContain("status");
+      const output = yield* captureHelp(["instructions"]);
       expect(output).toContain("enable");
       expect(output).toContain("disable");
+      expect(output).not.toContain("status");
+    }),
+  );
+
+  it.effect("rejects superseded nested and status command paths", () =>
+    Effect.gen(function* () {
+      const nested = yield* parseCommand(["rules", "instructions"]);
+      const status = yield* parseCommand(["instructions", "status"]);
+
+      expect(nested._tag).toBe("Failure");
+      expect(status._tag).toBe("Failure");
     }),
   );
 

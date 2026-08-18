@@ -102,6 +102,63 @@ describe("axm (root command)", () => {
   });
 });
 
+describe("axm instructions", () => {
+  it("exposes inspection at root and only enable and disable subcommands", async () => {
+    const help = await runCli(["instructions", "--help"]);
+    const output = getOutput(help);
+
+    expect(help.exitCode).toBe(0);
+    expect(output).toContain("enable");
+    expect(output).toContain("disable");
+    expect(output).not.toMatch(/^\s+status\b/mu);
+  });
+
+  it("inspects the configured instruction-file state as JSON", async () => {
+    const workspace = createTempDir();
+    try {
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        { cwd: workspace.path },
+      );
+      expect(setup.exitCode).toBe(0);
+
+      const result = await runCli(["instructions", "--json"], { cwd: workspace.path });
+      const document: unknown = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(document).toMatchObject({
+        ok: true,
+        result: {
+          enabled: true,
+          sourceFileName: "AGENTS.md",
+          items: expect.arrayContaining([expect.objectContaining({ agentId: "claude-code" })]),
+        },
+      });
+      expect(
+        result.stderr
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line)),
+      ).toEqual([
+        expect.objectContaining({ type: "progress", phase: "work", percent: 0 }),
+        expect.objectContaining({ type: "progress", phase: "work", percent: 100 }),
+      ]);
+    } finally {
+      workspace.cleanup();
+    }
+  });
+
+  it.each([
+    ["instructions", "status"],
+    ["rules", "instructions"],
+  ])("rejects the removed command path %s %s", async (...args) => {
+    const result = await runCli(args);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
+  });
+});
+
 describe("main CLI help", () => {
   it("shows the extended root help surface", async () => {
     const result = await runCli([]);

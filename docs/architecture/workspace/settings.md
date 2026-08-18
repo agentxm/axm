@@ -44,9 +44,8 @@ instruction-file management.
 
 Instruction-file management is a first-class workspace capability represented
 by the top-level `instructionFiles` object, not Rule configuration. Absence
-means the capability has not been configured; the object is enabled unless it
-contains `enabled: false`, allowing filename and alias preferences to survive
-disablement.
+means the capability has not been configured; an object enables it with
+filename and alias preferences, and the literal `false` disables it.
 
 Project and user scopes have separate settings files. Extension roots,
 activation, configured agents, inline definitions, and workspace capabilities

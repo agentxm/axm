@@ -196,6 +196,16 @@ type EnabledEntry = SourceEntry & {
   readonly enabled: boolean;
 };
 
+type SkillEntryObject = {
+  readonly source: string;
+  readonly enabled?: boolean;
+  readonly origin?: "bundled";
+};
+
+type CanonicalSkillEntry = EnabledEntry & {
+  readonly origin?: "bundled";
+};
+
 type McpServerEnvInput = Readonly<Record<string, string>> | ReadonlyArray<string>;
 
 type McpServerVerboseEntryObject = {
@@ -436,10 +446,40 @@ const compactEnabledEntry = (
 export const SkillEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("skill", "skills"),
   enabled: enabledFieldSchema,
+  origin: Schema.optionalKey(
+    Schema.Literal("bundled").annotate({
+      description:
+        "Marks the official AXM skill as materialized from the running CLI's embedded bundle.",
+    }),
+  ),
 }).annotate({
   title: "Skill Entry Object",
-  description: "A skill entry with source and an optional enabled flag.",
+  description: "A skill entry with source, optional enabled state, and bundled origin marker.",
 });
+
+const SkillEntryCanonicalSchema = Schema.Struct({
+  source: Schema.String,
+  enabled: Schema.Boolean,
+  origin: Schema.optionalKey(Schema.Literal("bundled")),
+});
+
+const decodeSkillEntry = (entry: string | SkillEntryObject): CanonicalSkillEntry =>
+  typeof entry === "string"
+    ? { source: entry, enabled: true }
+    : {
+        source: entry.source,
+        enabled: entry.enabled ?? true,
+        ...(entry.origin === undefined ? {} : { origin: entry.origin }),
+      };
+
+const encodeSkillEntry = (entry: CanonicalSkillEntry): string | SkillEntryObject => {
+  if (entry.enabled && entry.origin === undefined) return entry.source;
+  return {
+    source: entry.source,
+    ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.origin === undefined ? {} : { origin: entry.origin }),
+  };
+};
 
 /**
  * Union of skill entry forms: plain source string or object with source + enabled.
@@ -449,15 +489,26 @@ export const SkillEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = compactEnabledEntry(SkillEntryObjectSchema, {
-  identifier: "SkillEntry",
-  title: "Skill Entry",
-  description: "A skill entry: a source string, or an object with source plus optional flags.",
-  examples: [
-    "@acme/skills/code-review@^1.0.0",
-    { source: "github:acme/agent-extensions", enabled: false },
-  ],
-});
+export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSchema])
+  .annotate({
+    identifier: "SkillEntry",
+    title: "Skill Entry",
+    description:
+      "A skill entry: a source string, or an object with source plus optional flags and bundled origin.",
+    examples: [
+      "@acme/skills/code-review@^1.0.0",
+      { source: "github:acme/agent-extensions", enabled: false },
+    ],
+  })
+  .pipe(
+    Schema.decodeTo(
+      SkillEntryCanonicalSchema,
+      SchemaTransformation.transform<CanonicalSkillEntry, string | SkillEntryObject>({
+        decode: decodeSkillEntry,
+        encode: encodeSkillEntry,
+      }),
+    ),
+  );
 
 /**
  * Inferred type for SkillEntry schema.

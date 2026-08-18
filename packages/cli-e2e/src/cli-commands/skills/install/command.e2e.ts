@@ -236,7 +236,10 @@ describe("axm skills install", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(temp.path, ".axm", "settings.json"), "utf8"),
         );
-        expect(settings.skills.axm).toBe("workspace:@agentxm/skills/axm");
+        expect(settings.skills.axm).toEqual({
+          source: "workspace:@agentxm/skills/axm",
+          origin: "bundled",
+        });
       } finally {
         temp.cleanup();
       }

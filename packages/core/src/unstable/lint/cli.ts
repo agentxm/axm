@@ -38,6 +38,7 @@ import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
 import type { LintFinding, Severity } from "./rule.js";
+import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
 import {
   CATALOG_GROUP_ORDER,
   lintCatalogsForView,
@@ -1397,10 +1398,14 @@ const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
 export const toLintJsonDocument = (args: {
   readonly summary: LintSummary;
   readonly input: LintInput;
+  readonly axmSkillCompatibility?: AxmSkillCompatibility;
 }): LintJsonDocument => {
   const { summary } = args;
   return {
     input: args.input,
+    ...(args.axmSkillCompatibility === undefined
+      ? {}
+      : { axmSkillCompatibility: args.axmSkillCompatibility }),
     findings: summary.findings.map(toJsonFinding),
     summary: {
       total: summary.counts.total,

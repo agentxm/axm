@@ -6,6 +6,11 @@ import * as semver from "semver";
 export const AXM_SKILL_FQN = "@agentxm/skills/axm";
 export const AXM_SKILL_CLI_VERSION_METADATA_KEY = "axm.sh/cli-version";
 export const AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY = "axm.sh/cli-version-range";
+export const AXM_SKILL_BUNDLED_PREVIEW_COMMAND =
+  "axm skills install @agentxm/skills/axm --bundled --preview";
+export const AXM_SKILL_BUNDLED_APPLY_COMMAND = "axm skills install @agentxm/skills/axm --bundled";
+export const AXM_SKILL_REGISTRY_PREVIEW_COMMAND = "axm skills update --name axm --preview";
+export const AXM_SKILL_REGISTRY_APPLY_COMMAND = "axm skills update --name axm";
 
 export const AxmSkillCompatibilityReasonSchema = Schema.Literals([
   "cli-version-unavailable",
@@ -19,6 +24,39 @@ export const AxmSkillCompatibilityReasonSchema = Schema.Literals([
 ] as const);
 export type AxmSkillCompatibilityReason = typeof AxmSkillCompatibilityReasonSchema.Type;
 
+export const AxmSkillCompatibilityRecoveryActionSchema = Schema.Literals([
+  "none",
+  "inspect-cli",
+  "upgrade-cli",
+  "update-registry-skill",
+  "install-bundled-skill",
+  "preserve-authored-skill",
+] as const);
+export type AxmSkillCompatibilityRecoveryAction =
+  typeof AxmSkillCompatibilityRecoveryActionSchema.Type;
+
+export const AxmSkillCompatibilityRecoveryStepSchema = Schema.Struct({
+  boundary: Schema.Literals(["executable", "workspace", "verification"] as const),
+  command: Schema.String,
+  preview: Schema.Boolean,
+});
+export type AxmSkillCompatibilityRecoveryStep = typeof AxmSkillCompatibilityRecoveryStepSchema.Type;
+
+export const AxmSkillCompatibilityRecoverySchema = Schema.Struct({
+  action: AxmSkillCompatibilityRecoveryActionSchema,
+  targetCliVersion: Schema.NullOr(Schema.String),
+  targetSkillVersion: Schema.NullOr(Schema.String),
+  nextAction: Schema.NullOr(Schema.String),
+  steps: Schema.Array(AxmSkillCompatibilityRecoveryStepSchema),
+});
+export type AxmSkillCompatibilityRecovery = typeof AxmSkillCompatibilityRecoverySchema.Type;
+
+export const formatAxmSkillCompatibilityTarget = (target: {
+  readonly targetCliVersion: string | null;
+  readonly targetSkillVersion: string | null;
+}): string =>
+  `AXM CLI ${target.targetCliVersion ?? "unknown"} + official AXM skill ${target.targetSkillVersion ?? "unknown"}`;
+
 export const AxmSkillCompatibilitySchema = Schema.Struct({
   status: Schema.Literals(["compatible", "incompatible"] as const),
   cliVersion: Schema.NullOr(Schema.String),
@@ -28,6 +66,7 @@ export const AxmSkillCompatibilitySchema = Schema.Struct({
   declaredCliVersionRange: Schema.NullOr(Schema.String),
   reasonCode: Schema.NullOr(AxmSkillCompatibilityReasonSchema),
   detail: Schema.NullOr(Schema.String),
+  recovery: AxmSkillCompatibilityRecoverySchema,
 });
 export type AxmSkillCompatibility = typeof AxmSkillCompatibilitySchema.Type;
 
@@ -112,16 +151,131 @@ interface CompatibilityFields {
   readonly declaredCliVersionRange: string | null;
 }
 
+type CompatibilityWithoutRecovery = Omit<AxmSkillCompatibility, "recovery">;
+
+const recoveryStep = (
+  boundary: AxmSkillCompatibilityRecoveryStep["boundary"],
+  command: string,
+  preview: boolean,
+): AxmSkillCompatibilityRecoveryStep => ({ boundary, command, preview });
+
+const bundledSkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery => ({
+  action: "install-bundled-skill",
+  targetCliVersion: cliVersion,
+  targetSkillVersion: cliVersion,
+  nextAction: AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+  steps: [
+    recoveryStep("workspace", AXM_SKILL_BUNDLED_PREVIEW_COMMAND, true),
+    recoveryStep("workspace", AXM_SKILL_BUNDLED_APPLY_COMMAND, false),
+    recoveryStep("verification", "axm lint", false),
+  ],
+});
+
+const isAuthoredSource = (source: string | null): boolean =>
+  source?.startsWith("workspace:") === true;
+
+const isRegistrySource = (source: string | null): boolean =>
+  source?.startsWith(`${AXM_SKILL_FQN}@`) === true;
+
+const registrySkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery => ({
+  action: "update-registry-skill",
+  targetCliVersion: cliVersion,
+  targetSkillVersion: cliVersion,
+  nextAction: AXM_SKILL_REGISTRY_PREVIEW_COMMAND,
+  steps: [
+    recoveryStep("workspace", AXM_SKILL_REGISTRY_PREVIEW_COMMAND, true),
+    recoveryStep("workspace", AXM_SKILL_REGISTRY_APPLY_COMMAND, false),
+    recoveryStep("verification", "axm lint", false),
+  ],
+});
+
+const deriveRecovery = (
+  compatibility: CompatibilityWithoutRecovery,
+): AxmSkillCompatibilityRecovery => {
+  if (compatibility.status === "compatible") {
+    return {
+      action: "none",
+      targetCliVersion: compatibility.cliVersion,
+      targetSkillVersion: compatibility.skillVersion,
+      nextAction: null,
+      steps: [],
+    };
+  }
+
+  if (compatibility.reasonCode === "cli-version-unavailable") {
+    return {
+      action: "inspect-cli",
+      targetCliVersion: null,
+      targetSkillVersion: compatibility.skillVersion,
+      nextAction: "axm --version",
+      steps: [
+        recoveryStep("verification", "axm --version", false),
+        recoveryStep("verification", "axm lint", false),
+      ],
+    };
+  }
+
+  if (
+    compatibility.reasonCode === "cli-version-incompatible" &&
+    compatibility.cliVersion !== null &&
+    compatibility.declaredCliVersionRange !== null
+  ) {
+    const minimum = semver.minVersion(compatibility.declaredCliVersionRange);
+    if (minimum !== null && semver.lt(compatibility.cliVersion, minimum)) {
+      return {
+        action: "upgrade-cli",
+        targetCliVersion: compatibility.declaredCliVersion ?? minimum.version,
+        targetSkillVersion: compatibility.skillVersion,
+        nextAction: "axm upgrade",
+        steps: [
+          recoveryStep("executable", "axm upgrade", false),
+          recoveryStep("verification", "axm lint", false),
+        ],
+      };
+    }
+  }
+
+  if (isAuthoredSource(compatibility.source)) {
+    return {
+      action: "preserve-authored-skill",
+      targetCliVersion: compatibility.cliVersion,
+      targetSkillVersion: compatibility.cliVersion,
+      nextAction: "axm help upgrade",
+      steps: [recoveryStep("verification", "axm help upgrade", false)],
+    };
+  }
+
+  if (isRegistrySource(compatibility.source) && compatibility.cliVersion !== null) {
+    return registrySkillRecovery(compatibility.cliVersion);
+  }
+
+  return compatibility.cliVersion === null
+    ? {
+        action: "inspect-cli",
+        targetCliVersion: null,
+        targetSkillVersion: compatibility.skillVersion,
+        nextAction: "axm --version",
+        steps: [recoveryStep("verification", "axm --version", false)],
+      }
+    : bundledSkillRecovery(compatibility.cliVersion);
+};
+
+const withRecovery = (compatibility: CompatibilityWithoutRecovery): AxmSkillCompatibility => ({
+  ...compatibility,
+  recovery: deriveRecovery(compatibility),
+});
+
 const incompatible = (
   fields: CompatibilityFields,
   reasonCode: AxmSkillCompatibilityReason,
   detail: string,
-): AxmSkillCompatibility => ({
-  status: "incompatible",
-  ...fields,
-  reasonCode,
-  detail,
-});
+): AxmSkillCompatibility =>
+  withRecovery({
+    status: "incompatible",
+    ...fields,
+    reasonCode,
+    detail,
+  });
 
 export const evaluateAxmSkillCompatibility = (
   input: AxmSkillCompatibilityInput,
@@ -202,12 +356,12 @@ export const evaluateAxmSkillCompatibility = (
     );
   }
 
-  return {
+  return withRecovery({
     status: "compatible",
     ...fields,
     reasonCode: null,
     detail: null,
-  };
+  });
 };
 
 export const makeAxmSkillCompatibilityPolicyLayer = (

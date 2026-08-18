@@ -99,6 +99,13 @@ describe("axm lint handler", () => {
           declaredCliVersionRange: null,
           reasonCode: null,
           detail: null,
+          recovery: {
+            action: "none",
+            targetCliVersion: "0.0.0-test",
+            targetSkillVersion: null,
+            nextAction: null,
+            steps: [],
+          },
         }),
       }),
       Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(tempDir) }),

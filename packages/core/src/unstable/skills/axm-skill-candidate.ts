@@ -7,6 +7,7 @@ import {
   AXM_SKILL_FQN,
   AxmSkillCompatibilityPolicy,
   evaluateAxmSkillCompatibility,
+  formatAxmSkillCompatibilityTarget,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
 } from "./axm-skill-compatibility.js";
@@ -105,8 +106,8 @@ export const validateAxmSkillCandidate = (
       return yield* makeAppError({
         code: "conflict",
         detail: result.detail ?? "The official AXM skill is incompatible with this AXM CLI.",
-        recover: "Install a compatible Registry release, or recover with the bundled AXM skill",
-        cmd: "axm skills install @agentxm/skills/axm --bundled",
+        recover: `Converge to ${formatAxmSkillCompatibilityTarget(result.recovery)} with the ${result.recovery.action} recovery plan`,
+        ...(result.recovery.nextAction === null ? {} : { cmd: result.recovery.nextAction }),
       });
     }
     return result;

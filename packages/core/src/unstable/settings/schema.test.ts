@@ -713,6 +713,25 @@ describe("Settings schema", () => {
 
       expect(result.skills).toEqual({});
     });
+
+    it("round-trips the bundled authority marker without compacting it away", () => {
+      const input = {
+        skills: {
+          axm: {
+            source: "workspace:@agentxm/skills/axm",
+            origin: "bundled",
+          },
+        },
+      };
+      const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(decoded.skills?.["axm"]).toEqual({
+        source: "workspace:@agentxm/skills/axm",
+        enabled: true,
+        origin: "bundled",
+      });
+      expect(Schema.encodeSync(SettingsSchema)(decoded)).toEqual(input);
+    });
   });
 
   describe("SkillsMap schema (skill name validation)", () => {

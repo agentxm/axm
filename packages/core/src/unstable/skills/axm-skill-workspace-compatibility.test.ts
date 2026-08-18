@@ -62,6 +62,13 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
         declaredCliVersionRange: RANGE,
         reasonCode: null,
         detail: null,
+        recovery: {
+          action: "none",
+          targetCliVersion: "1.2.3",
+          targetSkillVersion: VERSION,
+          nextAction: null,
+          steps: [],
+        },
       });
     }).pipe(Effect.provide(testLayer)),
   );
@@ -97,6 +104,45 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
         policy,
       });
       expect(result.reasonCode).toBe("axm-skill-missing");
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("preserves bundled source authority in the compatibility fact", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const policy = yield* AxmSkillCompatibilityPolicy;
+      const workspace = yield* makeWorkspaceReadModel("project");
+      const installed = yield* workspace.skills.byName("axm");
+      const result = yield* readAxmSkillWorkspaceCompatibility({
+        platform: { fs, path },
+        workspace: {
+          skills: {
+            ...workspace.skills,
+            byName: () =>
+              Effect.succeed(
+                Option.map(installed, (row) => ({
+                  ...row,
+                  installationOrigin: {
+                    _tag: "direct",
+                    declared: {
+                      name: decodeExtensionNameSync("axm"),
+                      entry: {
+                        source: "workspace:@agentxm/skills/axm",
+                        enabled: true,
+                        origin: "bundled",
+                      },
+                    },
+                  },
+                })),
+              ),
+          },
+        },
+        policy,
+      });
+
+      expect(result.source).toBe(`bundled:@agentxm/skills/axm@${VERSION}`);
+      expect(result.recovery.action).toBe("none");
     }).pipe(Effect.provide(testLayer)),
   );
 });

@@ -248,16 +248,21 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "origin": {
+              "type": "string",
+              "enum": ["bundled"],
+              "description": "Marks the official AXM skill as materialized from the running CLI's embedded bundle."
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Skill Entry Object",
-          "description": "A skill entry with source and an optional enabled flag."
+          "description": "A skill entry with source, optional enabled state, and bundled origin marker."
         }
       ],
       "title": "Skill Entry",
-      "description": "A skill entry: a source string, or an object with source plus optional flags.",
+      "description": "A skill entry: a source string, or an object with source plus optional flags and bundled origin.",
       "examples": [
         "@acme/skills/code-review@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false }

@@ -176,7 +176,10 @@ describe("setup.handler", () => {
           expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
 
           const settings = readJson(path.join(axmDir, "settings.json"));
-          expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
+          expect(settings.skills?.["axm"]).toEqual({
+            source: "workspace:@agentxm/skills/axm",
+            origin: "bundled",
+          });
           expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
         }),
       );
@@ -1104,7 +1107,10 @@ describe("setup.handler", () => {
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
 
             const settings = readJson(userSettingsPath);
-            expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
+            expect(settings.skills?.["axm"]).toEqual({
+              source: "workspace:@agentxm/skills/axm",
+              origin: "bundled",
+            });
             expect(installCalls).toEqual([{ scope: "user", yes: false, preview: false }]);
           }),
         );

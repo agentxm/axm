@@ -56,10 +56,11 @@ export const readAxmSkillWorkspaceCompatibility = (
       return result;
     }
 
-    const source =
+    const declaredEntry =
       installed.value.installationOrigin._tag === "direct"
-        ? installed.value.installationOrigin.declared.entry.source
+        ? installed.value.installationOrigin.declared.entry
         : null;
+    const source = declaredEntry?.source ?? null;
     if (source === null || !isOfficialSource(source)) {
       const result = args.policy.evaluate({ fqn: AXM_SKILL_FQN, candidate: null });
       if (result === null) {
@@ -93,16 +94,20 @@ export const readAxmSkillWorkspaceCompatibility = (
         ? Option.none<string>()
         : yield* args.platform.fs.readFileString(actual.sourcePath).pipe(Effect.option);
     const skill = Option.flatMap(skillContent, (content) => parseSkillMd(content, "axm"));
+    const installedManifestVersion = Option.match(manifestContent, {
+      onNone: () => null,
+      onSome: manifestVersion,
+    });
     const candidate = {
-      manifestVersion: Option.match(manifestContent, {
-        onNone: () => null,
-        onSome: manifestVersion,
-      }),
+      manifestVersion: installedManifestVersion,
       metadata: Option.match(skill, {
         onNone: () => null,
         onSome: (parsed) => Option.getOrNull(parsed.metadata),
       }),
-      source,
+      source:
+        declaredEntry?.origin === "bundled"
+          ? `bundled:${AXM_SKILL_FQN}${installedManifestVersion === null ? "" : `@${installedManifestVersion}`}`
+          : source,
     } satisfies AxmSkillCompatibilityCandidate;
 
     const result = args.policy.evaluate({ fqn: AXM_SKILL_FQN, candidate });

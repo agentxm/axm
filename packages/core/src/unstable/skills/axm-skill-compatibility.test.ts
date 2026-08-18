@@ -74,6 +74,104 @@ describe("evaluateAxmSkillCompatibility", () => {
       declaredCliVersionRange: ">=1.2.0 <1.3.0",
       reasonCode: null,
       detail: null,
+      recovery: {
+        action: "none",
+        targetCliVersion: CLI_VERSION,
+        targetSkillVersion: SKILL_VERSION,
+        nextAction: null,
+        steps: [],
+      },
+    });
+  });
+
+  it("upgrades an older CLI before re-evaluating the unchanged official skill", () => {
+    const result = evaluateAxmSkillCompatibility(
+      compatibleInput({
+        cliVersion: "1.1.9",
+        skill: {
+          manifestVersion: SKILL_VERSION,
+          source: "workspace:@agentxm/skills/axm",
+          metadata: {
+            [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
+            [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
+          },
+        },
+      }),
+    );
+
+    expect(result.recovery).toEqual({
+      action: "upgrade-cli",
+      targetCliVersion: SKILL_VERSION,
+      targetSkillVersion: SKILL_VERSION,
+      nextAction: "axm upgrade",
+      steps: [
+        { boundary: "executable", command: "axm upgrade", preview: false },
+        { boundary: "verification", command: "axm lint", preview: false },
+      ],
+    });
+  });
+
+  it("previews Registry recovery when a Registry-installed skill is older", () => {
+    const result = evaluateAxmSkillCompatibility(compatibleInput({ cliVersion: "1.3.0" }));
+
+    expect(result.recovery).toEqual({
+      action: "update-registry-skill",
+      targetCliVersion: "1.3.0",
+      targetSkillVersion: "1.3.0",
+      nextAction: "axm skills update --name axm --preview",
+      steps: [
+        {
+          boundary: "workspace",
+          command: "axm skills update --name axm --preview",
+          preview: true,
+        },
+        {
+          boundary: "workspace",
+          command: "axm skills update --name axm",
+          preview: false,
+        },
+        { boundary: "verification", command: "axm lint", preview: false },
+      ],
+    });
+  });
+
+  it("previews bundled workspace recovery for an older bundled skill", () => {
+    const input = compatibleInput({ cliVersion: "1.3.0" });
+    const result = evaluateAxmSkillCompatibility({
+      ...input,
+      skill:
+        input.skill === null ? null : { ...input.skill, source: "bundled:@agentxm/skills/axm" },
+    });
+
+    expect(result.recovery).toMatchObject({
+      action: "install-bundled-skill",
+      targetCliVersion: "1.3.0",
+      targetSkillVersion: "1.3.0",
+      nextAction: "axm skills install @agentxm/skills/axm --bundled --preview",
+    });
+  });
+
+  it("preserves incompatible workspace-authored source", () => {
+    const result = evaluateAxmSkillCompatibility(
+      compatibleInput({
+        cliVersion: "1.3.0",
+        skill: {
+          manifestVersion: SKILL_VERSION,
+          source: "workspace:@agentxm/skills/axm",
+          metadata: {
+            [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
+            [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
+          },
+        },
+      }),
+    );
+
+    expect(result.recovery).toEqual({
+      action: "preserve-authored-skill",
+      targetCliVersion: "1.3.0",
+      targetSkillVersion: "1.3.0",
+      nextAction: "axm help upgrade",
+      steps: [{ boundary: "verification", command: "axm help upgrade", preview: false }],
     });
   });
 
@@ -201,6 +299,26 @@ describe("evaluateAxmSkillCompatibility", () => {
 
     expect(second).toEqual(first);
     expect(input).toEqual(compatibleInput());
+  });
+
+  it("does not let AXM_NO_UPDATE_CHECK hide a local incompatibility", () => {
+    const original = process.env["AXM_NO_UPDATE_CHECK"];
+    process.env["AXM_NO_UPDATE_CHECK"] = "1";
+    try {
+      expect(evaluateAxmSkillCompatibility(compatibleInput({ cliVersion: "1.3.0" }))).toMatchObject(
+        {
+          status: "incompatible",
+          reasonCode: "cli-version-incompatible",
+          recovery: { action: "update-registry-skill" },
+        },
+      );
+    } finally {
+      if (original === undefined) {
+        delete process.env["AXM_NO_UPDATE_CHECK"];
+      } else {
+        process.env["AXM_NO_UPDATE_CHECK"] = original;
+      }
+    }
   });
 
   it.effect("injects the CLI version and ignores non-AXM skills", () =>

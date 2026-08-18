@@ -161,25 +161,35 @@ and the managed `.gitignore` block atomically; preview reported drift with
 ### CLI & skill compatibility
 
 This skill's frontmatter declares the CLI releases it supports
-(`axm.sh/cli-version-range`). When the running CLI falls outside that range,
-`axm lint` reports `workspace/axm-skill-compatible` as an error and strict lint
-exits 1. Never resolve a mismatch by editing that metadata, the skill version,
-or the generated bundled-skill module; release tooling owns the CLI and skill
-as one fixed pair. Realign whichever side is behind, honoring the mutation gate
-in invariant 2:
+(`axm.sh/cli-version-range`). `axm lint` evaluates that local fact without
+network access or writes. Strict lint reports
+`workspace/axm-skill-compatible` as an error and exits 1 when the pair is
+incompatible. `AXM_NO_UPDATE_CHECK` affects remote update checks only and never
+hides this fact.
 
-| Situation                                | Command                                            |
-| ---------------------------------------- | -------------------------------------------------- |
-| CLI older than the skill                 | `axm upgrade`                                      |
-| Skill stale for a newer CLI              | `axm skills update @agentxm/skills/axm`            |
-| No compatible published release resolves | `axm skills install @agentxm/skills/axm --bundled` |
+For automation, read `result.axmSkillCompatibility` from `axm lint --json`.
+It contains CLI version, installed official-skill version/range/source, status,
+reason code, and one `recovery` plan with an exact target pair, next action, and
+ordered steps. Follow those steps rather than inferring recovery:
 
-`--bundled` replaces the canonical source at
-`.axm/extensions/@agentxm/skills/axm` with the copy embedded in the running
-CLI. Preview it first, and do not run it in a workspace that authors this
-skill, where it would overwrite in-flight authoring; upgrade the CLI there
-instead. Read `axm help upgrade` before acting on a refused or incomplete
-upgrade.
+| Recovery action           | Explicit sequence                                                                                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `upgrade-cli`             | `axm upgrade`; then `axm lint`                                                                                                                |
+| `update-registry-skill`   | `axm skills update --name axm --preview`; apply without `--preview`; then `axm lint`                                                          |
+| `install-bundled-skill`   | `axm skills install @agentxm/skills/axm --bundled --preview`; apply without `--preview`; then `axm lint`                                      |
+| `preserve-authored-skill` | Keep the authored source, align its manifest and compatibility metadata to the reported target pair through the authoring workflow, then lint |
+
+If Registry recovery reports that no compatible release is eligible, follow
+its bundled recovery command. Bundled recovery uses the copy embedded in the
+running CLI, works without Registry access, and explicitly changes source
+authority. It refuses to overwrite a workspace-authored official skill even
+with `--force`.
+
+Never resolve a mismatch by casually editing release-owned metadata or the
+generated bundled-skill module. An executable upgrade and a workspace recovery
+are separate boundaries, not one atomic transaction. Preview every workspace
+mutation and re-run `axm lint` after each boundary. Read `axm help upgrade`
+before acting on a refused, authored, or incomplete recovery.
 
 ### Creating & publishing extensions
 

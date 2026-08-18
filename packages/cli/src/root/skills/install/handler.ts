@@ -174,6 +174,12 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
       resolution,
       reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+      failureSuggestions: [
+        {
+          description: "Preserve the authored skill and inspect executable compatibility guidance",
+          cmd: "axm help upgrade",
+        },
+      ],
     });
   });
 

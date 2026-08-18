@@ -22,6 +22,11 @@ import {
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { InstallMeta } from "@agentxm/client-core/unstable/install-meta";
 import {
+  AXM_SKILL_BUNDLED_APPLY_COMMAND,
+  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+  formatAxmSkillCompatibilityTarget,
+} from "@agentxm/client-core/unstable/skills";
+import {
   InstallMethod,
   Npm,
   Pnpm,
@@ -186,6 +191,14 @@ const UpgradePlanStepSchema = Schema.Struct({
 });
 type UpgradePlanStep = typeof UpgradePlanStepSchema.Type;
 
+const AxmSkillCompatibilityTargetSchema = Schema.Struct({
+  cliVersion: Schema.NullOr(Schema.String),
+  skillVersion: Schema.NullOr(Schema.String),
+  verifyCommand: Schema.String,
+  recoveryPreviewCommand: Schema.String,
+  recoveryApplyCommand: Schema.String,
+});
+
 export const UpgradeResultSchema = Schema.Struct({
   outcome: Schema.Literals(["applied", "no-op", "indeterminate"] as const),
   planName: Schema.String,
@@ -199,6 +212,7 @@ export const UpgradeResultSchema = Schema.Struct({
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
   steps: Schema.Array(UpgradePlanStepSchema),
+  axmSkillCompatibilityTarget: AxmSkillCompatibilityTargetSchema,
   resultStatus: UpgradeCoreResultSchema.fields.resultStatus,
   installMethod: UpgradeCoreResultSchema.fields.installMethod,
   detectionSource: UpgradeCoreResultSchema.fields.detectionSource,
@@ -1856,6 +1870,13 @@ export const withUpgradePlanFields = (result: UpgradeCoreResult): UpgradeResult 
     failedCount: mapping.step === "failed" ? 1 : 0,
     blockedCount: mapping.step === "blocked" ? 1 : 0,
     steps: [step],
+    axmSkillCompatibilityTarget: {
+      cliVersion: result.targetVersion,
+      skillVersion: result.targetVersion,
+      verifyCommand: "axm lint",
+      recoveryPreviewCommand: AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+      recoveryApplyCommand: AXM_SKILL_BUNDLED_APPLY_COMMAND,
+    },
     ...result,
   };
 };
@@ -1907,6 +1928,13 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
     case undefined:
       break;
   }
+  if (
+    result.resultStatus === "upgraded" ||
+    result.resultStatus === "reinstalled" ||
+    result.resultStatus === "already-up-to-date"
+  ) {
+    return [{ description: "Verify CLI and official-skill compatibility", cmd: "axm lint" }];
+  }
   return [{ description: "Verify installed version", cmd: "axm --version" }];
 };
 
@@ -1953,6 +1981,14 @@ const renderHuman = (result: UpgradeCoreResult) =>
       yield* Effect.forEach(result.details, (detail) => renderer.info(detail), {
         concurrency: 1,
       });
+    }
+    if (!quiet && result.targetVersion !== null) {
+      yield* renderer.info(
+        `Compatibility target: ${formatAxmSkillCompatibilityTarget({
+          targetCliVersion: result.targetVersion,
+          targetSkillVersion: result.targetVersion,
+        })}`,
+      );
     }
     if (!quiet && result.recommendedCommand !== null) {
       yield* renderer.info(`Next: ${result.recommendedCommand.display}`);

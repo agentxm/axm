@@ -166,7 +166,11 @@ const setupAgentCandidates = (args: {
 };
 
 const DEFAULT_SETUP_SKILLS = {
-  axm: { source: "workspace:@agentxm/skills/axm", enabled: true },
+  axm: {
+    source: "workspace:@agentxm/skills/axm",
+    enabled: true,
+    origin: "bundled",
+  },
 } as const satisfies NonNullable<Settings["skills"]>;
 
 interface SetupInstructionSourceChoice {

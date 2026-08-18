@@ -36,7 +36,11 @@ import {
   releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
 } from "../../../registry/index.js";
-import { evaluateAxmSkillCandidate } from "../../../skills/index.js";
+import {
+  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+  evaluateAxmSkillCandidate,
+  formatAxmSkillCompatibilityTarget,
+} from "../../../skills/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
   decodeExtensionNameSync,
@@ -333,12 +337,19 @@ const resolveNamedFromClient = (
         acceptedVersion,
       );
       let latestIncompatibility: string | null = null;
+      let latestRecoveryAction: string | null = null;
+      let latestRecoveryTarget: string | null = null;
       for (const candidate of candidates) {
         const probe = yield* probeCandidate(candidate);
         if (Option.isNone(probe)) continue;
         const probed = probe.value;
         if (probed.result.status === "incompatible") {
           latestIncompatibility = probed.result.detail;
+          latestRecoveryAction =
+            probed.result.recovery.action === "update-registry-skill"
+              ? AXM_SKILL_BUNDLED_PREVIEW_COMMAND
+              : probed.result.recovery.nextAction;
+          latestRecoveryTarget = formatAxmSkillCompatibilityTarget(probed.result.recovery);
           continue;
         }
         if (
@@ -383,14 +394,17 @@ const resolveNamedFromClient = (
         }
       }
 
-      if (exactRequest) {
+      if (exactRequest || latestIncompatibility !== null) {
         return yield* makeAppError({
           code: "conflict",
           detail:
             latestIncompatibility ??
             `The official AXM skill release ${requested} is incompatible with this AXM CLI.`,
-          recover: "Install a compatible Registry release, or recover with the bundled AXM skill",
-          cmd: "axm skills install @agentxm/skills/axm --bundled",
+          recover:
+            latestRecoveryTarget === null
+              ? "Follow the compatibility recovery plan for the running CLI and official skill"
+              : `Converge to ${latestRecoveryTarget}`,
+          ...(latestRecoveryAction === null ? {} : { cmd: latestRecoveryAction }),
         });
       }
       return { kind: "not_found", target } as const;

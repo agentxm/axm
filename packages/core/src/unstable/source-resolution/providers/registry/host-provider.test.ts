@@ -760,11 +760,15 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
         );
         expect(error.code).toBe("conflict");
         expect(error.detail).toContain("outside the official AXM skill range");
+        expect(error.suggestions).toContainEqual({
+          description: "Converge to AXM CLI 2.0.0 + official AXM skill 2.0.0",
+          cmd: "axm upgrade",
+        });
       }).pipe(Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0"))),
     );
   });
 
-  it.effect("returns not_found when no compatible ranged AXM skill exists", () => {
+  it.effect("reports recovery when no compatible ranged AXM skill exists", () => {
     const archive = makeAxmSkillArchive("2.0.0");
     const provider = createRemoteRegistrySourceHostProvider(
       createMockClient({
@@ -784,24 +788,21 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
 
     return runEffect(
-      provider
-        .resolveNamed(testSource, {
-          ...options,
-          owner: handle("@agentxm"),
-          name: "axm",
-          versionRange: Option.some("^2.0.0"),
-        })
-        .pipe(
-          Effect.tap((result) =>
-            Effect.sync(() =>
-              expect(result).toEqual({
-                kind: "not_found",
-                target: "@agentxm/skills/axm",
-              }),
-            ),
-          ),
-          Effect.provide(makeAxmSkillCompatibilityPolicyLayer("1.0.0")),
-        ),
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          provider.resolveNamed(testSource, {
+            ...options,
+            owner: handle("@agentxm"),
+            name: "axm",
+            versionRange: Option.some("^2.0.0"),
+          }),
+        );
+        expect(error.code).toBe("conflict");
+        expect(error.suggestions).toContainEqual({
+          description: "Converge to AXM CLI 3.0.0 + official AXM skill 3.0.0",
+          cmd: "axm skills install @agentxm/skills/axm --bundled --preview",
+        });
+      }).pipe(Effect.provide(makeAxmSkillCompatibilityPolicyLayer("3.0.0"))),
     );
   });
 });

@@ -39,7 +39,10 @@ describe("axm setup", () => {
         const settingsContent = fs.readFileSync(settingsPath, "utf-8");
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
-        expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
+        expect(settings.skills?.["axm"]).toEqual({
+          source: "workspace:@agentxm/skills/axm",
+          origin: "bundled",
+        });
         expect(
           fs.existsSync(
             path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),

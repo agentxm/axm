@@ -339,6 +339,7 @@ describe("upgrade JSON contract", () => {
 
       expect(Object.keys(encoded).sort()).toEqual([
         "appliedCount",
+        "axmSkillCompatibilityTarget",
         "backupPath",
         "blockedCount",
         "details",
@@ -378,6 +379,13 @@ describe("upgrade JSON contract", () => {
         blockedCount,
         localVersion: "1.0.0",
         targetVersion: "2.0.0",
+        axmSkillCompatibilityTarget: {
+          cliVersion: "2.0.0",
+          skillVersion: "2.0.0",
+          verifyCommand: "axm lint",
+          recoveryPreviewCommand: "axm skills install @agentxm/skills/axm --bundled --preview",
+          recoveryApplyCommand: "axm skills install @agentxm/skills/axm --bundled",
+        },
         executedCommands: [
           {
             purpose: "delegation",

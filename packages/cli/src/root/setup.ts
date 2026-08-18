@@ -38,7 +38,13 @@ import {
   normalizeHandle,
   sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
-import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  computeSkillPaths,
+  ensureSkillAgentArtifact,
+  evaluateAxmSkillCompatibility,
+} from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
 import * as Effect from "effect/Effect";
@@ -56,11 +62,14 @@ import { Command, Flag } from "effect/unstable/cli";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { ExecutionDirectory } from "../execution-directory.js";
+import { loadVersion } from "../version.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import { commandForScope } from "./shared/scoped-command.js";
 import {
   AXM_SKILL_JSON,
+  AXM_SKILL_CLI_VERSION,
+  AXM_SKILL_CLI_VERSION_RANGE,
   AXM_SKILL_SOURCE_FILES,
   AXM_SKILL_VERSION,
 } from "../__generated__/bundled-axm-skill.js";
@@ -307,6 +316,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
   yield* ws.setSkillEntry(sanitizedName, {
     source: `workspace:@agentxm/skills/${sanitizedName}`,
     enabled: true,
+    origin: "bundled",
   });
 });
 
@@ -317,6 +327,17 @@ export const installBundledAxmSkill = Effect.gen(function* () {
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const sanitizedName = sanitizeName("axm");
+  const configuredBefore = yield* ws.getConfiguredSkillEntries();
+  const existing = configuredBefore[sanitizedName];
+  if (existing?.source.startsWith("workspace:") === true && existing.origin !== "bundled") {
+    return yield* makeAppError({
+      code: "conflict",
+      detail:
+        "The official AXM skill is workspace-authored; bundled recovery will not overwrite its in-flight source.",
+      recover: "Preserve the authored skill and inspect executable compatibility guidance",
+      cmd: "axm help upgrade",
+    });
+  }
   const { canonicalPath } = computeSkillPaths(
     path.join,
     ws.baseDir,
@@ -351,16 +372,41 @@ export const installBundledAxmSkill = Effect.gen(function* () {
     targets: [canonicalPath, ...targetDirectories],
     transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
     validate: () =>
-      ws.getConfiguredSkillEntries().pipe(
-        Effect.flatMap((configured) =>
-          configured["axm"]?.source === "workspace:@agentxm/skills/axm"
-            ? Effect.void
-            : makeAppError({
-                code: "internal",
-                detail: "Bundled AXM skill did not retain its workspace source",
-              }),
-        ),
-      ),
+      Effect.gen(function* () {
+        const configured = yield* ws.getConfiguredSkillEntries();
+        const installedEntry = configured["axm"];
+        if (
+          installedEntry?.source !== "workspace:@agentxm/skills/axm" ||
+          installedEntry.origin !== "bundled"
+        ) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: "Bundled AXM skill did not retain its bundled source authority",
+          });
+        }
+        const compatibility = evaluateAxmSkillCompatibility({
+          cliVersion: loadVersion(),
+          skill: {
+            manifestVersion: AXM_SKILL_VERSION,
+            source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
+            metadata: {
+              [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
+              [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
+            },
+          },
+        });
+        if (compatibility.status === "incompatible") {
+          return yield* makeAppError({
+            code: "internal",
+            detail:
+              compatibility.detail ??
+              "Bundled AXM skill remained incompatible after workspace installation",
+            ...(compatibility.recovery.nextAction === null
+              ? {}
+              : { cmd: compatibility.recovery.nextAction }),
+          });
+        }
+      }),
   });
 });
 

@@ -659,13 +659,75 @@ describe("skills install handler — error propagation", () => {
           fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
         );
         expect(settings).toMatchObject({
-          skills: { axm: "workspace:@agentxm/skills/axm" },
+          skills: {
+            axm: {
+              source: "workspace:@agentxm/skills/axm",
+              origin: "bundled",
+            },
+          },
         });
         expect(
           fs.existsSync(
             path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
           ),
         ).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("refuses to overwrite an authored official AXM skill", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(axmDir);
+    const settingsPath = path.join(axmDir, "settings.json");
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        agents: ["claude-code"],
+        skills: {
+          axm: {
+            source: "workspace:@agentxm/skills/axm",
+            enabled: true,
+          },
+        },
+      }),
+    );
+    const skillPath = path.join(
+      axmDir,
+      "extensions",
+      "@agentxm",
+      "skills",
+      "axm",
+      "src",
+      "SKILL.md",
+    );
+    fs.mkdirSync(path.dirname(skillPath), { recursive: true });
+    fs.writeFileSync(skillPath, "authored in-flight bytes\n");
+    const settingsBefore = fs.readFileSync(settingsPath, "utf8");
+    const skillBefore = fs.readFileSync(skillPath, "utf8");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
+          yes: true,
+          force: true,
+          preview: false,
+        });
+
+        expect(rendererState.results[0]?.ok).toBe(false);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "failed",
+            failedCount: 1,
+          },
+        });
+        expect(JSON.stringify(rendererState.results[0]?.data)).toContain("workspace-authored");
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Preserve the authored skill and inspect executable compatibility guidance",
+          cmd: "axm help upgrade",
+        });
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(skillPath, "utf8")).toBe(skillBefore);
       }),
     );
   });

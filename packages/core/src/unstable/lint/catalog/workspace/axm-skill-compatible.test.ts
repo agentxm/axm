@@ -3,7 +3,11 @@ import * as Effect from "effect/Effect";
 import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
 import { SettingsIoError } from "../../../workspace/read-model/errors.js";
 import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
-import type { AxmSkillCompatibility } from "../../../skills/axm-skill-compatibility.js";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+} from "../../../skills/axm-skill-compatibility.js";
 import { axmSkillCompatibleRule } from "./axm-skill-compatible.js";
 
 const testWorkspace = WorkspaceReadModelTest({
@@ -12,16 +16,17 @@ const testWorkspace = WorkspaceReadModelTest({
   project: { settings: { _tag: "absent" }, lockfile: { _tag: "absent" } },
 });
 
-const incompatible = {
-  status: "incompatible",
+const incompatible = evaluateAxmSkillCompatibility({
   cliVersion: "1.2.3",
-  skillVersion: "1.1.0",
-  source: "@agentxm/skills/axm@1.1.0",
-  declaredCliVersion: "1.1.0",
-  declaredCliVersionRange: ">=1.1.0 <1.2.0",
-  reasonCode: "cli-version-incompatible",
-  detail: "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0.",
-} satisfies AxmSkillCompatibility;
+  skill: {
+    manifestVersion: "1.1.0",
+    source: "@agentxm/skills/axm@1.1.0",
+    metadata: {
+      [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.1.0",
+      [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.1.0 <1.2.0",
+    },
+  },
+});
 
 describe("workspace/axm-skill-compatible", () => {
   it("is a non-autofixing error rule with a stable public id", () => {
@@ -31,7 +36,7 @@ describe("workspace/axm-skill-compatible", () => {
     expect(axmSkillCompatibleRule.description.length).toBeLessThanOrEqual(100);
   });
 
-  it.effect("reports the evaluator detail and bundled recovery command", () =>
+  it.effect("reports the evaluator detail and source-preserving recovery command", () =>
     Effect.gen(function* () {
       const workspace = yield* makeWorkspaceReadModel("project");
       const findings = yield* axmSkillCompatibleRule.check({
@@ -48,21 +53,24 @@ describe("workspace/axm-skill-compatible", () => {
         kind: "advisory",
       });
       expect(findings[0]?.message).toContain(incompatible.detail);
-      expect(findings[0]?.message).toContain(
-        "axm skills install @agentxm/skills/axm --bundled --preview",
-      );
+      expect(findings[0]?.message).toContain("axm skills update --name axm --preview");
     }).pipe(Effect.provide(testWorkspace)),
   );
 
   it.effect("emits no finding for a compatible pair", () =>
     Effect.gen(function* () {
       const workspace = yield* makeWorkspaceReadModel("project");
-      const compatible = {
-        ...incompatible,
-        status: "compatible",
-        reasonCode: null,
-        detail: null,
-      } satisfies AxmSkillCompatibility;
+      const compatible = evaluateAxmSkillCompatibility({
+        cliVersion: "1.1.3",
+        skill: {
+          manifestVersion: "1.1.0",
+          source: "@agentxm/skills/axm@1.1.0",
+          metadata: {
+            [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.1.0",
+            [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.1.0 <1.2.0",
+          },
+        },
+      });
       const findings = yield* axmSkillCompatibleRule.check({
         subject: { root: "/workspace", scope: "project" },
         workspace,

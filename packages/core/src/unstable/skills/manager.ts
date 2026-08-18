@@ -316,7 +316,11 @@ export const SkillManagerLive = Layer.effect(
         ),
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredSkillEntries();
-        return Option.fromUndefinedOr(configured[target.name]?.source);
+        const entry = configured[target.name];
+        if (entry?.origin === "bundled") {
+          return Option.some(`bundled:@agentxm/skills/${target.name}`);
+        }
+        return Option.fromUndefinedOr(entry?.source);
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
         const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));

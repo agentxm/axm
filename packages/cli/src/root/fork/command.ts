@@ -89,7 +89,8 @@ const selectPackage = (
   if (candidate === undefined) {
     return makeAppError({
       code: "not_found",
-      detail: "No managed AXM extension package was found; use import for unmanaged/native content",
+      detail:
+        "No managed AXM extension package was found; use skills import or subagents import for supported unmanaged/native content",
     });
   }
   if (packages.length > 1) {

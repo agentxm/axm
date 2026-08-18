@@ -24,7 +24,7 @@ describe("fork and native import", () => {
       fs.writeFileSync(path.join(nativeDir, "SKILL.md"), original);
 
       const imported = await runCli(
-        ["import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
+        ["skills", "import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -105,7 +105,14 @@ describe("fork and native import", () => {
       expect(setup.exitCode, setup.stderr).toBe(0);
 
       const preview = await runCli(
-        ["import", nativeDir, "@test/skills/preview-review", "--preview", "--non-interactive"],
+        [
+          "skills",
+          "import",
+          nativeDir,
+          "@test/skills/preview-review",
+          "--preview",
+          "--non-interactive",
+        ],
         { cwd: temp.path },
       );
       expect(preview.exitCode, preview.stderr).toBe(0);
@@ -114,6 +121,84 @@ describe("fork and native import", () => {
           path.join(temp.path, ".axm", "extensions", "@test", "skills", "preview-review"),
         ),
       ).toBe(false);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("imports native subagents and rejects cross-type targets before mutation", async () => {
+    const temp = createTempDir();
+    try {
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(setup.exitCode, setup.stderr).toBe(0);
+
+      const nativeFile = path.join(temp.path, "reviewer.md");
+      const original = "---\nname: native-reviewer\nmodel: fast\n---\n\nReview carefully.\n";
+      fs.writeFileSync(nativeFile, original);
+
+      const mismatched = await runCli(
+        [
+          "skills",
+          "import",
+          nativeFile,
+          "@test/subagents/wrong-group",
+          "--yes",
+          "--non-interactive",
+        ],
+        { cwd: temp.path },
+      );
+      expect(mismatched.exitCode).not.toBe(0);
+      expect(mismatched.stderr).toContain("Expected a skills target FQN");
+      expect(
+        fs.existsSync(
+          path.join(temp.path, ".axm", "extensions", "@test", "subagents", "wrong-group"),
+        ),
+      ).toBe(false);
+
+      const imported = await runCli(
+        [
+          "subagents",
+          "import",
+          nativeFile,
+          "@test/subagents/reviewer",
+          "--yes",
+          "--non-interactive",
+        ],
+        { cwd: temp.path },
+      );
+      expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
+      expect(fs.readFileSync(nativeFile, "utf8")).toBe(original);
+      expect(
+        readJson(
+          path.join(
+            temp.path,
+            ".axm",
+            "extensions",
+            "@test",
+            "subagents",
+            "reviewer",
+            "subagent.json",
+          ),
+        ),
+      ).toMatchObject({ owner: "@test", type: "subagent", name: "reviewer", version: "0.1.0" });
+      expect(
+        fs.readFileSync(
+          path.join(
+            temp.path,
+            ".axm",
+            "extensions",
+            "@test",
+            "subagents",
+            "reviewer",
+            "src",
+            "reviewer.md",
+          ),
+          "utf8",
+        ),
+      ).toContain("name: reviewer");
     } finally {
       temp.cleanup();
     }

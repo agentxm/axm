@@ -66,107 +66,38 @@ describe("importNativeExtensionPackage", () => {
     }),
   );
 
-  it.effect("imports native subagent and rule Markdown without changing the sources", () =>
+  it.effect("rejects extension types without a native package-conversion contract", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
+        importNativeExtensionPackage({
+          sourcePath: root,
+          targetDir: path.join(root, "rule-package"),
+          target: { owner: handle("@acme"), type: "rule", name: extensionName("policy") },
+        }),
+      ).pipe(Effect.provide(NodeServices.layer));
+
+      expect(Result.isFailure(result)).toBe(true);
+      if (Result.isFailure(result))
+        expect(result.failure.detail).toContain("not supported for rule");
+      expect(fs.existsSync(path.join(root, "rule-package"))).toBe(false);
+    }),
+  );
+
+  it.effect("imports native subagent Markdown without changing the source", () =>
     Effect.gen(function* () {
       const subagentSource = path.join(root, "reviewer.md");
-      const ruleSource = path.join(root, "policy.md");
       const subagentBody = "---\nname: old-reviewer\nmodel: fast\n---\n\nReview carefully.\n";
-      const ruleBody = "# Policy\n\nUse safe defaults.\n";
       fs.writeFileSync(subagentSource, subagentBody);
-      fs.writeFileSync(ruleSource, ruleBody);
 
       yield* importNativeExtensionPackage({
         sourcePath: subagentSource,
         targetDir: path.join(root, "subagent-package"),
         target: { owner: handle("@acme"), type: "subagent", name: extensionName("reviewer") },
       }).pipe(Effect.provide(NodeServices.layer));
-      yield* importNativeExtensionPackage({
-        sourcePath: ruleSource,
-        targetDir: path.join(root, "rule-package"),
-        target: { owner: handle("@acme"), type: "rule", name: extensionName("policy") },
-      }).pipe(Effect.provide(NodeServices.layer));
-
       expect(fs.readFileSync(subagentSource, "utf8")).toBe(subagentBody);
-      expect(fs.readFileSync(ruleSource, "utf8")).toBe(ruleBody);
       expect(
         fs.readFileSync(path.join(root, "subagent-package", "src", "reviewer.md"), "utf8"),
       ).toContain("name: reviewer");
-      expect(fs.readFileSync(path.join(root, "rule-package", "src", "RULE.md"), "utf8")).toBe(
-        ruleBody,
-      );
-    }),
-  );
-
-  it.effect("imports warning-only Knowledge and rejects an escaping resource", () =>
-    Effect.gen(function* () {
-      const source = path.join(root, "knowledge");
-      const target = path.join(root, "managed-knowledge");
-      fs.mkdirSync(source, { recursive: true });
-      fs.writeFileSync(
-        path.join(source, "index.md"),
-        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
-      );
-      fs.writeFileSync(
-        path.join(source, "concept.md"),
-        "---\ntype: reference\ndescription: Concept\ntags: [test]\nresource: ./missing.md\n---\n# Concept\n",
-      );
-
-      yield* importNativeExtensionPackage({
-        sourcePath: source,
-        targetDir: target,
-        target: { owner: handle("@acme"), type: "knowledge", name: extensionName("handbook") },
-      }).pipe(Effect.provide(NodeServices.layer));
-      expect(fs.existsSync(path.join(target, "src", "concept.md"))).toBe(true);
-
-      const escapingSource = path.join(root, "escaping-knowledge");
-      fs.mkdirSync(escapingSource, { recursive: true });
-      fs.writeFileSync(
-        path.join(escapingSource, "index.md"),
-        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
-      );
-      fs.writeFileSync(
-        path.join(escapingSource, "concept.md"),
-        "---\ntype: reference\ndescription: Concept\ntags: [test]\nresource: ../outside.md\n---\n# Concept\n",
-      );
-      const result = yield* Effect.result(
-        importNativeExtensionPackage({
-          sourcePath: escapingSource,
-          targetDir: path.join(root, "rejected-knowledge"),
-          target: { owner: handle("@acme"), type: "knowledge", name: extensionName("rejected") },
-        }),
-      ).pipe(Effect.provide(NodeServices.layer));
-      expect(Result.isFailure(result)).toBe(true);
-      if (Result.isFailure(result)) expect(result.failure.detail).toContain("escapes");
-    }),
-  );
-
-  it.effect("retains the malformed concept path in Knowledge import validation", () =>
-    Effect.gen(function* () {
-      const source = path.join(root, "malformed-knowledge");
-      fs.mkdirSync(source, { recursive: true });
-      fs.writeFileSync(
-        path.join(source, "index.md"),
-        '---\nokf_version: "0.2"\n---\n# Knowledge\n\n- [Concept](concept.md)\n',
-      );
-      fs.writeFileSync(
-        path.join(source, "concept.md"),
-        "---\ntype: reference\ndescription: value: extra\n---\n# Concept\n",
-      );
-
-      const result = yield* Effect.result(
-        importNativeExtensionPackage({
-          sourcePath: source,
-          targetDir: path.join(root, "rejected-knowledge"),
-          target: { owner: handle("@acme"), type: "knowledge", name: extensionName("rejected") },
-        }),
-      ).pipe(Effect.provide(NodeServices.layer));
-
-      expect(Result.isFailure(result)).toBe(true);
-      if (Result.isFailure(result)) {
-        expect(result.failure.detail).toContain(
-          "concept.md: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
-        );
-      }
     }),
   );
 });

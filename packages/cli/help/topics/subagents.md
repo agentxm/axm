@@ -76,6 +76,19 @@ If you find an AXM-managed rendered subagent file in an agent directory, edit th
 
 Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
 
+## Unmanaged subagents
+
+Agent-native subagents without AXM ownership remain outside reconciliation.
+Use `axm subagents import <source> <target-fqn>` when you deliberately want an
+AXM-owned copy that you can customize or publish. Import accepts a supported
+local or Git source, creates a new project-workspace package, and leaves the
+native source unchanged. Use `--preview` to inspect the candidate without
+writing it.
+
+Use `axm fork <source> <target-fqn>` instead when the source is already a
+managed AXM package. Leave content unowned when another tool owns its lifecycle;
+AXM does not delete it.
+
 ## Recommended packs
 
 Name the pack(s) your subagent is designed to ship with in `subagent.json` `recommendedPacks`. Use the bare pack reference — do not include a version range:

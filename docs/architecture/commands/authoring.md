@@ -22,8 +22,8 @@ The authoring family includes:
 - `new`, which creates a minimal type-correct package from author intent;
 - `fork`, which creates a new authored identity from an existing managed AXM
   package while leaving the source unchanged;
-- `import`, including type-specific import or copy commands, which losslessly
-  converts supported native content into an authored AXM package;
+- `skills import` and `subagents import`, which losslessly convert supported
+  native content into an authored AXM package;
 - `adopt`, which explicitly changes retained canonical content to workspace
   authorship;
 - `demote`, which explicitly replaces workspace authorship with a supported
@@ -37,6 +37,11 @@ These commands establish package identity and authorship, validate the
 representation they create, and report every durable change. Exact commands,
 flags, filenames, supported conversions, and manifest fields remain executable
 contracts owned by CLI help, schemas, and behavior tests.
+
+Native package conversion is intentionally type-owned. Skills and Subagents
+have accepted lossless conversion models; Rules, Knowledge bundles, Hooks, and
+Packs do not expose import commands. `mcps import` is a separate configuration
+discovery and adoption workflow rather than this package-conversion family.
 
 ## Non-responsibilities
 
@@ -159,6 +164,6 @@ A catalog-driven authoring conformance suite proves the same initial version,
 create-only behavior, inventory-only creation by default, explicit activation,
 default precedence, preview parity, transaction boundaries, and no fabricated
 legal or external identity across every extension type. Focused tests cover
-type-required files and metadata, lossless fork and import rules, authority
-transitions, version changes, unsupported conversions, and the distinction
+type-required files and metadata, lossless fork and Skill/Subagent import rules,
+authority transitions, version changes, unsupported command paths, and the distinction
 between local validity and publication eligibility.

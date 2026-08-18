@@ -5,8 +5,6 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -42,7 +40,10 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
+type NativeImportType = "skill" | "subagent";
+
 export const handleImport = Effect.fn("Import.handle")(function* (args: {
+  readonly type: NativeImportType;
   readonly source: string;
   readonly target: string;
   readonly enable: boolean;
@@ -52,12 +53,19 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
-  if (target.type === "mcp-server") {
+  if (target.type !== "skill" && target.type !== "subagent") {
     return yield* makeAppError({
-      code: "usage",
-      detail: "Use axm mcps import --as <target-fqn> for native MCP package conversion",
+      code: "validation",
+      detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
     });
   }
+  if (target.type !== args.type) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
+    });
+  }
+  const group = extensionTypeToPlural[args.type];
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -114,26 +122,6 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
       finalizeAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled });
       break;
     }
-    case "rule": {
-      const current = yield* ws.getConfiguredRuleEntries();
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setRuleEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setRuleEntry(target.name, { source: sourceLocator, enabled });
-      break;
-    }
-    case "knowledge": {
-      const current = yield* ws.getConfiguredKnowledgeEntries();
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setKnowledgeEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setKnowledgeEntry(target.name, { source: sourceLocator, enabled });
-      break;
-    }
-    case "hook":
-    case "pack":
-      return yield* makeAppError({
-        code: "usage",
-        detail: `Native ${target.type} import has no lossless supported representation`,
-      });
   }
 
   const artifact: JobStepArtifact = {
@@ -200,18 +188,6 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
         target: { type: "subagent", name: target.name },
       });
       break;
-    case "rule":
-      step = buildAuthoredExtensionStep(yield* RuleManager, {
-        ...common,
-        target: { type: "rule", name: target.name },
-      });
-      break;
-    case "knowledge":
-      step = buildAuthoredExtensionStep(yield* KnowledgeManager, {
-        ...common,
-        target: { type: "knowledge", name: target.name },
-      });
-      break;
   }
 
   const plan: Plan = {
@@ -225,7 +201,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
   const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
-      ["import"],
+      [group, "import"],
       [
         recoverySwitch("--enable", args.enable),
         recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
@@ -234,7 +210,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult("import", resolution);
+  yield* emitPlanResolutionResult(`${group} import`, resolution);
 });
 
 const config = {
@@ -250,19 +226,31 @@ const config = {
   preview: previewFlag,
 } as const;
 
-export const importCommand = Command.make("import", config, (parsed) =>
-  handleImport(parsed).pipe(Effect.scoped, withWorkspace("project"), withRuntime("import")),
-).pipe(
-  withArgvTracking(config),
-  Command.withDescription("Convert unmanaged/native content into a project-workspace AXM package"),
-  Command.withExamples([
-    {
-      command: "axm import .claude/agents/reviewer.md @me/subagents/reviewer",
-      description: "Import a native subagent without modifying the original file",
-    },
-    {
-      command: "axm import ./review-skill @me/skills/review --enable",
-      description: "Import and enable a native skill",
-    },
-  ]),
-);
+const makeNativeImportCommand = (type: NativeImportType) => {
+  const group = extensionTypeToPlural[type];
+  const noun = type === "skill" ? "skill" : "subagent";
+  return Command.make("import", config, (parsed) =>
+    handleImport({ ...parsed, type }).pipe(
+      Effect.scoped,
+      withWorkspace("project"),
+      withRuntime(`${group} import`),
+    ),
+  ).pipe(
+    withArgvTracking(config),
+    Command.withDescription(
+      `Convert a native ${noun} into a project-workspace AXM ${noun} package`,
+    ),
+    Command.withExamples([
+      {
+        command:
+          type === "skill"
+            ? "axm skills import ./review-skill @me/skills/review --enable"
+            : "axm subagents import .claude/agents/reviewer.md @me/subagents/reviewer",
+        description: `Import a native ${noun} without modifying the original source`,
+      },
+    ]),
+  );
+};
+
+export const skillsImportCommand = makeNativeImportCommand("skill");
+export const subagentsImportCommand = makeNativeImportCommand("subagent");

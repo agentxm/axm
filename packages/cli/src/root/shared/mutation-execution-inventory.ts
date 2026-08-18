@@ -42,7 +42,7 @@ export const mutationExecutionInventory = [
   },
   {
     family: "local authoring",
-    commands: ["new", "copy", "import", "adopt", "fork", "demote"],
+    commands: ["new", "copy", "skills/subagents import", "adopt", "fork", "demote"],
     classification: "shared-plan-policy",
   },
   {

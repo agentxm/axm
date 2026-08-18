@@ -10,6 +10,7 @@ import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { skillsImportCommand as importCommand } from "../import/command.js";
 
 const showCommand = makeExtensionShowCommand({
   type: "skill",
@@ -48,6 +49,7 @@ export const skillsCommand = Command.make("skills").pipe(
     showCommand,
     updateCommand,
     newCommand,
+    importCommand,
     enableCommand,
     disableCommand,
     publishCommand,

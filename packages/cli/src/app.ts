@@ -50,7 +50,6 @@ import { publishCommand } from "./root/publish/command.js";
 import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
 import { forkCommand } from "./root/fork/command.js";
-import { importCommand } from "./root/import/command.js";
 import { cacheCommand } from "./root/cache/command.js";
 import { visibilityCommand } from "./root/visibility/command.js";
 import {
@@ -105,7 +104,6 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         ...extensionGroupCommands,
         publishCommand,
         forkCommand,
-        importCommand,
         adoptCommand,
         demoteCommand,
         installCommand,

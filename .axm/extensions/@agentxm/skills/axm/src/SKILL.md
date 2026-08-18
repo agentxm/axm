@@ -95,9 +95,10 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 `--json` requests machine-readable output. On installed-state commands,
 `--scope user` targets `$HOME/.axm` instead of the project workspace;
 suggestions and artifacts retain that selection. Authoring commands (`new`,
-import, adopt, demote, version, pack authoring, and publish) are
-project-workspace only and reject `--scope`. Install/uninstall/update accept a
-registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
+fork, `skills import`, `subagents import`, adopt, demote, version, pack
+authoring, and publish) are project-workspace only and reject `--scope`.
+Install/uninstall/update accept a registry FQN
+(`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
 <!-- axm:generated:extension-type-namespace-set -->
 
@@ -198,20 +199,22 @@ non-interactive credentials and never print its contents.
 
 ### Creating & publishing extensions
 
-| Task                                      | Command                                   |
-| ----------------------------------------- | ----------------------------------------- |
-| Scaffold a new workspace extension        | `axm <type> new <name>`                   |
-| Adopt a retained canonical package        | `axm adopt <fqn>`                         |
-| Explicitly return authorship to a source  | `axm demote <fqn> <source>`               |
-| Add an extension to a pack                | `axm packs add <pack> <extension>`        |
-| Remove an extension from a pack           | `axm packs remove <pack> <extension>`     |
-| Inspect desired Pack state                | `axm packs show <pack>`                   |
-| Unpack a pack into individual entries     | `axm packs unpack <pack>`                 |
-| Publish all authored workspace extensions | `axm publish --yes`                       |
-| Publish selected extensions               | `axm publish <fqn...> --yes`              |
-| Publish authored extensions of one type   | `axm <type> publish --yes`                |
-| Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>` |
-| Set an exact version                      | `axm version <fqn> set <x.y.z>`           |
+| Task                                      | Command                                      |
+| ----------------------------------------- | -------------------------------------------- |
+| Scaffold a new workspace extension        | `axm <type> new <name>`                      |
+| Convert a native skill to an AXM package  | `axm skills import <source> <target-fqn>`    |
+| Convert a native subagent to a package    | `axm subagents import <source> <target-fqn>` |
+| Adopt a retained canonical package        | `axm adopt <fqn>`                            |
+| Explicitly return authorship to a source  | `axm demote <fqn> <source>`                  |
+| Add an extension to a pack                | `axm packs add <pack> <extension>`           |
+| Remove an extension from a pack           | `axm packs remove <pack> <extension>`        |
+| Inspect desired Pack state                | `axm packs show <pack>`                      |
+| Unpack a pack into individual entries     | `axm packs unpack <pack>`                    |
+| Publish all authored workspace extensions | `axm publish --yes`                          |
+| Publish selected extensions               | `axm publish <fqn...> --yes`                 |
+| Publish authored extensions of one type   | `axm <type> publish --yes`                   |
+| Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>`    |
+| Set an exact version                      | `axm version <fqn> set <x.y.z>`              |
 
 Publish preflights the complete selection before any upload. Bare and
 filter-only bulk selections verify and skip byte-identical published versions;

@@ -12,22 +12,24 @@ members.
 
 ## Creating from existing content
 
-Use `fork` and `import` for different source states:
+Use `fork` and the type-specific native import commands for different source
+states:
 
 - `axm fork <source> <target-fqn>` starts a new workspace-authored package from
   an existing managed AXM package. Registry, `workspace:`, local, and Git
   sources are supported. The source and target types must match; packs are
   copied shallowly, so their dependency map remains unchanged.
-- `axm import <source> <target-fqn>` converts losslessly supported native
-  content into a managed package. Skills, subagents, Markdown rules, and OKF
-  0.2 knowledge bundles are supported from local or Git sources. MCP config
-  remains under `axm mcps import`: omit `--as` for inline management, or use
-  `--as <target-fqn>` when one remote server has a lossless package form.
-  Hooks and packs have no native import form.
+- `axm skills import <source> <target-fqn>` and `axm subagents import <source>
+<target-fqn>` convert losslessly supported native content into managed Skill
+  and Subagent packages from local or Git sources. Rules, Knowledge bundles,
+  Hooks, and Packs have no native package-conversion command.
+- `axm mcps import` is a distinct MCP configuration discovery and adoption
+  workflow: omit `--as` for inline management, or use `--as <target-fqn>` when
+  one remote server has a lossless package form.
 
 Both commands create target version `0.1.0` and start a fresh target disabled
-unless `--enable` is supplied. Disabled `fork` and native-content `import`
-operations leave their source projections untouched. MCP package import is the
+unless `--enable` is supplied. Disabled `fork`, `skills import`, and `subagents
+import` operations leave their source projections untouched. MCP package import is the
 explicit adoption case: after the managed package validates, it replaces the
 selected native config entry and leaves the managed target disabled. If the
 target name already has a settings entry, its enabled state is preserved. Use

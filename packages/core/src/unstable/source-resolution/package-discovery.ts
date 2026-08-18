@@ -84,7 +84,7 @@ export const inspectExtensionPackage = (
     if (manifestFile === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: `No AXM extension manifest was found at ${directory}; use import for unmanaged/native content`,
+        detail: `No AXM extension manifest was found at ${directory}; use skills import or subagents import for supported unmanaged/native content`,
       });
     }
     if (manifestEntries.length > 1) {

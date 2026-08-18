@@ -6,7 +6,6 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
 import { AppError, makeAppError } from "../app-error/index.js";
-import { inspectKnowledgeBundle } from "../knowledge/okf.js";
 import { manifestFilenameForType, manifestSchemaForType } from "../publish/manifest-policy.js";
 import type { ExtensionFqnParts } from "./common.js";
 import { frontmatterParseFailureToAppError, parseFrontmatterEffect } from "./frontmatter.js";
@@ -123,16 +122,10 @@ export const importNativeExtensionPackage = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (args.target.type === "mcp-server") {
+    if (args.target.type !== "skill" && args.target.type !== "subagent") {
       return yield* makeAppError({
         code: "usage",
-        detail: "Import MCP configuration with axm mcps import",
-      });
-    }
-    if (args.target.type === "hook" || args.target.type === "pack") {
-      return yield* makeAppError({
-        code: "usage",
-        detail: `Native ${args.target.type} import has no lossless supported representation`,
+        detail: `Native package import is not supported for ${args.target.type}`,
       });
     }
     yield* rejectManagedPackage(args.sourcePath);
@@ -177,46 +170,6 @@ export const importNativeExtensionPackage = (
         yield* rewriteFrontmatterName(targetFile, args.target.name);
         break;
       }
-      case "rule": {
-        yield* fs.makeDirectory(path.join(args.targetDir, "src"), { recursive: true });
-        const sourceFile = yield* selectMarkdownFile(args.sourcePath, args.target.name);
-        yield* fs
-          .copyFile(sourceFile, path.join(args.targetDir, "src", "RULE.md"))
-          .pipe(Effect.mapError(mapWriteError("Native rule document could not be copied")));
-        break;
-      }
-      case "knowledge": {
-        const stat = yield* fs.stat(args.sourcePath);
-        if (stat.type !== "Directory") {
-          return yield* makeAppError({
-            code: "usage",
-            detail: "Knowledge import requires an Open Knowledge Format 0.2 bundle directory",
-          });
-        }
-        const inspection = yield* inspectKnowledgeBundle(args.sourcePath).pipe(
-          Effect.mapError(mapWriteError("Knowledge bundle could not be inspected")),
-        );
-        const errors = inspection.diagnostics.filter(
-          (diagnostic) => diagnostic.severity === "error",
-        );
-        if (errors.length > 0) {
-          const firstError = errors[0];
-          const firstErrorMessage =
-            firstError === undefined
-              ? "invalid OKF bundle"
-              : firstError.details?.kind === "frontmatter-parse"
-                ? `${firstError.relativePath}: ${firstError.message}`
-                : firstError.message;
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Knowledge bundle is not losslessly importable: ${firstErrorMessage}`,
-          });
-        }
-        yield* copyExtensionDirectory(args.sourcePath, path.join(args.targetDir, "src")).pipe(
-          Effect.mapError(mapWriteError("Knowledge bundle could not be copied")),
-        );
-        break;
-      }
     }
 
     const manifest = {
@@ -225,9 +178,6 @@ export const importNativeExtensionPackage = (
       type: args.target.type,
       name: args.target.name,
       version: NATIVE_IMPORT_VERSION,
-      ...(args.target.type === "knowledge"
-        ? { format: { name: "okf", version: "0.2" }, bundleRoot: "src" }
-        : {}),
     };
     yield* Schema.decodeUnknownEffect(manifestSchemaForType(args.target.type))(manifest).pipe(
       Effect.mapError((cause) =>

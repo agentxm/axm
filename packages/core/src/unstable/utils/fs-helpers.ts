@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { fileURLToPath } from "node:url";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -100,7 +101,6 @@ export const removeFromAllCanonicalLocations = (
     }
   });
 
-/**
- * Strip the `file://` protocol prefix from a location string.
- */
-export const stripFileProtocol = (location: string): string => location.replace(/^file:\/\//, "");
+/** Convert a file URL to the current platform's native path representation. */
+export const stripFileProtocol = (location: string): string =>
+  location.startsWith("file:") ? fileURLToPath(location) : location;

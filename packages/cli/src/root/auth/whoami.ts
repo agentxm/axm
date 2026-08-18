@@ -56,8 +56,7 @@ export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
-    { command: "axm auth whoami", description: "Check who you're authenticated as" },
-    { command: "axm whoami", description: "Same command via shortcut" },
-    { command: "axm auth whoami --json", description: "Get identity as JSON for scripts" },
+    { command: "axm whoami", description: "Check who you're authenticated as" },
+    { command: "axm whoami --json", description: "Get identity as JSON for scripts" },
   ]),
 );

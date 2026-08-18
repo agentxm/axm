@@ -3,7 +3,7 @@
  *
  * Wraps an Effect with a pre-check for authentication. If no token is
  * resolvable, fails immediately with an actionable error message directing
- * the user to `axm auth login`.
+ * the user to `axm login`.
  *
  * @experimental This API is unstable and may change without notice.
  */

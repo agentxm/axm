@@ -182,14 +182,14 @@ describe("structured output (--json)", () => {
   });
 
   it("parent commands still show structured help and exit 0 in json mode", async () => {
-    const result = await runCli(["auth", "--json"]);
+    const result = await runCli(["cache", "--json"]);
 
     expect(result.exitCode).toBe(0);
     const document = parseJson(result.stdout);
     expect(machineDocumentKind(document)).toBe("help-document-v1");
     expect(document).toMatchObject({
       type: "help",
-      usage: "axm auth <subcommand> [flags]",
+      usage: "axm cache <subcommand> [flags]",
     });
   });
 

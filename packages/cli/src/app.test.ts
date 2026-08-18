@@ -147,6 +147,21 @@ describe("root command help", () => {
     }),
   );
 
+  it.effect("exposes authentication only through root commands", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      expect(files.has("axm auth")).toBe(false);
+      for (const command of ["login", "logout", "whoami", "token"] as const) {
+        expect(files.has(`axm ${command}`), command).toBe(true);
+        expect(files.has(`axm auth ${command}`), command).toBe(false);
+      }
+      for (const command of ["create", "list", "revoke"] as const) {
+        expect(files.has(`axm token ${command}`), command).toBe(true);
+        expect(files.has(`axm auth token ${command}`), command).toBe(false);
+      }
+    }),
+  );
+
   it.effect("exposes only fail-closed publish controls", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();

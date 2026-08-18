@@ -67,7 +67,7 @@ You should see output like `X.Y.Z`.
 ### Authenticate
 
 ```bash
-axm auth login
+axm login
 ```
 
 This opens a browser for OAuth authorization. Grant access when prompted, then verify:
@@ -97,7 +97,7 @@ axm --version
 ### Authenticate
 
 ```bash
-axm auth login
+axm login
 ```
 
 This opens a browser for OAuth authorization. Grant access when prompted, then verify:
@@ -122,7 +122,7 @@ You can pass any axm command directly:
 
 ```bash
 npx axm.sh --version
-npx axm.sh auth login
+npx axm.sh login
 npx axm.sh whoami
 ```
 
@@ -135,7 +135,7 @@ After installing axm through any method, you need to authenticate.
 ### Interactive (recommended for local development)
 
 ```bash
-axm auth login
+axm login
 ```
 
 Opens a browser for AgentXM.ai authorization. Grant access when prompted.
@@ -221,7 +221,7 @@ export PATH="$(npm config get prefix)/bin:$PATH"
 **`AUTH_LOGIN_REQUIRED` or "Not authenticated":**
 
 ```bash
-axm auth login
+axm login
 # Or for non-interactive environments:
 export AXM_TOKEN_FILE=/path/to/axm-token
 ```
@@ -229,7 +229,7 @@ export AXM_TOKEN_FILE=/path/to/axm-token
 **Wrong account:**
 
 ```bash
-axm auth logout && axm auth login
+axm logout && axm login
 ```
 
 **Token expired:**
@@ -237,7 +237,7 @@ axm auth logout && axm auth login
 Tokens may expire. Re-authenticate:
 
 ```bash
-axm auth login
+axm login
 # Or refresh the token:
 export AXM_TOKEN_FILE=/path/to/refreshed-axm-token
 ```

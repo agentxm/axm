@@ -30,7 +30,6 @@ import {
   extensionGroupCommands,
   workspaceCapabilityCommands,
 } from "./root/extension-type-commands.js";
-import { authCommand } from "./root/auth/_auth.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
 import { whoamiCommand } from "./root/auth/whoami.js";
@@ -133,7 +132,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     },
     {
       group: "AUTH",
-      commands: [authCommand, loginCommand, logoutCommand, whoamiCommand, tokenCommand],
+      commands: [loginCommand, logoutCommand, whoamiCommand, tokenCommand],
     },
     {
       group: "GETTING STARTED",
@@ -155,6 +154,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
 
+const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0] === "auth";
+
 /** Layer providing UpdateCheck and InstallMethod for the startup update check. */
 const updateCheckServicesLayer = Layer.provide(
   Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
@@ -174,16 +175,23 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
   await runCliMain(
     (argv) => {
       const isJson = hasExplicitJsonFlag(argv);
-      const commandProgram = argv.includes("-vv")
+      const commandProgram = usesRetiredAuthCommand(argv)
         ? Effect.fail<CommandProgramError>(
             makeAppError({
               code: "usage",
-              detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
+              detail: "Unrecognized command: auth",
             }),
           )
-        : Command.runWith(rootCommand, { version })(argv).pipe(
-            Effect.mapError((error): CommandProgramError => error),
-          );
+        : argv.includes("-vv")
+          ? Effect.fail<CommandProgramError>(
+              makeAppError({
+                code: "usage",
+                detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
+              }),
+            )
+          : Command.runWith(rootCommand, { version })(argv).pipe(
+              Effect.mapError((error): CommandProgramError => error),
+            );
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
       });

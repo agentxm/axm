@@ -513,10 +513,9 @@ export const tokenCommand = Command.make("token", tokenConfig, () =>
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([
     {
-      command: "axm auth token",
+      command: "axm token",
       description: "Print your auth token (e.g., for piping to another tool)",
     },
-    { command: "axm token", description: "Same command via shortcut" },
-    { command: "axm auth token --json", description: "Get the token as structured JSON" },
+    { command: "axm token --json", description: "Get the token as structured JSON" },
   ]),
 );

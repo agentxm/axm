@@ -180,7 +180,6 @@ describe("main CLI help", () => {
     { args: ["skills"], expected: ["install", "list", "publish"] },
     { args: ["packs"], expected: ["install", "publish", "unpack"] },
     { args: ["mcps"], expected: ["install", "uninstall"] },
-    { args: ["auth"], expected: ["login", "whoami", "token"] },
   ])("shows group help for $args", async ({ args, expected }) => {
     const result = await runCli(args);
     const output = getOutput(result);

@@ -24,7 +24,7 @@ order:
 2. the trimmed, non-empty contents of the readable file named by
    `AXM_TOKEN_FILE`;
 3. a command token flag, when the command provides one; then
-4. the stored credential from `axm auth login`.
+4. the stored credential from `axm login`.
 
 Prefer `AXM_TOKEN_FILE` in automation so the secret does not need to live in
 the process environment or command line. Restrict the file to the account that

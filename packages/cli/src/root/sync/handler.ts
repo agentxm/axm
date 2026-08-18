@@ -1060,7 +1060,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     cleanupSafe: problems.length === 0,
     knowledgeMayChange:
       packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
-    serialMaterialization: packRecoverySteps.length > 0,
     expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
@@ -1126,7 +1125,6 @@ const makeSyncPlan = ({
   cleanupStep,
   instructionStep,
   releaseAge,
-  serialMaterialization = false,
   name = PLAN_NAME,
   description = PLAN_DESCRIPTION,
 }: {
@@ -1136,7 +1134,6 @@ const makeSyncPlan = ({
   readonly cleanupStep: Option.Option<PlannedJobStep<SyncPlanRequirements>>;
   readonly instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
-  readonly serialMaterialization?: boolean;
   readonly name?: string;
   readonly description?: string;
 }): Plan<SyncPlanRequirements> => {
@@ -1144,7 +1141,12 @@ const makeSyncPlan = ({
   const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
   const jobs: Array<Job<SyncPlanRequirements>> = [];
   if (nonRuleSteps.length > 0) {
-    jobs.push({ concurrency: serialMaterialization ? 1 : "unbounded", steps: nonRuleSteps });
+    // These steps write shared agent projection directories and native config
+    // surfaces inside one command-wide transaction. Keep that mutation phase
+    // serialized so platform filesystem semantics cannot make sibling writes
+    // race each other. Rule package writes remain independent below because
+    // their shared instruction projection is deferred to a separate step.
+    jobs.push({ concurrency: 1, steps: nonRuleSteps });
   }
   if (Option.isSome(knowledgeStep)) {
     jobs.push({ concurrency: 1, steps: [knowledgeStep.value] });
@@ -1448,18 +1450,12 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
           selection,
           ignoreReleaseAge: args.ignoreReleaseAge === true,
         });
-        const {
-          steps,
-          cleanupSafe,
-          knowledgeMayChange,
-          serialMaterialization,
-          expectedSubagentNames,
-          releaseAge,
-        } = yield* collectMaterializeSteps({
-          selection,
-          ignoreReleaseAge: args.ignoreReleaseAge === true,
-          ...(packRecovery === undefined ? {} : { packRecovery }),
-        });
+        const { steps, cleanupSafe, knowledgeMayChange, expectedSubagentNames, releaseAge } =
+          yield* collectMaterializeSteps({
+            selection,
+            ignoreReleaseAge: args.ignoreReleaseAge === true,
+            ...(packRecovery === undefined ? {} : { packRecovery }),
+          });
         const selectionTouches = (unitType: "rule" | "hook"): boolean => {
           if (!scoped) return true;
           if (Option.isSome(type) && type.value === unitType) return true;
@@ -1500,20 +1496,11 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
           cleanupStep,
           instructionStep,
           releaseAge,
-          serialMaterialization,
         };
       }),
     { successMessage: `Resolved ${scopeLabel} sync` },
   );
-  const {
-    steps,
-    knowledgeStep,
-    hooksStep,
-    cleanupStep,
-    instructionStep,
-    releaseAge,
-    serialMaterialization,
-  } = preflight;
+  const { steps, knowledgeStep, hooksStep, cleanupStep, instructionStep, releaseAge } = preflight;
   const materializeSteps = steps.map((step, index): PlannedJobStep<SyncPlanRequirements> => {
     if (step.readiness === "error") {
       return step;
@@ -1560,7 +1547,6 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     cleanupStep,
     instructionStep,
     releaseAge,
-    serialMaterialization,
     name: planName,
     description: planDescription,
   });

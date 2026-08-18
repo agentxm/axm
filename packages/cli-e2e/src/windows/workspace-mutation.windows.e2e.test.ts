@@ -2,7 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../utils.js";
+import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
+
+const runCli = (args: ReadonlyArray<string>, options?: Parameters<typeof runBaseCli>[1]) =>
+  runBaseCli([...args, "--verbose"], options);
 
 const expectSuccess = (result: {
   readonly exitCode: number;

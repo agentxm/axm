@@ -218,6 +218,13 @@ export {
   ensureProjectWorkspaceInitialized,
 } from "./initialization.js";
 export type { SetupAgentCandidate } from "./initialization.js";
+export {
+  setupScopeSupport,
+  type SetupScopeSupportCategory,
+  type SetupScopeSupportOutcome,
+  type SetupScopeSupportReasonCode,
+  type SetupScopeSupportStatus,
+} from "./setup-scope-support.js";
 export type {
   WorkspaceInitializationInteractionService,
   WorkspaceInitializationInteractionTestState,

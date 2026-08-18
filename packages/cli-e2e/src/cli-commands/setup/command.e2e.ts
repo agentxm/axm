@@ -254,6 +254,7 @@ describe("axm setup", () => {
             errorCode: "usage",
             status: "approval-required",
             changed: false,
+            scopeSupport: expect.any(Array),
           },
         });
         expect(fs.existsSync(path.join(temp.path, ".axm"))).toBe(false);
@@ -279,6 +280,12 @@ describe("axm setup", () => {
             changed: false,
             agents: expect.any(Array),
             agentCandidates: expect.any(Array),
+            scopeSupport: expect.arrayContaining([
+              expect.objectContaining({
+                type: "skill",
+                outcomes: expect.any(Array),
+              }),
+            ]),
             steps: expect.any(Array),
           },
           suggestions: [

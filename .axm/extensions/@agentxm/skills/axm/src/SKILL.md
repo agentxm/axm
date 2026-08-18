@@ -126,10 +126,20 @@ detection, setup offers a small catalog-driven starter set for review.
 
 For unattended first setup, run `axm setup --preview --scope project --json
 --non-interactive`, review `result.agents`, `result.agentCandidates`, and
-`result.steps`, then obtain approval for that exact candidate. Apply it with
-`axm setup --yes --scope project --agent <id>... --non-interactive`, repeating
-`--agent` for every approved ID. Omitting approval, explicit scope, or explicit
-agents returns `reason: "approval-required"` without writes.
+`result.scopeSupport`, and `result.steps`, then obtain approval for that exact
+candidate. Apply it with `axm setup --yes --scope project --agent <id>...
+--non-interactive`, repeating `--agent` for every approved ID. Omitting
+approval, explicit scope, or explicit agents returns `reason:
+"approval-required"` without writes.
+
+`result.scopeSupport` is the effective category contract for the chosen agents
+and scope. Its outcomes are `supported`, `project-only`, `unsupported`, or
+`refused`, with stable `reasonCode` values. Per-agent categories report each
+agent separately; rules also report instruction-file projection, while
+knowledge and packs report workspace/container support. Never reinterpret a
+`project-only` or `refused` user-scope outcome as permission to write the
+project scope. Keep `--scope user` on follow-up `agents list`, `sync --preview`,
+`lint`, and `list` commands; discovery and Git-hook setup are project-only.
 
 | Task                                    | Command                                                        |
 | --------------------------------------- | -------------------------------------------------------------- |

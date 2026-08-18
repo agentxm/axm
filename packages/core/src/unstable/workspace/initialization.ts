@@ -45,6 +45,7 @@ import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
 import { type WorkspaceLocation, getAxmDir, locateWorkspace } from "./paths.js";
+import { setupScopeSupport, type SetupScopeSupportCategory } from "./setup-scope-support.js";
 import { protectWorkspacePath } from "./transaction.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
@@ -364,6 +365,23 @@ const renderSetupPlan = (rows: ReadonlyArray<SetupPlanRow>) =>
     }
   });
 
+const renderSetupScopeSupport = (
+  scope: WorkspaceScope,
+  categories: ReadonlyArray<SetupScopeSupportCategory>,
+) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    yield* renderer.info(`Scope support · ${scope}`);
+    for (const category of categories) {
+      for (const outcome of category.outcomes) {
+        const target = outcome.agentName ?? category.placement;
+        yield* renderer.info(
+          `  ${category.label}  ${outcome.status}  ${target} [${outcome.reasonCode}]: ${outcome.reason}`,
+        );
+      }
+    }
+  });
+
 const selectSetupAgents = (args: {
   readonly options: WorkspaceMutationsOptions;
   readonly existingSettings: Settings;
@@ -661,6 +679,12 @@ const configureProjectWorkspace = (args: {
         },
         ...planRows,
       ]);
+      if (args.options.preview !== true) {
+        yield* renderSetupScopeSupport(
+          args.options.scope,
+          setupScopeSupport(agentIds, args.options.scope),
+        );
+      }
     }
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
@@ -714,6 +738,23 @@ const initializeUserWorkspace = (globalDir: string, options: WorkspaceMutationsO
       skills: DEFAULT_SETUP_SKILLS,
     };
     const nonInteractive = yield* isNonInteractive;
+    if (!nonInteractive || options.preview === true) {
+      yield* renderSetupPlan([
+        {
+          target: SETTINGS_FILENAME,
+          action: "create",
+          detail: `agents: ${agentIds.join(", ")}`,
+        },
+        {
+          target: LOCKFILE_NAME,
+          action: "create",
+          detail: "accepted resolution",
+        },
+      ]);
+      if (options.preview !== true) {
+        yield* renderSetupScopeSupport(options.scope, setupScopeSupport(agentIds, options.scope));
+      }
+    }
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
       options.preview === true ||

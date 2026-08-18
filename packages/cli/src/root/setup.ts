@@ -25,13 +25,19 @@ import {
   protectWorkspacePath,
   runWorkspaceTransaction,
   scanAllSubagentFiles,
+  setupScopeSupport,
   type AgentSubagentSummary,
   type SetupAgentCandidate,
+  type SetupScopeSupportCategory,
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { normalizeHandle, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import {
+  ExtensionTypeSchema,
+  normalizeHandle,
+  sanitizeName,
+} from "@agentxm/client-core/unstable/extensions";
 import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
@@ -52,6 +58,7 @@ import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
+import { commandForScope } from "./shared/scoped-command.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_SOURCE_FILES,
@@ -117,6 +124,30 @@ const SetupAgentCandidateSchema = Schema.Struct({
   ),
 });
 
+const SetupScopeSupportOutcomeSchema = Schema.Struct({
+  target: Schema.Literals(["workspace", "container", "agent", "agent-set"] as const),
+  agentId: Schema.optional(Schema.String),
+  agentName: Schema.optional(Schema.String),
+  status: Schema.Literals(["supported", "project-only", "unsupported", "refused"] as const),
+  reasonCode: Schema.Literals([
+    "supported",
+    "no-configured-agents",
+    "unknown-agent",
+    "native-capability-unavailable",
+    "axm-capability-unavailable",
+    "project-only",
+    "scope-not-modeled",
+  ] as const),
+  reason: Schema.String,
+});
+
+const SetupScopeSupportCategorySchema = Schema.Struct({
+  type: ExtensionTypeSchema,
+  label: Schema.String,
+  placement: Schema.Literals(["per-agent", "workspace", "container"] as const),
+  outcomes: Schema.Array(SetupScopeSupportOutcomeSchema),
+});
+
 export const SetupResultSchema = Schema.Struct({
   outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op", "failed"] as const),
   planName: Schema.String,
@@ -149,6 +180,7 @@ export const SetupResultSchema = Schema.Struct({
     }),
   ),
   agentCandidates: Schema.optional(Schema.Array(SetupAgentCandidateSchema)),
+  scopeSupport: Schema.Array(SetupScopeSupportCategorySchema),
   settingsPath: Schema.String,
   instructions: Schema.optional(
     Schema.Struct({
@@ -395,6 +427,22 @@ const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRender
     yield* renderer.message("");
   });
 
+const renderSetupScopeSupport = (
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  scope: WorkspaceScope,
+  categories: ReadonlyArray<SetupScopeSupportCategory>,
+) =>
+  Effect.gen(function* () {
+    yield* renderer.info(`Scope support (${scope})`);
+    for (const category of categories) {
+      for (const outcome of category.outcomes) {
+        yield* renderer.info(
+          `${category.label}: ${outcome.status} (${outcome.agentName ?? outcome.target}; ${outcome.reasonCode}) — ${outcome.reason}`,
+        );
+      }
+    }
+  });
+
 const setupSuggestions = (args: {
   readonly status: "initialized" | "already-initialized" | "preview" | "cancelled";
   readonly agentCount: number;
@@ -417,32 +465,43 @@ const setupSuggestions = (args: {
   const suggestions: Array<SuggestedAction> = [
     {
       description: "Inspect configured agents",
-      cmd: `axm agents list${args.scope === "user" ? " --scope user" : ""}`,
+      cmd: commandForScope("axm agents list", args.scope),
     },
     {
-      description: "Inspect installed skills",
-      cmd: `axm skills list${args.scope === "user" ? " --scope user" : ""}`,
+      description: "Preview workspace reconciliation",
+      cmd: commandForScope("axm sync --preview", args.scope),
+    },
+    {
+      description: "Lint workspace state",
+      cmd: commandForScope("axm lint", args.scope),
+    },
+    {
+      description: "List installed extensions",
+      cmd: commandForScope("axm list", args.scope),
     },
   ];
 
   if (args.status === "already-initialized") {
     suggestions.splice(1, 0, {
       description: "Manage coding-agent membership",
-      cmd: `axm agents --help${args.scope === "user" ? " --scope user" : ""}`,
+      cmd: commandForScope("axm agents --help", args.scope),
     });
   }
 
   if (args.agentCount === 0) {
     suggestions.unshift({
       description: "Detect and configure active coding agents",
-      cmd: `axm agents add --detected${args.scope === "user" ? " --scope user" : ""}`,
+      cmd: commandForScope("axm agents add --detected", args.scope),
     });
-  } else {
+  } else if (args.scope === "project") {
     suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
   }
 
   if (args.scope === "project") {
-    suggestions.push({ description: "Set up staged lint hooks", cmd: "axm help git-hooks" });
+    suggestions.push({
+      description: "Set up staged lint hooks (project-only)",
+      cmd: "axm help git-hooks",
+    });
   }
 
   if (args.telemetryEnabled) {
@@ -766,6 +825,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           defaultSkillInstalled: false,
           scope: args.scope,
           agents: [],
+          scopeSupport: setupScopeSupport([], args.scope),
           settingsPath,
           telemetryEnabled: false,
         },
@@ -791,6 +851,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
         });
   const defaultSkillInstalled = initialized;
   const agentIds = settings.agents ?? [];
+  const scopeAgentIds = cancelled
+    ? agentCandidates.flatMap((candidate) => (candidate.state === "selected" ? [candidate.id] : []))
+    : agentIds;
+  const scopeSupport = setupScopeSupport(scopeAgentIds, location.scope);
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode(
@@ -877,6 +941,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           ...(agentCandidates.length > 0
             ? { agentCandidates: [...agentCandidates] satisfies ReadonlyArray<SetupAgentCandidate> }
             : {}),
+          scopeSupport,
           settingsPath,
           ...(instructions !== undefined ? { instructions } : {}),
           telemetryEnabled,
@@ -919,6 +984,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     if (defaultSkillInstalled) {
       yield* renderer.info(`Skill: @agentxm/skills/axm -> ${setupSkillFootprint(agentIds)}`);
     }
+    yield* renderSetupScopeSupport(renderer, location.scope, scopeSupport);
 
     // Show subagent file summary
     yield* renderSubagentSummary(renderer, path, subagentSummaries);

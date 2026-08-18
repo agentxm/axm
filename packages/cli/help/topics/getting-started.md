@@ -51,8 +51,9 @@ For automation, preview the exact candidate first:
 axm setup --preview --scope project --json --non-interactive
 ```
 
-Review `result.agents`, `result.agentCandidates`, and `result.steps`, then apply
-that exact agent set with explicit approval and scope:
+Review `result.agents`, `result.agentCandidates`, `result.scopeSupport`, and
+`result.steps`, then apply that exact agent set with explicit approval and
+scope:
 
 ```bash
 axm setup --yes --scope project --agent claude-code --non-interactive
@@ -62,11 +63,35 @@ Repeat `--agent <id>` for every approved agent. An unattended first setup that
 omits `--yes`, an explicit `--scope`, or all `--agent` flags exits with the
 stable reason `approval-required` and writes nothing.
 
+## Understand scope support
+
+Setup reports the effective scope contract for every extension category and
+selected agent. Each `result.scopeSupport[*].outcomes[*]` row has a stable
+`status`, `reasonCode`, and human-readable `reason`:
+
+- `supported` — AXM can operate that category at the selected scope.
+- `project-only` — the surface is intentionally available only from a project
+  workspace; AXM does not fall back to it during user-scope setup.
+- `unsupported` — the agent or AXM integration does not provide that
+  capability.
+- `refused` — the agent has a native surface, but AXM has not modeled a safe
+  target for the selected scope.
+
+Skills, MCP servers, subagents, and hooks report per-agent outcomes. Rules also
+report per-agent instruction-file projection alongside their workspace-owned
+package outcome. Knowledge bundles and packs report workspace/container
+outcomes. Preview and apply derive this matrix from the same selected agents and
+scope; setup never silently reads or writes the other scope.
+
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. If you adopt another coding agent later, run `axm agents add <id>`;
 use `axm agents remove <id>` when retiring one. Do not rerun setup or hand-edit
 `settings.agents`, because the membership commands also create or remove the
 owned per-agent artifacts for installed extensions atomically.
+
+Keep the selected scope on follow-up commands. For user scope, use `axm agents
+list --scope user`, `axm sync --preview --scope user`, `axm lint --scope user`,
+and `axm list --scope user`. Discovery and Git-hook setup are project-only.
 
 ## Add your first extension
 

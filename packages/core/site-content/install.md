@@ -172,12 +172,16 @@ First preview setup without writing:
 axm setup --preview --scope project --json --non-interactive
 ```
 
-Read `result.agents`, `result.agentCandidates`, and `result.steps`. Summarize the
-exact proposed agent set and file changes to the user, including which signals
-came from the project and which came only from the workstation. Tell the user
-that applying the candidate will create `.axm/` configuration, install default
-extensions (including `@agentxm/skills/axm`), and register the listed agent
-artifacts. Wait for approval of that exact agent set.
+Read `result.agents`, `result.agentCandidates`, `result.scopeSupport`, and
+`result.steps`. Summarize the exact proposed agent set, file changes, and
+category-by-category scope outcomes to the user, including which signals came
+from the project and which came only from the workstation. Each scope outcome
+is `supported`, `project-only`, `unsupported`, or `refused` and includes a
+stable `reasonCode`. Never reinterpret a user-scope `project-only` or `refused`
+outcome as permission to write project scope. Tell the user that applying the
+candidate will create `.axm/` configuration, install default extensions
+(including `@agentxm/skills/axm`), and register the listed agent artifacts.
+Wait for approval of that exact agent set and scope.
 
 After approval, repeat every `result.agents[*].id` as an explicit `--agent`
 flag and apply without prompts. For example:

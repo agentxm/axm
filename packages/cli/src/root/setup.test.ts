@@ -45,6 +45,19 @@ const telemetrySuggestion = {
   description:
     'Disable telemetry with AXM_TELEMETRY=0 or by setting "telemetry": false in settings',
 };
+const projectSetupSuggestions = [
+  { description: "Inspect configured agents", cmd: "axm agents list" },
+  { description: "Preview workspace reconciliation", cmd: "axm sync --preview" },
+  { description: "Lint workspace state", cmd: "axm lint" },
+  { description: "List installed extensions", cmd: "axm list" },
+  { description: "Discover recommended extensions", cmd: "axm discover" },
+  { description: "Set up staged lint hooks (project-only)", cmd: "axm help git-hooks" },
+];
+const projectRerunSuggestions = [
+  projectSetupSuggestions[0],
+  { description: "Manage coding-agent membership", cmd: "axm agents --help" },
+  ...projectSetupSuggestions.slice(1),
+];
 
 const makeSetupTestContext = (opts?: {
   readonly flags?: {
@@ -310,13 +323,23 @@ describe("setup.handler", () => {
             defaultSkillInstalled: true,
             scope: "project",
             agents: [{ id: "claude-code", name: "Claude Code" }],
+            scopeSupport: expect.arrayContaining([
+              expect.objectContaining({
+                type: "skill",
+                placement: "per-agent",
+                outcomes: [
+                  expect.objectContaining({
+                    agentId: "claude-code",
+                    status: "supported",
+                    reasonCode: "supported",
+                  }),
+                ],
+              }),
+            ]),
             telemetryEnabled: true,
           });
           expect(rendererState.suggestions).toEqual([
-            { description: "Inspect configured agents", cmd: "axm agents list" },
-            { description: "Inspect installed skills", cmd: "axm skills list" },
-            { description: "Discover recommended extensions", cmd: "axm discover" },
-            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
+            ...projectSetupSuggestions,
             telemetrySuggestion,
           ]);
         }),
@@ -333,10 +356,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           expect(rendererState.suggestions).toEqual([
-            { description: "Inspect configured agents", cmd: "axm agents list" },
-            { description: "Inspect installed skills", cmd: "axm skills list" },
-            { description: "Discover recommended extensions", cmd: "axm discover" },
-            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
+            ...projectSetupSuggestions,
             telemetrySuggestion,
           ]);
         }),
@@ -356,6 +376,15 @@ describe("setup.handler", () => {
             _tag: "info",
             message:
               "Skill: @agentxm/skills/axm -> .axm/extensions/@agentxm/skills/axm, .claude/skills/axm",
+          });
+          expect(rendererState.logs).toContainEqual({
+            _tag: "info",
+            message: "Scope support (project)",
+          });
+          expect(rendererState.logs).toContainEqual({
+            _tag: "info",
+            message:
+              "Skill: supported (Claude Code; supported) — Claude Code supports skills in project scope.",
           });
         }),
       );
@@ -429,16 +458,9 @@ describe("setup.handler", () => {
             agents: [{ id: "claude-code", name: "Claude Code" }],
           });
           expect(rendererState.suggestions).toEqual([
-            { description: "Inspect configured agents", cmd: "axm agents list" },
-            { description: "Inspect installed skills", cmd: "axm skills list" },
-            { description: "Discover recommended extensions", cmd: "axm discover" },
-            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
+            ...projectSetupSuggestions,
             telemetrySuggestion,
-            { description: "Inspect configured agents", cmd: "axm agents list" },
-            { description: "Manage coding-agent membership", cmd: "axm agents --help" },
-            { description: "Inspect installed skills", cmd: "axm skills list" },
-            { description: "Discover recommended extensions", cmd: "axm discover" },
-            { description: "Set up staged lint hooks", cmd: "axm help git-hooks" },
+            ...projectRerunSuggestions,
             telemetrySuggestion,
           ]);
         }),
@@ -707,6 +729,12 @@ describe("setup.handler", () => {
                   state: "available",
                 }),
               ]),
+              scopeSupport: expect.arrayContaining([
+                expect.objectContaining({
+                  type: "skill",
+                  outcomes: [expect.objectContaining({ agentId: "firebender" })],
+                }),
+              ]),
             },
           });
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
@@ -745,6 +773,12 @@ describe("setup.handler", () => {
                   selectionReason: "user-detected",
                 }),
               ]),
+              scopeSupport: expect.arrayContaining([
+                expect.objectContaining({
+                  type: "skill",
+                  outcomes: [expect.objectContaining({ agentId: "cursor" })],
+                }),
+              ]),
             },
           });
           expect(fs.existsSync(path.join(homeDir, ".axm"))).toBe(false);
@@ -773,6 +807,12 @@ describe("setup.handler", () => {
                   userDetected: true,
                   state: "selected",
                   selectionReason: "project-detected",
+                }),
+              ]),
+              scopeSupport: expect.arrayContaining([
+                expect.objectContaining({
+                  type: "skill",
+                  outcomes: [expect.objectContaining({ agentId: "firebender" })],
                 }),
               ]),
             },
@@ -805,6 +845,15 @@ describe("setup.handler", () => {
                   id: "claude-code",
                   state: "selected",
                   selectionReason: "catalog-suggestion",
+                }),
+              ]),
+              scopeSupport: expect.arrayContaining([
+                expect.objectContaining({
+                  type: "skill",
+                  outcomes: expect.arrayContaining([
+                    expect.objectContaining({ agentId: "claude-code" }),
+                    expect.objectContaining({ agentId: "codex" }),
+                  ]),
                 }),
               ]),
             },
@@ -988,6 +1037,58 @@ describe("setup.handler", () => {
   });
 
   describe("user scope", () => {
+    it.effect("reports user-scope category outcomes and scoped follow-up commands", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "user", agents: ["claude-code"] });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              scope: "user",
+              agents: [{ id: "claude-code", name: "Claude Code" }],
+              scopeSupport: expect.arrayContaining([
+                expect.objectContaining({
+                  type: "mcp-server",
+                  outcomes: [
+                    expect.objectContaining({
+                      agentId: "claude-code",
+                      status: "refused",
+                      reasonCode: "scope-not-modeled",
+                    }),
+                  ],
+                }),
+                expect.objectContaining({
+                  type: "hook",
+                  outcomes: [
+                    expect.objectContaining({
+                      agentId: "claude-code",
+                      status: "project-only",
+                      reasonCode: "project-only",
+                    }),
+                  ],
+                }),
+              ]),
+            },
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect configured agents", cmd: "axm agents list --scope user" },
+            {
+              description: "Preview workspace reconciliation",
+              cmd: "axm sync --preview --scope user",
+            },
+            { description: "Lint workspace state", cmd: "axm lint --scope user" },
+            { description: "List installed extensions", cmd: "axm list --scope user" },
+            telemetrySuggestion,
+          ]);
+        }),
+      );
+    });
+
     it.effect(
       "creates settings in the user workspace without touching the project workspace",
       () => {

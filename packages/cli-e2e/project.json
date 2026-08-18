@@ -16,6 +16,16 @@
         "cwd": "packages/cli-e2e"
       }
     },
+    "e2e-windows": {
+      "cache": true,
+      "dependsOn": ["cli:build"],
+      "inputs": ["default", "^production"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/cli-e2e"
+      }
+    },
     "e2e": {
       "cache": false,
       "dependsOn": ["cli:compile"],

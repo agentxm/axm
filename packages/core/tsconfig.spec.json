@@ -12,7 +12,8 @@
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
     "scripts/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "vitest.windows.config.ts"
   ],
   "references": [{ "path": "./tsconfig.lib.json" }]
 }

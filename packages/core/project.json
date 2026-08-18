@@ -121,6 +121,14 @@
         "cwd": "packages/core"
       }
     },
+    "test-windows": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/core"
+      }
+    },
     "nx-release-publish": {
       "cache": false,
       "dependsOn": ["build", "^nx-release-publish"],

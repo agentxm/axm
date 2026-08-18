@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-13
-version: 0.2.2
+last-reviewed: 2026-08-18
+version: 0.2.3
 description: Choosing and using AXM's native, development-container, and repository-owned
   Linux CI environments.
 depends-on:
@@ -73,6 +73,30 @@ substrate-specific override.
 - [ ] **Identity external** -- GitHub and agent credentials remain runtime state
 - [ ] **Native tests retained** -- macOS, Windows, and binary architecture jobs
       remain native
+
+### Native Windows verification
+
+Required CI runs the bounded `Windows workspace lifecycle` job on
+`windows-latest` for pull requests, main pushes, and manual CI dispatches. It
+uses the repository toolchain setup and these Nx targets:
+
+```powershell
+pnpm nx run core:test-windows --outputStyle=static
+pnpm nx run cli-e2e:e2e-windows --outputStyle=static
+```
+
+The core target exercises instruction-file managed copies on the native
+Windows filesystem. The CLI target uses a workspace and user home whose paths
+contain spaces, then covers agent detection, project and user setup, skill and
+MCP lifecycle mutations, sync preview and apply, machine output, native
+JSON/JSONC/TOML/YAML writers, lock refresh, and transactional recovery from an
+injected filesystem failure. Both suites assert that they are running on
+Windows; they never convert a substrate mismatch into a skip.
+
+The job has a 25-minute ceiling and one Vitest worker per target. It uploads
+only the two JUnit files under `test-results/*-windows/` for diagnosis, so the
+artifact cannot capture process environments or workspace configuration
+values.
 
 ---
 

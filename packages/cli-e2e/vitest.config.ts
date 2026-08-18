@@ -7,7 +7,11 @@ export default defineConfig({
   root: projectRoot,
   test: {
     include: ["src/**/*.e2e.test.ts"],
-    exclude: ["src/binary-smoke.e2e.test.ts", "src/install-verification.e2e.test.ts"],
+    exclude: [
+      "src/binary-smoke.e2e.test.ts",
+      "src/install-verification.e2e.test.ts",
+      "src/**/*.windows.e2e.test.ts",
+    ],
     // These e2e cases each spawn many real CLI processes (publish, init,
     // install, uninstall, update) and can exceed two minutes when the full
     // workspace graph competes for resources. Keep the test budget aligned

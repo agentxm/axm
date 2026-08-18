@@ -11,6 +11,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "@agentxm/client-core/unstable/extensions";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
@@ -650,6 +651,87 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("reports a successful convergence assertion for an up-to-date workspace", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+      yield* provide(handleSync({ preview: true, failOnChange: true }));
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "no-op",
+          reconciliationRequired: false,
+          totalSteps: 0,
+        },
+      });
+    }),
+  );
+
+  it.effect("fails a read-only convergence assertion with the complete preview plan", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      const nativeConfigPath = path.join(tempDir, ".mcp.json");
+      writeWorkspaceFiles(axmDir, { agents: ["claude-code"] });
+      writeJson(nativeConfigPath, {
+        mcpServers: {
+          demo: {
+            "x-axm": { managed: true, source: "inline" },
+            command: "node",
+            args: ["server.js"],
+          },
+        },
+      });
+      const before = {
+        settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+        nativeConfig: fs.readFileSync(nativeConfigPath, "utf8"),
+      };
+
+      const exit = yield* provide(handleSync({ preview: true, failOnChange: true })).pipe(
+        Effect.exit,
+      );
+
+      expect(exit._tag).toBe("Failure");
+      if (exit._tag === "Failure") {
+        const defect = Cause.squash(exit.cause);
+        expect(isEffectCliExit(defect)).toBe(true);
+        if (isEffectCliExit(defect)) expect(defect.exitCode).toBe(1);
+      }
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "reconciliation-required",
+          reconciliationRequired: true,
+          appliedCount: 0,
+          steps: [
+            {
+              label: "mcp-server stale managed entries",
+              status: "ready",
+            },
+          ],
+        },
+      });
+      expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
+      expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
+      expect(fs.readFileSync(nativeConfigPath, "utf8")).toBe(before.nativeConfig);
+    }),
+  );
+
+  it.effect("requires preview mode for fail-on-change", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+      const error = yield* provide(handleSync({ preview: false, failOnChange: true })).pipe(
+        Effect.flip,
+      );
+
+      expect(error.code).toBe("usage");
+      expect(error.detail).toBe("--fail-on-change requires --preview");
+    }),
+  );
+
   it.effect("emits release-age holdback evidence when sync selects an older mature version", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
@@ -770,7 +852,9 @@ describe("root sync handler", () => {
       const corrupt = "lockfileVersion: 4\nskills: []\n";
       fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), corrupt);
 
-      const error = yield* provide(handleSync({ preview: true })).pipe(Effect.flip);
+      const error = yield* provide(handleSync({ preview: true, failOnChange: true })).pipe(
+        Effect.flip,
+      );
 
       expect(error.code).toBe("validation");
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
@@ -1273,7 +1357,7 @@ describe("root sync handler", () => {
         },
       });
 
-      yield* provide(handleSync({ preview: false }));
+      yield* provide(handleSync({ preview: true, failOnChange: true }));
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {

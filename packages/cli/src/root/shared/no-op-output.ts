@@ -14,6 +14,7 @@ export const emitNoOpOutcome = <TCommand extends string>(
     readonly message: string;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
+    readonly reconciliationRequired?: boolean;
   },
 ) =>
   Effect.gen(function* () {

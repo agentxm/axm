@@ -23,6 +23,10 @@ const syncConfig = {
     Flag.withDescription("Preview the materialization plan without applying it"),
     Flag.withDefault(false),
   ),
+  failOnChange: Flag.boolean("fail-on-change").pipe(
+    Flag.withDescription("Exit 1 when preview finds reconciliation work"),
+    Flag.withDefault(false),
+  ),
   ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
     Flag.withDescription(
       "Allow configured Registry releases newer than minimumReleaseAge for this sync",
@@ -34,8 +38,8 @@ const syncConfig = {
 export const syncCommand = Command.make(
   "sync",
   syncConfig,
-  ({ target, type, scope, preview, ignoreReleaseAge }) =>
-    handleSync({ target, type, preview, ignoreReleaseAge }).pipe(
+  ({ target, type, scope, preview, failOnChange, ignoreReleaseAge }) =>
+    handleSync({ target, type, preview, failOnChange, ignoreReleaseAge }).pipe(
       withWorkspace(scope),
       withRuntime("sync"),
     ),
@@ -50,6 +54,10 @@ export const syncCommand = Command.make(
     {
       command: "axm sync --preview",
       description: "Preview what would be materialized without writing files",
+    },
+    {
+      command: "axm sync --preview --fail-on-change",
+      description: "Fail CI when reconciliation would change managed state",
     },
     {
       command: "axm sync @acme/packs/frontend-tools --preview",

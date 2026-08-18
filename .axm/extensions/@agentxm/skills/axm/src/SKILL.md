@@ -191,12 +191,20 @@ archives cannot be bypassed, and `--include-dependencies` /
 
 ### Workspace state
 
-| Task                                 | Command                                     |
-| ------------------------------------ | ------------------------------------------- |
-| Reconcile the entire workspace       | `axm sync --preview` then `axm sync`        |
-| Reconcile one root or extension type | `axm sync <fqn>` / `axm sync --type <type>` |
-| Lint workspace (read-only)           | `axm lint`                                  |
-| Lint the exact Git index             | `axm lint --view git-index`                 |
+| Task                                 | Command                                      |
+| ------------------------------------ | -------------------------------------------- |
+| Reconcile the entire workspace       | `axm sync --preview` then `axm sync`         |
+| Assert convergence in CI             | `axm sync --preview --fail-on-change --json` |
+| Reconcile one root or extension type | `axm sync <fqn>` / `axm sync --type <type>`  |
+| Lint workspace (read-only)           | `axm lint`                                   |
+| Lint the exact Git index             | `axm lint --view git-index`                  |
+
+Ordinary sync may apply directly because it realizes intent already accepted
+in settings, authored Pack manifests, and the lockfile; it does not create or
+revise extension intent. Use preview when a person needs to inspect the exact
+candidate. In automation, add `--fail-on-change`: exit 1 and the
+`reconciliation-required` result mean ordinary sync would change managed state,
+while exit 0 means the workspace is converged. The assertion never writes.
 
 For workspace-authored pack edits, use `axm packs add`, `remove`, or `version`
 when possible. The authored manifest is desired authority immediately; use

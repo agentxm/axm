@@ -16,7 +16,10 @@ outputs never reconstruct missing settings or lock authority.
 `axm sync` reconciles desired, accepted, and observed state. Use `axm sync
 <fqn>` for one root and its required pack members, or `axm sync --type <type>`
 to limit reconciliation by extension type. Run `axm sync --preview` to inspect
-the same semantic candidate that apply will execute.
+the same semantic candidate that apply will execute. In CI, run `axm sync
+--preview --fail-on-change`; it exits 1 with a `reconciliation-required`
+result when that candidate contains changes and exits 0 when the workspace is
+already converged. Both preview forms are read-only.
 
 ## Accepted external resolution
 
@@ -39,6 +42,14 @@ ambiguously owned. Independent ready closures may still apply.
 
 Lint reports intrinsic workspace facts without modifying state. Use `axm sync`
 for reconciliation work.
+
+Ordinary sync may apply without another approval because it realizes intent
+already accepted in settings, authored Pack manifests, and the lockfile. It
+does not add, remove, or revise extension intent. Commands that establish or
+change intent must instead expose and approve their exact candidate. Sync keeps
+this distinction only while planning and apply remain transactional,
+stale-candidate protected, closure-local, rollback-safe, and truthful about
+partial convergence.
 
 Every plan-bearing mutation constructs one execution candidate before writing.
 Preview, human display, JSON output, approval, and apply refer to that same
@@ -68,6 +79,8 @@ publish AXM completion markers as package content.
 - Use `axm lint` for read-only workspace facts.
 - Use `axm sync --preview --json` to inspect reconciliation, then `axm sync` to
   apply it.
+- Use `axm sync --preview --fail-on-change --json` as a read-only CI
+  convergence assertion.
 - Use explicit lifecycle commands when desired intent must change.
 
 ## Extension coverage

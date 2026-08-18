@@ -72,7 +72,14 @@ const planFamily = {
   requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", "result"],
   optionalTopLevelKeys: ["summary", "suggestions"],
-  scenarios: ["applied", "previewed", "cancelled", "no-op", "partial failure"],
+  scenarios: [
+    "applied",
+    "previewed",
+    "reconciliation required",
+    "cancelled",
+    "no-op",
+    "partial failure",
+  ],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
   centralizedCoverage: [
     "packages/cli/src/json-output.test.ts",

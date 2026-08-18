@@ -24,7 +24,7 @@ import {
   syncInlineMcpServerToAgents,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
@@ -33,6 +33,7 @@ import {
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
+  effectCliExit,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -129,6 +130,7 @@ export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
   readonly preview: boolean;
+  readonly failOnChange?: boolean;
   readonly ignoreReleaseAge?: boolean;
 }
 
@@ -1399,6 +1401,18 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
   args: HandleSyncArgs,
   hooks: SyncTestHooks = {},
 ) {
+  if (args.failOnChange === true && !args.preview) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--fail-on-change requires --preview",
+      suggestions: [
+        {
+          description: "Run the read-only convergence assertion",
+          cmd: "axm sync --preview --fail-on-change",
+        },
+      ],
+    });
+  }
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
@@ -1531,6 +1545,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
       message: scoped
         ? `${scopeLabel} materialization is up to date`
         : "Workspace materialization is up to date",
+      ...(args.failOnChange === true ? { reconciliationRequired: false } : {}),
     });
     return;
   }
@@ -1552,7 +1567,17 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     displayApplied: false,
   }).pipe(Effect.provide(syncPlanLayer));
   if (resolution._tag === "ExecutedPlan") yield* displayPlan(resolution);
-  const emitted = yield* emitPlanResolutionResult("sync", resolution);
+  const reconciliationRequired = args.failOnChange === true && resolution._tag === "PreviewedPlan";
+  const emitted = yield* emitPlanResolutionResult("sync", resolution, {
+    ...(reconciliationRequired
+      ? {
+          outcome: "reconciliation-required" as const,
+          reconciliationRequired: true,
+          ok: false,
+          message: "Workspace reconciliation is required; no changes were applied",
+        }
+      : {}),
+  });
   if (
     !emitted &&
     resolution._tag === "ExecutedPlan" &&
@@ -1563,5 +1588,11 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
         ? `${scopeLabel} materialization is up to date`
         : "Workspace materialization is up to date",
     );
+  }
+  if (reconciliationRequired) {
+    if (!emitted) {
+      yield* renderer.error("Workspace reconciliation is required — no changes applied");
+    }
+    return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }
 });

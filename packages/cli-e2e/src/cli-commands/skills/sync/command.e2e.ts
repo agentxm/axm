@@ -76,6 +76,21 @@ describe("axm sync configured GitHub skills", () => {
       const projection = path.join(temp.path, ".agents", "skills", "quality");
       expect(fs.existsSync(projection)).toBe(false);
 
+      const assertion = await runCli(["sync", "--preview", "--fail-on-change", "--json"], {
+        cwd: temp.path,
+      });
+      expect(assertion.exitCode, `${assertion.stderr}\n${assertion.stdout}`).toBe(1);
+      expect(JSON.parse(assertion.stdout)).toMatchObject({
+        ok: false,
+        result: {
+          outcome: "reconciliation-required",
+          reconciliationRequired: true,
+          appliedCount: 0,
+          steps: [{ status: "ready" }],
+        },
+      });
+      expect(fs.existsSync(projection)).toBe(false);
+
       const preview = await runCli(["sync", "--preview", "--json"], {
         cwd: temp.path,
       });
@@ -98,6 +113,18 @@ describe("axm sync configured GitHub skills", () => {
       const second = await runCli(["sync", "--json"], { cwd: temp.path });
       expect(second.exitCode, `${second.stderr}\n${second.stdout}`).toBe(0);
       expect(fs.readlinkSync(projection)).toBe(firstLink);
+
+      const converged = await runCli(["sync", "--preview", "--fail-on-change", "--json"], {
+        cwd: temp.path,
+      });
+      expect(converged.exitCode, `${converged.stderr}\n${converged.stdout}`).toBe(0);
+      expect(JSON.parse(converged.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "no-op",
+          reconciliationRequired: false,
+        },
+      });
     } finally {
       temp.cleanup();
     }

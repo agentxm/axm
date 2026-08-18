@@ -22,9 +22,17 @@ fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
 
 Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
-`cancelled`, or `previewed`. For every ordinary result, `ok` is `true` exactly
-when the process exits 0 and `false` when it exits nonzero. Inspect step counts
-and committed artifacts when recovering a partial result.
+`cancelled`, `previewed`, or `reconciliation-required`. For every ordinary
+result, `ok` is `true` exactly when the process exits 0 and `false` when it
+exits nonzero. Inspect step counts and committed artifacts when recovering a
+partial result.
+
+`axm sync --preview --fail-on-change --json` retains the ordinary preview step
+details but returns `ok: false`, `result.outcome:
+"reconciliation-required"`, `result.reconciliationRequired: true`, and exit 1
+when the plan contains changes. A converged workspace returns a `no-op` result
+with `reconciliationRequired: false` and exit 0. Planning or validation
+failures retain their normal error or failed-plan contract.
 
 `axm view <ref> <field> --json` places the selected scalar or array directly
 under `result`. Token commands also place their command payload under `result`;

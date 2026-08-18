@@ -36,7 +36,18 @@ removes unreachable AXM-managed state only when desired-graph and ownership
 evidence are complete.
 
 `axm sync --preview` presents the same closure decisions application will
-attempt. Preview performs no workspace writes.
+attempt. Preview performs no workspace writes. `--preview --fail-on-change`
+uses that same candidate as a CI convergence assertion: a non-empty valid plan
+returns the `reconciliation-required` machine outcome and exit 1, while an
+empty plan returns no-op and exit 0. The assertion does not collapse planning,
+validation, source, or application blockers into drift.
+
+Ordinary sync may apply ready work without another approval because settings,
+authored Pack manifests, and accepted resolution already authorize the desired
+intent. Sync only realizes that intent; it does not establish, remove, or
+revise it. Intent-changing commands own exact-candidate approval instead. This
+permission depends on sync remaining transactional, stale-candidate protected,
+closure-local, rollback-safe, and truthful about partial convergence.
 
 ## Non-responsibilities
 

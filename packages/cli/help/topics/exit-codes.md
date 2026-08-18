@@ -21,6 +21,10 @@
 | 16   | A bounded operation did not complete before its caller-selected deadline.                                                                                                               |
 | 130  | Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.                                                                                                    |
 
+`axm sync --preview --fail-on-change` uses code 1 only when planning succeeds
+and finds reconciliation work. Planning blockers and failures keep their normal
+exit meanings.
+
 Plan JSON can include `reason` with `approval-required`, `override-required`,
 `stale-candidate`, `hard-blocked`, `interrupted`, or `execution-failed`.
 `candidateId` identifies the displayed candidate whose material inputs were

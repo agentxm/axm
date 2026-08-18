@@ -332,6 +332,7 @@ const artifactForJson = (
 export const PlanResolutionResultSchema = Schema.Struct({
   outcome: Schema.Literals([
     "previewed",
+    "reconciliation-required",
     "cancelled",
     "applied",
     "partial",
@@ -354,6 +355,7 @@ export const PlanResolutionResultSchema = Schema.Struct({
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
+  reconciliationRequired: Schema.optional(Schema.Boolean),
   totalSteps: Schema.Number,
   readyCount: Schema.Number,
   warningCount: Schema.Number,
@@ -1210,6 +1212,9 @@ export const emitPlanResolutionResult = <TCommand extends string>(
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
     readonly message?: string;
+    readonly outcome?: PlanResolutionResult["outcome"];
+    readonly reconciliationRequired?: boolean;
+    readonly ok?: boolean;
     readonly operationCounts?: {
       readonly importedCount: number;
       readonly skippedCount: number;
@@ -1237,15 +1242,23 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       ...(options?.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate }),
     });
     const existingSemanticProperties = yield* getCommandSemanticProperties;
+    const semanticSummary = planResolutionToSummary(resolution, {});
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
-      ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
+      ...summarizeCommandOutcome({
+        ...semanticSummary,
+        ...(options?.outcome === undefined ? {} : { outcome: options.outcome }),
+      }),
       ...(planResult.reason === undefined ? {} : { "cli.reason": planResult.reason }),
       ...(planResult.errorCode === undefined ? {} : { "cli.error_code": planResult.errorCode }),
     });
     const result = {
       ...planResult,
+      ...(options?.outcome === undefined ? {} : { outcome: options.outcome }),
       ...(options?.message === undefined ? {} : { message: options.message }),
+      ...(options?.reconciliationRequired === undefined
+        ? {}
+        : { reconciliationRequired: options.reconciliationRequired }),
       ...(options?.operationCounts ?? {}),
     };
     const emitted = yield* renderer.result(
@@ -1256,7 +1269,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       {
         ...options,
         ...(suggestions === undefined ? {} : { suggestions }),
-        ok: result.outcome !== "failed" && result.outcome !== "partial",
+        ok: options?.ok ?? (result.outcome !== "failed" && result.outcome !== "partial"),
       },
     );
     if (!emitted && result.outcome === "cancelled") {
@@ -1456,6 +1469,7 @@ export const emitNoOpResult = <TCommand extends string>(
     readonly planName: string;
     readonly planDescription?: string;
     readonly message: string;
+    readonly reconciliationRequired?: boolean;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
   },
@@ -1473,6 +1487,9 @@ export const emitNoOpResult = <TCommand extends string>(
           planName: args.planName,
           ...(args.planDescription !== undefined ? { planDescription: args.planDescription } : {}),
           message: args.message,
+          ...(args.reconciliationRequired === undefined
+            ? {}
+            : { reconciliationRequired: args.reconciliationRequired }),
           totalSteps: 0,
           readyCount: 0,
           warningCount: 0,

@@ -53,6 +53,7 @@ const OperationReleaseAgeRecordSchema = Schema.Struct({
 export const OperationPlanFields = {
   outcome: Schema.Literals([
     "previewed",
+    "reconciliation-required",
     "cancelled",
     "applied",
     "partial",
@@ -70,6 +71,7 @@ export const OperationPlanFields = {
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
+  reconciliationRequired: Schema.optional(Schema.Boolean),
   totalSteps: Schema.Number,
   readyCount: Schema.Number,
   warningCount: Schema.Number,

@@ -37,6 +37,7 @@ export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
 
 export type ConfiguredRegistryResolution = NamedRegistryResolution & {
   readonly versionRange: Option.Option<VersionRange>;
+  readonly acceptedVersion?: string;
 };
 
 export const toConfiguredEntryFailureReason = (error: AppError): ConfiguredEntryFailureReason => {

@@ -719,6 +719,105 @@ describe("root update handler", () => {
     }),
   );
 
+  it.effect("supplies the accepted Registry floor to targeted and workspace updates", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const acceptedRequests: Array<
+        { readonly version: string; readonly publisherBindingId: string } | undefined
+      > = [];
+      const { provide } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) => {
+            acceptedRequests.push(options.accepted);
+            return selectedSourceHostProviders.resolveNamedRegistry(source, options).pipe(
+              Effect.map((resolution) =>
+                resolution.kind === "selected" && options.accepted !== undefined
+                  ? {
+                      ...resolution,
+                      ref: {
+                        ...resolution.ref,
+                        version: decodeVersionSync(options.accepted.version),
+                      },
+                      newerHeld: {
+                        version: "2.0.0",
+                        publishedAt: "2026-08-11T12:00:00.000Z",
+                        eligibleAt: "2026-08-12T12:00:00.000Z",
+                        minimumReleaseAgeSeconds: 86_400,
+                      },
+                    }
+                  : resolution,
+              ),
+            );
+          },
+        },
+      });
+      const axmDir = path.join(tempDir, ".axm");
+      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "reviewer");
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "reviewer", version: "1.5.0" }),
+      );
+      fs.writeFileSync(
+        path.join(skillDir, "src", "SKILL.md"),
+        "---\nname: reviewer\ndescription: Review code\n---\n\n# Reviewer\n",
+      );
+      const sourceHash = computePackageContentHashSync(skillDir);
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer@^1.0.0" },
+        lockfileSkills: {
+          reviewer: {
+            type: "registry",
+            owner: "@acme",
+            name: "reviewer",
+            resolvedVersion: "1.5.0",
+            integrity: "sha512-reviewer",
+            sourceName: "test",
+            publisherBindingId: "publisher-binding",
+            sourceHash,
+            installedAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+        writeTrustFromLockfile: true,
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer@^1.0.0"),
+          yes: false,
+          force: false,
+          preview: true,
+        }),
+      );
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: false,
+          force: false,
+          preview: true,
+        }),
+      );
+
+      expect(acceptedRequests).toEqual([
+        { version: "1.5.0", publisherBindingId: "publisher-binding" },
+        { version: "1.5.0", publisherBindingId: "publisher-binding" },
+      ]);
+      expect(calls).toContainEqual({
+        type: "skill",
+        source: "@acme/skills/reviewer@1.5.0",
+        yes: false,
+        force: false,
+        preview: true,
+      });
+    }),
+  );
+
   it.effect("records a one-shot targeted release-age bypass", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];

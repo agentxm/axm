@@ -26,6 +26,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import {
   WorkspaceMutations,
+  acceptedResolutionRef,
   makeConfiguredReleaseAgeEvaluation,
   usableAcceptedCanonical,
 } from "@agentxm/client-core/unstable/workspace";
@@ -279,6 +280,24 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
     return Option.some(ref.version);
   });
 
+const acceptedRegistryFloor = (intent: RootUpdateIntent) =>
+  Effect.gen(function* () {
+    const workspace = yield* WorkspaceMutations;
+    const accepted = yield* acceptedResolutionRef({
+      workspace,
+      type: intent.type,
+      name: intent.name,
+    });
+    return Option.flatMap(accepted, (ref) =>
+      ref.refType === "registry" && ref.owner === intent.owner && ref.name === intent.name
+        ? Option.some({
+            version: ref.version,
+            publisherBindingId: ref.publisherBindingId,
+          })
+        : Option.none(),
+    );
+  });
+
 const heldTargetResolution = (args: {
   readonly intent: RootUpdateIntent;
   readonly evidence: ReleaseAgeEvidence;
@@ -478,6 +497,7 @@ const resolveTargetedUpdate = (
       return yield* makeAppError({ code: "usage", detail: "Root update requires a Registry FQN" });
     }
     const providers = yield* SourceHostProviders;
+    const accepted = yield* acceptedRegistryFloor(intent);
     const selected = yield* providers.resolveNamedRegistry(source, {
       name: intent.name,
       type: intent.type,
@@ -487,6 +507,7 @@ const resolveTargetedUpdate = (
           ? intent.versionRange
           : Option.some(decodeVersionRangeSync(targetedContext.public.effectiveConstraint)),
       releaseAgeEvaluation,
+      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
     });
     if (selected.kind === "not_found") {
       return yield* makeAppError({
@@ -579,6 +600,9 @@ const resolveTargetedUpdate = (
               intent,
               evidence: selected.newerHeld,
               selectedVersion: selected.ref.version,
+              ...(Option.isSome(accepted) && accepted.value.version === selected.ref.version
+                ? { currentVersion: accepted.value.version }
+                : {}),
             }),
           ];
     const bypasses =

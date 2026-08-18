@@ -54,6 +54,11 @@ export interface NamedRegistryFindOptions {
   readonly owner: Handle;
   readonly versionRange: Option.Option<string>;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  /** Accepted immutable Registry identity that unattended resolution must not move behind. */
+  readonly accepted?: {
+    readonly version: string;
+    readonly publisherBindingId: string;
+  };
 }
 
 export type NamedRegistryResolution =

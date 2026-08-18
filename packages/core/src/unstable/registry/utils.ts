@@ -123,12 +123,15 @@ export type ReleaseAgeVersionResolution =
 /**
  * Resolve one visible Registry index under one caller-supplied release-age
  * evaluation. The supplied timestamp makes a complete operation deterministic.
+ * An accepted version that satisfies the requested range is a lower bound for
+ * unattended selection, even while that version is itself under age.
  */
 export const resolveVersionEntryForReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,
   versionRange: Option.Option<string>,
   evaluation: ReleaseAgeEvaluation,
   exemption?: ReleaseAgeExemption,
+  acceptedVersion?: string,
 ): ReleaseAgeVersionResolution => {
   const otherwiseSelected = resolveVersionEntry(versions, versionRange);
   if (Option.isNone(otherwiseSelected)) {
@@ -147,7 +150,20 @@ export const resolveVersionEntryForReleaseAge = (
   }
 
   const eligible = versions.filter((entry) => isVersionEntryEligibleAt(entry, evaluation));
-  const selected = resolveVersionEntry(eligible, versionRange);
+  const eligibleSelection = resolveVersionEntry(eligible, versionRange);
+  const accepted = versions.find((entry) => {
+    if (entry.version !== acceptedVersion) return false;
+    if (Option.isNone(versionRange)) return true;
+    return semver.valid(versionRange.value) === versionRange.value
+      ? entry.version === versionRange.value
+      : semver.satisfies(entry.version, versionRange.value);
+  });
+  const selected =
+    accepted !== undefined &&
+    (Option.isNone(eligibleSelection) ||
+      semver.compareBuild(accepted.version, eligibleSelection.value.version) > 0)
+      ? Option.some(accepted)
+      : eligibleSelection;
   if (Option.isNone(selected)) {
     return {
       kind: "policy_held",
@@ -155,10 +171,12 @@ export const resolveVersionEntryForReleaseAge = (
     };
   }
 
+  const selectedAcceptedFloor = accepted?.version === selected.value.version && !candidateEligible;
   return {
     kind: "selected",
     version: selected.value,
-    ...(candidate.version === selected.value.version || candidateEligible
+    ...(candidateEligible ||
+    (candidate.version === selected.value.version && !selectedAcceptedFloor)
       ? {}
       : { newerHeld: releaseAgeEvidence(candidate, evaluation) }),
   };

@@ -243,12 +243,14 @@ const releaseAgeRecord = (args: {
     readonly minimumReleaseAgeSeconds: number;
   };
   readonly selectedVersion?: string;
+  readonly currentVersion?: string;
 }): ReleaseAgeRecord => ({
   reason: "minimum-release-age",
   target: args.target,
   dependencyPath: [args.target],
   ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
   ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
+  ...(args.currentVersion === undefined ? {} : { currentVersion: args.currentVersion }),
   candidateVersion: args.evidence.version,
   publishedAt: args.evidence.publishedAt,
   eligibleAt: args.evidence.eligibleAt,
@@ -364,6 +366,9 @@ const resolveUpdateIntent = <TIntent, R>(args: {
                   versionRange: resolution.versionRange,
                   evidence: resolution.newerHeld,
                   selectedVersion: resolution.ref.version,
+                  ...(resolution.acceptedVersion === undefined
+                    ? {}
+                    : { currentVersion: resolution.acceptedVersion }),
                 }),
               ],
         bypasses:

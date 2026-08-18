@@ -496,6 +496,118 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
   });
 
+  it.effect("preserves an accepted under-age version from the same publisher", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              deprecation: null,
+              versions: [
+                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
+                makeVersionEntry({ version: "1.5.0", published: "2025-01-02T12:00:00Z" }),
+                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T18:00:00Z" }),
+              ],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          accepted: { version: "1.5.0", publisherBindingId: "hbnd_test" },
+        });
+        expect(result.kind).toBe("selected");
+        if (result.kind !== "selected") return;
+        expect(result.ref.version).toBe("1.5.0");
+        expect(result.newerHeld?.version).toBe("2.0.0");
+      }),
+    );
+  });
+
+  it.effect("does not trust an accepted version from a different publisher", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "skill",
+              name: extensionName("my-skill"),
+              publisherBindingId: "hbnd_test",
+              deprecation: null,
+              versions: [
+                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
+                makeVersionEntry({ version: "1.5.0", published: "2025-01-02T12:00:00Z" }),
+              ],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          accepted: { version: "1.5.0", publisherBindingId: "hbnd_other" },
+        });
+        expect(result.kind).toBe("selected");
+        if (result.kind !== "selected") return;
+        expect(result.ref.version).toBe("1.0.0");
+      }),
+    );
+  });
+
+  it.effect("keeps members from the accepted Pack while a newer Pack is held", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () =>
+          Effect.succeed(
+            Option.some({
+              owner: handle("@test"),
+              type: "pack",
+              name: extensionName("toolkit"),
+              publisherBindingId: "hbnd_test",
+              deprecation: null,
+              versions: [
+                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
+                makeVersionEntry({
+                  version: "1.5.0",
+                  published: "2025-01-02T12:00:00Z",
+                  dependencies: { "@test/skills/reviewer": "^1.0.0" },
+                }),
+                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T18:00:00Z" }),
+              ],
+            }),
+          ),
+      }),
+    );
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          type: "pack",
+          name: "toolkit",
+          accepted: { version: "1.5.0", publisherBindingId: "hbnd_test" },
+        });
+        expect(result.kind).toBe("selected");
+        if (result.kind !== "selected") return;
+        const packRef = expectRegistryPackRef(result.ref);
+        expect(packRef.version).toBe("1.5.0");
+        expect(packRef.pack.dependencies).toEqual({
+          "@test/skills/reviewer": "^1.0.0",
+        });
+      }),
+    );
+  });
+
   it.effect("selects the newest compatible official AXM skill candidate", () => {
     const older = makeAxmSkillArchive("1.0.0");
     const newer = makeAxmSkillArchive("2.0.0");

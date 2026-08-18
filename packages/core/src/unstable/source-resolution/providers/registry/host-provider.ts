@@ -179,6 +179,7 @@ const versionsMatchingNamedOptions = (
   versions: ReadonlyArray<VersionEntry>,
   options: NamedRegistryFindOptions,
   exempt: boolean,
+  acceptedVersion?: string,
 ): ReadonlyArray<VersionEntry> => {
   const requested = Option.getOrElse(options.versionRange, () => "*");
   const exact = semver.valid(requested) === requested;
@@ -188,7 +189,12 @@ const versionsMatchingNamedOptions = (
         ? entry.version === requested
         : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
     )
-    .filter((entry) => exempt || isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation))
+    .filter(
+      (entry) =>
+        exempt ||
+        entry.version === acceptedVersion ||
+        isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation),
+    )
     .sort((left, right) => semver.compareBuild(right.version, left.version));
 };
 
@@ -276,11 +282,16 @@ const resolveNamedFromClient = (
       type: indexOption.value.type,
       name: indexOption.value.name,
     });
+    const acceptedVersion =
+      options.accepted?.publisherBindingId === indexOption.value.publisherBindingId
+        ? options.accepted.version
+        : undefined;
     const resolution = resolveVersionEntryForReleaseAge(
       indexOption.value.versions,
       options.versionRange,
       options.releaseAgeEvaluation,
       exemption,
+      acceptedVersion,
     );
     if (resolution.kind === "version_unsatisfied") {
       const requested = Option.getOrUndefined(options.versionRange);
@@ -319,6 +330,7 @@ const resolveNamedFromClient = (
         indexOption.value.versions,
         options,
         exemption !== undefined,
+        acceptedVersion,
       );
       let latestIncompatibility: string | null = null;
       for (const candidate of candidates) {

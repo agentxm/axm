@@ -26,6 +26,7 @@ import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "../../version-constraints/version-constraints.js";
 import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
+import { acceptedResolutionRef } from "../accepted-canonical-ref.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 import type { ConfiguredRegistryResolution, ResolvedConfiguredEntry } from "./types.js";
 
@@ -204,6 +205,20 @@ export const resolveConfiguredRegistryEntry = (
       });
     }
     const versionRange = Option.fromUndefinedOr(parsedPattern?.versionRange);
+    const workspace = yield* WorkspaceMutations;
+    const acceptedRef = yield* acceptedResolutionRef({
+      workspace,
+      type: expectedType,
+      name,
+    });
+    const accepted = Option.flatMap(acceptedRef, (ref) =>
+      ref.refType === "registry" && ref.owner === owner && ref.name === name
+        ? Option.some({
+            version: ref.version,
+            publisherBindingId: ref.publisherBindingId,
+          })
+        : Option.none(),
+    );
     const providers = yield* SourceHostProviders;
     const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
       name,
@@ -211,8 +226,20 @@ export const resolveConfiguredRegistryEntry = (
       owner,
       versionRange,
       releaseAgeEvaluation,
+      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
     });
-    return Option.some({ ...resolution, versionRange });
+    const acceptedVersion =
+      Option.isSome(accepted) &&
+      (resolution.kind === "selected" || resolution.kind === "exempted") &&
+      resolution.ref.version === accepted.value.version &&
+      resolution.ref.publisherBindingId === accepted.value.publisherBindingId
+        ? accepted.value.version
+        : undefined;
+    return Option.some({
+      ...resolution,
+      versionRange,
+      ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+    });
   });
 
 export const resolveConfiguredSkill = (

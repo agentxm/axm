@@ -223,6 +223,79 @@ describe("minimum release age", () => {
     });
   });
 
+  it("keeps an accepted under-age version above the eligible version floor", () => {
+    const acceptedVersion = makeVersionEntry({
+      version: exactVersion("1.2.5"),
+      published: DateTime.makeUnsafe("2025-01-02T12:00:00Z"),
+    });
+    const result = resolveVersionEntryForReleaseAge(
+      [heldVersion, acceptedVersion, matureVersion],
+      Option.none(),
+      {
+        minimumReleaseAge: oneDay,
+        evaluatedAt: now,
+        mode: "enforce",
+      },
+      undefined,
+      "1.2.5",
+    );
+
+    expect(result).toEqual({
+      kind: "selected",
+      version: acceptedVersion,
+      newerHeld: {
+        version: "1.3.0",
+        publishedAt: "2025-01-02T23:00:00.000Z",
+        eligibleAt: "2025-01-03T23:00:00.000Z",
+        minimumReleaseAgeSeconds: 86_400,
+      },
+    });
+  });
+
+  it("keeps the accepted candidate itself when it is still under age", () => {
+    const result = resolveVersionEntryForReleaseAge(
+      [heldVersion, matureVersion],
+      Option.none(),
+      {
+        minimumReleaseAge: oneDay,
+        evaluatedAt: now,
+        mode: "enforce",
+      },
+      undefined,
+      "1.3.0",
+    );
+
+    expect(result).toEqual({
+      kind: "selected",
+      version: heldVersion,
+      newerHeld: {
+        version: "1.3.0",
+        publishedAt: "2025-01-02T23:00:00.000Z",
+        eligibleAt: "2025-01-03T23:00:00.000Z",
+        minimumReleaseAgeSeconds: 86_400,
+      },
+    });
+  });
+
+  it("allows an explicit lower exact version outside the accepted floor", () => {
+    const result = resolveVersionEntryForReleaseAge(
+      [heldVersion, matureVersion],
+      Option.some("1.2.0"),
+      {
+        minimumReleaseAge: oneDay,
+        evaluatedAt: now,
+        mode: "enforce",
+      },
+      undefined,
+      "1.3.0",
+    );
+
+    expect(result).toEqual({
+      kind: "selected",
+      version: matureVersion,
+    });
+  });
+
   it("classifies an otherwise matching version as policy held", () => {
     const result = resolveVersionEntryForReleaseAge([heldVersion], Option.none(), {
       minimumReleaseAge: oneDay,

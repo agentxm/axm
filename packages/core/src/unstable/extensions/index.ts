@@ -260,6 +260,7 @@ export {
 } from "./managed-file-banner.js";
 
 export {
+  canReuseExternalPackage,
   canReuseInstalledPackage,
   canonicalMaterializationPaths,
   materializeExternalPackage,
@@ -268,6 +269,7 @@ export {
   registryCanonicalMaterializationIdentity,
   replaceCanonicalDirectory,
   type CanonicalMaterializationIdentity,
+  type CanReuseExternalPackageArgs,
   type CanReuseInstalledPackageArgs,
   type ExternalCanonicalMaterializationIdentity,
   type MaterializeExternalPackageArgs,

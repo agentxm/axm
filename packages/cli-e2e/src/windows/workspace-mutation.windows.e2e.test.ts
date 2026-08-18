@@ -5,7 +5,7 @@ import YAML from "yaml";
 import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
 
 const runCli = (args: ReadonlyArray<string>, options?: Parameters<typeof runBaseCli>[1]) =>
-  runBaseCli([...args, "--verbose"], options);
+  runBaseCli(["--verbose", ...args], options);
 
 const expectSuccess = (result: {
   readonly exitCode: number;

@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import {
   CANONICAL_MATERIALIZATION_MARKER_FILENAME,
+  canReuseExternalPackage,
   canReuseInstalledPackage,
   canonicalMaterializationPaths,
   computePackageContentHash,
@@ -494,6 +495,52 @@ describe("package materialization helpers", () => {
         expect(nodeFs.existsSync(nodePath.join(canonicalPath, "stale.txt"))).toBe(false);
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "src", "hook.sh"), "utf8")).toBe(
           "#!/usr/bin/env bash\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("reuses completed external canonical content until refresh is forced", () =>
+    run(
+      Effect.gen(function* () {
+        const sourcePath = nodePath.join(tempDir, "source");
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "review",
+        );
+        nodeFs.mkdirSync(sourcePath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(sourcePath, "SKILL.md"), "source");
+        yield* materializeExternalPackage({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          sourceLocation: sourcePath,
+          copyFailureCode: "validation",
+          copyFailureDetail: (target) => `failed to copy to ${target}`,
+        });
+        nodeFs.writeFileSync(nodePath.join(sourcePath, "SKILL.md"), "changed source");
+
+        expect(
+          yield* canReuseExternalPackage({
+            installedPath: canonicalPath,
+            force: false,
+            sourceLocation: sourcePath,
+            existsFailureDetail,
+          }),
+        ).toBe(true);
+        expect(
+          yield* canReuseExternalPackage({
+            installedPath: canonicalPath,
+            force: true,
+            sourceLocation: sourcePath,
+            existsFailureDetail,
+          }),
+        ).toBe(false);
+        expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "SKILL.md"), "utf8")).toBe(
+          "source",
         );
       }),
     ),

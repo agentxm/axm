@@ -4,6 +4,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
+  canReuseExternalPackage,
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
@@ -38,9 +39,19 @@ const replaceExternalCanonical = (
   sanitizedName: string,
   sourcePath: string,
   copyTarget: string,
+  force: boolean,
   provide: ProvideFs,
 ) =>
   Effect.gen(function* () {
+    const useExisting = yield* provide(
+      canReuseExternalPackage({
+        installedPath: copyTarget,
+        force,
+        sourceLocation: sourcePath,
+        existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
+      }),
+    );
+    if (useExisting) return;
     yield* provide(
       materializeExternalPackage({
         baseDir,
@@ -67,6 +78,7 @@ const materializeGitHosted = (
   pathService: Path.Path,
   baseDir: string,
   provide: ProvideFs,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const { skillSrcPath } = computeSkillPaths(
@@ -93,6 +105,7 @@ const materializeGitHosted = (
         sanitizedName,
         sourcePath,
         skillSrcPath,
+        reuse.force,
         provide,
       );
     }
@@ -106,6 +119,7 @@ const materializeLocal = (
   pathService: Path.Path,
   baseDir: string,
   provide: ProvideFs,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const { skillSrcPath } = computeSkillPaths(
@@ -132,6 +146,7 @@ const materializeLocal = (
         sanitizedName,
         sourcePath,
         skillSrcPath,
+        reuse.force,
         provide,
       );
     }
@@ -270,6 +285,7 @@ export const materializeSkillCanonical = (args: {
         args.pathService,
         args.baseDir,
         args.provide,
+        args.reuse ?? { force: false, lockedVersion: undefined },
       );
     case "local":
       return materializeLocal(
@@ -279,6 +295,7 @@ export const materializeSkillCanonical = (args: {
         args.pathService,
         args.baseDir,
         args.provide,
+        args.reuse ?? { force: false, lockedVersion: undefined },
       );
     case "registry":
       return materializeRegistry(

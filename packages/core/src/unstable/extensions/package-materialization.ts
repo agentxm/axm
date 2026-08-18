@@ -316,6 +316,39 @@ export interface CanReuseInstalledPackageArgs {
   readonly existsFailureDetail: (installedPath: string) => string;
 }
 
+export interface CanReuseExternalPackageArgs {
+  readonly installedPath: string;
+  readonly force: boolean;
+  readonly sourceLocation: string;
+  readonly existsFailureDetail: (installedPath: string) => string;
+}
+
+/** Preserve a completed external canonical tree unless refresh was explicitly requested. */
+export const canReuseExternalPackage = (args: CanReuseExternalPackageArgs) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* recoverInterruptedReplacement(args.installedPath, fs, path);
+    const canonicalExists = yield* fs.exists(args.installedPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: args.existsFailureDetail(args.installedPath),
+          cause: error,
+        }),
+      ),
+    );
+    if (!canonicalExists || args.force) return false;
+    const marker = yield* readCompletionMarker(args.installedPath, fs, path);
+    return (
+      Option.isSome(marker) &&
+      identityMatches(marker.value.identity, {
+        refType: "external",
+        sourceLocation: args.sourceLocation,
+      })
+    );
+  });
+
 /**
  * Decide whether the installed tree already satisfies the requested ref, so no
  * archive needs to be fetched or written.

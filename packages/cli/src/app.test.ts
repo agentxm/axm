@@ -339,7 +339,18 @@ describe("root command parser output", () => {
     const successDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-app-cwd-success-"));
     const failureDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-app-cwd-failure-"));
     try {
-      await run(["-C", successDir, "setup", "--yes", "--non-interactive", "--json"]);
+      await run([
+        "-C",
+        successDir,
+        "setup",
+        "--yes",
+        "--scope",
+        "project",
+        "--agent",
+        "claude-code",
+        "--non-interactive",
+        "--json",
+      ]);
       expect(process.cwd()).toBe(originalCwd);
 
       await expect(

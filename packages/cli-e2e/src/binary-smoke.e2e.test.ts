@@ -140,10 +140,13 @@ describe("compiled binary smoke", () => {
           `---\ntype: reference\ndescription: ${title} concept\n---\n# ${title}\n`,
         );
       }
-      const setup = await runBinary(["setup", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-        env: environment,
-      });
+      const setup = await runBinary(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: temp.path,
+          env: environment,
+        },
+      );
       expect(setup.exitCode, getOutput(setup)).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {

@@ -99,9 +99,12 @@ describe("axm skills list", () => {
     it("lists installed skills", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install skills first
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
@@ -126,7 +129,7 @@ describe("axm skills list", () => {
     it("lists only remaining skills after uninstall", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -159,9 +162,12 @@ describe("axm skills list", () => {
     it("works with ls alias", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install skills first so there's something to list
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {

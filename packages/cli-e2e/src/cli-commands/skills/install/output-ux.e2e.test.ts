@@ -8,7 +8,9 @@ describe("axm skills install output UX", () => {
   it("warns when an install reaches no configured coding agents", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, agents: [] }, undefined, 2));
@@ -32,7 +34,18 @@ describe("axm skills install output UX", () => {
     const temp = createTempDir();
     try {
       await runCli(
-        ["setup", "--yes", "--agent", "antigravity", "--agent", "amp", "--agent", "claude-code"],
+        [
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "antigravity",
+          "--agent",
+          "amp",
+          "--agent",
+          "claude-code",
+        ],
         {
           cwd: temp.path,
         },
@@ -61,9 +74,12 @@ describe("axm skills install output UX", () => {
   it("reports recipient agents and materialized locations in JSON output", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code", "--agent", "cursor"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--agent", "cursor"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       const result = await runCli(
         ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
@@ -94,7 +110,18 @@ describe("axm skills install output UX", () => {
     const temp = createTempDir();
     try {
       await runCli(
-        ["setup", "--yes", "--agent", "antigravity", "--agent", "amp", "--agent", "claude-code"],
+        [
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "antigravity",
+          "--agent",
+          "amp",
+          "--agent",
+          "claude-code",
+        ],
         {
           cwd: temp.path,
         },
@@ -123,7 +150,7 @@ describe("axm skills install output UX", () => {
   it("reports idempotent reinstall as unchanged in JSON output", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -161,7 +188,7 @@ describe("axm skills install output UX", () => {
   it("reinstalls configured skills when no source argument is provided", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 

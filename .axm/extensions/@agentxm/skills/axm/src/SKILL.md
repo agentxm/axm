@@ -118,13 +118,27 @@ change coding-agent membership with `axm agents add <id>` or `axm agents remove
 <id>` so membership and every owned per-agent artifact change atomically.
 Rerunning setup, including with different `--agent` flags, is a no-op.
 
-| Task                                          | Command                         |
-| --------------------------------------------- | ------------------------------- |
-| Detect agents and create `.axm/settings.json` | `axm setup`                     |
-| Find extensions for the current project       | `axm discover`                  |
-| Add / remove a coding agent harness           | `axm agents <add\|remove> <id>` |
-| Inspect agent instruction files               | `axm rules instructions`        |
-| Update AXM itself                             | `axm upgrade`                   |
+Interactive setup distinguishes project evidence from workstation-only
+availability, previews one exact agent and file candidate, and confirms before
+writing. Project evidence is strong project-scope intent; workstation-only
+agents remain visible but are not preselected for project setup. With no
+detection, setup offers a small catalog-driven starter set for review.
+
+For unattended first setup, run `axm setup --preview --scope project --json
+--non-interactive`, review `result.agents`, `result.agentCandidates`, and
+`result.steps`, then obtain approval for that exact candidate. Apply it with
+`axm setup --yes --scope project --agent <id>... --non-interactive`, repeating
+`--agent` for every approved ID. Omitting approval, explicit scope, or explicit
+agents returns `reason: "approval-required"` without writes.
+
+| Task                                    | Command                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| Interactively preview and initialize    | `axm setup`                                                    |
+| Preview unattended setup without writes | `axm setup --preview --scope project --json --non-interactive` |
+| Find extensions for the current project | `axm discover`                                                 |
+| Add / remove a coding agent harness     | `axm agents <add\|remove> <id>`                                |
+| Inspect agent instruction files         | `axm rules instructions`                                       |
+| Update AXM itself                       | `axm upgrade`                                                  |
 
 Rule activation always requires an installed rule name: use `axm rules enable
 <name>` or `axm rules disable <name>`. Global instruction-file ownership is a

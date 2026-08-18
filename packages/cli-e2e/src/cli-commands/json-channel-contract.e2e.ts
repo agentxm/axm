@@ -59,7 +59,16 @@ describe("JSON-mode channel contract (--json)", () => {
       const temp = createTempDir();
       try {
         const result = await runCli(
-          ["setup", "--yes", "--non-interactive", "--agent", "claude-code", "--json"],
+          [
+            "setup",
+            "--yes",
+            "--scope",
+            "project",
+            "--non-interactive",
+            "--agent",
+            "claude-code",
+            "--json",
+          ],
           { cwd: temp.path },
         );
 
@@ -100,7 +109,16 @@ describe("JSON-mode channel contract (--json)", () => {
       const temp = createTempDir();
       try {
         const setup = await runCli(
-          ["setup", "--yes", "--non-interactive", "--agent", "claude-code", "--json"],
+          [
+            "setup",
+            "--yes",
+            "--scope",
+            "project",
+            "--non-interactive",
+            "--agent",
+            "claude-code",
+            "--json",
+          ],
           { cwd: temp.path },
         );
         expect(setup.exitCode).toBe(0);

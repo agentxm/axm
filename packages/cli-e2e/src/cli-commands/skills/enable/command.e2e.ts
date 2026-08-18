@@ -16,7 +16,7 @@ describe("axm skills enable", () => {
     const temp = createTempDir();
     try {
       // Initialize workspace with claude-code agent to verify .claude/ symlinks
-      await runCli(["setup", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -85,9 +85,12 @@ describe("axm skills enable", () => {
   it("shows already enabled message for already enabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
         cwd: temp.path,
@@ -108,9 +111,12 @@ describe("axm skills enable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       const result = await runCli(["skills", "enable", "nonexistent-skill", "--yes"], {
         cwd: temp.path,

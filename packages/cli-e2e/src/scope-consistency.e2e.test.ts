@@ -28,9 +28,12 @@ describe("installed-state scope consistency", () => {
     const env = { AXM_USER_HOME: userHome.path, HOME: userHome.path };
 
     try {
-      const authorSetup = await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: author.path,
-      });
+      const authorSetup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: author.path,
+        },
+      );
       expect(authorSetup.exitCode, `${authorSetup.stderr}\n${authorSetup.stdout}`).toBe(0);
       configureRegistry(path.join(author.path, ".axm", "settings.json"), registry.path);
 
@@ -159,10 +162,13 @@ describe("installed-state scope consistency", () => {
         `${subagentPublished.stderr}\n${subagentPublished.stdout}`,
       ).toBe(0);
 
-      const projectSetup = await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: consumer.path,
-        env,
-      });
+      const projectSetup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: consumer.path,
+          env,
+        },
+      );
       expect(projectSetup.exitCode, `${projectSetup.stderr}\n${projectSetup.stdout}`).toBe(0);
       const projectSettingsPath = path.join(consumer.path, ".axm", "settings.json");
       configureRegistry(projectSettingsPath, registry.path);

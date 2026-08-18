@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
-import { detectAgents } from "../agents/index.js";
+import { detectAgentScopeResults, type AgentScopeDetection } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
 import {
   resolveInstructionMechanism,
@@ -40,6 +40,7 @@ import {
 } from "../settings/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
+import type { WorkspaceScope } from "./scope.js";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
@@ -62,6 +63,21 @@ const POPULAR_AGENT_IDS = [
   "github-copilot-cli",
   "opencode",
 ] as const;
+
+export interface SetupAgentCandidate {
+  readonly id: ConfigurableAgentId;
+  readonly name: string;
+  readonly projectDetected: boolean;
+  readonly userDetected: boolean;
+  readonly state: "selected" | "suggested" | "available" | "retired";
+  readonly selectionReason?:
+    "explicit" | "project-detected" | "user-detected" | "catalog-suggestion";
+}
+
+interface SetupAgentSelection {
+  readonly selectedAgents: ReadonlyArray<AgentDescriptor>;
+  readonly candidates: ReadonlyArray<SetupAgentCandidate>;
+}
 const INSTRUCTION_SOURCE_CANDIDATES = [
   DEFAULT_INSTRUCTIONS_FILE,
   "CLAUDE.md",
@@ -90,6 +106,62 @@ const allAgentDescriptors = (
     (agent) => isConfigurableAgentId(agent.id) && !preferredSet.has(agent.id),
   );
   return [...preferred, ...remaining];
+};
+
+const setupAgentCandidates = (args: {
+  readonly detections: ReadonlyArray<AgentScopeDetection>;
+  readonly selectedAgents: ReadonlyArray<AgentDescriptor>;
+  readonly suggestedIds: ReadonlyArray<ConfigurableAgentId>;
+  readonly explicit: boolean;
+  readonly scope: WorkspaceScope;
+}): ReadonlyArray<SetupAgentCandidate> => {
+  const selectedIds = new Set(args.selectedAgents.map((agent) => agent.id));
+  const suggestedIds = new Set(args.suggestedIds);
+  const detectionsById = new Map(
+    args.detections.map((detection) => [detection.agent.id, detection]),
+  );
+  const relevantIds = [
+    ...args.selectedAgents.map((agent) => agent.id),
+    ...args.detections.map((detection) => detection.agent.id),
+    ...args.suggestedIds,
+  ];
+
+  return [...new Set(relevantIds)].flatMap((id) => {
+    if (!isKnownConfigurableAgentId(id)) return [];
+    const agent = AGENTS[id];
+    const detection = detectionsById.get(id);
+    const projectDetected = detection?.project ?? false;
+    const userDetected = detection?.user ?? false;
+    const retired = !isAutoSelectableAgent(agent);
+    const selected = selectedIds.has(id);
+    const selectionReason = selected
+      ? args.explicit
+        ? "explicit"
+        : args.scope === "project" && projectDetected
+          ? "project-detected"
+          : args.scope === "user" && userDetected
+            ? "user-detected"
+            : suggestedIds.has(id)
+              ? "catalog-suggestion"
+              : undefined
+      : undefined;
+    return [
+      {
+        id,
+        name: agent.name,
+        projectDetected,
+        userDetected,
+        state: retired
+          ? "retired"
+          : selected
+            ? "selected"
+            : suggestedIds.has(id)
+              ? "suggested"
+              : "available",
+        ...(selectionReason === undefined ? {} : { selectionReason }),
+      } satisfies SetupAgentCandidate,
+    ];
+  });
 };
 
 const DEFAULT_SETUP_SKILLS = {
@@ -241,41 +313,47 @@ const instructionPlanRows = (args: {
   readonly sourceFileName: string;
   readonly sourceWillBeCreated: boolean;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
-}): ReadonlyArray<SetupPlanRow> => [
-  {
-    target: args.sourceFileName,
-    action: args.sourceWillBeCreated ? "create" : "in sync",
-    detail: Option.match(args.sourceSeed, {
-      onNone: () => "source",
-      onSome: (choice) => `seeded from ${choice.fileName}`,
-    }),
-  },
-  ...args.selectedAgents.map((agent) => {
-    if (agent.instructions === undefined) {
+  readonly includeGitignore: boolean;
+}): ReadonlyArray<SetupPlanRow> => {
+  const rows: Array<SetupPlanRow> = [
+    {
+      target: args.sourceFileName,
+      action: args.sourceWillBeCreated ? "create" : "in sync",
+      detail: Option.match(args.sourceSeed, {
+        onNone: () => "source",
+        onSome: (choice) => `seeded from ${choice.fileName}`,
+      }),
+    },
+    ...args.selectedAgents.map((agent) => {
+      if (agent.instructions === undefined) {
+        return {
+          target: agent.name,
+          action: "skip",
+          detail: "no instruction convention",
+        } satisfies SetupPlanRow;
+      }
+      const mechanism = resolveInstructionMechanism(agent.instructions, true);
       return {
-        target: agent.name,
-        action: "skip",
-        detail: "no instruction convention",
+        target:
+          agent.instructions.kind === "own-file"
+            ? agent.instructions.file
+            : agent.instructions.kind === "rules-dir"
+              ? agent.instructions.dir
+              : agent.name,
+        action: instructionMechanismLabel(mechanism),
+        detail: agent.name,
       } satisfies SetupPlanRow;
-    }
-    const mechanism = resolveInstructionMechanism(agent.instructions, true);
-    return {
-      target:
-        agent.instructions.kind === "own-file"
-          ? agent.instructions.file
-          : agent.instructions.kind === "rules-dir"
-            ? agent.instructions.dir
-            : agent.name,
-      action: instructionMechanismLabel(mechanism),
-      detail: agent.name,
-    } satisfies SetupPlanRow;
-  }),
-  {
-    target: ".gitignore",
-    action: "update",
-    detail: "axm:instructions markers",
-  },
-];
+    }),
+  ];
+  if (args.includeGitignore) {
+    rows.push({
+      target: ".gitignore",
+      action: "update",
+      detail: "axm:instructions markers",
+    });
+  }
+  return rows;
+};
 
 const renderSetupPlan = (rows: ReadonlyArray<SetupPlanRow>) =>
   Effect.gen(function* () {
@@ -295,9 +373,6 @@ const selectSetupAgents = (args: {
     const nonInteractive = yield* isNonInteractive;
     const requested = args.options.agents;
     if (requested !== undefined && requested.length > 0) {
-      const selected = requested.flatMap((id) =>
-        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
-      );
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
         const label = unrecognized.length === 1 ? "agent" : "agents";
@@ -307,11 +382,9 @@ const selectSetupAgents = (args: {
           suggestions: [{ description: "Show available setup agents.", cmd: "axm setup --help" }],
         });
       }
-      return selected;
     }
-
     const renderer = yield* CliRenderer;
-    const detectedAgents = yield* detectAgents(args.workspaceRoot).pipe(
+    const detections = yield* detectAgentScopeResults(args.workspaceRoot).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
@@ -320,9 +393,32 @@ const selectSetupAgents = (args: {
         }),
       ),
     );
+    const detectedAgents = detections.map((detection) => detection.agent);
     const autoSelectableAgents = detectedAgents.filter(isAutoSelectableAgent);
     const retiredDetectedAgents = detectedAgents.filter((agent) => !isAutoSelectableAgent(agent));
     const detectedIds = Array.map(autoSelectableAgents, (agent) => agent.id);
+    const projectDetectedIds = detections.flatMap(({ agent, project }) =>
+      project && isAutoSelectableAgent(agent) ? [agent.id] : [],
+    );
+    const userDetectedIds = detections.flatMap(({ agent, user }) =>
+      user && isAutoSelectableAgent(agent) ? [agent.id] : [],
+    );
+    if (requested !== undefined && requested.length > 0) {
+      const selected = requested.flatMap((id) =>
+        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+      );
+      return {
+        selectedAgents: selected,
+        candidates: setupAgentCandidates({
+          detections,
+          selectedAgents: selected,
+          suggestedIds: [],
+          explicit: true,
+          scope: args.options.scope,
+        }),
+      } satisfies SetupAgentSelection;
+    }
+
     yield* renderer.info(
       `Scanned this repo and your machine - found ${String(detectedAgents.length)} agents.`,
     );
@@ -333,23 +429,53 @@ const selectSetupAgents = (args: {
     }
     yield* renderer.info(SETUP_PHASES);
 
-    if (nonInteractive || args.options.yes === true) return autoSelectableAgents;
+    const configuredIds = args.existingSettings.agents ?? [];
+    const strongDetectedIds =
+      args.options.scope === "project" ? projectDetectedIds : userDetectedIds;
+    const suggestedIds =
+      strongDetectedIds.length === 0 && configuredIds.length === 0 ? [...POPULAR_AGENT_IDS] : [];
+    const preferredIds = [...configuredIds, ...strongDetectedIds, ...detectedIds, ...suggestedIds];
+    const defaultIds = [...new Set([...configuredIds, ...strongDetectedIds, ...suggestedIds])];
+    if (nonInteractive || args.options.yes === true || args.options.preview === true) {
+      const selectedAgents = defaultIds.flatMap((id) =>
+        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+      );
+      return {
+        selectedAgents,
+        candidates: setupAgentCandidates({
+          detections,
+          selectedAgents,
+          suggestedIds,
+          explicit: false,
+          scope: args.options.scope,
+        }),
+      } satisfies SetupAgentSelection;
+    }
 
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-    const configuredIds = args.existingSettings.agents ?? [];
-    const preferredIds =
-      detectedIds.length === 0 && configuredIds.length === 0
-        ? POPULAR_AGENT_IDS
-        : [...configuredIds, ...detectedIds];
     const selectedIds = Option.isSome(interaction)
       ? yield* interaction.value.selectAgents({
           allAgents: allAgentDescriptors(preferredIds),
           detectedIds,
+          projectDetectedIds,
+          userDetectedIds,
+          suggestedIds,
           configuredIds,
         })
       : yield* SELECT_AGENTS_PROMPT_MISSING;
-
-    return selectedIds.flatMap((id) => (isKnownConfigurableAgentId(id) ? [AGENTS[id]] : []));
+    const selectedAgents = selectedIds.flatMap((id) =>
+      isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+    );
+    return {
+      selectedAgents,
+      candidates: setupAgentCandidates({
+        detections,
+        selectedAgents,
+        suggestedIds,
+        explicit: false,
+        scope: args.options.scope,
+      }),
+    } satisfies SetupAgentSelection;
   });
 
 const resolveInstructionSetup = (args: {
@@ -474,11 +600,12 @@ const configureProjectWorkspace = (args: {
     const path = yield* Path.Path;
     const workspaceRoot = path.dirname(args.localDir);
     const nonInteractive = yield* isNonInteractive;
-    const selectedAgents = yield* selectSetupAgents({
+    const selection = yield* selectSetupAgents({
       options: args.options,
       existingSettings: args.existingSettings,
       workspaceRoot,
     });
+    const selectedAgents = selection.selectedAgents;
     const instructionSetup = yield* resolveInstructionSetup({
       options: args.options,
       existingSettings: args.existingSettings,
@@ -509,12 +636,14 @@ const configureProjectWorkspace = (args: {
       ? richestExistingInstructionFile(instructionSetup.choices)
       : Option.none<SetupInstructionSourceChoice>();
     const sourceWillBeCreated = Option.isSome(sourceContent);
+    const includeGitignore = yield* fileExists(path.join(workspaceRoot, ".git"));
     const planRows = instructionSetup.enabled
       ? instructionPlanRows({
           selectedAgents,
           sourceFileName: instructionSetup.fileName,
           sourceWillBeCreated,
           sourceSeed,
+          includeGitignore,
         })
       : [
           {
@@ -542,7 +671,11 @@ const configureProjectWorkspace = (args: {
         ? true
         : yield* interaction.value.confirmSetupPlan();
     if (!confirmed) {
-      return args.existingSettings;
+      return {
+        settings: args.existingSettings,
+        agentCandidates: selection.candidates,
+        confirmed: false,
+      };
     }
     yield* applyProjectSetup({
       localDir: args.localDir,
@@ -554,7 +687,7 @@ const configureProjectWorkspace = (args: {
       force: false,
       dryRun: args.options.preview ?? false,
     });
-    return settings;
+    return { settings, agentCandidates: selection.candidates, confirmed: true };
   });
 
 export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
@@ -567,11 +700,12 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
 const initializeUserWorkspace = (globalDir: string, options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const selectedAgents = yield* selectSetupAgents({
+    const selection = yield* selectSetupAgents({
       options,
       existingSettings: createDefaultSettings(),
-      workspaceRoot: path.dirname(globalDir),
+      workspaceRoot: options.projectRoot,
     });
+    const selectedAgents = selection.selectedAgents;
     const agentIds = selectedAgents.flatMap((agent) =>
       isConfigurableAgentId(agent.id) ? [agent.id] : [],
     );
@@ -579,25 +713,51 @@ const initializeUserWorkspace = (globalDir: string, options: WorkspaceMutationsO
       agents: agentIds,
       skills: DEFAULT_SETUP_SKILLS,
     };
+    const nonInteractive = yield* isNonInteractive;
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    const confirmed =
+      options.preview === true ||
+      options.yes === true ||
+      nonInteractive ||
+      Option.isNone(interaction)
+        ? true
+        : yield* interaction.value.confirmSetupPlan();
+    if (!confirmed) {
+      return {
+        settings: createDefaultSettings(),
+        agentCandidates: selection.candidates,
+        confirmed: false,
+      };
+    }
     if (options.preview !== true) {
       yield* protectWorkspacePath(path.join(globalDir, LOCKFILE_NAME));
       yield* writeSettings(globalDir, settings);
       yield* writeLockfile(globalDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
     }
-    return settings;
+    return { settings, agentCandidates: selection.candidates, confirmed: true };
   });
 
 interface WorkspaceInitializationState {
   readonly settings: Settings;
   readonly initialized: boolean;
   readonly wouldInitialize: boolean;
+  readonly cancelled: boolean;
+  readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
 }
 
 const workspaceInitializationState = (
   settings: Settings,
   initialized: boolean,
   wouldInitialize: boolean,
-): WorkspaceInitializationState => ({ settings, initialized, wouldInitialize });
+  agentCandidates: ReadonlyArray<SetupAgentCandidate> = [],
+  cancelled = false,
+): WorkspaceInitializationState => ({
+  settings,
+  initialized,
+  wouldInitialize,
+  cancelled,
+  agentCandidates,
+});
 
 /**
  * Ensure user-scope workspace directory has settings.json and axm-lock.yaml.
@@ -625,11 +785,21 @@ export const ensureGlobalWorkspaceInitialized = (
       ),
     );
     if (!settingsExists) {
-      const settings = yield* initializeUserWorkspace(globalDir, options);
+      const initialization = yield* initializeUserWorkspace(globalDir, options);
+      if (!initialization.confirmed) {
+        return workspaceInitializationState(
+          initialization.settings,
+          false,
+          false,
+          initialization.agentCandidates,
+          true,
+        );
+      }
       return workspaceInitializationState(
-        settings,
+        initialization.settings,
         options.preview !== true,
         options.preview === true,
+        initialization.agentCandidates,
       );
     }
 
@@ -673,11 +843,21 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      const settings = yield* initializeProjectWorkspace(localDir, options);
+      const initialization = yield* initializeProjectWorkspace(localDir, options);
+      if (!initialization.confirmed) {
+        return workspaceInitializationState(
+          initialization.settings,
+          false,
+          false,
+          initialization.agentCandidates,
+          true,
+        );
+      }
       return workspaceInitializationState(
-        settings,
+        initialization.settings,
         options.preview !== true,
         options.preview === true,
+        initialization.agentCandidates,
       );
     }
 

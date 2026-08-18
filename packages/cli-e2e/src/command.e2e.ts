@@ -201,9 +201,12 @@ describe("main CLI help", () => {
   it("rejects the removed mcps remove command with uninstall guidance and zero mutation", async () => {
     const workspace = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const settingsPath = path.join(workspace.path, ".axm", "settings.json");
       const lockfilePath = path.join(workspace.path, ".axm", "axm-lock.yaml");
@@ -226,9 +229,12 @@ describe("main CLI help", () => {
   it("keeps the inline MCP lifecycle idempotent and workspace state clean", async () => {
     const workspace = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
 
       const addArgs = ["mcps", "add", "demo", "--command", "node server.js", "--yes", "--json"];

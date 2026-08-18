@@ -14,8 +14,11 @@ export {
   AgentExecutableResolverLive,
   detectAgent,
   detectAgentInRoot,
+  detectAgentScopeResults,
+  detectAgentScopes,
   detectAgents,
   detectAgentsInRoot,
+  type AgentScopeDetection,
   type AgentExecutableResolverService,
 } from "./detection.js";
 

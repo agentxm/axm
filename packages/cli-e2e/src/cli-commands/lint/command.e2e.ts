@@ -92,7 +92,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       try {
         const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
         const setup = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
           {
             cwd: temp.path,
             env,
@@ -139,7 +139,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       try {
         // Init creates settings + an empty lockfile (Phase 5 expectation).
         const init = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
           {
             cwd: temp.path,
           },
@@ -182,7 +182,10 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("reports error when lockfile is deleted while skills remain declared", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: temp.path },
+        );
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -213,7 +216,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         try {
           const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
           const setup = await runCli(
-            ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+            ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
             { cwd: temp.path, env },
           );
           expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
@@ -329,7 +332,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           AXM_REGISTRY_URL: "http://127.0.0.1:9",
         };
         const setup = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
           { cwd: temp.path, env },
         );
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
@@ -362,7 +365,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           AXM_REGISTRY_URL: "http://127.0.0.1:9",
         };
         const setup = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
           { cwd: temp.path, env },
         );
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
@@ -445,10 +448,13 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir("axm-staged-settings-e2e-");
       try {
         initializeGit(temp.path);
-        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-          env: { DO_NOT_TRACK: "1" },
-        });
+        const setup = await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+            env: { DO_NOT_TRACK: "1" },
+          },
+        );
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         git(temp.path, ["add", "."]);
         git(temp.path, ["commit", "--quiet", "-m", "fixture"]);

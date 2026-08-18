@@ -215,6 +215,23 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
     Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)),
   );
 
+export interface AgentScopeDetection {
+  readonly agent: AgentDescriptor;
+  readonly project: boolean;
+  readonly user: boolean;
+}
+
+/** Detect project and user evidence independently for one agent. */
+export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
+  Effect.gen(function* () {
+    const home = yield* getHome;
+    const [project, user] = yield* Effect.all(
+      [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
+      { concurrency: "unbounded" },
+    );
+    return { agent, project, user } satisfies AgentScopeDetection;
+  }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)));
+
 /**
  * Check if a specific agent is installed by checking project-level and
  * user-scope roots.
@@ -228,16 +245,9 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
-  Effect.gen(function* () {
-    const home = yield* getHome;
-
-    const results = yield* Effect.all(
-      [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect ${agent.name}`)));
+  detectAgentScopes(agent, projectDir).pipe(
+    Effect.map((detection) => detection.project || detection.user),
+  );
 
 /**
  * Detect all installed agents from a single filesystem root.
@@ -261,6 +271,12 @@ export const detectAgentsInRoot = (rootDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgents = (projectDir: string) =>
-  Effect.filter(Object.values(AGENTS), (agent) => detectAgent(agent, projectDir), {
+  detectAgentScopeResults(projectDir).pipe(
+    Effect.map((detections) => detections.map((detection) => detection.agent)),
+  );
+
+/** Detect all agents while retaining the scope that supplied each signal. */
+export const detectAgentScopeResults = (projectDir: string) =>
+  Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {
     concurrency: "unbounded",
-  });
+  }).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));

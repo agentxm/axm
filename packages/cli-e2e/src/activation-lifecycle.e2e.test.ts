@@ -99,7 +99,7 @@ describe("extension activation lifecycle", () => {
 
     try {
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
@@ -170,7 +170,7 @@ describe("extension activation lifecycle", () => {
 
     try {
       const projectSetup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path, env },
       );
       expect(projectSetup.exitCode, projectSetup.stdout + projectSetup.stderr).toBe(0);

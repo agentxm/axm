@@ -38,7 +38,10 @@ const snapshotTree = (root: string): Readonly<Record<string, string>> => {
 };
 
 const initializeWorkspace = async (workspace: string): Promise<void> => {
-  const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: workspace });
+  const setup = await runCli(
+    ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+    { cwd: workspace },
+  );
   expect(setup.exitCode).toBe(0);
   const settingsPath = path.join(workspace, ".axm", "settings.json");
   const settings: Record<string, unknown> = JSON.parse(fs.readFileSync(settingsPath, "utf8"));

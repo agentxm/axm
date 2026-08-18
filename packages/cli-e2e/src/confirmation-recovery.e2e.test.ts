@@ -28,7 +28,7 @@ describe("confirmation recovery", () => {
     const workspace = createTempDir();
     try {
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
@@ -52,9 +52,12 @@ describe("confirmation recovery", () => {
   it("allows a pack to become empty without an override flag", async () => {
     const workspace = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const skill = await runCli(
         ["skills", "new", "pack-member", "--owner", "@test", "--non-interactive"],

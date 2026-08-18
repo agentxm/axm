@@ -66,6 +66,9 @@ describe("WorkspaceInitializationInteractionLive", () => {
         return yield* interaction.selectAgents({
           allAgents: [AGENTS["claude-code"], AGENTS["codex"]],
           detectedIds: ["claude-code"],
+          projectDetectedIds: ["claude-code"],
+          userDetectedIds: [],
+          suggestedIds: [],
           configuredIds: [],
         });
       }).pipe(Effect.provide(harness.layer));
@@ -93,6 +96,9 @@ describe("WorkspaceInitializationInteractionLive", () => {
         return yield* interaction.selectAgents({
           allAgents: [AGENTS["claude-code"], AGENTS["codex"]],
           detectedIds: [],
+          projectDetectedIds: [],
+          userDetectedIds: [],
+          suggestedIds: [],
           configuredIds: ["codex"],
         });
       }).pipe(Effect.provide(harness.layer));

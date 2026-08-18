@@ -8,8 +8,10 @@ setup) `axm setup` has completed.
 1. Probe for existing install → upgrade or install.
 2. Verify `axm --version`.
 3. Probe sign-in → ask the user → optionally hand off `axm login`.
-4. Run `axm setup --yes`.
-5. Read `.axm/extensions/@agentxm/skills/axm/src/SKILL.md`, then load
+4. Preview setup, summarize its exact agent and file candidate, and get the
+   user's approval.
+5. Apply the approved candidate with explicit scope and agent flags.
+6. Read `.axm/extensions/@agentxm/skills/axm/src/SKILL.md`, then load
    `axm help getting-started` and `axm help basic-usage`.
 
 ## Invariants
@@ -164,16 +166,32 @@ After the user confirms, re-run the probe from **§3**. If `type` is still
 
 ## 5. Workspace setup
 
-Before running, tell the user `axm setup` will: create `.axm/` configuration
-files in the current directory, install default extensions (including
-`@agentxm/skills/axm`), and register agent discovery symlinks.
+First preview setup without writing:
 
 ```bash
-axm setup --yes
+axm setup --preview --scope project --json --non-interactive
+```
+
+Read `result.agents`, `result.agentCandidates`, and `result.steps`. Summarize the
+exact proposed agent set and file changes to the user, including which signals
+came from the project and which came only from the workstation. Tell the user
+that applying the candidate will create `.axm/` configuration, install default
+extensions (including `@agentxm/skills/axm`), and register the listed agent
+artifacts. Wait for approval of that exact agent set.
+
+After approval, repeat every `result.agents[*].id` as an explicit `--agent`
+flag and apply without prompts. For example:
+
+```bash
+axm setup --yes --scope project --agent claude-code --non-interactive
 cat .axm/extensions/@agentxm/skills/axm/src/SKILL.md
 axm help getting-started
 axm help basic-usage
 ```
+
+Do not infer approval from a preview. An unattended first setup without
+`--yes`, an explicit `--scope`, and at least one explicit `--agent` returns
+`reason: "approval-required"` and writes nothing.
 
 After setup, read the installed AXM skill and both help topics before doing
 any other AXM work in this session:

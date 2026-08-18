@@ -35,15 +35,32 @@ axm setup
 ```
 
 Setup is initialization-only. When the selected scope has no settings, it
-creates `.axm/`, detects supported coding agents, records the initial agent
-membership, and initializes workspace state. Running setup again is a no-op,
-even when different `--agent` flags are supplied. Read
+detects project and workstation signals separately, presents the proposed agent
+set and file plan, and asks for confirmation before it creates `.axm/` and the
+initial agent membership. Project signals are preselected for project setup;
+workstation-only availability remains visible without being treated as project
+intent. If no agent is detected, setup offers a small catalog-driven starter
+set that you can revise before confirming. Running setup again is a no-op, even
+when different `--agent` flags are supplied. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
-For non-interactive environments, pass `--yes`. To pin which agents AXM
-configures, pass one or more `--agent <id>` flags instead of relying on
-auto-detection.
+For automation, preview the exact candidate first:
+
+```bash
+axm setup --preview --scope project --json --non-interactive
+```
+
+Review `result.agents`, `result.agentCandidates`, and `result.steps`, then apply
+that exact agent set with explicit approval and scope:
+
+```bash
+axm setup --yes --scope project --agent claude-code --non-interactive
+```
+
+Repeat `--agent <id>` for every approved agent. An unattended first setup that
+omits `--yes`, an explicit `--scope`, or all `--agent` flags exits with the
+stable reason `approval-required` and writes nothing.
 
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. If you adopt another coding agent later, run `axm agents add <id>`;

@@ -12,7 +12,10 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => {
-  const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd });
+  const setup = await runCli(
+    ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+    { cwd },
+  );
   expect(setup.exitCode).toBe(0);
 
   const uninstall = await runCli(["skills", "uninstall", "axm", "--yes"], { cwd });

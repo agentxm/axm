@@ -152,7 +152,10 @@ describe("structured output (--json)", () => {
   it("keeps semantic failures in the result envelope with a nonzero exit", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stderr).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));

@@ -217,6 +217,7 @@ export {
   ensureGlobalWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,
 } from "./initialization.js";
+export type { SetupAgentCandidate } from "./initialization.js";
 export type {
   WorkspaceInitializationInteractionService,
   WorkspaceInitializationInteractionTestState,

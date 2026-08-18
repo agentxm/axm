@@ -18,6 +18,8 @@ import { expectDefined } from "../test-helpers.js";
 import {
   AgentExecutableResolver,
   detectAgent,
+  detectAgentScopeResults,
+  detectAgentScopes,
   detectAgentInRoot,
   detectAgents,
   detectAgentsInRoot,
@@ -84,6 +86,16 @@ const syntheticAgent = (detection: AgentDescriptor["detection"]): AgentDescripto
 });
 
 describe("detectAgent", () => {
+  it.effect("retains independent project and user detection signals", () =>
+    Effect.gen(function* () {
+      const result = yield* provideDetectionLayer(
+        detectAgentScopes(AGENTS["claude-code"], testProjectDir),
+        new Set([path.join(testProjectDir, ".claude"), path.join(home, ".claude")]),
+      );
+
+      expect(result).toMatchObject({ project: true, user: true });
+    }),
+  );
   it.effect("detects a definitive project directory marker", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
@@ -230,6 +242,23 @@ describe("detectAgentInRoot", () => {
 });
 
 describe("detectAgents", () => {
+  it.effect("reports the scope for every detected registry agent", () =>
+    Effect.gen(function* () {
+      const result = yield* provideDetectionLayer(
+        detectAgentScopeResults(testProjectDir),
+        new Set([path.join(testProjectDir, ".claude"), path.join(home, ".cursor")]),
+      );
+
+      expect(result.find(({ agent }) => agent.id === "claude-code")).toMatchObject({
+        project: true,
+        user: false,
+      });
+      expect(result.find(({ agent }) => agent.id === "cursor")).toMatchObject({
+        project: false,
+        user: true,
+      });
+    }),
+  );
   it.effect("returns detected registry agents without duplicates", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(

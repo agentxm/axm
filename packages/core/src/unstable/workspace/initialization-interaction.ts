@@ -30,6 +30,9 @@ export interface WorkspaceInitializationInteractionService {
   readonly selectAgents: (options: {
     readonly allAgents: ReadonlyArray<AgentDescriptor>;
     readonly detectedIds: ReadonlyArray<string>;
+    readonly projectDetectedIds: ReadonlyArray<string>;
+    readonly userDetectedIds: ReadonlyArray<string>;
+    readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
   }) => Effect.Effect<ReadonlyArray<string>, PromptCancelled | AppError>;
   readonly confirmInstructionSync: (options: {
@@ -62,7 +65,13 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
     );
 
     return {
-      selectAgents: ({ allAgents, detectedIds, configuredIds }) =>
+      selectAgents: ({
+        allAgents,
+        projectDetectedIds,
+        userDetectedIds,
+        suggestedIds,
+        configuredIds,
+      }) =>
         requireInteractive(
           autocompleteMultiselect({
             message: selectAgentsMessage,
@@ -77,12 +86,17 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
               value: agent.id,
               description: [
                 configuredIds.includes(agent.id) ? "configured" : undefined,
-                detectedIds.includes(agent.id) ? "detected" : undefined,
+                projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
+                userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
+                suggestedIds.includes(agent.id) ? "suggested" : undefined,
                 `skills: ${agent.skills.dir}`,
               ]
                 .filter((part) => part !== undefined)
                 .join(" · "),
-              selected: configuredIds.includes(agent.id) || detectedIds.includes(agent.id),
+              selected:
+                configuredIds.includes(agent.id) ||
+                projectDetectedIds.includes(agent.id) ||
+                suggestedIds.includes(agent.id),
             })),
           }),
           { message: selectAgentsMessage },
@@ -141,6 +155,9 @@ export interface WorkspaceInitializationInteractionTestState {
   readonly selectAgentsCalls: Array<{
     readonly allAgents: ReadonlyArray<AgentDescriptor>;
     readonly detectedIds: ReadonlyArray<string>;
+    readonly projectDetectedIds: ReadonlyArray<string>;
+    readonly userDetectedIds: ReadonlyArray<string>;
+    readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
   }>;
   readonly confirmInstructionSyncCalls: Array<{ readonly enabled: boolean }>;
@@ -155,6 +172,9 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
   readonly selectAgents?: (options: {
     readonly allAgents: ReadonlyArray<AgentDescriptor>;
     readonly detectedIds: ReadonlyArray<string>;
+    readonly projectDetectedIds: ReadonlyArray<string>;
+    readonly userDetectedIds: ReadonlyArray<string>;
+    readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
   }) => Effect.Effect<ReadonlyArray<string>, PromptCancelled | AppError>;
   readonly confirmInstructionSync?: (options: {
@@ -178,7 +198,13 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
       Effect.gen(function* () {
         state.selectAgentsCalls.push(options);
         return yield* overrides?.selectAgents?.(options) ??
-          Effect.succeed([...new Set([...options.configuredIds, ...options.detectedIds])]);
+          Effect.succeed([
+            ...new Set([
+              ...options.configuredIds,
+              ...options.projectDetectedIds,
+              ...options.suggestedIds,
+            ]),
+          ]);
       }),
     confirmInstructionSync: (options) =>
       Effect.gen(function* () {

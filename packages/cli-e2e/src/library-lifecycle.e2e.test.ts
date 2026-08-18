@@ -31,9 +31,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const before = snapshotAxmState(workspace.path);
 
@@ -51,9 +54,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const before = snapshotAxmState(workspace.path);
 
@@ -90,9 +96,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const invocations: ReadonlyArray<ReadonlyArray<string>> = [
         ["uninstall", "@acme/skills/example"],

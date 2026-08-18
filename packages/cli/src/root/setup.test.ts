@@ -20,6 +20,7 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
+import { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { ExecutionDirectory } from "../execution-directory.js";
 import {
@@ -27,6 +28,7 @@ import {
   expectDefined,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
+  planResultSteps,
 } from "../test-helpers.js";
 import {
   AXM_SKILL_JSON,
@@ -53,6 +55,7 @@ const makeSetupTestContext = (opts?: {
     nonInteractive?: boolean;
   };
   readonly selectAgents?: ReadonlyArray<string>;
+  readonly confirmSetup?: boolean | "interrupt";
   readonly scope?: "project" | "user";
   readonly installer?: "stub" | "live" | "fail";
   readonly renderer?: "text" | "machine";
@@ -64,13 +67,19 @@ const makeSetupTestContext = (opts?: {
     readonly preview: boolean;
   }> = [];
   const selectAgentsOverride = opts?.selectAgents;
-  const workspaceInitInteraction = WorkspaceInitializationInteractionTest(
-    selectAgentsOverride === undefined
-      ? undefined
+  const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
+    ...(selectAgentsOverride === undefined
+      ? {}
+      : { selectAgents: () => Effect.succeed(selectAgentsOverride) }),
+    ...(opts?.confirmSetup === undefined
+      ? {}
       : {
-          selectAgents: () => Effect.succeed(selectAgentsOverride),
-        },
-  );
+          confirmSetupPlan: () =>
+            opts.confirmSetup === "interrupt"
+              ? Effect.fail(new PromptCancelled({ message: "Operation cancelled." }))
+              : Effect.succeed(opts.confirmSetup ?? true),
+        }),
+  });
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     FetchHttpClient.layer,
@@ -213,29 +222,20 @@ describe("setup.handler", () => {
       );
     });
 
-    it.effect("offers agent remediation when an initialized workspace has no agents", () => {
-      const { provide, rendererState } = makeSetupTestContext({
-        flags: { nonInteractive: true },
-      });
+    it.effect("uses a small catalog suggestion set when no agents are detected", () => {
+      const { provide } = makeSetupTestContext({ flags: { nonInteractive: true } });
 
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
-          yield* handleSetup({ scope: "project" });
 
-          expect(rendererState.logs).toContainEqual({
-            _tag: "warn",
-            message:
-              "No coding-agent targets are configured. Run `axm agents add --detected` to materialize installed extensions.",
-          });
-          expect(rendererState.logs).toContainEqual({
-            _tag: "success",
-            message: "Workspace already initialized with no coding agents",
-          });
-          expect(rendererState.suggestions).toContainEqual({
-            description: "Detect and configure active coding agents",
-            cmd: "axm agents add --detected",
-          });
+          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
+            "claude-code",
+            "codex",
+            "cursor",
+            "github-copilot-cli",
+            "opencode",
+          ]);
         }),
       );
     });
@@ -250,7 +250,13 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([]);
+          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
+            "claude-code",
+            "codex",
+            "cursor",
+            "github-copilot-cli",
+            "opencode",
+          ]);
           expect(rendererState.logs).toContainEqual(
             expect.objectContaining({
               _tag: "warn",
@@ -263,7 +269,7 @@ describe("setup.handler", () => {
 
     it.effect("emits initialized status in machine output", () => {
       const { provide, installCalls, rendererState } = makeSetupTestContext({
-        flags: { json: true, nonInteractive: true },
+        flags: { json: true, nonInteractive: false },
         renderer: "machine",
       });
 
@@ -601,7 +607,10 @@ describe("setup.handler", () => {
           });
 
           expect(rendererState.suggestions).toEqual([
-            { description: "Apply setup", cmd: "axm setup --yes" },
+            {
+              description: "Apply setup",
+              cmd: "axm setup --yes --scope project --agent claude-code",
+            },
           ]);
         }),
       );
@@ -649,9 +658,330 @@ describe("setup.handler", () => {
             scope: "project",
             agents: [{ id: "claude-code", name: "Claude Code" }],
           });
+          expect(planResultSteps(result)).not.toContainEqual(
+            expect.objectContaining({
+              label: "Instruction files",
+              artifact: expect.objectContaining({
+                targets: expect.arrayContaining([expect.objectContaining({ path: ".gitignore" })]),
+              }),
+            }),
+          );
           expect(rendererState.suggestions).toEqual([
-            { description: "Apply setup", cmd: "axm setup --yes" },
+            {
+              description: "Apply setup",
+              cmd: "axm setup --yes --scope project --agent claude-code",
+            },
           ]);
+        }),
+      );
+    });
+
+    it.effect("reports project and workstation detection separately in preview", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      fs.mkdirSync(path.join(tempDir, ".firebender"), { recursive: true });
+      fs.mkdirSync(path.join(homeDir, ".cursor"), { recursive: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", scopeExplicit: true, preview: true });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              status: "preview",
+              agents: [{ id: "firebender", name: "Firebender" }],
+              agentCandidates: expect.arrayContaining([
+                expect.objectContaining({
+                  id: "firebender",
+                  projectDetected: true,
+                  userDetected: false,
+                  state: "selected",
+                  selectionReason: "project-detected",
+                }),
+                expect.objectContaining({
+                  id: "cursor",
+                  projectDetected: false,
+                  userDetected: true,
+                  state: "available",
+                }),
+              ]),
+            },
+          });
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("uses user detection as the strong signal for user-scope preview", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      fs.mkdirSync(path.join(tempDir, ".firebender"), { recursive: true });
+      fs.mkdirSync(path.join(homeDir, ".cursor"), { recursive: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "user", scopeExplicit: true, preview: true });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              status: "preview",
+              agents: [{ id: "cursor", name: "Cursor" }],
+              agentCandidates: expect.arrayContaining([
+                expect.objectContaining({
+                  id: "firebender",
+                  projectDetected: true,
+                  userDetected: false,
+                  state: "available",
+                }),
+                expect.objectContaining({
+                  id: "cursor",
+                  projectDetected: false,
+                  userDetected: true,
+                  state: "selected",
+                  selectionReason: "user-detected",
+                }),
+              ]),
+            },
+          });
+          expect(fs.existsSync(path.join(homeDir, ".axm"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("reports combined project and user detection for one agent", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      fs.mkdirSync(path.join(tempDir, ".firebender"), { recursive: true });
+      fs.mkdirSync(path.join(homeDir, ".firebender"), { recursive: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", scopeExplicit: true, preview: true });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              agentCandidates: expect.arrayContaining([
+                expect.objectContaining({
+                  id: "firebender",
+                  projectDetected: true,
+                  userDetected: true,
+                  state: "selected",
+                  selectionReason: "project-detected",
+                }),
+              ]),
+            },
+          });
+        }),
+      );
+    });
+
+    it.effect("offers catalog suggestions when preview finds no agents", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", scopeExplicit: true, preview: true });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              agents: [
+                { id: "claude-code", name: "Claude Code" },
+                { id: "codex", name: "Codex" },
+                { id: "cursor", name: "Cursor" },
+                { id: "github-copilot-cli", name: "GitHub Copilot CLI" },
+                { id: "opencode", name: "OpenCode" },
+              ],
+              agentCandidates: expect.arrayContaining([
+                expect.objectContaining({
+                  id: "claude-code",
+                  state: "selected",
+                  selectionReason: "catalog-suggestion",
+                }),
+              ]),
+            },
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "Apply setup",
+              cmd: "axm setup --yes --scope project --agent claude-code --agent codex --agent cursor --agent github-copilot-cli --agent opencode",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("requires complete explicit intent for unattended setup", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: false },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", scopeExplicit: false }).pipe(
+            Effect.catchCause(() => Effect.void),
+          );
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              outcome: "failed",
+              reason: "approval-required",
+              errorCode: "usage",
+              status: "approval-required",
+              changed: false,
+            },
+          });
+          expect(installCalls).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("does not let --yes apply an inferred candidate", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            scopeExplicit: false,
+            yes: true,
+          }).pipe(Effect.catchCause(() => Effect.void));
+
+          expect(rendererState.logs).toContainEqual({
+            _tag: "error",
+            message: "Approval required — no changes applied",
+          });
+          expect(installCalls).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("applies unattended setup with approval, explicit scope, and agents", () => {
+      const { provide, installCalls } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            scopeExplicit: true,
+            agents: ["claude-code"],
+            yes: true,
+          });
+
+          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
+            "claude-code",
+          ]);
+          expect(installCalls).toEqual([{ scope: "project", yes: true, preview: false }]);
+        }),
+      );
+    });
+
+    it.effect("includes the managed gitignore target in preview only for git workspaces", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      fs.mkdirSync(path.join(tempDir, ".git"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            scopeExplicit: true,
+            agents: ["claude-code"],
+            preview: true,
+          });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              steps: expect.arrayContaining([
+                expect.objectContaining({
+                  label: "Instruction files",
+                  artifact: expect.objectContaining({
+                    targets: expect.arrayContaining([
+                      expect.objectContaining({ path: ".gitignore", change: "created" }),
+                    ]),
+                  }),
+                }),
+              ]),
+            },
+          });
+          expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("leaves project setup untouched when interactive confirmation is declined", () => {
+      const { provide, installCalls, promptState, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+        confirmSetup: false,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
+          expect(rendererState.logs).toContainEqual({
+            _tag: "info",
+            message: "Setup cancelled — no changes applied",
+          });
+          expect(installCalls).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("leaves user setup untouched when interactive confirmation is declined", () => {
+      const { provide, installCalls, promptState } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+        confirmSetup: false,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "user" });
+
+          expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
+          expect(installCalls).toEqual([]);
+          expect(fs.existsSync(path.join(homeDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("leaves setup untouched when interactive confirmation is interrupted", () => {
+      const { provide, installCalls } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+        confirmSetup: "interrupt",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" }).pipe(
+            Effect.catchTag("PromptCancelled", () => Effect.void),
+          );
+
+          expect(installCalls).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
         }),
       );
     });
@@ -917,7 +1247,7 @@ describe("setup.handler", () => {
           if (error._tag === "AppError") {
             expect(error.detail).toBe("Injected bundled skill installation failure");
           }
-          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm", "axm-lock.yaml"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);

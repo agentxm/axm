@@ -9,7 +9,10 @@ describe("authoritative lockfile recovery boundary", () => {
   it("creates a new v4 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
       fs.rmSync(lockfilePath, { force: true });
 
@@ -31,7 +34,10 @@ describe("authoritative lockfile recovery boundary", () => {
   it("blocks mutation when the authoritative lockfile is invalid", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);
@@ -57,7 +63,10 @@ describe("authoritative lockfile recovery boundary", () => {
   it("keeps preview side-effect free while reporting an invalid lockfile blocker", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);

@@ -24,7 +24,10 @@ describe("axm skills new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -57,7 +60,10 @@ describe("axm mcps new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -96,9 +102,12 @@ describe("axm mcps new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@original",
@@ -156,7 +165,10 @@ describe("axm hooks new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -191,7 +203,10 @@ describe("axm knowledge new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",

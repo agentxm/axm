@@ -111,7 +111,9 @@ async function publishRegistrySkill(registryPath: string, name: string) {
   const settingsPath = path.join(workspace.path, ".axm", "settings.json");
 
   try {
-    await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspace.path });
+    await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+      cwd: workspace.path,
+    });
     configureRegistrySource(settingsPath, `file://${registryPath}`);
 
     const createResult = await runCli(
@@ -139,7 +141,7 @@ async function publishRegistryPack(
   const settingsPath = path.join(workspace.path, ".axm", "settings.json");
 
   try {
-    const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+    const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
       cwd: workspace.path,
     });
     expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
@@ -212,7 +214,9 @@ describe("axm packs new", () => {
   it("scaffolds a pack with manifest and registers in settings", async () => {
     const { temp, registryDir, settingsPath, readSettings, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       const result = await runCli(["packs", "new", "frontend-tools", "--yes"], {
@@ -252,7 +256,9 @@ describe("axm packs new", () => {
   it("respects --owner override", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       const result = await runCli(["packs", "new", "my-pack", "--owner", "@custom", "--yes"], {
@@ -283,7 +289,9 @@ describe("axm packs new", () => {
   it("fails if pack already exists", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       await runCli(["packs", "new", "dup-pack", "--yes"], { cwd: temp.path });
@@ -301,7 +309,9 @@ describe("axm packs new", () => {
   it("treats authored pack edits as authoritative during reinstall", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       const create = await runCli(["packs", "new", "drifted-pack", "--yes"], {
         cwd: temp.path,
@@ -343,7 +353,9 @@ describe("axm packs add/remove", () => {
   it("errors when pack is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
 
       const result = await runCli(["packs", "add", "nonexistent-pack", "some-ext", "--yes"], {
         cwd: temp.path,
@@ -359,7 +371,9 @@ describe("axm packs add/remove", () => {
   it("records Pack membership in the manifest and only external resolutions in the lockfile", async () => {
     const { temp, registryDir, settingsPath, readLock, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       await publishRegistrySkill(registryDir.path, "registry-member");
       const registrySkill = await runCli(
@@ -461,7 +475,9 @@ describe("axm packs publish", () => {
   it("publishes pack to local registry with archive and index.json", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Create a pack
@@ -526,7 +542,9 @@ describe("axm packs publish", () => {
   it("returns a successful empty result when an explicit pack does not exist", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       const result = await runCli(
@@ -554,9 +572,12 @@ describe("axm packs install", () => {
     const packName = "workspace-authority-pack";
     try {
       await publishRegistryPack(registryDir.path, packName, {});
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       const created = await runCli(["packs", "new", packName, "--yes"], { cwd: temp.path });
@@ -614,9 +635,12 @@ describe("axm packs install", () => {
       await publishRegistryPack(registryDir.path, packName, {
         [`@test/skills/${skillName}`]: "0.0.1",
       });
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       const created = await runCli(
@@ -674,9 +698,12 @@ describe("axm packs install", () => {
       });
       await publishRegistryPack(registryDir.path, nonApplicablePack, {});
 
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -757,7 +784,7 @@ describe("axm packs install", () => {
       });
 
       const setup = await runCli(
-        ["setup", "--yes", "--agent", "claude-code", "--agent", "cursor"],
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--agent", "cursor"],
         {
           cwd: temp.path,
         },
@@ -897,7 +924,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Create and publish a pack first
@@ -959,7 +988,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, lockPath, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
       await runCli(["packs", "new", "recoverable-pack", "--yes"], { cwd: temp.path });
       await publishRegistrySkill(registryDir.path, "recoverable-member");
@@ -1026,7 +1057,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Create and publish
@@ -1072,7 +1105,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Manually create a skill in .axm/extensions/
@@ -1186,7 +1221,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       writeSubagentPackage(temp.path, "dep-subagent");
@@ -1290,8 +1327,12 @@ describe("axm packs install", () => {
     const consumerLockPath = path.join(consumer.path, ".axm", "axm-lock.yaml");
 
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: author.path });
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: consumer.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: author.path,
+      });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: consumer.path,
+      });
 
       const registryUrl = `file://${registryDir.path}`;
       configureRegistrySource(authorSettingsPath, registryUrl);
@@ -1397,7 +1438,9 @@ describe("axm packs install", () => {
     const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Create and publish a pack
@@ -1460,7 +1503,9 @@ describe("axm packs install", () => {
 describe("axm packs uninstall", () => {
   const createWorkspacePack = async (name: string) => {
     const temp = createTempDir();
-    await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+    await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+      cwd: temp.path,
+    });
     const settingsPath = path.join(temp.path, ".axm", "settings.json");
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
     settings.owner = "@test";
@@ -1538,7 +1583,9 @@ describe("axm packs uninstall", () => {
   it("makes empty previews explicit without changing JSON plan semantics", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       const human = await runCli(["packs", "uninstall", "missing-*", "--preview"], {
         cwd: temp.path,
       });
@@ -1560,7 +1607,9 @@ describe("axm packs uninstall", () => {
   it("is idempotent for a literal pack not in the lockfile or settings", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.owner = "@test";
@@ -1586,7 +1635,9 @@ describe("axm packs unpack", () => {
   it("fails for non-installed pack", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
 
       const result = await runCli(["packs", "unpack", "nonexistent", "--yes"], { cwd: temp.path });
 
@@ -1606,7 +1657,10 @@ describe("axm packs list", () => {
   it("shows empty state when no packs are installed", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
 
       const result = await runCli(["packs", "list"], { cwd: temp.path });
 
@@ -1620,7 +1674,9 @@ describe("axm packs list", () => {
   it("lists installed packs after install", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       await runCli(["packs", "new", "listable-pack", "--yes"], { cwd: temp.path });
@@ -1663,7 +1719,10 @@ describe("axm packs list", () => {
   it("works with ls alias", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
 
       const result = await runCli(["packs", "ls"], { cwd: temp.path });
 

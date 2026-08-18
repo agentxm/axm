@@ -9,11 +9,15 @@ import {
   Verbosity,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  effectCliExit,
+  type SuggestedAction,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
@@ -22,6 +26,7 @@ import {
   runWorkspaceTransaction,
   scanAllSubagentFiles,
   type AgentSubagentSummary,
+  type SetupAgentCandidate,
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
   WorkspaceMutations,
@@ -42,7 +47,6 @@ import * as Terminal from "effect/Terminal";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { scopeFlag } from "../cli-flags.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import { ExecutionDirectory } from "../execution-directory.js";
@@ -97,8 +101,24 @@ const SetupPlanStepSchema = Schema.Struct({
   artifact: Schema.optional(SetupPlanStepArtifactSchema),
 });
 
+const SetupAgentCandidateSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  projectDetected: Schema.Boolean,
+  userDetected: Schema.Boolean,
+  state: Schema.Literals(["selected", "suggested", "available", "retired"] as const),
+  selectionReason: Schema.optional(
+    Schema.Literals([
+      "explicit",
+      "project-detected",
+      "user-detected",
+      "catalog-suggestion",
+    ] as const),
+  ),
+});
+
 export const SetupResultSchema = Schema.Struct({
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op", "failed"] as const),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -110,7 +130,15 @@ export const SetupResultSchema = Schema.Struct({
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
   steps: Schema.Array(SetupPlanStepSchema),
-  status: Schema.Literals(["initialized", "already-initialized", "preview"] as const),
+  reason: Schema.optional(Schema.Literal("approval-required")),
+  errorCode: Schema.optional(Schema.Literal("usage")),
+  status: Schema.Literals([
+    "initialized",
+    "already-initialized",
+    "preview",
+    "cancelled",
+    "approval-required",
+  ] as const),
   changed: Schema.Boolean,
   defaultSkillInstalled: Schema.Boolean,
   scope: Schema.String,
@@ -120,6 +148,7 @@ export const SetupResultSchema = Schema.Struct({
       name: Schema.String,
     }),
   ),
+  agentCandidates: Schema.optional(Schema.Array(SetupAgentCandidateSchema)),
   settingsPath: Schema.String,
   instructions: Schema.optional(
     Schema.Struct({
@@ -367,19 +396,23 @@ const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRender
   });
 
 const setupSuggestions = (args: {
-  readonly status: "initialized" | "already-initialized" | "preview";
+  readonly status: "initialized" | "already-initialized" | "preview" | "cancelled";
   readonly agentCount: number;
+  readonly agentIds: ReadonlyArray<string>;
   readonly scope: WorkspaceScope;
   readonly telemetryEnabled: boolean;
 }): ReadonlyArray<SuggestedAction> => {
   if (args.status === "preview") {
+    const agentFlags = args.agentIds.map((id) => ` --agent ${id}`).join("");
     return [
       {
         description: "Apply setup",
-        cmd: `axm setup --yes${args.scope === "user" ? " --scope user" : ""}`,
+        cmd: `axm setup --yes --scope ${args.scope}${agentFlags}`,
       },
     ];
   }
+
+  if (args.status === "cancelled") return [];
 
   const suggestions: Array<SuggestedAction> = [
     {
@@ -490,6 +523,7 @@ const setupPlanFields = (args: {
       }
     | undefined;
   readonly agentIds: ReadonlyArray<string>;
+  readonly includeGitignore: boolean;
   readonly message: string;
 }): Pick<
   SetupResult,
@@ -558,7 +592,7 @@ const setupPlanFields = (args: {
           ...(args.instructions.enabled
             ? [
                 { path: "CLAUDE.md", change: workspaceChange },
-                ...(args.instructions.gitignoreAliases === true
+                ...(args.instructions.gitignoreAliases === true && args.includeGitignore
                   ? [{ path: ".gitignore", change: workspaceChange }]
                   : []),
               ]
@@ -617,7 +651,14 @@ const setupPlanFields = (args: {
   const failedCount = steps.filter((step) => step.status === "failed").length;
 
   return {
-    outcome: args.status === "preview" ? "previewed" : appliedCount > 0 ? "applied" : "no-op",
+    outcome:
+      args.status === "preview"
+        ? "previewed"
+        : args.status === "cancelled"
+          ? "cancelled"
+          : appliedCount > 0
+            ? "applied"
+            : "no-op",
     planName: "Set up AXM workspace",
     planDescription: `Set up AXM (${args.scope})`,
     message: args.message,
@@ -637,12 +678,15 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly agents?: ReadonlyArray<string>;
   readonly yes?: boolean;
   readonly preview?: boolean;
+  readonly scopeExplicit?: boolean;
 }) {
   const renderer = yield* CliRenderer;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const executionDirectory = yield* ExecutionDirectory;
   yield* renderSetupBranding(renderer);
+  const json = yield* jsonFlag;
+  const machineOutput = Option.getOrElse(json, () => false);
 
   const workspaceOptions: WorkspaceMutationsOptions = {
     scope: args.scope,
@@ -653,7 +697,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   };
   const installer = yield* SetupSkillInstaller;
   const initialize = Effect.gen(function* () {
-    const result = yield* bootstrapWorkspace(workspaceOptions);
+    const result = yield* bootstrapWorkspace(workspaceOptions).pipe(
+      machineOutput
+        ? Effect.provideService(nonInteractiveFlag, Option.some(true))
+        : (effect) => effect,
+    );
     if (result.initialized) {
       yield* installer.installDefaultSkill({
         scope: args.scope,
@@ -676,7 +724,62 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
       }),
     ),
   );
-  const { settings, location, initialized, wouldInitialize } =
+  const nonInteractive = (yield* isNonInteractive) || machineOutput;
+  const unattended = nonInteractive || args.yes === true;
+  const unattendedIntentComplete =
+    args.yes === true &&
+    (args.agents?.length ?? 0) > 0 &&
+    (args.scopeExplicit === undefined || args.scopeExplicit);
+  if (
+    !settingsExists &&
+    unattended &&
+    args.scopeExplicit !== undefined &&
+    args.preview !== true &&
+    !unattendedIntentComplete
+  ) {
+    const settingsPath = joinDisplayPath(path, workspaceDir, "settings.json");
+    const suggestions = [
+      {
+        description: "Preview the setup candidate",
+        cmd: `axm setup --preview --scope ${args.scope}`,
+      },
+    ];
+    const emitted = yield* renderer.result(
+      {
+        result: {
+          outcome: "failed",
+          planName: "Set up AXM workspace",
+          planDescription: `Set up AXM (${args.scope})`,
+          message: "Explicit approval, scope, and agents are required for unattended setup",
+          totalSteps: 0,
+          readyCount: 0,
+          warningCount: 0,
+          errorCount: 1,
+          appliedCount: 0,
+          failedCount: 0,
+          blockedCount: 0,
+          steps: [],
+          reason: "approval-required",
+          errorCode: "usage",
+          status: "approval-required",
+          changed: false,
+          defaultSkillInstalled: false,
+          scope: args.scope,
+          agents: [],
+          settingsPath,
+          telemetryEnabled: false,
+        },
+      },
+      SetupDocumentSchema,
+      { suggestions, ok: false },
+    );
+    if (!emitted) {
+      yield* renderer.error("Approval required — no changes applied", { suggestions });
+    }
+    return yield* Effect.die(effectCliExit(ExitCode.Usage));
+  }
+
+  const { settings, location, initialized, wouldInitialize, cancelled, agentCandidates } =
     args.preview === true || settingsExists
       ? yield* initialize
       : yield* runWorkspaceTransaction({
@@ -727,27 +830,37 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
     agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
   const status = wouldInitialize ? "preview" : initialized ? "initialized" : "already-initialized";
+  const resolvedStatus = cancelled ? "cancelled" : status;
   const suggestions = setupSuggestions({
-    status,
+    status: resolvedStatus,
     agentCount: allAgents.length,
+    agentIds,
     scope: location.scope,
     telemetryEnabled,
   });
-  const message = setupMessage({
-    preview: wouldInitialize,
-    initialized,
-    agentNames,
-    agentCount: allAgents.length,
-    membershipRequested: (args.agents?.length ?? 0) > 0,
-  });
+  const message = cancelled
+    ? "Setup cancelled — no changes applied"
+    : setupMessage({
+        preview: wouldInitialize,
+        initialized,
+        agentNames,
+        agentCount: allAgents.length,
+        membershipRequested: (args.agents?.length ?? 0) > 0,
+      });
+  const includeGitignore =
+    location.scope === "project" &&
+    (yield* fs
+      .exists(path.join(executionDirectory.path, ".git"))
+      .pipe(Effect.catch(() => Effect.succeed(false))));
   const planFields = setupPlanFields({
-    status,
+    status: resolvedStatus,
     scope: location.scope,
     initialized,
     defaultSkillInstalled,
     settingsPath,
     instructions,
     agentIds,
+    includeGitignore,
     message,
   });
 
@@ -756,11 +869,14 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
       {
         result: {
           ...planFields,
-          status,
+          status: resolvedStatus,
           changed: initialized && args.preview !== true,
           defaultSkillInstalled,
           scope: location.scope,
           agents: allAgents,
+          ...(agentCandidates.length > 0
+            ? { agentCandidates: [...agentCandidates] satisfies ReadonlyArray<SetupAgentCandidate> }
+            : {}),
           settingsPath,
           ...(instructions !== undefined ? { instructions } : {}),
           telemetryEnabled,
@@ -771,6 +887,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
       { suggestions },
     )
   ) {
+    return;
+  }
+
+  if (cancelled) {
+    yield* renderer.info(message);
     return;
   }
 
@@ -815,7 +936,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
 }, Effect.asVoid);
 
 const setupConfig = {
-  scope: scopeFlag,
+  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+    Flag.withDescription("Configuration scope: project or user (required for unattended apply)"),
+    Flag.optional,
+  ),
   agent: Flag.string("agent").pipe(
     Flag.withDescription("Specify agents to configure (skips auto-detection)"),
     Flag.atLeast(0),
@@ -824,21 +948,23 @@ const setupConfig = {
   preview: previewFlag,
 } as const;
 
-export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, yes, preview }) =>
-  handleSetup({
-    scope,
+export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, yes, preview }) => {
+  const resolvedScope = Option.getOrElse(scope, () => "project" as const);
+  return handleSetup({
+    scope: resolvedScope,
+    scopeExplicit: Option.isSome(scope),
     yes,
     preview,
     ...(agent.length > 0 ? { agents: agent } : {}),
-  }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup")),
-).pipe(
+  }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup"));
+}).pipe(
   withArgvTracking(setupConfig),
   Command.withDescription("Set up AXM in the current project"),
   Command.withExamples([
-    { command: "axm setup", description: "Detect installed agents and create .axm/settings.json" },
+    { command: "axm setup", description: "Preview, confirm, and initialize project setup" },
     {
-      command: "axm setup --non-interactive",
-      description: "Initialize with all detected agents (no prompts)",
+      command: "axm setup --preview --scope project --json --non-interactive",
+      description: "Preview the exact unattended setup candidate without writing",
     },
     { command: "axm setup --scope user", description: "Initialize in ~/.axm/ for user scope" },
     {

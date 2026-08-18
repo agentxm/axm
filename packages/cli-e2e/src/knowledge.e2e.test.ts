@@ -36,7 +36,10 @@ describe("axm knowledge lifecycle", () => {
   it("lints OKF resource paths and renders their diagnostics", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const packageRoot = path.join(temp.path, "knowledge");
       createKnowledgePackage(packageRoot);
@@ -86,7 +89,10 @@ describe("axm knowledge lifecycle", () => {
   it("renders malformed frontmatter locations and clears corrected findings", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
 
       const sourceRoot = path.join(temp.path, "knowledge-source");
@@ -229,7 +235,10 @@ describe("axm knowledge lifecycle", () => {
           "",
         ].join("\n"),
       );
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {
@@ -350,7 +359,10 @@ describe("axm knowledge lifecycle", () => {
         path.join(sourceRoot, "src", "split.md"),
         "---\ntype: reference\ndescription: boundary only\n---\n# Cross field\n",
       );
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {
@@ -446,7 +458,10 @@ describe("axm knowledge lifecycle", () => {
         "---\ntype: reference\ndescription: Second shared concept\n---\n# Shared\n",
       );
 
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {
@@ -652,7 +667,10 @@ describe("axm knowledge lifecycle", () => {
     try {
       const sourceRoot = path.join(temp.path, "knowledge-source");
       createKnowledgePackage(sourceRoot);
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
 
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       writeJson(settingsPath, {

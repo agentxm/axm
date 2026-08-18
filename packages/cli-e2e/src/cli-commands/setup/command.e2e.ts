@@ -7,12 +7,22 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
+const approvedProjectSetup = [
+  "setup",
+  "--yes",
+  "--scope",
+  "project",
+  "--agent",
+  "claude-code",
+  "--non-interactive",
+] as const;
+
 describe("axm setup", () => {
   describe("with --yes and --non-interactive", () => {
     it("creates settings file in .axm directory", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         // Should exit successfully
         expect(result.exitCode).toBe(0);
@@ -43,12 +53,12 @@ describe("axm setup", () => {
     it("supports an offline sync preview immediately after setup", async () => {
       const temp = createTempDir();
       try {
-        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
+        const setup = await runCli(approvedProjectSetup, {
           cwd: temp.path,
           env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
         });
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
-        fs.rmSync(path.join(temp.path, ".agents", "skills", "axm"), {
+        fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
           recursive: true,
           force: true,
         });
@@ -68,13 +78,10 @@ describe("axm setup", () => {
       const temp = createTempDir();
       try {
         const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
-        const setup = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
-          {
-            cwd: temp.path,
-            env,
-          },
-        );
+        const setup = await runCli(approvedProjectSetup, {
+          cwd: temp.path,
+          env,
+        });
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         const bundledSkillPath = path.join(
           temp.path,
@@ -98,7 +105,7 @@ describe("axm setup", () => {
     it("creates settings.json with detected agents", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -117,7 +124,7 @@ describe("axm setup", () => {
     it("creates lockfile", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
@@ -132,7 +139,7 @@ describe("axm setup", () => {
     it("outputs initialization message", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
         // Should indicate initialization occurred
@@ -148,10 +155,13 @@ describe("axm setup", () => {
       const temp = createTempDir();
       try {
         // First setup
-        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(approvedProjectSetup, { cwd: temp.path });
 
         // Second setup should succeed
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: temp.path },
+        );
 
         expect(result.exitCode).toBe(0);
       } finally {
@@ -163,7 +173,7 @@ describe("axm setup", () => {
       const temp = createTempDir();
       try {
         // First setup
-        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(approvedProjectSetup, { cwd: temp.path });
 
         // Get original settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -174,7 +184,10 @@ describe("axm setup", () => {
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         // Second setup
-        await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: temp.path },
+        );
 
         // Settings should not be modified
         const newContent = fs.readFileSync(settingsPath, "utf-8");
@@ -190,17 +203,17 @@ describe("axm setup", () => {
     it("does not change membership when rerun with a different explicit agent", async () => {
       const temp = createTempDir();
       try {
-        const first = await runCli(
-          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
-          { cwd: temp.path },
-        );
+        const first = await runCli(approvedProjectSetup, { cwd: temp.path });
         expect(first.exitCode, `${first.stderr}\n${first.stdout}`).toBe(0);
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const before = fs.readFileSync(settingsPath);
 
-        const second = await runCli(["setup", "--agent", "cursor", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        const second = await runCli(
+          ["setup", "--scope", "project", "--agent", "cursor", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         expect(second.exitCode, `${second.stderr}\n${second.stdout}`).toBe(0);
         expect(fs.readFileSync(settingsPath)).toEqual(before);
@@ -225,35 +238,57 @@ describe("axm setup", () => {
   });
 
   describe("--non-interactive flag", () => {
-    it("auto-selects detected agents without prompting", async () => {
+    it("requires approval, explicit scope, and agents before writing", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(["setup", "--non-interactive", "--json"], {
+          cwd: temp.path,
+        });
 
-        // Should succeed — non-interactive auto-selects all detected agents
-        expect(result.exitCode).toBe(0);
-
-        // Should create settings.json with agents
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        expect(fs.existsSync(settingsPath)).toBe(true);
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings).toHaveProperty("agents");
-        expect(Array.isArray(settings.agents)).toBe(true);
+        expect(result.exitCode).toBe(2);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          ok: false,
+          result: {
+            outcome: "failed",
+            reason: "approval-required",
+            errorCode: "usage",
+            status: "approval-required",
+            changed: false,
+          },
+        });
+        expect(fs.existsSync(path.join(temp.path, ".axm"))).toBe(false);
       } finally {
         temp.cleanup();
       }
     });
 
-    it("succeeds with both --yes and --non-interactive", async () => {
+    it("previews a runnable exact candidate without writing", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+        const result = await runCli(
+          ["setup", "--preview", "--scope", "project", "--json", "--non-interactive"],
+          { cwd: temp.path },
+        );
 
         expect(result.exitCode).toBe(0);
-
-        // Should create settings.json
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        expect(fs.existsSync(settingsPath)).toBe(true);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          ok: true,
+          result: {
+            outcome: "previewed",
+            status: "preview",
+            changed: false,
+            agents: expect.any(Array),
+            agentCandidates: expect.any(Array),
+            steps: expect.any(Array),
+          },
+          suggestions: [
+            expect.objectContaining({
+              description: "Apply setup",
+              cmd: expect.stringContaining("axm setup --yes --scope project --agent"),
+            }),
+          ],
+        });
+        expect(fs.existsSync(path.join(temp.path, ".axm"))).toBe(false);
       } finally {
         temp.cleanup();
       }

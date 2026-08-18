@@ -15,7 +15,9 @@ import { refreshAuthoredWorkspacePackState } from "../../../e2e/workspace-pack-s
 
 /** Set up a workspace with registry source and owner. */
 const setupWorkspace = async (tempPath: string, registryPath: string, owner: string) => {
-  await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: tempPath });
+  await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+    cwd: tempPath,
+  });
   const settingsPath = path.join(tempPath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];

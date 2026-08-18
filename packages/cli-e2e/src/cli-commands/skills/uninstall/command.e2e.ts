@@ -17,9 +17,12 @@ describe("axm skills uninstall", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "claude-code"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install a skill first
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
@@ -77,7 +80,7 @@ describe("axm skills uninstall", () => {
     it("removes symlink from agent directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -107,9 +110,12 @@ describe("axm skills uninstall", () => {
     it("shows no-op for literal name not in lockfile", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         const result = await runCli(["skills", "uninstall", "unknown-skill", "--yes"], {
           cwd: temp.path,
@@ -126,9 +132,12 @@ describe("axm skills uninstall", () => {
     it("exits successfully with no-op for nonexistent skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         const result = await runCli(["skills", "uninstall", "nonexistent", "--yes"], {
           cwd: temp.path,
@@ -146,7 +155,7 @@ describe("axm skills uninstall", () => {
     it("shows plan without making changes", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -185,9 +194,12 @@ describe("axm skills uninstall", () => {
     it("does not modify lockfile or settings", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -215,9 +227,12 @@ describe("axm skills uninstall", () => {
     it("shows uninstall plan with skill and agents", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -240,9 +255,12 @@ describe("axm skills uninstall", () => {
     it("shows summary with count", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -267,9 +285,12 @@ describe("axm skills uninstall", () => {
     it("skips confirmation prompt", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -300,9 +321,12 @@ describe("axm skills uninstall", () => {
     it("proceeds directly to uninstall", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
@@ -358,9 +382,12 @@ describe("axm skills uninstall", () => {
     it("removes only the specified skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install multiple skills
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
@@ -409,9 +436,12 @@ describe("axm skills uninstall", () => {
     it("cleans up empty skills directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install one skill
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {

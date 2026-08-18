@@ -149,7 +149,7 @@ const structuredPlanResult = (stdout: string): Record<string, unknown> => {
 };
 
 const initWorkspace = async (workspacePath: string, location: string) => {
-  const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
     cwd: workspacePath,
     env: registryEnv(location),
   });

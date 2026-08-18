@@ -12,9 +12,22 @@ describe("global directory flag", () => {
     const invoking = createTempDir("axm-directory-invoking-");
     const workspace = createTempDir("axm-directory-workspace-");
     try {
-      const setup = await runCli(["-C", workspace.path, "setup", "--yes", "--non-interactive"], {
-        cwd: invoking.path,
-      });
+      const setup = await runCli(
+        [
+          "-C",
+          workspace.path,
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--non-interactive",
+        ],
+        {
+          cwd: invoking.path,
+        },
+      );
 
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       expect(fs.existsSync(settingsPath(workspace.path))).toBe(true);
@@ -64,9 +77,22 @@ describe("global directory flag", () => {
       fs.writeFileSync(path.join(sourcePackage, "SKILL.md"), skillBody);
       fs.writeFileSync(path.join(sourcePackage, "src", "SKILL.md"), skillBody);
 
-      const setup = await runCli(["-C", workspace.path, "setup", "--yes", "--non-interactive"], {
-        cwd: invoking.path,
-      });
+      const setup = await runCli(
+        [
+          "-C",
+          workspace.path,
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--non-interactive",
+        ],
+        {
+          cwd: invoking.path,
+        },
+      );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
 
       const settings = JSON.parse(fs.readFileSync(settingsPath(workspace.path), "utf8"));
@@ -120,7 +146,19 @@ describe("global directory flag", () => {
     const second = createTempDir("axm-directory-second-");
     try {
       const duplicate = await runCli(
-        ["--directory", first.path, "-C", second.path, "setup", "--yes", "--non-interactive"],
+        [
+          "--directory",
+          first.path,
+          "-C",
+          second.path,
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--non-interactive",
+        ],
         { cwd: invoking.path },
       );
 
@@ -128,9 +166,12 @@ describe("global directory flag", () => {
       expect(fs.existsSync(settingsPath(first.path))).toBe(true);
       expect(fs.existsSync(settingsPath(second.path))).toBe(false);
 
-      const defaulted = await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: invoking.path,
-      });
+      const defaulted = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: invoking.path,
+        },
+      );
 
       expect(defaulted.exitCode, defaulted.stdout + defaulted.stderr).toBe(0);
       expect(fs.existsSync(settingsPath(invoking.path))).toBe(true);
@@ -145,7 +186,17 @@ describe("global directory flag", () => {
     const invoking = createTempDir("axm-directory-empty-");
     try {
       const result = await runCli(
-        ["--directory=", "setup", "--yes", "--non-interactive", "--json"],
+        [
+          "--directory=",
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--non-interactive",
+          "--json",
+        ],
         { cwd: invoking.path },
       );
 
@@ -168,7 +219,18 @@ describe("global directory flag", () => {
 
     try {
       const result = await runCli(
-        ["-C", selected, "setup", "--yes", "--non-interactive", "--json"],
+        [
+          "-C",
+          selected,
+          "setup",
+          "--yes",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--non-interactive",
+          "--json",
+        ],
         { cwd: invoking.path },
       );
 

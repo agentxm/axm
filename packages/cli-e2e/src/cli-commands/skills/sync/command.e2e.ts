@@ -14,7 +14,7 @@ describe("axm sync configured GitHub skills", () => {
   it("repairs a missing Codex projection from accepted canonical content without fetching", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "codex"], {
+      const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "codex"], {
         cwd: temp.path,
       });
       expect(setup.exitCode).toBe(0);

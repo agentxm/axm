@@ -39,7 +39,9 @@ describe("axm skills new", () => {
   it("scaffolds a new skill end-to-end", async () => {
     const { temp, settingsPath, readSettings } = setupWorkspace();
     try {
-      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureScope(settingsPath);
 
       const result = await runCli(["skills", "new", "my-skill", "--yes"], { cwd: temp.path });
@@ -96,7 +98,10 @@ describe("axm skills new", () => {
   it("respects --owner override", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureScope(settingsPath);
 
       const result = await runCli(["skills", "new", "my-skill", "--owner", "@custom", "--yes"], {
@@ -126,7 +131,10 @@ describe("axm skills new", () => {
   it("fails if skill already exists", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureScope(settingsPath);
 
       await runCli(["skills", "new", "dup-skill", "--yes"], { cwd: temp.path });
@@ -143,9 +151,12 @@ describe("axm skills new", () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
       // Init with multiple agents
-      await runCli(["setup", "--yes", "--agent", "claude-code", "--agent", "amp"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--agent", "amp"],
+        {
+          cwd: temp.path,
+        },
+      );
       configureScope(settingsPath);
 
       // Create skill targeting only claude-code via --agent

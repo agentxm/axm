@@ -141,7 +141,7 @@ describe("runWorkspaceTransaction", () => {
     );
   });
 
-  it.effect("removes the process-lock artifact after a failed first transition", () => {
+  it.effect("removes a newly created empty workspace after a failed first transition", () => {
     const absentWorkspaceDir = nodePath.join(tempDir, "new-workspace", ".axm");
     const createdPath = nodePath.join(absentWorkspaceDir, "settings.json");
     return withContext(
@@ -158,7 +158,7 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap(() =>
           Effect.sync(() => {
-            expect(nodeFs.readdirSync(absentWorkspaceDir)).toEqual([]);
+            expect(nodeFs.existsSync(absentWorkspaceDir)).toBe(false);
           }),
         ),
       ),

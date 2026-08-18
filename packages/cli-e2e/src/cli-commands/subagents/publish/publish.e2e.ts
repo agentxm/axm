@@ -60,7 +60,10 @@ describe("axm subagents publish", () => {
     const registryDir = createTempDir("axm-registry-");
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
       createManagedSubagent(temp.path, "@test", "researcher", "1.0.0");
 

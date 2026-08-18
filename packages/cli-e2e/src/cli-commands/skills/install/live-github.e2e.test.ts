@@ -57,7 +57,13 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
   it("installs quality.md into a temporary workspace and materializes configured agents", async () => {
     const temp = createTempDir("axm-quality-md-live-");
     try {
-      const setupArgs = ["setup", "--yes", ...AGENTS.flatMap((agent) => ["--agent", agent])];
+      const setupArgs = [
+        "setup",
+        "--yes",
+        "--scope",
+        "project",
+        ...AGENTS.flatMap((agent) => ["--agent", agent]),
+      ];
       const setupResult = await runCli(setupArgs, {
         cwd: temp.path,
         timeout: 60000,

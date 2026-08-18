@@ -23,7 +23,7 @@ describe("atomic agent membership lifecycle", () => {
     const temp = createTempDir("axm-agent-membership-");
     try {
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
@@ -83,9 +83,12 @@ describe("atomic agent membership lifecycle", () => {
   it("preserves unowned files while removing AXM-managed artifacts", async () => {
     const temp = createTempDir("axm-agent-membership-unowned-");
     try {
-      const setup = await runCli(["setup", "--agent", "opencode", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
+      const setup = await runCli(
+        ["setup", "--scope", "project", "--agent", "opencode", "--yes", "--non-interactive"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
       const manualSkill = path.join(temp.path, ".opencode", "skills", "manual", "SKILL.md");
       fs.mkdirSync(path.dirname(manualSkill), { recursive: true });

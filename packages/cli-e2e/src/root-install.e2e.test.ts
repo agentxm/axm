@@ -94,7 +94,9 @@ const configureWorkspaceEntries = (
 };
 
 const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
+  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+    cwd: workspacePath,
+  });
   // Assert here rather than letting the next line fail: a setup that died
   // leaves no settings.json, and the resulting ENOENT surfaces several frames
   // away with setup's stderr already discarded — which reads like workspace

@@ -245,6 +245,13 @@ export const runWorkspaceTransaction = <A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspaceDir = path.resolve(args.workspaceDir);
+    const workspaceExisted = yield* fs
+      .exists(workspaceDir)
+      .pipe(
+        Effect.mapError((error) =>
+          transactionError(`Failed to inspect workspace state directory ${workspaceDir}`, error),
+        ),
+      );
 
     return yield* args.semaphore.withPermits(1)(
       Effect.gen(function* () {
@@ -256,6 +263,16 @@ export const runWorkspaceTransaction = <A, E, R>(
             ),
           );
         const lockPath = path.join(workspaceDir, TRANSACTION_LOCK_FILENAME);
+        const removeNewEmptyWorkspace = workspaceExisted
+          ? Effect.void
+          : fs.readDirectory(workspaceDir).pipe(
+              Effect.flatMap((entries) =>
+                entries.length === 0
+                  ? fs.remove(workspaceDir, { recursive: true, force: false })
+                  : Effect.void,
+              ),
+              Effect.ignore,
+            );
         return yield* Effect.scoped(
           Effect.gen(function* () {
             yield* acquireWorkspaceLock(workspaceDir, lockPath);
@@ -318,7 +335,7 @@ export const runWorkspaceTransaction = <A, E, R>(
               Effect.uninterruptible,
             );
           }),
-        );
+        ).pipe(Effect.ensuring(removeNewEmptyWorkspace));
       }),
     );
   });

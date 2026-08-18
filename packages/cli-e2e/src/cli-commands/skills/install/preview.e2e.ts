@@ -22,9 +22,12 @@ describe("axm skills install --preview integration", () => {
       const temp = createTempDir();
       try {
         // Initialize first
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Run preview without --yes (non-interactive mode prevents confirmation)
         const previewResult = await runCli(
@@ -60,9 +63,12 @@ describe("axm skills install --preview integration", () => {
     it("running preview multiple times produces consistent results", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Run preview twice (without --json)
         const result1 = await runCli(

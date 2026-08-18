@@ -11,7 +11,10 @@ describe("fork and native import", () => {
   it("imports without replacing native content, then forks the managed package", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stderr).toBe(0);
 
       const nativeDir = path.join(temp.path, ".agents", "skills", "native-review");
@@ -95,7 +98,10 @@ describe("fork and native import", () => {
         path.join(nativeDir, "SKILL.md"),
         "---\nname: native-review\ndescription: Review code\n---\n\nNative instructions.\n",
       );
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stderr).toBe(0);
 
       const preview = await runCli(
@@ -128,7 +134,10 @@ describe("fork and native import", () => {
         path.join(temp.path, ".mcp.json"),
         `${JSON.stringify(nativeConfig, null, 2)}\n`,
       );
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stderr).toBe(0);
 
       const imported = await runCli(

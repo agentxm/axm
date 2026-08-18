@@ -35,7 +35,7 @@ describe("AXM skill compatibility lifecycle", () => {
     try {
       const env = { DO_NOT_TRACK: "1" };
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: temp.path, env },
       );
       expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
@@ -74,7 +74,7 @@ describe("AXM skill compatibility lifecycle", () => {
       initializeGit(temp.path);
       const env = { DO_NOT_TRACK: "1" };
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: temp.path, env },
       );
       expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);

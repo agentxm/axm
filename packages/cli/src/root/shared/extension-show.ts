@@ -46,6 +46,7 @@ import { commandForScope } from "./scoped-command.js";
 const ShowAgentSchema = Schema.Struct({
   agent: Schema.String,
   status: Schema.String,
+  reasonCode: Schema.String,
   path: Schema.optionalKey(Schema.String),
   fields: Schema.Array(Schema.String),
   warnings: Schema.Array(Schema.String),
@@ -204,11 +205,15 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         })
       : null;
 
-  let agents: ReadonlyArray<ShowAgent> = (inventoryRow?.agents ?? []).map((agent) => ({
-    agent,
-    status: "present",
+  let agents: ReadonlyArray<ShowAgent> = (inventoryRow?.agentOutcomes ?? []).map((outcome) => ({
+    agent: outcome.agentId,
+    status: outcome.outcome,
+    reasonCode: outcome.reasonCode,
+    ...(outcome.path === undefined ? {} : { path: outcome.path }),
     fields: [],
     warnings: [],
+    reason:
+      outcome.mechanism === undefined ? outcome.reason : `${outcome.mechanism}: ${outcome.reason}`,
   }));
 
   if (args.type === "mcp-server") {
@@ -225,7 +230,15 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       });
       agents = inspections.map((inspection) => ({
         agent: inspection.agentId,
-        status: inspection.status,
+        status:
+          inspection.status === "match"
+            ? "current"
+            : inspection.status === "not-applicable"
+              ? "not-applicable"
+              : inspection.status === "unsupported"
+                ? "unsupported"
+                : "failed",
+        reasonCode: `mcp-${inspection.status}`,
         path: inspection.path,
         fields: [...inspection.fields],
         warnings: [...inspection.warnings],
@@ -237,16 +250,17 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   if (args.type === "hook" && enabled !== false && inventoryRow !== undefined) {
     const manager = yield* Effect.serviceOption(HookManager);
     if (Option.isSome(manager) && manager.value.configuredAgentOutcomes !== undefined) {
-      const outcomes = (yield* manager.value.configuredAgentOutcomes()).filter(
+      const outcomes = (yield* manager.value.configuredAgentOutcomes("current")).filter(
         ({ name }) => name === args.name,
       );
-      agents = outcomes.map(({ agent, outcome, path, reason }) => ({
-        agent,
+      agents = outcomes.map(({ agentId, outcome, reasonCode, mechanism, path, reason }) => ({
+        agent: agentId,
         status: outcome,
+        reasonCode,
         ...(path === undefined ? {} : { path }),
         fields: [],
         warnings: [],
-        reason,
+        reason: mechanism === undefined ? reason : `${mechanism}: ${reason}`,
       }));
     }
   }
@@ -286,13 +300,14 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         agent: agent.agent,
         status: agent.status,
         path: agent.path ?? "",
-        detail:
+        detail: `${agent.reasonCode}: ${
           agent.reason ??
-          (agent.status === "drift"
+          (agent.fields.length > 0
             ? agent.fields.join(", ")
             : agent.warnings.length > 0
               ? agent.warnings.join("; ")
-              : ""),
+              : "no additional detail")
+        }`,
       })),
       AgentTable,
       "Agent placements",

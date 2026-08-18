@@ -385,7 +385,7 @@ const instructionOutcome = (
       });
 };
 
-const categoryOutcomes = (
+export const setupScopeSupportOutcomes = (
   type: ExtensionType,
   agentIds: ReadonlyArray<string>,
   scope: WorkspaceScope,
@@ -433,5 +433,5 @@ export const setupScopeSupport = (
     type,
     label: extensionTypeLabels[type],
     placement: EXTENSION_TYPE_TABLE[type].placement,
-    outcomes: categoryOutcomes(type, agentIds, scope),
+    outcomes: setupScopeSupportOutcomes(type, agentIds, scope),
   }));

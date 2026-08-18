@@ -790,6 +790,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ],
     ),
     args.force ? ["ignore-version-constraints"] : [],
+    [
+      ...new Set(
+        args.skills.length > 0
+          ? args.skills
+          : plan.jobs.flatMap((job) =>
+              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
+            ),
+      ),
+    ].map((name) => ({ extensionType: "skill", name, targetEnabled: true })),
   );
   const publisherOwnershipChanged = [...warningsBySkill.values()].some((warnings) =>
     warnings.some((warning) => warning.startsWith("Publisher identity changed")),

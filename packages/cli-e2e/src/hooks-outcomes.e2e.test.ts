@@ -26,6 +26,9 @@ const agentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, un
   });
 };
 
+const outcomeDecisions = (stdout: string) =>
+  agentOutcomes(stdout).map(({ outcome: _outcome, ...decision }) => decision);
+
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   const snapshot: Record<string, string> = {};
   const visit = (directory: string): void => {
@@ -88,8 +91,12 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
-      expect(humanPreview.stdout + humanPreview.stderr).toContain("claude-code: native");
-      expect(humanPreview.stdout + humanPreview.stderr).toContain("windsurf: advisory-fallback");
+      expect(humanPreview.stdout + humanPreview.stderr).toContain(
+        "claude-code: projected (native)",
+      );
+      expect(humanPreview.stdout + humanPreview.stderr).toContain(
+        "windsurf: projected (advisory-fallback)",
+      );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
         ["hooks", "install", observational, "--preview", "--json", "--non-interactive"],
@@ -98,8 +105,13 @@ describe("hook configured-agent outcomes", () => {
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       expect(agentOutcomes(preview.stdout)).toMatchObject([
-        { name: "audit", agent: "claude-code", outcome: "native" },
-        { name: "audit", agent: "windsurf", outcome: "advisory-fallback" },
+        { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
+        {
+          name: "audit",
+          agentId: "windsurf",
+          outcome: "projected",
+          mechanism: "advisory-fallback",
+        },
       ]);
 
       const applied = await runCli(
@@ -107,7 +119,16 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
-      expect(agentOutcomes(applied.stdout)).toEqual(agentOutcomes(preview.stdout));
+      expect(agentOutcomes(applied.stdout)).toMatchObject([
+        { name: "audit", agentId: "claude-code", outcome: "current", mechanism: "native" },
+        {
+          name: "audit",
+          agentId: "windsurf",
+          outcome: "current",
+          mechanism: "advisory-fallback",
+        },
+      ]);
+      expect(outcomeDecisions(applied.stdout)).toEqual(outcomeDecisions(preview.stdout));
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
         "managed advisory rule",
       );
@@ -118,8 +139,12 @@ describe("hook configured-agent outcomes", () => {
       expect(shown).toMatchObject({
         result: {
           agents: [
-            { agent: "claude-code", status: "native" },
-            { agent: "windsurf", status: "advisory-fallback" },
+            { agent: "claude-code", status: "current", reason: expect.stringContaining("native") },
+            {
+              agent: "windsurf",
+              status: "current",
+              reason: expect.stringContaining("advisory-fallback"),
+            },
           ],
         },
       });
@@ -133,9 +158,11 @@ describe("hook configured-agent outcomes", () => {
         cwd: temp.path,
       });
       expect(humanSyncPreview.exitCode, humanSyncPreview.stdout + humanSyncPreview.stderr).toBe(0);
-      expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain("claude-code: native");
       expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
-        "windsurf: advisory-fallback",
+        "claude-code: projected (native)",
+      );
+      expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
+        "windsurf: projected (advisory-fallback)",
       );
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       const syncPreview = await runCli(["sync", "--preview", "--json", "--non-interactive"], {
@@ -143,13 +170,16 @@ describe("hook configured-agent outcomes", () => {
       });
       expect(syncPreview.exitCode, syncPreview.stdout + syncPreview.stderr).toBe(0);
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
-      expect(agentOutcomes(syncPreview.stdout)).toEqual(agentOutcomes(preview.stdout));
+      expect(outcomeDecisions(syncPreview.stdout)).toEqual(outcomeDecisions(preview.stdout));
 
       const syncApply = await runCli(["sync", "--json", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(syncApply.exitCode, syncApply.stdout + syncApply.stderr).toBe(0);
-      expect(agentOutcomes(syncApply.stdout)).toEqual(agentOutcomes(syncPreview.stdout));
+      expect(agentOutcomes(syncApply.stdout).every(({ outcome }) => outcome === "current")).toBe(
+        true,
+      );
+      expect(outcomeDecisions(syncApply.stdout)).toEqual(outcomeDecisions(syncPreview.stdout));
 
       const blocked = writeHook(temp.path, "enforce", [
         { on: "tool.pre", requires: { decision: { kind: "block" } } },
@@ -161,7 +191,7 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(blockedApply.exitCode).not.toBe(0);
       expect(agentOutcomes(blockedApply.stdout)).toContainEqual(
-        expect.objectContaining({ name: "enforce", agent: "windsurf", outcome: "blocked" }),
+        expect.objectContaining({ name: "enforce", agentId: "windsurf", outcome: "blocked" }),
       );
       expect(snapshotTree(temp.path)).toEqual(beforeBlocked);
     } finally {

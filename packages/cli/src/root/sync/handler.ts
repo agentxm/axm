@@ -1287,7 +1287,9 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   if (!projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncPlanRequirements>>();
   const agentOutcomes =
-    manager.configuredAgentOutcomes === undefined ? [] : yield* manager.configuredAgentOutcomes();
+    manager.configuredAgentOutcomes === undefined
+      ? []
+      : yield* manager.configuredAgentOutcomes("projected");
   const artifact = {
     path: "managed hook projections",
     scope: ws.scope,
@@ -1301,7 +1303,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
       label: projectionDivergenceLabel("managed hook projections", facts),
       readiness: "error",
       errorMessage: blocked
-        .map(({ name, agent, reason }) => `${name} for ${agent}: ${reason}`)
+        .map(({ name, agentId, reason }) => `${name} for ${agentId}: ${reason}`)
         .join("; "),
       artifact,
     });
@@ -1311,13 +1313,18 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
     label: projectionDivergenceLabel("managed hook projections", facts),
     readiness: "ready",
     artifact,
-    run: applyPlannedProjections(manager).pipe(
-      Effect.as({
+    run: Effect.gen(function* () {
+      yield* applyPlannedProjections(manager);
+      const currentOutcomes =
+        manager.configuredAgentOutcomes === undefined
+          ? []
+          : yield* manager.configuredAgentOutcomes("current");
+      return {
         result: "success",
         message: "Reconciled managed hook entries and the fallback region",
-        artifact,
-      } satisfies JobStepResult),
-    ),
+        artifact: { ...artifact, agentOutcomes: currentOutcomes },
+      } satisfies JobStepResult;
+    }),
   });
 });
 

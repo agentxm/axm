@@ -17,6 +17,7 @@ import { exemptedObligations } from "../src/unstable/extension-types/parity/exem
 import { EXTENSION_LIFECYCLE_CONTRACT } from "../src/unstable/extension-types/parity/lifecycle.js";
 import { obligationsVerifiedBy } from "../src/unstable/extension-types/parity/obligations.js";
 import { EXTENSION_TYPE_TABLE, extensionTypes } from "../src/unstable/extensions/common.js";
+import { EXTENSION_CONFIGURED_AGENT_POLICY } from "../src/unstable/workspace/configured-agent-outcomes.js";
 
 const CORE_ROOT = path.join(import.meta.dirname, "..");
 const OUTPUT_PATH = path.join(CORE_ROOT, "../cli-e2e/src/__generated__/extension-type-matrix.ts");
@@ -42,6 +43,7 @@ const rows = extensionTypes.map((type) => {
     scopeSupport: lifecycle.scopeSupport,
     updateSelection: lifecycle.updateSelection,
     activationConfirmation: lifecycle.activationConfirmation,
+    configuredAgentPolicy: EXTENSION_CONFIGURED_AGENT_POLICY[type].kind,
     e2eObligations,
     e2eExemptions: e2eExemptions[type] ?? [],
   };
@@ -61,6 +63,7 @@ const rowEntries = rows
     scopeSupport: ${JSON.stringify(row.scopeSupport)},
     updateSelection: ${JSON.stringify(row.updateSelection)},
     activationConfirmation: ${JSON.stringify(row.activationConfirmation)},
+    configuredAgentPolicy: ${JSON.stringify(row.configuredAgentPolicy)},
     e2eObligations: ${JSON.stringify(row.e2eObligations)},
     e2eExemptions: ${JSON.stringify(row.e2eExemptions)},
   },`,

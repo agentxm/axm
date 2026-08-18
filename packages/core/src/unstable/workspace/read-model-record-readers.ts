@@ -10,8 +10,9 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
 import { installableExtensionTypes, type InstallableExtensionType } from "../extensions/index.js";
-import { isAxmManagedMcpEntry } from "../mcps/index.js";
+import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "../mcps/index.js";
 import { createDefaultSettings } from "../settings/index.js";
+import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
 import {
@@ -486,112 +487,177 @@ export const makeReadModelRecordReaders = (args: {
           const settingsOption = yield* scoped.state.settings;
           const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
           const agents = options.agents ?? [];
+          const configuredAgents = settings.agents ?? [];
+          const finalizeInventory = (inventory: ExtensionInventory): ExtensionInventory => {
+            const withOutcomes = inventory.items.map((row) => {
+              const mcpEntry =
+                row.type === "mcp-server" ? settings.mcpServers?.[row.name] : undefined;
+              return {
+                ...row,
+                agentOutcomes:
+                  row.classification.lifecycle === "unmanaged"
+                    ? []
+                    : configuredAgentLifecycleOutcomes({
+                        type: row.type,
+                        name: row.name,
+                        agentIds: configuredAgents,
+                        scope: row.scope,
+                        state: "current",
+                        enabled: row.enabled !== false,
+                        installed: row.installed,
+                        observedAgentIds: row.agents,
+                        ...(mcpEntry === undefined
+                          ? {}
+                          : {
+                              applicableAgentIds: configuredAgents.filter((agentId) =>
+                                isMcpServerApplicableToAgent(mcpEntry, agentId),
+                              ),
+                            }),
+                      }),
+              };
+            });
+            const items = withOutcomes.filter(
+              (row) =>
+                agents.length === 0 ||
+                agents.some(
+                  (agentId) =>
+                    row.agents.includes(agentId) ||
+                    row.agentOutcomes.some((outcome) => outcome.agentId === agentId),
+                ),
+            );
+            return {
+              items,
+              count: items.length,
+              configuredCount: items.filter(
+                (item) => item.classification.lifecycle === "configured",
+              ).length,
+              implicitCount: items.filter((item) => item.classification.lifecycle === "implicit")
+                .length,
+              installedCount: items.filter((item) => item.installed).length,
+              unmanagedCount: items.filter((item) => item.classification.lifecycle === "unmanaged")
+                .length,
+            };
+          };
 
           switch (type) {
             case "skill": {
               const installed = yield* scoped.skills.installed;
               const resolved = yield* scoped.skills.resolved;
               const unmanaged = yield* scoped.skills.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "mcp-server": {
               const installed = yield* scoped.mcpServers.installed;
               const resolved = yield* scoped.mcpServers.resolved;
               const unmanaged = yield* scoped.mcpServers.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "subagent": {
               const installed = yield* scoped.subagents.installed;
               const resolved = yield* scoped.subagents.resolved;
               const unmanaged = yield* scoped.subagents.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "pack": {
               const installed = yield* scoped.packs.installed;
               const resolved = yield* scoped.packs.resolved;
               const unmanaged = yield* scoped.packs.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "rule": {
               const installed = yield* scoped.rules.installed;
               const resolved = yield* scoped.rules.resolved;
               const unmanaged = yield* scoped.rules.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "hook": {
               const installed = yield* scoped.hooks.installed;
               const resolved = yield* scoped.hooks.resolved;
               const unmanaged = yield* scoped.hooks.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
             case "knowledge": {
               const installed = yield* scoped.knowledge.installed;
               const resolved = yield* scoped.knowledge.resolved;
               const unmanaged = yield* scoped.knowledge.unmanaged;
-              return projectStandardInventory({
-                scope: scoped.scope,
-                type,
-                installed,
-                resolved: Option.getOrElse(resolved, () => []),
-                unmanaged,
-                agents,
-                configuredAgents: settings.agents ?? [],
-                packMemberNames,
-              });
+              return finalizeInventory(
+                projectStandardInventory({
+                  scope: scoped.scope,
+                  type,
+                  installed,
+                  resolved: Option.getOrElse(resolved, () => []),
+                  unmanaged,
+                  agents: [],
+                  configuredAgents,
+                  packMemberNames,
+                }),
+              );
             }
           }
         }),

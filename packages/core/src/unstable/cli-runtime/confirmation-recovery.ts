@@ -1,5 +1,12 @@
 import type { SuggestedAction } from "./suggested-action.js";
 import type { PlanPolicyId } from "../plan/plan.js";
+import type { ExtensionType } from "../extensions/common.js";
+
+export interface ConfiguredAgentOperation {
+  readonly extensionType: ExtensionType;
+  readonly name: string;
+  readonly targetEnabled: boolean;
+}
 
 export type ConfirmationRecoveryValue =
   | { readonly _tag: "Public"; readonly value: string }
@@ -26,10 +33,14 @@ export type PlanExecutionRequest =
 
 /** Invocation-scoped policy input plus safe replay metadata for approval recovery. */
 export type PlanExecution =
-  | { readonly request: { readonly mode: "preview" } }
+  | {
+      readonly request: { readonly mode: "preview" };
+      readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+    }
   | {
       readonly request: Extract<PlanExecutionRequest, { readonly mode: "apply" }>;
       readonly approvalRecovery: ConfirmationRecovery;
+      readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
     };
 
 export const previewPlanExecution: PlanExecution = { request: { mode: "preview" } };
@@ -38,6 +49,7 @@ export const applyPlanExecution = (options: {
   readonly approval: "prompt-if-interactive" | "preapproved";
   readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
   readonly recovery: ConfirmationRecovery;
+  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
 }): PlanExecution => ({
   request: {
     mode: "apply",
@@ -45,6 +57,9 @@ export const applyPlanExecution = (options: {
     acceptedPolicies: options.acceptedPolicies ?? new Set(),
   },
   approvalRecovery: options.recovery,
+  ...(options.configuredAgentOperations === undefined
+    ? {}
+    : { configuredAgentOperations: options.configuredAgentOperations }),
 });
 
 const emptyRecovery: ConfirmationRecovery = { command: [], arguments: [] };

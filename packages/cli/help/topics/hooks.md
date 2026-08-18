@@ -95,11 +95,16 @@ that requirement.
 
 Install and sync plans report the effective result for every configured agent:
 
-- `native` writes a supported agent-native hook integration.
-- `advisory-fallback` represents an observational hook in AXM's managed
-  instruction region when no usable native writer or binding exists.
+- `projected` means preview selected a behavior-preserving projection.
+- `current` means apply or inspection confirmed that projection.
 - `blocked` means neither native integration nor an allowed behavior-preserving
   fallback can satisfy the hook. A blocked plan performs no writes.
+
+The separate `mechanism` field explains how a projected or current hook is
+realized: `native` writes an agent-native hook integration, while
+`advisory-fallback` represents an observational hook in AXM's managed
+instruction region. Every outcome also carries a stable `reasonCode` and a
+human-readable reason.
 
 Preview and apply use the same reconciliation decision. Run
 `axm hooks show <name>` to inspect the current per-agent outcomes and reasons.

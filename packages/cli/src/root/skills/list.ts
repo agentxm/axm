@@ -10,11 +10,13 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryActivation,
+  inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -31,6 +33,7 @@ interface SkillListItem {
   readonly state: string;
   readonly activation: string;
   readonly agents: ReadonlyArray<string>;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 const SkillListTable = {
@@ -43,6 +46,7 @@ const SkillListTable = {
       header: "Agents",
       render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
     },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<SkillListItem>;
 
@@ -68,6 +72,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     state: inventoryState(row),
     activation: inventoryActivation(row),
     agents: row.agents,
+    agentOutcomes: row.agentOutcomes,
   }));
   const output = augmentInventory(inventory, (row) => ({
     sourceType: locked[row.name]?.type ?? "detected",

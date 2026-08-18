@@ -161,6 +161,7 @@ const StepSchema = Schema.Struct({
   code: Schema.optional(Schema.String),
   error: Schema.optional(StepErrorSchema),
   artifact: Schema.optional(StepArtifactSchema),
+  agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   registryLifecycle: Schema.optional(
     Schema.Struct({
       deprecation: DeprecationViewSchema,
@@ -1006,6 +1007,7 @@ const plannedStepToStep = (
     step.artifact === undefined ? {} : { artifact: artifactForJson(step.artifact, options) };
   const lifecycle =
     step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle };
+  const outcomes = step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes };
   switch (step.readiness) {
     case "ready":
       return {
@@ -1013,6 +1015,7 @@ const plannedStepToStep = (
         status: "ready",
         ...(step.message !== undefined && step.message.length > 0 ? { message: step.message } : {}),
         ...artifact,
+        ...outcomes,
         ...lifecycle,
       };
     case "warn":
@@ -1021,6 +1024,7 @@ const plannedStepToStep = (
         status: "warning",
         message: step.warnMessage,
         ...artifact,
+        ...outcomes,
         ...lifecycle,
       };
     case "error":
@@ -1029,6 +1033,7 @@ const plannedStepToStep = (
         status: "error",
         message: step.errorMessage,
         ...artifact,
+        ...outcomes,
         ...lifecycle,
       };
   }
@@ -1046,6 +1051,7 @@ const completedStepToStep = (
       ...(step.registryLifecycle === undefined
         ? {}
         : { registryLifecycle: step.registryLifecycle }),
+      ...(step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes }),
       ...(step.result.message.length > 0
         ? { message: redactSensitiveText(step.result.message) }
         : {}),
@@ -1073,6 +1079,7 @@ const completedStepToStep = (
       ? { message: redactSensitiveText(step.result.message) }
       : {}),
     code,
+    ...(step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes }),
     ...(includeErrorDetails
       ? {
           error: {

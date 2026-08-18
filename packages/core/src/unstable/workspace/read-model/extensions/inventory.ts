@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../../../extensions/common.js";
+import { ConfiguredAgentOutcomeSchema, type ConfiguredAgentOutcome } from "../../../plan/plan.js";
 import type { ExtensionKey } from "../types.js";
 
 export const ExtensionInventoryLifecycleSchema = Schema.Literals([
@@ -25,6 +26,7 @@ export const ExtensionInventoryRowSchema = Schema.Struct({
   enabled: Schema.NullOr(Schema.Boolean),
   installed: Schema.Boolean,
   agents: Schema.Array(Schema.String),
+  agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
   origins: Schema.Array(Schema.String),
   paths: Schema.Array(Schema.String),
   source: Schema.optionalKey(Schema.String),
@@ -60,6 +62,7 @@ export interface LifecycleInventoryCandidate extends ExtensionInventoryObservati
   readonly lifecycle: ExtensionInventoryLifecycle;
   readonly enabled: boolean | null;
   readonly installed: boolean;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 export interface ProjectExtensionInventoryInput {
@@ -73,6 +76,7 @@ interface MutableInventoryAggregate {
   enabled: boolean | null;
   installed: boolean;
   readonly agents: Set<string>;
+  readonly agentOutcomes: Map<string, ConfiguredAgentOutcome>;
   readonly origins: Set<string>;
   readonly paths: Set<string>;
 }
@@ -111,6 +115,9 @@ export const projectExtensionInventory = (
         enabled: candidate.enabled,
         installed: candidate.installed,
         agents: new Set(candidate.agents ?? []),
+        agentOutcomes: new Map(
+          (candidate.agentOutcomes ?? []).map((outcome) => [outcome.agentId, outcome]),
+        ),
         origins: new Set(candidate.origins ?? []),
         paths: new Set(candidate.paths ?? []),
       };
@@ -124,6 +131,9 @@ export const projectExtensionInventory = (
     }
     existing.installed = existing.installed || candidate.installed;
     addAll(existing.agents, candidate.agents);
+    for (const outcome of candidate.agentOutcomes ?? []) {
+      existing.agentOutcomes.set(outcome.agentId, outcome);
+    }
     addAll(existing.origins, candidate.origins);
     addAll(existing.paths, candidate.paths);
   }
@@ -139,6 +149,9 @@ export const projectExtensionInventory = (
       enabled: aggregate.enabled,
       installed: aggregate.installed,
       agents: sorted(aggregate.agents),
+      agentOutcomes: Array.from(aggregate.agentOutcomes.values()).sort((left, right) =>
+        left.agentId.localeCompare(right.agentId),
+      ),
       origins: sorted(aggregate.origins),
       paths: sorted(aggregate.paths),
     }));

@@ -17,9 +17,15 @@ import {
   recoverySwitch,
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
+  type ConfiguredAgentOperation,
   type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import type { PlanPolicyId } from "@agentxm/client-core/unstable/plan";
+import {
+  isExtensionTypePlural,
+  parseExtensionSpecParts,
+  toExtensionType,
+} from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 export const makeConfirmationRecovery = (
@@ -60,8 +66,13 @@ export const makePlanExecution = (
   flags: { readonly yes: boolean; readonly preview: boolean },
   recovery: ConfirmationRecovery,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
+  configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>,
 ): Effect.Effect<PlanExecution> => {
-  if (flags.preview) return Effect.succeed(previewPlanExecution);
+  if (flags.preview)
+    return Effect.succeed({
+      ...previewPlanExecution,
+      ...(configuredAgentOperations === undefined ? {} : { configuredAgentOperations }),
+    });
   return Effect.map(explicitGlobalArguments, (globalArguments) =>
     applyPlanExecution({
       approval: flags.yes ? "preapproved" : "prompt-if-interactive",
@@ -70,8 +81,32 @@ export const makePlanExecution = (
         ...recovery,
         arguments: [...recovery.arguments, ...globalArguments],
       },
+      ...(configuredAgentOperations === undefined ? {} : { configuredAgentOperations }),
     }),
   );
+};
+
+const configuredAgentOperation = (
+  command: ReadonlyArray<string>,
+  name: string | undefined,
+): ConfiguredAgentOperation | undefined => {
+  const [group, verb] = command;
+  if (
+    name === undefined ||
+    !isExtensionTypePlural(group) ||
+    (verb !== "install" &&
+      verb !== "update" &&
+      verb !== "enable" &&
+      verb !== "disable" &&
+      verb !== "uninstall")
+  ) {
+    return undefined;
+  }
+  return {
+    extensionType: toExtensionType(group),
+    name,
+    targetEnabled: verb !== "disable" && verb !== "uninstall",
+  };
 };
 
 export const makePublicPositionalPlanExecution = (
@@ -87,6 +122,9 @@ export const makePublicPositionalPlanExecution = (
       positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ),
     acceptedPolicies,
+    [configuredAgentOperation(command, positionals[0])].filter(
+      (operation): operation is ConfiguredAgentOperation => operation !== undefined,
+    ),
   );
 
 export const makeInstallPlanExecution = (
@@ -114,4 +152,19 @@ export const makeUninstallPlanExecution = (
     makeConfirmationRecovery(command, [
       ...positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ]),
+    [],
+    (() => {
+      const rootParts =
+        command[0] === "uninstall" ? parseExtensionSpecParts(positionals[0] ?? "") : undefined;
+      return [
+        configuredAgentOperation(command, positionals[0]),
+        rootParts === undefined
+          ? undefined
+          : {
+              extensionType: rootParts.type,
+              name: rootParts.name,
+              targetEnabled: false,
+            },
+      ].filter((operation): operation is ConfiguredAgentOperation => operation !== undefined);
+    })(),
   );

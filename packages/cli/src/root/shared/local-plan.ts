@@ -1,5 +1,8 @@
 import * as Effect from "effect/Effect";
-import type { ConfirmationRecovery } from "@agentxm/client-core/unstable/cli-runtime";
+import type {
+  ConfirmationRecovery,
+  ConfiguredAgentOperation,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import {
   previewOrApplyPlan,
   type Plan,
@@ -13,6 +16,7 @@ export interface LocalPlanFlags {
   readonly displayApplied?: boolean;
   readonly recovery?: ConfirmationRecovery;
   readonly acceptedPolicies?: ReadonlyArray<PlanPolicyId>;
+  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
 }
 
 export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(function* (
@@ -23,6 +27,7 @@ export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(func
     { preview: flags.preview, yes: flags.yes ?? false },
     flags.recovery ?? { command: [], arguments: [] },
     flags.acceptedPolicies ?? [],
+    flags.configuredAgentOperations,
   );
   return yield* previewOrApplyPlan(plan, {
     execution,

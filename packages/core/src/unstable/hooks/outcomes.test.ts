@@ -35,14 +35,24 @@ const target = { nativePath: ".claude/settings.json", fallbackPath: "AGENTS.md" 
 describe("evaluateHookAgentOutcome", () => {
   it("reports native when every binding is supported", () => {
     expect(
-      evaluateHookAgentOutcome({ agent: agentById("claude-code"), manifest: manifest(), target }),
-    ).toMatchObject({ outcome: "native", path: ".claude/settings.json" });
+      evaluateHookAgentOutcome({
+        agent: agentById("claude-code"),
+        manifest: manifest(),
+        target,
+        state: "projected",
+      }),
+    ).toMatchObject({ outcome: "projected", mechanism: "native", path: ".claude/settings.json" });
   });
 
   it("reports advisory fallback for observational hooks without a usable writer", () => {
     expect(
-      evaluateHookAgentOutcome({ agent: agentById("windsurf"), manifest: manifest(), target }),
-    ).toMatchObject({ outcome: "advisory-fallback", path: "AGENTS.md" });
+      evaluateHookAgentOutcome({
+        agent: agentById("windsurf"),
+        manifest: manifest(),
+        target,
+        state: "current",
+      }),
+    ).toMatchObject({ outcome: "current", mechanism: "advisory-fallback", path: "AGENTS.md" });
   });
 
   it("blocks when fallback is forbidden", () => {
@@ -51,6 +61,7 @@ describe("evaluateHookAgentOutcome", () => {
         agent: agentById("windsurf"),
         manifest: manifest({ fallback: "none" }),
         target,
+        state: "projected",
       }),
     ).toMatchObject({ outcome: "blocked" });
   });
@@ -61,6 +72,7 @@ describe("evaluateHookAgentOutcome", () => {
         agent: agentById("windsurf"),
         manifest: manifest({ decision: "block" }),
         target,
+        state: "projected",
       }),
     ).toMatchObject({ outcome: "blocked" });
   });

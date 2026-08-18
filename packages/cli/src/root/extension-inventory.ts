@@ -1,4 +1,5 @@
 import type { CliRenderer, TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import type {
   ExtensionInventory,
   ExtensionInventoryRow,
@@ -9,13 +10,27 @@ export const inventoryState = (row: ExtensionInventoryRow): string => row.classi
 export const inventoryActivation = (row: ExtensionInventoryRow): string =>
   row.enabled === null ? "n/a" : row.enabled ? "enabled" : "disabled";
 
+export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOutcome>): string =>
+  outcomes.length === 0
+    ? "none"
+    : outcomes.map(({ agentId, outcome }) => `${agentId}:${outcome}`).join(", ");
+
 /**
  * Row fields a list command fills in from its own lookups. Every other row
  * field belongs to the read model and must survive augmentation unchanged.
  */
-type InventoryRowAugmentation = Pick<
-  ExtensionInventoryRow,
-  "source" | "version" | "owner" | "transport" | "status" | "locked" | "sourceType"
+type InventoryRowAugmentation = Partial<
+  Pick<
+    ExtensionInventoryRow,
+    | "source"
+    | "version"
+    | "owner"
+    | "transport"
+    | "status"
+    | "locked"
+    | "sourceType"
+    | "agentOutcomes"
+  >
 >;
 
 /**

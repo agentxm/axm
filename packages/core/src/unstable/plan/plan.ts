@@ -20,6 +20,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
+import { ExtensionTypeSchema } from "../extensions/common.js";
 import type { DeprecationView, ReleaseAgeOperationEvidence } from "../registry/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
@@ -90,17 +91,25 @@ export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as co
 export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
 
 export const ConfiguredAgentOutcomeSchema = Schema.Struct({
-  extensionType: Schema.String,
+  extensionType: ExtensionTypeSchema,
   name: Schema.String,
-  agent: Schema.String,
-  outcome: Schema.Literals(["native", "advisory-fallback", "blocked"] as const),
+  agentId: Schema.String,
+  outcome: Schema.Literals([
+    "projected",
+    "current",
+    "not-applicable",
+    "unsupported",
+    "blocked",
+    "failed",
+  ] as const),
+  reasonCode: Schema.String,
   reason: Schema.String,
+  mechanism: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
 }).annotate({
   identifier: "ConfiguredAgentOutcome",
   title: "Configured Agent Outcome",
-  description:
-    "Effective native, fallback, or blocked result for one configured agent and extension.",
+  description: "Effective lifecycle result for one configured agent and extension.",
 });
 
 export type ConfiguredAgentOutcome = typeof ConfiguredAgentOutcomeSchema.Type;
@@ -165,6 +174,7 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly label: string;
   readonly message?: string;
   readonly artifact?: JobStepArtifact;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
 }
@@ -176,6 +186,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly warnMessage: string;
   readonly label: string;
   readonly artifact?: JobStepArtifact;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
 }
@@ -187,6 +198,7 @@ export interface ErrorJobStep {
   readonly errorMessage: string;
   readonly label: string;
   readonly artifact?: JobStepArtifact;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
@@ -204,6 +216,7 @@ export interface CompletedJobStep<Output = never> {
   readonly label: string;
   readonly blockedBy?: ReadonlyArray<string>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly result: JobStepResult<Output>;
 }
 

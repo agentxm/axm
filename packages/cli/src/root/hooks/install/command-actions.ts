@@ -214,7 +214,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
               const agentOutcomes =
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []
-                  : yield* hookManager.configuredAgentOutcomesForRef(ref);
+                  : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
               const previewPath =
                 ref.refType === "registry" || ref.refType === "workspace"
                   ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
@@ -224,7 +224,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                 scope: ws.scope,
                 agents: agentOutcomes
                   .filter(({ outcome }) => outcome !== "blocked")
-                  .map(({ agent }) => agent),
+                  .map(({ agentId }) => agentId),
                 ...(ref.refType === "registry" || ref.refType === "workspace"
                   ? { version: ref.version }
                   : {}),
@@ -243,7 +243,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                                 change: installedBefore ? "updated" : "created",
                                 agentIds: agentOutcomes
                                   .filter(({ path }) => path === outcome.path)
-                                  .map(({ agent }) => agent),
+                                  .map(({ agentId }) => agentId),
                               },
                             ] as const,
                           ],
@@ -268,7 +268,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                     const appliedOutcomes =
                       hookManager.configuredAgentOutcomesForRef === undefined
                         ? []
-                        : yield* hookManager.configuredAgentOutcomesForRef(ref);
+                        : yield* hookManager.configuredAgentOutcomesForRef(ref, "current");
                     const currentLockEntry = yield* ws
                       .getLockedHookEntry(ref.hook.name)
                       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
@@ -316,7 +316,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                   label: operation.label,
                   readiness: "error",
                   errorMessage: blocked
-                    .map(({ agent, reason }) => `${agent}: ${reason}`)
+                    .map(({ agentId, reason }) => `${agentId}: ${reason}`)
                     .join("; "),
                   artifact: previewArtifact,
                 } satisfies PlannedJobStep;

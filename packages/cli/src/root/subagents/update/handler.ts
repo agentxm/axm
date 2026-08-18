@@ -448,6 +448,15 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
       ],
     ),
     args.force ? ["ignore-version-constraints"] : [],
+    [
+      ...new Set(
+        args.subagents.length > 0
+          ? args.subagents
+          : plan.jobs.flatMap((job) =>
+              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
+            ),
+      ),
+    ].map((name) => ({ extensionType: "subagent", name, targetEnabled: true })),
   );
   const executionPlan: Plan = {
     ...plan,

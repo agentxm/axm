@@ -213,6 +213,51 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
+  it.effect("fails an applied mutation when required agent projection readback is missing", () => {
+    const workspace = makeBaseWorkspaceMock("/tmp/axm-preview/.axm", {
+      getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+    });
+    const context = makeTestContext(undefined, undefined, workspace);
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "code-review",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+          ],
+        },
+      ],
+    };
+
+    return Effect.gen(function* () {
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: applyPlanExecution({
+          approval: "preapproved",
+          recovery: testRecovery,
+          configuredAgentOperations: [
+            { extensionType: "skill", name: "code-review", targetEnabled: true },
+          ],
+        }),
+      });
+
+      expect(result).toMatchObject({
+        _tag: "FailedPlan",
+        reason: "execution-failed",
+        errorCode: "conflict",
+        failure: {
+          detail: expect.stringContaining("did not converge for claude-code"),
+        },
+      });
+    }).pipe(Effect.provide(context.layer));
+  });
+
   it.effect("displays confirmable risk before confirmation and cancels without execution", () => {
     let appliedCount = 0;
     let displayedBeforeConfirmation = false;

@@ -220,11 +220,17 @@ export {
 export type { SetupAgentCandidate } from "./initialization.js";
 export {
   setupScopeSupport,
+  setupScopeSupportOutcomes,
   type SetupScopeSupportCategory,
   type SetupScopeSupportOutcome,
   type SetupScopeSupportReasonCode,
   type SetupScopeSupportStatus,
 } from "./setup-scope-support.js";
+export {
+  configuredAgentLifecycleOutcomes,
+  EXTENSION_CONFIGURED_AGENT_POLICY,
+  type ConfiguredAgentLifecycleState,
+} from "./configured-agent-outcomes.js";
 export type {
   WorkspaceInitializationInteractionService,
   WorkspaceInitializationInteractionTestState,

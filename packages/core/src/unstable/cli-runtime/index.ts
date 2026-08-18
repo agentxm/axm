@@ -126,6 +126,7 @@ export {
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
   type ConfirmationRecoveryValue,
+  type ConfiguredAgentOperation,
   type PlanExecution,
   type PlanExecutionRequest,
 } from "./confirmation-recovery.js";

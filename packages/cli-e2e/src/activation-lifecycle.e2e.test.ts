@@ -55,6 +55,58 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
   };
 };
 
+const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return [];
+  const steps = document["result"]["steps"];
+  if (!Array.isArray(steps)) return [];
+  return steps.flatMap((step) => {
+    if (!isRecord(step)) return [];
+    const direct = step["agentOutcomes"];
+    if (Array.isArray(direct)) return direct.filter(isRecord);
+    const artifact = step["artifact"];
+    if (!isRecord(artifact) || !Array.isArray(artifact["agentOutcomes"])) return [];
+    return artifact["agentOutcomes"].filter(isRecord);
+  });
+};
+
+const outcomeDecisions = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
+  outcomes.map(({ outcome: _outcome, ...decision }) => decision);
+
+const inventoryOutcome = (
+  stdout: string,
+  name: string,
+  agentId: string,
+): Readonly<Record<string, unknown>> | undefined => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return undefined;
+  const items = document["result"]["items"];
+  if (!Array.isArray(items)) return undefined;
+  const item = items.find((candidate) => isRecord(candidate) && candidate["name"] === name);
+  if (!isRecord(item) || !Array.isArray(item["agentOutcomes"])) return undefined;
+  return item["agentOutcomes"].find(
+    (outcome) => isRecord(outcome) && outcome["agentId"] === agentId,
+  );
+};
+
+const expectInventoryOutcome = async (
+  workspace: string,
+  plural: string,
+  name: string,
+  expected: "current" | "not-applicable",
+): Promise<void> => {
+  const listed = await runCli([plural, "list", "--json"], { cwd: workspace });
+  expect(listed.exitCode, listed.stdout + listed.stderr).toBe(0);
+  expect(inventoryOutcome(listed.stdout, name, "claude-code")).toMatchObject({
+    extensionType: expect.any(String),
+    name,
+    agentId: "claude-code",
+    outcome: expected,
+    reasonCode: expect.any(String),
+    reason: expect.any(String),
+  });
+};
+
 const runLifecycleMutation = async (
   workspace: string,
   command: ReadonlyArray<string>,
@@ -79,6 +131,11 @@ const runLifecycleMutation = async (
   expect(planFrom(applied.stdout), `preview/apply plan for ${command.join(" ")}`).toEqual(
     planFrom(preview.stdout),
   );
+  const previewOutcomes = planAgentOutcomes(preview.stdout);
+  const appliedOutcomes = planAgentOutcomes(applied.stdout);
+  expect(previewOutcomes, `preview outcomes for ${command.join(" ")}`).not.toHaveLength(0);
+  expect(appliedOutcomes, `apply outcomes for ${command.join(" ")}`).not.toHaveLength(0);
+  expect(outcomeDecisions(appliedOutcomes)).toEqual(outcomeDecisions(previewOutcomes));
   const afterApply = snapshotTree(workspace);
 
   const second = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
@@ -125,6 +182,14 @@ describe("extension activation lifecycle", () => {
         expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
       }
       await expectCleanWorkspace(temp.path, "initial enabled state");
+      for (const row of EXTENSION_TYPE_MATRIX) {
+        await expectInventoryOutcome(
+          temp.path,
+          row.plural,
+          extensionName(row.plural),
+          row.configuredAgentPolicy === "not-applicable" ? "not-applicable" : "current",
+        );
+      }
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
@@ -142,8 +207,15 @@ describe("extension activation lifecycle", () => {
           `${row.type} canonical package retained after disable`,
         ).toBe(true);
         await expectCleanWorkspace(temp.path, `${row.type} disabled`);
+        await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
 
         await runLifecycleMutation(temp.path, [row.plural, "enable", name], confirmation);
+        await expectInventoryOutcome(
+          temp.path,
+          row.plural,
+          name,
+          row.configuredAgentPolicy === "not-applicable" ? "not-applicable" : "current",
+        );
         if (row.workspaceCapability === "instructions") {
           const instructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
           expect(instructions).toContain("region=rules");

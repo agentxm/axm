@@ -10,11 +10,13 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryActivation,
+  inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -27,6 +29,7 @@ interface RuleListItem {
   readonly activation: string;
   readonly source: string;
   readonly locked: boolean;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 const RuleListTable = {
@@ -36,6 +39,7 @@ const RuleListTable = {
     activation: { header: "Activation" },
     source: { header: "Source" },
     locked: { header: "Locked", render: (value: boolean) => (value ? "yes" : "no") },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<RuleListItem>;
 
@@ -63,6 +67,7 @@ export const handleListRule = Effect.fn("ListRule.handle")(function* () {
     activation: inventoryActivation(row),
     source: configured[row.name]?.source ?? row.origins.join(", "),
     locked: locked[row.name] !== undefined,
+    agentOutcomes: row.agentOutcomes,
   }));
   const details = new Map(items.map((item) => [item.name, item]));
   const output = augmentInventory(inventory, (row) => {

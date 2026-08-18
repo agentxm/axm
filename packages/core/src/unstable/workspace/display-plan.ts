@@ -203,6 +203,12 @@ const renderPlannedStep = (
         break;
     }
 
+    const stepOutcomes = step.agentOutcomes ?? [];
+    for (const { agentId, outcome, reason, mechanism, path } of stepOutcomes) {
+      yield* renderer.message(
+        `    ${agentId}: ${outcome}${mechanism === undefined ? "" : ` (${mechanism})`}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+      );
+    }
     if (step.artifact === undefined) return;
     const targets =
       step.artifact.targets === undefined || step.artifact.targets.length === 0
@@ -211,9 +217,11 @@ const renderPlannedStep = (
     for (const target of targets) {
       yield* renderer.message(`    ${target.change}: ${target.path}`);
     }
-    for (const { agent, outcome, reason, path } of step.artifact.agentOutcomes ?? []) {
+    for (const { agentId, outcome, reason, mechanism, path } of stepOutcomes.length === 0
+      ? (step.artifact.agentOutcomes ?? [])
+      : []) {
       yield* renderer.message(
-        `    ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+        `    ${agentId}: ${outcome}${mechanism === undefined ? "" : ` (${mechanism})`}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
       );
     }
   });
@@ -405,8 +413,8 @@ const artifactTargetPhrase = (artifact: JobStepArtifact): string | undefined =>
 
 const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): string => {
   const outcomeRows = (artifact.agentOutcomes ?? []).map(
-    ({ agent, outcome, reason, path }) =>
-      `   ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+    ({ agentId, outcome, reason, mechanism, path }) =>
+      `   ${agentId}: ${outcome}${mechanism === undefined ? "" : ` (${mechanism})`}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
   );
   const details = [
     artifact.version,

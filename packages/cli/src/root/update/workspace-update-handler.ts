@@ -98,6 +98,19 @@ export const handleWorkspaceUpdate = (args: {
         recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
         ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
       ]),
+      [],
+      Option.match(args.type, {
+        onNone: () => [],
+        onSome: (extensionType) =>
+          [
+            ...new Set(
+              args.names ??
+                planResult.plan.jobs.flatMap((job) =>
+                  job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
+                ),
+            ),
+          ].map((name) => ({ extensionType, name, targetEnabled: true })),
+      }),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     const outputResolution: PlanResolution = resolution;

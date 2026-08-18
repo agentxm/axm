@@ -11,11 +11,13 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryState,
+  inventoryAgentOutcomes,
   inventorySummary,
   renderEmptyInventory,
   renderInventoryTable,
@@ -27,6 +29,7 @@ interface PackListItem {
   readonly owner: string;
   readonly version: string;
   readonly source: string;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 const PackListTable = {
@@ -36,6 +39,7 @@ const PackListTable = {
     owner: { header: "Owner" },
     version: { header: "Version" },
     source: { header: "Source" },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<PackListItem>;
 
@@ -71,6 +75,7 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
       source: configuredSource.startsWith("workspace:")
         ? "workspace"
         : (entry?.sourceName ?? configuredSource),
+      agentOutcomes: row.agentOutcomes,
     };
   });
   const details = new Map(items.map((item) => [item.name, item]));

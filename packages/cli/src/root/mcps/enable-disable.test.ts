@@ -134,7 +134,7 @@ describe("mcps enable/disable output", () => {
 
         expect(logs.success).toEqual(["  + context", "Enabled MCP server context"]);
         expect(rendererState.summaries).toEqual([
-          "context   updated   2 files   .axm (config/lockfile) (updated), .mcp.json (created) [claude-code]",
+          "context   updated   2 files   .axm (config/lockfile) (updated), .mcp.json (created) [claude-code]\n  claude-code: current — Claude Code has an AXM-managed project-scope MCP target.",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },

@@ -93,6 +93,33 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
   const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation);
   const { ref, versionRange } = resolved;
+  const agentOutcomes =
+    hookManager.configuredAgentOutcomesForRef === undefined
+      ? []
+      : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
+  const installStep = buildInstallOperation(hookManager, {
+    ref,
+    versionRange,
+    message: `Enabled ${args.name}`,
+    buildArtifact: () =>
+      Effect.gen(function* () {
+        const currentLockEntry = yield* ws
+          .getLockedHookEntry(args.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        if (Option.isNone(currentLockEntry)) {
+          return {
+            path: ".axm/settings.json",
+            scope,
+            change: "updated",
+          } satisfies JobStepArtifact;
+        }
+        return hookEnableArtifact({
+          lockEntry: currentLockEntry.value,
+          name: args.name,
+          scope,
+        });
+      }),
+  });
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable hooks",
@@ -100,31 +127,7 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
     jobs: [
       {
         concurrency: 1,
-        steps: [
-          buildInstallOperation(hookManager, {
-            ref,
-            versionRange,
-            message: `Enabled ${args.name}`,
-            buildArtifact: () =>
-              Effect.gen(function* () {
-                const currentLockEntry = yield* ws
-                  .getLockedHookEntry(args.name)
-                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-                if (Option.isNone(currentLockEntry)) {
-                  return {
-                    path: ".axm/settings.json",
-                    scope,
-                    change: "updated",
-                  } satisfies JobStepArtifact;
-                }
-                return hookEnableArtifact({
-                  lockEntry: currentLockEntry.value,
-                  name: args.name,
-                  scope,
-                });
-              }),
-          }),
-        ],
+        steps: [{ ...installStep, agentOutcomes }],
       },
     ],
   };

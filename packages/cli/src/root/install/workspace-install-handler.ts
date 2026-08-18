@@ -93,6 +93,8 @@ export const handleWorkspaceInstall = (args: {
         recoverySwitch("--reinstall", args.flags.force === true),
         recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
       ]),
+      [],
+      planResult.configuredAgentOperations,
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     yield* setCommandSemanticProperties(
@@ -140,6 +142,8 @@ export const runWorkspaceInstall = (args: {
         recoverySwitch("--reinstall", args.flags.force === true),
         recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
       ]),
+      [],
+      planResult.configuredAgentOperations,
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     return Option.some(resolution);

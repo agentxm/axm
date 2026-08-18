@@ -8,8 +8,10 @@ import {
   ExtensionInventorySchema,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import {
   inventoryActivation,
+  inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
   renderEmptyInventory,
@@ -25,6 +27,7 @@ interface SubagentListItem {
   readonly state: string;
   readonly activation: string;
   readonly agents: ReadonlyArray<string>;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 const SubagentListTable = {
@@ -37,6 +40,7 @@ const SubagentListTable = {
       render: (value: ReadonlyArray<string>) =>
         value.length === 0 ? "all configured agents" : value.join(", "),
     },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<SubagentListItem>;
 
@@ -63,6 +67,7 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
     state: inventoryState(row),
     activation: inventoryActivation(row),
     agents: row.agents,
+    agentOutcomes: row.agentOutcomes,
   }));
 
   if (yield* renderer.result(inventory, ExtensionInventorySchema)) return;

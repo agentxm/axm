@@ -8,6 +8,7 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { ConfiguredAgentOperation } from "@agentxm/client-core/unstable/cli-runtime";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import {
@@ -119,7 +120,25 @@ export type WorkspaceInstallPlanResult =
   | {
       readonly _tag: "WorkspaceInstallPlan";
       readonly plan: Plan;
+      readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
     };
+
+const configuredAgentOperationsFromCollections = (
+  collectors: ReadonlyArray<WorkspaceInstallCollector>,
+  collections: ReadonlyArray<CollectedWorkspaceInstallPlans>,
+): ReadonlyArray<ConfiguredAgentOperation> => {
+  const operations = new Map<string, ConfiguredAgentOperation>();
+  for (const [index, collector] of collectors.entries()) {
+    const collection = collections[index];
+    if (collection === undefined) continue;
+    for (const fragment of collection.fragments) {
+      const name = fragment.step.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "");
+      const operation = { extensionType: collector.type, name, targetEnabled: true };
+      operations.set(`${operation.extensionType}:${operation.name}`, operation);
+    }
+  }
+  return [...operations.values()];
+};
 
 const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): string =>
   Option.match(type, {
@@ -744,6 +763,11 @@ export const buildConfiguredPackInstallPlan = (args: {
         mergePlanSections(collection.plans),
         releaseAge,
       ),
+      configuredAgentOperations: [...args.packNames].map((name) => ({
+        extensionType: "pack",
+        name,
+        targetEnabled: true,
+      })),
     } satisfies WorkspaceInstallPlanResult;
   });
 
@@ -814,6 +838,10 @@ export const buildWorkspaceInstallPlan = (args: {
         [...fragments.map((fragment) => fragment.step), ...Option.toArray(projectionStep)],
         sections,
         releaseAge,
+      ),
+      configuredAgentOperations: configuredAgentOperationsFromCollections(
+        selectedCollectors,
+        collections,
       ),
     } satisfies WorkspaceInstallPlanResult;
   });

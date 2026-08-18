@@ -255,11 +255,12 @@ describe("HookManager", () => {
           if (manager.configuredAgentOutcomes === undefined) {
             throw new Error("Hook configured-agent outcomes are unavailable");
           }
-          expect(yield* manager.configuredAgentOutcomes()).toMatchObject([
+          expect(yield* manager.configuredAgentOutcomes("current")).toMatchObject([
             {
               name: "unsupported-agent",
-              agent: "windsurf",
-              outcome: "advisory-fallback",
+              agentId: "windsurf",
+              outcome: "current",
+              mechanism: "advisory-fallback",
               path: "AGENTS.md",
             },
           ]);

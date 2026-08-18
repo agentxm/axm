@@ -87,12 +87,12 @@ import { evaluateHookAgentOutcome } from "./outcomes.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
-  readonly configuredAgentOutcomes?: () => Effect.Effect<
-    ReadonlyArray<ConfiguredAgentOutcome>,
-    AppError
-  >;
+  readonly configuredAgentOutcomes?: (
+    state: "projected" | "current",
+  ) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, AppError>;
   readonly configuredAgentOutcomesForRef?: (
     ref: HookExtensionRef,
+    state: "projected" | "current",
   ) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, AppError>;
 }
 
@@ -623,6 +623,7 @@ export const HookManagerLive = Layer.effect(
       readonly targets: ReadonlyArray<HookWriterTarget>;
       readonly fallbackPath: string;
       readonly contributors: ReadonlyArray<RenderedHookContributor>;
+      readonly state: "projected" | "current";
     }): ReadonlyArray<ConfiguredAgentOutcome> =>
       args.contributors
         .flatMap((contributor) =>
@@ -632,8 +633,9 @@ export const HookManagerLive = Layer.effect(
               return {
                 extensionType: "hook",
                 name: contributor.name,
-                agent: agentId,
+                agentId,
                 outcome: "blocked",
+                reasonCode: "unknown-agent",
                 reason: `Configured agent ${agentId} is absent from the agent capability catalog.`,
               };
             }
@@ -647,12 +649,13 @@ export const HookManagerLive = Layer.effect(
                   ? {}
                   : { nativePath: path.relative(baseDir, nativeTarget.configPath) }),
               },
+              state: args.state,
             });
           }),
         )
         .sort((left, right) =>
           left.name === right.name
-            ? left.agent.localeCompare(right.agent)
+            ? left.agentId.localeCompare(right.agentId)
             : left.name.localeCompare(right.name),
         );
 
@@ -809,13 +812,16 @@ export const HookManagerLive = Layer.effect(
           targets,
           fallbackPath: fallbackTarget.workspaceRelative,
           contributors,
+          state: "projected",
         });
         const blocked = outcomes.filter(({ outcome }) => outcome === "blocked");
         if (blocked.length > 0) {
           return yield* makeAppError({
             code: "validation",
             detail: blocked
-              .map(({ name, agent, reason }) => `Hook ${name} is blocked for ${agent}: ${reason}`)
+              .map(
+                ({ name, agentId, reason }) => `Hook ${name} is blocked for ${agentId}: ${reason}`,
+              )
               .join("; "),
           });
         }
@@ -824,9 +830,11 @@ export const HookManagerLive = Layer.effect(
             const fallbackAgentIds = outcomes
               .filter(
                 (outcome) =>
-                  outcome.name === contributor.name && outcome.outcome === "advisory-fallback",
+                  outcome.name === contributor.name &&
+                  outcome.mechanism === "advisory-fallback" &&
+                  (outcome.outcome === "projected" || outcome.outcome === "current"),
               )
-              .map(({ agent }) => agent);
+              .map(({ agentId }) => agentId);
             return fallbackAgentIds.length === 0 ? [] : [{ ...contributor, fallbackAgentIds }];
           },
         );
@@ -836,8 +844,9 @@ export const HookManagerLive = Layer.effect(
               outcomes.some(
                 (outcome) =>
                   outcome.name === contributor.name &&
-                  outcome.agent === agentId &&
-                  outcome.outcome === "native",
+                  outcome.agentId === agentId &&
+                  outcome.mechanism === "native" &&
+                  (outcome.outcome === "projected" || outcome.outcome === "current"),
               ),
             ),
           );
@@ -900,7 +909,7 @@ export const HookManagerLive = Layer.effect(
         return [...nativePlans, fallbackPlan];
       });
 
-    const configuredAgentOutcomes = () =>
+    const configuredAgentOutcomes = (state: "projected" | "current") =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
@@ -915,10 +924,11 @@ export const HookManagerLive = Layer.effect(
           targets,
           fallbackPath: fallbackTarget.workspaceRelative,
           contributors,
+          state,
         });
       });
 
-    const configuredAgentOutcomesForRef = (ref: HookExtensionRef) =>
+    const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
@@ -938,6 +948,7 @@ export const HookManagerLive = Layer.effect(
               command: "",
             },
           ],
+          state,
         });
       });
 

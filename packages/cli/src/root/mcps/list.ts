@@ -10,6 +10,7 @@ import {
   type AgentMcpServerInspection,
 } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
+import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
@@ -20,6 +21,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryState,
+  inventoryAgentOutcomes,
   inventorySummary,
   renderEmptyInventory,
   renderInventoryTable,
@@ -31,6 +33,7 @@ interface McpServerListItem {
   readonly version: string;
   readonly transport: string;
   readonly status: string;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
 const McpServerListTable = {
@@ -40,6 +43,7 @@ const McpServerListTable = {
     version: { header: "Version" },
     transport: { header: "Transport" },
     status: { header: "Status" },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<McpServerListItem>;
 
@@ -72,6 +76,26 @@ const configuredStatus = (args: {
   if (!hasInlineProjection(args.configuredEntry)) return "enabled";
   return driftStatus(args.inspections);
 };
+
+const inspectionOutcome = (
+  name: string,
+  inspection: AgentMcpServerInspection,
+): ConfiguredAgentOutcome => ({
+  extensionType: "mcp-server",
+  name,
+  agentId: inspection.agentId,
+  outcome:
+    inspection.status === "match"
+      ? "current"
+      : inspection.status === "not-applicable"
+        ? "not-applicable"
+        : inspection.status === "unsupported"
+          ? "unsupported"
+          : "failed",
+  reasonCode: `mcp-${inspection.status}`,
+  reason: inspection.reason ?? `MCP projection status is ${inspection.status}.`,
+  path: inspection.path,
+});
 
 export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
   const renderer = yield* CliRenderer;
@@ -115,6 +139,10 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
               : "n/a",
           transport: row.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
           status,
+          agentOutcomes:
+            inspections.length === 0
+              ? row.agentOutcomes
+              : inspections.map((inspection) => inspectionOutcome(row.name, inspection)),
         };
       }),
     { concurrency: "unbounded" },
@@ -126,6 +154,7 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
       version: item?.version ?? "n/a",
       transport: item?.transport ?? "auto",
       status: item?.status ?? "n/a",
+      agentOutcomes: item?.agentOutcomes ?? row.agentOutcomes,
     };
   });
 

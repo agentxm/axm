@@ -102,7 +102,11 @@ export const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
       description: Option.some(`${verb} ${name}`),
       jobs: [{ concurrency: 1, steps: [step] }],
     },
-    { preview, displayApplied: false },
+    {
+      preview,
+      displayApplied: false,
+      configuredAgentOperations: [{ extensionType: "knowledge", name, targetEnabled: enabled }],
+    },
   );
   yield* emitAppliedPlanOutcome({
     command: enabled ? "knowledge.enable" : "knowledge.disable",

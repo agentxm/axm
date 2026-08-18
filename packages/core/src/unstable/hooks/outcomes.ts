@@ -17,6 +17,7 @@ export const evaluateHookAgentOutcome = (args: {
   readonly agent: Agent;
   readonly manifest: HookManifest;
   readonly target: HookOutcomeTarget;
+  readonly state: "projected" | "current";
 }): ConfiguredAgentOutcome => {
   const unsupported = args.manifest.bindings
     .map((binding) => installable(args.agent, binding))
@@ -26,9 +27,11 @@ export const evaluateHookAgentOutcome = (args: {
     return {
       extensionType: "hook",
       name: args.manifest.name,
-      agent: args.agent.id,
-      outcome: "native",
+      agentId: args.agent.id,
+      outcome: args.state,
+      reasonCode: "hook-native",
       reason: "All hook bindings have a supported native mapping and writer.",
+      mechanism: "native",
       ...(args.target.nativePath === undefined ? {} : { path: args.target.nativePath }),
     };
   }
@@ -37,8 +40,9 @@ export const evaluateHookAgentOutcome = (args: {
     return {
       extensionType: "hook",
       name: args.manifest.name,
-      agent: args.agent.id,
+      agentId: args.agent.id,
       outcome: "blocked",
+      reasonCode: "hook-fallback-forbidden",
       reason: `${unsupported.reason} This hook forbids advisory fallback.`,
     };
   }
@@ -48,8 +52,9 @@ export const evaluateHookAgentOutcome = (args: {
     return {
       extensionType: "hook",
       name: args.manifest.name,
-      agent: args.agent.id,
+      agentId: args.agent.id,
       outcome: "blocked",
+      reasonCode: "hook-decision-not-preserved",
       reason: `${unsupported.reason} Advisory fallback cannot preserve ${requiredDecision} decisions.`,
     };
   }
@@ -57,9 +62,11 @@ export const evaluateHookAgentOutcome = (args: {
   return {
     extensionType: "hook",
     name: args.manifest.name,
-    agent: args.agent.id,
-    outcome: "advisory-fallback",
+    agentId: args.agent.id,
+    outcome: args.state,
+    reasonCode: "hook-advisory-fallback",
     reason: `${unsupported.reason} AXM will represent this observational hook through managed instructions.`,
+    mechanism: "advisory-fallback",
     path: args.target.fallbackPath,
   };
 };

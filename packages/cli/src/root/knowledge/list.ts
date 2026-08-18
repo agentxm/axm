@@ -8,16 +8,23 @@ import {
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { ConfiguredAgentOutcomeSchema } from "@agentxm/client-core/unstable/plan";
+import {
+  configuredAgentLifecycleOutcomes,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
 import { inspectInstalledKnowledge } from "./inspect.js";
+import { inventoryAgentOutcomes } from "../extension-inventory.js";
 
 const BundleSchema = Schema.Struct({
   name: Schema.String,
   sourceRoot: Schema.String,
   concepts: Schema.Number,
   diagnostics: Schema.Number,
+  agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
 });
 
 export const KnowledgeListQueryResultSchema = Schema.Struct({
@@ -31,6 +38,7 @@ interface BundleRow {
   readonly concepts: number;
   readonly diagnostics: number;
   readonly sourceRoot: string;
+  readonly agentOutcomes: ReadonlyArray<typeof ConfiguredAgentOutcomeSchema.Type>;
 }
 
 const BundleTable = {
@@ -39,6 +47,7 @@ const BundleTable = {
     concepts: { header: "Concepts" },
     diagnostics: { header: "Diagnostics" },
     sourceRoot: { header: "Source" },
+    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<BundleRow>;
 
@@ -55,13 +64,41 @@ registerEntity<BundleRow>("knowledge", {
 
 export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
   const renderer = yield* CliRenderer;
+  const ws = yield* WorkspaceMutations;
   const bundles = yield* inspectInstalledKnowledge();
-  const rows = bundles.map(({ name, sourceRoot, inspection }) => ({
-    name,
-    sourceRoot,
-    concepts: inspection.concepts.length,
-    diagnostics: inspection.diagnostics.length,
-  }));
+  const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
+  const configuredAgents = yield* ws.getConfiguredAgents();
+  const bundlesByName = new Map(bundles.map((bundle) => [bundle.name, bundle]));
+  const inventoryNames = new Set(inventory.items.map((item) => item.name));
+  const rows = [
+    ...inventory.items.map((item) => {
+      const bundle = bundlesByName.get(item.name);
+      return {
+        name: item.name,
+        sourceRoot: bundle?.sourceRoot ?? item.paths[0] ?? "n/a",
+        concepts: bundle?.inspection.concepts.length ?? 0,
+        diagnostics: bundle?.inspection.diagnostics.length ?? 0,
+        agentOutcomes: item.agentOutcomes,
+      };
+    }),
+    ...bundles
+      .filter(({ name }) => !inventoryNames.has(name))
+      .map(({ name, sourceRoot, inspection }) => ({
+        name,
+        sourceRoot,
+        concepts: inspection.concepts.length,
+        diagnostics: inspection.diagnostics.length,
+        agentOutcomes: configuredAgentLifecycleOutcomes({
+          type: "knowledge",
+          name,
+          agentIds: configuredAgents,
+          scope: ws.scope,
+          state: "current",
+          enabled: true,
+          installed: true,
+        }),
+      })),
+  ].sort((left, right) => left.name.localeCompare(right.name));
   if (yield* renderer.result({ items: rows, count: rows.length }, KnowledgeListQueryResultSchema))
     return;
   yield* renderer.list("knowledge", { items: rows, count: rows.length });

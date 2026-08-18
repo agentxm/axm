@@ -13,6 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
@@ -28,17 +29,80 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
+import type { ConfiguredAgentOperation } from "../cli-runtime/confirmation-recovery.js";
+import { HookManager } from "../hooks/manager.js";
+import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
+import { configuredAgentLifecycleOutcomes } from "../workspace/configured-agent-outcomes.js";
 import {
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   type PlanExecution,
 } from "../cli-runtime/confirmation-recovery.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
+import type { ConfiguredAgentOutcome } from "./plan.js";
 
 interface PlanApplyFailure<Output> {
   readonly error: AppError;
   readonly attemptedExecution?: ExecutedPlan<Output>;
 }
+
+const withPlannedAgentOutcomes = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  outcomes: ReadonlyArray<ConfiguredAgentOutcome>,
+): Plan<Requirements, Output> => ({
+  ...plan,
+  jobs: plan.jobs.map((job) => ({
+    ...job,
+    steps: job.steps.map((step) => ({
+      ...step,
+      agentOutcomes:
+        step.agentOutcomes === undefined || step.agentOutcomes.length === 0
+          ? outcomes
+          : step.agentOutcomes,
+      ...(step.artifact === undefined
+        ? {}
+        : {
+            artifact: {
+              ...step.artifact,
+              agentOutcomes:
+                step.artifact.agentOutcomes === undefined ||
+                step.artifact.agentOutcomes.length === 0
+                  ? outcomes
+                  : step.artifact.agentOutcomes,
+            },
+          }),
+    })),
+  })),
+});
+
+const withExecutedAgentOutcomes = <Output>(
+  plan: ExecutedPlan<Output>,
+  outcomes: ReadonlyArray<ConfiguredAgentOutcome>,
+): ExecutedPlan<Output> => ({
+  ...plan,
+  jobs: plan.jobs.map((job) => ({
+    ...job,
+    steps: job.steps.map((step) => ({
+      ...step,
+      agentOutcomes: outcomes,
+      ...(step.result.result === "success" && step.result.artifact !== undefined
+        ? {
+            result: {
+              ...step.result,
+              artifact: {
+                ...step.result.artifact,
+                agentOutcomes:
+                  step.result.artifact.agentOutcomes === undefined ||
+                  step.result.artifact.agentOutcomes.length === 0
+                    ? outcomes
+                    : step.result.artifact.agentOutcomes,
+              },
+            },
+          }
+        : {}),
+    })),
+  })),
+});
 
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
@@ -83,7 +147,58 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     { successMessage: `Resolved ${plan.name}` },
   );
 
-  const augmentedPlan = augmented.plan;
+  const operations = options.execution.configuredAgentOperations ?? [];
+  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const configuredMcpServers = operations.some(
+    ({ extensionType }) => extensionType === "mcp-server",
+  )
+    ? yield* ws.getConfiguredMcpServerEntries()
+    : {};
+  const hookManager = yield* Effect.serviceOption(HookManager);
+  const outcomesFor = (
+    operation: ConfiguredAgentOperation,
+    state: "projected" | "current",
+  ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, AppError> => {
+    const mcpEntry =
+      operation.extensionType === "mcp-server" ? configuredMcpServers[operation.name] : undefined;
+    const generic = configuredAgentLifecycleOutcomes({
+      type: operation.extensionType,
+      name: operation.name,
+      agentIds: configuredAgents,
+      scope: ws.scope,
+      state,
+      enabled: operation.targetEnabled,
+      installed: state === "projected",
+      observedAgentIds: state === "projected" ? configuredAgents : [],
+      ...(mcpEntry === undefined
+        ? {}
+        : {
+            applicableAgentIds: configuredAgents.filter((agentId) =>
+              isMcpServerApplicableToAgent(mcpEntry, agentId),
+            ),
+          }),
+    });
+    if (
+      operation.targetEnabled &&
+      operation.extensionType === "hook" &&
+      Option.isSome(hookManager) &&
+      hookManager.value.configuredAgentOutcomes !== undefined
+    ) {
+      return hookManager.value.configuredAgentOutcomes(state).pipe(
+        Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
+        Effect.map((outcomes) => (outcomes.length === 0 ? generic : outcomes)),
+        Effect.catch(() => Effect.succeed(generic)),
+      );
+    }
+    return Effect.succeed(generic);
+  };
+  const projectedOutcomes = (yield* Effect.forEach(operations, (operation) =>
+    outcomesFor(operation, "projected"),
+  )).flat();
+  const augmentedPlan =
+    operations.length === 0
+      ? augmented.plan
+      : withPlannedAgentOutcomes(augmented.plan, projectedOutcomes);
 
   // Step 2: Scan readiness and construct semantic risk conditions.
   const readiness = scanPlanReadiness(augmentedPlan);
@@ -323,7 +438,62 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         attemptedExecution: result,
       });
     }
-    return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
+    if (operations.length === 0) {
+      return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
+    }
+    const currentOutcomes = (yield* Effect.forEach(operations, (operation) =>
+      operation.targetEnabled &&
+      operation.extensionType === "hook" &&
+      Option.isSome(hookManager) &&
+      hookManager.value.configuredAgentOutcomes !== undefined
+        ? hookManager.value
+            .configuredAgentOutcomes("current")
+            .pipe(Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)))
+        : operation.targetEnabled
+          ? ws.records.getExtensionInventory(operation.extensionType, {}).pipe(
+              Effect.map(
+                (inventory) =>
+                  inventory.items.find((item) => item.name === operation.name)?.agentOutcomes ??
+                  configuredAgentLifecycleOutcomes({
+                    type: operation.extensionType,
+                    name: operation.name,
+                    agentIds: configuredAgents,
+                    scope: ws.scope,
+                    state: "current",
+                    enabled: true,
+                    installed: false,
+                  }),
+              ),
+            )
+          : Effect.succeed(
+              configuredAgentLifecycleOutcomes({
+                type: operation.extensionType,
+                name: operation.name,
+                agentIds: configuredAgents,
+                scope: ws.scope,
+                state: "current",
+                enabled: false,
+                installed: false,
+              }),
+            ),
+    )).flat();
+    const incomplete = currentOutcomes.find(
+      ({ outcome }) => outcome === "blocked" || outcome === "failed",
+    );
+    const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
+    if (incomplete !== undefined) {
+      return yield* Effect.fail({
+        error: makeAppError({
+          code: "conflict",
+          detail: `${incomplete.extensionType} ${incomplete.name} did not converge for ${incomplete.agentId}: ${incomplete.reason}`,
+        }),
+        attemptedExecution: executedWithOutcomes,
+      });
+    }
+    return {
+      ...executedWithOutcomes,
+      candidateId: candidate.id,
+    } satisfies ExecutedPlan<Output>;
   });
   const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"

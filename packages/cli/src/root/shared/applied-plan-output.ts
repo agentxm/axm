@@ -45,8 +45,8 @@ const formatAgentOutcomes = (artifact: JobStepArtifact): string | undefined => {
   if (artifact.agentOutcomes === undefined || artifact.agentOutcomes.length === 0) return undefined;
   return artifact.agentOutcomes
     .map(
-      ({ agent, outcome, reason, path }) =>
-        `  ${agent}: ${outcome}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+      ({ agentId, outcome, reason, mechanism, path }) =>
+        `  ${agentId}: ${outcome}${mechanism === undefined ? "" : ` (${mechanism})`}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
     )
     .join("\n");
 };
@@ -99,7 +99,14 @@ const formatFailedStep = (
 const formatPlainSuccessStep = (step: CompletedJobStep<unknown>): string | undefined => {
   if (step.result.result !== "success" || step.result.artifact !== undefined) return undefined;
   const message = step.result.message.trim();
-  return message.length === 0 ? undefined : `${step.label}   ${message}`;
+  const outcomes = (step.agentOutcomes ?? [])
+    .map(
+      ({ agentId, outcome, reason, mechanism, path }) =>
+        `  ${agentId}: ${outcome}${mechanism === undefined ? "" : ` (${mechanism})`}${path === undefined ? "" : ` -> ${path}`} — ${reason}`,
+    )
+    .join("\n");
+  const row = message.length === 0 ? step.label : `${step.label}   ${message}`;
+  return outcomes.length === 0 ? (message.length === 0 ? undefined : row) : `${row}\n${outcomes}`;
 };
 
 export const summarizeExecutedArtifacts = (plan: ExecutedPlan<unknown>): string | undefined => {

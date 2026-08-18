@@ -94,6 +94,28 @@ A direct `enabled: false` declaration wins over pack activation. Retained
 canonical content and accepted resolution may remain while active projections
 and Knowledge discovery are absent.
 
+## Configured-agent outcomes
+
+Lifecycle previews, applied results, and extension inventory use the same
+configured-agent outcome vocabulary:
+
+- `projected` — preview expects a supported agent projection.
+- `current` — inspection confirms the expected projection.
+- `not-applicable` — the extension is disabled, excluded by target policy, or
+  workspace/container-owned and therefore intentionally has no projection for
+  that agent.
+- `unsupported` — the configured agent or selected scope has no supported AXM
+  integration.
+- `blocked` — a required behavior cannot be preserved, so AXM performs no
+  writes for the affected operation.
+- `failed` — a projection was expected but is missing, drifted, or could not be
+  written.
+
+Each machine-readable row includes the extension type and name, agent ID,
+outcome, stable `reasonCode`, and explanatory reason. Feature-specific fields
+such as hook mechanism and projection path remain additional evidence rather
+than replacing the common outcome.
+
 ## Where to go next
 
 - `axm help settings` — desired workspace configuration

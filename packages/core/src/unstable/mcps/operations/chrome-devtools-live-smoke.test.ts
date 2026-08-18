@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
@@ -117,7 +118,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            NodeServices.layer,
+            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
             WorkspaceMutations.layer(wsMock),
             TestRenderer.make().layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
@@ -136,7 +137,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            NodeServices.layer,
+            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
             WorkspaceMutations.layer(wsMock),
             TestRenderer.make().layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),

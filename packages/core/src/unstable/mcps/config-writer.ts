@@ -54,22 +54,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) {
-      throw errors;
-    }
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => {
+      const errors: Array<ParseError> = [];
+      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+      if (errors.length > 0) {
+        throw errors;
+      }
+      return parsed;
+    },
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  });
 
 const formatPath = (path: ReadonlyArray<string>) => path.join(".");
 
@@ -181,7 +181,7 @@ export const resolveAgentMcpConfigTargetPath = (
           : path.resolve(home, target.path)
         : path.resolve(workspaceRoot, target.path);
 
-    if (target.scope === "project" && !isPathSafe(workspaceRoot, base)) {
+    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, base)) {
       return yield* makeAppError({
         code: "validation",
         detail: `MCP config target escapes workspace root: ${target.path}`,
@@ -250,9 +250,10 @@ const upsertYaml = (args: {
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
 }): Effect.Effect<string, AppError> =>
-  Effect.sync(() => setYamlEntry(args.raw, args.serversKey, args.serverName, args.entry)).pipe(
-    Effect.mapError((error) => mapYamlError(args.configPath, error)),
-  );
+  Effect.try({
+    try: () => setYamlEntry(args.raw, args.serversKey, args.serverName, args.entry),
+    catch: (error) => mapYamlError(args.configPath, error),
+  });
 
 const removeYaml = (args: {
   readonly configPath: string;
@@ -262,18 +263,21 @@ const removeYaml = (args: {
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, AppError> =>
-  Effect.sync(() => {
-    if (args.raw.trim().length === 0) return args.raw;
-    const activation = args.activationField.required;
-    if (args.disableOnly && activation !== null) {
-      return setYamlScalar(
-        args.raw,
-        [args.serversKey, args.serverName, activation.name],
-        activation.disabled,
-      );
-    }
-    return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
-  }).pipe(Effect.mapError((error) => mapYamlError(args.configPath, error)));
+  Effect.try({
+    try: () => {
+      if (args.raw.trim().length === 0) return args.raw;
+      const activation = args.activationField.required;
+      if (args.disableOnly && activation !== null) {
+        return setYamlScalar(
+          args.raw,
+          [args.serversKey, args.serverName, activation.name],
+          activation.disabled,
+        );
+      }
+      return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
+    },
+    catch: (error) => mapYamlError(args.configPath, error),
+  });
 
 const managedTomlStart = (serverName: string): string =>
   `# axm managed mcp-server ${serverName} start`;
@@ -335,6 +339,7 @@ const pickProjectTarget = (
 // Serializes concurrent read-modify-write access to a single agent MCP config
 // file within a process, so parallel sync steps writing different servers to the
 // same file cannot clobber each other's entries (last-write-wins data loss).
+// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by MCP config paths touched during this one CLI invocation.
 const configWriteLocks = new Map<string, Semaphore.Semaphore>();
 const configWriteLockFor = (configPath: string): Semaphore.Semaphore => {
   const existing = configWriteLocks.get(configPath);

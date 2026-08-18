@@ -91,6 +91,7 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
 const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
+// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by packages published during this one CLI invocation.
 const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 const localVisibilityRevision = (index: ExtensionIndex): string =>

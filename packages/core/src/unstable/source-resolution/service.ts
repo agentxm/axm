@@ -184,37 +184,34 @@ export const createRegistryMetaProvider = () => ({
  * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
- * Captures FileSystem, Path, and WorkspaceMutations at creation time so the
- * service interface doesn't leak these dependencies.
+ * Captures FileSystem, Path, HttpClient, and WorkspaceMutations at creation
+ * time so the service interface doesn't leak these dependencies.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
-    const baseDepLayer = Layer.mergeAll(
+    const depLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
       Layer.succeed(WorkspaceMutations, ws),
     );
-    const depLayer = Option.match(ambientHttpClient, {
-      onNone: () => baseDepLayer,
-      onSome: (client) => Layer.merge(baseDepLayer, Layer.succeed(HttpClient.HttpClient, client)),
-    });
 
     const findGitHosting = (source: GitHostingSource, options: FindOptions) => {
       const provider = createGitHostingSourceHostProvider(source);

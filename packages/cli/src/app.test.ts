@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
 
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
@@ -37,171 +39,195 @@ class ExitCalled extends Error {
   }
 }
 
+class UnexpectedCliRunFailure extends Data.TaggedError("UnexpectedCliRunFailure")<{
+  readonly cause: unknown;
+}> {}
+
 describe("root command help", () => {
-  it("exposes only the root version command and intention-revealing override flags", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    const versionCommands = Array.from(files.keys()).filter((command) =>
-      command.endsWith(" version"),
-    );
-    expect(versionCommands).toEqual(["axm version"]);
+  it.effect("exposes only the root version command and intention-revealing override flags", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const versionCommands = Array.from(files.keys()).filter((command) =>
+        command.endsWith(" version"),
+      );
+      expect(versionCommands).toEqual(["axm version"]);
 
-    for (const [command, doc] of files) {
-      const flags = doc.flags.map((flag) => flag.name);
-      expect(flags, command).not.toContain("force");
-      expect(flags, command).not.toContain("wizard");
-    }
+      for (const [command, doc] of files) {
+        const flags = doc.flags.map((flag) => flag.name);
+        expect(flags, command).not.toContain("force");
+        expect(flags, command).not.toContain("wizard");
+      }
 
-    const expectedFlags: ReadonlyArray<readonly [string, string]> = [
-      ["axm install", "reinstall"],
-      ["axm skills install", "reinstall"],
-      ["axm mcps install", "reinstall"],
-      ["axm subagents install", "reinstall"],
-      ["axm hooks install", "reinstall"],
-      ["axm packs install", "reinstall"],
-      ["axm rules install", "reinstall"],
-      ["axm update", "refresh"],
-      ["axm mcps update", "refresh"],
-      ["axm skills update", "ignore-version-constraints"],
-      ["axm subagents update", "ignore-version-constraints"],
-      ["axm agents add", "accept-warnings"],
-      ["axm agents remove", "accept-warnings"],
-      ["axm mcps add", "accept-warnings"],
-    ];
+      const expectedFlags: ReadonlyArray<readonly [string, string]> = [
+        ["axm install", "reinstall"],
+        ["axm skills install", "reinstall"],
+        ["axm mcps install", "reinstall"],
+        ["axm subagents install", "reinstall"],
+        ["axm hooks install", "reinstall"],
+        ["axm packs install", "reinstall"],
+        ["axm rules install", "reinstall"],
+        ["axm update", "refresh"],
+        ["axm mcps update", "refresh"],
+        ["axm skills update", "ignore-version-constraints"],
+        ["axm subagents update", "ignore-version-constraints"],
+        ["axm agents add", "accept-warnings"],
+        ["axm agents remove", "accept-warnings"],
+        ["axm mcps add", "accept-warnings"],
+      ];
 
-    for (const [command, expectedFlag] of expectedFlags) {
-      const doc = files.get(command);
-      expect(doc, `missing help for ${command}`).toBeDefined();
-      expect(
-        doc?.flags.map((flag) => flag.name),
-        command,
-      ).toContain(expectedFlag);
-    }
-  });
-
-  it("keeps every create surface create-only", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    const createCommands = [
-      "skills",
-      "mcps",
-      "subagents",
-      "packs",
-      "rules",
-      "hooks",
-      "knowledge",
-    ].map((type) => `axm ${type} new`);
-
-    for (const command of createCommands) {
-      const doc = files.get(command);
-      expect(doc, `missing help for ${command}`).toBeDefined();
-      expect(
-        doc?.flags.map((flag) => flag.name),
-        command,
-      ).not.toContain("force");
-      expect(doc?.usage, command).not.toContain("--force");
-    }
-  });
-
-  it("keeps activation previewable without a generic force bypass", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    for (const type of extensionTypes) {
-      for (const verb of ["enable", "disable"] as const) {
-        const command = `axm ${toExtensionTypePlural(type)} ${verb}`;
+      for (const [command, expectedFlag] of expectedFlags) {
         const doc = files.get(command);
         expect(doc, `missing help for ${command}`).toBeDefined();
-        const flags = doc?.flags.map((flag) => flag.name) ?? [];
-        expect(flags, command).toContain("preview");
-        expect(flags, command).not.toContain("force");
+        expect(
+          doc?.flags.map((flag) => flag.name),
+          command,
+        ).toContain(expectedFlag);
       }
-    }
-  });
+    }),
+  );
 
-  it("exposes only fail-closed publish controls", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    for (const [command, doc] of files) {
-      if (command !== "axm publish" && !command.endsWith(" publish")) continue;
-      const flags = doc.flags.map((flag) => flag.name);
-      expect(flags, command).toContain("backfill");
-      if (command === "axm publish" || command === "axm packs publish") {
-        expect(flags).toContain("include-dependencies");
-        expect(flags).toContain("include-dependency");
-      } else {
-        expect(flags, command).not.toContain("include-dependencies");
-        expect(flags, command).not.toContain("include-dependency");
+  it.effect("keeps every create surface create-only", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const createCommands = [
+        "skills",
+        "mcps",
+        "subagents",
+        "packs",
+        "rules",
+        "hooks",
+        "knowledge",
+      ].map((type) => `axm ${type} new`);
+
+      for (const command of createCommands) {
+        const doc = files.get(command);
+        expect(doc, `missing help for ${command}`).toBeDefined();
+        expect(
+          doc?.flags.map((flag) => flag.name),
+          command,
+        ).not.toContain("force");
+        expect(doc?.usage, command).not.toContain("--force");
       }
-    }
-  });
+    }),
+  );
 
-  it("enforces installed-state and project-only authoring scope contracts", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
+  it.effect("keeps activation previewable without a generic force bypass", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      for (const type of extensionTypes) {
+        for (const verb of ["enable", "disable"] as const) {
+          const command = `axm ${toExtensionTypePlural(type)} ${verb}`;
+          const doc = files.get(command);
+          expect(doc, `missing help for ${command}`).toBeDefined();
+          const flags = doc?.flags.map((flag) => flag.name) ?? [];
+          expect(flags, command).toContain("preview");
+          expect(flags, command).not.toContain("force");
+        }
+      }
+    }),
+  );
 
-    for (const command of INSTALLED_STATE_SCOPE_COMMANDS) {
-      const doc = files.get(command);
-      expect(doc, `missing help for ${command}`).toBeDefined();
-      expect(
-        doc?.flags.map((flag) => flag.name),
-        command,
-      ).toContain("scope");
-    }
+  it.effect("exposes only fail-closed publish controls", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      for (const [command, doc] of files) {
+        if (command !== "axm publish" && !command.endsWith(" publish")) continue;
+        const flags = doc.flags.map((flag) => flag.name);
+        expect(flags, command).toContain("backfill");
+        if (command === "axm publish" || command === "axm packs publish") {
+          expect(flags).toContain("include-dependencies");
+          expect(flags).toContain("include-dependency");
+        } else {
+          expect(flags, command).not.toContain("include-dependencies");
+          expect(flags, command).not.toContain("include-dependency");
+        }
+      }
+    }),
+  );
 
-    for (const command of PROJECT_ONLY_AUTHORING_COMMANDS) {
-      const doc = files.get(command);
-      expect(doc, `missing help for ${command}`).toBeDefined();
-      expect(
-        doc?.flags.map((flag) => flag.name),
-        command,
-      ).not.toContain("scope");
-      expect(doc?.description.toLowerCase(), command).toContain("project-workspace");
-    }
-  });
+  it.effect("enforces installed-state and project-only authoring scope contracts", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
 
-  it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {
-    const doc = await Effect.runPromise(captureHelpDoc([]));
-    const learnMore = ServiceMap.get(doc.annotations, LearnMore);
+      for (const command of INSTALLED_STATE_SCOPE_COMMANDS) {
+        const doc = files.get(command);
+        expect(doc, `missing help for ${command}`).toBeDefined();
+        expect(
+          doc?.flags.map((flag) => flag.name),
+          command,
+        ).toContain("scope");
+      }
 
-    expect(learnMore).toContain("LEARN MORE");
-    expect(learnMore).toContain("axm help getting-started");
-    expect(learnMore).toContain("axm help basic-usage");
-    expect(learnMore).toContain("axm help skills");
-    expect(learnMore).toContain("axm help ");
-    expect(learnMore).toContain("Browse all help topics");
-  });
+      for (const command of PROJECT_ONLY_AUTHORING_COMMANDS) {
+        const doc = files.get(command);
+        expect(doc, `missing help for ${command}`).toBeDefined();
+        expect(
+          doc?.flags.map((flag) => flag.name),
+          command,
+        ).not.toContain("scope");
+        expect(doc?.description.toLowerCase(), command).toContain("project-workspace");
+      }
+    }),
+  );
 
-  it("uses executable examples across the full command tree", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    const entries = Array.from(files.entries());
-    const missingExamples = entries
-      .filter(([, doc]) => (doc.examples ?? []).length === 0)
-      .map(([command]) => command);
-    const invalidExamples = entries.flatMap(([command, doc]) =>
-      (doc.examples ?? []).flatMap((example) => {
-        const description = example.description ?? "";
-        return example.command.trim().length === 0 || description.startsWith("See also:")
-          ? [`${command}: ${description}`]
-          : [];
+  it.effect("attaches a LEARN MORE footer pointing at entry-point help topics", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc([]);
+      const learnMore = ServiceMap.get(doc.annotations, LearnMore);
+
+      expect(learnMore).toContain("LEARN MORE");
+      expect(learnMore).toContain("axm help getting-started");
+      expect(learnMore).toContain("axm help basic-usage");
+      expect(learnMore).toContain("axm help skills");
+      expect(learnMore).toContain("axm help ");
+      expect(learnMore).toContain("Browse all help topics");
+    }),
+  );
+
+  it.effect("uses executable examples across the full command tree", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const entries = Array.from(files.entries());
+      const missingExamples = entries
+        .filter(([, doc]) => (doc.examples ?? []).length === 0)
+        .map(([command]) => command);
+      const invalidExamples = entries.flatMap(([command, doc]) =>
+        (doc.examples ?? []).flatMap((example) => {
+          const description = example.description ?? "";
+          return example.command.trim().length === 0 || description.startsWith("See also:")
+            ? [`${command}: ${description}`]
+            : [];
+        }),
+      );
+
+      expect(missingExamples).toEqual([]);
+      expect(invalidExamples).toEqual([]);
+    }),
+  );
+
+  it.effect(
+    "opens the EXTENSIONS group with the catalog's extension-only types, in table order",
+    () =>
+      Effect.gen(function* () {
+        const doc = yield* captureHelpDoc([]);
+        const extensions = groupCommandNames(doc, "EXTENSIONS");
+        const expected = EXTENSION_ONLY_TYPES.map(toExtensionTypePlural);
+
+        expect(extensions.slice(0, expected.length)).toEqual(expected);
       }),
-    );
+  );
 
-    expect(missingExamples).toEqual([]);
-    expect(invalidExamples).toEqual([]);
-  });
+  it.effect("lists workspace-capability types under WORKSPACE rather than EXTENSIONS", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc([]);
+      const workspace = groupCommandNames(doc, "WORKSPACE");
+      const extensions = groupCommandNames(doc, "EXTENSIONS");
+      const expected = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(toExtensionTypePlural);
 
-  it("opens the EXTENSIONS group with the catalog's extension-only types, in table order", async () => {
-    const doc = await Effect.runPromise(captureHelpDoc([]));
-    const extensions = groupCommandNames(doc, "EXTENSIONS");
-    const expected = EXTENSION_ONLY_TYPES.map(toExtensionTypePlural);
-
-    expect(extensions.slice(0, expected.length)).toEqual(expected);
-  });
-
-  it("lists workspace-capability types under WORKSPACE rather than EXTENSIONS", async () => {
-    const doc = await Effect.runPromise(captureHelpDoc([]));
-    const workspace = groupCommandNames(doc, "WORKSPACE");
-    const extensions = groupCommandNames(doc, "EXTENSIONS");
-    const expected = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(toExtensionTypePlural);
-
-    expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
-    expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
-  });
+      expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
+      expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
+    }),
+  );
 });
 
 describe("root command parser output", () => {
@@ -241,28 +267,32 @@ describe("root command parser output", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects an unknown flag with exit 2 across every registered command", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    const unknownFlag = "--definitely-unknown";
+  it.effect("rejects an unknown flag with exit 2 across every registered command", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const unknownFlag = "--definitely-unknown";
 
-    for (const command of files.keys()) {
-      stdoutWrites.length = 0;
-      stderrWrites.length = 0;
-      consoleErrorWrites.length = 0;
-      const commandArgs = command.split(" ").slice(1);
+      for (const command of files.keys()) {
+        stdoutWrites.length = 0;
+        stderrWrites.length = 0;
+        consoleErrorWrites.length = 0;
+        const commandArgs = command.split(" ").slice(1);
 
-      await expect(
-        run([...commandArgs, unknownFlag, "--non-interactive"]),
-        command,
-      ).rejects.toMatchObject({
-        code: ExitCode.Usage,
-      });
-      expect(stdoutWrites, command).toEqual([]);
-      expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
-        `Unrecognized flag: ${unknownFlag}`,
-      );
-    }
-  });
+        const error = yield* Effect.tryPromise({
+          try: () => run([...commandArgs, unknownFlag, "--non-interactive"]),
+          catch: (cause) =>
+            cause instanceof ExitCalled ? cause : new UnexpectedCliRunFailure({ cause }),
+        }).pipe(Effect.flip);
+        expect(error, command).toMatchObject({
+          code: ExitCode.Usage,
+        });
+        expect(stdoutWrites, command).toEqual([]);
+        expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
+          `Unrecognized flag: ${unknownFlag}`,
+        );
+      }
+    }),
+  );
 
   it("rejects user scope on project-only authoring commands during parsing", async () => {
     const invocations = [

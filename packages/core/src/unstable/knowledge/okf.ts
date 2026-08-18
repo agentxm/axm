@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — OKF inspection accepts opaque accessor errors and converts them to diagnostics
 /** Open Knowledge Format discovery and AgentXM-profile validation (v0.2). */
 
 import * as Effect from "effect/Effect";

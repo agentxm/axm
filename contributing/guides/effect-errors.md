@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-08-17
+last-reviewed: 2026-08-18
 version: 0.4.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
@@ -55,7 +55,10 @@ Translate generated Registry client failures with
 `packages/core/src/unstable/registry/translate.ts`. Do not add operation-local
 HTTP status switches. Keep RFC 9457 response bodies opaque in
 `metadata.response`; decode a focused schema next to a use case that needs a
-specific field.
+specific field. Configure transport, transient retry, and client provision at
+the shared boundary described by the Effect v4
+[HTTP client](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/http-client.md)
+guide.
 
 ## Cancellation and interruption
 
@@ -68,6 +71,23 @@ rollback finalizers, emits `interrupted`, and exits 130.
 
 `withRuntime` accepts only `Effect<A, AppError | PromptCancelled, R>`. Translate
 other expected errors before that boundary; defects remain defects.
+
+## Failure-collapse census
+
+The 2026-08 census reviewed 148 production uses of `catchAll`, `catchCause`,
+`option`, and `ignore`. A collapse is sanctioned only when the reduced result
+is itself the feature contract: an existence/optional probe, best-effort
+discovery or diagnostic collection, idempotent cleanup, or translation at the
+owning application boundary. Preserve the cause in logs or the translated
+`AppError` when the caller still needs failure evidence.
+
+The census removed unsafe operational collapses in package materialization,
+configuration writes, inspection, Git execution, and archive validation.
+Repository gates now reject thrown `Effect.sync` bodies and undocumented
+`Effect.orDie`/`Layer.orDie` sites. Do not turn a new filesystem, network,
+authentication, configuration, validation, or persistence failure into
+`Option.none`, `false`, an empty collection, or success without documenting why
+that value is the complete domain result.
 
 ## Checklist
 

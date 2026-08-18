@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -82,6 +83,7 @@ interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection 
 
 type WorkspaceUpdateCollectorContext =
   | Scope.Scope
+  | HttpClient.HttpClient
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations

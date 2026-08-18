@@ -324,6 +324,7 @@ export const makeUserArchiveCache = (): Effect.Effect<
     const path = yield* Path.Path;
     // Every field is Config.option(string), so missing values are represented
     // by Option and decoding cannot fail. A failure is a provider invariant.
+    // eslint-disable-next-line no-restricted-syntax -- All fields are optional strings, so failure means the Config provider violated its contract.
     const environment = yield* Effect.orDie(archiveCacheEnvironmentConfig);
     const axmUserHome = Option.getOrUndefined(environment.axmUserHome);
     const localAppData = Option.getOrUndefined(environment.localAppData);

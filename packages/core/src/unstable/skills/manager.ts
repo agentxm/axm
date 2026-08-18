@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as ServiceMap from "effect/Context";
@@ -43,7 +44,7 @@ import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
   removeSkillAgentArtifact,
-  type ProvideFs,
+  type ProvideRegistryMaterialization,
 } from "./materialization.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { usableAcceptedCanonicalRef } from "../workspace/accepted-canonical-ref.js";
@@ -84,6 +85,7 @@ export const SkillManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const agentRepo = yield* CodingAgentRepository;
@@ -94,9 +96,16 @@ export const SkillManagerLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
+    const registryMaterializationLayer = Layer.merge(
+      fsPathLayer,
+      Layer.succeed(HttpClient.HttpClient, httpClient),
+    );
 
     // Provide FileSystem + Path to an effect that needs them
-    const provide: ProvideFs = (effect) => Effect.provide(effect, fsPathLayer);
+    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.provide(effect, fsPathLayer);
+    const provideRegistry: ProvideRegistryMaterialization = (effect) =>
+      Effect.provide(effect, registryMaterializationLayer);
     const lastSourceHashes = new Map<string, SourceHash>();
     const lastMaterializations = new Map<string, MaterializationObservation>();
 
@@ -118,6 +127,7 @@ export const SkillManagerLive = Layer.effect(
         baseDir,
         sources,
         provide,
+        provideRegistry,
         reuse: { force: force === true, lockedVersion },
       });
 

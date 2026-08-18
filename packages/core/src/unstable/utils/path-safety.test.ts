@@ -1,50 +1,67 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+
+import { isPathSafe, safeChildPath } from "./path-safety.js";
 import { decodeAbsolutePathSync } from "./path-types.js";
-import { isPathSafe, safeChildPathSync } from "./path-safety.js";
 
 describe("isPathSafe", () => {
-  it("returns true when target is within base", () => {
-    expect(isPathSafe("/a/b", "/a/b/c/d")).toBe(true);
-  });
+  const check = (base: string, target: string) =>
+    Effect.map(Path.Path, (path) => isPathSafe(path, base, target)).pipe(
+      Effect.provide(NodeServices.layer),
+    );
 
-  it("returns true when target equals base", () => {
-    expect(isPathSafe("/a/b", "/a/b")).toBe(true);
-  });
+  it.effect("returns true when target is within base", () =>
+    Effect.map(check("/a/b", "/a/b/c/d"), (safe) => expect(safe).toBe(true)),
+  );
 
-  it("returns false when target escapes via parent traversal", () => {
-    expect(isPathSafe("/a/b", "/a/b/../../etc/passwd")).toBe(false);
-  });
+  it.effect("returns true when target equals base", () =>
+    Effect.map(check("/a/b", "/a/b"), (safe) => expect(safe).toBe(true)),
+  );
 
-  it("returns false when target is a sibling of base", () => {
-    expect(isPathSafe("/a/b", "/a/c")).toBe(false);
-  });
+  it.effect("returns false when target escapes via parent traversal", () =>
+    Effect.map(check("/a/b", "/a/b/../../etc/passwd"), (safe) => expect(safe).toBe(false)),
+  );
 
-  it("normalizes paths with . and .. segments before comparison", () => {
-    expect(isPathSafe("/a/b", "/a/b/./c/../c/d")).toBe(true);
-  });
+  it.effect("returns false when target is a sibling of base", () =>
+    Effect.map(check("/a/b", "/a/c"), (safe) => expect(safe).toBe(false)),
+  );
 
-  it("prevents prefix false positive (boundary check)", () => {
-    expect(isPathSafe("/a/base", "/a/base-extended/file")).toBe(false);
-  });
+  it.effect("normalizes paths with . and .. segments before comparison", () =>
+    Effect.map(check("/a/b", "/a/b/./c/../c/d"), (safe) => expect(safe).toBe(true)),
+  );
 
-  it("returns true for deeply nested target within base", () => {
-    expect(isPathSafe("/a", "/a/b/c/d/e/f")).toBe(true);
-  });
+  it.effect("prevents prefix false positive (boundary check)", () =>
+    Effect.map(check("/a/base", "/a/base-extended/file"), (safe) => expect(safe).toBe(false)),
+  );
 
-  it("returns false when target is parent of base", () => {
-    expect(isPathSafe("/a/b/c", "/a/b")).toBe(false);
-  });
+  it.effect("returns true for deeply nested target within base", () =>
+    Effect.map(check("/a", "/a/b/c/d/e/f"), (safe) => expect(safe).toBe(true)),
+  );
+
+  it.effect("returns false when target is parent of base", () =>
+    Effect.map(check("/a/b/c", "/a/b"), (safe) => expect(safe).toBe(false)),
+  );
 });
 
-describe("safeChildPathSync", () => {
-  it("returns a branded absolute path when target stays under base", () => {
-    const result = safeChildPathSync(decodeAbsolutePathSync("/a/b"), "c");
-    expect(Option.getOrNull(result)).toBe("/a/b/c");
-  });
+describe("safeChildPath", () => {
+  it.effect("returns a branded absolute path when target stays under base", () =>
+    Effect.gen(function* () {
+      const result = yield* safeChildPath(decodeAbsolutePathSync("/a/b"), "c").pipe(
+        Effect.provide(NodeServices.layer),
+      );
+      expect(Option.getOrNull(result)).toBe("/a/b/c");
+    }),
+  );
 
-  it("returns none when target escapes base", () => {
-    const result = safeChildPathSync(decodeAbsolutePathSync("/a/b"), "/a/c");
-    expect(Option.isNone(result)).toBe(true);
-  });
+  it.effect("returns none when target escapes base", () =>
+    Effect.gen(function* () {
+      const result = yield* safeChildPath(decodeAbsolutePathSync("/a/b"), "/a/c").pipe(
+        Effect.provide(NodeServices.layer),
+      );
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
 });

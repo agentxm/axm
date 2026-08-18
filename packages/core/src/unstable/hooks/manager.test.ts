@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -110,7 +111,7 @@ const makeHookManagerLayer = (
       ),
     ),
     Layer.provide(makeSourceHostProviders()),
-    Layer.provide(NodeServices.layer),
+    Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
 };
 

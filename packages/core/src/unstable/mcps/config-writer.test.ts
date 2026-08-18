@@ -477,6 +477,32 @@ describe("agent MCP config writer", () => {
     ),
   );
 
+  it.effect("reports malformed JSONC as a validation failure without overwriting it", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-invalid-jsonc-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.jsonc");
+          const invalidConfig = "{ invalid jsonc";
+          writeFileSync(configPath, invalidConfig);
+
+          const error = yield* writeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "context",
+            serversKey: "mcpServers",
+            target: { scope: "project", path: "agent.jsonc", format: "jsonc" },
+            entry: { command: "npx" },
+          }).pipe(Effect.flip);
+
+          expect(error.code).toBe("validation");
+          expect(readFileSync(configPath, "utf8")).toBe(invalidConfig);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("creates no backup when writing a new config file", () =>
     withNode(
       Effect.gen(function* () {

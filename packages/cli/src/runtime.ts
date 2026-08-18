@@ -27,6 +27,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   Verbosity,
+  type VerbosityLevel,
   nonInteractiveFlag,
   jsonFlag,
   verboseFlag,
@@ -100,6 +101,7 @@ export const axmGlobalFlags = [
 ] as const;
 
 // -- Runtime layers --
+// eslint-disable-next-line no-restricted-syntax -- A defaulted string is total; layer failure means the Config provider violated its contract.
 const RegistryUrlLayer = Layer.orDie(
   Layer.effect(
     RegistryUrl,
@@ -166,19 +168,19 @@ export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, vers
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConfigLayer);
 
 /**
- * Verbosity-driven logging: the logger set stays binary (consolePretty only at
- * `--debug`), while the minimum log level tracks the full verbosity ladder via
- * `verbosityToLogLevel` (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
+ * Verbosity-driven diagnostics always use stderr so structured command output
+ * on stdout remains machine-readable. The minimum level tracks the full
+ * verbosity ladder (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
  */
+export const makeCliLoggerLayer = (level: VerbosityLevel) =>
+  Layer.mergeAll(
+    Logger.layer([Logger.consolePretty()], { mergeWithExisting: false }),
+    Layer.succeed(References.LogToStderr, true),
+    Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(level)),
+  );
+
 const debugLoggerLayer = Layer.unwrap(
-  Effect.map(Verbosity, (v) =>
-    Layer.mergeAll(
-      Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
-        mergeWithExisting: false,
-      }),
-      Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(v.level)),
-    ),
-  ),
+  Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level)),
 );
 
 interface RuntimeEnvConfig {

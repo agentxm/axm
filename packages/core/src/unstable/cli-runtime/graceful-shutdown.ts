@@ -16,6 +16,7 @@ export const withGracefulShutdown = <A, E, R>(
   Effect.gen(function* () {
     const services = yield* Effect.context<R>();
     const fiber = yield* Effect.forkChild(program);
+    // eslint-disable-next-line no-restricted-syntax -- Signal callbacks are a sanctioned process-entry adapter.
     const runFork = Effect.runForkWith(services);
     let shuttingDown = false;
 

@@ -1,6 +1,35 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
 
+const axmPolicyPlugin = {
+  rules: {
+    "no-unbounded-io": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          bounded:
+            "This variable-cardinality I/O surface requires an evidence-backed concurrency bound.",
+        },
+      },
+      create(context) {
+        return {
+          Property(node) {
+            if (
+              node.key.type === "Identifier" &&
+              node.key.name === "concurrency" &&
+              node.value.type === "Literal" &&
+              node.value.value === "unbounded"
+            ) {
+              context.report({ node, messageId: "bounded" });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 export default [
   ...nxPlugin.configs["flat/base"],
   ...nxPlugin.configs["flat/typescript"],
@@ -162,25 +191,96 @@ export default [
     },
   },
   {
-    // These workflows deliberately preserve expected failures. Keep the
-    // remediated boundaries from regressing while the broader census is
-    // disposed feature by feature.
-    files: [
-      "packages/core/src/unstable/plan/**/*.ts",
-      "packages/core/src/unstable/workspace/transaction.ts",
-      "packages/cli/src/root/publish/command.ts",
-      "packages/cli/src/root/sync/handler.ts",
-    ],
+    // Effect production invariants are global. A justified defect conversion
+    // or module-lifetime singleton must carry its rationale at the exact site.
+    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
     ignores: ["**/*.test.ts", "**/*.spec.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
         {
+          selector:
+            "BinaryExpression[left.type='MemberExpression'][left.property.name='hostname'][right.type='Literal'][right.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
+        {
+          selector:
+            "BinaryExpression[right.type='MemberExpression'][right.property.name='hostname'][left.type='Literal'][left.value='localhost']",
+          message:
+            "Avoid hostname-based policy checks. Use explicit config flags or route structure.",
+        },
+        {
+          selector: "NewExpression[callee.name='Date']",
+          message:
+            "Use DateTime.now (Effect clock) or DateTime.makeUnsafe at a driver edge instead of ambient Date construction.",
+        },
+        {
+          selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
+        },
+        {
           selector: "MemberExpression[object.name='Effect'][property.name='orDie']",
           message:
             "Preserve expected failures in the Effect error channel and translate them at the owning boundary.",
         },
+        {
+          selector: "MemberExpression[object.name='Layer'][property.name='orDie']",
+          message:
+            "Preserve expected layer failures unless the site documents why failure violates an invariant.",
+        },
+        {
+          selector:
+            "Program > VariableDeclaration > VariableDeclarator > NewExpression[callee.name='Map']",
+          message:
+            "Module-global Maps need an explicit owner, bounded lifetime, and release or eviction story.",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='Effect'][callee.property.name='sync'] ThrowStatement",
+          message:
+            "Effect.sync turns thrown exceptions into defects. Use Effect.try and map the expected failure.",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name='Effect'][callee.property.name=/^run(?:Sync|Promise|Fork)/]",
+          message:
+            "Keep Effect execution at the sanctioned process entry adapters; preserve requirements in R elsewhere.",
+        },
       ],
+    },
+  },
+  {
+    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+    ignores: ["packages/cli/src/runtime.ts", "**/*.test.ts", "**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "effect/unstable/http/FetchHttpClient",
+              message:
+                "Provide the Fetch HTTP client once in packages/cli/src/runtime.ts so transport policy is applied uniformly.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // These variable-cardinality I/O surfaces were remediated in the 2026-08
+    // concurrency census. Keep literal unbounded traversal from returning.
+    files: [
+      "packages/core/src/unstable/registry/remote-client.ts",
+      "packages/core/src/unstable/source-resolution/providers/convention-discovery.ts",
+      "packages/core/src/unstable/workspace/version-currency/collectors.ts",
+    ],
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
+    rules: {
+      "axm-policy/no-unbounded-io": "error",
     },
   },
   {
@@ -196,6 +296,15 @@ export default [
     ],
     rules: {
       "@typescript-eslint/consistent-type-assertions": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name='Effect'][callee.property.name=/^run(?:Sync|Promise|Fork|Callback)/]",
+          message:
+            "Use @effect/vitest and return the Effect from it.effect/it.live instead of creating a nested test runtime.",
+        },
+      ],
     },
   },
   // Config files are not part of any tsconfig project — disable type-aware linting

@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — test-only command traversal preserves foreign parser errors for assertions
 /**
  * Command-tree introspection helpers built on the real CLI parser.
  *

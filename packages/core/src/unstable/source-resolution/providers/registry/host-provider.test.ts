@@ -1082,9 +1082,10 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // extractZip may fail on fake bytes, that's fine — the point is
         // that the integrity passed and client was called correctly
         // If it succeeded, that means extraction worked; if it failed,
-        // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
+        // it should be a validation failure from the invalid archive payload,
+        // not an integrity or transport failure.
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("network");
+          expect(result.failure.code).toBe("validation");
           expect(result.failure.detail).not.toContain("Integrity mismatch");
         }
       }),

@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -144,7 +145,11 @@ export const resolveSourcePattern = (
 ): Effect.Effect<
   ReadonlyArray<Source>,
   AppError,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path | CodingAgentRepository
+  | WorkspaceMutations
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | CodingAgentRepository
 > =>
   isGlobPattern(input)
     ? Effect.gen(function* () {

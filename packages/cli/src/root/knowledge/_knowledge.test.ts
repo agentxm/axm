@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -36,22 +36,24 @@ const captureHelp = (path: ReadonlyArray<string>) =>
   });
 
 describe("knowledge command", () => {
-  it("exposes discovery, lifecycle, and publish commands", async () => {
-    const output = await Effect.runPromise(captureHelp(["knowledge"]));
-    expect(output).toContain("list");
-    expect(output).toContain("concepts");
-    expect(output).toContain("lint");
-    expect(output).toContain("install");
-    expect(output).toContain("update");
-    expect(output).toContain("uninstall");
-    expect(output).toContain("publish");
-    expect(output).not.toMatch(/^\s+(?:search|open)\s/mu);
+  it.effect("exposes discovery, lifecycle, and publish commands", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelp(["knowledge"]);
+      expect(output).toContain("list");
+      expect(output).toContain("concepts");
+      expect(output).toContain("lint");
+      expect(output).toContain("install");
+      expect(output).toContain("update");
+      expect(output).toContain("uninstall");
+      expect(output).toContain("publish");
+      expect(output).not.toMatch(/^\s+(?:search|open)\s/mu);
 
-    const concepts = stripAnsi(await Effect.runPromise(captureHelp(["knowledge", "concepts"])));
-    for (const operation of KNOWLEDGE_DISCOVERY_OPERATIONS) {
-      expect(concepts).toMatch(new RegExp(`^\\s+${operation}\\s`, "mu"));
-    }
-  });
+      const concepts = stripAnsi(yield* captureHelp(["knowledge", "concepts"]));
+      for (const operation of KNOWLEDGE_DISCOVERY_OPERATIONS) {
+        expect(concepts).toMatch(new RegExp(`^\\s+${operation}\\s`, "mu"));
+      }
+    }),
+  );
 
   it("keeps authored help aligned with the runtime operators and searchable fields", () => {
     const help = fs.readFileSync(
@@ -62,9 +64,11 @@ describe("knowledge command", () => {
     for (const field of KNOWLEDGE_SEARCHABLE_FIELDS) expect(help).toContain(`\`${field}\``);
   });
 
-  it("supports linting a locally authored package path", async () => {
-    const output = await Effect.runPromise(captureHelp(["knowledge", "lint"]));
-    expect(output).toContain("--path");
-    expect(output).toContain("locally authored");
-  });
+  it.effect("supports linting a locally authored package path", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelp(["knowledge", "lint"]);
+      expect(output).toContain("--path");
+      expect(output).toContain("locally authored");
+    }),
+  );
 });

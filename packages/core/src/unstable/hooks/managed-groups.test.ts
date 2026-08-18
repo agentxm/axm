@@ -5,6 +5,16 @@ import * as FastCheck from "effect/testing/FastCheck";
 import { updateHooksJson } from "./managed-groups.js";
 
 describe("updateHooksJson", () => {
+  it.effect("reports malformed JSONC as a validation failure", () =>
+    Effect.gen(function* () {
+      const error = yield* updateHooksJson("settings.json", "hooks", "{ invalid", {}).pipe(
+        Effect.flip,
+      );
+
+      expect(error.code).toBe("validation");
+    }),
+  );
+
   it.effect.prop(
     "is idempotent for rendered commands regardless of command path",
     {

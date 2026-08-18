@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import {
   decodeExtensionNameSync,
   SourceHashSchema,
@@ -79,7 +80,7 @@ describe("extension list assessment", () => {
           Layer.mergeAll(
             Layer.succeed(WorkspaceMutations, ws),
             Layer.succeed(SourceHostProviders, providers),
-            NodeServices.layer,
+            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),
         ),
       );
@@ -111,7 +112,7 @@ describe("extension list assessment", () => {
           Layer.mergeAll(
             Layer.succeed(WorkspaceMutations, ws),
             Layer.succeed(SourceHostProviders, providers),
-            NodeServices.layer,
+            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),
         ),
       );

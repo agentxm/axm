@@ -14,6 +14,8 @@ export interface EntityView<T extends object> {
   readonly tree?: TreeDef<T>;
 }
 
+// This closed process-lifetime registry is populated once by renderer bootstrap code.
+// eslint-disable-next-line no-restricted-syntax -- Static renderer vocabulary has process ownership and no per-request growth.
 const entityRegistry = new Map<string, EntityView<object>>();
 
 export const registerEntity = <T extends object>(name: string, view: EntityView<T>): void => {

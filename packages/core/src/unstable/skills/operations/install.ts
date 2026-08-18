@@ -8,6 +8,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -421,7 +422,7 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(path, ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* validateAxmSkillCandidate({
@@ -442,7 +443,7 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(path, ws.baseDir, skillSrcPath);
 
     const sourcePath = stripFileProtocol(ref.location);
     yield* validateAxmSkillCandidate({
@@ -473,7 +474,7 @@ const installFromRegistry = (
       refType: "registry",
       owner: ref.owner,
     });
-    yield* validatePathSafety(ws.baseDir, canonicalPath);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
@@ -557,7 +558,7 @@ const installFromWorkspace = (ref: WorkspaceSkillRef) =>
         detail: `Workspace skill ${ref.name} belongs to ${ref.scope} scope, not ${ws.scope} scope`,
       });
     }
-    yield* validatePathSafety(ws.baseDir, ref.location);
+    yield* validatePathSafety(path, ws.baseDir, ref.location);
     const skillSrcPath = path.join(ref.location, "src");
     const exists = yield* fs.exists(skillSrcPath).pipe(
       Effect.mapError((error) =>
@@ -598,7 +599,7 @@ const installForDirectory = (opts: {
     const agentSkillPath = path.join(opts.targetDir, opts.sanitizedName);
 
     // Validate agent path safety
-    if (!isPathSafe(ws.baseDir, agentSkillPath)) {
+    if (!isPathSafe(path, ws.baseDir, agentSkillPath)) {
       return {
         success: false,
         mode: "symlink",
@@ -701,6 +702,7 @@ const materializeSkill = (
 export const installSkill: OperationHandler<
   InstallSkillOperation,
   | FileSystem.FileSystem
+  | HttpClient.HttpClient
   | Path.Path
   | WorkspaceMutations
   | SourceHostProviders

@@ -126,7 +126,7 @@ describe("git", () => {
         const error = yield* getTreeSha(repoPath, "non-existent").pipe(Effect.flip);
 
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("internal");
+        expect(error.code).toBe("validation");
       }),
     );
 
@@ -138,7 +138,7 @@ describe("git", () => {
         const error = yield* getTreeSha(nonGitPath).pipe(Effect.flip);
 
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("internal");
+        expect(error.code).toBe("validation");
       }),
     );
   });

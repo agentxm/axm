@@ -166,10 +166,10 @@ const readYamlConfigEntry = (
   serversKey: string,
   serverName: string,
 ): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, AppError> =>
-  Effect.sync(() => readYamlEntry(raw, serversKey, serverName)).pipe(
-    Effect.map((entry) => Option.fromUndefinedOr(entry)),
-    Effect.mapError((error) => mapYamlError(configPath, error)),
-  );
+  Effect.try({
+    try: () => readYamlEntry(raw, serversKey, serverName),
+    catch: (error) => mapYamlError(configPath, error),
+  }).pipe(Effect.map((entry) => Option.fromUndefinedOr(entry)));
 
 const managedTomlStart = (serverName: string): string =>
   `# axm managed mcp-server ${serverName} start`;
@@ -374,15 +374,16 @@ const inspectionTransportForEntry = (
 ): Effect.Effect<SharedMcpTransport, AppError> => {
   if (entry.command !== undefined) return Effect.succeed("stdio");
   if (entry.url !== undefined) {
-    return Effect.try({
-      try: () => inferInlineRemoteTransport(entry.url ?? ""),
-      catch: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: "Invalid inline MCP server URL",
-          cause: error,
-        }),
-    });
+    const inference = inferInlineRemoteTransport(entry.url);
+    return inference._tag === "supported"
+      ? Effect.succeed(inference.transport)
+      : Effect.fail(
+          makeAppError({
+            code: "validation",
+            detail: "Invalid inline MCP server URL",
+            cause: inference.reason,
+          }),
+        );
   }
   return Effect.fail(
     makeAppError({
@@ -501,9 +502,10 @@ const managedYamlNames = (
   raw: string,
   serversKey: string,
 ): Effect.Effect<ReadonlyArray<string>, AppError> =>
-  Effect.sync(() => readManagedYamlNames(raw, serversKey, isAxmManagedMcpEntry)).pipe(
-    Effect.mapError((error) => mapYamlError(configPath, error)),
-  );
+  Effect.try({
+    try: () => readManagedYamlNames(raw, serversKey, isAxmManagedMcpEntry),
+    catch: (error) => mapYamlError(configPath, error),
+  });
 
 const managedTomlNames = (raw: string): ReadonlyArray<string> => {
   const names: Array<string> = [];

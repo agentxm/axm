@@ -8,6 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders } from "./service.js";
@@ -45,7 +46,7 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_
           ),
       }),
     ),
-    NodeServices.layer,
+    Layer.merge(NodeServices.layer, FetchHttpClient.layer),
   );
 
 const expectStringOption = (value: unknown): Option.Option<string> => {

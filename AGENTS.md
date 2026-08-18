@@ -204,7 +204,8 @@ See [Effect Guide](contributing/guides/effect.md),
 - Write tests first to define behavior
 - Bug fix means regression test first
 - Follow the affected feature's design-level verification obligations
-- Use `@effect/vitest` for Effect tests and the installed Effect testing skill
+- Use `@effect/vitest` for Effect tests; route testing guidance through the
+  `craft-effect-v4` skill to the installed `testing.md` Knowledge guide
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
 
 ## Review guidelines

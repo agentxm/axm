@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { makeAxmFormatter } from "../../formatter.js";
 import { rootCommand } from "../../app.js";
@@ -33,13 +33,15 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
   });
 
 describe("root update command help", () => {
-  it("documents the no-arg and FQN update contract", async () => {
-    const output = stripAnsi(await Effect.runPromise(captureHelpOutput(["update"])));
+  it.effect("documents the no-arg and FQN update contract", () =>
+    Effect.gen(function* () {
+      const output = stripAnsi(yield* captureHelpOutput(["update"]));
 
-    expect(output).toContain("Update extensions to newer versions");
-    expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
-    expect(output).toContain("axm update");
-    expect(output).toContain("axm update @acme/skills/code-review");
-    expect(output).toContain("--ignore-release-age");
-  });
+      expect(output).toContain("Update extensions to newer versions");
+      expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
+      expect(output).toContain("axm update");
+      expect(output).toContain("axm update @acme/skills/code-review");
+      expect(output).toContain("--ignore-release-age");
+    }),
+  );
 });

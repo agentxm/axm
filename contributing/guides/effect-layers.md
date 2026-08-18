@@ -1,7 +1,7 @@
 ---
 status: active
 last-reviewed: 2026-08-17
-version: 0.3.0
+version: 0.4.0
 description: Consult when composing the AXM CLI runtime or providing command dependencies. Defines AXM-only entry-point and command-provision policy.
 depends-on:
   - ./effect.md
@@ -20,16 +20,23 @@ composition only.
 
 - Use `runCliMain` from `@agentxm/client-core` as the production entry point.
   It owns signal handling, error routing, and graceful shutdown.
-- Provide shared layers once at the `Command.run` / `Command.runWith` edge.
+- Treat `withRuntime` and, for workspace commands, `withWorkspace` as the
+  sanctioned command edge. They resolve the selected directory and workspace,
+  compose invocation-scoped layers, and preserve the `AppError |
+PromptCancelled` boundary before `runCliMain`.
+- Provide process-wide layers once at the `Command.run` / `Command.runWith`
+  edge. Do not rebuild them in handlers.
 - Let deferred Plan steps retain their service requirements in `R`; provide
   the complete Plan at the command edge. Return values needed after execution
   through typed `JobStepResult` output rather than captured mutable variables.
-- Use `Command.provide` when a subcommand needs a distinct or
-  configuration-dependent layer.
+- Use `Command.provide` only when a command-tree service belongs before the
+  handler and differs by parsed command configuration. It is not a replacement
+  for `withRuntime` or `withWorkspace`.
 - Use `Command.provideSync` or `Command.provideEffect` for one service
   implementation. AXM uses `Command.provideSync` for command-argv tracking.
-- Validate configuration with Schema while constructing the layer; do not use
-  raw `Config.mapOrFail` as the validation boundary.
+- Validate individual values with Schema while constructing the layer. Use
+  `Config.mapOrFail` for rules spanning settings, returning a typed
+  `ConfigError`; do not use it to replace a value's owning schema.
 
 ```ts
 const deploy = Command.make("deploy", { environment }, handler).pipe(
@@ -42,7 +49,9 @@ const deploy = Command.make("deploy", { environment }, handler).pipe(
 ## Checklist
 
 - [ ] Production entry point is `runCliMain`.
-- [ ] Shared dependencies are provided once at the command edge.
-- [ ] Subcommand-specific layers use `Command.provide`.
+- [ ] `withRuntime` / `withWorkspace` own invocation-scoped command layers.
+- [ ] Shared process dependencies are provided once at the run edge.
+- [ ] Command-tree-only services use `Command.provide` when parsed
+      configuration selects their layer.
 - [ ] Single services use `Command.provideSync` or `Command.provideEffect`.
 - [ ] Layer construction schema-validates configuration.

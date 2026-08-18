@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
@@ -125,6 +126,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
   InstallMcpServerCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
+    const httpClient = yield* HttpClient.HttpClient;
     const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const agentRepo = yield* CodingAgentRepository;
@@ -142,6 +144,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),

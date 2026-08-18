@@ -11,6 +11,7 @@
  */
 
 import type * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -431,7 +432,11 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 export const routeNameInput = (
   name: string,
   _input: string,
-): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
+): Effect.Effect<
+  Source,
+  AppError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
+> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const graph = yield* ws.getDesiredStateGraph();
@@ -615,7 +620,11 @@ export const resolveSlashInputSource = (
  */
 export const resolveSource = (
   input: string,
-): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
+): Effect.Effect<
+  Source,
+  AppError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
+> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

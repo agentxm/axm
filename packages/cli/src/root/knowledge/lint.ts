@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — lint accepts opaque OKF accessor errors only at its diagnostic boundary
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";

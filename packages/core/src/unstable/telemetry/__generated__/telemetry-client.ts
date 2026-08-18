@@ -4,6 +4,7 @@
  * Regenerate: pnpm exec nx run core:generate:telemetry-client
  * DO NOT EDIT - changes are overwritten on regeneration.
  */
+// @effect-diagnostics anyUnknownInErrorContext:off — generated OpenAPI transport errors are translated by the telemetry adapter
 /* eslint-disable */
 
 import * as Data from "effect/Data";

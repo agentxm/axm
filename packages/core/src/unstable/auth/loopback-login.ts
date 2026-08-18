@@ -59,22 +59,22 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
   });
 
 export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginOptions = {}) =>
-  Effect.gen(function* () {
-    const authClient = yield* AuthClient;
-    const credStore = yield* CredentialStore;
-    const renderer = yield* CliRenderer;
-    const interaction = yield* DeviceLoginInteraction;
-    const registryHost = new URL(registryUrl).host;
+  Effect.scoped(
+    Effect.gen(function* () {
+      const authClient = yield* AuthClient;
+      const credStore = yield* CredentialStore;
+      const renderer = yield* CliRenderer;
+      const interaction = yield* DeviceLoginInteraction;
+      const registryHost = new URL(registryUrl).host;
 
-    if (!credStore.allowsPersistedCredentials) {
-      return yield* makePersistedCredentialsUnsupportedError();
-    }
+      if (!credStore.allowsPersistedCredentials) {
+        return yield* makePersistedCredentialsUnsupportedError();
+      }
 
-    const verifier = makePkceVerifier();
-    const challenge = makePkceChallenge(verifier);
-    const state = makeOAuthState();
-    const server = yield* startLoopbackServer();
-    yield* Effect.gen(function* () {
+      const verifier = makePkceVerifier();
+      const challenge = makePkceChallenge(verifier);
+      const state = makeOAuthState();
+      const server = yield* startLoopbackServer(state);
       const authorizeUrl = authClient.buildAuthorizeUrl({
         challenge,
         expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
@@ -98,7 +98,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
 
       const callback = yield* renderer.withSpinner(
         "Waiting for authorization… (expires in 5 minutes)",
-        () => server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT)),
+        () => server.awaitCallback(Duration.toMillis(LOOPBACK_TIMEOUT)),
         { successMessage: `Received browser authorization on ${registryHost}` },
       );
       const expectedIssuer = authClient.getAuthorizationIssuer();
@@ -123,5 +123,5 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
         { successMessage: `Completed sign-in to ${registryHost}` },
       );
       yield* emitLoginSuccess(registryUrl, handle);
-    }).pipe(Effect.ensuring(server.close));
-  });
+    }),
+  );

@@ -5,6 +5,8 @@
  */
 
 import * as Data from "effect/Data";
+import * as Deferred from "effect/Deferred";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 
 export interface LoopbackCallback {
@@ -28,10 +30,8 @@ export interface LoopbackServer {
   readonly port: number;
   readonly redirectUri: string;
   readonly awaitCallback: (
-    expectedState: string,
     timeoutMs: number,
   ) => Effect.Effect<LoopbackCallback, LoopbackLoginFallback | LoopbackCallbackRejected>;
-  readonly close: Effect.Effect<void>;
 }
 
 type AwaitSuccess = {
@@ -146,7 +146,7 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   };
 };
 
-export const startLoopbackServer = (): Effect.Effect<LoopbackServer, LoopbackLoginFallback> =>
+export const startLoopbackServer = (expectedState: string) =>
   Effect.gen(function* () {
     const http = yield* Effect.tryPromise({
       try: () => import("node:http"),
@@ -158,99 +158,123 @@ export const startLoopbackServer = (): Effect.Effect<LoopbackServer, LoopbackLog
         }),
     });
 
-    return yield* Effect.callback<LoopbackServer, LoopbackLoginFallback>((resume) => {
-      let complete: ((outcome: AwaitOutcome) => void) | undefined;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
+    const callback = yield* Deferred.make<
+      LoopbackCallback,
+      LoopbackLoginFallback | LoopbackCallbackRejected
+    >();
+    const listener = yield* Effect.acquireRelease(
+      Effect.callback<
+        { readonly server: import("node:http").Server; readonly port: number },
+        LoopbackLoginFallback
+      >((resume) => {
+        let acquired = false;
+        const server = http.createServer((request, response) => {
+          const outcome = makeCallbackOutcome(request, expectedState);
+          writeHtml(
+            response,
+            outcome._tag === "success" ? 200 : 400,
+            outcome._tag === "success"
+              ? successPage
+              : outcome.error._tag === "LoopbackCallbackRejected" &&
+                  outcome.error.reason === "access_denied"
+                ? cancellationPage
+                : errorPage,
+          );
+          Deferred.doneUnsafe(
+            callback,
+            outcome._tag === "success"
+              ? Effect.succeed(outcome.callback)
+              : Effect.fail(outcome.error),
+          );
+        });
 
-      const server = http.createServer((request, response) => {
-        if (complete === undefined) {
-          writeHtml(response, 404, errorPage);
-          return;
-        }
-
-        const outcome = makeCallbackOutcome(request, activeExpectedState);
-        writeHtml(
-          response,
-          outcome._tag === "success" ? 200 : 400,
-          outcome._tag === "success"
-            ? successPage
-            : outcome.error._tag === "LoopbackCallbackRejected" &&
-                outcome.error.reason === "access_denied"
-              ? cancellationPage
-              : errorPage,
-        );
-        complete(outcome);
-      });
-
-      let activeExpectedState = "";
-
-      server.once("error", (cause) => {
-        resume(
-          Effect.fail(
-            new LoopbackLoginFallback({
-              reason: "bind_failed",
-              message: "Could not bind a local callback port.",
-              cause,
-            }),
-          ),
-        );
-      });
-
-      server.listen({ host: "127.0.0.1", port: 0, exclusive: process.platform === "win32" }, () => {
-        const address = server.address();
-        if (typeof address !== "object" || address === null) {
+        const onBindError = (cause: Error) => {
+          if (acquired) return;
+          acquired = true;
           resume(
             Effect.fail(
               new LoopbackLoginFallback({
                 reason: "bind_failed",
-                message: "Could not determine the local callback port.",
+                message: "Could not bind a local callback port.",
+                cause,
               }),
             ),
           );
-          return;
-        }
+        };
+        server.once("error", onBindError);
 
-        const close = Effect.sync(() => {
-          if (timeout !== undefined) clearTimeout(timeout);
-          server.close();
-        });
+        server.listen(
+          { host: "127.0.0.1", port: 0, exclusive: process.platform === "win32" },
+          () => {
+            if (acquired) return;
+            const address = server.address();
+            if (typeof address !== "object" || address === null) {
+              acquired = true;
+              server.close();
+              resume(
+                Effect.fail(
+                  new LoopbackLoginFallback({
+                    reason: "bind_failed",
+                    message: "Could not determine the local callback port.",
+                  }),
+                ),
+              );
+              return;
+            }
 
-        const awaitCallback: LoopbackServer["awaitCallback"] = (expectedState, timeoutMs) =>
-          Effect.callback<LoopbackCallback, LoopbackLoginFallback | LoopbackCallbackRejected>(
-            (resumeCallback) => {
-              activeExpectedState = expectedState;
-              timeout = setTimeout(() => {
-                server.close();
-                resumeCallback(
-                  Effect.fail(
-                    new LoopbackLoginFallback({
-                      reason: "timeout",
-                      message: "Timed out waiting for the browser callback.",
-                    }),
-                  ),
-                );
-              }, timeoutMs);
-
-              complete = (outcome) => {
-                if (timeout !== undefined) clearTimeout(timeout);
-                server.close();
-                if (outcome._tag === "success") {
-                  resumeCallback(Effect.succeed(outcome.callback));
-                } else {
-                  resumeCallback(Effect.fail(outcome.error));
-                }
-              };
-            },
-          );
-
-        resume(
-          Effect.succeed({
-            port: address.port,
-            redirectUri: `http://127.0.0.1:${address.port}/callback`,
-            awaitCallback,
-            close,
-          }),
+            acquired = true;
+            server.off("error", onBindError);
+            resume(
+              Effect.succeed({
+                server,
+                port: address.port,
+              }),
+            );
+          },
         );
-      });
+
+        return Effect.sync(() => {
+          if (!acquired) server.close();
+        });
+      }),
+      ({ server }) =>
+        Effect.try({
+          try: () => {
+            if (server.listening) server.close();
+            server.closeAllConnections();
+          },
+          catch: () => undefined,
+        }).pipe(Effect.ignore),
+    );
+
+    listener.server.on("error", (cause) => {
+      Deferred.doneUnsafe(
+        callback,
+        Effect.fail(
+          new LoopbackLoginFallback({
+            reason: "bind_failed",
+            message: "The local callback server failed.",
+            cause,
+          }),
+        ),
+      );
     });
+
+    return {
+      port: listener.port,
+      redirectUri: `http://127.0.0.1:${listener.port}/callback`,
+      awaitCallback: (timeoutMs) =>
+        Deferred.await(callback).pipe(
+          Effect.timeoutOrElse({
+            duration: Duration.millis(timeoutMs),
+            orElse: () =>
+              Effect.fail(
+                new LoopbackLoginFallback({
+                  reason: "timeout",
+                  message: "Timed out waiting for the browser callback.",
+                }),
+              ),
+          }),
+        ),
+    } satisfies LoopbackServer;
   });

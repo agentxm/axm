@@ -14,6 +14,7 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
@@ -209,6 +210,7 @@ describe("packs install handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
+      FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),
@@ -260,6 +262,7 @@ describe("packs install handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
+      FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
       TestFlagsLayer(flagsOverrides),

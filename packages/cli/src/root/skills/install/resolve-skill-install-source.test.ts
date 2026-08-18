@@ -276,6 +276,7 @@ describe("resolveSkillInstallSource", () => {
               ...makeWorkspace(sources),
               getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
             }),
+            remoteHttpLayer,
           ),
         ),
       );
@@ -395,6 +396,7 @@ describe("resolveSkillRegistrySourceByName", () => {
         ...makeWorkspace(sources),
         getConfiguredOwner: () => Effect.succeed(owner),
       }),
+      remoteHttpLayer,
     );
 
   it.effect("bare name found in first registry returns registry source", () => {

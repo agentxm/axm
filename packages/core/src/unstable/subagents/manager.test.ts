@@ -13,6 +13,7 @@ import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "./refs.js";
 import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
@@ -108,7 +109,7 @@ const makeTestLayer = (overrides?: {
   return SubagentManagerLive.pipe(
     Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
     Layer.provide(agentRepoLayer),
-    Layer.provide(NodeServices.layer),
+    Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
 };
 

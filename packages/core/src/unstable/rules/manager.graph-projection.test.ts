@@ -16,6 +16,7 @@ import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RulesLockMapSchema, type RulesLockMap } from "../lockfile/index.js";
@@ -134,7 +135,7 @@ describe("RuleManager graph-derived region projection", () => {
     return RuleManagerLive.pipe(
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
-      Layer.provide(NodeServices.layer),
+      Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );
   };
 

@@ -4,6 +4,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -94,6 +95,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
   InstallHookCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
+    const httpClient = yield* HttpClient.HttpClient;
     const ws = yield* WorkspaceMutations;
     const hookManager = yield* HookManager;
     const fs = yield* FileSystem.FileSystem;
@@ -102,6 +104,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
 
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),

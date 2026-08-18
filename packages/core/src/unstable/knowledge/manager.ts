@@ -1,11 +1,15 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are translated to AppError inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Result from "effect/Result";
 import { resolveInstructionsConfig } from "../agents/instructions.js";
@@ -125,11 +129,13 @@ export const KnowledgeManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const baseDir = ws.baseDir;
     const env = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(SourceHostProviders, sources),
@@ -272,7 +278,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const preparePackage = (
       ref: KnowledgeExtensionRef,
       force = false,
-    ): Effect.Effect<PreparedKnowledgePackage, ReturnType<typeof makeAppError>> =>
+    ): Effect.Effect<PreparedKnowledgePackage, ReturnType<typeof makeAppError>, Scope.Scope> =>
       Effect.gen(function* () {
         const canonicalPath = canonicalPathForRef(ref);
         if (ref.refType === "workspace") {
@@ -312,71 +318,87 @@ export const KnowledgeManagerLive = Layer.effect(
             };
           }
         }
-        const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-knowledge-package-" });
+        const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
         const backupPath = path.join(tempDir, "previous");
-        const removeTemp = fs.remove(tempDir, { recursive: true, force: true }).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to remove temporary Knowledge directory ${tempDir}`,
-              cause,
-            }),
+        const stageState = yield* Ref.make<
+          | { readonly phase: "preparing" }
+          | { readonly phase: "staged"; readonly hadCanonical: boolean }
+          | { readonly phase: "settled" }
+        >({ phase: "preparing" });
+        const restoreStagedPackage = Ref.get(stageState).pipe(
+          Effect.flatMap((state) => {
+            if (state.phase !== "staged") return Effect.void;
+            return fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
+                  cause,
+                }),
+              ),
+              Effect.andThen(
+                state.hadCanonical
+                  ? fs.rename(backupPath, canonicalPath).pipe(
+                      Effect.mapError((cause) =>
+                        makeAppError({
+                          code: "internal",
+                          detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
+                          cause,
+                        }),
+                      ),
+                    )
+                  : Effect.void,
+              ),
+              Effect.andThen(Ref.set(stageState, { phase: "settled" })),
+            );
+          }),
+        );
+        yield* Effect.addFinalizer(() =>
+          restoreStagedPackage.pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError(
+                "Failed to restore staged Knowledge package during finalization",
+                cause,
+              ),
+            ),
           ),
         );
         const stagedRoot = yield* materializePackage(ref, {
           baseDir: tempDir,
           destinationPath: stagedPath,
         });
-        yield* inspectPackage(stagedRoot).pipe(Effect.tapError(() => removeTemp));
+        yield* inspectPackage(stagedRoot);
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
         yield* protectWorkspacePath(canonicalPath);
         const hadCanonical = yield* fs.exists(canonicalPath);
-        if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
-        yield* fs.makeDirectory(path.dirname(canonicalPath), { recursive: true });
-        yield* fs.rename(stagedPath, canonicalPath).pipe(
-          Effect.tapError(() =>
-            (hadCanonical
-              ? fs.rename(backupPath, canonicalPath).pipe(
-                  Effect.mapError((cause) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
-                      cause,
-                    }),
-                  ),
-                )
-              : Effect.void
-            ).pipe(Effect.andThen(removeTemp)),
-          ),
+        yield* Effect.uninterruptible(
+          Effect.gen(function* () {
+            if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
+            yield* fs.makeDirectory(path.dirname(canonicalPath), { recursive: true });
+            yield* fs.rename(stagedPath, canonicalPath).pipe(
+              Effect.tapError(() =>
+                hadCanonical
+                  ? fs.rename(backupPath, canonicalPath).pipe(
+                      Effect.mapError((cause) =>
+                        makeAppError({
+                          code: "internal",
+                          detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
+                          cause,
+                        }),
+                      ),
+                    )
+                  : Effect.void,
+              ),
+            );
+            yield* Ref.set(stageState, { phase: "staged", hadCanonical });
+          }),
         );
         return {
           root: canonicalPath,
           sourceHash,
-          commit: removeTemp,
-          rollback: fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
-                cause,
-              }),
-            ),
-            Effect.andThen(
-              hadCanonical
-                ? fs.rename(backupPath, canonicalPath).pipe(
-                    Effect.mapError((cause) =>
-                      makeAppError({
-                        code: "internal",
-                        detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
-                        cause,
-                      }),
-                    ),
-                  )
-                : Effect.void,
-            ),
-            Effect.andThen(removeTemp),
-          ),
+          commit: Ref.set(stageState, { phase: "settled" }),
+          rollback: restoreStagedPackage,
         };
       }).pipe(
         Effect.mapError((cause) =>
@@ -599,7 +621,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const syncLocked = (
       dryRun: boolean,
-    ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>> =>
+    ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>, Scope.Scope> =>
       Effect.gen(function* () {
         const desired = yield* activeKnowledgeNodes();
         const locked = yield* getKnowledgeLockEntries(ws);
@@ -623,7 +645,7 @@ export const KnowledgeManagerLive = Layer.effect(
               detail: `Active external Knowledge bundle has no accepted resolution: ${name}`,
             });
           }
-          const restored = yield* Effect.result(Effect.scoped(restoreLockedPackage(name, entry)));
+          const restored = yield* Effect.result(restoreLockedPackage(name, entry));
           if (Result.isFailure(restored)) {
             yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
               discard: true,
@@ -693,16 +715,13 @@ export const KnowledgeManagerLive = Layer.effect(
                 });
               }
               return { name };
-            }).pipe(
-              Effect.tapError(() => prepared.rollback),
-              Effect.tap(() => prepared.commit),
-            );
+            });
             // Desired state and canonical content are committed; render the
             // discovery region once from the complete contributor set. A
             // sibling still installing in the same closure defers the write to
             // the closure's final reconcile.
             yield* reconcileDiscovery({ onUnready: "skip" });
-            return committed;
+            return { ...committed, prepared };
           }),
           validate: ({ name }) =>
             isObservedInstalled(ws, "knowledge", name).pipe(
@@ -717,6 +736,8 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
         })
         .pipe(
+          Effect.tap(({ prepared }) => prepared.commit),
+          Effect.scoped,
           Effect.tapError(() =>
             Effect.sync(() => {
               lastInstallState.delete(args.ref.knowledge.name);
@@ -771,36 +792,39 @@ export const KnowledgeManagerLive = Layer.effect(
         }),
       sync: ({ dryRun }) =>
         dryRun
-          ? syncLocked(true)
-          : ws.runTransaction({
-              transition: syncLocked(false),
-              validate: () => Effect.void,
-            }),
+          ? Effect.scoped(syncLocked(true))
+          : Effect.scoped(
+              ws.runTransaction({
+                transition: syncLocked(false),
+                validate: () => Effect.void,
+              }),
+            ),
       install: installAtomically,
       reconcileProjections: () => reconcileDiscovery({ onUnready: "skip" }).pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),
-      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
-        ref,
-        force,
-      }) {
-        const relativeLocalSource =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
-            : Option.none<string>();
-        if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
+      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(
+        function* ({ ref, force }) {
+          const relativeLocalSource =
+            ref.refType === "local"
+              ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+              : Option.none<string>();
+          if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
+            });
+          }
+          const prepared = yield* preparePackage(ref, force === true);
+          yield* prepared.commit;
+          lastInstallState.set(ref.knowledge.name, {
+            relativeLocalSource,
+            sourceHash: prepared.sourceHash,
           });
-        }
-        const prepared = yield* preparePackage(ref, force === true);
-        yield* prepared.commit;
-        lastInstallState.set(ref.knowledge.name, {
-          relativeLocalSource,
-          sourceHash: prepared.sourceHash,
-        });
-      }, Effect.asVoid),
+        },
+        Effect.asVoid,
+        Effect.scoped,
+      ),
       getConfiguredSource: ({ target }) =>
         ws
           .getConfiguredKnowledgeEntries()

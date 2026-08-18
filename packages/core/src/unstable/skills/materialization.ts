@@ -1,4 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -22,6 +23,10 @@ import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
 ) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path>>;
+
+export type ProvideRegistryMaterialization = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>>;
 
 const preCleanAndCopy = (
   fs: FileSystem.FileSystem,
@@ -62,7 +67,7 @@ const materializeGitHosted = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath);
+    yield* validatePathSafety(pathService, baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
     yield* provide(
       validateAxmSkillCandidate({
@@ -101,7 +106,7 @@ const materializeLocal = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* validatePathSafety(baseDir, skillSrcPath);
+    yield* validatePathSafety(pathService, baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
     yield* provide(
       validateAxmSkillCandidate({
@@ -132,77 +137,69 @@ const materializeRegistry = (
   pathService: Path.Path,
   baseDir: string,
   provide: ProvideFs,
+  provideRegistry: ProvideRegistryMaterialization,
   reuse: CanonicalReuseContext,
 ) =>
-  Effect.gen(function* () {
-    const source: SkillPathSource = { refType: "registry", owner: ref.owner };
-    const { canonicalPath, skillSrcPath } = computeSkillPaths(
-      pathService.join,
-      baseDir,
-      source,
-      sanitizedName,
-    );
-    yield* validatePathSafety(baseDir, canonicalPath);
+  Effect.scoped(
+    Effect.gen(function* () {
+      const source: SkillPathSource = { refType: "registry", owner: ref.owner };
+      const { canonicalPath, skillSrcPath } = computeSkillPaths(
+        pathService.join,
+        baseDir,
+        source,
+        sanitizedName,
+      );
+      yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-          cause: error,
-        }),
-      ),
-    );
-    const useExisting = shouldReuseCanonicalInstall({
-      canonicalExists,
-      force: reuse.force,
-      hasIntegrity: Option.isSome(ref.integrity),
-      refVersion: ref.version,
-      lockedVersion: reuse.lockedVersion,
-    });
-
-    if (!useExisting) {
-      const locationStr =
-        ref.source.location.protocol === "file:"
-          ? ref.source.location.pathname
-          : ref.source.location.href;
-      const client = yield* provide(createRegistryClient(locationStr));
-      const { archive } = yield* client.getExtensionPackage({
-        owner: ref.owner,
-        type: "skill",
-        name: ref.name,
-        version: Option.some(ref.version),
+      const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to check if canonical path exists: ${canonicalPath}`,
+            cause: error,
+          }),
+        ),
+      );
+      const useExisting = shouldReuseCanonicalInstall({
+        canonicalExists,
+        force: reuse.force,
+        hasIntegrity: Option.isSome(ref.integrity),
+        refVersion: ref.version,
+        lockedVersion: reuse.lockedVersion,
       });
 
-      if (Option.isSome(ref.integrity)) {
-        const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity.value) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-          });
-        }
-      }
+      if (!useExisting) {
+        const locationStr =
+          ref.source.location.protocol === "file:"
+            ? ref.source.location.pathname
+            : ref.source.location.href;
+        const client = yield* provideRegistry(createRegistryClient(locationStr));
+        const { archive } = yield* client.getExtensionPackage({
+          owner: ref.owner,
+          type: "skill",
+          name: ref.name,
+          version: Option.some(ref.version),
+        });
 
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "validation",
-            detail: `Temporary directory for registry install could not be created`,
-            cause: error,
-          }),
-        ),
-      );
-      const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to remove temporary skill directory ${tmpDir}`,
-            cause: error,
-          }),
-        ),
-      );
-      yield* Effect.gen(function* () {
+        if (Option.isSome(ref.integrity)) {
+          const actualIntegrity = yield* computeIntegrity(archive);
+          if (actualIntegrity !== ref.integrity.value) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            });
+          }
+        }
+
+        const tmpDir = yield* fs.makeTempDirectoryScoped().pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "validation",
+              detail: `Temporary directory for registry install could not be created`,
+              cause: error,
+            }),
+          ),
+        );
         yield* provide(extractZip(archive, tmpDir));
         yield* provide(
           validateAxmSkillCandidate({
@@ -220,22 +217,19 @@ const materializeRegistry = (
           canonicalPath,
           provide,
         );
-      }).pipe(
-        Effect.tapError(() => cleanup),
-        Effect.tap(() => cleanup),
-      );
-    } else {
-      yield* provide(
-        validateAxmSkillCandidate({
-          ref,
-          packageRoot: canonicalPath,
-          skillSourcePath: skillSrcPath,
-        }),
-      );
-    }
+      } else {
+        yield* provide(
+          validateAxmSkillCandidate({
+            ref,
+            packageRoot: canonicalPath,
+            skillSourcePath: skillSrcPath,
+          }),
+        );
+      }
 
-    return skillSrcPath;
-  });
+      return skillSrcPath;
+    }),
+  );
 
 const materializeWorkspace = (
   ref: WorkspaceSkillRef,
@@ -244,7 +238,7 @@ const materializeWorkspace = (
   provide: ProvideFs,
 ): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
-    yield* validatePathSafety(baseDir, ref.location);
+    yield* validatePathSafety(pathService, baseDir, ref.location);
     const skillSourcePath = pathService.join(ref.location, "src");
     yield* provide(
       validateAxmSkillCandidate({
@@ -270,6 +264,7 @@ export const materializeSkillCanonical = (args: {
   readonly baseDir: string;
   readonly sources: SourceHostProvidersService;
   readonly provide: ProvideFs;
+  readonly provideRegistry: ProvideRegistryMaterialization;
   readonly reuse?: CanonicalReuseContext;
 }): Effect.Effect<string, AppError, never> => {
   switch (args.ref.refType) {
@@ -299,6 +294,7 @@ export const materializeSkillCanonical = (args: {
         args.pathService,
         args.baseDir,
         args.provide,
+        args.provideRegistry,
         args.reuse ?? { force: false, lockedVersion: undefined },
       );
     case "workspace":
@@ -316,7 +312,7 @@ export const ensureSkillAgentArtifact = (args: {
 }) =>
   Effect.gen(function* () {
     const agentSkillPath = args.pathService.join(args.targetDir, args.sanitizedName);
-    if (!isPathSafe(args.baseDir, agentSkillPath)) {
+    if (!isPathSafe(args.pathService, args.baseDir, agentSkillPath)) {
       return;
     }
 

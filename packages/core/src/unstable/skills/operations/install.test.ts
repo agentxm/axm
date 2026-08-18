@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
@@ -231,7 +232,7 @@ const makeServices = (
   };
   return {
     layer: Layer.mergeAll(
-      NodeServices.layer,
+      Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       WorkspaceMutations.layer(mockWs),
       renderer.layer,
       Layer.succeed(SourceHostProviders, sourceProviders),

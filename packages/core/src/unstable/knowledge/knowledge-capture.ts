@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — corpus readers deliberately preserve caller-owned foreign read errors
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";

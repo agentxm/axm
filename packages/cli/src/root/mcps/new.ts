@@ -3,6 +3,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
@@ -98,6 +99,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
+  const httpClient = yield* HttpClient.HttpClient;
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("MCP server creation");
@@ -248,6 +250,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
               Effect.provideService(WorkspaceMutations, ws),
               Effect.provideService(CliRenderer, renderer),
               Effect.provideService(CodingAgentRepository, agentRepo),
+              Effect.provideService(HttpClient.HttpClient, httpClient),
             ),
           );
         }),

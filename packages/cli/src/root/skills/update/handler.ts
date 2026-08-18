@@ -14,6 +14,7 @@ import type * as Duration from "effect/Duration";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -688,6 +689,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
+  const httpClient = yield* HttpClient.HttpClient;
 
   const toJobStepResult = (result: {
     readonly result: string;
@@ -708,6 +710,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       Effect.provideService(CliRenderer, renderer),
       Effect.provideService(SourceHostProviders, sources),
       Effect.provideService(CodingAgentRepository, agentRepo),
+      Effect.provideService(HttpClient.HttpClient, httpClient),
     );
 
   // Step 10: Build plan

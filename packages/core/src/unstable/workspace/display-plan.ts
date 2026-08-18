@@ -373,6 +373,7 @@ const artifactNames = (
 
 const artifactType = (planName: string): string => artifactNames(planName).singular;
 
+// eslint-disable-next-line no-restricted-syntax -- Immutable lookup over the closed extension-type vocabulary.
 const pluralByArtifactType: ReadonlyMap<string, string> = new Map([
   ...artifactTypeTokens.map((entry): readonly [string, string] => [entry.singular, entry.plural]),
   ...NON_TYPE_ARTIFACT_NAMES.map((entry): readonly [string, string] => [
@@ -489,6 +490,7 @@ const inspectSuggestionsForType = (type: string): ReadonlyArray<SuggestedAction>
  * this is how a suggestion recovers which command group to point at without a
  * hand-written switch of its own.
  */
+// eslint-disable-next-line no-restricted-syntax -- Immutable lookup over the closed extension-type vocabulary.
 const extensionTypeByArtifactName: ReadonlyMap<string, ExtensionType> = new Map(
   EffectRecord.toEntries(EXTENSION_TYPE_TABLE).map(
     ([id, row]): readonly [string, ExtensionType] => [row.sentenceLabel, id],

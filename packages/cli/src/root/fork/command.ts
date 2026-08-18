@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -115,6 +116,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const providers = yield* SourceHostProviders;
+  const httpClient = yield* HttpClient.HttpClient;
   const source = yield* resolveSource(args.source);
   const filter = yield* filterForSource(args.source, args.from);
   const packages =
@@ -323,6 +325,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
             Effect.provideService(WorkspaceMutations, ws),
             Effect.provideService(CliRenderer, renderer),
             Effect.provideService(CodingAgentRepository, agentRepo),
+            Effect.provideService(HttpClient.HttpClient, httpClient),
           ),
       });
       break;

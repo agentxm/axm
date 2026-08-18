@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { makeAppError } from "../app-error/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
@@ -108,7 +109,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
           origin: () => "test",
         }),
       ),
-      Layer.provide(NodeServices.layer),
+      Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );
   };
 

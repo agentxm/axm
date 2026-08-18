@@ -80,6 +80,33 @@ const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   );
 
 describe("mcp-sync helpers", () => {
+  it.effect("reports malformed Hermes YAML while pruning managed entries", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-prune-invalid-yaml-"));
+        try {
+          const fs = yield* FileSystem.FileSystem;
+          const configPath = nodePath.join(workspaceRoot, ".hermes", "config.yaml");
+          yield* fs.makeDirectory(nodePath.dirname(configPath), { recursive: true });
+          yield* fs.writeFileString(configPath, "mcp_servers:\n  context: [\n");
+
+          const error = yield* withHome(
+            workspaceRoot,
+            pruneManagedMcpServersForAgent("hermes", {
+              workspaceRoot,
+              scope: "user",
+              declaredServerNames: new Set(),
+            }),
+          ).pipe(Effect.flip);
+
+          expect(error.code).toBe("validation");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect(
     "writes a config that inspection reads as a match for every configurable MCP agent",
     () =>

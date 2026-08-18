@@ -202,7 +202,7 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
       try: () => unzipSync(archive),
       catch: (e) =>
         makeAppError({
-          code: "network",
+          code: "validation",
           detail: "Failed to decompress zip archive",
           cause: e,
         }),

@@ -275,65 +275,73 @@ describe("writeExpectedCliError", () => {
     recover: "Choose a different name or remove the existing skill first",
   });
 
-  it("text mode: renders the suggestion exactly once (no duplicate block)", async () => {
-    await Effect.runPromise(writeExpectedCliError(conflictError, "text"));
+  it.effect("text mode: renders the suggestion exactly once (no duplicate block)", () =>
+    Effect.gen(function* () {
+      yield* writeExpectedCliError(conflictError, "text");
 
-    const stderr = stderrWrites.join("");
-    // renderAppError owns the single suggestions block.
-    expect(stderr).toContain("Next:");
-    expect(stderr.split("Next:").length - 1).toBe(1);
-    // The suggestion text appears once across the whole stderr output.
-    const occurrences =
-      stderr.split("Choose a different name or remove the existing skill first").length - 1;
-    expect(occurrences).toBe(1);
-  });
+      const stderr = stderrWrites.join("");
+      // renderAppError owns the single suggestions block.
+      expect(stderr).toContain("Next:");
+      expect(stderr.split("Next:").length - 1).toBe(1);
+      // The suggestion text appears once across the whole stderr output.
+      const occurrences =
+        stderr.split("Choose a different name or remove the existing skill first").length - 1;
+      expect(occurrences).toBe(1);
+    }),
+  );
 
-  it("json mode: streams suggestion + error events on stderr and one envelope on stdout", async () => {
-    await Effect.runPromise(writeExpectedCliError(conflictError, "json"));
+  it.effect(
+    "json mode: streams suggestion + error events on stderr and one envelope on stdout",
+    () =>
+      Effect.gen(function* () {
+        yield* writeExpectedCliError(conflictError, "json");
 
-    // stderr is the live event stream: suggestion(s) first, then the error.
-    const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
-    expect(events).toEqual([
-      {
-        type: "suggestion",
-        description: "Choose a different name or remove the existing skill first",
-      },
-      {
-        type: "error",
-        code: "conflict",
-        message: "Skill 'test' already exists in settings",
-      },
-    ]);
+        // stderr is the live event stream: suggestion(s) first, then the error.
+        const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
+        expect(events).toEqual([
+          {
+            type: "suggestion",
+            description: "Choose a different name or remove the existing skill first",
+          },
+          {
+            type: "error",
+            code: "conflict",
+            message: "Skill 'test' already exists in settings",
+          },
+        ]);
 
-    // stdout is the final document; it also carries the suggestions. The two
-    // surfaces are distinct — not a doubled block on one channel.
-    expect(stdoutWrites).toHaveLength(1);
-    const envelope: unknown = JSON.parse(stdoutWrites[0] ?? "");
-    expect(envelope).toMatchObject({
-      ok: false,
-      code: "conflict",
-      suggestions: [{ description: "Choose a different name or remove the existing skill first" }],
-    });
-  });
+        // stdout is the final document; it also carries the suggestions. The two
+        // surfaces are distinct — not a doubled block on one channel.
+        expect(stdoutWrites).toHaveLength(1);
+        const envelope: unknown = JSON.parse(stdoutWrites[0] ?? "");
+        expect(envelope).toMatchObject({
+          ok: false,
+          code: "conflict",
+          suggestions: [
+            { description: "Choose a different name or remove the existing skill first" },
+          ],
+        });
+      }),
+  );
 
-  it("text mode: uses Verbosity service for debug cause details", async () => {
-    const cause = new Error("settings decode failed");
-    cause.stack = "Error: settings decode failed\n at decode";
-    const error = makeAppError({
-      code: "internal",
-      detail: "Failed to read workspace settings",
-      cause,
-    });
+  it.effect("text mode: uses Verbosity service for debug cause details", () =>
+    Effect.gen(function* () {
+      const cause = new Error("settings decode failed");
+      cause.stack = "Error: settings decode failed\n at decode";
+      const error = makeAppError({
+        code: "internal",
+        detail: "Failed to read workspace settings",
+        cause,
+      });
 
-    await Effect.runPromise(
-      writeExpectedCliError(error, "text").pipe(
+      yield* writeExpectedCliError(error, "text").pipe(
         Effect.provide(testLayer("text", { verbosityLevel: "debug" })),
-      ),
-    );
+      );
 
-    const stderr = stderrWrites.join("");
-    expect(stderr).toContain("Cause: Error: settings decode failed");
-    expect(stderr).toContain("Stack: Error: settings decode failed");
-    expect(stderr).toContain("Stack:  at decode");
-  });
+      const stderr = stderrWrites.join("");
+      expect(stderr).toContain("Cause: Error: settings decode failed");
+      expect(stderr).toContain("Stack: Error: settings decode failed");
+      expect(stderr).toContain("Stack:  at decode");
+    }),
+  );
 });

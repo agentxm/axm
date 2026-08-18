@@ -7,6 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
@@ -48,6 +49,9 @@ vi.mock("@napi-rs/keyring", () => {
     }
 
     setPassword(value: string): void {
+      if (value === "fail-to-save") {
+        throw new Error("simulated keychain write failure");
+      }
       store.set(this.key, value);
     }
   }
@@ -171,7 +175,7 @@ const makeServices = (
 
   return {
     layer: Layer.mergeAll(
-      NodeServices.layer,
+      Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       WorkspaceMutations.layer(mockWs),
       renderer.layer,
       Layer.succeed(SourceHostProviders, sourceProviders),
@@ -432,6 +436,47 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
         expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
+      }),
+    );
+
+    it.effect("warns when a secret cannot be saved to the system keychain", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(
+          path.join(canonicalPath, "mcp.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "mcp-server",
+            name: "my-server",
+            version: "1.0.0",
+            server: {
+              name: "io.github.community/my-server",
+              description: "MCP server my-server",
+              version: "1.0.0",
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: "@community/my-server",
+                  version: "1.0.0",
+                  transport: { type: "stdio" },
+                  environmentVariables: [{ name: "API_TOKEN", isRequired: true, isSecret: true }],
+                },
+              ],
+            },
+          }),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({
+            ref: makeRegistryRef({ integrity: "" }),
+            env: { API_TOKEN: "fail-to-save" },
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("API_TOKEN could not be saved to the system keychain");
+        expect(result.message).not.toContain("fail-to-save");
       }),
     );
 

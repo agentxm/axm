@@ -8,7 +8,6 @@
  * @packageDocumentation
  */
 
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
@@ -399,11 +398,7 @@ export interface RegistryClient {
 export const createRegistryClient = (location: string) =>
   Effect.gen(function* () {
     if (location.startsWith("https://") || location.startsWith("http://")) {
-      const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
-      const httpClient = yield* Option.match(ambientHttpClient, {
-        onNone: () => HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer)),
-        onSome: (client) => Effect.succeed(client),
-      });
+      const httpClient = yield* HttpClient.HttpClient;
       const archiveCache = yield* makeUserArchiveCache();
       return createRemoteRegistryClient(location, httpClient, archiveCache);
     }

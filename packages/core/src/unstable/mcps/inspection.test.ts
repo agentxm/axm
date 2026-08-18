@@ -48,6 +48,60 @@ const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, 
   });
 
 describe("agent MCP config inspection", () => {
+  it.effect("reports malformed YAML entries as validation failures", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-invalid-yaml-"));
+        try {
+          const hermesDir = nodePath.join(workspaceRoot, ".hermes");
+          mkdirSync(hermesDir, { recursive: true });
+          writeFileSync(nodePath.join(hermesDir, "config.yaml"), "mcp_servers:\n  context: [\n");
+
+          const error = yield* withHome(
+            workspaceRoot,
+            inspectAgentMcpServer({
+              workspaceRoot,
+              scope: "user",
+              agentId: "hermes",
+              serverName: "context",
+              entry: contextEntry,
+            }),
+          ).pipe(Effect.flip);
+
+          expect(error.code).toBe("validation");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports malformed YAML while collecting managed entries", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-collect-invalid-yaml-"));
+        try {
+          const hermesDir = nodePath.join(workspaceRoot, ".hermes");
+          mkdirSync(hermesDir, { recursive: true });
+          writeFileSync(nodePath.join(hermesDir, "config.yaml"), "mcp_servers:\n  context: [\n");
+
+          const error = yield* withHome(
+            workspaceRoot,
+            collectManagedAgentMcpServers({
+              workspaceRoot,
+              scope: "user",
+              agentIds: ["hermes"],
+            }),
+          ).pipe(Effect.flip);
+
+          expect(error.code).toBe("validation");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("treats semantically equivalent managed TOML formatting as a match", () =>
     withNode(
       Effect.gen(function* () {

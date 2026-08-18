@@ -37,6 +37,7 @@ const header = `/**
  * Regenerate: pnpm exec nx run core:generate:registry-client
  * DO NOT EDIT - changes are overwritten on regeneration.
  */
+// @effect-diagnostics anyUnknownInErrorContext:off — generated OpenAPI transport errors are translated by the registry adapter
 /* eslint-disable */
 
 `;

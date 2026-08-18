@@ -127,12 +127,14 @@ const checkActual = (args: {
       target: candidateTarget,
     });
   }
+  const inference =
+    args.entry.url === undefined ? undefined : inferInlineRemoteTransport(args.entry.url);
   const transport =
     args.entry.command !== undefined
       ? "stdio"
-      : args.entry.url === undefined
-        ? undefined
-        : inferInlineRemoteTransport(args.entry.url);
+      : inference?._tag === "supported"
+        ? inference.transport
+        : undefined;
   if (transport === undefined) return undefined;
   const resolution = resolveSharedMcpTarget({ members, transport });
   if (resolution._tag === "conflict") return undefined;

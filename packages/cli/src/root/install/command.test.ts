@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { makeAxmFormatter } from "../../formatter.js";
 import { rootCommand } from "../../app.js";
@@ -33,20 +33,22 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
   });
 
 describe("root install command help", () => {
-  it("documents the no-arg, FQN, and locator install contract", async () => {
-    const output = stripAnsi(await Effect.runPromise(captureHelpOutput(["install"])));
+  it.effect("documents the no-arg, FQN, and locator install contract", () =>
+    Effect.gen(function* () {
+      const output = stripAnsi(yield* captureHelpOutput(["install"]));
 
-    expect(output).toContain(
-      "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
-    );
-    expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) or source");
-    expect(output).toContain("axm install");
-    expect(output).toContain("axm install @acme/skills/code-review");
-    expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
-    expect(output).toContain('refs cannot contain "/"');
-    expect(output).toContain("--ignore-release-age");
-    expect(output).toContain(
-      "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge",
-    );
-  });
+      expect(output).toContain(
+        "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
+      );
+      expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) or source");
+      expect(output).toContain("axm install");
+      expect(output).toContain("axm install @acme/skills/code-review");
+      expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
+      expect(output).toContain('refs cannot contain "/"');
+      expect(output).toContain("--ignore-release-age");
+      expect(output).toContain(
+        "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge",
+      );
+    }),
+  );
 });

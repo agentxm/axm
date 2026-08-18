@@ -29,6 +29,12 @@ import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/ind
 
 type ExternalSource = GitBasedSource | LocalSource;
 
+// Directory reads reuse the repository's existing sixteen-read archive cap.
+// Git metadata probes stay serial because they spawn subprocesses and no
+// higher subprocess capacity has been established.
+const FILESYSTEM_DISCOVERY_CONCURRENCY = 16;
+const GIT_METADATA_CONCURRENCY = 1;
+
 type SubagentDiscovery = {
   readonly type: "subagent";
   readonly owner: Handle;
@@ -138,7 +144,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                 } satisfies SkillExtensionRef;
             }
           }),
-        { concurrency: "unbounded" },
+        { concurrency: GIT_METADATA_CONCURRENCY },
       ),
     ),
   );
@@ -179,7 +185,7 @@ const manifestDirs = (
             if (Option.isNone(stat) || stat.value.type !== "Directory") return [];
             return yield* scan(fullPath, depth + 1);
           }),
-        { concurrency: "unbounded" },
+        { concurrency: FILESYSTEM_DISCOVERY_CONCURRENCY },
       ).pipe(Effect.map((results) => Array.flatten(results)));
 
       return hasManifest ? [dir, ...childDirs] : childDirs;
@@ -241,7 +247,7 @@ const subagentDiscoveries = (
   Effect.gen(function* () {
     const dirs = yield* manifestDirs(root, MANIFEST_FILENAME);
     const discoveries = yield* Effect.forEach(dirs, (dir) => readSubagentDiscovery(dir), {
-      concurrency: "unbounded",
+      concurrency: FILESYSTEM_DISCOVERY_CONCURRENCY,
     });
     return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
   });
@@ -252,7 +258,7 @@ const knowledgeDiscoveries = (
   Effect.gen(function* () {
     const dirs = yield* manifestDirs(root, KNOWLEDGE_MANIFEST_FILENAME);
     const discoveries = yield* Effect.forEach(dirs, (dir) => readKnowledgeDiscovery(dir), {
-      concurrency: "unbounded",
+      concurrency: FILESYSTEM_DISCOVERY_CONCURRENCY,
     });
     return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
   });
@@ -324,7 +330,7 @@ const subagentRefsInDir = (source: ExternalSource, basePath: string, options: Fi
     return yield* Effect.forEach(
       matching,
       (discovery) => subagentRef(source, basePath, discovery),
-      { concurrency: "unbounded" },
+      { concurrency: GIT_METADATA_CONCURRENCY },
     );
   });
 
@@ -336,7 +342,7 @@ const knowledgeRefsInDir = (source: ExternalSource, basePath: string, options: F
     return yield* Effect.forEach(
       matching,
       (discovery) => knowledgeRef(source, basePath, discovery),
-      { concurrency: "unbounded" },
+      { concurrency: GIT_METADATA_CONCURRENCY },
     );
   });
 
@@ -375,7 +381,7 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
               } satisfies RuleExtensionRef;
           }
         }),
-      { concurrency: "unbounded" },
+      { concurrency: GIT_METADATA_CONCURRENCY },
     );
   });
 
@@ -414,7 +420,7 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
               } satisfies HookExtensionRef;
           }
         }),
-      { concurrency: "unbounded" },
+      { concurrency: GIT_METADATA_CONCURRENCY },
     );
   });
 

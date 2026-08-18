@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — HTTP schema/status errors remain opaque only inside this translating adapter
 /**
  * AuthClient Effect service — device flow login, token refresh, revocation, identity queries.
  *

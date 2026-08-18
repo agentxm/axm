@@ -104,50 +104,41 @@ export interface MaterializeRegistryPackageArgs {
  * canonical installed path before choosing a destination.
  */
 export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
 
-    yield* validatePathSafety(args.baseDir, args.destinationPath);
+      yield* validatePathSafety(path, args.baseDir, args.destinationPath);
 
-    const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
-    const { archive } = yield* client.getExtensionPackage({
-      owner: args.owner,
-      type: args.type,
-      name: args.name,
-      version: Option.some(args.version),
-    });
+      const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
+      const { archive } = yield* client.getExtensionPackage({
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        version: Option.some(args.version),
+      });
 
-    if (Option.isSome(args.integrity)) {
-      const actualIntegrity = yield* computeIntegrity(archive);
-      if (actualIntegrity !== args.integrity.value) {
-        return yield* makeAppError({
-          code: args.messages.integrityMismatchCode,
-          detail: args.messages.integrityMismatchDetail,
-        });
+      if (Option.isSome(args.integrity)) {
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== args.integrity.value) {
+          return yield* makeAppError({
+            code: args.messages.integrityMismatchCode,
+            detail: args.messages.integrityMismatchDetail,
+          });
+        }
       }
-    }
 
-    const tmpDir = yield* fs.makeTempDirectory().pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: args.messages.tempDirectoryFailureDetail,
-          cause: error,
-        }),
-      ),
-    );
+      const tmpDir = yield* fs.makeTempDirectoryScoped().pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "validation",
+            detail: args.messages.tempDirectoryFailureDetail,
+            cause: error,
+          }),
+        ),
+      );
 
-    const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to remove temporary package directory ${tmpDir}`,
-          cause: error,
-        }),
-      ),
-    );
-    yield* Effect.gen(function* () {
       yield* extractZip(archive, tmpDir);
       yield* protectWorkspacePath(args.destinationPath);
       yield* fs.remove(args.destinationPath, { recursive: true, force: true }).pipe(
@@ -191,13 +182,10 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
           ),
         { concurrency: "unbounded" },
       );
-    }).pipe(
-      Effect.tapError(() => cleanup),
-      Effect.tap(() => cleanup),
-    );
 
-    return args.destinationPath;
-  });
+      return args.destinationPath;
+    }),
+  );
 
 export interface MaterializeExternalPackageArgs {
   readonly baseDir: string;
@@ -212,7 +200,7 @@ export const materializeExternalPackage = (args: MaterializeExternalPackageArgs)
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    yield* validatePathSafety(args.baseDir, args.canonicalPath);
+    yield* validatePathSafety(path, args.baseDir, args.canonicalPath);
 
     const sourcePath = stripFileProtocol(args.sourceLocation);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(args.canonicalPath);

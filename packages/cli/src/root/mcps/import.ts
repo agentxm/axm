@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
@@ -487,6 +488,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
 }) {
+  const httpClient = yield* HttpClient.HttpClient;
   if (args.ws.scope !== "project") {
     return yield* makeAppError({
       code: "usage",
@@ -670,6 +672,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         Effect.provideService(WorkspaceMutations, args.ws),
         Effect.provideService(CliRenderer, renderer),
         Effect.provideService(CodingAgentRepository, agentRepo),
+        Effect.provideService(HttpClient.HttpClient, httpClient),
       ),
   });
   return {

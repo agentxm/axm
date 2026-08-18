@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import { extensionTypePluralSegments } from "@agentxm/client-core/unstable/extensions";
@@ -164,34 +164,40 @@ const suggestionReferences = (): ReadonlyArray<Reference> => {
   );
 };
 
-const loadCommandTree = async (): Promise<CommandTree> =>
-  buildCommandTree(await Effect.runPromise(collectHelpFiles()));
+const loadCommandTree = (): Effect.Effect<CommandTree, unknown> =>
+  collectHelpFiles().pipe(Effect.map(buildCommandTree));
 
 describe("shipped command references", () => {
-  it("names only commands the CLI registers, in help topics and the bundled skill", async () => {
-    const tree = await loadCommandTree();
-    const references = docReferences();
+  it.effect("names only commands the CLI registers, in help topics and the bundled skill", () =>
+    Effect.gen(function* () {
+      const tree = yield* loadCommandTree();
+      const references = docReferences();
 
-    expect(references.length).toBeGreaterThan(100);
-    expect(unresolvedIn(references, tree)).toEqual([]);
-  });
+      expect(references.length).toBeGreaterThan(100);
+      expect(unresolvedIn(references, tree)).toEqual([]);
+    }),
+  );
 
-  it("names only commands the CLI registers, in suggestion and example strings", async () => {
-    const tree = await loadCommandTree();
-    const references = suggestionReferences();
+  it.effect("names only commands the CLI registers, in suggestion and example strings", () =>
+    Effect.gen(function* () {
+      const tree = yield* loadCommandTree();
+      const references = suggestionReferences();
 
-    expect(references.length).toBeGreaterThan(100);
-    expect(unresolvedIn(references, tree)).toEqual([]);
-  });
+      expect(references.length).toBeGreaterThan(100);
+      expect(unresolvedIn(references, tree)).toEqual([]);
+    }),
+  );
 
-  it("keeps per-type install guidance aligned with the groups that register install", async () => {
-    const tree = await loadCommandTree();
-    const groupsWithInstall = extensionTypePluralSegments.filter((segment) =>
-      tree.paths.has(`axm ${segment} install`),
-    );
+  it.effect("keeps per-type install guidance aligned with the groups that register install", () =>
+    Effect.gen(function* () {
+      const tree = yield* loadCommandTree();
+      const groupsWithInstall = extensionTypePluralSegments.filter((segment) =>
+        tree.paths.has(`axm ${segment} install`),
+      );
 
-    expect(Array.from(perTypeInstallPluralSegments)).toEqual(groupsWithInstall);
-  });
+      expect(Array.from(perTypeInstallPluralSegments)).toEqual(groupsWithInstall);
+    }),
+  );
 
   it("names only help topics that exist", () => {
     const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);

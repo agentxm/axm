@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — native package inspection translates opaque platform errors to AppError here
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";

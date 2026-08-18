@@ -256,7 +256,7 @@ const resolveMcpConfigTargetPath = (
           : path.resolve(home, target.path)
         : path.resolve(workspaceRoot, target.path);
 
-    if (target.scope === "project" && !isPathSafe(workspaceRoot, configPath)) {
+    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, configPath)) {
       yield* diagnostics.append({
         source: "scanner",
         message: `${SCANNER_NAME}: MCP config target escapes workspace root: ${target.path}`,

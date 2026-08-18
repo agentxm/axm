@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — lint converts opaque read-model failures into fact-only findings at this boundary
 /**
  * `LintWorkspace` — single helper that produces both the per-rule
  * `WorkspaceRuleContext` and the flat `LintWorkspaceView` projection a lint

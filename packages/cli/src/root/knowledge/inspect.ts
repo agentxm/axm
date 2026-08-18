@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — inspection translates caller-owned opaque bundle accessor failures into findings
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Path from "effect/Path";

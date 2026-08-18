@@ -63,6 +63,7 @@ export const resolveUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.P
     // AXM_USER_HOME="" already resolves to Option.none here.
     // Config.option(string) has neither a missing-value nor decoding failure;
     // a failure can only be a broken ConfigProvider invariant.
+    // eslint-disable-next-line no-restricted-syntax -- Optional string decoding is total, so failure means the Config provider violated its contract.
     const axmUserHome = yield* Effect.orDie(axmUserHomeConfig);
     const home = Option.match(axmUserHome, {
       onNone: () => os.homedir(),

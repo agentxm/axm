@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — generic test harnesses intentionally preserve arbitrary fixture channels
 /**
  * Shared test helpers for CLI package tests.
  *
@@ -8,6 +9,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
@@ -31,6 +34,18 @@ import {
   WorkspaceInitializationInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
 import { ExecutionDirectory } from "./execution-directory.js";
+
+const testHttpLayer = Layer.succeed(
+  HttpClient.HttpClient,
+  HttpClient.make((request) =>
+    Effect.succeed(
+      HttpClientResponse.fromWeb(
+        request,
+        new Response("Unexpected test HTTP request", { status: 500 }),
+      ),
+    ),
+  ),
+);
 
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
@@ -417,6 +432,7 @@ export const makeCliTestContext = (opts?: {
   });
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
+    testHttpLayer,
     rendererLayer,
     authGuardTest.layer,
     resolvePlanTest.layer,

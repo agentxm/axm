@@ -15,6 +15,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -208,6 +209,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
   InstallSubagentCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
+    const httpClient = yield* HttpClient.HttpClient;
     const renderer = yield* CliRenderer;
     const subagentMgr = yield* SubagentManager;
     const agentRepo = yield* CodingAgentRepository;
@@ -224,6 +226,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(Path.Path, pathSvc),

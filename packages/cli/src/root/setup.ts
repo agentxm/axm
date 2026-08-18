@@ -39,6 +39,7 @@ import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { scopeFlag } from "../cli-flags.js";
@@ -312,6 +313,7 @@ export const SetupSkillInstallerLive = Layer.effect(
     const nonInteractive = yield* nonInteractiveFlag;
     const registryUrl = yield* RegistryUrl;
     const executionDirectory = yield* ExecutionDirectory;
+    const httpClient = yield* HttpClient.HttpClient;
     const capturedLayer = Layer.mergeAll(
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -320,6 +322,7 @@ export const SetupSkillInstallerLive = Layer.effect(
       Layer.succeed(nonInteractiveFlag, nonInteractive),
       Layer.succeed(RegistryUrl, registryUrl),
       Layer.succeed(ExecutionDirectory, executionDirectory),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
     );
 
     return {

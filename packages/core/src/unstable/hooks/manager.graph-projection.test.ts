@@ -17,6 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { HooksLockMapSchema, type HooksLockMap } from "../lockfile/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
@@ -116,7 +117,7 @@ describe("HookManager graph-derived unit projection", () => {
     return HookManagerLive.pipe(
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
-      Layer.provide(NodeServices.layer),
+      Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );
   };
 

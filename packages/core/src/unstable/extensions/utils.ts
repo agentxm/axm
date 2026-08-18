@@ -83,8 +83,8 @@ export const normalizeExtensionName = (name: string): ExtensionName => {
 // Path Safety Validation
 // -----------------------------------------------------------------------------
 
-export const validatePathSafety = (baseDir: string, targetPath: string) =>
-  isPathSafe(baseDir, targetPath)
+export const validatePathSafety = (path: Path.Path, baseDir: string, targetPath: string) =>
+  isPathSafe(path, baseDir, targetPath)
     ? Effect.void
     : makeAppError({
         code: "internal",

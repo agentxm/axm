@@ -11,6 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 import {
   CodingAgentRepository,
@@ -110,7 +111,12 @@ export interface SyncTestHooks {
 }
 
 type SyncPlanRequirements =
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository;
+  | HttpClient.HttpClient
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | CliRenderer
+  | CodingAgentRepository;
 
 const PLAN_NAME = "Sync workspace";
 const PLAN_DESCRIPTION =

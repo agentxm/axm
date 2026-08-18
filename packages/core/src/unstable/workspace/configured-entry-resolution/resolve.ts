@@ -1,4 +1,5 @@
 import type * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as DateTime from "effect/DateTime";
@@ -154,7 +155,12 @@ export const resolveConfiguredRegistryEntry = (
 ): Effect.Effect<
   Option.Option<ConfiguredRegistryResolution>,
   AppError,
-  SourceHostProviders | WorkspaceMutations | FileSystem.FileSystem | Path.Path | Scope.Scope
+  | SourceHostProviders
+  | WorkspaceMutations
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | Scope.Scope
 > =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) return Option.none();

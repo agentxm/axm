@@ -19,6 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
@@ -342,6 +343,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
   InstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
+    const httpClient = yield* HttpClient.HttpClient;
     const renderer = yield* CliRenderer;
     const skillMgr = yield* SkillManager;
     const ws = yield* WorkspaceMutations;
@@ -446,6 +448,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(Path.Path, pathSvc),
@@ -737,6 +740,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               const releaseAgeWarning = yield* brandNewReleaseAgeWarning(ref, installedBefore).pipe(
                 Effect.provideService(FileSystem.FileSystem, fsSvc),
                 Effect.provideService(Path.Path, pathSvc),
+                Effect.provideService(HttpClient.HttpClient, httpClient),
               );
 
               return withPlanWarning(

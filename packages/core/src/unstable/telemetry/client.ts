@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
 import { createHash } from "node:crypto";
 import * as os from "node:os";
 import * as DateTime from "effect/DateTime";

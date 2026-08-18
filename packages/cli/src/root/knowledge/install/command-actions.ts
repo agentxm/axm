@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -57,6 +58,7 @@ export class InstallKnowledgeCommandWorkflowActions extends ServiceMap.Service<
 
 const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const httpClient = yield* HttpClient.HttpClient;
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
@@ -64,6 +66,7 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
   const env = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),

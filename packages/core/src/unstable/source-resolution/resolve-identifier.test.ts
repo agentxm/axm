@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -53,7 +54,7 @@ const provide = (
               ]),
           }),
         ),
-        NodeServices.layer,
+        Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       ),
     ),
   );
@@ -292,7 +293,7 @@ const provideForType = (
           WorkspaceMutations,
           makeBaseWorkspaceMock("/tmp/axm", desiredOverrideFor[type]),
         ),
-        NodeServices.layer,
+        Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       ),
     ),
   );

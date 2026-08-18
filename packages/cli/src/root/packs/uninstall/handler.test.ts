@@ -11,6 +11,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
@@ -228,6 +229,7 @@ describe("packs uninstall handler", () => {
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
+      FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
       TestFlagsLayer(),

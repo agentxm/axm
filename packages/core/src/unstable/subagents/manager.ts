@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -30,7 +31,6 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
-  computeIntegrity,
 } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
@@ -40,13 +40,13 @@ import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
-import { createRegistryClient, extractZip } from "../registry/index.js";
 import {
+  canReuseInstalledPackage,
   computePackageContentHash,
   computeSourceHash,
   insertManagedFileBanner,
+  materializeRegistryPackage,
   RenderedFilePathSchema,
-  shouldReuseCanonicalInstall,
   type SourceHash,
 } from "../extensions/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "./manifest-schema.js";
@@ -91,6 +91,7 @@ export const SubagentManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
     const baseDir = ws.baseDir;
@@ -98,6 +99,7 @@ export const SubagentManagerLive = Layer.effect(
     // Build a layer to provide FileSystem + Path to inner effects
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
     );
 
@@ -242,94 +244,45 @@ export const SubagentManagerLive = Layer.effect(
       force: boolean,
     ) =>
       Effect.gen(function* () {
-        const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-              cause: e,
-            }),
-          ),
-        );
         const lockedVersion = acceptedRegistryVersionForRef(
           yield* ws.getLockedSubagent(ref.subagent.name),
           ref,
         );
-        const useExisting = shouldReuseCanonicalInstall({
-          canonicalExists,
-          force,
-          hasIntegrity: Option.isSome(ref.integrity),
-          refVersion: ref.version,
-          lockedVersion,
-        });
+        const useExisting = yield* provide(
+          canReuseInstalledPackage({
+            installedPath: canonicalPath,
+            force,
+            integrity: ref.integrity,
+            version: ref.version,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
+          }),
+        );
 
         if (!useExisting) {
-          const locationStr =
-            ref.source.location.protocol === "file:"
-              ? ref.source.location.pathname
-              : ref.source.location.href;
-          const client = yield* provide(createRegistryClient(locationStr));
-          const { archive } = yield* client.getExtensionPackage({
-            owner: ref.owner,
-            type: "subagent",
-            name: ref.name,
-            version: Option.some(ref.version),
-          });
-
-          if (Option.isSome(ref.integrity)) {
-            const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity !== ref.integrity.value) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-              });
-            }
-          }
-
-          const tmpDir = yield* fs.makeTempDirectory().pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Temporary directory for registry install could not be created`,
-                cause: e,
-              }),
-            ),
-          );
-          const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove temporary subagent directory ${tmpDir}`,
-                cause: error,
-              }),
-            ),
-          );
-          yield* Effect.gen(function* () {
-            yield* provide(extractZip(archive, tmpDir));
-            yield* protectWorkspacePath(canonicalPath);
-            yield* fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to replace canonical subagent source: ${canonicalPath}`,
-                  cause: error,
-                }),
-              ),
-            );
-            yield* provide(
-              copyExtensionDirectory(tmpDir, canonicalPath).pipe(
-                Effect.mapError((e) =>
-                  makeAppError({
-                    code: "internal",
-                    detail: `Failed to copy subagent files to ${canonicalPath}`,
-                    cause: e,
-                  }),
-                ),
-              ),
-            );
-          }).pipe(
-            Effect.tapError(() => cleanup),
-            Effect.tap(() => cleanup),
+          yield* provide(
+            materializeRegistryPackage({
+              baseDir,
+              destinationPath: canonicalPath,
+              sourceLocation: ref.source.location,
+              owner: ref.owner,
+              type: "subagent",
+              name: ref.name,
+              version: ref.version,
+              integrity: ref.integrity,
+              messages: {
+                integrityMismatchCode: "internal",
+                integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+                tempDirectoryFailureDetail:
+                  "Temporary directory for registry install could not be created",
+                createDirectoryFailureDetail: (target) =>
+                  `Failed to create canonical subagent directory: ${target}`,
+                inspectExtractedFailureDetail: "Extracted subagent directory could not be read",
+                copyEntryFailureCode: "internal",
+                copyEntryFailureDetail: (entry) =>
+                  `Failed to copy subagent package entry: ${entry}`,
+              },
+            }),
           );
         }
       });

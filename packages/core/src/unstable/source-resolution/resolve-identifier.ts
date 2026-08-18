@@ -1,6 +1,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Result from "effect/Result";
@@ -214,7 +215,7 @@ const registryCandidates = (
 ): Effect.Effect<
   ReadonlyArray<IdentifierCandidate>,
   AppError,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  WorkspaceMutations | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
 > =>
   Effect.gen(function* () {
     const name = yield* decodeName(input);

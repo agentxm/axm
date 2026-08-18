@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
@@ -422,6 +423,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
   InstallPackCommandWorkflowActions,
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
+    const httpClient = yield* HttpClient.HttpClient;
     const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const fsSvc = yield* FileSystem.FileSystem;
@@ -445,6 +447,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     // services via the Effect context (e.g. resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(CliRenderer, renderer),
       Layer.succeed(FileSystem.FileSystem, fsSvc),

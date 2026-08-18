@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -48,6 +49,7 @@ const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(f
   const path = yield* Path.Path;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
+  const httpClient = yield* HttpClient.HttpClient;
   const source = `workspace:${ref.owner}/mcps/${ref.name}`;
   const transition = installMcpServer({
     name: "install-mcp-server",
@@ -65,6 +67,7 @@ const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(f
     Effect.provideService(WorkspaceMutations, ws),
     Effect.provideService(CliRenderer, renderer),
     Effect.provideService(CodingAgentRepository, agentRepo),
+    Effect.provideService(HttpClient.HttpClient, httpClient),
   );
   return {
     key: toStepKey(targetFromRef(ref)),

@@ -6,6 +6,7 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -157,12 +158,14 @@ export const RuleManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const baseDir = ws.baseDir;
 
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
     );
     const envLayer = Layer.mergeAll(

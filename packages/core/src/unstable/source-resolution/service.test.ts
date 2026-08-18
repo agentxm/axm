@@ -17,6 +17,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 
@@ -110,9 +111,9 @@ const runWithService = <A, E>(
   const wsLayer = Layer.succeed(WorkspaceMutations, makeTestWorkspace(sources, axmDir));
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
-    Layer.provide(NodeServices.layer),
+    Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
-  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer);
+  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer, FetchHttpClient.layer);
   return effect.pipe(Effect.provide(fullLayer), Effect.scoped);
 };
 

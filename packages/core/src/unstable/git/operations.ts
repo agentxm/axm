@@ -17,11 +17,12 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
-const createGit = (baseDir: string): SimpleGit => {
+const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
     baseDir,
     binary: "git",
     maxConcurrentProcesses: 1,
+    ...(abort === undefined ? {} : { abort }),
   };
 
   return simpleGit(options).env("GIT_TERMINAL_PROMPT", "0").env("GIT_LFS_SKIP_SMUDGE", "1");
@@ -38,7 +39,7 @@ const mapGitError =
     const baseMessage = context ?? `Git ${operation} failed`;
 
     return makeAppError({
-      code: "internal",
+      code: operation === "clone" ? "network" : "validation",
       detail: baseMessage,
       cause: error,
     });
@@ -63,8 +64,8 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     return yield* Effect.tryPromise({
-      try: () =>
-        createGit(path.dirname(destination)).clone(url, destination, [
+      try: (signal) =>
+        createGit(path.dirname(destination), signal).clone(url, destination, [
           "--depth",
           "1",
           "--single-branch",
@@ -77,7 +78,7 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
 /** Get the immutable commit checked out at HEAD. */
 export const getCommitSha = (repoPath: string) =>
   Effect.tryPromise({
-    try: async () => (await createGit(repoPath).revparse(["HEAD"])).trim(),
+    try: async (signal) => (await createGit(repoPath, signal).revparse(["HEAD"])).trim(),
     catch: mapGitError("get-commit-sha", "Failed to get checked-out commit SHA"),
   }).pipe(Effect.withSpan("Git.getCommitSha"));
 
@@ -95,8 +96,8 @@ export const getCommitSha = (repoPath: string) =>
  */
 export const getTreeSha = (repoPath: string, subPath = ".") =>
   Effect.tryPromise({
-    try: async () => {
-      const git = createGit(repoPath);
+    try: async (signal) => {
+      const git = createGit(repoPath, signal);
 
       // For root directory, use rev-parse HEAD^{tree}
       if (subPath === "." || subPath === "") {

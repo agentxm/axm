@@ -4,6 +4,7 @@ import * as DateTime from "effect/DateTime";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -73,6 +74,7 @@ interface CollectedWorkspaceInstallPlans {
 
 type WorkspaceInstallCollectorContext =
   | Scope.Scope
+  | HttpClient.HttpClient
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations

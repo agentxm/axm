@@ -292,7 +292,7 @@ const resolveMcpConfigTargetPath = (
           : path.resolve(home, target.path)
         : path.resolve(workspaceRoot, target.path);
 
-    if (target.scope === "project" && !isPathSafe(workspaceRoot, configPath)) {
+    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, configPath)) {
       return yield* makeAppError({
         code: "validation",
         detail: `MCP config target escapes workspace root: ${target.path}`,
@@ -366,16 +366,15 @@ const collectManagedYamlServerNames = (
   serversKey: string,
   declaredServerNames: ReadonlySet<string>,
 ): Effect.Effect<ReadonlyArray<string>, AppError> =>
-  Effect.sync(() => managedYamlNames(raw, serversKey, isAxmManagedMcpEntry)).pipe(
-    Effect.map((names) => names.filter((name) => !declaredServerNames.has(name))),
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => managedYamlNames(raw, serversKey, isAxmManagedMcpEntry),
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid MCP config YAML: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  }).pipe(Effect.map((names) => names.filter((name) => !declaredServerNames.has(name))));
 
 const upsertJsonConfigServer = (
   configPath: string,
@@ -599,15 +598,16 @@ const sharedTransportForEntry = (
 ): Effect.Effect<SharedMcpTransport, AppError> => {
   if (entry.command !== undefined) return Effect.succeed("stdio");
   if (entry.url !== undefined) {
-    return Effect.try({
-      try: () => inferInlineRemoteTransport(entry.url ?? ""),
-      catch: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: "Invalid inline MCP server URL",
-          cause: error,
-        }),
-    });
+    const inference = inferInlineRemoteTransport(entry.url);
+    return inference._tag === "supported"
+      ? Effect.succeed(inference.transport)
+      : Effect.fail(
+          makeAppError({
+            code: "validation",
+            detail: "Invalid inline MCP server URL",
+            cause: inference.reason,
+          }),
+        );
   }
   return Effect.fail(
     makeAppError({

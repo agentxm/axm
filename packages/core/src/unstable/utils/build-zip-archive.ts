@@ -1,3 +1,4 @@
+// @effect-diagnostics globalDate:off — ZIP's driver API requires one fixed Date value and never reads the ambient clock
 /**
  * Build a deterministic zip archive of a directory.
  *
@@ -19,6 +20,7 @@ import { expandGlobs } from "./glob.js";
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable
 // across host timezones.
+// eslint-disable-next-line no-restricted-syntax -- ZIP's driver API requires Date; this fixed value never reads the ambient clock.
 const DETERMINISTIC_MTIME = new Date(2020, 0, 1, 0, 0, 0, 0);
 const READ_CONCURRENCY = 16;
 

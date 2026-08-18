@@ -6,6 +6,7 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -95,6 +96,7 @@ const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 
 // Per-package in-process mutex so concurrent re-materialization of the same hook
 // package (remove+copy) is serialized rather than racing.
+// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by hook packages touched during this one CLI invocation.
 const packageMaterializeLocks = new Map<string, Semaphore.Semaphore>();
 const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
   const existing = packageMaterializeLocks.get(key);
@@ -387,12 +389,14 @@ export const HookManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const baseDir = ws.baseDir;
 
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
     );
     const envLayer = Layer.mergeAll(
@@ -545,7 +549,7 @@ export const HookManagerLive = Layer.effect(
     const entrypointPath = (packageRoot: string, manifest: HookManifest) =>
       Effect.gen(function* () {
         const absolute = path.resolve(packageRoot, manifest.entrypoint);
-        yield* validatePathSafety(packageRoot, absolute);
+        yield* validatePathSafety(path, packageRoot, absolute);
         const exists = yield* fs.exists(absolute).pipe(Effect.orElseSucceed(() => false));
         if (!exists) {
           return yield* makeAppError({

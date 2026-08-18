@@ -83,6 +83,7 @@ export {
 export {
   diffAgentEntry,
   inferInlineRemoteTransport,
+  type InlineRemoteTransportInference,
   projectExpectedEntry,
   renderEnvValue,
   type DriftReport,

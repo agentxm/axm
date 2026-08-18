@@ -30,34 +30,40 @@ const parseCommand = (path: ReadonlyArray<string>) =>
   );
 
 describe("rules command group", () => {
-  it("lists the extension lifecycle verbs", async () => {
-    const output = await Effect.runPromise(captureHelp(["rules"]));
-    for (const verb of [
-      "new",
-      "install",
-      "uninstall",
-      "list",
-      "enable",
-      "disable",
-      "update",
-      "instructions",
-    ]) {
-      expect(output).toContain(verb);
-    }
-  });
+  it.effect("lists the extension lifecycle verbs", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelp(["rules"]);
+      for (const verb of [
+        "new",
+        "install",
+        "uninstall",
+        "list",
+        "enable",
+        "disable",
+        "update",
+        "instructions",
+      ]) {
+        expect(output).toContain(verb);
+      }
+    }),
+  );
 
-  it("keeps instruction-file management under the instructions subcommand", async () => {
-    const output = await Effect.runPromise(captureHelp(["rules", "instructions"]));
-    expect(output).toContain("status");
-    expect(output).toContain("enable");
-    expect(output).toContain("disable");
-  });
+  it.effect("keeps instruction-file management under the instructions subcommand", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelp(["rules", "instructions"]);
+      expect(output).toContain("status");
+      expect(output).toContain("enable");
+      expect(output).toContain("disable");
+    }),
+  );
 
-  it("requires a rule name for activation verbs at parse time", async () => {
-    const enable = await Effect.runPromise(parseCommand(["rules", "enable"]));
-    const disable = await Effect.runPromise(parseCommand(["rules", "disable"]));
+  it.effect("requires a rule name for activation verbs at parse time", () =>
+    Effect.gen(function* () {
+      const enable = yield* parseCommand(["rules", "enable"]);
+      const disable = yield* parseCommand(["rules", "disable"]);
 
-    expect(enable._tag).toBe("Failure");
-    expect(disable._tag).toBe("Failure");
-  });
+      expect(enable._tag).toBe("Failure");
+      expect(disable._tag).toBe("Failure");
+    }),
+  );
 });

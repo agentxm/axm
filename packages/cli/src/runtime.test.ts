@@ -1,13 +1,14 @@
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { resolveBuiltInRegistryLocation, withAxmUserAgent } from "./runtime.js";
+import { makeCliLoggerLayer, resolveBuiltInRegistryLocation, withAxmUserAgent } from "./runtime.js";
 
 describe("resolveBuiltInRegistryLocation", () => {
   it("prefers AXM_REGISTRY_LOCATION when set to a remote URL", () => {
@@ -46,20 +47,65 @@ describe("resolveBuiltInRegistryLocation", () => {
 });
 
 describe("withAxmUserAgent", () => {
-  it("adds the CLI name and version to every request", async () => {
-    let observedUserAgent: string | undefined;
-    const client = withAxmUserAgent(
-      HttpClient.make((request) =>
-        Effect.sync(() => {
-          observedUserAgent = request.headers["user-agent"];
-          return HttpClientResponse.fromWeb(request, new Response(null, { status: 204 }));
-        }),
-      ),
-      "1.2.3",
-    );
+  it.effect("adds the CLI name and version to every request", () =>
+    Effect.gen(function* () {
+      let observedUserAgent: string | undefined;
+      const client = withAxmUserAgent(
+        HttpClient.make((request) =>
+          Effect.sync(() => {
+            observedUserAgent = request.headers["user-agent"];
+            return HttpClientResponse.fromWeb(request, new Response(null, { status: 204 }));
+          }),
+        ),
+        "1.2.3",
+      );
 
-    await Effect.runPromise(client.execute(HttpClientRequest.get("https://registry.example.test")));
+      yield* client.execute(HttpClientRequest.get("https://registry.example.test"));
 
-    expect(observedUserAgent).toBe("axm-cli/1.2.3");
-  });
+      expect(observedUserAgent).toBe("axm-cli/1.2.3");
+    }),
+  );
+});
+
+describe("makeCliLoggerLayer", () => {
+  it.effect("routes debug diagnostics to stderr", () =>
+    Effect.gen(function* () {
+      const errors: Array<ReadonlyArray<unknown>> = [];
+      const logs: Array<ReadonlyArray<unknown>> = [];
+      const testConsole: Console.Console = {
+        ...console,
+        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
+        log: (...args: ReadonlyArray<unknown>) => logs.push(args),
+      };
+
+      yield* Effect.logDebug("machine-safe debug message").pipe(
+        Effect.provideService(Console.Console, testConsole),
+        Effect.provide(makeCliLoggerLayer("debug")),
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(logs).toHaveLength(0);
+    }),
+  );
+
+  it.effect("emits warnings but suppresses debug diagnostics at normal verbosity", () =>
+    Effect.gen(function* () {
+      const errors: Array<ReadonlyArray<unknown>> = [];
+      const testConsole: Console.Console = {
+        ...console,
+        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
+      };
+
+      yield* Effect.gen(function* () {
+        yield* Effect.logDebug("hidden debug message");
+        yield* Effect.logWarning("visible warning message");
+      }).pipe(
+        Effect.provideService(Console.Console, testConsole),
+        Effect.provide(makeCliLoggerLayer("normal")),
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.join(" ")).toContain("visible warning message");
+    }),
+  );
 });

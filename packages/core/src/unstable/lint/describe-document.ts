@@ -28,6 +28,7 @@ export const UNKNOWN_DOCUMENT_LABEL = "Document";
 const capitalizeFirst = (value: string): string =>
   value.length === 0 ? value : `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 
+// eslint-disable-next-line no-restricted-syntax -- Immutable lookup over the closed manifest filename vocabulary.
 const documentLabels: ReadonlyMap<string, string> = new Map<string, string>([
   ...extensionTypes.map((type): readonly [string, string] => [
     MANIFEST_FILENAME_BY_TYPE[type],

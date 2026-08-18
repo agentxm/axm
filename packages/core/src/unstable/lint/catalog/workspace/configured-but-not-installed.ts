@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — lint converts opaque observation failures into fact-only findings at this boundary
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import { extensionTypeSentenceLabels, type ExtensionType } from "../../../extensions/common.js";

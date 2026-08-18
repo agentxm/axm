@@ -33,6 +33,7 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 // (`<target>.tmp.<unique>`), so the stale-temp sweep stays in sync with the
 // shared helper's naming scheme.
 const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
+// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by lockfiles touched during this one CLI invocation.
 const lockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 /**

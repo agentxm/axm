@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — the sanctioned process entry accepts and renders unknown defects
 import * as Effect from "effect/Effect";
 import { CliError } from "effect/unstable/cli";
 import { Buffer } from "node:buffer";
@@ -197,6 +198,7 @@ export const runCliMain = async (
   const stderrBuffer = !interactive && format === "text" ? bufferStderr() : undefined;
 
   try {
+    // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
     await Effect.runPromise(withGracefulShutdown(execute(args)));
     if (format === "json" && stdoutBuffer !== undefined) {
       try {

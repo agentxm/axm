@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
@@ -114,6 +115,7 @@ export const buildPackMemberInstallStep = (args: {
   PlannedJobStep,
   never,
   | CodingAgentRepository
+  | HttpClient.HttpClient
   | FileSystem.FileSystem
   | HookManager
   | KnowledgeManager
@@ -128,6 +130,7 @@ export const buildPackMemberInstallStep = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
+    const httpClient = yield* HttpClient.HttpClient;
     const skillManager = yield* SkillManager;
     const subagentManager = yield* SubagentManager;
     const ruleManager = yield* RuleManager;
@@ -137,7 +140,11 @@ export const buildPackMemberInstallStep = (args: {
       effect: Effect.Effect<
         A,
         E,
-        CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+        | HttpClient.HttpClient
+        | CodingAgentRepository
+        | FileSystem.FileSystem
+        | Path.Path
+        | WorkspaceMutations
       >,
     ): Effect.Effect<A, E, never> =>
       Effect.provide(
@@ -147,6 +154,7 @@ export const buildPackMemberInstallStep = (args: {
           Layer.succeed(FileSystem.FileSystem, fs),
           Layer.succeed(Path.Path, path),
           Layer.succeed(CodingAgentRepository, agentRepo),
+          Layer.succeed(HttpClient.HttpClient, httpClient),
         ),
       );
     const ref = args.ref;

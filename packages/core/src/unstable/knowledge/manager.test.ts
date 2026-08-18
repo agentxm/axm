@@ -3,8 +3,11 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
@@ -95,10 +98,57 @@ const managerLayer = (
         origin: () => "test",
       }),
     ),
-    Layer.provide(NodeServices.layer),
+    Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
 
 describe("KnowledgeManager", () => {
+  it.effect("restores the previous canonical bundle when installation is interrupted", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      try {
+        const sourceRoot = nodePath.join(workspaceRoot, "source");
+        writeKnowledgePackage(sourceRoot, "handbook", true);
+        writeFileSync(
+          nodePath.join(sourceRoot, "src", "concept.md"),
+          "---\ntype: concept\n---\n# Replacement concept\n",
+        );
+
+        const canonicalRoot = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "external",
+          "knowledge",
+          "handbook",
+        );
+        writeKnowledgePackage(canonicalRoot, "handbook", true);
+        const canonicalConcept = nodePath.join(canonicalRoot, "src", "concept.md");
+        writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Original concept\n");
+
+        const staged = yield* Deferred.make<void>();
+        const layer = managerLayer(workspaceRoot, {
+          setKnowledge: () =>
+            Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+        });
+        const fiber = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.install({
+            ref: localRef("handbook", sourceRoot),
+            versionRange: Option.none(),
+          });
+        }).pipe(Effect.provide(layer), Effect.forkChild);
+
+        yield* Deferred.await(staged);
+        expect(readFileSync(canonicalConcept, "utf8")).toContain("# Replacement concept");
+
+        yield* Fiber.interrupt(fiber);
+        expect(readFileSync(canonicalConcept, "utf8")).toContain("# Original concept");
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect("materializes a valid OKF bundle and writes its instruction discovery row", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));

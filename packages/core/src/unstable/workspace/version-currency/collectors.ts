@@ -11,6 +11,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -39,6 +40,12 @@ import type {
 import { WorkspaceMutations } from "../service-interface.js";
 import type { WorkspaceMutationsService } from "../service-interface.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
+
+// Registry currency reads share the same four-request transport cap used by
+// publishing. Git source probes stay serial because each provider may allocate
+// a clone/worktree and no higher subprocess capacity has been established.
+const REGISTRY_READ_CONCURRENCY = 4;
+const SOURCE_FRESHNESS_CONCURRENCY = 1;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -199,7 +206,7 @@ const collectCurrency = (
             currency,
           } satisfies ExtensionCurrencyEntry);
         }),
-      { concurrency: "unbounded" },
+      { concurrency: REGISTRY_READ_CONCURRENCY },
     ).pipe(Effect.map(Array.getSomes));
   });
 
@@ -289,7 +296,12 @@ const collectSourceFreshness = (args: {
 }): Effect.Effect<
   ReadonlyArray<ExtensionSourceFreshnessEntry>,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | SourceHostProviders | Scope.Scope
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | WorkspaceMutations
+  | SourceHostProviders
+  | Scope.Scope
 > =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
@@ -357,14 +369,19 @@ const collectSourceFreshness = (args: {
             reason: Option.none(),
           });
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SOURCE_FRESHNESS_CONCURRENCY },
     );
   });
 
 type SourceFreshnessCollector = () => Effect.Effect<
   ReadonlyArray<ExtensionSourceFreshnessEntry>,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | SourceHostProviders | Scope.Scope
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | WorkspaceMutations
+  | SourceHostProviders
+  | Scope.Scope
 >;
 
 const makeSourceFreshnessCollector =
@@ -495,7 +512,7 @@ export const collectAllCurrencyEntries = (
         collectHookCurrency(client),
         collectKnowledgeCurrency(client),
       ],
-      { concurrency: "unbounded" },
+      { concurrency: SOURCE_FRESHNESS_CONCURRENCY },
     );
 
     return [...skills, ...mcpServers, ...subagents, ...packs, ...rules, ...hooks, ...knowledge];
@@ -506,17 +523,22 @@ export const collectAllUpdateEntries = (
 ): Effect.Effect<
   ReadonlyArray<ExtensionUpdateEntry>,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | SourceHostProviders | Scope.Scope
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | WorkspaceMutations
+  | SourceHostProviders
+  | Scope.Scope
 > =>
   Effect.gen(function* () {
     const [currencyEntries, freshnessByType] = yield* Effect.all(
       [
         collectAllCurrencyEntries(client),
         Effect.forEach(sourceFreshnessCollectors, (collect) => collect(), {
-          concurrency: "unbounded",
+          concurrency: SOURCE_FRESHNESS_CONCURRENCY,
         }),
       ],
-      { concurrency: "unbounded" },
+      { concurrency: SOURCE_FRESHNESS_CONCURRENCY },
     );
 
     return [...currencyEntries, ...freshnessByType.flat()];

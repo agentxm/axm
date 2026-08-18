@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
@@ -62,6 +63,7 @@ const testLayer = Layer.mergeAll(
   CodingAgentRepositoryLive,
   NodeServices.layer,
   TestFlagsLayer(),
+  FetchHttpClient.layer,
 );
 
 const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);

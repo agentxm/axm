@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -72,6 +73,7 @@ const makeSetupTestContext = (opts?: {
   );
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
+    FetchHttpClient.layer,
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),

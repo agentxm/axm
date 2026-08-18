@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — publication lint translates opaque extension accessor failures into AppError
 import * as DateTime from "effect/DateTime";
 import * as ServiceMap from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -8,6 +9,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as os from "node:os";
 import * as semver from "semver";
@@ -485,7 +487,8 @@ type PublishPlanOutput =
       readonly warnings: ReadonlyArray<PublishAdvisoryFinding>;
     };
 
-type PublishPlanRequirements = PublishAuthorization | FileSystem.FileSystem | Path.Path;
+type PublishPlanRequirements =
+  HttpClient.HttpClient | PublishAuthorization | FileSystem.FileSystem | Path.Path;
 
 /** Creates dependency edges without expanding the user's selection. */
 export const buildPublishJobs = <

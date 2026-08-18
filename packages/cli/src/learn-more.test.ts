@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
@@ -31,21 +31,24 @@ const HELP_TOPIC_REFERENCE = /\baxm help ([a-z][a-z0-9-]*)/g;
 const learnMoreOf = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, LearnMore);
 
 describe("LEARN MORE footers", () => {
-  it.each(groupHelpTopics)("axm %s points at the %s help topic", async (group, topic) => {
-    const doc = await Effect.runPromise(captureHelpDoc([group]));
+  it.effect.each(groupHelpTopics)("axm %s points at the %s help topic", ([group, topic]) =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc([group]);
+      expect(learnMoreOf(doc)).toContain(`axm help ${topic}`);
+    }),
+  );
 
-    expect(learnMoreOf(doc)).toContain(`axm help ${topic}`);
-  });
+  it.effect("names only help topics that exist, across the whole command tree", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);
+      const unknownTopics = Array.from(files.entries()).flatMap(([command, doc]) =>
+        Array.from(learnMoreOf(doc).matchAll(HELP_TOPIC_REFERENCE)).flatMap(([, topic = ""]) =>
+          topicNames.has(topic) ? [] : [`${command}: axm help ${topic}`],
+        ),
+      );
 
-  it("names only help topics that exist, across the whole command tree", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);
-    const unknownTopics = Array.from(files.entries()).flatMap(([command, doc]) =>
-      Array.from(learnMoreOf(doc).matchAll(HELP_TOPIC_REFERENCE)).flatMap(([, topic = ""]) =>
-        topicNames.has(topic) ? [] : [`${command}: axm help ${topic}`],
-      ),
-    );
-
-    expect(unknownTopics).toEqual([]);
-  });
+      expect(unknownTopics).toEqual([]);
+    }),
+  );
 });

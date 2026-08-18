@@ -16,22 +16,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) {
-      throw errors;
-    }
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => {
+      const errors: Array<ParseError> = [];
+      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+      if (errors.length > 0) {
+        throw errors;
+      }
+      return parsed;
+    },
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid Claude Code hooks config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  });
 
 const validateHooksShape = (
   configPath: string,

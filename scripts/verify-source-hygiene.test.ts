@@ -9,6 +9,7 @@ import {
   findControlBytes,
   findMachineOutputBoundaryViolations,
   findSourceHygieneViolations,
+  countUnboundedConcurrencySites,
   formatMachineOutputBoundaryViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
@@ -110,5 +111,19 @@ describe("findMachineOutputBoundaryViolations", () => {
     expect(
       findMachineOutputBoundaryViolations(repoRoot).map(formatMachineOutputBoundaryViolation),
     ).toEqual([]);
+  });
+});
+
+describe("countUnboundedConcurrencySites", () => {
+  it("counts production literals while excluding tests and generated clients", () => {
+    const repoRoot = createRepoFixture({
+      "packages/core/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/core/src/one.test.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/core/src/__generated__/client.ts":
+        'const options = { concurrency: "unbounded" };\n',
+    });
+
+    expect(countUnboundedConcurrencySites(repoRoot)).toBe(2);
   });
 });

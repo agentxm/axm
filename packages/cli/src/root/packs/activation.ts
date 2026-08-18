@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -235,6 +236,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
   const ws = yield* WorkspaceMutations;
   const runServices = yield* Effect.context<
     | Scope.Scope
+    | HttpClient.HttpClient
     | CliRenderer
     | SourceHostProviders
     | WorkspaceMutations

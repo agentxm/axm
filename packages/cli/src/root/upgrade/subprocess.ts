@@ -163,12 +163,14 @@ const makeResolveExecutable =
     Effect.gen(function* () {
       // Both strings have defaults and no decoder constraints. Config errors
       // here can only indicate a broken provider invariant.
+      // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
       const pathValue = yield* Config.string("PATH").pipe(Config.withDefault(""), Effect.orDie);
       const extensions =
         process.platform === "win32"
           ? yield* Config.string("PATHEXT").pipe(
               Config.withDefault(".COM;.EXE;.BAT;.CMD"),
               Config.map((value) => value.split(";")),
+              // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
               Effect.orDie,
             )
           : [""];

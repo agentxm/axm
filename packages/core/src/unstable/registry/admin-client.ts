@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are normalized by this registry adapter
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
@@ -42,10 +43,10 @@ export interface PutExtensionDeprecationInput {
   readonly replacement: DeprecationReplacementIntent;
 }
 
-const normalizeDeprecation = (
+export const normalizeRegistryDeprecation = (
   value: GeneratedRegistryClient.DeprecationView | null,
-): DeprecationView | null => {
-  if (value === null) return null;
+): Effect.Effect<DeprecationView | null, AppError> => {
+  if (value === null) return Effect.succeed(null);
   const replacement =
     value.replacement === undefined || value.replacement === null
       ? undefined
@@ -58,34 +59,49 @@ const normalizeDeprecation = (
               : { fqn: value.replacement.fqn }),
           };
   if (value.message !== undefined && value.message !== null) {
-    return {
+    return Effect.succeed({
       deprecatedAt: value.deprecatedAt,
       message: value.message,
       ...(replacement === undefined ? {} : { replacement }),
-    };
+    });
   }
   if (replacement !== undefined) {
-    return { deprecatedAt: value.deprecatedAt, replacement };
+    return Effect.succeed({ deprecatedAt: value.deprecatedAt, replacement });
   }
-  throw new Error("Registry returned deprecation without guidance.");
+  return Effect.fail(
+    makeAppError({
+      code: "internal",
+      detail: "Registry response did not contain required deprecation guidance.",
+    }),
+  );
 };
 
-const normalizeManagementView = (
-  value: GeneratedRegistryClient.DeprecationManagementView,
-): DeprecationManagementView => ({
-  deprecation: normalizeDeprecation(value.deprecation),
-  revision: value.revision,
-});
+const normalizeManagementView = (value: GeneratedRegistryClient.DeprecationManagementView) =>
+  Effect.map(
+    normalizeRegistryDeprecation(value.deprecation),
+    (deprecation) =>
+      ({
+        deprecation,
+        revision: value.revision,
+      }) satisfies DeprecationManagementView,
+  );
 
-const normalizeTransition = (
-  value: GeneratedRegistryClient.DeprecationTransition,
-): DeprecationTransition => ({
-  target: value.target,
-  before: normalizeDeprecation(value.before),
-  after: normalizeDeprecation(value.after),
-  disposition: value.disposition,
-  revision: value.revision,
-});
+const normalizeTransition = (value: GeneratedRegistryClient.DeprecationTransition) =>
+  Effect.all({
+    before: normalizeRegistryDeprecation(value.before),
+    after: normalizeRegistryDeprecation(value.after),
+  }).pipe(
+    Effect.map(
+      ({ before, after }) =>
+        ({
+          target: value.target,
+          before,
+          after,
+          disposition: value.disposition,
+          revision: value.revision,
+        }) satisfies DeprecationTransition,
+    ),
+  );
 
 const mapAdminClientError =
   (registryUrl: string) =>
@@ -190,7 +206,7 @@ export const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
       registryUrl,
       client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
     );
-    return normalizeManagementView(result);
+    return yield* normalizeManagementView(result);
   });
 
 export const deprecateExtension = (
@@ -206,7 +222,7 @@ export const deprecateExtension = (
         payload: { message: input.message, replacement: input.replacement },
       }),
     );
-    return normalizeTransition(result);
+    return yield* normalizeTransition(result);
   });
 
 export const undeprecateExtension = (ref: RegistryExtensionReference, revision: string) =>
@@ -218,5 +234,5 @@ export const undeprecateExtension = (ref: RegistryExtensionReference, revision: 
         params: { "if-match": revision },
       }),
     );
-    return normalizeTransition(result);
+    return yield* normalizeTransition(result);
   });

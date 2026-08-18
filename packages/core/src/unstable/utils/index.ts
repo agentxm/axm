@@ -6,7 +6,7 @@ export {
   stripFileProtocol,
 } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
-export { isPathSafe, safeChildPath, safeChildPathSync } from "./path-safety.js";
+export { isPathSafe, safeChildPath } from "./path-safety.js";
 export {
   AbsolutePathSchema,
   RelativePathSchema,

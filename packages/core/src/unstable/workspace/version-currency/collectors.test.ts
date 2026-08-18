@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeVersionSync, type Version } from "../../version-constraints/version-constraints.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { normalizeHandle } from "../../extensions/handle.js";
@@ -225,7 +226,11 @@ describe("collectSkillSourceFreshness", () => {
         origin: () => "https://github.com/vercel-labs/skills",
       };
       const layer = Layer.merge(
-        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.mergeAll(
+          Layer.succeed(WorkspaceMutations, ws),
+          NodeServices.layer,
+          FetchHttpClient.layer,
+        ),
         Layer.succeed(SourceHostProviders, sourceProviders),
       );
 
@@ -288,7 +293,11 @@ describe("git-source freshness beyond skills", () => {
         getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("guard", "same-tree") }),
       });
       const layer = Layer.merge(
-        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.mergeAll(
+          Layer.succeed(WorkspaceMutations, ws),
+          NodeServices.layer,
+          FetchHttpClient.layer,
+        ),
         Layer.succeed(
           SourceHostProviders,
           providersReturning([
@@ -326,7 +335,11 @@ describe("git-source freshness beyond skills", () => {
           Effect.succeed({ "domain-model": gitLockEntry("domain-model", "old-tree") }),
       });
       const layer = Layer.merge(
-        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.mergeAll(
+          Layer.succeed(WorkspaceMutations, ws),
+          NodeServices.layer,
+          FetchHttpClient.layer,
+        ),
         Layer.succeed(SourceHostProviders, providersReturning([])),
       );
 
@@ -356,7 +369,11 @@ describe("git-source freshness beyond skills", () => {
         getLockedMcpServers: () => Effect.succeed({}),
       });
       const layer = Layer.merge(
-        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.mergeAll(
+          Layer.succeed(WorkspaceMutations, ws),
+          NodeServices.layer,
+          FetchHttpClient.layer,
+        ),
         Layer.succeed(SourceHostProviders, providersReturning([])),
       );
 

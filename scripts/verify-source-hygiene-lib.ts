@@ -154,6 +154,33 @@ export const findMachineOutputBoundaryViolations = (
   return violations;
 };
 
+const UNBOUNDED_CONCURRENCY_LITERAL = /concurrency\s*:\s*["']unbounded["']/g;
+
+/**
+ * Count the reviewed production baseline of literal unbounded traversals.
+ * The caller treats this as a ratchet: removals lower the recorded ceiling;
+ * additions must classify the workload instead of spending that headroom.
+ */
+export const countUnboundedConcurrencySites = (repoRoot: string): number => {
+  const packagesRoot = path.join(repoRoot, "packages");
+  const sourceFiles: string[] = [];
+  for (const entry of fs.readdirSync(packagesRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const srcRoot = path.join(packagesRoot, entry.name, "src");
+    if (fs.existsSync(srcRoot)) walkTypeScriptSources(srcRoot, sourceFiles);
+  }
+
+  return sourceFiles
+    .filter(isProductionTypeScriptSource)
+    .reduce(
+      (count, filePath) =>
+        count +
+        Array.from(fs.readFileSync(filePath, "utf8").matchAll(UNBOUNDED_CONCURRENCY_LITERAL))
+          .length,
+      0,
+    );
+};
+
 export const formatViolation = (violation: ControlByteViolation): string =>
   `${violation.filePath}:${violation.line} contains forbidden control byte 0x${violation.byte
     .toString(16)

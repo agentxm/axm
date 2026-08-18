@@ -23,7 +23,7 @@ import {
 } from "@agentxm/client-core/unstable/extension-types";
 import { extensionTypes, toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
 import * as EffectRecord from "effect/Record";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
 import { collectHelpFiles, type HelpFiles } from "./command-tree-test-helpers.js";
@@ -119,21 +119,25 @@ describe("extension type parity (cli tier)", () => {
     expect(cliObligations.filter((id) => CHECKS[id] === null)).toStrictEqual([]);
   });
 
-  it("matches the exemption ledger exactly", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    expect(observedFailures(files)).toStrictEqual(exemptedObligations(TIER));
-  });
+  it.effect("matches the exemption ledger exactly", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      expect(observedFailures(files)).toStrictEqual(exemptedObligations(TIER));
+    }),
+  );
 
-  it("registers lifecycle verbs for every extension type, including containers", async () => {
-    const files = await Effect.runPromise(collectHelpFiles());
-    expect(
-      extensionTypes.filter((type) =>
-        EXTENSION_LIFECYCLE_CONTRACT[type].mutations.some(
-          (verb) => files.get(`axm ${toExtensionTypePlural(type)} ${verb}`) === undefined,
+  it.effect("registers lifecycle verbs for every extension type, including containers", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      expect(
+        extensionTypes.filter((type) =>
+          EXTENSION_LIFECYCLE_CONTRACT[type].mutations.some(
+            (verb) => files.get(`axm ${toExtensionTypePlural(type)} ${verb}`) === undefined,
+          ),
         ),
-      ),
-    ).toStrictEqual([]);
-  });
+      ).toStrictEqual([]);
+    }),
+  );
 
   it("names no extension type in its own source", () => {
     // A hand-written type name here would let this suite keep passing while

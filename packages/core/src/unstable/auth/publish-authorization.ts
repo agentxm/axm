@@ -57,49 +57,53 @@ const loopbackFailureToAppError = (
 export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")(function* (
   input: PublishAuthorizationInput,
 ) {
-  const authClient = yield* AuthClient;
-  const renderer = yield* CliRenderer;
-  const interaction = yield* DeviceLoginInteraction;
-  const verifier = makePkceVerifier();
-  const challenge = makePkceChallenge(verifier);
-  const state = makeOAuthState();
-  const server = yield* startLoopbackServer().pipe(Effect.mapError(loopbackFailureToAppError));
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const authClient = yield* AuthClient;
+      const renderer = yield* CliRenderer;
+      const interaction = yield* DeviceLoginInteraction;
+      const verifier = makePkceVerifier();
+      const challenge = makePkceChallenge(verifier);
+      const state = makeOAuthState();
+      const server = yield* startLoopbackServer(state).pipe(
+        Effect.mapError(loopbackFailureToAppError),
+      );
 
-  const request = yield* authClient
-    .createPublishAuthorizationRequest({
-      registryUrl: input.registryUrl,
-      redirectUri: server.redirectUri,
-      state,
-      codeChallenge: challenge,
-      publicationSet: input.publicationSet,
-    })
-    .pipe(Effect.tapError(() => server.close));
+      const request = yield* authClient.createPublishAuthorizationRequest({
+        registryUrl: input.registryUrl,
+        redirectUri: server.redirectUri,
+        state,
+        codeChallenge: challenge,
+        publicationSet: input.publicationSet,
+      });
 
-  const openedBrowser = yield* interaction.openBrowser(request.authorizationUrl);
-  yield* renderer.step(
-    openedBrowser
-      ? `Opening browser to review ${input.publicationSet.candidates.length} publish candidate${input.publicationSet.candidates.length === 1 ? "" : "s"}...`
-      : `Open this URL to review the exact publish: ${request.authorizationUrl}`,
+      const openedBrowser = yield* interaction.openBrowser(request.authorizationUrl);
+      yield* renderer.step(
+        openedBrowser
+          ? `Opening browser to review ${input.publicationSet.candidates.length} publish candidate${input.publicationSet.candidates.length === 1 ? "" : "s"}...`
+          : `Open this URL to review the exact publish: ${request.authorizationUrl}`,
+      );
+
+      const callback = yield* server
+        .awaitCallback(PUBLISH_AUTHORIZATION_TIMEOUT_MS)
+        .pipe(Effect.mapError(loopbackFailureToAppError));
+      const expectedIssuer = new URL(request.authorizationUrl).origin;
+      if (callback.iss !== expectedIssuer) {
+        return yield* makeAppError({
+          code: "auth",
+          detail: "Publish authorization callback issuer did not match",
+          cause: { expectedIssuer, receivedIssuer: callback.iss },
+        });
+      }
+
+      const capability = yield* authClient.exchangePublishAuthorizationCode({
+        registryUrl: input.registryUrl,
+        code: callback.code,
+        verifier,
+        redirectUri: server.redirectUri,
+      });
+
+      return capability;
+    }),
   );
-
-  const callback = yield* server
-    .awaitCallback(state, PUBLISH_AUTHORIZATION_TIMEOUT_MS)
-    .pipe(Effect.mapError(loopbackFailureToAppError));
-  const expectedIssuer = new URL(request.authorizationUrl).origin;
-  if (callback.iss !== expectedIssuer) {
-    return yield* makeAppError({
-      code: "auth",
-      detail: "Publish authorization callback issuer did not match",
-      cause: { expectedIssuer, receivedIssuer: callback.iss },
-    });
-  }
-
-  const capability = yield* authClient.exchangePublishAuthorizationCode({
-    registryUrl: input.registryUrl,
-    code: callback.code,
-    verifier,
-    redirectUri: server.redirectUri,
-  });
-
-  return capability;
 }, Effect.satisfiesSuccessType<PublishAuthorizationExchangeResponse>());

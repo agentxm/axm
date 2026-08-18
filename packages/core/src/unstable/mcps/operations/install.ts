@@ -8,6 +8,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -121,17 +122,31 @@ const loadKeyringEntry = Effect.tryPromise({
   catch: () => undefined,
 });
 
-const saveMcpSecret = (serverName: string, inputName: string, value: string): Effect.Effect<void> =>
+type McpSecretPersistenceOutcome =
+  | { readonly _tag: "saved"; readonly inputName: string }
+  | { readonly _tag: "skipped"; readonly inputName: string }
+  | { readonly _tag: "failed"; readonly inputName: string };
+
+const saveMcpSecret = (
+  serverName: string,
+  inputName: string,
+  value: string,
+): Effect.Effect<McpSecretPersistenceOutcome> =>
   Effect.gen(function* () {
     const Entry = yield* loadKeyringEntry;
-    yield* Effect.try({
+    return yield* Effect.try({
       try: () => {
         const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
         entry.setPassword(value);
+        return { _tag: "saved", inputName } satisfies McpSecretPersistenceOutcome;
       },
       catch: () => undefined,
-    }).pipe(Effect.catch(() => Effect.void));
-  }).pipe(Effect.catch(() => Effect.void));
+    });
+  }).pipe(
+    Effect.catch(() =>
+      Effect.succeed({ _tag: "failed", inputName } satisfies McpSecretPersistenceOutcome),
+    ),
+  );
 
 const loadMcpSecret = (
   serverName: string,
@@ -225,7 +240,7 @@ const installFromRegistry = (
       ref.name,
     );
 
-    if (!isPathSafe(ws.baseDir, canonicalPath)) {
+    if (!isPathSafe(path, ws.baseDir, canonicalPath)) {
       return yield* makeAppError({
         code: "internal",
         detail: `Path traversal detected: ${canonicalPath}`,
@@ -394,10 +409,12 @@ const persistMcpSecrets = (
     secretNames,
     (name) => {
       const value = values[name];
-      return value === undefined ? Effect.void : saveMcpSecret(serverName, name, value);
+      return value === undefined
+        ? Effect.succeed({ _tag: "skipped", inputName: name } satisfies McpSecretPersistenceOutcome)
+        : saveMcpSecret(serverName, name, value);
     },
     { concurrency: "unbounded" },
-  ).pipe(Effect.asVoid);
+  );
 
 const redactSettingsEnv = (
   values: Readonly<Record<string, string>>,
@@ -594,7 +611,11 @@ export const installMcpServer: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | WorkspaceMutations
+  | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -715,7 +736,12 @@ export const installMcpServer: (
       configValues: mergedEnv,
     });
 
-    yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
+    const secretPersistence = yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
+    const secretWarnings = secretPersistence.flatMap((outcome) =>
+      outcome._tag === "failed"
+        ? [`${outcome.inputName} could not be saved to the system keychain`]
+        : [],
+    );
     const writeEffect =
       op.args.skipStateWrites === true
         ? Effect.void
@@ -746,8 +772,8 @@ export const installMcpServer: (
     );
 
     const warnings = Option.match(writeWarning, {
-      onNone: () => agentSync.warnings,
-      onSome: (warning) => [warning, ...agentSync.warnings],
+      onNone: () => [...secretWarnings, ...agentSync.warnings],
+      onSome: (warning) => [warning, ...secretWarnings, ...agentSync.warnings],
     });
     const change = currentEntry === undefined ? "created" : "updated";
     const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>

@@ -9,15 +9,22 @@ import {
 } from "./projection.js";
 
 describe("MCP projection", () => {
-  it("rejects WebSocket URLs instead of coercing them to streamable HTTP", () => {
-    expect(() => inferInlineRemoteTransport("wss://example.test/mcp")).toThrow(
-      "WebSocket MCP transport is not supported",
-    );
+  it("returns an unsupported result for WebSocket URLs without throwing", () => {
+    expect(inferInlineRemoteTransport("wss://example.test/mcp")).toEqual({
+      _tag: "unsupported",
+      reason: "WebSocket MCP transport is not supported",
+    });
   });
 
   it("keeps HTTP SSE and streamable URLs distinct", () => {
-    expect(inferInlineRemoteTransport("https://example.test/sse")).toBe("sse");
-    expect(inferInlineRemoteTransport("https://example.test/mcp")).toBe("streamable-http");
+    expect(inferInlineRemoteTransport("https://example.test/sse")).toEqual({
+      _tag: "supported",
+      transport: "sse",
+    });
+    expect(inferInlineRemoteTransport("https://example.test/mcp")).toEqual({
+      _tag: "supported",
+      transport: "streamable-http",
+    });
   });
 
   it("renders environment references according to target capability", () => {

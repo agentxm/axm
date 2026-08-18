@@ -36,12 +36,12 @@ const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredM
 const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
   agentId in CONFIGURABLE_AGENTS_BY_ID;
 
-const transportFor = (entry: McpServerEntry) =>
-  entry.command !== undefined
-    ? "stdio"
-    : entry.url === undefined
-      ? undefined
-      : inferInlineRemoteTransport(entry.url);
+const transportFor = (entry: McpServerEntry) => {
+  if (entry.command !== undefined) return "stdio";
+  if (entry.url === undefined) return undefined;
+  const inference = inferInlineRemoteTransport(entry.url);
+  return inference._tag === "supported" ? inference.transport : undefined;
+};
 
 const membersByTarget = (
   agentIds: ReadonlyArray<string>,

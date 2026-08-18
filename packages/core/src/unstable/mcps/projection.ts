@@ -19,6 +19,10 @@ import {
 
 export type InlineRemoteTransport = "streamable-http" | "sse";
 
+export type InlineRemoteTransportInference =
+  | { readonly _tag: "supported"; readonly transport: InlineRemoteTransport }
+  | { readonly _tag: "unsupported"; readonly reason: string };
+
 export type ExpectedAgentEntry =
   | {
       readonly _tag: "projected";
@@ -80,7 +84,7 @@ const addActivationField = (
   entry[required.name] = enabled ? required.enabled : required.disabled;
 };
 
-export const inferInlineRemoteTransport = (url: string): InlineRemoteTransport => {
+export const inferInlineRemoteTransport = (url: string): InlineRemoteTransportInference => {
   let protocol: string | undefined;
   try {
     protocol = new URL(url).protocol;
@@ -88,12 +92,18 @@ export const inferInlineRemoteTransport = (url: string): InlineRemoteTransport =
     protocol = undefined;
   }
   if (protocol === "ws:" || protocol === "wss:") {
-    throw new Error("WebSocket MCP transport is not supported");
+    return { _tag: "unsupported", reason: "WebSocket MCP transport is not supported" };
   }
   if (protocol !== "http:" && protocol !== "https:") {
-    throw new Error(`Unsupported MCP URL scheme: ${protocol ?? "missing"}`);
+    return {
+      _tag: "unsupported",
+      reason: `Unsupported MCP URL scheme: ${protocol ?? "missing"}`,
+    };
   }
-  return url.endsWith("/sse") || url.includes("/sse?") ? "sse" : "streamable-http";
+  return {
+    _tag: "supported",
+    transport: url.endsWith("/sse") || url.includes("/sse?") ? "sse" : "streamable-http",
+  };
 };
 
 export const renderEnvValue = (
@@ -259,7 +269,9 @@ const projectInlineRemote = (args: {
       readonly _tag: "unsupported";
       readonly reason: string;
     } => {
-  const transport = inferInlineRemoteTransport(args.url);
+  const inference = inferInlineRemoteTransport(args.url);
+  if (inference._tag === "unsupported") return inference;
+  const transport = inference.transport;
   const urlKey = args.dialect.urlKey[transport];
   if (urlKey === undefined) {
     return {

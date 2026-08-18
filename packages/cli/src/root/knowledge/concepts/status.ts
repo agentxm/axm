@@ -59,7 +59,7 @@ const crossScopeCollisions = Effect.gen(function* () {
       lockfile: Schema.decodeUnknownResult(LockfileSchema)(YAML.parse(lockfileResult.success)),
     }),
     catch: () => undefined,
-  });
+  }).pipe(Effect.catch(() => Effect.succeed(undefined)));
   if (
     decoded === undefined ||
     Result.isFailure(decoded.settings) ||
@@ -74,15 +74,7 @@ const crossScopeCollisions = Effect.gen(function* () {
     .filter((name) => configured.has(name) && locked.has(name))
     .sort((left, right) => left.localeCompare(right));
   return { checkedScope, state: "determined" as const, bundleNames };
-}).pipe(
-  Effect.catchCause(() =>
-    Effect.map(WorkspaceMutations, (workspace) => ({
-      checkedScope: workspace.scope === "project" ? ("user" as const) : ("project" as const),
-      state: "not-determined" as const,
-      bundleNames: [],
-    })),
-  ),
-);
+});
 
 export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status")(function* () {
   const renderer = yield* CliRenderer;

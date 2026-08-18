@@ -417,10 +417,11 @@ describe("delegated upgrades", () => {
     ],
   ];
 
-  it.each(managerCases)("delegates through the owning %s manager", (method, executable, args) => {
-    const harness = makeHarness(method);
-    return Effect.runPromise(
-      Effect.gen(function* () {
+  it.effect.each(managerCases)(
+    "delegates through the owning %s manager",
+    ([method, executable, args]) => {
+      const harness = makeHarness(method);
+      return Effect.gen(function* () {
         yield* handleUpgrade({ reinstall: false });
         const result = resultFrom(harness.renderer);
         expect(result).toMatchObject({
@@ -436,9 +437,9 @@ describe("delegated upgrades", () => {
         expect(
           harness.subprocess.calls.every((call) => call.options?.cwd === executionDirectoryPath),
         ).toBe(true);
-      }).pipe(Effect.provide(harness.layer)),
-    );
-  });
+      }).pipe(Effect.provide(harness.layer));
+    },
+  );
 
   it.effect("uses bounded read-only queries to resolve an ambiguous npm layout", () =>
     Effect.gen(function* () {

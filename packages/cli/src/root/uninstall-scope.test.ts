@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { rootCommand } from "../app.js";
 import { makeAxmFormatter } from "../formatter.js";
@@ -24,29 +24,34 @@ const captureHelp = (path: ReadonlyArray<string>) =>
   });
 
 describe("mcps install flags", () => {
-  it("documents --env as repeatable", async () => {
-    const output = await Effect.runPromise(captureHelp(["mcps", "install"]));
-    expect(output).toContain("--env");
-    expect(output).toContain("repeatable");
-  });
+  it.effect("documents --env as repeatable", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelp(["mcps", "install"]);
+      expect(output).toContain("--env");
+      expect(output).toContain("repeatable");
+    }),
+  );
 
-  it("does not declare a per-command --non-interactive", async () => {
-    // A global --non-interactive still parses; the per-command duplicate was
-    // never read by the install operation.
-    const output = await Effect.runPromise(captureHelp(["mcps", "install"]));
-    expect(output).not.toContain("prompting for MCP inputs");
-  });
+  it.effect("does not declare a per-command --non-interactive", () =>
+    Effect.gen(function* () {
+      // A global --non-interactive still parses; the per-command duplicate was
+      // never read by the install operation.
+      const output = yield* captureHelp(["mcps", "install"]);
+      expect(output).not.toContain("prompting for MCP inputs");
+    }),
+  );
 });
 
 describe("uninstall --scope parity", () => {
   // Every install counterpart already accepts --scope; without it these verbs
   // could only ever uninstall from the project workspace.
-  it.each([["skills"], ["mcps"], ["subagents"], ["hooks"]])(
+  it.effect.each([["skills"], ["mcps"], ["subagents"], ["hooks"]] as const)(
     "%s uninstall accepts --scope",
-    async (group) => {
-      const output = await Effect.runPromise(captureHelp([group, "uninstall"]));
-      expect(output).toContain("--scope");
-      expect(output).toContain("choices: project, user");
-    },
+    ([group]) =>
+      Effect.gen(function* () {
+        const output = yield* captureHelp([group, "uninstall"]);
+        expect(output).toContain("--scope");
+        expect(output).toContain("choices: project, user");
+      }),
   );
 });

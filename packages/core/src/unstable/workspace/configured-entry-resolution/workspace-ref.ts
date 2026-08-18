@@ -137,7 +137,7 @@ export const resolveWorkspaceExtensionRef = (args: {
       pluralType(args.expectedType),
       source.name,
     );
-    yield* validatePathSafety(args.baseDir, packageDir);
+    yield* validatePathSafety(path, args.baseDir, packageDir);
     const packageExists = yield* fs
       .exists(packageDir)
       .pipe(

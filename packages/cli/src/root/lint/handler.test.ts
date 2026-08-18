@@ -17,6 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -84,6 +85,7 @@ describe("axm lint handler", () => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
       NodeServices.layer,
+      FetchHttpClient.layer,
       renderer.layer,
       TestFlagsLayer({ nonInteractive: true, quiet: opts?.quiet ?? false }),
       Layer.succeed(AxmSkillCompatibilityPolicy, {

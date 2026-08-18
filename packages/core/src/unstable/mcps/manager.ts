@@ -8,13 +8,13 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { computeIntegrity, isPathSafe } from "../utils/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
@@ -24,8 +24,11 @@ import type {
   McpServerExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
-import { createRegistryClient, extractZip } from "../registry/index.js";
+import {
+  canReuseInstalledPackage,
+  materializeRegistryPackage,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../extensions/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
@@ -92,13 +95,15 @@ export const McpServerManagerLive = Layer.effect(
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
+    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const baseDir = ws.baseDir;
 
     // Build a layer to provide FileSystem + Path to inner effects
-    const fsPathLayer = Layer.merge(
+    const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
+      Layer.succeed(HttpClient.HttpClient, httpClient),
     );
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -128,125 +133,45 @@ export const McpServerManagerLive = Layer.effect(
           registryRef.name,
         );
 
-        if (!isPathSafe(baseDir, canonicalPath)) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Path traversal detected: ${canonicalPath}`,
-          });
-        }
-
-        const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-              cause: e,
-            }),
-          ),
-        );
         const lockedVersion = acceptedRegistryVersionForRef(
           yield* ws.getLockedMcpServer(registryRef.server.name),
           registryRef,
         );
-        const useExisting = shouldReuseCanonicalInstall({
-          canonicalExists,
-          force: force === true,
-          hasIntegrity: Option.isSome(registryRef.integrity),
-          refVersion: registryRef.version,
-          lockedVersion,
-        });
+        const useExisting = yield* provide(
+          canReuseInstalledPackage({
+            installedPath: canonicalPath,
+            force: force === true,
+            integrity: registryRef.integrity,
+            version: registryRef.version,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
+          }),
+        );
 
         if (!useExisting) {
-          const locationStr =
-            registryRef.source.location.protocol === "file:"
-              ? registryRef.source.location.pathname
-              : registryRef.source.location.href;
-          const client = yield* provide(createRegistryClient(locationStr));
-          const { archive } = yield* client.getExtensionPackage({
-            owner: registryRef.owner,
-            type: "mcp-server",
-            name: registryRef.name,
-            version: Option.some(registryRef.version),
-          });
-
-          if (Option.isSome(registryRef.integrity)) {
-            const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity !== registryRef.integrity.value) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
-              });
-            }
-          }
-
-          const tmpDir = yield* fs.makeTempDirectory().pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Temporary directory for registry install could not be created`,
-                cause: e,
-              }),
-            ),
-          );
-          const cleanup = fs.remove(tmpDir, { recursive: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove temporary MCP server directory ${tmpDir}`,
-                cause: error,
-              }),
-            ),
-          );
-          yield* Effect.gen(function* () {
-            yield* provide(extractZip(archive, tmpDir));
-            yield* protectWorkspacePath(canonicalPath);
-            yield* fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to replace canonical MCP server source: ${canonicalPath}`,
-                  cause: error,
-                }),
-              ),
-            );
-            yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "validation",
-                  detail: `Failed to create canonical directory: ${canonicalPath}`,
-                  cause: e,
-                }),
-              ),
-            );
-            const entries = yield* fs.readDirectory(tmpDir).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "validation",
-                  detail: `Extracted directory could not be read`,
-                  cause: e,
-                }),
-              ),
-            );
-            yield* Effect.forEach(
-              entries,
-              (entry) => {
-                const src = path.join(tmpDir, entry);
-                const dest = path.join(canonicalPath, entry);
-                return fs.copy(src, dest).pipe(
-                  Effect.mapError((error) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to copy MCP server package entry: ${entry}`,
-                      cause: error,
-                    }),
-                  ),
-                );
+          yield* provide(
+            materializeRegistryPackage({
+              baseDir,
+              destinationPath: canonicalPath,
+              sourceLocation: registryRef.source.location,
+              owner: registryRef.owner,
+              type: "mcp-server",
+              name: registryRef.name,
+              version: registryRef.version,
+              integrity: registryRef.integrity,
+              messages: {
+                integrityMismatchCode: "internal",
+                integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+                tempDirectoryFailureDetail:
+                  "Temporary directory for registry install could not be created",
+                createDirectoryFailureDetail: (target) =>
+                  `Failed to create canonical directory: ${target}`,
+                inspectExtractedFailureDetail: "Extracted directory could not be read",
+                copyEntryFailureCode: "internal",
+                copyEntryFailureDetail: (entry) =>
+                  `Failed to copy MCP server package entry: ${entry}`,
               },
-              { concurrency: "unbounded" },
-            );
-          }).pipe(
-            Effect.tapError(() => cleanup),
-            Effect.tap(() => cleanup),
+            }),
           );
         }
       }, Effect.asVoid);

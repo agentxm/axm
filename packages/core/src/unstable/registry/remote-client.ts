@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are translated to AppError by this registry adapter
 /**
  * Remote HTTPS registry client.
  *
@@ -70,6 +71,11 @@ import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
 } from "./__generated__/registry-client.js";
+
+// Reuse the established four-request cap from publish transport. Named and
+// list discovery share the same registry service and must not multiply it via
+// nested traversals.
+const REGISTRY_READ_CONCURRENCY = 4;
 import type { ArchiveCache } from "./archive-cache.js";
 import {
   PreviewPublicationSetResponseSchema,
@@ -375,35 +381,29 @@ export const createRemoteRegistryClient = (
         const requestedTypes: ReadonlyArray<ExtensionType> =
           args.types.length > 0 ? args.types : remoteDiscoveryTypes;
 
+        const requests = args.names.flatMap((name) =>
+          requestedTypes.map((type) => ({ name, type })),
+        );
         const maybeEntries = yield* Effect.forEach(
-          args.names,
-          (name) =>
-            Effect.forEach(
-              requestedTypes,
-              (type) =>
-                Effect.sync(() => {
-                  try {
-                    return decodeExtensionNameSync(name);
-                  } catch {
-                    return undefined;
-                  }
-                }).pipe(
-                  Effect.flatMap((decodedName) =>
-                    decodedName === undefined
-                      ? Effect.succeed(Option.none<ExtensionIndex>())
-                      : getExtensionIndex({
-                          owner,
-                          type,
-                          name: decodedName,
-                        }),
-                  ),
-                ),
-              { concurrency: "unbounded" },
+          requests,
+          ({ name, type }) =>
+            Effect.sync(() => {
+              try {
+                return decodeExtensionNameSync(name);
+              } catch {
+                return undefined;
+              }
+            }).pipe(
+              Effect.flatMap((decodedName) =>
+                decodedName === undefined
+                  ? Effect.succeed(Option.none<ExtensionIndex>())
+                  : getExtensionIndex({ owner, type, name: decodedName }),
+              ),
             ),
-          { concurrency: "unbounded" },
+          { concurrency: REGISTRY_READ_CONCURRENCY },
         );
 
-        allExtensions = maybeEntries.flat().flatMap((entry) =>
+        allExtensions = maybeEntries.flatMap((entry) =>
           Option.match(entry, {
             onNone: () => [],
             onSome: (value) =>
@@ -436,7 +436,7 @@ export const createRemoteRegistryClient = (
           : yield* Effect.forEach(
               args.types,
               (type) => fetchExtensionListByType(args.owner, type),
-              { concurrency: "unbounded" },
+              { concurrency: REGISTRY_READ_CONCURRENCY },
             );
 
       const summaries = listResults.flat();
@@ -450,7 +450,7 @@ export const createRemoteRegistryClient = (
             type: narrowExtensionType(summary.type),
             name: decodeExtensionNameSync(summary.name),
           }),
-        { concurrency: "unbounded" },
+        { concurrency: REGISTRY_READ_CONCURRENCY },
       );
 
       const allExtensions = maybeEntries.flatMap((entry) =>

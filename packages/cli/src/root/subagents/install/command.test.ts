@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import { rootCommand } from "../../../app.js";
 import { makeAxmFormatter } from "../../../formatter.js";
@@ -29,10 +29,12 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
   });
 
 describe("subagents install command help", () => {
-  it("documents no-arg install and omits the dead --agent flag", async () => {
-    const output = await Effect.runPromise(captureHelpOutput(["subagents", "install"]));
+  it.effect("documents no-arg install and omits the dead --agent flag", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelpOutput(["subagents", "install"]);
 
-    expect(output).toContain("Reinstall all configured subagents from their sources");
-    expect(output).not.toContain("--agent");
-  });
+      expect(output).toContain("Reinstall all configured subagents from their sources");
+      expect(output).not.toContain("--agent");
+    }),
+  );
 });

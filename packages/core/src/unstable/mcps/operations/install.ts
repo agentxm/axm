@@ -29,6 +29,10 @@ import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
+  applyProjectionPlansWithResults,
+  planSingletonProjection,
+} from "../../projection/planning.js";
+import {
   REGISTRY_EXTENSIONS_DIR,
   canReuseInstalledPackage,
   materializeRegistryPackage,
@@ -443,6 +447,8 @@ const syncConfiguredAgentsOnInstall = (args: {
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const warnings: Array<string> = [];
 
     const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds();
@@ -470,22 +476,42 @@ const syncConfiguredAgentsOnInstall = (args: {
         },
       }));
     } else {
-      outcomes = yield* Effect.forEach(
-        configuredAgents,
-        (agent: CodingAgent) =>
-          agent
-            .addMcpServer({
-              workspaceRoot: args.wsBaseDir,
-              scope: args.scope,
-              serverName: args.serverName,
-              canonicalPath: args.canonicalPath,
-              owner: args.owner,
-              resolvedVersion: args.resolvedVersion,
-              enabled: args.enabled,
-              configValues: args.configValues,
-            })
-            .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-        { concurrency: "unbounded" },
+      outcomes = yield* applyProjectionPlansWithResults(
+        configuredAgents.map((agent: CodingAgent) =>
+          planSingletonProjection({
+            unitId: "mcp-server:native-config-entry",
+            targetFile: "mcp:configured-agents",
+            contributor: args,
+            adapter: {
+              observe: () =>
+                Effect.succeed({
+                  unitId: "mcp-server:native-config-entry",
+                  path: `${agent.id}:${args.serverName}`,
+                  present: false,
+                  current: false,
+                  expectedContributors: [args.serverName],
+                  observedContributors: [],
+                }),
+              apply: () =>
+                agent
+                  .addMcpServer({
+                    workspaceRoot: args.wsBaseDir,
+                    scope: args.scope,
+                    serverName: args.serverName,
+                    canonicalPath: args.canonicalPath,
+                    owner: args.owner,
+                    resolvedVersion: args.resolvedVersion,
+                    enabled: args.enabled,
+                    configValues: args.configValues,
+                  })
+                  .pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                    Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                  ),
+            },
+          }),
+        ),
       );
     }
 

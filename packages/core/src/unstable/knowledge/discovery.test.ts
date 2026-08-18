@@ -105,8 +105,14 @@ describe("reconcileKnowledgeDiscovery", () => {
       try {
         const instructions = nodePath.join(root, "AGENTS.md");
         writeFileSync(instructions, "# Hand maintained\n");
-        yield* run(root, [makeBundle(root, "@acme", "platform")], { management: false });
-        expect(readFileSync(instructions, "utf8")).toBe("# Hand maintained\n");
+        const bundle = makeBundle(root, "@acme", "platform");
+        yield* run(root, [bundle]);
+        const managed = readFileSync(instructions, "utf8");
+
+        const result = yield* run(root, [], { management: false });
+
+        expect(result.changed).toBe(false);
+        expect(readFileSync(instructions, "utf8")).toBe(managed);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

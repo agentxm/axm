@@ -20,7 +20,8 @@ import {
   KnowledgeManager,
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import {
   resolveSource,
   SourceHostProviders,
@@ -147,47 +148,67 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
           })),
         };
       }),
-    buildPlan: (intent) =>
-      Effect.succeed({
+    buildPlan: (intent) => {
+      const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
+      const memberSteps = intent.refs.map(({ ref, versionRange }) =>
+        (() => {
+          const target = targetFromRef(ref);
+          const packages = ref.refType === "registry" ? ref.packages : [];
+          const base = {
+            key: toStepKey(target),
+            label: toLabelWithCompanions(target, packages),
+            run: manager.install({ ref, versionRange, deferProjection: deferProjections }).pipe(
+              Effect.as({
+                result: "success" as const,
+                message: `Installed ${ref.knowledge.name}`,
+              }),
+            ),
+          };
+          const warnings = extensionRefLifecycleWarnings(ref);
+          const registryLifecycle = extensionRefRegistryLifecycle(ref);
+          return warnings.length === 0
+            ? {
+                ...base,
+                readiness: "ready" as const,
+                ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+              }
+            : {
+                ...base,
+                readiness: "warn" as const,
+                warnMessage: warnings.join("; "),
+                ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+              };
+        })(),
+      );
+      const projectionSteps: ReadonlyArray<PlannedJobStep> =
+        deferProjections && intent.deferProjections !== true
+          ? [
+              {
+                key: "projection:knowledge:discovery-region",
+                label: "knowledge projection",
+                readiness: "ready",
+                run: applyPlannedProjections(manager).pipe(
+                  Effect.as({
+                    result: "success",
+                    message:
+                      "Rendered installed Knowledge bundles from the complete contributor set",
+                  } satisfies JobStepResult),
+                ),
+              },
+            ]
+          : [];
+      return Effect.succeed({
         _tag: "Plan",
         name: "Install knowledge",
         description: Option.some("Install Open Knowledge Format bundle"),
         jobs: [
           {
             concurrency: 1,
-            steps: intent.refs.map(({ ref, versionRange }) =>
-              (() => {
-                const target = targetFromRef(ref);
-                const packages = ref.refType === "registry" ? ref.packages : [];
-                const base = {
-                  key: toStepKey(target),
-                  label: toLabelWithCompanions(target, packages),
-                  run: manager.install({ ref, versionRange }).pipe(
-                    Effect.as({
-                      result: "success" as const,
-                      message: `Installed ${ref.knowledge.name}`,
-                    }),
-                  ),
-                };
-                const warnings = extensionRefLifecycleWarnings(ref);
-                const registryLifecycle = extensionRefRegistryLifecycle(ref);
-                return warnings.length === 0
-                  ? {
-                      ...base,
-                      readiness: "ready" as const,
-                      ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-                    }
-                  : {
-                      ...base,
-                      readiness: "warn" as const,
-                      warnMessage: warnings.join("; "),
-                      ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-                    };
-              })(),
-            ),
+            steps: [...memberSteps, ...projectionSteps],
           },
         ],
-      } satisfies Plan),
+      } satisfies Plan);
+    },
   } satisfies KnowledgeInstallActions;
 });
 

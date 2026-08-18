@@ -69,6 +69,14 @@ export const ownershipUnits = [
 ] as const satisfies ReadonlyArray<OwnershipUnitDeclaration>;
 
 export type OwnershipUnitId = (typeof ownershipUnits)[number]["unitId"];
+export type AggregateOwnershipUnitId = Extract<
+  (typeof ownershipUnits)[number],
+  { readonly contributors: "many" }
+>["unitId"];
+export type SingletonOwnershipUnitId = Extract<
+  (typeof ownershipUnits)[number],
+  { readonly contributors: "one" }
+>["unitId"];
 
 export const aggregateOwnershipUnits: ReadonlyArray<OwnershipUnitDeclaration> =
   ownershipUnits.filter((unit) => unit.contributors === "many");

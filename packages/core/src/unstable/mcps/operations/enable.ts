@@ -18,6 +18,10 @@ import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
+import {
+  applyProjectionPlansWithResults,
+  planSingletonProjection,
+} from "../../projection/planning.js";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",
@@ -143,20 +147,41 @@ export const enableMcpServer = (
     const agents = yield* agentRepo.getConfiguredAgents();
     const outcomes = yield* ws.runTransaction({
       transition: Effect.gen(function* () {
-        const synced = yield* Effect.forEach(
-          agents,
-          (agent) =>
-            agent.addMcpServer({
-              workspaceRoot: ws.baseDir,
-              scope: ws.scope,
-              serverName: op.args.serverName,
-              canonicalPath,
-              owner,
-              resolvedVersion,
-              enabled: true,
-              configValues: entry.env,
+        const synced = yield* applyProjectionPlansWithResults(
+          agents.map((agent) =>
+            planSingletonProjection({
+              unitId: "mcp-server:native-config-entry",
+              targetFile: "mcp:configured-agents",
+              contributor: op.args,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "mcp-server:native-config-entry",
+                    path: `${agent.id}:${op.args.serverName}`,
+                    present: false,
+                    current: false,
+                    expectedContributors: [op.args.serverName],
+                    observedContributors: [],
+                  }),
+                apply: () =>
+                  agent
+                    .addMcpServer({
+                      workspaceRoot: ws.baseDir,
+                      scope: ws.scope,
+                      serverName: op.args.serverName,
+                      canonicalPath,
+                      owner,
+                      resolvedVersion,
+                      enabled: true,
+                      configValues: entry.env,
+                    })
+                    .pipe(
+                      Effect.provideService(FileSystem.FileSystem, fs),
+                      Effect.provideService(Path.Path, path),
+                    ),
+              },
             }),
-          { concurrency: "unbounded" },
+          ),
         );
         yield* requireSuccessfulMcpSync(
           op.args.serverName,

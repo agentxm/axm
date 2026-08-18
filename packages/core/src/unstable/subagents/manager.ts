@@ -58,6 +58,10 @@ import {
 } from "../workspace/rendered-file-cleanup.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import {
+  applyProjectionPlansWithResults,
+  planSingletonProjection,
+} from "../projection/planning.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
@@ -405,67 +409,85 @@ export const SubagentManagerLive = Layer.effect(
         );
 
         // --- Render to all agents concurrently ---
-        const renderResults = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent
-              .addSubagent({
-                workspaceRoot: baseDir,
-                scope: ws.scope,
-                editSourcePath: editSourcePath.value,
-                input: {
-                  agentId: agent.id,
-                  name: ref.subagent.name,
-                  body: parsed.body,
-                  frontmatter: renderFrontmatter,
-                  agentOverrides: agentOverrides?.[agent.id],
-                },
-                force: false,
-              })
-              .pipe(
-                Effect.provide(fsPathLayer),
-                Effect.flatMap((outcome) => {
-                  if (outcome._tag !== "unsupported") {
-                    return Effect.succeed<SubagentSyncOutcome>(outcome);
-                  }
-                  if ((ref.fallback ?? manifestFallback) === "none") {
-                    return makeAppError({
-                      code: "validation",
-                      detail: `Subagent ${ref.subagent.name} requires native subagent support for ${agent.id} because fallback is none`,
-                    });
-                  }
-                  return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
-                    Effect.provide(fsPathLayer),
-                    Effect.flatMap((skillsOutcome) => {
-                      if (skillsOutcome._tag !== "supported") {
-                        return Effect.succeed<SubagentSyncOutcome>(outcome);
-                      }
-                      const description = Option.getOrElse(
-                        ref.subagent.description,
-                        () => `Adopt the ${ref.subagent.name} role`,
-                      );
-                      return materializeRoleSkillFallback({
+        const renderResults = yield* applyProjectionPlansWithResults(
+          configuredAgents.map((agent) =>
+            planSingletonProjection({
+              unitId: "subagent:native-profile",
+              // Some adapters co-locate multiple agent profiles. A shared key
+              // deliberately serializes until the adapter exposes its exact file.
+              targetFile: `subagent:${ref.subagent.name}:configured-agents`,
+              contributor: ref,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "subagent:native-profile",
+                    path: `${agent.id}:${ref.subagent.name}`,
+                    present: false,
+                    current: false,
+                    expectedContributors: [ref.subagent.name],
+                    observedContributors: [],
+                  }),
+                apply: () =>
+                  agent
+                    .addSubagent({
+                      workspaceRoot: baseDir,
+                      scope: ws.scope,
+                      editSourcePath: editSourcePath.value,
+                      input: {
                         agentId: agent.id,
                         name: ref.subagent.name,
-                        sanitized,
                         body: parsed.body,
-                        description,
-                        targetDir: skillsOutcome.dir,
-                      }).pipe(
-                        Effect.mapError((cause) =>
-                          makeAppError({
-                            code: "internal",
-                            detail: `Failed to materialize subagent fallback for ${agent.id}`,
-                            cause,
+                        frontmatter: renderFrontmatter,
+                        agentOverrides: agentOverrides?.[agent.id],
+                      },
+                      force: false,
+                    })
+                    .pipe(
+                      Effect.provide(fsPathLayer),
+                      Effect.flatMap((outcome) => {
+                        if (outcome._tag !== "unsupported") {
+                          return Effect.succeed<SubagentSyncOutcome>(outcome);
+                        }
+                        if ((ref.fallback ?? manifestFallback) === "none") {
+                          return makeAppError({
+                            code: "validation",
+                            detail: `Subagent ${ref.subagent.name} requires native subagent support for ${agent.id} because fallback is none`,
+                          });
+                        }
+                        return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+                          Effect.provide(fsPathLayer),
+                          Effect.flatMap((skillsOutcome) => {
+                            if (skillsOutcome._tag !== "supported") {
+                              return Effect.succeed<SubagentSyncOutcome>(outcome);
+                            }
+                            const description = Option.getOrElse(
+                              ref.subagent.description,
+                              () => `Adopt the ${ref.subagent.name} role`,
+                            );
+                            return materializeRoleSkillFallback({
+                              agentId: agent.id,
+                              name: ref.subagent.name,
+                              sanitized,
+                              body: parsed.body,
+                              description,
+                              targetDir: skillsOutcome.dir,
+                            }).pipe(
+                              Effect.mapError((cause) =>
+                                makeAppError({
+                                  code: "internal",
+                                  detail: `Failed to materialize subagent fallback for ${agent.id}`,
+                                  cause,
+                                }),
+                              ),
+                            );
                           }),
-                        ),
-                      );
-                    }),
-                  );
-                }),
-                Effect.map((outcome) => ({ agentId: agent.id, outcome })),
-              ),
-          { concurrency: "unbounded" },
+                        );
+                      }),
+                      Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                    ),
+              },
+            }),
+          ),
         );
         yield* Effect.forEach(renderResults, ({ agentId, outcome }) => {
           if (outcome._tag !== "success") return Effect.void;
@@ -507,55 +529,76 @@ export const SubagentManagerLive = Layer.effect(
         const configuredAgents = yield* agentRepo
           .getConfiguredAgents()
           .pipe(Effect.provideService(WorkspaceMutations, ws));
-        const removals = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            Effect.gen(function* () {
-              const removedPaths: Array<string> = [];
-              const resolved = yield* agent.resolveEffectiveSubagentsDir({
-                workspaceRoot: baseDir,
-                scope: ws.scope,
-              });
-              if (resolved._tag === "supported") {
-                const renderedFilePaths = yield* findManagedSubagentFiles(
-                  resolved.dir,
-                  sanitized,
-                ).pipe(Effect.provide(fsPathLayer));
-                yield* agent.removeSubagent({
-                  workspaceRoot: baseDir,
-                  scope: ws.scope,
-                  subagentName: target.name,
-                  renderedFilePaths: renderedFilePaths.map((filePath) =>
-                    decodeRenderedFilePath(path.relative(baseDir, filePath)),
-                  ),
-                });
-                removedPaths.push(...renderedFilePaths);
-              }
+        const removals = yield* applyProjectionPlansWithResults(
+          configuredAgents.map((agent) =>
+            planSingletonProjection({
+              unitId: "subagent:native-profile",
+              targetFile: `subagent:${target.name}:configured-agents`,
+              contributor: target,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "subagent:native-profile",
+                    path: `${agent.id}:${target.name}`,
+                    present: true,
+                    current: false,
+                    expectedContributors: [],
+                    observedContributors: [target.name],
+                  }),
+                apply: () =>
+                  Effect.gen(function* () {
+                    const removedPaths: Array<string> = [];
+                    const resolved = yield* agent.resolveEffectiveSubagentsDir({
+                      workspaceRoot: baseDir,
+                      scope: ws.scope,
+                    });
+                    if (resolved._tag === "supported") {
+                      const renderedFilePaths = yield* findManagedSubagentFiles(
+                        resolved.dir,
+                        sanitized,
+                      ).pipe(Effect.provide(fsPathLayer));
+                      yield* agent.removeSubagent({
+                        workspaceRoot: baseDir,
+                        scope: ws.scope,
+                        subagentName: target.name,
+                        renderedFilePaths: renderedFilePaths.map((filePath) =>
+                          decodeRenderedFilePath(path.relative(baseDir, filePath)),
+                        ),
+                      });
+                      removedPaths.push(...renderedFilePaths);
+                    }
 
-              const skills = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir });
-              if (skills._tag === "supported") {
-                const fallbackPath = path.join(path.normalize(skills.dir), sanitized);
-                const fallbackContent = yield* fs
-                  .readFileString(path.join(fallbackPath, "SKILL.md"))
-                  .pipe(Effect.option);
-                if (Option.isSome(fallbackContent) && hasAxmManagedMarker(fallbackContent.value)) {
-                  yield* protectWorkspacePath(fallbackPath);
-                  yield* fs.remove(fallbackPath, { recursive: true, force: true }).pipe(
-                    Effect.mapError((error) =>
-                      makeAppError({
-                        code: "internal",
-                        detail: `Failed to remove subagent fallback artifact: ${fallbackPath}`,
-                        cause: error,
-                      }),
-                    ),
-                  );
-                  removedPaths.push(fallbackPath);
-                }
-              }
+                    const skills = yield* agent.resolveEffectiveSkillsDir({
+                      workspaceRoot: baseDir,
+                    });
+                    if (skills._tag === "supported") {
+                      const fallbackPath = path.join(path.normalize(skills.dir), sanitized);
+                      const fallbackContent = yield* fs
+                        .readFileString(path.join(fallbackPath, "SKILL.md"))
+                        .pipe(Effect.option);
+                      if (
+                        Option.isSome(fallbackContent) &&
+                        hasAxmManagedMarker(fallbackContent.value)
+                      ) {
+                        yield* protectWorkspacePath(fallbackPath);
+                        yield* fs.remove(fallbackPath, { recursive: true, force: true }).pipe(
+                          Effect.mapError((error) =>
+                            makeAppError({
+                              code: "internal",
+                              detail: `Failed to remove subagent fallback artifact: ${fallbackPath}`,
+                              cause: error,
+                            }),
+                          ),
+                        );
+                        removedPaths.push(fallbackPath);
+                      }
+                    }
 
-              return { agentId: agent.id, removedPaths };
-            }).pipe(Effect.provide(fsPathLayer)),
-          { concurrency: "unbounded" },
+                    return { agentId: agent.id, removedPaths };
+                  }).pipe(Effect.provide(fsPathLayer)),
+              },
+            }),
+          ),
         );
         const agentIdsByPath = new Map<string, Array<string>>();
         for (const removal of removals) {

@@ -25,6 +25,10 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import {
+  applyProjectionPlans,
+  type ProjectionPlan,
+} from "@agentxm/client-core/unstable/projection";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
@@ -148,25 +152,11 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
       );
       return;
     }
-    case "rule": {
-      const manager = yield* RuleManager;
-      yield* manager.materializeDeactivate({
-        target: { type: "rule", name: node.name },
-      });
-      return;
-    }
-    case "hook": {
-      const manager = yield* HookManager;
-      yield* manager.materializeDeactivate({
-        target: { type: "hook", name: node.name },
-      });
-      return;
-    }
+    case "rule":
+    case "hook":
     case "knowledge": {
-      const manager = yield* KnowledgeManager;
-      yield* manager.materializeDeactivate({
-        target: { type: "knowledge", name: node.name },
-      });
+      // These types own only aggregate projections. Their shared trailing
+      // batch renders the post-transition graph once for the whole closure.
       return;
     }
     case "pack":
@@ -178,20 +168,20 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
 // desired-state contributor set, after the pack's activation change commits.
 const reconcileAggregateProjections = Effect.fn("PacksActivation.reconcileAggregateProjections")(
   function* (types: ReadonlySet<string>) {
+    const plans: Array<ProjectionPlan> = [];
     if (types.has("rule")) {
       const manager = yield* RuleManager;
-      yield* manager.reconcileProjections();
+      plans.push(...(yield* manager.projectionPlans()));
     }
     if (types.has("hook")) {
       const manager = yield* HookManager;
-      yield* manager.reconcileProjections();
+      plans.push(...(yield* manager.projectionPlans()));
     }
     if (types.has("knowledge")) {
       const manager = yield* KnowledgeManager;
-      if (manager.reconcileProjections !== undefined) {
-        yield* manager.reconcileProjections();
-      }
+      plans.push(...(yield* manager.projectionPlans()));
     }
+    yield* applyProjectionPlans(plans);
   },
 );
 

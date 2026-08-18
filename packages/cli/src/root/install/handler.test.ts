@@ -44,6 +44,7 @@ import {
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
 
@@ -282,9 +283,10 @@ describe("root install handler", () => {
         >,
       ),
     );
+    const layerWithManagers = Layer.provideMerge(KnowledgeManagerLive, fullLayer);
 
     return {
-      provide: makeEffectProvide(fullLayer),
+      provide: makeEffectProvide(layerWithManagers),
       logs: ctx.logs,
       rendererState: ctx.rendererState,
     };
@@ -383,8 +385,12 @@ describe("root install handler", () => {
 
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Install configured extensions",
+        totalSteps: 2,
       });
-      expect(planResultSteps(result)).toMatchObject([{ label: "knowledge", status: "applied" }]);
+      expect(planResultSteps(result)).toMatchObject([
+        { label: "knowledge", status: "applied" },
+        { label: "shared projections", status: "applied" },
+      ]);
     }),
   );
 

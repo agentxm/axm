@@ -12,10 +12,12 @@ import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
 import { HookManager } from "../hooks/manager.js";
+import { KnowledgeManager } from "../knowledge/manager.js";
 import { RuleManager } from "../rules/manager.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { OwnershipUnitId } from "./units.js";
+import { observeProjectionPlans } from "./planning.js";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
@@ -143,26 +145,33 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const workspace = yield* WorkspaceMutations;
     const rules = yield* RuleManager;
     const hooks = yield* HookManager;
+    const knowledge = yield* KnowledgeManager;
     return {
       projectionFacts: Effect.gen(function* () {
-        const [ruleResult, hookResult] = yield* Effect.all(
+        const [ruleResult, hookResult, knowledgeResult] = yield* Effect.all(
           [
-            Effect.result(rules.projectionUnitObservations),
-            Effect.result(hooks.projectionUnitObservations),
+            Effect.result(rules.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))),
+            Effect.result(hooks.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))),
+            Effect.result(knowledge.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))),
           ],
           { concurrency: "unbounded" },
         );
-        const observations = [ruleResult, hookResult].flatMap((result) =>
+        const observations = [ruleResult, hookResult, knowledgeResult].flatMap((result) =>
           Result.isSuccess(result) ? result.success : [],
         );
         const facts = observations.map((observation) =>
           makeProjectionInvariantFact(observation, workspace.scope),
         );
-        if (Result.isSuccess(ruleResult) && Result.isSuccess(hookResult)) return facts;
+        if (
+          Result.isSuccess(ruleResult) &&
+          Result.isSuccess(hookResult) &&
+          Result.isSuccess(knowledgeResult)
+        )
+          return facts;
 
         const graph = yield* Effect.result(workspace.getDesiredStateGraph());
         if (Result.isFailure(graph) || !graph.success.complete) return facts;
-        const contributorsFor = (type: "rule" | "hook"): ReadonlyArray<string> =>
+        const contributorsFor = (type: "rule" | "hook" | "knowledge"): ReadonlyArray<string> =>
           graph.success.nodes
             .filter((node) => node.type === type && node.enabled)
             .map(({ identity }) => identity);
@@ -186,6 +195,27 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               makeUnavailableProjectionFact({
                 unitId: "hook:agent-hook-entries",
                 path: "managed hook projections",
+                scope: workspace.scope,
+                expectedContributors: contributors,
+              }),
+            );
+            facts.push(
+              makeUnavailableProjectionFact({
+                unitId: "hook:fallback-region",
+                path: "managed Hook fallback region",
+                scope: workspace.scope,
+                expectedContributors: contributors,
+              }),
+            );
+          }
+        }
+        if (Result.isFailure(knowledgeResult)) {
+          const contributors = contributorsFor("knowledge");
+          if (contributors.length > 0) {
+            facts.push(
+              makeUnavailableProjectionFact({
+                unitId: "knowledge:discovery-region",
+                path: "managed Knowledge discovery region",
                 scope: workspace.scope,
                 expectedContributors: contributors,
               }),

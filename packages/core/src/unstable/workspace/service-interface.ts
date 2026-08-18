@@ -63,6 +63,7 @@ import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { AbsolutePath } from "../utils/path-types.js";
+import type { ProjectionPlan } from "../projection/planning.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -196,12 +197,8 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;
-  /**
-   * Re-render every aggregate ownership unit this type contributes to from the
-   * complete desired-state graph. The shared operation flow invokes this after
-   * settings and lock state commit, once per semantic closure.
-   */
-  readonly reconcileProjections?: () => Effect.Effect<void, AppError, never>;
+  /** Build opaque projection plans after desired state and canonical content commit. */
+  readonly projectionPlans?: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError, never>;
   readonly getLastUnmaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;

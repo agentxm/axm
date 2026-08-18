@@ -12,7 +12,13 @@ import {
   parseRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
+import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
   resolveSource,
@@ -153,51 +159,69 @@ export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
         };
       });
 
-    const buildPlan = (intent: InstallRuleCommandIntent): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
+    const buildPlan = (intent: InstallRuleCommandIntent): Effect.Effect<Plan, AppError> => {
+      const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
+      const memberSteps = intent.refs.map(({ ref, versionRange }) =>
+        buildInstallOperation(ruleManager, {
+          ref,
+          versionRange,
+          skipProjections: deferProjections,
+          installedBefore: ruleManager.isInstalled({
+            target: { type: "rule", name: ref.rule.name },
+          }),
+          buildArtifact: ({ installedBefore }) =>
+            Effect.gen(function* () {
+              const materialization =
+                ruleManager.getLastMaterialization === undefined
+                  ? { agents: [], targets: [] }
+                  : yield* ruleManager.getLastMaterialization({
+                      target: { type: "rule", name: ref.rule.name },
+                    });
+              const change: JobStepArtifact["change"] = installedBefore ? "updated" : "created";
+              const targets = materialization.targets.map((target) => ({
+                path: target.path,
+                change,
+                ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
+              }));
+              return {
+                path: targets[0]?.path ?? ref.rule.name,
+                scope: ws.scope,
+                agents: materialization.agents,
+                ...(ref.refType === "registry" ? { version: ref.version } : {}),
+                change,
+                ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+              } satisfies JobStepArtifact;
+            }),
+        }),
+      );
+      const projectionSteps: ReadonlyArray<PlannedJobStep> =
+        deferProjections && intent.deferProjections !== true
+          ? [
+              {
+                key: "projection:rule:instructions-region",
+                label: "rule projections",
+                readiness: "ready",
+                run: applyPlannedProjections(ruleManager).pipe(
+                  Effect.as({
+                    result: "success",
+                    message: "Rendered installed Rules from the complete contributor set",
+                  } satisfies JobStepResult),
+                ),
+              },
+            ]
+          : [];
+      return Effect.succeed({
         _tag: "Plan",
         name: "Install rules",
         description: Option.some("Install rule"),
         jobs: [
           {
             concurrency: 1,
-            steps: intent.refs.map(({ ref, versionRange }) =>
-              buildInstallOperation(ruleManager, {
-                ref,
-                versionRange,
-                installedBefore: ruleManager.isInstalled({
-                  target: { type: "rule", name: ref.rule.name },
-                }),
-                buildArtifact: ({ installedBefore }) =>
-                  Effect.gen(function* () {
-                    const materialization =
-                      ruleManager.getLastMaterialization === undefined
-                        ? { agents: [], targets: [] }
-                        : yield* ruleManager.getLastMaterialization({
-                            target: { type: "rule", name: ref.rule.name },
-                          });
-                    const change: JobStepArtifact["change"] = installedBefore
-                      ? "updated"
-                      : "created";
-                    const targets = materialization.targets.map((target) => ({
-                      path: target.path,
-                      change,
-                      ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
-                    }));
-                    return {
-                      path: targets[0]?.path ?? ref.rule.name,
-                      scope: ws.scope,
-                      agents: materialization.agents,
-                      ...(ref.refType === "registry" ? { version: ref.version } : {}),
-                      change,
-                      ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-                    } satisfies JobStepArtifact;
-                  }),
-              }),
-            ),
+            steps: [...memberSteps, ...projectionSteps],
           },
         ],
       } satisfies Plan);
+    };
 
     return {
       parseArgs,

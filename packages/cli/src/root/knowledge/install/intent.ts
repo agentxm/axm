@@ -3,6 +3,8 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
 import type * as Option from "effect/Option";
 
 export interface InstallKnowledgeCommandIntent {
+  /** The enclosing semantic closure owns the trailing aggregate projection. */
+  readonly deferProjections?: boolean;
   readonly refs: ReadonlyArray<{
     readonly ref: KnowledgeExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;

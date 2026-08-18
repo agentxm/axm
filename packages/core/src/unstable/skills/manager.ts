@@ -49,6 +49,7 @@ import {
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { usableAcceptedCanonicalRef } from "../workspace/accepted-canonical-ref.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -174,18 +175,35 @@ export const SkillManagerLive = Layer.effect(
         }
       }
 
-      yield* Effect.forEach(
-        [...locations.values()],
-        (location) =>
-          ensureSkillAgentArtifact({
-            canonicalSkillSrcPath: skillSrcPath,
-            targetDir: location.dir,
-            sanitizedName: sanitized,
-            pathService: path,
-            baseDir,
-            provide,
-          }),
-        { concurrency: "unbounded" },
+      yield* applyProjectionPlans(
+        [...locations.values()].map((location) => {
+          const targetFile = path.join(location.dir, sanitized);
+          return planSingletonProjection({
+            unitId: "skill:agent-skill-directory",
+            targetFile,
+            contributor: ref,
+            adapter: {
+              observe: () =>
+                Effect.succeed({
+                  unitId: "skill:agent-skill-directory",
+                  path: path.relative(baseDir, targetFile),
+                  present: false,
+                  current: false,
+                  expectedContributors: [ref.skill.name],
+                  observedContributors: [],
+                }),
+              apply: () =>
+                ensureSkillAgentArtifact({
+                  canonicalSkillSrcPath: skillSrcPath,
+                  targetDir: location.dir,
+                  sanitizedName: sanitized,
+                  pathService: path,
+                  baseDir,
+                  provide,
+                }),
+            },
+          });
+        }),
       );
       const sourceHash =
         ref.refType === "workspace"
@@ -237,16 +255,33 @@ export const SkillManagerLive = Layer.effect(
         }
         const distinctDirs = Array.dedupe(uninstallTargets);
 
-        yield* Effect.forEach(
-          distinctDirs,
-          (dir) =>
-            removeSkillAgentArtifact({
-              fs,
-              pathService: path,
-              targetDir: dir,
-              sanitizedName: sanitized,
-            }),
-          { concurrency: "unbounded" },
+        yield* applyProjectionPlans(
+          distinctDirs.map((dir) => {
+            const targetFile = path.join(dir, sanitized);
+            return planSingletonProjection({
+              unitId: "skill:agent-skill-directory",
+              targetFile,
+              contributor: target,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "skill:agent-skill-directory",
+                    path: path.relative(baseDir, targetFile),
+                    present: true,
+                    current: false,
+                    expectedContributors: [],
+                    observedContributors: [target.name],
+                  }),
+                apply: () =>
+                  removeSkillAgentArtifact({
+                    fs,
+                    pathService: path,
+                    targetDir: dir,
+                    sanitizedName: sanitized,
+                  }),
+              },
+            });
+          }),
         );
 
         if (!retainCanonical) {

@@ -9,7 +9,7 @@ import {
   type FileRegionMarker,
 } from "./markers.js";
 
-describe("managed region markers", () => {
+describe("projection managed-region markers", () => {
   it.prop(
     "round-trips region identities and options containing whitespace",
     {

@@ -10,7 +10,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
@@ -40,6 +39,12 @@ import {
 } from "../extensions/index.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
+import {
+  applyProjectionPlans,
+  planAggregateProjection,
+  type ProjectionPlan,
+  type ProjectionRenderInput,
+} from "../projection/planning.js";
 import { validatePathSafety } from "../extensions/utils.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import type { HookLockEntry } from "../lockfile/index.js";
@@ -49,12 +54,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import {
-  commentStyleForTarget,
-  managedRegionContent,
-  replaceManagedRegion,
-  stripManagedRegion,
-} from "../managed-files/index.js";
+import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import {
@@ -84,13 +84,7 @@ import {
 import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
-  readonly projectionUnitObservations: Effect.Effect<
-    ReadonlyArray<ProjectionUnitObservation>,
-    AppError
-  >;
-  readonly reconcileProjections: () => Effect.Effect<void, AppError>;
-  /** Strict reconcile for sync: fails instead of deferring when a contributor is unreadable. */
-  readonly reconcileHooksProjections: Effect.Effect<void, AppError>;
+  readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
 }
 
 export class HookManager extends ServiceMap.Service<HookManager, HookManagerService>()(
@@ -572,62 +566,43 @@ export const HookManagerLive = Layer.effect(
         return workspaceRelative.value;
       });
 
-    // Both hook ownership units are aggregates: the AXM-owned entries in one
-    // agent's hook configuration and the fallback region each carry every
-    // enabled Hook the complete desired-state graph reaches, whether declared
-    // directly or contributed by a Pack. Membership never comes from settings
-    // entries, and content is read from accepted canonical packages.
-    // With `onUnready: "skip"` a contributor whose accepted resolution or
-    // canonical content is not yet readable yields Option.none: a lifecycle
-    // step installing several contributors defers the unit writes until the
-    // closure's final reconcile can render the complete set. An incomplete
-    // desired-state graph always fails; skipping never drops a contributor
-    // from a rendered set.
-    const renderedHookContributors = (args?: { readonly onUnready?: "fail" | "skip" }) =>
-      Effect.gen(function* () {
-        const resolved = yield* Effect.result(
-          Effect.gen(function* () {
-            const graph = yield* ws.getDesiredStateGraph();
-            const locked = yield* ws.getLockedHooks();
-            const contributors = yield* activeContributors({
-              baseDir,
-              path,
-              type: "hook",
-              extensionDir: HOOK_EXTENSION_DIR,
-              graph,
-              locked,
-            });
-            return yield* Effect.forEach(
-              contributors,
-              (contributor) =>
-                Effect.gen(function* () {
-                  const manifest = yield* readManifest(contributor.packageRoot);
-                  const entrypoint = yield* entrypointPath(contributor.packageRoot, manifest);
-                  const command = `${interpreterForRuntime(manifest.runtime)} ${entrypoint}`;
-                  const marker = Option.match(contributor.identityOwner, {
-                    onSome: (owner) =>
-                      formatFqn({
-                        owner,
-                        type: "hook",
-                        name: decodeExtensionNameSync(contributor.node.name),
-                      }),
-                    onNone: () =>
-                      formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
-                  });
-                  return { name: contributor.node.name, marker, manifest, command };
-                }),
-              { concurrency: "unbounded" },
-            );
-          }),
-        );
-        if (Result.isFailure(resolved)) {
-          if (args?.onUnready === "skip") {
-            return Option.none<ReadonlyArray<RenderedHookContributor>>();
-          }
-          return yield* resolved.failure;
-        }
-        return Option.some([...resolved.success].sort((a, b) => a.marker.localeCompare(b.marker)));
-      });
+    const selectHookContributors = (args: {
+      readonly graph: Parameters<typeof activeContributors>[0]["graph"];
+      readonly locked: Parameters<typeof activeContributors>[0]["locked"];
+    }) =>
+      activeContributors({
+        baseDir,
+        path,
+        type: "hook",
+        extensionDir: HOOK_EXTENSION_DIR,
+        graph: args.graph,
+        locked: args.locked,
+      }).pipe(
+        Effect.flatMap((contributors) =>
+          Effect.forEach(
+            contributors,
+            (contributor) =>
+              Effect.gen(function* () {
+                const manifest = yield* readManifest(contributor.packageRoot);
+                const entrypoint = yield* entrypointPath(contributor.packageRoot, manifest);
+                const command = `${interpreterForRuntime(manifest.runtime)} ${entrypoint}`;
+                const marker = Option.match(contributor.identityOwner, {
+                  onSome: (owner) =>
+                    formatFqn({
+                      owner,
+                      type: "hook",
+                      name: decodeExtensionNameSync(contributor.node.name),
+                    }),
+                  onNone: () =>
+                    formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
+                });
+                return { name: contributor.node.name, marker, manifest, command };
+              }),
+            { concurrency: "unbounded" },
+          ),
+        ),
+        Effect.map((resolved) => [...resolved].sort((a, b) => a.marker.localeCompare(b.marker))),
+      );
 
     interface RenderedHookContributor {
       readonly name: string;
@@ -658,11 +633,7 @@ export const HookManagerLive = Layer.effect(
         return hooks;
       });
 
-    const writeHookFallbackRules = (
-      fallbackAgents: ReadonlyArray<CapabilityAgent>,
-      contributors: ReadonlyArray<RenderedHookContributor>,
-      options?: { readonly dryRun?: boolean },
-    ) =>
+    const hookFallbackTarget = () =>
       Effect.gen(function* () {
         const config = yield* ws.getInstructionsConfig();
         const resolved = resolveInstructionsConfig(
@@ -676,15 +647,17 @@ export const HookManagerLive = Layer.effect(
             detail: `Hook fallback instruction source escapes workspace: ${resolved.fileName}`,
           });
         }
-        const style = commentStyleForTarget(workspaceRelative.value);
-        if (Option.isNone(style)) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: `Hook fallback target does not support managed regions: ${resolved.fileName}`,
-          });
-        }
+        return { targetPath, workspaceRelative: workspaceRelative.value };
+      });
 
-        const hooks = fallbackAgents.length === 0 ? [] : contributors;
+    const reconcileHookFallback = (
+      target: { readonly targetPath: string; readonly workspaceRelative: string },
+      fallbackAgents: ReadonlyArray<CapabilityAgent>,
+      input: ProjectionRenderInput<RenderedHookContributor>,
+      options?: { readonly dryRun?: boolean },
+    ) =>
+      Effect.gen(function* () {
+        const hooks = fallbackAgents.length === 0 ? [] : input.contributors;
         for (const hook of hooks) {
           if (hook.manifest.fallback === "none") {
             return yield* makeAppError({
@@ -699,62 +672,16 @@ export const HookManagerLive = Layer.effect(
               `### ${hook.manifest.title ?? hook.name}\n\nFor agents without native hook support (${fallbackAgents.map((agent) => agent.id).join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
           )
           .join("\n\n");
-        const exists = yield* fs.exists(targetPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to inspect hook fallback target: ${targetPath}`,
-              cause,
-            }),
-          ),
+        const { changed, observedRegion } = yield* provide(
+          reconcileManagedRegionFile({
+            targetPath: target.targetPath,
+            displayPath: target.workspaceRelative,
+            region: HOOK_FALLBACKS_REGION,
+            rendered,
+            ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+            unsupportedTargetDetail: `Hook fallback target does not support managed regions: ${target.workspaceRelative}`,
+          }),
         );
-        const existing = exists
-          ? yield* fs.readFileString(targetPath).pipe(
-              Effect.mapError((cause) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to read hook fallback target: ${targetPath}`,
-                  cause,
-                }),
-              ),
-            )
-          : "";
-        const updated =
-          rendered.length === 0
-            ? stripManagedRegion(existing, { region: HOOK_FALLBACKS_REGION }, style.value)
-            : replaceManagedRegion({
-                content: existing,
-                marker: { region: HOOK_FALLBACKS_REGION },
-                rendered,
-                style: style.value,
-              });
-        const changed = updated !== existing;
-        const observedRegion = managedRegionContent(
-          existing,
-          { region: HOOK_FALLBACKS_REGION },
-          style.value,
-        );
-        if (changed && options?.dryRun !== true) {
-          yield* protectWorkspacePath(targetPath);
-          yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to create hook fallback target directory: ${path.dirname(targetPath)}`,
-                cause,
-              }),
-            ),
-          );
-          yield* fs.writeFileString(targetPath, updated).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to write hook fallback target: ${targetPath}`,
-                cause,
-              }),
-            ),
-          );
-        }
         if (options?.dryRun !== true && fallbackAgents.length > 0 && rendered.length > 0) {
           yield* Effect.logWarning(
             `Degraded hooks to advisory rules for ${fallbackAgents.map((agent) => agent.id).join(", ")}`,
@@ -763,13 +690,13 @@ export const HookManagerLive = Layer.effect(
         return {
           changed,
           materializedTarget: decodeMaterializedTarget({
-            target: decodeRelativePathSync(workspaceRelative.value),
+            target: decodeRelativePathSync(target.workspaceRelative),
             mode: "managed-region",
             region: HOOK_FALLBACKS_REGION,
           }),
           projectionUnitObservation: {
             unitId: "hook:fallback-region",
-            path: `${workspaceRelative.value}#${HOOK_FALLBACKS_REGION}`,
+            path: `${target.workspaceRelative}#${HOOK_FALLBACKS_REGION}`,
             present: Option.isSome(observedRegion),
             current: !changed,
             expectedContributors: hooks.map(({ marker }) => marker),
@@ -782,144 +709,122 @@ export const HookManagerLive = Layer.effect(
         };
       });
 
-    const writeHooksConfig = (args?: {
+    const reconcileNativeHookTarget = (args: {
+      readonly target: HookWriterTarget;
+      readonly input: ProjectionRenderInput<RenderedHookContributor>;
       readonly dryRun?: boolean;
-      readonly onUnready?: "fail" | "skip";
     }) =>
+      Effect.gen(function* () {
+        const rendered = yield* renderInstalledHookGroups(args.target, args.input.contributors);
+        const raw = yield* provide(readExisting(args.target.configPath));
+        const observedCommands = yield* readManagedHookCommands(
+          args.target.configPath,
+          args.target.writer.settingsKey,
+          raw,
+        );
+        const next = yield* updateHooksJson(
+          args.target.configPath,
+          args.target.writer.settingsKey,
+          raw,
+          rendered,
+        );
+        const changed = next !== raw && !(raw.trim().length === 0 && next.trim() === "{}");
+        if (changed && args.dryRun !== true) {
+          yield* provide(writeIfChanged(args.target.configPath, raw, next));
+        }
+        const workspaceRelative = makeWorkspaceRelativePath(path, baseDir, args.target.configPath);
+        if (Option.isNone(workspaceRelative)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Hook config path escapes workspace: ${args.target.configPath}`,
+          });
+        }
+        const expectedCommands = managedHookCommands(rendered);
+        return {
+          unitId: "hook:agent-hook-entries",
+          path: workspaceRelative.value,
+          present: observedCommands.length > 0,
+          current: !changed,
+          expectedContributors: args.input.contributors
+            .filter(({ command }) => expectedCommands.includes(command))
+            .map(({ marker }) => marker),
+          observedContributors: args.input.contributors
+            .filter(({ command }) => observedCommands.includes(command))
+            .map(({ marker }) => marker),
+        } satisfies ProjectionUnitObservation;
+      });
+
+    const makeHookProjectionPlans = () =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
         const fallbackAgents = configuredHookFallbackAgents(configuredAgents);
-        const contributorsOption = yield* renderedHookContributors(args);
-        if (Option.isNone(contributorsOption)) {
-          // A contributor is not renderable yet; a later step in the same
-          // closure completes the writes, and lint and sync detect the units
-          // if convergence never happens.
-          return {
-            changed: false,
-            materializedTargets: [],
-            materialization: { agents: [], targets: [] },
-            projectionUnitObservations: [],
-          };
-        }
-        const contributors = contributorsOption.value;
-
-        const renderedTargets = yield* Effect.forEach(
-          targets,
-          (target) =>
-            Effect.gen(function* () {
-              const rendered = yield* renderInstalledHookGroups(target, contributors);
-              return { target, rendered };
-            }),
-          { concurrency: "unbounded" },
-        );
-
-        const nativeTargets = yield* Effect.forEach(
-          renderedTargets,
-          ({ target, rendered }) =>
-            Effect.gen(function* () {
-              const raw = yield* provide(readExisting(target.configPath));
-              const observedCommands = yield* readManagedHookCommands(
-                target.configPath,
-                target.writer.settingsKey,
-                raw,
-              );
-              const next = yield* updateHooksJson(
-                target.configPath,
-                target.writer.settingsKey,
-                raw,
-                rendered,
-              );
-              // An absent or empty config with nothing to render stays absent;
-              // normalization alone is not a required change.
-              const changed = next !== raw && !(raw.trim().length === 0 && next.trim() === "{}");
-              if (changed && args?.dryRun !== true) {
-                yield* provide(writeIfChanged(target.configPath, raw, next));
-              }
-
-              const workspaceRelative = makeWorkspaceRelativePath(path, baseDir, target.configPath);
-              if (Option.isNone(workspaceRelative)) {
-                return yield* makeAppError({
-                  code: "validation",
-                  detail: `Hook config path escapes workspace: ${target.configPath}`,
-                });
-              }
-
-              const expectedCommands = managedHookCommands(rendered);
-
-              return {
-                agentId: target.agent.id,
-                changed,
-                materializedTarget: decodeMaterializedTarget({
-                  target: decodeRelativePathSync(workspaceRelative.value),
-                  mode: "sync-always",
-                }),
-                projectionUnitObservation: {
-                  unitId: "hook:agent-hook-entries",
-                  path: workspaceRelative.value,
-                  present: observedCommands.length > 0,
-                  current: !changed,
-                  expectedContributors: contributors
-                    .filter(({ command }) => expectedCommands.includes(command))
-                    .map(({ marker }) => marker),
-                  observedContributors: contributors
-                    .filter(({ command }) => observedCommands.includes(command))
-                    .map(({ marker }) => marker),
-                } satisfies ProjectionUnitObservation,
-              };
-            }),
-          { concurrency: "unbounded" },
-        );
-        const fallback = yield* writeHookFallbackRules(fallbackAgents, contributors, args);
-        const fallbackTarget = fallback.materializedTarget;
-        const agentsByTarget = new Map<string, Array<string>>();
-        for (const { agentId, materializedTarget } of nativeTargets) {
-          const agents = agentsByTarget.get(materializedTarget.target) ?? [];
-          if (!agents.includes(agentId)) agents.push(agentId);
-          agentsByTarget.set(materializedTarget.target, agents);
-        }
-        if (fallbackAgents.length > 0) {
-          agentsByTarget.set(
-            fallbackTarget.target,
-            fallbackAgents.map(({ id }) => id),
-          );
-        }
-        const materializedTargets = [
-          ...nativeTargets.map(({ materializedTarget }) => materializedTarget),
-          fallbackTarget,
-        ];
-        const result = {
-          changed: fallback.changed || nativeTargets.some(({ changed }) => changed),
-          materializedTargets,
-          materialization: {
-            agents: configuredAgents.filter((agentId) =>
-              Array.from(agentsByTarget.values()).some((agents) => agents.includes(agentId)),
-            ),
-            targets: materializedTargets
-              .filter(
-                (target, index, all) =>
-                  all.findIndex((candidate) => candidate.target === target.target) === index,
-              )
-              .map((target) => {
-                const agentIds = agentsByTarget.get(target.target) ?? [];
-                return {
-                  path: target.target,
-                  ...(agentIds.length === 0 ? {} : { agentIds }),
-                };
-              }),
-          },
-          projectionUnitObservations: [
-            ...nativeTargets.map(({ projectionUnitObservation }) => projectionUnitObservation),
-            fallback.projectionUnitObservation,
+        const fallbackTarget = yield* hookFallbackTarget();
+        const graph = yield* ws.getDesiredStateGraph();
+        const locked = yield* ws.getLockedHooks();
+        const select = (completeGraph: typeof graph) =>
+          selectHookContributors({ graph: completeGraph, locked });
+        const materialization = {
+          agents: configuredAgents,
+          targets: [
+            ...targets.map((target) => ({
+              path: path.relative(baseDir, target.configPath),
+              agentIds: [target.agent.id],
+            })),
+            {
+              path: fallbackTarget.workspaceRelative,
+              ...(fallbackAgents.length === 0
+                ? {}
+                : { agentIds: fallbackAgents.map(({ id }) => id) }),
+            },
           ],
         };
-        if (args?.dryRun !== true) {
-          lastProjection = result.materialization;
-        }
-        return result;
+        const recordMaterialization = <A>(effect: Effect.Effect<A, AppError>) =>
+          effect.pipe(
+            Effect.tap(() =>
+              Effect.sync(() => {
+                lastProjection = materialization;
+              }),
+            ),
+          );
+        const nativePlans = yield* Effect.forEach(targets, (target) =>
+          planAggregateProjection({
+            unitId: "hook:agent-hook-entries",
+            targetFile: target.configPath,
+            graph,
+            select,
+            adapter: {
+              observe: (input) => reconcileNativeHookTarget({ target, input, dryRun: true }),
+              apply: (input) =>
+                recordMaterialization(reconcileNativeHookTarget({ target, input })).pipe(
+                  Effect.asVoid,
+                ),
+            },
+          }),
+        );
+        const fallbackPlan = yield* planAggregateProjection({
+          unitId: "hook:fallback-region",
+          targetFile: fallbackTarget.targetPath,
+          graph,
+          select,
+          adapter: {
+            observe: (input) =>
+              reconcileHookFallback(fallbackTarget, fallbackAgents, input, {
+                dryRun: true,
+              }).pipe(Effect.map(({ projectionUnitObservation }) => projectionUnitObservation)),
+            apply: (input) =>
+              recordMaterialization(
+                reconcileHookFallback(fallbackTarget, fallbackAgents, input),
+              ).pipe(Effect.asVoid),
+          },
+        });
+        return [...nativePlans, fallbackPlan];
       });
+
+    const projectionPlans = () => makeHookProjectionPlans();
+    const applyHookProjections = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
@@ -1005,19 +910,12 @@ export const HookManagerLive = Layer.effect(
     // Deactivation retains canonical content; the caller updates settings
     // first, so re-rendering the whole unit set drops this hook's entries.
     const materializeDeactivate: ExtensionManager<HookExtensionRef>["materializeDeactivate"] =
-      Effect.fn("HookManager.materializeDeactivate")(
-        () => writeHooksConfig({ onUnready: "skip" }),
-        Effect.asVoid,
-      );
+      Effect.fn("HookManager.materializeDeactivate")(() => applyHookProjections);
 
     return {
       type: "hook",
       runTransaction: ws.runTransaction,
-      reconcileProjections: () => writeHooksConfig({ onUnready: "skip" }).pipe(Effect.asVoid),
-      reconcileHooksProjections: writeHooksConfig().pipe(Effect.asVoid),
-      projectionUnitObservations: writeHooksConfig({ dryRun: true }).pipe(
-        Effect.map(({ projectionUnitObservations }) => projectionUnitObservations),
-      ),
+      projectionPlans,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),

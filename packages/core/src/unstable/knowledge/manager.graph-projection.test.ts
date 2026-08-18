@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { makeAppError } from "../app-error/index.js";
+import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
@@ -128,10 +129,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* KnowledgeManager;
-      if (manager.reconcileProjections === undefined) {
-        throw new Error("Knowledge reconcileProjections is unavailable");
-      }
-      yield* manager.reconcileProjections();
+      yield* applyPlannedProjections(manager);
       const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
       expect(instructions).toContain("region=knowledge-base");
       expect(instructions.split("[pack-a-bundle]").length - 1).toBe(1);
@@ -158,9 +156,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     });
     const reconcile = Effect.gen(function* () {
       const manager = yield* KnowledgeManager;
-      if (manager.reconcileProjections !== undefined) {
-        yield* manager.reconcileProjections();
-      }
+      yield* applyPlannedProjections(manager);
     });
     return Effect.gen(function* () {
       yield* reconcile.pipe(Effect.provide(before));

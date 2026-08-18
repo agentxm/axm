@@ -56,6 +56,9 @@ interface JsonCommandResult {
 const settingsKeyForSurface = (surface: InstallSurface): SettingsKey =>
   surface === "mcps" ? "mcpServers" : surface;
 
+const hasAggregateProjection = (surface: InstallSurface): boolean =>
+  surface === "rules" || surface === "hooks" || surface === "knowledge";
+
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
@@ -645,7 +648,7 @@ describe("axm install", () => {
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
         expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.appliedCount).toBe(2);
+        expect(result.stdout.result.appliedCount).toBe(hasAggregateProjection(surface) ? 3 : 2);
         expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
@@ -684,7 +687,7 @@ describe("axm install", () => {
       const labels = result.stdout.result.steps.map((step) => step.label);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(5);
+      expect(result.stdout.result.appliedCount).toBe(6);
       expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
       expect(
         result.stdout.result.steps.some((step) =>
@@ -757,8 +760,8 @@ describe("axm install", () => {
       const result = await runJsonCommand(workspace.path, ["install"]);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(2);
-      expect(result.stdout.result.totalSteps).toBe(2);
+      expect(result.stdout.result.appliedCount).toBe(3);
+      expect(result.stdout.result.totalSteps).toBe(3);
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
       expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);
     } finally {

@@ -7,6 +7,8 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
@@ -39,6 +41,7 @@ import {
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
 
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
@@ -54,6 +57,7 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
+import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -85,7 +89,10 @@ type WorkspaceInstallCollectorContext =
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
-  | InstallPackCommandWorkflowActions;
+  | InstallPackCommandWorkflowActions
+  | HookManager
+  | KnowledgeManager
+  | RuleManager;
 
 interface WorkspaceInstallCollector {
   readonly type: WorkspaceInstallableType;
@@ -265,7 +272,10 @@ const resolveRuleIntent = (
       const { ref, versionRange } = resolved;
       const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
       return {
-        intent: { refs: [{ ref, versionRange }] } satisfies InstallRuleCommandIntent,
+        intent: {
+          refs: [{ ref, versionRange }],
+          deferProjections: true,
+        } satisfies InstallRuleCommandIntent,
         releaseAge,
       };
     }),
@@ -281,7 +291,10 @@ const resolveHookIntent = (
       const { ref, versionRange } = resolved;
       const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
       return {
-        intent: { refs: [{ ref, versionRange }] } satisfies InstallHookCommandIntent,
+        intent: {
+          refs: [{ ref, versionRange }],
+          deferProjections: true,
+        } satisfies InstallHookCommandIntent,
         releaseAge,
       };
     }),
@@ -297,7 +310,10 @@ const resolveKnowledgeIntent = (
       const { ref, versionRange } = resolved;
       const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
       return {
-        intent: { refs: [{ ref, versionRange }] } satisfies InstallKnowledgeCommandIntent,
+        intent: {
+          refs: [{ ref, versionRange }],
+          deferProjections: true,
+        } satisfies InstallKnowledgeCommandIntent,
         releaseAge,
       };
     }),
@@ -652,6 +668,19 @@ export const buildWorkspaceInstallPlan = (args: {
       } satisfies WorkspaceInstallPlanResult;
     }
 
+    const aggregateTypes = new Set<"rule" | "hook" | "knowledge">();
+    for (const [index, collector] of selectedCollectors.entries()) {
+      const collection = collections[index];
+      if (
+        collection !== undefined &&
+        collection.fragments.length > 0 &&
+        (collector.type === "rule" || collector.type === "hook" || collector.type === "knowledge")
+      ) {
+        aggregateTypes.add(collector.type);
+      }
+    }
+    const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });
+
     const plans = collections.flatMap((collection) => collection.plans);
     const sections = mergePlanSections(plans);
     const holdbacks = normalizeReleaseAgeRecords(
@@ -674,7 +703,7 @@ export const buildWorkspaceInstallPlan = (args: {
       plan: makePlan(
         args.planName,
         args.planDescription,
-        fragments.map((fragment) => fragment.step),
+        [...fragments.map((fragment) => fragment.step), ...Option.toArray(projectionStep)],
         sections,
         releaseAge,
       ),

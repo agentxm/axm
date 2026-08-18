@@ -36,6 +36,7 @@ import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -183,17 +184,34 @@ export const McpServerManagerLive = Layer.effect(
       Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
         const configuredAgents = yield* ws.getConfiguredAgents();
 
-        yield* Effect.forEach(
-          configuredAgents,
-          (agentId) =>
-            provide(
-              removeMcpServerFromManifest(agentId, {
-                workspaceRoot: baseDir,
-                scope: ws.scope,
-                serverName: target.name,
-              }),
-            ),
-          { concurrency: "unbounded" },
+        yield* applyProjectionPlans(
+          configuredAgents.map((agentId) =>
+            planSingletonProjection({
+              unitId: "mcp-server:native-config-entry",
+              // Multiple configured agents may share one native config file.
+              targetFile: `mcp:${target.name}:configured-agents`,
+              contributor: target,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "mcp-server:native-config-entry",
+                    path: `${agentId}:${target.name}`,
+                    present: true,
+                    current: false,
+                    expectedContributors: [],
+                    observedContributors: [target.name],
+                  }),
+                apply: () =>
+                  provide(
+                    removeMcpServerFromManifest(agentId, {
+                      workspaceRoot: baseDir,
+                      scope: ws.scope,
+                      serverName: target.name,
+                    }),
+                  ).pipe(Effect.asVoid),
+              },
+            }),
+          ),
         );
 
         if (retainCanonical) return;

@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
@@ -29,6 +30,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
 import { handlePackActivation } from "./activation.js";
+import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 
 const initializePack = (root: string) => {
   const axmDir = path.join(root, ".axm");
@@ -175,6 +177,28 @@ describe("packs activation", () => {
       ),
     };
   };
+
+  it.effect("resolves projection contributors only when the trailing step runs", () =>
+    Effect.gen(function* () {
+      const { packDir } = initializePack(root);
+      const { provide } = makeLayers();
+      const stepOption = yield* provide(
+        buildAggregateProjectionStep({ types: new Set<"rule">(["rule"]) }),
+      );
+      if (Option.isNone(stepOption)) {
+        throw new Error("Expected a projection step for a Rule-bearing Pack");
+      }
+      if (stepOption.value.readiness === "error") {
+        throw new Error(stepOption.value.errorMessage);
+      }
+
+      fs.rmSync(path.join(packDir, "pack.json"));
+      const failure = yield* provide(stepOption.value.run).pipe(Effect.flip);
+
+      expect(failure.code).toBe("conflict");
+      expect(failure.detail).toContain("cannot be enumerated completely");
+    }),
+  );
 
   it.effect("previews disable without changing retained state", () =>
     Effect.gen(function* () {

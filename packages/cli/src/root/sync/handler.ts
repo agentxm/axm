@@ -65,6 +65,7 @@ import {
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
+  applyPlannedProjections,
   WorkspaceInvariantFacts,
   projectionFactRequiresReconciliation,
   type ProjectionInvariantFact,
@@ -1208,7 +1209,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
       scope: ws.scope,
       change: "updated",
     },
-    run: manager.reconcileHooksProjections.pipe(
+    run: applyPlannedProjections(manager).pipe(
       Effect.as({
         result: "success",
         message: "Reconciled managed hook entries and the fallback region",
@@ -1296,7 +1297,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
       scope: ws.scope,
       change: "updated",
     },
-    run: manager.reconcileInstructions.pipe(
+    run: applyPlannedProjections(manager).pipe(
       Effect.map((): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",

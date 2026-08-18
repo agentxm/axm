@@ -47,7 +47,7 @@ import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
-import { buildPackProjectionStep } from "../projection-step.js";
+import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 // -----------------------------------------------------------------------------
@@ -381,7 +381,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
-        const projectionStep = yield* buildPackProjectionStep({
+        const projectionStep = yield* buildAggregateProjectionStep({
           types: new Set(orderedTargets.map((target) => target.type)),
         }).pipe(
           Effect.provide(

@@ -20,6 +20,7 @@ import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
 import { toExtensionTypePlural } from "./common.js";
+import { applyProjectionPlans } from "../projection/planning.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -129,6 +130,13 @@ export interface UninstallRetentionPolicy {
     readonly target: ExtensionTarget;
   }) => Effect.Effect<boolean, AppError, never>;
 }
+
+const applyManagerProjectionPlans = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+): Effect.Effect<void, AppError> =>
+  manager.projectionPlans === undefined
+    ? Effect.void
+    : manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
 // -----------------------------------------------------------------------------
 // Install Operation
@@ -259,9 +267,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
         yield* manager.upsertLockfileEntry({ ref: args.ref });
         // Desired state and canonical content are committed; render every
         // shared aggregate unit once from the complete contributor set.
-        if (args.skipProjections !== true && manager.reconcileProjections !== undefined) {
-          yield* manager.reconcileProjections();
-        }
+        if (args.skipProjections !== true) yield* applyManagerProjectionPlans(manager);
         return installedBefore;
       }),
       validate: () =>
@@ -383,10 +389,10 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
             }
             if (args.enabled === false && args.materializeWhenDisabled === true) {
               yield* manager.materializeDeactivate({ target });
-            } else if (args.enabled !== false && manager.reconcileProjections !== undefined) {
+            } else if (args.enabled !== false) {
               // Desired state is committed; render shared aggregate units once
               // from the complete contributor set.
-              yield* manager.reconcileProjections();
+              yield* applyManagerProjectionPlans(manager);
             }
             return { ref, installedBefore };
           }),
@@ -572,17 +578,15 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         };
       }
 
-      const reconcileProjections = () =>
-        args.skipProjections !== true && manager.reconcileProjections !== undefined
-          ? manager.reconcileProjections()
-          : Effect.void;
+      const applyProjections = () =>
+        args.skipProjections !== true ? applyManagerProjectionPlans(manager) : Effect.void;
 
       const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
         target: args.target,
       });
       if (stillRequiredByPack) {
         yield* manager.removeSettingsEntry({ target: args.target });
-        yield* reconcileProjections();
+        yield* applyProjections();
         return {
           job: {
             result: "success" as const,
@@ -597,7 +601,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       yield* manager.removeLockfileEntry({ target: args.target });
       // The target has left the desired-state graph; re-render every shared
       // aggregate unit once so only reachable contributors remain.
-      yield* reconcileProjections();
+      yield* applyProjections();
       return {
         job: {
           result: "success" as const,

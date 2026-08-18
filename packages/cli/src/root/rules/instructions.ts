@@ -22,6 +22,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
@@ -242,7 +243,7 @@ export const handleInstructionsEnable = Effect.fn("Rules.instructions.enable")(f
                 });
               }
               yield* ws.setInstructionsConfig(config);
-              yield* ruleManager.reconcileInstructions;
+              yield* applyPlannedProjections(ruleManager);
             }).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),

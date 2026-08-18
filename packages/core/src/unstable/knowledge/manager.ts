@@ -44,6 +44,14 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
+import {
+  applyProjectionPlans,
+  planAggregateProjection,
+  type ProjectionPlan,
+} from "../projection/planning.js";
+import { requireCompleteGraph } from "../projection/contributors.js";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -52,11 +60,7 @@ import {
   type KnowledgeManifest,
 } from "./manifest-schema.js";
 import { inspectKnowledgeBundle, type KnowledgeInspection } from "./okf.js";
-import {
-  reconcileKnowledgeDiscovery,
-  type KnowledgeDiscoveryBundle,
-  type KnowledgeDiscoveryResult,
-} from "./discovery.js";
+import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -65,6 +69,7 @@ import type {
 } from "./refs.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
+  readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
   readonly refreshCatalog: () => Effect.Effect<void, ReturnType<typeof makeAppError>>;
   readonly sync: (options: {
     readonly dryRun: boolean;
@@ -72,6 +77,7 @@ export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExten
   readonly install: (args: {
     readonly ref: KnowledgeExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
+    readonly deferProjection?: boolean;
   }) => Effect.Effect<void, ReturnType<typeof makeAppError>>;
 }
 
@@ -507,51 +513,107 @@ export const KnowledgeManagerLive = Layer.effect(
         ),
       );
 
-    // The discovery region is an aggregate ownership unit: every write renders
-    // the complete contributor set the complete desired-state graph reaches,
-    // whether a bundle is declared directly or contributed by a Pack.
-    //
-    // With `onUnready: "skip"` a bundle whose accepted resolution or canonical
-    // content is not yet readable defers the write: a later step in the same
-    // closure completes it, and lint and sync detect the region if convergence
-    // never happens. An incomplete desired-state graph always fails.
-    const reconcileDiscovery = (options?: {
-      readonly dryRun?: boolean;
-      readonly onUnready?: "fail" | "skip";
-    }) =>
-      Effect.gen(function* () {
-        const resolved = yield* Effect.result(
+    const selectKnowledgeBundles = (
+      graph: DesiredStateGraph,
+      locked: Readonly<Record<string, KnowledgeLockEntry>>,
+    ) =>
+      Effect.forEach(
+        graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
+        (node) =>
           Effect.gen(function* () {
-            const desired = yield* activeKnowledgeNodes();
-            const locked = yield* getKnowledgeLockEntries(ws);
-            return yield* Effect.forEach(desired, (node) =>
-              Effect.gen(function* () {
-                const root = yield* desiredCanonicalRoot(node, locked[node.name]);
-                return toProjectionBundle(root, yield* inspectPackage(root));
-              }),
-            );
+            const root = yield* desiredCanonicalRoot(node, locked[node.name]);
+            return toProjectionBundle(root, yield* inspectPackage(root));
           }),
-        );
-        if (Result.isFailure(resolved)) {
-          if (options?.onUnready === "skip") {
-            return { changed: false, artifacts: [] } satisfies KnowledgeDiscoveryResult;
-          }
-          return yield* resolved.failure;
-        }
+      );
+
+    const resolveKnowledgeProjection = () =>
+      Effect.gen(function* () {
+        const graph = yield* ws.getDesiredStateGraph();
+        const locked = yield* getKnowledgeLockEntries(ws);
         const config = yield* ws.getKnowledgeDiscoveryConfig();
         const instructionsTarget = yield* getInstructionsTarget();
-        return yield* provide(
-          reconcileKnowledgeDiscovery({
-            scopeRoot: baseDir,
-            config,
-            bundles: resolved.success,
-            instructionsPath: instructionsTarget.path,
-            instructionManagementEnabled: instructionsTarget.enabled,
-            preserveInstructionsSource: instructionsTarget.preserveSource,
-            ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-          }),
-        );
+        return { graph, locked, config, instructionsTarget };
       });
+
+    const runKnowledgeProjectionAdapter = (args: {
+      readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
+      readonly config: ResolvedKnowledgeDiscoveryConfig;
+      readonly instructionsTarget: {
+        readonly path: string;
+        readonly enabled: boolean;
+        readonly preserveSource: boolean;
+      };
+      readonly dryRun?: boolean;
+    }) =>
+      provide(
+        reconcileKnowledgeDiscovery({
+          scopeRoot: baseDir,
+          config: args.config,
+          bundles: args.bundles,
+          instructionsPath: args.instructionsTarget.path,
+          instructionManagementEnabled: args.instructionsTarget.enabled,
+          preserveInstructionsSource: args.instructionsTarget.preserveSource,
+          ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+        }),
+      );
+
+    const makeKnowledgeProjectionPlan = (): Effect.Effect<ProjectionPlan, AppError> =>
+      Effect.gen(function* () {
+        const { graph, locked, config, instructionsTarget } = yield* resolveKnowledgeProjection();
+        return yield* planAggregateProjection({
+          unitId: "knowledge:discovery-region",
+          targetFile: instructionsTarget.path,
+          graph,
+          select: (completeGraph) => selectKnowledgeBundles(completeGraph, locked),
+          adapter: {
+            observe: (input) =>
+              runKnowledgeProjectionAdapter({
+                bundles: input.contributors,
+                config,
+                instructionsTarget,
+                dryRun: true,
+              }).pipe(
+                Effect.map((result) => ({
+                  unitId: "knowledge:discovery-region",
+                  path: instructionsTarget.path,
+                  present: input.contributors.length === 0 || !result.changed,
+                  current: !result.changed,
+                  expectedContributors: input.contributors.map(
+                    ({ owner, name }) => `${owner}/knowledge/${name}`,
+                  ),
+                  observedContributors: [],
+                })),
+              ),
+            apply: (input) =>
+              runKnowledgeProjectionAdapter({
+                bundles: input.contributors,
+                config,
+                instructionsTarget,
+              }).pipe(Effect.asVoid),
+          },
+        });
+      });
+
+    const projectionPlans = () => makeKnowledgeProjectionPlan().pipe(Effect.map((plan) => [plan]));
+
+    const applyKnowledgeProjection = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+
+    const reconcileDiscovery = (options?: { readonly dryRun?: boolean }) =>
+      resolveKnowledgeProjection().pipe(
+        Effect.flatMap(({ graph, locked, config, instructionsTarget }) =>
+          requireCompleteGraph(graph).pipe(
+            Effect.flatMap((completeGraph) => selectKnowledgeBundles(completeGraph, locked)),
+            Effect.flatMap((bundles) =>
+              runKnowledgeProjectionAdapter({
+                bundles,
+                config,
+                instructionsTarget,
+                ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+              }),
+            ),
+          ),
+        ),
+      );
 
     const buildLockEntry = (
       ref: KnowledgeExtensionRef,
@@ -659,13 +721,14 @@ export const KnowledgeManagerLive = Layer.effect(
             });
           } else prepared.push(restored.success);
         }
-        const discovered = yield* Effect.result(reconcileDiscovery({ dryRun }));
+        const discovered = yield* Effect.result(reconcileDiscovery({ dryRun: true }));
         if (Result.isFailure(discovered)) {
           yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
             discard: true,
           });
           return yield* discovered.failure;
         }
+        if (!dryRun) yield* applyKnowledgeProjection;
         yield* Effect.forEach(
           dryRun ? [...prepared].reverse() : prepared,
           (item) => (dryRun ? item.rollback : item.commit),
@@ -682,6 +745,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const installAtomically = (args: {
       readonly ref: KnowledgeExtensionRef;
       readonly versionRange: Option.Option<VersionRange>;
+      readonly deferProjection?: boolean;
     }) =>
       ws
         .runTransaction({
@@ -718,11 +782,7 @@ export const KnowledgeManagerLive = Layer.effect(
               }
               return { name };
             });
-            // Desired state and canonical content are committed; render the
-            // discovery region once from the complete contributor set. A
-            // sibling still installing in the same closure defers the write to
-            // the closure's final reconcile.
-            yield* reconcileDiscovery({ onUnready: "skip" });
+            if (args.deferProjection !== true) yield* applyKnowledgeProjection;
             // The workspace transaction owns a nested scope. Settle the staged
             // package before that scope closes; a later postcondition failure
             // still restores the transaction snapshot.
@@ -786,17 +846,15 @@ export const KnowledgeManagerLive = Layer.effect(
     // Deactivation retains canonical content; the caller updates settings
     // first, so re-rendering the whole region drops this bundle's routing.
     const materializeDeactivate: ExtensionManager<KnowledgeExtensionRef>["materializeDeactivate"] =
-      Effect.fn("KnowledgeManager.materializeDeactivate")(
-        () => reconcileDiscovery({ onUnready: "skip" }),
-        Effect.asVoid,
-      );
+      Effect.fn("KnowledgeManager.materializeDeactivate")(() => applyKnowledgeProjection);
 
     return {
       type: "knowledge",
+      projectionPlans,
       runTransaction: ws.runTransaction,
       refreshCatalog: () =>
         ws.runTransaction({
-          transition: reconcileDiscovery().pipe(Effect.asVoid),
+          transition: applyKnowledgeProjection,
           validate: () => Effect.void,
         }),
       sync: ({ dryRun }) =>
@@ -809,7 +867,6 @@ export const KnowledgeManagerLive = Layer.effect(
               }),
             ),
       install: installAtomically,
-      reconcileProjections: () => reconcileDiscovery({ onUnready: "skip" }).pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(

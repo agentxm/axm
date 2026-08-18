@@ -1,5 +1,5 @@
 /**
- * Managed-region marker helpers shared by installable extension types.
+ * Projection-internal managed-region marker helpers.
  *
  * @experimental This API is unstable and may change without notice.
  */

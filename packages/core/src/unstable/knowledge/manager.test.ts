@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
+import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
@@ -159,9 +160,7 @@ describe("KnowledgeManager", () => {
         yield* Effect.gen(function* () {
           const manager = yield* KnowledgeManager;
           yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
-          if (manager.reconcileProjections !== undefined) {
-            yield* manager.reconcileProjections();
-          }
+          yield* applyPlannedProjections(manager);
         }).pipe(Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides())));
 
         expect(
@@ -433,9 +432,7 @@ describe("KnowledgeManager", () => {
           yield* Effect.gen(function* () {
             const manager = yield* KnowledgeManager;
             yield* manager.materializeInstall({ ref: localRef("handbook", validRoot) });
-            if (manager.reconcileProjections !== undefined) {
-              yield* manager.reconcileProjections();
-            }
+            yield* applyPlannedProjections(manager);
             yield* manager
               .materializeInstall({ ref: localRef("handbook", invalidRoot) })
               .pipe(Effect.flip);

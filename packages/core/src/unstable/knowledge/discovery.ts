@@ -2,16 +2,10 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import {
-  commentStyleForTarget,
-  replaceManagedRegion,
-  stripManagedRegion,
-} from "../managed-files/index.js";
+import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
 
 const KNOWLEDGE_REGION = "knowledge-base";
 
@@ -78,9 +72,6 @@ export const renderKnowledgeBaseTable = (args: {
   return ["## Knowledge Base", ...sections].join("\n\n");
 };
 
-const readOptional = (fs: FileSystem.FileSystem, file: string) =>
-  fs.readFileString(file).pipe(Effect.option);
-
 export const reconcileKnowledgeDiscovery = (args: {
   readonly scopeRoot: string;
   readonly config: ResolvedKnowledgeDiscoveryConfig;
@@ -92,62 +83,42 @@ export const reconcileKnowledgeDiscovery = (args: {
   readonly symlinkSupported?: boolean;
 }): Effect.Effect<KnowledgeDiscoveryResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const manageInstructions = args.instructionManagementEnabled === true;
+    if (!manageInstructions) return { changed: false, artifacts: [] };
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
     const instructionRelative = portable(path.relative(args.scopeRoot, args.instructionsPath));
-    const style = commentStyleForTarget(instructionRelative);
-    if (manageInstructions && Option.isNone(style)) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Knowledge discovery target does not support managed regions: ${instructionRelative}`,
-      });
-    }
-
-    const existing = yield* readOptional(fs, args.instructionsPath);
-    const body = Option.getOrElse(existing, () => "");
-    const rendered =
-      !manageInstructions || Option.isNone(style)
-        ? body
-        : tableDesired
-          ? replaceManagedRegion({
-              content: body,
-              marker: { region: KNOWLEDGE_REGION },
-              rendered: renderKnowledgeBaseTable({
-                bundles: args.bundles,
-                instructionsPath: args.instructionsPath,
-                path,
-              }),
-              style: style.value,
-            })
-          : stripManagedRegion(body, { region: KNOWLEDGE_REGION }, style.value);
-    const instructionsChanged = rendered !== body;
+    const renderedRegion = tableDesired
+      ? renderKnowledgeBaseTable({
+          bundles: args.bundles,
+          instructionsPath: args.instructionsPath,
+          path,
+        })
+      : "";
+    const reconciliation = yield* reconcileManagedRegionFile({
+      targetPath: args.instructionsPath,
+      displayPath: instructionRelative,
+      region: KNOWLEDGE_REGION,
+      rendered: renderedRegion,
+      ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+      removeEmptyFile: true,
+      preserveEmptyFile: args.preserveInstructionsSource === true,
+      unsupportedTargetDetail: `Knowledge discovery target does not support managed regions: ${instructionRelative}`,
+    });
+    const instructionsChanged = reconciliation.changed;
     const artifacts: Array<KnowledgeDiscoveryArtifact> = [];
     if (instructionsChanged) {
       artifacts.push({
         path: instructionRelative,
-        change: Option.isNone(existing)
+        change: !reconciliation.existed
           ? "created"
-          : rendered.trim().length === 0
+          : reconciliation.updated.trim().length === 0
             ? "removed"
             : "updated",
       });
     }
     const changed = artifacts.length > 0;
-    if (!changed || args.dryRun === true) return { changed, artifacts };
-
-    if (instructionsChanged) {
-      yield* protectWorkspacePath(args.instructionsPath);
-      if (rendered.trim().length === 0 && args.preserveInstructionsSource !== true) {
-        yield* fs.remove(args.instructionsPath, { force: true });
-      } else {
-        yield* fs.makeDirectory(path.dirname(args.instructionsPath), { recursive: true });
-        yield* fs.writeFileString(args.instructionsPath, rendered);
-      }
-    }
-
-    return { changed: true, artifacts };
+    return { changed, artifacts };
   }).pipe(
     Effect.mapError((cause) =>
       cause._tag === "AppError"

@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
+import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
@@ -136,7 +137,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("identity-check", packageRoot),
           });
-          yield* manager.reconcileProjections();
+          yield* applyPlannedProjections(manager);
           if (manager.getLastMaterialization === undefined) {
             throw new Error("Hook materialization observation is unavailable");
           }
@@ -180,7 +181,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("shell-check", packageRoot),
           });
-          yield* manager.reconcileProjections();
+          yield* applyPlannedProjections(manager);
         }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["shell-check"] })));
 
         const claudeRaw = readFileSync(
@@ -206,7 +207,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("devin-check", packageRoot),
           });
-          yield* manager.reconcileProjections();
+          yield* applyPlannedProjections(manager);
         }).pipe(
           Effect.provide(
             makeHookManagerLayer(workspaceRoot, {
@@ -239,7 +240,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("unsupported-agent", packageRoot),
           });
-          yield* manager.reconcileProjections();
+          yield* applyPlannedProjections(manager);
           if (manager.getLastMaterialization === undefined) {
             throw new Error("Hook materialization observation is unavailable");
           }
@@ -283,7 +284,7 @@ describe("HookManager", () => {
           yield* manager.materializeInstall({
             ref: makeLocalHookRef("native-only", packageRoot),
           });
-          yield* manager.reconcileProjections();
+          yield* applyPlannedProjections(manager);
         }).pipe(
           Effect.provide(
             makeHookManagerLayer(workspaceRoot, {
@@ -318,7 +319,7 @@ describe("HookManager", () => {
             yield* manager.materializeInstall({
               ref: makeLocalHookRef("decision-check", packageRoot),
             });
-            yield* manager.reconcileProjections();
+            yield* applyPlannedProjections(manager);
           }).pipe(
             Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["decision-check"] })),
             Effect.flip,

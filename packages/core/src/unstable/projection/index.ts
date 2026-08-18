@@ -18,6 +18,8 @@ export {
   ownershipUnits,
   type OwnershipUnitDeclaration,
   type OwnershipUnitId,
+  type AggregateOwnershipUnitId,
+  type SingletonOwnershipUnitId,
 } from "./units.js";
 export {
   PROJECTION_INVARIANT_PREDICATE,
@@ -31,3 +33,18 @@ export {
   type ProjectionUnitObservation,
   type WorkspaceInvariantFactsService,
 } from "./invariant-facts.js";
+export {
+  applyProjectionPlans,
+  applyProjectionPlansWithResults,
+  applyPlannedProjections,
+  observeProjectionPlans,
+  planAggregateProjection,
+  planSingletonProjection,
+  type ProjectionAdapter,
+  type ProjectionPlan,
+  type ProjectionRenderInput,
+} from "./planning.js";
+export {
+  reconcileManagedRegionFile,
+  type ManagedRegionReconciliation,
+} from "./managed-region-adapter.js";

@@ -21,6 +21,7 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RulesLockMapSchema, type RulesLockMap } from "../lockfile/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
+import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
@@ -162,7 +163,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       const content = readInstructions();
       expect(markerCount(content, "direct-rule")).toBe(1);
       expect(markerCount(content, "pack-a-rule")).toBe(1);
@@ -194,12 +195,12 @@ describe("RuleManager graph-derived region projection", () => {
     return Effect.gen(function* () {
       yield* Effect.gen(function* () {
         const manager = yield* RuleManager;
-        yield* manager.reconcileInstructions;
+        yield* applyPlannedProjections(manager);
       }).pipe(Effect.provide(before));
       expect(markerCount(readInstructions(), "pack-a-rule")).toBe(1);
       yield* Effect.gen(function* () {
         const manager = yield* RuleManager;
-        yield* manager.reconcileInstructions;
+        yield* applyPlannedProjections(manager);
       }).pipe(Effect.provide(after));
       const content = readInstructions();
       expect(markerCount(content, "pack-a-rule")).toBe(0);
@@ -222,7 +223,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       nodeFs.writeFileSync(
         instructionsPath(),
         `${readInstructions().replace(
@@ -231,14 +232,16 @@ describe("RuleManager graph-derived region projection", () => {
         )}\n<!-- axm:rule @acme/rules/pack-b-rule@1.0.0 -->\nUser-owned text outside the region.\n`,
       );
 
-      expect(yield* manager.projectionUnitObservations).toEqual([
-        expect.objectContaining({
-          current: false,
-          present: true,
-          expectedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
-          observedContributors: ["@acme/rules/pack-a-rule"],
-        }),
-      ]);
+      expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
+        [
+          expect.objectContaining({
+            current: false,
+            present: true,
+            expectedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
+            observedContributors: ["@acme/rules/pack-a-rule"],
+          }),
+        ],
+      );
     }).pipe(Effect.provide(layer));
   });
 
@@ -250,15 +253,15 @@ describe("RuleManager graph-derived region projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       expect(readInstructions()).toContain("Original guidance.");
       writeRulePackage("edited-rule", { body: "Updated guidance.", version: "1.1.0" });
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       const content = readInstructions();
       expect(content).toContain("Updated guidance.");
       expect(content).not.toContain("Original guidance.");
       expect(content).toContain("edited-rule@1.1.0");
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       expect(readInstructions()).toBe(content);
     }).pipe(Effect.provide(layer));
   });
@@ -279,7 +282,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
-      yield* manager.reconcileInstructions;
+      yield* applyPlannedProjections(manager);
       expect(markerCount(readInstructions(), "dual-route-rule")).toBe(1);
     }).pipe(Effect.provide(layer));
   });
@@ -303,7 +306,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
-      const error = yield* manager.reconcileInstructions.pipe(Effect.flip);
+      const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
       expect(error.code).toBe("conflict");
       expect(readInstructions()).toBe("# Project\n");
     }).pipe(Effect.provide(layer));

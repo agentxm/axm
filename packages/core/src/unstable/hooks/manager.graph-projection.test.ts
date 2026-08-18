@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { HooksLockMapSchema, type HooksLockMap } from "../lockfile/index.js";
+import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
@@ -137,13 +138,15 @@ describe("HookManager graph-derived unit projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* HookManager;
-      yield* manager.reconcileProjections();
+      yield* applyPlannedProjections(manager);
       const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
       expect(raw.split("pack-a-hook/src/hook.sh").length - 1).toBe(1);
       expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
-      expect((yield* manager.projectionUnitObservations).every(({ current }) => current)).toBe(
-        true,
-      );
+      expect(
+        (yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).every(
+          ({ current }) => current,
+        ),
+      ).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 
@@ -169,11 +172,11 @@ describe("HookManager graph-derived unit projection", () => {
     return Effect.gen(function* () {
       yield* Effect.gen(function* () {
         const manager = yield* HookManager;
-        yield* manager.reconcileProjections();
+        yield* applyPlannedProjections(manager);
       }).pipe(Effect.provide(before));
       yield* Effect.gen(function* () {
         const manager = yield* HookManager;
-        yield* manager.reconcileProjections();
+        yield* applyPlannedProjections(manager);
       }).pipe(Effect.provide(after));
       const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
       expect(raw).not.toContain("pack-a-hook");
@@ -197,7 +200,7 @@ describe("HookManager graph-derived unit projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* HookManager;
-      yield* manager.reconcileProjections();
+      yield* applyPlannedProjections(manager);
       const settingsPath = nodePath.join(baseDir, ".claude", "settings.json");
       const edited = nodeFs
         .readFileSync(settingsPath, "utf8")
@@ -210,7 +213,9 @@ describe("HookManager graph-derived unit projection", () => {
         ),
       );
 
-      expect(yield* manager.projectionUnitObservations).toContainEqual(
+      expect(
+        yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans)),
+      ).toContainEqual(
         expect.objectContaining({
           unitId: "hook:agent-hook-entries",
           current: false,
@@ -238,7 +243,7 @@ describe("HookManager graph-derived unit projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* HookManager;
-      yield* manager.reconcileProjections();
+      yield* applyPlannedProjections(manager);
       const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
       expect(instructions).toContain("region=hook-fallbacks");
       expect(instructions.split("pack-a-hook/src/hook.sh").length - 1).toBe(1);
@@ -266,12 +271,7 @@ describe("HookManager graph-derived unit projection", () => {
     });
     return Effect.gen(function* () {
       const manager = yield* HookManager;
-      // The lifecycle reconcile defers without writing; a mid-closure graph
-      // completes later in the same plan.
-      yield* manager.reconcileProjections();
-      expect(nodeFs.existsSync(settingsPath)).toBe(false);
-      // The strict sync reconcile reports the incomplete graph instead.
-      const error = yield* manager.reconcileHooksProjections.pipe(Effect.flip);
+      const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
       expect(error.code).toBe("conflict");
       expect(nodeFs.existsSync(settingsPath)).toBe(false);
     }).pipe(Effect.provide(layer));

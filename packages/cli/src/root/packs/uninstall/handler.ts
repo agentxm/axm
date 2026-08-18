@@ -14,6 +14,7 @@ import {
 export const handleUninstallPack = (
   args: UninstallPackHandlerArgs,
   flags: { yes: boolean; preview: boolean },
+  testHooks?: { readonly beforeApply?: () => Effect.Effect<void, never> },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallPackCommandWorkflowActions;
@@ -21,6 +22,7 @@ export const handleUninstallPack = (
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
       execution,
       displayApplied: false,
+      ...(testHooks?.beforeApply === undefined ? {} : { beforeApply: testHooks.beforeApply }),
     });
     const result = toPlanResolutionResult(resolution);
     if (resolution._tag === "PreviewedPlan" && result.totalSteps === 0) {

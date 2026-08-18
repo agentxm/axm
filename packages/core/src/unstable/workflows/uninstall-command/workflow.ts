@@ -39,6 +39,8 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export interface UninstallWorkflowFlags {
   readonly execution: PlanExecution;
   readonly displayApplied?: boolean;
+  /** Optional delayed gate; candidate freshness is checked again after it completes. */
+  readonly beforeApply?: () => Effect.Effect<void, AppError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -63,5 +65,6 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     return yield* previewOrApplyPlan(plan, {
       execution: flags.execution,
       ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
+      ...(flags.beforeApply === undefined ? {} : { beforeApply: flags.beforeApply }),
     });
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

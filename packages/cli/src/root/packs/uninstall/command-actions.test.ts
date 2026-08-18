@@ -11,6 +11,7 @@ import {
   validateResolvedPackUninstallTargets,
   type ResolvedPackUninstallTarget,
 } from "./command-actions.js";
+import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
 
 const targetFor = (identity: string): ResolvedPackUninstallTarget => {
   const decoded = decodeDesiredExtensionIdentity(identity);
@@ -103,11 +104,52 @@ describe("pack uninstall target precondition", () => {
     ),
   );
 
-  it.effect("fails with validation when the current graph is incomplete", () =>
-    expectFailureCode(
+  it.effect("revalidates target identity without introducing a graph-completeness rule", () =>
+    validateResolvedPackUninstallTargets(
       { complete: false, nodes: [packNode(selected.desiredIdentity)], problems: [] },
       [selected],
-      "validation",
     ),
   );
+});
+
+describe("pack uninstall graph readiness", () => {
+  it("returns structured Pack and authority facts for an incomplete graph", () => {
+    const decision = planPackUninstallGraphReadiness(
+      {
+        complete: false,
+        nodes: [],
+        problems: [
+          {
+            type: "pack-manifest-unavailable",
+            pack: "@acme/packs/toolkit",
+            path: ".axm/extensions/@acme/packs/toolkit/pack.json",
+          },
+        ],
+      },
+      ["@acme/packs/toolkit"],
+    );
+
+    expect(decision).toMatchObject({
+      readiness: "blocked",
+      id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+      facts: [
+        {
+          problemType: "pack-manifest-unavailable",
+          packs: ["@acme/packs/toolkit"],
+          authoritativeLocations: [".axm/extensions/@acme/packs/toolkit/pack.json"],
+        },
+      ],
+    });
+    if (decision.readiness === "blocked") {
+      expect(decision.detail).toContain("@acme/packs/toolkit");
+      expect(decision.detail).toContain("pack-manifest-unavailable");
+      expect(decision.detail).toContain(".axm/extensions/@acme/packs/toolkit/pack.json");
+    }
+  });
+
+  it("returns the complete graph as ready", () => {
+    expect(planPackUninstallGraphReadiness(completeGraph([]), [])).toMatchObject({
+      readiness: "ready",
+    });
+  });
 });

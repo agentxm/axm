@@ -43,7 +43,12 @@ import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { expectNoOpPlanResult, expectPreviewedPlanResult } from "../../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  property,
+} from "../../../test-helpers.js";
+import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "./readiness.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -386,6 +391,140 @@ describe("packs uninstall handler", () => {
               "utf8",
             ),
           ).toBe(before.manifest);
+        }),
+      );
+    });
+
+    it.effect("blocks preview and apply on the same incomplete Pack graph facts", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = initializeWorkspacePack();
+      const manifestPath = path.join(
+        axmDir,
+        "extensions",
+        "@acme",
+        "packs",
+        "toolkit",
+        "pack.json",
+      );
+      fs.rmSync(manifestPath);
+      const projectionPath = path.join(tempDir, "AGENTS.md");
+      fs.writeFileSync(projectionPath, "authored projection sentinel\n");
+      const before = {
+        settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+        projection: fs.readFileSync(projectionPath, "utf8"),
+      };
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: false,
+            preview: true,
+          });
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: true,
+            preview: false,
+          });
+
+          const preview = property(rendererState.results[0]?.data, "result");
+          const apply = property(rendererState.results[1]?.data, "result");
+          const decision = {
+            outcome: "failed",
+            reason: "hard-blocked",
+            errorCode: "conflict",
+            readyCount: 0,
+            errorCount: 1,
+            blockedCount: 1,
+            steps: [
+              expect.objectContaining({
+                status: "error",
+                message: expect.stringContaining("pack-manifest-unavailable"),
+              }),
+            ],
+            riskConditions: [
+              expect.objectContaining({
+                level: "blocked",
+                id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+                detail: expect.stringContaining(".axm/extensions/@acme/packs/toolkit/pack.json"),
+              }),
+            ],
+          };
+          expect(preview).toMatchObject(decision);
+          expect(apply).toMatchObject(decision);
+          expect(JSON.stringify(preview)).toContain("@acme/packs/toolkit");
+          expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
+          expect(fs.existsSync(manifestPath)).toBe(false);
+          expect(fs.readFileSync(projectionPath, "utf8")).toBe(before.projection);
+        }),
+      );
+    });
+
+    it.effect("reports incomplete Pack facts in human output", () => {
+      const { provide, logs } = makeLayers();
+      const axmDir = initializeWorkspacePack();
+      fs.rmSync(path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: false,
+            preview: true,
+          });
+
+          const output = [...logs.error, ...logs.warn, ...logs.info, ...logs.success].join("\n");
+          expect(output).toContain("@acme/packs/toolkit");
+          expect(output).toContain("pack-manifest-unavailable");
+          expect(output).toContain(".axm/extensions/@acme/packs/toolkit/pack.json");
+        }),
+      );
+    });
+
+    it.effect("returns a stale candidate when Pack authority changes before apply", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = initializeWorkspacePack();
+      const settingsPath = path.join(axmDir, "settings.json");
+      const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+      const manifestPath = path.join(
+        axmDir,
+        "extensions",
+        "@acme",
+        "packs",
+        "toolkit",
+        "pack.json",
+      );
+      const before = {
+        settings: fs.readFileSync(settingsPath, "utf8"),
+        lockfile: fs.readFileSync(lockfilePath, "utf8"),
+      };
+      const projectionPath = path.join(tempDir, "AGENTS.md");
+      fs.writeFileSync(projectionPath, "authored projection sentinel\n");
+      const changedManifest = `${fs.readFileSync(manifestPath, "utf8")}\n`;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(
+            defaultArgs("toolkit"),
+            { yes: true, preview: false },
+            {
+              beforeApply: () =>
+                Effect.sync(() => {
+                  fs.writeFileSync(manifestPath, changedManifest);
+                }),
+            },
+          );
+
+          expect(property(rendererState.results[0]?.data, "result")).toMatchObject({
+            outcome: "failed",
+            reason: "stale-candidate",
+            errorCode: "conflict",
+            appliedCount: 0,
+            blockedCount: 0,
+          });
+          expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(lockfilePath, "utf8")).toBe(before.lockfile);
+          expect(fs.readFileSync(manifestPath, "utf8")).toBe(changedManifest);
+          expect(fs.readFileSync(projectionPath, "utf8")).toBe("authored projection sentinel\n");
         }),
       );
     });

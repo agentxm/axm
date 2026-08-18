@@ -28,6 +28,26 @@ const ProjectionPlanTypeId: unique symbol = Symbol.for(
   "@agentxm/client-core/unstable/projection/ProjectionPlan",
 );
 
+/** Shared semantic decision made before a desired-state-dependent plan is exposed. */
+export type DesiredStateGraphPlanningDecision =
+  | { readonly readiness: "ready"; readonly graph: DesiredStateGraph }
+  | {
+      readonly readiness: "blocked";
+      readonly problems: DesiredStateGraph["problems"];
+    };
+
+/**
+ * Classify whether the desired-state graph can safely supply a complete plan.
+ * Preview and apply consumers retain this exact decision; apply only checks
+ * that the candidate's authoritative inputs have not changed.
+ */
+export const planDesiredStateGraph = (
+  graph: DesiredStateGraph,
+): DesiredStateGraphPlanningDecision =>
+  graph.complete
+    ? { readiness: "ready", graph }
+    : { readiness: "blocked", problems: graph.problems };
+
 /** Complete contributor input. Its module-private brand prevents construction by adapters. */
 export interface ProjectionRenderInput<Contributor> {
   readonly contributors: ReadonlyArray<Contributor>;

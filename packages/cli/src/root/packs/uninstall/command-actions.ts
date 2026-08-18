@@ -49,6 +49,7 @@ import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -100,13 +101,6 @@ export const validateResolvedPackUninstallTargets = (
   targets: ReadonlyArray<ResolvedPackUninstallTarget>,
 ): Effect.Effect<void, ReturnType<typeof makeAppError>> =>
   Effect.gen(function* () {
-    if (!graph.complete) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "Cannot uninstall packs while the desired pack graph is incomplete",
-      });
-    }
-
     for (const expected of targets) {
       const current = graph.nodes.find(
         (candidate) => candidate.type === "pack" && candidate.name === expected.name,
@@ -177,12 +171,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
         const graph = yield* ws.getDesiredStateGraph();
-        if (!graph.complete) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
-          });
-        }
         const requested = parseExtensionFqnParts(args.name);
         if (requested !== undefined && requested.type !== "pack") {
           return yield* makeAppError({
@@ -223,12 +211,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const finalizeIntent = (parsed: ParsedPackUninstallArgs) =>
       Effect.gen(function* () {
         const graph = yield* ws.getDesiredStateGraph();
-        if (!graph.complete) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
-          });
-        }
 
         const targets = new Map<string, ResolvedPackUninstallTarget>();
         for (const selector of parsed.selectors) {
@@ -259,6 +241,61 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
       Effect.gen(function* () {
+        const observedGraph = yield* ws.getDesiredStateGraph();
+        const graphReadiness = planPackUninstallGraphReadiness(
+          observedGraph,
+          intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+        );
+        if (graphReadiness.readiness === "blocked") {
+          return {
+            _tag: "Plan",
+            name: "Uninstall packs",
+            description: Option.some("Pack graph readiness prevents this uninstall."),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    readiness: "error",
+                    label:
+                      intent.packsToUninstall.map((pack) => pack.desiredIdentity).join(", ") ||
+                      "Pack graph",
+                    errorMessage: graphReadiness.detail,
+                    blockingConditionIds: [PACK_UNINSTALL_GRAPH_BLOCKER_ID],
+                    artifact: {
+                      path: "pack graph",
+                      scope: ws.scope,
+                      change: "unchanged",
+                      fileCount: 0,
+                      targets: graphReadiness.facts.flatMap((fact) =>
+                        fact.authoritativeLocations.map((path) => ({
+                          path,
+                          change: "unchanged" as const,
+                        })),
+                      ),
+                    },
+                  },
+                ],
+              },
+            ],
+            riskConditions: [
+              {
+                level: "blocked",
+                id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+                detail: graphReadiness.detail,
+                errorCode: "conflict",
+              },
+            ],
+            sections: [
+              {
+                title: "Incomplete Pack graph",
+                items: graphReadiness.facts.map((fact) => fact.detail),
+              },
+            ],
+          } satisfies Plan;
+        }
+        const graph = graphReadiness.graph;
+
         if (intent.packsToUninstall.length === 0) {
           return {
             _tag: "Plan",
@@ -273,13 +310,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           isRequiredByInstalledPack: () => Effect.succeed(false),
         };
 
-        const graph = yield* ws.getDesiredStateGraph();
-        if (!graph.complete) {
-          return yield* makeAppError({
-            code: "validation",
-            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
-          });
-        }
         const allTargets = new Map<string, ExtensionTarget>();
         for (const pack of intent.packsToUninstall) {
           allTargets.set(`pack:${pack.name}`, pack);

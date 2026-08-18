@@ -1,7 +1,8 @@
 /**
- * Exhaustive restoring-transition contracts for shipped lint errors and sync
- * blockers. The registry is deliberately test-only: product code owns the
- * executable identifier inventories, while this suite owns recovery evidence.
+ * Exhaustive restoring-transition contracts for shipped lint errors and
+ * operation blockers. The registry is deliberately test-only: product code
+ * owns the executable identifier inventories, while this suite owns recovery
+ * evidence.
  */
 
 import * as nodeFs from "node:fs";
@@ -15,6 +16,7 @@ import {
   type AggregateOwnershipUnitId,
 } from "@agentxm/client-core/unstable/projection";
 import { syncRecoveryIdentifiers } from "./handler.js";
+import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
 type StateField =
@@ -304,10 +306,23 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   }),
 ];
 
+const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
+  packUninstallRecoveryIdentifiers.map((id) =>
+    makeEntry(id, {
+      owner: "direct-correction",
+      field: "canonicalContent",
+      evidence: [
+        "packages/cli/src/root/packs/uninstall/command-actions.test.ts",
+        "packages/cli/src/root/packs/uninstall/handler.test.ts",
+      ],
+    }),
+  );
+
 const recoveryRegistry: ReadonlyArray<RecoveryConformanceEntry> = [
   ...packageLintEntries,
   ...workspaceLintEntries,
   ...syncEntries,
+  ...packUninstallEntries,
 ];
 
 const adversarialContracts = [
@@ -344,6 +359,10 @@ const adversarialContracts = [
   ],
   ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.test.ts"],
   ["unsupported-state-is-rejected", "packages/core/src/unstable/settings/schema.test.ts"],
+  [
+    "pack-uninstall-readiness-agrees-with-apply",
+    "packages/cli/src/root/packs/uninstall/handler.test.ts",
+  ],
 ] as const;
 
 const perturb = (entry: RecoveryConformanceEntry, state: RecoveryState): RecoveryState => ({
@@ -375,10 +394,11 @@ const changedFields = (before: RecoveryState, after: RecoveryState): ReadonlyArr
 const missingRecoveryIds = (
   lintErrorIds: ReadonlyArray<string>,
   syncIds: ReadonlyArray<string>,
+  uninstallIds: ReadonlyArray<string>,
   registry: ReadonlyArray<RecoveryConformanceEntry>,
 ): ReadonlyArray<string> => {
   const registered = new Set(registry.map(({ id }) => id));
-  return [...lintErrorIds, INCOMPLETE_DESIRED_STATE_BLOCKER_ID, ...syncIds].filter(
+  return [...lintErrorIds, INCOMPLETE_DESIRED_STATE_BLOCKER_ID, ...syncIds, ...uninstallIds].filter(
     (id) => !registered.has(id),
   );
 };
@@ -389,9 +409,14 @@ const repositoryRoot = nodePath.resolve(
 );
 
 describe("recovery-conformance registry", () => {
-  it("registers every shipped lint error and sync blocker exactly once", () => {
+  it("registers every shipped lint error and operation blocker exactly once", () => {
     expect(
-      missingRecoveryIds(allCatalogErrorRuleIds, syncRecoveryIdentifiers, recoveryRegistry),
+      missingRecoveryIds(
+        allCatalogErrorRuleIds,
+        syncRecoveryIdentifiers,
+        packUninstallRecoveryIdentifiers,
+        recoveryRegistry,
+      ),
     ).toEqual([]);
     const ids = recoveryRegistry.map(({ id }) => id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -399,6 +424,7 @@ describe("recovery-conformance registry", () => {
       ...allCatalogErrorRuleIds,
       INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
       ...syncRecoveryIdentifiers,
+      ...packUninstallRecoveryIdentifiers,
     ]);
     expect(ids.filter((id) => !shipped.has(id))).toEqual([]);
   });
@@ -408,6 +434,7 @@ describe("recovery-conformance registry", () => {
       missingRecoveryIds(
         [...allCatalogErrorRuleIds, "workspace/test-only-injected-error"],
         syncRecoveryIdentifiers,
+        packUninstallRecoveryIdentifiers,
         recoveryRegistry,
       ),
     ).toEqual(["workspace/test-only-injected-error"]);

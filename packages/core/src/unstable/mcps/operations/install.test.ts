@@ -15,7 +15,10 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { ExtensionRef } from "../../extensions/index.js";
+import {
+  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
+  type ExtensionRef,
+} from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
@@ -297,6 +300,7 @@ describe("installMcpServer", () => {
     owner: string,
     name = "my-server",
     runnable = true,
+    version = "1.0.0",
   ) => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
@@ -323,6 +327,21 @@ describe("installMcpServer", () => {
                 ],
               }
             : {}),
+        },
+      }),
+    );
+    fs.writeFileSync(
+      path.join(canonicalPath, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
+      JSON.stringify({
+        schemaVersion: 1,
+        identity: {
+          refType: "registry",
+          owner,
+          type: "mcp-server",
+          name,
+          version,
+          publisherBindingId: "hbnd_test",
+          integrity: null,
         },
       }),
     );
@@ -634,7 +653,7 @@ describe("installMcpServer", () => {
     it.effect("accepts exact registry resolvedVersion for lockfile persistence", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@community");
+        setupRegistryCanonical(base, "@community", "my-server", true, "1.2.3");
         const setMcpServerFn = vi.fn((_args: SetMcpServerArgs) => Effect.void);
 
         const result = yield* installMcpServer(
@@ -655,7 +674,7 @@ describe("installMcpServer", () => {
     it.effect("fails when registry resolvedVersion is a range", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@community");
+        setupRegistryCanonical(base, "@community", "my-server", true, "^1.0.0");
         const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
         const result = yield* installMcpServer(

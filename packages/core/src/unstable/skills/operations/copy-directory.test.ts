@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
+import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "../../extensions/index.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
 
 const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
@@ -57,6 +58,24 @@ describe("copyExtensionDirectory", () => {
           "export const x = 1;",
         );
         expect(fs.readFileSync(path.join(dest, "lib", "nested", "deep.ts"), "utf-8")).toBe("deep");
+      }),
+    ),
+  );
+
+  it.effect("does not copy AXM's canonical completion marker", () =>
+    withPlatform(
+      Effect.gen(function* () {
+        const src = path.join(tmpDir, "src");
+        const dest = path.join(tmpDir, "dest");
+        fs.mkdirSync(src);
+        fs.writeFileSync(path.join(src, "SKILL.md"), "# My Skill");
+        fs.writeFileSync(path.join(src, CANONICAL_MATERIALIZATION_MARKER_FILENAME), "{}");
+
+        yield* copyExtensionDirectory(src, dest);
+
+        expect(fs.existsSync(path.join(dest, CANONICAL_MATERIALIZATION_MARKER_FILENAME))).toBe(
+          false,
+        );
       }),
     ),
   );

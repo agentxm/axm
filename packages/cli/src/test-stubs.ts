@@ -18,6 +18,7 @@ import type {
 } from "@agentxm/client-core/unstable/workspace";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
   ExtensionDependencyConstraintMapSchema,
   SourceHashSchema,
   decodeExtensionNameSync,
@@ -508,6 +509,7 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
   const visit = (directory: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === CANONICAL_MATERIALIZATION_MARKER_FILENAME) continue;
       const absolutePath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         visit(absolutePath);

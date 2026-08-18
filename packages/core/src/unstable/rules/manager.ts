@@ -30,6 +30,7 @@ import {
   materializeExternalPackage,
   canReuseInstalledPackage,
   materializeRegistryPackage,
+  registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
 import { activeContributors } from "../projection/index.js";
 import {
@@ -198,12 +199,19 @@ export const RuleManagerLive = Layer.effect(
           yield* ws.getLockedRuleEntry(ref.rule.name),
           ref,
         );
+        const identity = registryCanonicalMaterializationIdentity({
+          owner: ref.owner,
+          type: "rule",
+          name: ref.name,
+          version: ref.version,
+          publisherBindingId: ref.publisherBindingId,
+          integrity: ref.integrity,
+        });
         const reuse = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force,
-            integrity: ref.integrity,
-            version: ref.version,
+            identity,
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) =>
               `Failed to check if canonical rule package path exists: ${target}`,
@@ -220,17 +228,10 @@ export const RuleManagerLive = Layer.effect(
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
+            publisherBindingId: ref.publisherBindingId,
             messages: {
               integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-              tempDirectoryFailureDetail:
-                "Temporary directory for registry rule install could not be created",
-              createDirectoryFailureDetail: (canonicalPath) =>
-                `Failed to create registry rule directory: ${canonicalPath}`,
-              inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
-              copyEntryFailureCode: "internal",
-              copyEntryFailureDetail: (entry) =>
-                `Failed to copy registry rule package entry: ${entry}`,
             },
           }),
         );

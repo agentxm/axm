@@ -14,7 +14,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  canReuseInstalledPackage,
+  registryCanonicalMaterializationIdentity,
+  replaceCanonicalDirectory,
+} from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef } from "./refs.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
@@ -33,7 +38,6 @@ import { decodeVersionSync } from "../version-constraints/version-constraints.js
 import { printSourceParams } from "../sources/index.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
 import { computePackManifestContentIdentity } from "./manifest-content-identity.js";
 
 // -----------------------------------------------------------------------------
@@ -158,14 +162,25 @@ export const PackManagerLive = Layer.effect(
         yield* ws.getLockedPack(ref.pack.name),
         ref,
       );
+      const identity = registryCanonicalMaterializationIdentity({
+        owner: ref.owner,
+        type: "pack",
+        name: ref.name,
+        version: ref.version,
+        publisherBindingId: ref.publisherBindingId,
+        integrity: ref.integrity,
+      });
       if (
-        shouldReuseCanonicalInstall({
-          canonicalExists,
-          force: force === true,
-          hasIntegrity: Option.isSome(ref.integrity),
-          refVersion: ref.refType === "registry" ? ref.version : undefined,
-          lockedVersion,
-        })
+        yield* provide(
+          canReuseInstalledPackage({
+            installedPath: packDir,
+            force: force === true,
+            identity,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            existsFailureDetail: (target) =>
+              `Failed to check if canonical pack path exists: ${target}`,
+          }),
+        )
       ) {
         return;
       }
@@ -181,17 +196,22 @@ export const PackManagerLive = Layer.effect(
               }),
             ),
           );
-          yield* protectWorkspacePath(packDir);
           yield* provide(
-            copyExtensionDirectory(fetched.directory, packDir).pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to extract pack to ${packDir}`,
-                  cause: e,
-                }),
-              ),
-            ),
+            replaceCanonicalDirectory({
+              baseDir,
+              canonicalPath: packDir,
+              identity,
+              populate: (stagingPath) =>
+                copyExtensionDirectory(fetched.directory, stagingPath).pipe(
+                  Effect.mapError((cause) =>
+                    makeAppError({
+                      code: "internal",
+                      detail: `Failed to stage pack at ${packDir}`,
+                      cause,
+                    }),
+                  ),
+                ),
+            }),
           );
         }),
       );

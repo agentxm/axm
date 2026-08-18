@@ -20,12 +20,17 @@ import {
   sourceToLockEntry,
 } from "../../sources/index.js";
 import {
+  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
   UNIVERSAL_SKILLS_DIR,
   computePackageContentHash,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
   isUniversalSkillsDir,
+  canReuseInstalledPackage,
+  materializeExternalPackage,
+  materializeRegistryPackage,
+  registryCanonicalMaterializationIdentity,
   stripTrailingSeparators,
 } from "../../extensions/index.js";
 import * as Schema from "effect/Schema";
@@ -39,16 +44,14 @@ import type {
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import {
-  computeIntegrity,
   createSymlink,
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
-import { shouldReuseCanonicalInstall, validatePathSafety } from "../../extensions/index.js";
+import { validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
-import { createRegistryClient, extractZip } from "../../registry/index.js";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -236,6 +239,7 @@ const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSy
     const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
     let total = 0;
     for (const entry of entries) {
+      if (entry === CANONICAL_MATERIALIZATION_MARKER_FILENAME) continue;
       const fullPath = path.join(dir, entry);
       const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
       if (Option.isNone(statOption)) continue;
@@ -368,19 +372,26 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
       });
     }
 
-    yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
-    yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
-      Effect.mapError((e) =>
-        errInstallFailed({
-          message: formatCopyExtensionDirectoryFailure({
-            sourcePath,
-            targetPath: copyTarget,
-            subject: "skill files",
-            sourceExists,
-          }),
-          cause: e,
+    yield* materializeExternalPackage({
+      baseDir: ws.baseDir,
+      canonicalPath: copyTarget,
+      sourceLocation: sourcePath,
+      copyFailureCode: "internal",
+      copyFailureDetail: () =>
+        formatCopyExtensionDirectoryFailure({
+          sourcePath,
+          targetPath: copyTarget,
+          subject: "skill files",
+          sourceExists,
         }),
-      ),
+    }).pipe(Effect.mapError((error) => errInstallFailed({ message: error.detail, cause: error })));
+    yield* removeFromAllCanonicalLocations(
+      fs,
+      ws.baseDir,
+      "skills",
+      sanitizedName,
+      path,
+      copyTarget,
     );
   });
 
@@ -476,65 +487,51 @@ const installFromRegistry = (
     });
     yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-          cause: e,
-        }),
-      ),
-    );
-    const useExisting = shouldReuseCanonicalInstall({
-      canonicalExists,
+    const identity = registryCanonicalMaterializationIdentity({
+      owner: ref.owner,
+      type: "skill",
+      name: ref.name,
+      version: ref.version,
+      publisherBindingId: ref.publisherBindingId,
+      integrity: ref.integrity,
+    });
+    const useExisting = yield* canReuseInstalledPackage({
+      installedPath: canonicalPath,
       force: reuse.force,
-      hasIntegrity: Option.isSome(ref.integrity),
-      refVersion: ref.version,
-      lockedVersion: reuse.lockedVersion,
+      identity,
+      ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
+      existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
 
     if (!useExisting) {
-      const locationStr =
-        ref.source.location.protocol === "file:"
-          ? ref.source.location.pathname
-          : ref.source.location.href;
-      const client = yield* createRegistryClient(locationStr);
-      const { archive } = yield* client.getExtensionPackage({
+      yield* materializeRegistryPackage({
+        baseDir: ws.baseDir,
+        destinationPath: canonicalPath,
+        sourceLocation: ref.source.location,
         owner: ref.owner,
         type: "skill",
         name: ref.name,
-        version: Option.some(ref.version),
-      });
-
-      if (Option.isSome(ref.integrity)) {
-        const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity.value) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-          });
-        }
-      }
-
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((e) =>
-          errInstallFailed({
-            message: "Temporary directory for registry install could not be created",
-            cause: e,
-          }),
-        ),
-      );
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* extractZip(archive, tmpDir);
-          yield* validateAxmSkillCandidate({
+        version: ref.version,
+        integrity: ref.integrity,
+        publisherBindingId: ref.publisherBindingId,
+        messages: {
+          integrityMismatchCode: "internal",
+          integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+        },
+        validate: (stagingPath) =>
+          validateAxmSkillCandidate({
             ref,
-            packageRoot: tmpDir,
-            skillSourcePath: path.join(tmpDir, "src"),
-          });
-          yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
-        }),
-        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+            packageRoot: stagingPath,
+            skillSourcePath: path.join(stagingPath, "src"),
+          }).pipe(Effect.asVoid),
+      });
+      yield* removeFromAllCanonicalLocations(
+        fs,
+        ws.baseDir,
+        "skills",
+        sanitizedName,
+        path,
+        canonicalPath,
       );
     } else {
       yield* validateAxmSkillCandidate({

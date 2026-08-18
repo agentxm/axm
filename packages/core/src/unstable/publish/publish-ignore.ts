@@ -2,8 +2,8 @@
  * Publish ignore resolution.
  *
  * A manifest may declare `publish.ignore` to keep development-only files out of
- * the archive. The feature is opt-in and off by default: with nothing declared,
- * the archive is byte-identical to what it was before the field existed.
+ * the archive. AXM also excludes its reserved canonical completion marker so
+ * installed packages can be republished without leaking workspace metadata.
  *
  * Some paths can never be ignored. Dropping the manifest would produce an
  * archive the registry cannot identify, and the failure would surface as a
@@ -19,6 +19,7 @@ import * as Result from "effect/Result";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
+import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "../extensions/materialization-marker.js";
 import type { BuildZipArchiveOptions } from "../utils/build-zip-archive.js";
 import { expandGlobs } from "../utils/glob.js";
 import { manifestFilenameForType } from "./manifest-policy.js";
@@ -50,7 +51,9 @@ export const resolvePublishIgnore = (
   type: ExtensionType,
   declared: ReadonlyArray<string> | undefined,
 ): Result.Result<ReadonlyArray<string>, PublishIgnoreError> => {
-  if (declared === undefined || declared.length === 0) return Result.succeed([]);
+  if (declared === undefined || declared.length === 0) {
+    return Result.succeed([CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
+  }
 
   const protectedPaths = protectedPublishPaths(type);
   for (const pattern of declared) {
@@ -66,19 +69,20 @@ export const resolvePublishIgnore = (
     }
   }
 
-  return Result.succeed(declared);
+  return Result.succeed([...declared, CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
 };
 
 /**
  * Archive options for one publish, as an Effect the per-type publish operations
- * can yield directly. With nothing declared this yields `{}`, so the archive
- * builder takes its unchanged default path.
+ * can yield directly. AXM's canonical completion marker is always excluded;
+ * ordinary authored trees do not contain it, so their archive bytes remain
+ * unchanged.
  */
 export const publishArchiveOptions = (
   type: ExtensionType,
   declared: ReadonlyArray<string> | undefined,
 ): Effect.Effect<BuildZipArchiveOptions, AppError> =>
   Effect.fromResult(resolvePublishIgnore(type, declared)).pipe(
-    Effect.map((ignore): BuildZipArchiveOptions => (ignore.length === 0 ? {} : { ignore })),
+    Effect.map((ignore): BuildZipArchiveOptions => ({ ignore })),
     Effect.mapError((cause) => makeAppError({ code: "validation", detail: cause.detail, cause })),
   );

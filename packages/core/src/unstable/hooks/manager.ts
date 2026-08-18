@@ -36,6 +36,7 @@ import {
   materializeExternalPackage,
   canReuseInstalledPackage,
   materializeRegistryPackage,
+  registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
 import { activeContributors } from "../projection/index.js";
 import { validatePathSafety } from "../extensions/utils.js";
@@ -429,12 +430,19 @@ export const HookManagerLive = Layer.effect(
           yield* ws.getLockedHookEntry(ref.hook.name),
           ref,
         );
+        const identity = registryCanonicalMaterializationIdentity({
+          owner: ref.owner,
+          type: "hook",
+          name: ref.name,
+          version: ref.version,
+          publisherBindingId: ref.publisherBindingId,
+          integrity: ref.integrity,
+        });
         const reuse = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force: false,
-            integrity: ref.integrity,
-            version: ref.version,
+            identity,
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) =>
               `Failed to check if canonical hook package path exists: ${target}`,
@@ -451,17 +459,10 @@ export const HookManagerLive = Layer.effect(
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
+            publisherBindingId: ref.publisherBindingId,
             messages: {
               integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
-              tempDirectoryFailureDetail:
-                "Temporary directory for registry hook install could not be created",
-              createDirectoryFailureDetail: (canonicalPath) =>
-                `Failed to create registry hook directory: ${canonicalPath}`,
-              inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
-              copyEntryFailureCode: "internal",
-              copyEntryFailureDetail: (entry) =>
-                `Failed to copy registry hook package entry: ${entry}`,
             },
           }),
         );

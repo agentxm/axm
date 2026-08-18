@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "@agentxm/client-core/unstable/extensions";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -771,6 +772,18 @@ describe("root sync handler", () => {
       const axmDir = path.join(tempDir, ".axm");
       const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
       writeSkillExtension(tempDir, "review");
+      writeJson(path.join(skillDir, CANONICAL_MATERIALIZATION_MARKER_FILENAME), {
+        schemaVersion: 1,
+        identity: {
+          refType: "registry",
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+          publisherBindingId: "hbnd_test",
+          integrity: "sha512-AAAA==",
+        },
+      });
       const sourceHash = computePackageContentHashSync(skillDir);
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],

@@ -51,6 +51,14 @@ together. A handled failure or interruption restores protected targets. The
 lock is refreshed while its owner runs and reclaimed after abrupt process
 death; a later mutation converges surviving authoritative and owned state.
 
+AXM prepares and validates package content in a sibling staging directory
+before replacing its canonical directory. A private completion marker binds a
+complete canonical tree to its accepted package identity; a markerless,
+malformed, or mismatched tree is never reused as a completed install. The next
+mutation removes stale staging content and recovers a prior complete tree left
+behind by an interrupted replacement before reconciling again. Do not edit or
+publish AXM completion markers as package content.
+
 ## Workspace files
 
 - Change intent through AXM commands or `.axm/settings.json`.

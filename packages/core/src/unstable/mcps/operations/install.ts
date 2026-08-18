@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { computeIntegrity, isPathSafe } from "../../utils/index.js";
+import { isPathSafe } from "../../utils/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
@@ -25,11 +25,15 @@ import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
 } from "../../lockfile/index.js";
-import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  canReuseInstalledPackage,
+  materializeRegistryPackage,
+  registryCanonicalMaterializationIdentity,
+} from "../../extensions/index.js";
 import { printSourceParams } from "../../sources/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
@@ -228,7 +232,6 @@ const installFromRegistry = (
   reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
 ) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
@@ -247,100 +250,38 @@ const installFromRegistry = (
       });
     }
 
-    // Empty integrity with existing canonical → skip fetch (synthetic refs from publish)
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-          cause: e,
-        }),
-      ),
-    );
-    const useExisting = shouldReuseCanonicalInstall({
-      canonicalExists,
+    const identity = registryCanonicalMaterializationIdentity({
+      owner: ref.owner,
+      type: "mcp-server",
+      name: ref.name,
+      version: ref.version,
+      publisherBindingId: ref.publisherBindingId,
+      integrity: ref.integrity,
+    });
+    const useExisting = yield* canReuseInstalledPackage({
+      installedPath: canonicalPath,
       force: reuse.force,
-      hasIntegrity: Option.isSome(ref.integrity),
-      refVersion: ref.version,
-      lockedVersion: reuse.lockedVersion,
+      identity,
+      ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
+      existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
 
     if (!useExisting) {
-      const locationStr =
-        ref.source.location.protocol === "file:"
-          ? ref.source.location.pathname
-          : ref.source.location.href;
-      const client = yield* createRegistryClient(locationStr);
-      const { archive } = yield* client.getExtensionPackage({
+      yield* materializeRegistryPackage({
+        baseDir: ws.baseDir,
+        destinationPath: canonicalPath,
+        sourceLocation: ref.source.location,
         owner: ref.owner,
         type: "mcp-server",
         name: ref.name,
-        version: Option.some(ref.version),
+        version: ref.version,
+        integrity: ref.integrity,
+        publisherBindingId: ref.publisherBindingId,
+        messages: {
+          integrityMismatchCode: "internal",
+          integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+        },
       });
-
-      if (Option.isSome(ref.integrity)) {
-        const actualIntegrity = yield* computeIntegrity(archive);
-        if (actualIntegrity !== ref.integrity.value) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-          });
-        }
-      }
-
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Temporary directory for registry install could not be created`,
-            cause: e,
-          }),
-        ),
-      );
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* extractZip(archive, tmpDir);
-          // Remove existing canonical and copy fresh
-          yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-          yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Failed to create canonical directory: ${canonicalPath}`,
-                cause: e,
-              }),
-            ),
-          );
-          // Copy extracted files to canonical
-          const entries = yield* fs.readDirectory(tmpDir).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Extracted directory could not be read`,
-                cause: e,
-              }),
-            ),
-          );
-          yield* Effect.forEach(
-            entries,
-            (entry) => {
-              const src = path.join(tmpDir, entry);
-              const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(
-                Effect.mapError((e) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Failed to copy installed file: ${entry}`,
-                    cause: e,
-                  }),
-                ),
-              );
-            },
-            { concurrency: "unbounded" },
-          );
-        }),
-        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
-      );
     }
 
     return canonicalPath;

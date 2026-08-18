@@ -9,6 +9,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "@agentxm/client-core/unstable/extensions";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -64,6 +65,21 @@ const initializePackWithSkill = (root: string) => {
   fs.writeFileSync(
     path.join(skillDir, "src", "SKILL.md"),
     "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
+  );
+  fs.writeFileSync(
+    path.join(skillDir, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
+    JSON.stringify({
+      schemaVersion: 1,
+      identity: {
+        refType: "registry",
+        owner: "@acme",
+        type: "skill",
+        name: "review",
+        version: "1.0.0",
+        publisherBindingId: "hbnd_test",
+        integrity: "sha512-AAAA==",
+      },
+    }),
   );
   fs.writeFileSync(
     path.join(packDir, "pack.json"),

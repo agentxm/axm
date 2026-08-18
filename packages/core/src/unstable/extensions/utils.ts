@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import { isPathSafe } from "../utils/index.js";
 import { decodeExtensionNameSync, type ExtensionName } from "./common.js";
+import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "./materialization-marker.js";
 
 // -----------------------------------------------------------------------------
 // Name Sanitization
@@ -96,12 +97,12 @@ export const validatePathSafety = (path: Path.Path, baseDir: string, targetPath:
 // -----------------------------------------------------------------------------
 
 /**
- * VCS state is never copied into the managed store, in any copy mode. It is
- * never part of a published package (the extension directory has no `.git`),
- * and copying a `.git` directory from a git-hosted or local source would only
- * bloat the canonical copy.
+ * VCS state and AXM's canonical completion marker are never copied in any copy
+ * mode. Neither belongs to authored package content, and copying a `.git`
+ * directory from a git-hosted or local source would only bloat the canonical
+ * copy.
  */
-const ALWAYS_EXCLUDED_NAMES = new Set([".git"]);
+const ALWAYS_EXCLUDED_NAMES = new Set([".git", CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
 
 /**
  * Entries additionally omitted from an agent-facing artifact: human files,

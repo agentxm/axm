@@ -45,6 +45,7 @@ import {
 } from "@agentxm/client-core/unstable/skills";
 import {
   buildInstallOperation,
+  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
   matchesReleaseAgeExcludePattern,
   sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -143,6 +144,7 @@ const countFiles = (
     const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
     let total = 0;
     for (const entry of entries) {
+      if (entry === CANONICAL_MATERIALIZATION_MARKER_FILENAME) continue;
       const fullPath = path.join(dir, entry);
       const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
       if (Option.isNone(statOption)) continue;

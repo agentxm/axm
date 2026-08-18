@@ -13,7 +13,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  recoverCanonicalDirectory,
+  replaceCanonicalDirectory,
+} from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { Version } from "../../version-constraints/version-constraints.js";
@@ -153,6 +157,7 @@ export const installPack: OperationHandler<
       op.args.owner,
       op.args.packName,
     ).canonicalPath;
+    yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: packDir });
 
     // Keep fetch scope alive through copy; fetched directories are released on scope close.
     const manifestContentIdentity = yield* Effect.scoped(
@@ -213,15 +218,29 @@ export const installPack: OperationHandler<
           });
         }
 
-        yield* copyExtensionDirectory(fetched.directory, packDir).pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to extract pack to ${packDir}`,
-              cause: e,
-            }),
-          ),
-        );
+        yield* replaceCanonicalDirectory({
+          baseDir: ws.baseDir,
+          canonicalPath: packDir,
+          identity: {
+            refType: "registry",
+            owner: op.args.owner,
+            type: "pack",
+            name: op.args.packName,
+            version: op.args.resolvedVersion,
+            publisherBindingId: op.args.publisherBindingId,
+            integrity: op.args.integrity,
+          },
+          populate: (stagingPath) =>
+            copyExtensionDirectory(fetched.directory, stagingPath).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to stage pack at ${packDir}`,
+                  cause,
+                }),
+              ),
+            ),
+        });
         return computePackManifestContentIdentity(manifest);
       }),
     );

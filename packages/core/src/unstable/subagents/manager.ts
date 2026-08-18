@@ -45,7 +45,9 @@ import {
   computePackageContentHash,
   computeSourceHash,
   insertManagedFileBanner,
+  materializeExternalPackage,
   materializeRegistryPackage,
+  registryCanonicalMaterializationIdentity,
   RenderedFilePathSchema,
   type SourceHash,
 } from "../extensions/index.js";
@@ -213,29 +215,15 @@ export const SubagentManagerLive = Layer.effect(
 
     // Copy source to canonical location
     const copyToCanonical = (sourcePath: string, targetPath: string) =>
-      Effect.gen(function* () {
-        yield* protectWorkspacePath(targetPath);
-        yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to create directory for subagent: ${targetPath}`,
-              cause: error,
-            }),
-          ),
-        );
-        yield* provide(
-          copyExtensionDirectory(sourcePath, targetPath).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to copy subagent files to ${targetPath}`,
-                cause: e,
-              }),
-            ),
-          ),
-        );
-      });
+      provide(
+        materializeExternalPackage({
+          baseDir,
+          canonicalPath: targetPath,
+          sourceLocation: sourcePath,
+          copyFailureCode: "internal",
+          copyFailureDetail: (target) => `Failed to copy subagent files to ${target}`,
+        }),
+      );
 
     // Materialize from registry
     const materializeFromRegistry = (
@@ -248,12 +236,19 @@ export const SubagentManagerLive = Layer.effect(
           yield* ws.getLockedSubagent(ref.subagent.name),
           ref,
         );
+        const identity = registryCanonicalMaterializationIdentity({
+          owner: ref.owner,
+          type: "subagent",
+          name: ref.name,
+          version: ref.version,
+          publisherBindingId: ref.publisherBindingId,
+          integrity: ref.integrity,
+        });
         const useExisting = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force,
-            integrity: ref.integrity,
-            version: ref.version,
+            identity,
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
           }),
@@ -270,17 +265,10 @@ export const SubagentManagerLive = Layer.effect(
               name: ref.name,
               version: ref.version,
               integrity: ref.integrity,
+              publisherBindingId: ref.publisherBindingId,
               messages: {
                 integrityMismatchCode: "internal",
                 integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-                tempDirectoryFailureDetail:
-                  "Temporary directory for registry install could not be created",
-                createDirectoryFailureDetail: (target) =>
-                  `Failed to create canonical subagent directory: ${target}`,
-                inspectExtractedFailureDetail: "Extracted subagent directory could not be read",
-                copyEntryFailureCode: "internal",
-                copyEntryFailureDetail: (entry) =>
-                  `Failed to copy subagent package entry: ${entry}`,
               },
             }),
           );
@@ -301,8 +289,15 @@ export const SubagentManagerLive = Layer.effect(
             const sourcePath = stripFileProtocol(ref.location);
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
             if (!isSelfCopy) {
-              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
               yield* copyToCanonical(sourcePath, subagentSrcPath);
+              yield* removeFromAllCanonicalLocations(
+                fs,
+                baseDir,
+                "subagents",
+                sanitized,
+                path,
+                subagentSrcPath,
+              );
             }
             break;
           }
@@ -310,8 +305,15 @@ export const SubagentManagerLive = Layer.effect(
             const sourcePath = stripFileProtocol(ref.location);
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
             if (!isSelfCopy) {
-              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
               yield* copyToCanonical(sourcePath, subagentSrcPath);
+              yield* removeFromAllCanonicalLocations(
+                fs,
+                baseDir,
+                "subagents",
+                sanitized,
+                path,
+                subagentSrcPath,
+              );
             }
             break;
           }

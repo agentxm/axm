@@ -53,11 +53,15 @@ export const removeFromAllCanonicalLocations = (
   directory: CanonicalExtensionDirectory,
   sanitizedName: string,
   pathService: Path.Path,
+  exceptPath?: string,
 ) =>
   Effect.gen(function* () {
+    const removeUnlessPreserved = (target: string) =>
+      exceptPath !== undefined && pathService.resolve(target) === pathService.resolve(exceptPath)
+        ? Effect.void
+        : removeIfExists(fsService, target);
     // Remove from non-registry canonical location
-    yield* removeIfExists(
-      fsService,
+    yield* removeUnlessPreserved(
       pathService.join(base, EXTERNAL_EXTENSIONS_DIR, directory, sanitizedName),
     );
 
@@ -89,7 +93,7 @@ export const removeFromAllCanonicalLocations = (
         (scopeDir) => {
           if (!scopeDir.startsWith("@")) return Effect.void;
           const canonicalPath = pathService.join(extensionsDir, scopeDir, directory, sanitizedName);
-          return removeIfExists(fsService, canonicalPath);
+          return removeUnlessPreserved(canonicalPath);
         },
         { concurrency: "unbounded" },
       );

@@ -23,7 +23,7 @@ describe("Windows workspace mutation contract", () => {
     const workspace = createTempDir("axm windows workspace ");
     const userHome = path.join(workspace.path, "user home");
     const source = path.join(workspace.path, "extension source");
-    const env = { HOME: userHome, AXM_USER_HOME: userHome };
+    const env = { HOME: userHome, USERPROFILE: userHome, AXM_USER_HOME: userHome };
     fs.mkdirSync(userHome, { recursive: true });
     fs.cpSync(SKILLS_REPO_FIXTURE, source, { recursive: true });
 

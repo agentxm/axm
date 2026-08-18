@@ -1,18 +1,31 @@
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { resolveInstructionsConfig } from "@agentxm/client-core/unstable/agents";
 import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+  buildUninstallOperation,
+} from "@agentxm/client-core/unstable/extensions";
+import {
+  KNOWLEDGE_EXTENSION_DIR,
   KnowledgeManager,
   KnowledgeManagerLive,
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import type { KnowledgeExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
+import {
+  WorkspaceMutations,
+  acceptedCanonicalObservation,
+  type KnowledgeExtensionTarget,
+} from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
@@ -36,9 +49,183 @@ export class UninstallKnowledgeCommandWorkflowActions extends ServiceMap.Service
   KnowledgeUninstallActions
 >()("axm.sh/root/knowledge/uninstall/command-actions/UninstallKnowledgeCommandWorkflowActions") {}
 
+interface KnowledgeUninstallOwnership {
+  readonly target: KnowledgeExtensionTarget;
+  readonly settingsPresent: boolean;
+  readonly lockPresent: boolean;
+  readonly acceptedProvenance: "absent" | "lock" | "workspace";
+  readonly canonical: "absent" | "owned" | "owned-with-unowned-namesake" | "unowned";
+  readonly renderedInstructions:
+    "absent" | "managed-absent" | "managed-present" | "unmanaged-present";
+  readonly managedAgentProjections: "none";
+  readonly expectedCanonicalPath?: string;
+  readonly blocker?: string;
+}
+
+const lockCanonicalRoot = (
+  path: Path.Path,
+  baseDir: string,
+  targetName: string,
+  locked: KnowledgeLockEntry,
+): string =>
+  locked.type === "registry"
+    ? path.join(
+        baseDir,
+        REGISTRY_EXTENSIONS_DIR,
+        locked.owner,
+        KNOWLEDGE_EXTENSION_DIR,
+        locked.name,
+      )
+    : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, targetName);
+
+const ownershipSummary = (ownership: KnowledgeUninstallOwnership): string =>
+  `${ownership.target.name}: settings ${ownership.settingsPresent ? "present" : "absent"}; lock ${ownership.lockPresent ? "present" : "absent"}; accepted provenance ${ownership.acceptedProvenance}; canonical ${ownership.canonical}; rendered instructions ${ownership.renderedInstructions}; managed agent projections ${ownership.managedAgentProjections}`;
+
 export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const manager = yield* KnowledgeManager;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const platformLayer = Layer.mergeAll(
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+  );
+
+  const inspectOwnership = (
+    target: KnowledgeExtensionTarget,
+  ): Effect.Effect<KnowledgeUninstallOwnership, AppError> =>
+    Effect.gen(function* () {
+      const configured = yield* ws.getConfiguredKnowledgeEntries();
+      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+      const graph = yield* ws.getDesiredStateGraph();
+      const desired = graph.nodes.find(
+        (node) => node.type === "knowledge" && node.name === target.name,
+      );
+      const acceptedObservation =
+        desired === undefined
+          ? Option.none()
+          : yield* acceptedCanonicalObservation({
+              workspace: ws,
+              type: "knowledge",
+              name: target.name,
+            }).pipe(Effect.provide(platformLayer));
+      const expectedCanonicalPath = Option.match(acceptedObservation, {
+        onNone: () =>
+          Option.isSome(locked)
+            ? lockCanonicalRoot(path, ws.baseDir, target.name, locked.value)
+            : undefined,
+        onSome: (accepted) => accepted.observation.path,
+      });
+      const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
+      const actualPaths = inventory.items
+        .filter((item) => item.name === target.name)
+        .flatMap((item) => item.paths.map((itemPath) => path.resolve(ws.baseDir, itemPath)));
+      const normalizedExpected =
+        expectedCanonicalPath === undefined ? undefined : path.resolve(expectedCanonicalPath);
+      const ownsExpectedCanonical =
+        normalizedExpected !== undefined &&
+        actualPaths.some((actualPath) => path.resolve(actualPath) === normalizedExpected);
+      const unownedCanonicalCount = actualPaths.filter(
+        (actualPath) =>
+          normalizedExpected === undefined || path.resolve(actualPath) !== normalizedExpected,
+      ).length;
+      const workspaceOwned = desired?.identity.startsWith("workspace:") === true;
+      const hasAcceptedOwnership = workspaceOwned || Option.isSome(locked);
+      const settingsPresent = configured[target.name] !== undefined;
+      const instructionsConfig = yield* ws.getInstructionsConfig();
+      const discoveryConfig = yield* ws.getKnowledgeDiscoveryConfig();
+      const instructionsManaged =
+        discoveryConfig.instructions &&
+        Option.isSome(instructionsConfig) &&
+        instructionsConfig.value !== false;
+      const resolvedInstructions = resolveInstructionsConfig(
+        Option.match(instructionsConfig, {
+          onNone: () => undefined,
+          onSome: (value) => (value === false ? undefined : value),
+        }),
+      );
+      const instructionRelative = makeWorkspaceRelativePath(
+        path,
+        ws.baseDir,
+        resolvedInstructions.fileName,
+      );
+      const instructionBody = Option.isNone(instructionRelative)
+        ? Option.none<string>()
+        : yield* fs
+            .readFileString(path.resolve(ws.baseDir, instructionRelative.value))
+            .pipe(Effect.option);
+      const instructionRegionPresent = Option.exists(instructionBody, (content) =>
+        content.includes("axm:start region=knowledge-base"),
+      );
+      const renderedInstructions = instructionRegionPresent
+        ? instructionsManaged
+          ? "managed-present"
+          : "unmanaged-present"
+        : instructionsManaged
+          ? "managed-absent"
+          : "absent";
+      const canonical =
+        actualPaths.length === 0
+          ? "absent"
+          : ownsExpectedCanonical
+            ? unownedCanonicalCount > 0
+              ? "owned-with-unowned-namesake"
+              : "owned"
+            : "unowned";
+      const ownershipBlocker =
+        actualPaths.length === 0 || (hasAcceptedOwnership && normalizedExpected !== undefined)
+          ? undefined
+          : settingsPresent && !workspaceOwned
+            ? `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content is present, but its accepted resolution is missing. AXM will preserve the unowned canonical surface. Run \`axm adopt <fqn>\` to transfer it into AXM ownership, or leave it for its current owner.`
+            : `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content has no accepted AXM ownership fact. AXM will preserve the unowned canonical surface. Run \`axm adopt <fqn>\` to transfer it into AXM ownership, or leave it for its current owner.`;
+      const blocker =
+        ownershipBlocker ??
+        (Option.isNone(instructionRelative)
+          ? `Cannot uninstall Knowledge bundle "${target.name}": the managed instructions target is outside the workspace. Configure a workspace-relative instructions target and retry.`
+          : undefined);
+      return {
+        target,
+        settingsPresent,
+        lockPresent: Option.isSome(locked),
+        acceptedProvenance: workspaceOwned
+          ? "workspace"
+          : Option.isSome(locked)
+            ? "lock"
+            : "absent",
+        canonical,
+        renderedInstructions,
+        managedAgentProjections: "none",
+        ...(expectedCanonicalPath === undefined ? {} : { expectedCanonicalPath }),
+        ...(blocker === undefined ? {} : { blocker }),
+      };
+    });
+
+  const isAcceptedTargetPresent = (target: KnowledgeExtensionTarget) =>
+    Effect.gen(function* () {
+      const graph = yield* ws.getDesiredStateGraph();
+      const desired = graph.nodes.find(
+        (node) => node.type === "knowledge" && node.name === target.name,
+      );
+      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+      return desired?.identity.startsWith("workspace:") === true || Option.isSome(locked);
+    });
+
+  const buildStep = (ownership: KnowledgeUninstallOwnership): PlannedJobStep => {
+    if (ownership.blocker !== undefined) {
+      return {
+        key: `knowledge:${ownership.target.name}`,
+        readiness: "error",
+        label: ownership.target.name,
+        errorMessage: ownership.blocker,
+      };
+    }
+    return buildUninstallOperation<KnowledgeExtensionRef>(
+      { ...manager, isInstalled: () => isAcceptedTargetPresent(ownership.target) },
+      makeWorkspaceRetentionPolicy(ws),
+      { target: ownership.target },
+    );
+  };
+
   return {
     parseArgs: (args) => Effect.succeed({ name: args.name.trim() }),
     finalizeIntent: (parsed): Effect.Effect<UninstallKnowledgeCommandIntent, AppError> =>
@@ -49,29 +236,33 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             ? Option.none<string>()
             : yield* manager.getConfiguredSource({ target });
         const installed = yield* manager.isInstalled({ target });
-        if (Option.isNone(configured) && !installed) {
+        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+        if (Option.isNone(configured) && Option.isNone(locked) && !installed) {
           return { targets: [] };
         }
         return { targets: [target] };
       }),
     buildUninstallPlan: (intent) =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall knowledge",
-        description: Option.some("Uninstall Open Knowledge Format bundle"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: intent.targets.map((target) =>
-              buildUninstallOperation<KnowledgeExtensionRef>(
-                manager,
-                makeWorkspaceRetentionPolicy(ws),
-                { target },
-              ),
-            ),
-          },
-        ],
-      } satisfies Plan),
+      Effect.gen(function* () {
+        const ownership = yield* Effect.forEach(intent.targets, inspectOwnership);
+        return {
+          _tag: "Plan",
+          name: "Uninstall knowledge",
+          description: Option.some("Uninstall Open Knowledge Format bundle"),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: ownership.map(buildStep),
+            },
+          ],
+          sections: [
+            {
+              title: "Knowledge ownership",
+              items: ownership.map(ownershipSummary),
+            },
+          ],
+        } satisfies Plan;
+      }),
   } satisfies KnowledgeUninstallActions;
 }).pipe(Effect.provide(KnowledgeManagerLive));
 

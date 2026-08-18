@@ -1,6 +1,7 @@
 /** Reports invalid observed state for desired Knowledge bundles. */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
@@ -14,10 +15,32 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      if (context.health?.canonicalObservations === undefined) return [];
+      const [unmanaged, resolved] = yield* Effect.all([
+        Effect.result(context.workspace.knowledge.unmanaged),
+        Effect.result(context.workspace.knowledge.resolved),
+      ]);
+      const resolvedNames = Result.isFailure(resolved)
+        ? new Set<string>()
+        : new Set(Option.getOrElse(resolved.success, () => []).map(({ name }) => name));
+      const unmanagedFindings = Result.isFailure(unmanaged)
+        ? []
+        : unmanaged.success.flatMap(({ key }): ReadonlyArray<AdvisoryFinding> =>
+            resolvedNames.has(key.name)
+              ? []
+              : [
+                  {
+                    kind: "advisory",
+                    ruleId: RULE_ID,
+                    severity: "error",
+                    message: `Knowledge bundle '${key.name}' has canonical content without an accepted AXM ownership fact.`,
+                    location: { file: ".axm/extensions" },
+                  },
+                ],
+          );
+      if (context.health?.canonicalObservations === undefined) return unmanagedFindings;
       const observations = yield* Effect.result(context.health.canonicalObservations);
-      if (Result.isFailure(observations)) return [];
-      return observations.success.flatMap(
+      if (Result.isFailure(observations)) return unmanagedFindings;
+      const observedFindings = observations.success.flatMap(
         ({ desired, observation }): ReadonlyArray<AdvisoryFinding> => {
           if (
             desired.type !== "knowledge" ||
@@ -38,5 +61,6 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
           ];
         },
       );
+      return [...unmanagedFindings, ...observedFindings];
     }),
 };

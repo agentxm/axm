@@ -327,7 +327,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       runWorkspaceTransaction({
         workspaceDir,
         semaphore: transactionSemaphore,
-        targets: [settingsPath, ...(args.targets ?? [])],
+        targets: [settingsPath, path.join(workspaceDir, LOCKFILE_NAME), ...(args.targets ?? [])],
         transition: args.transition,
         validate: args.validate,
       }).pipe(Effect.provide(fsLayer));

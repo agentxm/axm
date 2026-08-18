@@ -723,7 +723,11 @@ export const KnowledgeManagerLive = Layer.effect(
             // sibling still installing in the same closure defers the write to
             // the closure's final reconcile.
             yield* reconcileDiscovery({ onUnready: "skip" });
-            return { ...committed, prepared };
+            // The workspace transaction owns a nested scope. Settle the staged
+            // package before that scope closes; a later postcondition failure
+            // still restores the transaction snapshot.
+            yield* prepared.commit;
+            return committed;
           }),
           validate: ({ name }) =>
             isObservedInstalled(ws, "knowledge", name).pipe(
@@ -738,7 +742,6 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
         })
         .pipe(
-          Effect.tap(({ prepared }) => prepared.commit),
           Effect.scoped,
           Effect.tapError(() =>
             Effect.sync(() => {
@@ -763,13 +766,17 @@ export const KnowledgeManagerLive = Layer.effect(
         const root = Option.flatMap(canonical, (state) =>
           Option.fromUndefinedOr(state.observation.path),
         );
-        if (Option.isSome(root)) {
-          yield* protectWorkspacePath(root.value);
-          yield* fs.remove(root.value, { recursive: true, force: true }).pipe(
+        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+        const ownedRoot = Option.orElse(root, () =>
+          Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
+        );
+        if (Option.isSome(ownedRoot)) {
+          yield* protectWorkspacePath(ownedRoot.value);
+          yield* fs.remove(ownedRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
               makeAppError({
                 code: "internal",
-                detail: `Failed to remove Knowledge package source: ${root.value}`,
+                detail: `Failed to remove Knowledge package source: ${ownedRoot.value}`,
                 cause: error,
               }),
             ),

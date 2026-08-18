@@ -68,6 +68,11 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import {
+  extensionConstraintFactText,
+  makeProspectiveExtensionConstraintFacts,
+  type ExtensionConstraintInvariantFact,
+} from "@agentxm/client-core/unstable/projection";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
 import {
@@ -274,15 +279,6 @@ const publicPublishCause = (error: AppError) => ({
   message: redactSensitiveText(error.detail),
 });
 
-export interface LocalPackConstraintConflict {
-  readonly memberFqn: string;
-  readonly memberVersion: string;
-  readonly packFqn: string;
-  readonly packAuthority: "workspace" | "registry";
-  readonly manifestPath: string;
-  readonly constraint: string;
-}
-
 interface LocalPackConstraintCandidate {
   readonly fqn: string;
   readonly type: PublishableType;
@@ -290,55 +286,6 @@ interface LocalPackConstraintCandidate {
   readonly version: Version;
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
 }
-
-/**
- * Evaluate selected authored leaves against only the packs represented by the
- * current workspace. A selected pack manifest takes precedence because it is
- * the prospective local state for the same publish attempt.
- */
-export const findLocalPackConstraintConflicts = (args: {
-  readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
-  readonly reachability: ReadonlyArray<PackDependencyReachability>;
-}): ReadonlyArray<LocalPackConstraintConflict> => {
-  const selectedPacks = new Map(
-    args.candidates
-      .filter((candidate) => candidate.type === "pack")
-      .map((candidate) => [candidate.fqn, candidate]),
-  );
-  const recordsByMember = new Map<string, Array<PackDependencyReachability>>();
-  for (const record of args.reachability) {
-    const current = recordsByMember.get(record.memberFqn);
-    if (current === undefined) recordsByMember.set(record.memberFqn, [record]);
-    else current.push(record);
-  }
-
-  return args.candidates
-    .filter((candidate) => candidate.authored && candidate.type !== "pack")
-    .flatMap((candidate) =>
-      (recordsByMember.get(candidate.fqn) ?? []).flatMap((record) => {
-        const selectedPack = selectedPacks.get(record.packFqn);
-        const constraint =
-          selectedPack === undefined
-            ? record.constraint
-            : selectedPack.dependencies?.[candidate.fqn];
-        if (constraint === undefined || semver.satisfies(candidate.version, constraint)) return [];
-        return [
-          {
-            memberFqn: candidate.fqn,
-            memberVersion: candidate.version,
-            packFqn: record.packFqn,
-            packAuthority: record.packAuthority,
-            manifestPath: record.manifestPath,
-            constraint,
-          },
-        ];
-      }),
-    )
-    .sort(
-      (left, right) =>
-        left.packFqn.localeCompare(right.packFqn) || left.memberFqn.localeCompare(right.memberFqn),
-    );
-};
 
 export const findPackPublishDivergenceFindings = (args: {
   readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
@@ -398,47 +345,44 @@ export const findPackPublishDivergenceFindings = (args: {
 };
 
 const localPackConstraintErrors = (
-  conflicts: ReadonlyArray<LocalPackConstraintConflict>,
+  facts: ReadonlyArray<ExtensionConstraintInvariantFact>,
 ): ReadonlyMap<string, AppError> => {
-  const byMember = new Map<string, Array<LocalPackConstraintConflict>>();
-  for (const conflict of conflicts) {
-    const current = byMember.get(conflict.memberFqn);
-    if (current === undefined) byMember.set(conflict.memberFqn, [conflict]);
-    else current.push(conflict);
-  }
   return new Map(
-    [...byMember.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([memberFqn, memberConflicts]) => {
-        const memberVersion = memberConflicts[0]?.memberVersion ?? "unknown";
-        return [
-          memberFqn,
-          makeAppError({
-            code: "validation",
-            detail: `${memberFqn}@${memberVersion} is excluded by the current workspace pack constraints: ${memberConflicts
-              .map((conflict) => `${conflict.packFqn} declares ${conflict.constraint}`)
-              .join("; ")}`,
-            suggestions: memberConflicts.flatMap((conflict) =>
-              conflict.packAuthority === "workspace"
-                ? [
-                    {
-                      description: `Replace ${conflict.packFqn}'s constraint with the selected version, then publish the member and pack together`,
-                      cmd: `axm packs add ${conflict.packFqn} ${conflict.memberFqn}`,
-                    },
-                  ]
-                : [
-                    {
-                      description: `Update ${conflict.packFqn} if its owner has published a compatible constraint`,
-                      cmd: `axm update ${conflict.packFqn}`,
-                    },
-                    {
-                      description: `Otherwise stop workspace authority from shadowing ${conflict.memberFqn}`,
-                    },
-                  ],
-            ),
-          }),
-        ];
-      }),
+    facts.map((fact) => {
+      const memberFqn = fact.subject.identity;
+      const memberVersion = fact.observation.candidateVersion ?? "unknown";
+      const violations = fact.observation.violations ?? [];
+      return [
+        memberFqn,
+        makeAppError({
+          code: "validation",
+          detail: `${extensionConstraintFactText(fact)}; ${memberFqn}@${memberVersion} is excluded by the current workspace Pack constraints: ${violations
+            .map(
+              (constraint) =>
+                `${constraint.dependingPack ?? "unknown Pack"} declares ${constraint.range}`,
+            )
+            .join("; ")}`,
+          suggestions: violations.flatMap((constraint) =>
+            constraint.authority === "workspace"
+              ? [
+                  {
+                    description: `Replace ${constraint.dependingPack ?? "the Pack"}'s constraint with the selected version, then publish the member and pack together`,
+                    cmd: `axm packs add ${constraint.dependingPack ?? "<pack>"} ${memberFqn}`,
+                  },
+                ]
+              : [
+                  {
+                    description: `Update ${constraint.dependingPack ?? "the Pack"} if its owner has published a compatible constraint`,
+                    cmd: `axm update ${constraint.dependingPack ?? "<pack>"}`,
+                  },
+                  {
+                    description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
+                  },
+                ],
+          ),
+        }),
+      ];
+    }),
   );
 };
 
@@ -1837,11 +1781,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
         return yield* lintWorkspace.rule.packDependencyReachability ?? Effect.succeed([]);
       })
     : [];
-  const localConflicts = findLocalPackConstraintConflicts({
-    candidates: decodedCandidates,
+  const localConstraintFacts = makeProspectiveExtensionConstraintFacts({
+    candidates: decodedCandidates.filter(
+      (candidate) => candidate.type === "pack" || candidate.authored,
+    ),
     reachability: packDependencyReachability,
   });
-  const localErrorsByMember = localPackConstraintErrors(localConflicts);
+  const localErrorsByMember = localPackConstraintErrors(localConstraintFacts);
   const preflightErrors = [...decodedPreflightErrors, ...localErrorsByMember.values()];
   const selectionOutput = {
     mode: selection.mode,

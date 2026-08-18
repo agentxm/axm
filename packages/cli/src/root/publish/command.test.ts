@@ -50,7 +50,6 @@ import {
   aggregatePublishFailure,
   buildPublishJobs,
   exactPublishUploadBinding,
-  findLocalPackConstraintConflicts,
   findPackPublishDivergenceFindings,
   handleRootPublish,
   makeExactPublishRecovery,
@@ -61,125 +60,6 @@ import {
   PUBLISHABLE_TYPES,
   isPublishableType,
 } from "./command.js";
-
-describe("local publish pack-constraint preflight", () => {
-  const currentReachability = [
-    {
-      packFqn: "@acme/packs/reviewers",
-      packAuthority: "workspace",
-      manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
-      memberFqn: "@acme/skills/review",
-      constraint: "^0.0.4",
-      memberVersion: "0.0.5",
-      memberAuthority: "workspace",
-      classification: "excluded",
-    },
-  ] as const;
-
-  it("reports every current workspace pack that excludes a selected authored leaf", () => {
-    expect(
-      findLocalPackConstraintConflicts({
-        candidates: [
-          {
-            fqn: "@acme/skills/review",
-            type: "skill",
-            authored: true,
-            version: exactVersion("0.0.5"),
-          },
-        ],
-        reachability: [
-          ...currentReachability,
-          {
-            ...currentReachability[0],
-            packFqn: "@acme/packs/quality",
-            constraint: "^0.0.3",
-          },
-        ],
-      }),
-    ).toEqual([
-      expect.objectContaining({
-        packFqn: "@acme/packs/quality",
-        memberFqn: "@acme/skills/review",
-        memberVersion: "0.0.5",
-        constraint: "^0.0.3",
-      }),
-      expect.objectContaining({
-        packFqn: "@acme/packs/reviewers",
-        memberFqn: "@acme/skills/review",
-        memberVersion: "0.0.5",
-        constraint: "^0.0.4",
-      }),
-    ]);
-  });
-
-  it("uses a coordinated selected pack manifest as the prospective constraint", () => {
-    const leaf = {
-      fqn: "@acme/skills/review",
-      type: "skill" as const,
-      authored: true,
-      version: exactVersion("0.0.5"),
-    };
-    expect(
-      findLocalPackConstraintConflicts({
-        candidates: [
-          leaf,
-          {
-            fqn: "@acme/packs/reviewers",
-            type: "pack",
-            authored: true,
-            version: exactVersion("0.1.1"),
-            dependencies: { "@acme/skills/review": versionRange("^0.0.5") },
-          },
-        ],
-        reachability: currentReachability,
-      }),
-    ).toEqual([]);
-
-    expect(
-      findLocalPackConstraintConflicts({
-        candidates: [
-          leaf,
-          {
-            fqn: "@acme/packs/reviewers",
-            type: "pack",
-            authored: true,
-            version: exactVersion("0.1.1"),
-            dependencies: { "@acme/skills/review": versionRange("^0.0.4") },
-          },
-        ],
-        reachability: currentReachability,
-      }),
-    ).toHaveLength(1);
-  });
-
-  it("ignores unselected, non-authored, unrelated, and satisfying leaves", () => {
-    expect(
-      findLocalPackConstraintConflicts({
-        candidates: [
-          {
-            fqn: "@acme/skills/review",
-            type: "skill",
-            authored: false,
-            version: exactVersion("0.0.5"),
-          },
-          {
-            fqn: "@acme/skills/other",
-            type: "skill",
-            authored: true,
-            version: exactVersion("2.0.0"),
-          },
-          {
-            fqn: "@acme/skills/review",
-            type: "skill",
-            authored: true,
-            version: exactVersion("0.0.4"),
-          },
-        ],
-        reachability: currentReachability,
-      }),
-    ).toEqual([]);
-  });
-});
 
 describe("pack publish resolution divergence", () => {
   const packCandidate = {
@@ -448,6 +328,7 @@ describe("root publish", () => {
           );
 
           expect(error.code).toBe("validation");
+          expect(error.detail).toContain("fact=workspace/extension-constraints-satisfied");
           expect(error.detail).toContain("@acme/skills/review@0.0.5");
           expect(error.detail).toContain("@acme/packs/reviewers declares ^0.0.4");
           expect(error.suggestions).toContainEqual({
@@ -455,6 +336,45 @@ describe("root publish", () => {
               "Replace @acme/packs/reviewers's constraint with the selected version, then publish the member and pack together",
             cmd: "axm packs add @acme/packs/reviewers @acme/skills/review",
           });
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@acme", "skills", "review", "0.0.5.zip"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("blocks explicit preview and authored bulk selection with the same fact", () => {
+      writeAuthoredReviewPackWorkspace({ skillVersion: "0.0.5", constraint: "^0.0.4" });
+      const { provide } = makeContext(false);
+      const registryRoot = path.join(tempDir, "registry");
+      const registryUrl = pathToFileURL(registryRoot).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const previewError = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, {
+                selectors: ["@acme/skills/review"],
+                preview: true,
+              }),
+            ).pipe(Effect.flip),
+          );
+          const bulkError = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, {
+                authored: true,
+                preview: false,
+              }),
+            ).pipe(Effect.flip),
+          );
+
+          for (const error of [previewError, bulkError]) {
+            expect(error.code).toBe("validation");
+            expect(error.detail).toContain("fact=workspace/extension-constraints-satisfied");
+            expect(error.detail).toContain("@acme/packs/reviewers declares ^0.0.4");
+          }
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@acme", "skills", "review", "0.0.5.zip"),

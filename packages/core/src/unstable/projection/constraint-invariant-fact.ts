@@ -5,7 +5,11 @@
  */
 
 import * as semver from "semver";
-import type { ExtensionType } from "../extensions/index.js";
+import { parseExtensionFqnParts, type ExtensionType } from "../extensions/index.js";
+import type {
+  PackDependencyAuthority,
+  PackDependencyReachability,
+} from "../packs/dependency-reachability.js";
 import type {
   CanonicalConstraintContributor,
   CanonicalConstraintMismatchObservation,
@@ -14,6 +18,10 @@ import type { DesiredExtensionNode } from "../workspace/desired-state-graph.js";
 
 export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
+
+export interface ExtensionConstraintFactContributor extends CanonicalConstraintContributor {
+  readonly authority?: PackDependencyAuthority;
+}
 
 export interface ExtensionConstraintInvariantFact {
   readonly predicate: typeof EXTENSION_CONSTRAINT_INVARIANT_PREDICATE;
@@ -24,20 +32,117 @@ export interface ExtensionConstraintInvariantFact {
     readonly path?: string;
   };
   readonly authority: {
-    readonly source: "desired-state-graph";
+    readonly source: "desired-state-graph" | "prospective-publish-selection";
     readonly locator: string;
-    readonly constraints: ReadonlyArray<CanonicalConstraintContributor>;
+    readonly constraints: ReadonlyArray<ExtensionConstraintFactContributor>;
   };
   readonly observation: {
     readonly status: "constraint-mismatch";
     readonly acceptedVersion?: string;
     readonly observedVersion?: string;
+    readonly candidateVersion?: string;
+    readonly violations?: ReadonlyArray<ExtensionConstraintFactContributor>;
   };
   readonly expectation: {
     readonly status: "satisfied";
     readonly ranges: ReadonlyArray<string>;
   };
 }
+
+export interface ProspectiveExtensionConstraintCandidate {
+  readonly fqn: string;
+  readonly type: ExtensionType;
+  readonly version: string;
+  readonly dependencies?: Readonly<Record<string, string>>;
+}
+
+const constraintContributorOrder = (
+  left: ExtensionConstraintFactContributor,
+  right: ExtensionConstraintFactContributor,
+): number =>
+  (left.dependingPack ?? "").localeCompare(right.dependingPack ?? "") ||
+  left.range.localeCompare(right.range) ||
+  left.location.localeCompare(right.location);
+
+/**
+ * Evaluate prospective selected versions against the locally represented Pack
+ * constraints. Selected Pack manifests replace their current local declaration
+ * for this fact evaluation, matching the state that a coordinated publication
+ * would establish.
+ */
+export const makeProspectiveExtensionConstraintFacts = (args: {
+  readonly candidates: ReadonlyArray<ProspectiveExtensionConstraintCandidate>;
+  readonly reachability: ReadonlyArray<PackDependencyReachability>;
+}): ReadonlyArray<ExtensionConstraintInvariantFact> => {
+  const selectedPacks = new Map(
+    args.candidates
+      .filter((candidate) => candidate.type === "pack")
+      .map((candidate) => [candidate.fqn, candidate]),
+  );
+  const recordsByMember = new Map<string, Array<PackDependencyReachability>>();
+  for (const record of args.reachability) {
+    const current = recordsByMember.get(record.memberFqn);
+    if (current === undefined) recordsByMember.set(record.memberFqn, [record]);
+    else current.push(record);
+  }
+
+  return args.candidates
+    .filter((candidate) => candidate.type !== "pack")
+    .flatMap((candidate): ReadonlyArray<ExtensionConstraintInvariantFact> => {
+      const parsed = parseExtensionFqnParts(candidate.fqn);
+      if (parsed === undefined || parsed.type !== candidate.type) return [];
+      const constraints = (recordsByMember.get(candidate.fqn) ?? [])
+        .flatMap((record): ReadonlyArray<ExtensionConstraintFactContributor> => {
+          const selectedPack = selectedPacks.get(record.packFqn);
+          const range =
+            selectedPack === undefined
+              ? record.constraint
+              : selectedPack.dependencies?.[candidate.fqn];
+          if (range === undefined) return [];
+          return [
+            {
+              source: "pack",
+              dependingPack: record.packFqn,
+              range,
+              location: record.manifestPath,
+              authority: selectedPack === undefined ? record.packAuthority : "workspace",
+            },
+          ];
+        })
+        .sort(constraintContributorOrder);
+      const violations = constraints.filter(
+        (constraint) => !semver.satisfies(candidate.version, constraint.range),
+      );
+      if (violations.length === 0) return [];
+      return [
+        {
+          predicate: EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
+          subject: {
+            type: parsed.type,
+            name: parsed.name,
+            identity: candidate.fqn,
+          },
+          authority: {
+            source: "prospective-publish-selection",
+            locator: `${candidate.fqn}@${candidate.version}`,
+            constraints,
+          },
+          observation: {
+            status: "constraint-mismatch",
+            candidateVersion: candidate.version,
+            violations,
+          },
+          expectation: {
+            status: "satisfied",
+            ranges: constraints
+              .map(({ range }) => range)
+              .sort((left, right) => left.localeCompare(right)),
+          },
+        },
+      ];
+    })
+    .sort((left, right) => left.subject.identity.localeCompare(right.subject.identity));
+};
 
 export type ExtensionConstraintPlanningDecision =
   | {
@@ -105,7 +210,7 @@ export const planExtensionConstraintFact = (
   };
 };
 
-const contributorText = (contributor: CanonicalConstraintContributor): string =>
+const contributorText = (contributor: ExtensionConstraintFactContributor): string =>
   contributor.source === "pack"
     ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
     : `settings range=${contributor.range} location=${contributor.location}`;
@@ -120,6 +225,9 @@ export const extensionConstraintFactText = (fact: ExtensionConstraintInvariantFa
     fact.observation.observedVersion === undefined
       ? undefined
       : `observed version=${fact.observation.observedVersion}`,
+    fact.observation.candidateVersion === undefined
+      ? undefined
+      : `candidate version=${fact.observation.candidateVersion}`,
   ].filter((part): part is string => part !== undefined);
   return [
     `fact=${fact.predicate}`,

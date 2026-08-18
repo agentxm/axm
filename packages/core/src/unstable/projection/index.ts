@@ -9,9 +9,12 @@ export {
   EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
+  makeProspectiveExtensionConstraintFacts,
   planExtensionConstraintFact,
+  type ExtensionConstraintFactContributor,
   type ExtensionConstraintInvariantFact,
   type ExtensionConstraintPlanningDecision,
+  type ProspectiveExtensionConstraintCandidate,
 } from "./constraint-invariant-fact.js";
 export {
   activeContributors,

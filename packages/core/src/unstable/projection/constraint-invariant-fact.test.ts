@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
+  makeProspectiveExtensionConstraintFacts,
   planExtensionConstraintFact,
 } from "./constraint-invariant-fact.js";
 import type { CanonicalConstraintMismatchObservation } from "../workspace/canonical-observation.js";
@@ -62,6 +63,109 @@ describe("extension constraint invariant facts", () => {
     });
     expect(extensionConstraintFactText(fact)).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
     expect(extensionConstraintFactText(fact)).toContain("@acme/packs/beta range=^2.1.0");
+  });
+
+  it("derives prospective publish facts from every locally represented Pack constraint", () => {
+    const facts = makeProspectiveExtensionConstraintFacts({
+      candidates: [
+        {
+          fqn: "@acme/skills/review",
+          type: "skill",
+          version: "0.0.5",
+        },
+      ],
+      reachability: [
+        {
+          packFqn: "@acme/packs/quality",
+          packAuthority: "registry",
+          manifestPath: ".axm/extensions/@acme/packs/quality/pack.json",
+          memberFqn: "@acme/skills/review",
+          constraint: "^0.0.3",
+          memberVersion: "0.0.4",
+          memberAuthority: "workspace",
+          classification: "excluded",
+        },
+        {
+          packFqn: "@acme/packs/reviewers",
+          packAuthority: "workspace",
+          manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+          memberFqn: "@acme/skills/review",
+          constraint: "^0.0.4",
+          memberVersion: "0.0.4",
+          memberAuthority: "workspace",
+          classification: "satisfying",
+        },
+      ],
+    });
+
+    expect(facts).toHaveLength(1);
+    expect(facts[0]).toMatchObject({
+      predicate: "workspace/extension-constraints-satisfied",
+      subject: { identity: "@acme/skills/review" },
+      authority: {
+        source: "prospective-publish-selection",
+        constraints: [
+          { dependingPack: "@acme/packs/quality", range: "^0.0.3", authority: "registry" },
+          { dependingPack: "@acme/packs/reviewers", range: "^0.0.4", authority: "workspace" },
+        ],
+      },
+      observation: {
+        candidateVersion: "0.0.5",
+        violations: [
+          { dependingPack: "@acme/packs/quality", range: "^0.0.3" },
+          { dependingPack: "@acme/packs/reviewers", range: "^0.0.4" },
+        ],
+      },
+    });
+  });
+
+  it("uses selected Pack manifests as prospective state", () => {
+    const reachability = [
+      {
+        packFqn: "@acme/packs/reviewers",
+        packAuthority: "workspace" as const,
+        manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+        memberFqn: "@acme/skills/review",
+        constraint: "^0.0.4",
+        memberVersion: "0.0.4",
+        memberAuthority: "workspace" as const,
+        classification: "satisfying" as const,
+      },
+    ];
+    const leaf = {
+      fqn: "@acme/skills/review",
+      type: "skill" as const,
+      version: "0.0.5",
+    };
+
+    expect(
+      makeProspectiveExtensionConstraintFacts({
+        candidates: [
+          leaf,
+          {
+            fqn: "@acme/packs/reviewers",
+            type: "pack",
+            version: "0.1.1",
+            dependencies: { "@acme/skills/review": "^0.0.5" },
+          },
+        ],
+        reachability,
+      }),
+    ).toEqual([]);
+    expect(
+      makeProspectiveExtensionConstraintFacts({
+        candidates: [
+          leaf,
+          {
+            fqn: "@acme/packs/reviewers",
+            type: "pack",
+            version: "0.1.1",
+            dependencies: { "@acme/skills/review": "^0.0.4" },
+          },
+        ],
+        reachability,
+      }),
+    ).toHaveLength(1);
   });
 
   it("returns a stable blocker when no satisfying candidate exists", () => {

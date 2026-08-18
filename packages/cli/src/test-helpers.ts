@@ -35,14 +35,11 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { ExecutionDirectory } from "./execution-directory.js";
 
-const testHttpLayer = Layer.succeed(
-  HttpClient.HttpClient,
-  HttpClient.make((request) =>
-    Effect.succeed(
-      HttpClientResponse.fromWeb(
-        request,
-        new Response("Unexpected test HTTP request", { status: 500 }),
-      ),
+const testHttpClient = HttpClient.make((request) =>
+  Effect.succeed(
+    HttpClientResponse.fromWeb(
+      request,
+      new Response("Unexpected test HTTP request", { status: 500 }),
     ),
   ),
 );
@@ -381,6 +378,7 @@ export const makeCliTestContext = (opts?: {
       }
     | undefined;
   readonly machine?: boolean | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = renderer.layer;
@@ -432,7 +430,7 @@ export const makeCliTestContext = (opts?: {
   });
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
-    testHttpLayer,
+    Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     rendererLayer,
     authGuardTest.layer,
     resolvePlanTest.layer,
@@ -486,6 +484,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       }
     | undefined;
   readonly machine?: boolean | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
         readonly projectRoot?: string;

@@ -39,6 +39,7 @@ import { stripFileProtocol } from "../utils/index.js";
 import { makeUserArchiveCache } from "./archive-cache.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
+import type { RegistryRequestPolicy } from "./request-policy.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
 import type {
   PreviewPublicationSetRequest,
@@ -395,12 +396,15 @@ export interface RegistryClient {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createRegistryClient = (location: string) =>
+export const createRegistryClient = (
+  location: string,
+  options?: { readonly requestPolicy?: RegistryRequestPolicy },
+) =>
   Effect.gen(function* () {
     if (location.startsWith("https://") || location.startsWith("http://")) {
       const httpClient = yield* HttpClient.HttpClient;
       const archiveCache = yield* makeUserArchiveCache();
-      return createRemoteRegistryClient(location, httpClient, archiveCache);
+      return createRemoteRegistryClient(location, httpClient, archiveCache, options?.requestPolicy);
     }
 
     const localPath = location.startsWith("file://") ? stripFileProtocol(location) : location;

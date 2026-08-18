@@ -111,6 +111,12 @@ export { createLocalRegistryClient } from "./local-client.js";
 
 // Remote client
 export { createRemoteRegistryClient } from "./remote-client.js";
+export {
+  DEFAULT_REGISTRY_REQUEST_POLICY,
+  executeRegistryRequest,
+  type RegistryRequestPolicy,
+  type RegistryRequestReplaySafety,
+} from "./request-policy.js";
 
 export type {
   ArchiveCache,

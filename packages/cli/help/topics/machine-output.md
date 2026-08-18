@@ -83,6 +83,22 @@ The matching stderr stream ends with an event such as:
 Normal, verbose, and debug error surfaces redact credentials from metadata,
 response bodies, causes, stacks, URLs, suggestions, and telemetry.
 
+## Registry request recovery
+
+Every Registry request has a 10-second attempt timeout and a 30-second total
+deadline. AXM may make at most three attempts for replay-safe reads, using
+capped exponential backoff with jitter. A `Retry-After` response header, or
+typed `retryAfterSeconds` guidance on a 429 or 503 response, can extend that
+backoff only when the next attempt still fits inside the total deadline.
+
+AXM does not automatically retry a Registry mutation unless the request has a
+Registry-supported idempotency key that makes exact replay safe. Cancellation
+interrupts an active request or retry delay immediately. After retries are
+exhausted, automation receives one final error envelope and nonzero exit; use
+its stable `code`, request metadata, response request ID, and problem code for
+diagnostics. Debug stderr records attempt evidence without changing the stdout
+contract.
+
 ## Consumption
 
 - Parse the entire stdout buffer once; ordinary `--json` is not a result stream.

@@ -15,7 +15,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { createRemoteRegistryClient } from "./remote-client.js";
+import { createRemoteRegistryClient as createRemoteRegistryClientWithPolicy } from "./remote-client.js";
+import type { RegistryRequestPolicy } from "./request-policy.js";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -39,6 +40,20 @@ import {
 const BASE_URL = "https://registry.agentxm.ai";
 const registryOwner = handle("@acme");
 const skillName = extensionName("test-skill");
+const TEST_REQUEST_POLICY: RegistryRequestPolicy = {
+  requestTimeout: "1 second",
+  totalDeadline: "2 seconds",
+  maxAttempts: 3,
+  initialBackoff: "0 millis",
+  maxBackoff: "0 millis",
+};
+
+const createRemoteRegistryClient = (
+  baseUrl: string,
+  httpClient: HttpClient.HttpClient,
+  archiveCache?: ArchiveCache,
+  requestPolicy: RegistryRequestPolicy = TEST_REQUEST_POLICY,
+) => createRemoteRegistryClientWithPolicy(baseUrl, httpClient, archiveCache, requestPolicy);
 
 const makeIndexArgs = (name = "test-skill") => ({
   owner: registryOwner,
@@ -192,6 +207,33 @@ const getErrorKind = (status: number): string => {
 // =============================================================================
 
 describe("getExtensionIndex", () => {
+  it.effect("retries a transient read without changing the request", () =>
+    Effect.gen(function* () {
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return requestedUrls.length === 1
+          ? typedErrorResponse(503, "service_unavailable", "Try again")
+          : new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, undefined, {
+        requestTimeout: "1 second",
+        totalDeadline: "2 seconds",
+        maxAttempts: 2,
+        initialBackoff: "0 millis",
+        maxBackoff: "0 millis",
+      });
+
+      const result = yield* client.getExtensionIndex(makeIndexArgs());
+
+      expect(Option.isSome(result)).toBe(true);
+      expect(requestedUrls).toEqual([
+        `${BASE_URL}/v1/extensions/@acme/skills/test-skill`,
+        `${BASE_URL}/v1/extensions/@acme/skills/test-skill`,
+      ]);
+    }),
+  );
+
   it.effect("returns Option.some(ExtensionIndex) on success", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
@@ -958,6 +1000,28 @@ const publishArgs = {
 };
 
 describe("publishExtension", () => {
+  it.effect("does not retry a transient publish response without an idempotency key", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+      const httpClient = makeMockHttpClient(() => {
+        attempts++;
+        return typedErrorResponse(503, "service_unavailable", "Try again");
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, undefined, {
+        requestTimeout: "1 second",
+        totalDeadline: "2 seconds",
+        maxAttempts: 3,
+        initialBackoff: "0 millis",
+        maxBackoff: "0 millis",
+      });
+
+      const error = yield* runFailure(client.publishExtension(publishArgs));
+
+      expect(error.code).toBe("unavailable");
+      expect(attempts).toBe(1);
+    }),
+  );
+
   it.effect("uploads the exact ZIP bytes with required digest headers", () =>
     Effect.gen(function* () {
       let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;

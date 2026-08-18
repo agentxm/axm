@@ -13,6 +13,11 @@ import {
   mapSchemaError,
 } from "./error-mapping.js";
 import { registryClientErrorToAppError } from "./translate.js";
+import {
+  executeRegistryRequest,
+  type RegistryRequestPolicy,
+  type RegistryRequestReplaySafety,
+} from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   DeprecationManagementView,
@@ -35,6 +40,7 @@ export type YankCategory = "broken" | "security" | "accidental" | "other";
 
 export interface RegistryLifecycleCallOptions {
   readonly stepUpRequestId?: string;
+  readonly requestPolicy?: RegistryRequestPolicy;
 }
 
 export interface PutExtensionDeprecationInput {
@@ -142,13 +148,35 @@ const makeLifecycleClient = (options?: RegistryLifecycleCallOptions) =>
     return {
       registryUrl,
       client: GeneratedRegistryClient.make(remoteHttpClient),
+      requestPolicy: options?.requestPolicy,
     };
   });
 
 const runAdminCall = <A, R>(
   registryUrl: string,
   effect: Effect.Effect<A, unknown, R>,
-): Effect.Effect<A, AppError, R> => effect.pipe(Effect.mapError(mapAdminClientError(registryUrl)));
+  args: {
+    readonly operation: string;
+    readonly method: string;
+    readonly path: string;
+    readonly replaySafety: RegistryRequestReplaySafety;
+    readonly requestPolicy?: RegistryRequestPolicy;
+  },
+): Effect.Effect<A, AppError, R> =>
+  executeRegistryRequest(effect, {
+    operation: args.operation,
+    request: {
+      service: "registry",
+      method: args.method,
+      url: new URL(args.path, registryUrl).href,
+    },
+    replaySafety: args.replaySafety,
+    mapError: mapAdminClientError(registryUrl),
+    ...(args.requestPolicy === undefined ? {} : { policy: args.requestPolicy }),
+  });
+
+const safe = { kind: "safe" } as const;
+const mutation = { kind: "mutation" } as const;
 
 export const yankExtensionVersion = (
   ref: RegistryExtensionVersionReference,
@@ -156,7 +184,7 @@ export const yankExtensionVersion = (
   options?: RegistryLifecycleCallOptions,
 ) =>
   Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    const { client, registryUrl, requestPolicy } = yield* makeLifecycleClient(options);
     return yield* runAdminCall(
       registryUrl,
       client.ExtensionsYankVersion(ref.owner, ref.type, ref.name, ref.version, {
@@ -165,6 +193,13 @@ export const yankExtensionVersion = (
           ...(input.notice === undefined ? {} : { notice: input.notice }),
         },
       }),
+      {
+        operation: "yank extension version",
+        method: "POST",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/${ref.version}/yank`,
+        replaySafety: mutation,
+        ...(requestPolicy === undefined ? {} : { requestPolicy }),
+      },
     );
   });
 
@@ -174,7 +209,7 @@ export const yankAvailableExtensionVersions = (
   options?: RegistryLifecycleCallOptions,
 ) =>
   Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    const { client, registryUrl, requestPolicy } = yield* makeLifecycleClient(options);
     return yield* runAdminCall(
       registryUrl,
       client.ExtensionsYankAvailableVersions(ref.owner, ref.type, ref.name, {
@@ -184,6 +219,13 @@ export const yankAvailableExtensionVersions = (
           ...(input.notice === undefined ? {} : { notice: input.notice }),
         },
       }),
+      {
+        operation: "yank available extension versions",
+        method: "POST",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/versions/yank`,
+        replaySafety: mutation,
+        ...(requestPolicy === undefined ? {} : { requestPolicy }),
+      },
     );
   });
 
@@ -192,10 +234,17 @@ export const unyankExtensionVersion = (
   options?: RegistryLifecycleCallOptions,
 ) =>
   Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    const { client, registryUrl, requestPolicy } = yield* makeLifecycleClient(options);
     return yield* runAdminCall(
       registryUrl,
       client.ExtensionsUnyankVersion(ref.owner, ref.type, ref.name, ref.version, undefined),
+      {
+        operation: "unyank extension version",
+        method: "DELETE",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/${ref.version}/yank`,
+        replaySafety: mutation,
+        ...(requestPolicy === undefined ? {} : { requestPolicy }),
+      },
     );
   });
 
@@ -205,6 +254,12 @@ export const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
     const result = yield* runAdminCall(
       registryUrl,
       client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
+      {
+        operation: "get extension deprecation",
+        method: "GET",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: safe,
+      },
     );
     return yield* normalizeManagementView(result);
   });
@@ -221,6 +276,12 @@ export const deprecateExtension = (
         params: { "if-match": input.revision },
         payload: { message: input.message, replacement: input.replacement },
       }),
+      {
+        operation: "deprecate extension",
+        method: "PUT",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: mutation,
+      },
     );
     return yield* normalizeTransition(result);
   });
@@ -233,6 +294,12 @@ export const undeprecateExtension = (ref: RegistryExtensionReference, revision: 
       client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
         params: { "if-match": revision },
       }),
+      {
+        operation: "undeprecate extension",
+        method: "DELETE",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: mutation,
+      },
     );
     return yield* normalizeTransition(result);
   });

@@ -11,7 +11,6 @@
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -66,6 +65,11 @@ import {
   buildNetworkDiagnosis,
 } from "./error-mapping.js";
 import { registryClientErrorToAppError } from "./translate.js";
+import {
+  executeRegistryRequest,
+  type RegistryRequestPolicy,
+  type RegistryRequestReplaySafety,
+} from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
@@ -290,6 +294,7 @@ export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
   archiveCache?: ArchiveCache,
+  requestPolicy?: RegistryRequestPolicy,
 ): RegistryClient => {
   const remoteHttpClient = httpClient.pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
@@ -305,22 +310,51 @@ export const createRemoteRegistryClient = (
         ),
       ),
   });
+  const executeRemoteRequest = <A, E>(
+    effect: Effect.Effect<A, E>,
+    args: {
+      readonly operation: string;
+      readonly method: string;
+      readonly path: string;
+      readonly replaySafety: RegistryRequestReplaySafety;
+      readonly mapError: (error: E) => AppError;
+    },
+  ) =>
+    executeRegistryRequest(effect, {
+      operation: args.operation,
+      request: registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
+      replaySafety: args.replaySafety,
+      mapError: args.mapError,
+      ...(requestPolicy === undefined ? {} : { policy: requestPolicy }),
+    });
+  const safe = { kind: "safe" } as const;
+  const mutation = { kind: "mutation" } as const;
 
   // ---------------------------------------------------------------------------
   // getExtensionIndex
   // ---------------------------------------------------------------------------
   const getExtensionIndex = (args: GetExtensionIndexArgs) =>
-    client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
-      // Resolve the HTTP outcome first (404 → absent), then decode the index in
-      // the effect so a schema-drift SchemaError is mapped through the error
-      // channel (mapDiscoveryError's isSchemaError branch) instead of throwing
-      // an uncatchable defect out of Effect.map.
-      Effect.map((response) => Option.some(response)),
-      Effect.catch((e) =>
-        isRegistryClientError("ExtensionsGet404")(e)
-          ? Effect.succeed(Option.none<ExtensionsGet200>())
-          : Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")),
+    executeRemoteRequest(
+      client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
+        // Resolve the HTTP outcome first (404 → absent), then decode the index in
+        // the effect so a schema-drift SchemaError is mapped through the error
+        // channel (mapDiscoveryError's isSchemaError branch) instead of throwing
+        // an uncatchable defect out of Effect.map.
+        Effect.map((response) => Option.some(response)),
+        Effect.catch((e) =>
+          isRegistryClientError("ExtensionsGet404")(e)
+            ? Effect.succeed(Option.none<ExtensionsGet200>())
+            : Effect.fail(e),
+        ),
       ),
+      {
+        operation: "get extension index",
+        method: "GET",
+        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+        replaySafety: safe,
+        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+      },
+    ).pipe(
       Effect.flatMap((response) =>
         Option.isNone(response)
           ? Effect.succeed(Option.none<ExtensionIndex>())
@@ -476,39 +510,48 @@ export const createRemoteRegistryClient = (
   const fetchExtensionList = (
     owner: Handle | "*",
   ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
-    client.ExtensionsListByOwner(owner, undefined).pipe(
-      Effect.map((response) => response.extensions),
-      mapDiscoveryErrors,
-    );
+    executeRemoteRequest(client.ExtensionsListByOwner(owner, undefined), {
+      operation: "list owner extensions",
+      method: "GET",
+      path: `/v1/extensions/${owner}`,
+      replaySafety: safe,
+      mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+    }).pipe(Effect.map((response) => response.extensions));
 
   const fetchExtensionListByType = (
     owner: Handle | "*",
     type: ExtensionType,
   ): Effect.Effect<ExtensionsListByOwner200["extensions"], AppError> =>
-    client.ExtensionsListByType(owner, pluralizeType(type), undefined).pipe(
-      Effect.map((response) => response.extensions),
-      mapDiscoveryErrors,
-    );
-
-  /**
-   * Shared error mapping for discovery (list/search) operations.
-   */
-  const mapDiscoveryErrors = <A>(effect: Effect.Effect<A, unknown>): Effect.Effect<A, AppError> =>
-    effect.pipe(Effect.mapError((e) => mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")));
+    executeRemoteRequest(client.ExtensionsListByType(owner, pluralizeType(type), undefined), {
+      operation: "list owner extensions by type",
+      method: "GET",
+      path: `/v1/extensions/${owner}/${pluralizeType(type)}`,
+      replaySafety: safe,
+      mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+    }).pipe(Effect.map((response) => response.extensions));
 
   // ---------------------------------------------------------------------------
   // ownerExists
   // ---------------------------------------------------------------------------
   const ownerExists = (owner: Handle): Effect.Effect<OwnerExistsResponse, AppError> =>
-    client.OwnersGetOwner(owner, undefined).pipe(
-      Effect.as({ exists: true } satisfies OwnerExistsResponse),
-      Effect.catch((e) => {
-        // 404 → not found
-        if (hasTagSuffix(e, "404")) {
-          return Effect.succeed({ exists: false } satisfies OwnerExistsResponse);
-        }
-        return Effect.fail(mapOwnerExistsError(e));
-      }),
+    executeRemoteRequest(
+      client.OwnersGetOwner(owner, undefined).pipe(
+        Effect.as({ exists: true } satisfies OwnerExistsResponse),
+        Effect.catch((e) => {
+          // 404 → not found
+          if (hasTagSuffix(e, "404")) {
+            return Effect.succeed({ exists: false } satisfies OwnerExistsResponse);
+          }
+          return Effect.fail(e);
+        }),
+      ),
+      {
+        operation: "get owner",
+        method: "GET",
+        path: `/v1/owners/${owner}`,
+        replaySafety: safe,
+        mapError: mapOwnerExistsError,
+      },
     );
 
   /**
@@ -543,9 +586,16 @@ export const createRemoteRegistryClient = (
   ): Effect.Effect<GetExtensionPackageResponse, AppError> =>
     Effect.gen(function* () {
       // Step 1: Fetch extension index
-      const indexResult = yield* client
-        .ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined)
-        .pipe(Effect.mapError((e) => mapPackageFetchError(e)));
+      const indexResult = yield* executeRemoteRequest(
+        client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
+        {
+          operation: "get package index",
+          method: "GET",
+          path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+          replaySafety: safe,
+          mapError: mapPackageFetchError,
+        },
+      );
 
       const index = yield* Effect.try({
         try: () => mapToExtensionIndex(indexResult),
@@ -576,15 +626,22 @@ export const createRemoteRegistryClient = (
       // Step 3: Download archive
       const archiveClient =
         args.usagePurpose === "verification" ? verificationArchiveClient : client;
-      const archive = yield* archiveClient
-        .ExtensionsDownloadArchive(
+      const archive = yield* executeRemoteRequest(
+        archiveClient.ExtensionsDownloadArchive(
           args.owner,
           pluralizeType(args.type),
           args.name,
           resolvedEntry.value.version,
           undefined,
-        )
-        .pipe(Effect.mapError((e) => mapArchiveFetchError(e)));
+        ),
+        {
+          operation: "download package archive",
+          method: "GET",
+          path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${resolvedEntry.value.version}/archive`,
+          replaySafety: safe,
+          mapError: mapArchiveFetchError,
+        },
+      );
 
       if (archiveCache !== undefined) {
         yield* archiveCache.write(resolvedEntry.value.integrity, archive);
@@ -662,14 +719,23 @@ export const createRemoteRegistryClient = (
   const extensionExists = (
     args: ExtensionExistsArgs,
   ): Effect.Effect<ExtensionExistsResponse, AppError> =>
-    client.ExtensionsHead(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
-      Effect.map(() => ({ exists: true }) satisfies ExtensionExistsResponse),
-      Effect.catch((e) => {
-        if (getTag(e) === "404") {
-          return Effect.succeed({ exists: false } satisfies ExtensionExistsResponse);
-        }
-        return Effect.fail(mapExtensionExistsError(e));
-      }),
+    executeRemoteRequest(
+      client.ExtensionsHead(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
+        Effect.map(() => ({ exists: true }) satisfies ExtensionExistsResponse),
+        Effect.catch((e) => {
+          if (getTag(e) === "404") {
+            return Effect.succeed({ exists: false } satisfies ExtensionExistsResponse);
+          }
+          return Effect.fail(e);
+        }),
+      ),
+      {
+        operation: "check extension",
+        method: "HEAD",
+        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+        replaySafety: safe,
+        mapError: mapExtensionExistsError,
+      },
     );
 
   /**
@@ -745,69 +811,82 @@ export const createRemoteRegistryClient = (
         ),
     });
 
-    return publishClient
-      .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
-        params: {
-          "if-match": args.condition,
-          "x-axm-publication-set-digest": args.publicationSetDigest,
-          "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
-          "x-axm-visibility-input": JSON.stringify(args.visibilityInput),
-          ...(args.visibility === undefined ? {} : { visibility: args.visibility.value }),
-        },
-      })
-      .pipe(
-        Effect.map(
-          (response) =>
-            ({
-              published: true,
-              owner: decodeHandleSync(response.owner),
-              type: narrowExtensionType(response.type),
-              name: decodeExtensionNameSync(response.name),
-              version: decodeVersionSync(response.version),
-              integrity: response.integrity,
-              status: response.publish_status,
-              visibility: response.visibility,
-              links: response.links,
-              warnings: response.warnings.map((warning) => ({
-                ruleId: warning.ruleId,
-                severity: "warning" as const,
-                message: warning.message,
-                suggestions: warning.suggestions.map(normalizeRegistrySuggestedAction),
-              })),
-            }) satisfies PublishExtensionResponse,
+    return executeRemoteRequest(
+      publishClient
+        .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
+          params: {
+            "if-match": args.condition,
+            "x-axm-publication-set-digest": args.publicationSetDigest,
+            "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
+            "x-axm-visibility-input": JSON.stringify(args.visibilityInput),
+            ...(args.visibility === undefined ? {} : { visibility: args.visibility.value }),
+          },
+        })
+        .pipe(
+          Effect.map(
+            (response) =>
+              ({
+                published: true,
+                owner: decodeHandleSync(response.owner),
+                type: narrowExtensionType(response.type),
+                name: decodeExtensionNameSync(response.name),
+                version: decodeVersionSync(response.version),
+                integrity: response.integrity,
+                status: response.publish_status,
+                visibility: response.visibility,
+                links: response.links,
+                warnings: response.warnings.map((warning) => ({
+                  ruleId: warning.ruleId,
+                  severity: "warning" as const,
+                  message: warning.message,
+                  suggestions: warning.suggestions.map(normalizeRegistrySuggestedAction),
+                })),
+              }) satisfies PublishExtensionResponse,
+          ),
         ),
-        // Single mapError handler for all error types to avoid error channel narrowing issues
-        Effect.mapError((e) =>
-          mapPublishError(e, networkSuggestions, networkDiagnosisDetails, publishRequest),
-        ),
-      );
+      {
+        operation: "publish extension version",
+        method: "PUT",
+        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
+        replaySafety: mutation,
+        mapError: (error) =>
+          mapPublishError(error, networkSuggestions, networkDiagnosisDetails, publishRequest),
+      },
+    );
   };
 
   const previewExtensionPublishes = (
     args: PreviewExtensionPublishesArgs,
   ): Effect.Effect<PublishPreviewResult, AppError> =>
-    client
-      .PublishPreviewsPreviewExtensionPublishes({
-        payload: encodePublicationSetRequest(args),
-        config: undefined,
-      })
-      .pipe(
-        Effect.flatMap((response) =>
-          Effect.try({
-            try: () =>
-              validatePublicationSetResponse(
-                validatePublicationDescriptors(args.candidates),
-                decodePublicationSetResponse(response),
-              ),
-            catch: (cause) =>
-              makeAppError({
-                code: "internal",
-                detail: "The registry returned an incompatible publication-set preview.",
-                cause,
-              }),
-          }),
+    executeRemoteRequest(
+      client
+        .PublishPreviewsPreviewExtensionPublishes({
+          payload: encodePublicationSetRequest(args),
+          config: undefined,
+        })
+        .pipe(
+          Effect.flatMap((response) =>
+            Effect.try({
+              try: () =>
+                validatePublicationSetResponse(
+                  validatePublicationDescriptors(args.candidates),
+                  decodePublicationSetResponse(response),
+                ),
+              catch: (cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: "The registry returned an incompatible publication-set preview.",
+                  cause,
+                }),
+            }),
+          ),
         ),
-        Effect.mapError((error) => {
+      {
+        operation: "preview extension publishes",
+        method: "POST",
+        path: "/v1/publish-previews",
+        replaySafety: safe,
+        mapError: (error) => {
           if (error instanceof AppError) return error;
           if (isHttpClientError(error)) {
             if (error.reason._tag === "StatusCodeError") {
@@ -851,8 +930,9 @@ export const createRemoteRegistryClient = (
             detail: "Publish preview failed",
             cause: error,
           });
-        }),
-      );
+        },
+      },
+    );
 
   const updateExtensionVisibility = (args: UpdateExtensionVisibilityArgs) => {
     const target = parseExtensionFqnParts(args.target);
@@ -868,8 +948,8 @@ export const createRemoteRegistryClient = (
       revision: args.revision,
       ...(args.verification === undefined ? {} : { verification: args.verification }),
     };
-    return client
-      .ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
+    return executeRemoteRequest(
+      client.ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
         params: {
           "if-match": args.revision,
           ...(args.verification === undefined
@@ -878,9 +958,13 @@ export const createRemoteRegistryClient = (
         },
         payload,
         config: undefined,
-      })
-      .pipe(
-        Effect.mapError((error) =>
+      }),
+      {
+        operation: "update extension visibility",
+        method: "PATCH",
+        path: `/v1/extensions/${target.owner}/${pluralizeType(target.type)}/${target.name}`,
+        replaySafety: mutation,
+        mapError: (error) =>
           isHttpClientError(error)
             ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
             : isAnyRegistryClientError(error)
@@ -890,13 +974,13 @@ export const createRemoteRegistryClient = (
                   detail: "Remote extension visibility update failed",
                   cause: error,
                 }),
-        ),
-      );
+      },
+    );
   };
 
   const getExtensionVisibility = (args: GetExtensionVisibilityArgs) =>
-    client
-      .ExtensionsGetVisibility(args.owner, pluralizeType(args.type), args.name, {
+    executeRemoteRequest(
+      client.ExtensionsGetVisibility(args.owner, pluralizeType(args.type), args.name, {
         ...(args.intent === null
           ? {}
           : {
@@ -907,9 +991,13 @@ export const createRemoteRegistryClient = (
               },
             }),
         config: undefined,
-      })
-      .pipe(
-        Effect.mapError((error) =>
+      }),
+      {
+        operation: "get extension visibility",
+        method: "GET",
+        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/visibility`,
+        replaySafety: safe,
+        mapError: (error) =>
           isHttpClientError(error)
             ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
             : isAnyRegistryClientError(error)
@@ -919,8 +1007,8 @@ export const createRemoteRegistryClient = (
                   detail: "Remote extension visibility evaluation failed",
                   cause: error,
                 }),
-        ),
-      );
+      },
+    );
 
   /**
    * Map all publish error types to AppError.
@@ -999,34 +1087,22 @@ export const createRemoteRegistryClient = (
       })),
     };
 
-    return HttpClientRequest.post("/v1/discovery").pipe(
-      HttpClientRequest.bodyJsonUnsafe(payload),
-      remoteHttpClient.execute,
-      Effect.flatMap(
-        HttpClientResponse.matchStatus({
-          "2xx": HttpClientResponse.schemaBodyJson(DiscoverPackagesResponseSchema),
-          orElse: (response) =>
-            Effect.fail(
-              makeAppError({
-                code: "network",
-                detail: `Remote discovery failed with HTTP ${response.status}`,
-                metadata: {
-                  request: registryRequestMetadata(response.request.method, response.request.url),
-                  response: {
-                    status: response.status,
-                  },
-                },
-              }),
-            ),
-        }),
-      ),
-      Effect.mapError((e) =>
-        isHttpClientError(e) || isSchemaError(e)
-          ? mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")
-          : isAnyRegistryClientError(e)
-            ? registryClientErrorToAppError(e)
-            : mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"),
-      ),
+    return executeRemoteRequest(
+      client
+        .DiscoveryPostDiscovery({ payload, config: undefined })
+        .pipe(Effect.flatMap(Schema.decodeUnknownEffect(DiscoverPackagesResponseSchema))),
+      {
+        operation: "discover packages",
+        method: "POST",
+        path: "/v1/discovery",
+        replaySafety: safe,
+        mapError: (error) =>
+          isHttpClientError(error) || isSchemaError(error)
+            ? mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY")
+            : isAnyRegistryClientError(error)
+              ? registryClientErrorToAppError(error)
+              : mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+      },
     );
   };
 

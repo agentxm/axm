@@ -6,6 +6,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -323,7 +325,19 @@ describe("root list", () => {
   });
 
   it.effect("propagates remote Registry failures instead of reporting a clean result", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
+    const { provide } = makeWorkspaceHandlerTestContext({
+      machine: true,
+      httpClient: HttpClient.make((request) =>
+        Effect.fail(
+          new HttpClientError.HttpClientError({
+            reason: new HttpClientError.InvalidUrlError({
+              request,
+              description: "Registry request failed",
+            }),
+          }),
+        ),
+      ),
+    });
     writeInstalledRegistrySkill(undefined, "http://127.0.0.1:1");
     return provide(
       Effect.gen(function* () {

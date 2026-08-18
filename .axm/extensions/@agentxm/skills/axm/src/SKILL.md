@@ -78,6 +78,12 @@ git-hooks`, inspect the existing hook manager and CI gate, and propose the
    referencing extension to `standalone: false`, name the shared pack in
    `recommendedPacks`, and follow `axm help packs`. A recommendation alone does
    not install the pack or its members.
+7. **Treat Registry retries as bounded recovery**: AXM times out each Registry
+   attempt and the complete operation. It may retry replay-safe reads, honoring
+   server retry guidance only within the total deadline, but it does not retry
+   mutations without a Registry-supported idempotency key. In automation,
+   handle the one final nonzero result by its stable error code and diagnostics;
+   do not add an outer mutation retry loop. Cancellation remains immediate.
 
 ### CLI Introspection
 

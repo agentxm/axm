@@ -16,6 +16,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -36,6 +38,15 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../../test-helpers.js";
+
+const unsupportedRegistryHttpClient = HttpClient.make((request) =>
+  Effect.succeed(
+    HttpClientResponse.fromWeb(
+      request,
+      new Response("Registry operation is unsupported", { status: 501 }),
+    ),
+  ),
+);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -197,14 +208,16 @@ describe("skills install handler — error propagation", () => {
     debug?: boolean;
     nonInteractive?: boolean;
     machine?: boolean;
+    httpClient?: HttpClient.HttpClient;
   }) => {
-    const { machine, ...flags } = flagsOverrides ?? {};
+    const { machine, httpClient, ...flags } = flagsOverrides ?? {};
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
       flags,
       machine,
+      ...(httpClient === undefined ? {} : { httpClient }),
     });
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -334,7 +347,7 @@ describe("skills install handler — error propagation", () => {
   it.effect(
     "discovers from the resolved registry source when an earlier registry is unsupported",
     () => {
-      const { provide } = makeLayers();
+      const { provide } = makeLayers({ httpClient: unsupportedRegistryHttpClient });
 
       const registryDir = path.join(tempDir, "registry");
       createRegistrySkill({
@@ -364,6 +377,7 @@ describe("skills install handler — error propagation", () => {
   it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
     const { provide, logs, multiselectMock } = makeLayers({
       nonInteractive: false,
+      httpClient: unsupportedRegistryHttpClient,
     });
 
     const registryDir = path.join(tempDir, "registry");
@@ -395,6 +409,7 @@ describe("skills install handler — error propagation", () => {
     const { provide, logs, rendererState } = makeLayers({
       nonInteractive: false,
       verbose: true,
+      httpClient: unsupportedRegistryHttpClient,
     });
 
     const registryDir = path.join(tempDir, "registry");

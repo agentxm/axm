@@ -1,7 +1,5 @@
 import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import {
@@ -16,9 +14,9 @@ import {
   ExtensionIdentityMismatchErrorEncoded,
   ExtensionLintFailedErrorEncoded,
   ForbiddenErrorEncoded,
-  ProblemDetails as RegistryProblemDetailsSchema,
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
+import { registryRetryAfterSeconds } from "./retry-after.js";
 
 export interface ProblemDetails {
   readonly [key: string]: unknown;
@@ -34,7 +32,6 @@ const isProblemDetails = (value: unknown): value is ProblemDetails =>
   typeof value === "object" && value !== null;
 
 const decodeForbiddenError = Schema.decodeUnknownSync(ForbiddenErrorEncoded);
-const decodeRegistryProblemDetails = Schema.decodeUnknownSync(RegistryProblemDetailsSchema);
 const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
 const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
   ExtensionIdentityMismatchErrorEncoded,
@@ -79,40 +76,17 @@ export const httpStatusToAppCode = (status: number, code?: string): AppErrorCode
   }
 };
 
-const parseRetryAfterHeader = (value: string | undefined): number | undefined => {
-  if (value === undefined) return undefined;
-
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.ceil(seconds);
-  }
-
-  // HTTP-date form. This runs inside the synchronous error-mapping callbacks
-  // that must produce an AppError without suspending, so the clock is read
-  // directly instead of through `Clock.currentTimeMillis`.
-  const retryAt = DateTime.make(value);
-  if (Option.isNone(retryAt)) return undefined;
-
-  const remaining = DateTime.distance(DateTime.nowUnsafe(), retryAt.value);
-  return Math.max(0, Math.ceil(Duration.toMillis(remaining) / 1000));
-};
-
-const retryAfterFromBody = (status: number, body: unknown): number | undefined => {
-  if (status === 429 || status === 503) {
-    return tryDecode(decodeRegistryProblemDetails, body)?.details?.retryAfterSeconds;
-  }
-  return undefined;
-};
-
 const retryAfterSuggestedAction = (
   status: number,
   body: unknown,
   response: HttpClientResponse.HttpClientResponse,
 ): SuggestedAction | undefined => {
-  const headerSeconds =
-    parseRetryAfterHeader(response.headers["retry-after"]) ??
-    parseRetryAfterHeader(response.headers["Retry-After"]);
-  const retryAfterSeconds = headerSeconds ?? retryAfterFromBody(status, body);
+  const retryAfterSeconds = registryRetryAfterSeconds({
+    status,
+    body,
+    response,
+    nowMillis: DateTime.toEpochMillis(DateTime.nowUnsafe()),
+  });
 
   return retryAfterSeconds === undefined
     ? undefined

@@ -87,12 +87,13 @@ const serializeCause = (
   }
 
   if (cause instanceof Error) {
+    const message = getStringField(cause, "message");
     return {
       _tag: errorTag(cause),
       message:
-        cause.message.length > 0
-          ? redactSensitiveText(cause.message, { secrets: options.secrets })
-          : causeMessage(cause, options.secrets),
+        message === undefined
+          ? causeMessage(cause, options.secrets)
+          : redactSensitiveText(message, { secrets: options.secrets }),
       ...(options.debug && cause.stack !== undefined
         ? { stack: redactSensitiveText(cause.stack, { secrets: options.secrets }) }
         : {}),

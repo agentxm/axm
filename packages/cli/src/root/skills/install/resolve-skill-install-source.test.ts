@@ -6,8 +6,10 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as TestClock from "effect/testing/TestClock";
 import { afterEach } from "vitest";
 import { normalizeHandle, type Handle } from "@agentxm/client-core/unstable/extensions";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
@@ -180,9 +182,12 @@ describe("resolveSkillInstallSource", () => {
       ];
 
       return Effect.gen(function* () {
-        const resolved = yield* resolveSkillInstallSource(
+        const fiber = yield* resolveSkillInstallSource(
           parseInputOrThrow("@acme/skills/my-skill"),
-        ).pipe(Effect.provide(provideTestLayers(sources)));
+        ).pipe(Effect.provide(provideTestLayers(sources)), Effect.forkChild);
+        yield* Effect.yieldNow;
+        yield* TestClock.adjust("20 seconds");
+        const resolved = yield* Fiber.join(fiber);
         expect(resolved.type).toBe("registry");
         expect("location" in resolved).toBe(true);
         if ("location" in resolved) {
@@ -209,14 +214,14 @@ describe("resolveSkillInstallSource", () => {
         readonly outcome: "matched" | "not-found" | "error";
       }> = [];
 
-      const resolved = yield* resolveSkillInstallSource(
-        parseInputOrThrow("@acme/skills/my-skill"),
-        {
-          onRegistryProbe: (probe) => {
-            probes.push({ location: probe.location, outcome: probe.outcome });
-          },
+      const fiber = yield* resolveSkillInstallSource(parseInputOrThrow("@acme/skills/my-skill"), {
+        onRegistryProbe: (probe) => {
+          probes.push({ location: probe.location, outcome: probe.outcome });
         },
-      ).pipe(Effect.provide(provideTestLayers(sources)));
+      }).pipe(Effect.provide(provideTestLayers(sources)), Effect.forkChild);
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("20 seconds");
+      const resolved = yield* Fiber.join(fiber);
 
       expect(resolved.type).toBe("registry");
       expect(probes).toHaveLength(2);

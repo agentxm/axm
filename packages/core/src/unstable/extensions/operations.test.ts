@@ -754,6 +754,52 @@ describe("buildUninstallOperation", () => {
     }),
   );
 
+  it.effect("removes configured projections without canonical artifacts", () =>
+    Effect.gen(function* () {
+      let configured = true;
+      let projected = true;
+      const materializeUninstall = vi.fn(() =>
+        Effect.sync(() => {
+          projected = false;
+        }),
+      );
+      const manager = {
+        type: "skill",
+        runTransaction,
+        isInstalled: () => Effect.succeed(false),
+        materializeInstall: () => Effect.void,
+        getConfiguredSource: () =>
+          Effect.succeed(configured ? Option.some("workspace:@acme/skills/review") : Option.none()),
+        listMaterializable: () => Effect.succeed([]),
+        materializeUninstall,
+        materializeDeactivate: () => Effect.void,
+        upsertSettingsEntry: () => Effect.void,
+        removeSettingsEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () => Effect.void,
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const operation = buildUninstallOperation<SkillExtensionRef>(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        { target: { type: "skill", name: "review" } },
+      );
+      if (operation.readiness === "error") {
+        throw new Error(operation.errorMessage);
+      }
+
+      yield* operation.run;
+
+      expect(materializeUninstall).toHaveBeenCalledWith({
+        target: { type: "skill", name: "review" },
+      });
+      expect(projected).toBe(false);
+      expect(configured).toBe(false);
+    }),
+  );
+
   it.effect(
     "does not turn an orphan accepted resolution into installed state during uninstall",
     () =>

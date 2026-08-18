@@ -559,11 +559,18 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
     const transition = Effect.gen(function* () {
+      const applyProjections = () =>
+        args.skipProjections !== true ? applyManagerProjectionPlans(manager) : Effect.void;
+
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
         if (Option.isSome(configuredSource)) {
+          // Configured extensions may still own native agent projections even
+          // when they have no canonical managed package on disk.
+          yield* manager.materializeUninstall({ target: args.target });
           yield* manager.removeSettingsEntry({ target: args.target });
           yield* manager.removeLockfileEntry({ target: args.target });
+          yield* applyProjections();
           return {
             job: {
               result: "success" as const,
@@ -577,9 +584,6 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
           expectedInstalled: false,
         };
       }
-
-      const applyProjections = () =>
-        args.skipProjections !== true ? applyManagerProjectionPlans(manager) : Effect.void;
 
       const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
         target: args.target,

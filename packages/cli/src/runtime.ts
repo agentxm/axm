@@ -238,13 +238,10 @@ const readRuntimeEnvConfig = Effect.gen(function* () {
 });
 
 const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfigService => ({
-  mode: resolveTelemetryMode(
-    {
-      doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
-      telemetry: Option.getOrUndefined(envConfig.telemetry),
-    },
-    {},
-  ),
+  mode: resolveTelemetryMode({
+    doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
+    telemetry: Option.getOrUndefined(envConfig.telemetry),
+  }),
   client: { name: "cli", version: loadVersion() },
 });
 

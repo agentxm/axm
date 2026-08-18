@@ -3,6 +3,10 @@
 Desired AXM workspace state lives in `.axm/settings.json`. Accepted external
 resolution and observed state are separate; see `axm help workspace-state`.
 
+Telemetry is execution policy, not workspace state. A top-level `telemetry`
+key is unrecognized and strict linting reports it. Use `AXM_TELEMETRY` or
+`DO_NOT_TRACK`; see `axm help environment` for values and precedence.
+
 ## `.axm/settings.json`
 
 [`settings.json`](https://axm.sh/schemas/settings.schema.json)
@@ -171,6 +175,7 @@ does not affect workspace-authored publishing.
 
 - `axm help basic-usage` — workspace file overview
 - `axm help workspace-state` — reconciliation and workspace file authority
+- `axm help environment` — process controls, precedence, and automation safety
 - `axm agents list` — configured, detected, and supported coding-agent IDs
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents

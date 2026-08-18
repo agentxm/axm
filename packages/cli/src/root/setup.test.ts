@@ -42,8 +42,7 @@ const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(file
 const readLockfile = (filePath: string) =>
   Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
 const telemetrySuggestion = {
-  description:
-    'Disable telemetry with AXM_TELEMETRY=0 or by setting "telemetry": false in settings',
+  description: "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
 };
 const projectSetupSuggestions = [
   { description: "Inspect configured agents", cmd: "axm agents list" },
@@ -1201,7 +1200,7 @@ describe("setup.handler", () => {
             .map((entry) => entry.message);
           expect(infoMessages).toContain("Telemetry is enabled to help improve AXM.");
           expect(infoMessages).not.toContain(
-            '  AXM_TELEMETRY=0 or set "telemetry": false in settings',
+            "  Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
           );
           expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
         }),

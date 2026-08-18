@@ -552,8 +552,7 @@ const setupSuggestions = (args: {
 
   if (args.telemetryEnabled) {
     suggestions.push({
-      description:
-        'Disable telemetry with AXM_TELEMETRY=0 or by setting "telemetry": false in settings',
+      description: "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
     });
   }
 
@@ -903,13 +902,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const scopeSupport = setupScopeSupport(scopeAgentIds, location.scope);
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
-  const telemetryMode = resolveTelemetryMode(
-    {
-      doNotTrack: Option.getOrUndefined(doNotTrackOpt),
-      telemetry: Option.getOrUndefined(axmTelemetryOpt),
-    },
-    {},
-  );
+  const telemetryMode = resolveTelemetryMode({
+    doNotTrack: Option.getOrUndefined(doNotTrackOpt),
+    telemetry: Option.getOrUndefined(axmTelemetryOpt),
+  });
   const agentDescriptors = agentIds.flatMap((id) => (isKnownAgentId(id) ? [AGENTS[id]] : []));
   const agents = agentDescriptors.map((a) => ({ id: a.id, name: a.name }));
   // Include agents without descriptors (unknown agents) by ID

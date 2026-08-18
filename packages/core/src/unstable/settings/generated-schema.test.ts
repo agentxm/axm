@@ -266,7 +266,6 @@ describe("generated schemas", () => {
   it("publishes settings usability annotations", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const settings = getDefinition(settingsSchema, "AxmSettings");
-    const telemetry = getDefinition(settingsSchema, "TelemetryMode");
     const agentId = getDefinition(settingsSchema, "ConfigurableAgentId");
 
     expect(settingsSchema["$ref"]).toBe("#/definitions/AxmSettings");
@@ -274,7 +273,6 @@ describe("generated schemas", () => {
     expect(settings["examples"]).toEqual(expect.any(Array));
 
     for (const field of [
-      "telemetry",
       "owner",
       "agents",
       "sources",
@@ -291,8 +289,8 @@ describe("generated schemas", () => {
       expect(getProperty(settings, field)["description"]).toEqual(expect.any(String));
     }
 
-    expect(telemetry["title"]).toBe("Telemetry Mode");
-    expect(telemetry["examples"]).toEqual(expect.arrayContaining([true, "errors", false]));
+    expect(getRecord(settingsSchema, "definitions")).not.toHaveProperty("TelemetryMode");
+    expect(getRecord(settings, "properties")).not.toHaveProperty("telemetry");
 
     expect(agentId["title"]).toBe("Configurable Agent ID");
     expect(agentId["examples"]).toEqual(expect.arrayContaining(["claude-code", "codex"]));
@@ -340,7 +338,7 @@ describe("generated schemas", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const settings = getDefinition(settingsSchema, "AxmSettings");
 
-    for (const field of ["telemetry", "owner", "skills", "lint"]) {
+    for (const field of ["owner", "skills", "lint"]) {
       const serialized = JSON.stringify(getProperty(settings, field));
       expect(serialized).not.toContain('"type":"null"');
     }

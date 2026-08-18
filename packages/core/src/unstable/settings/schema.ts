@@ -327,27 +327,6 @@ const validateMcpTransportExclusivity = (
   return undefined;
 };
 
-const telemetryModeExamples = [true, "errors", false] as const;
-
-/**
- * Telemetry preference for this workspace.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const TelemetryModeSchema = Schema.Union([
-  Schema.Boolean,
-  Schema.Literal("errors"),
-]).annotate({
-  identifier: "TelemetryMode",
-  title: "Telemetry Mode",
-  description:
-    '`true` sends usage and error telemetry, `"errors"` sends only errors, and `false` disables telemetry.',
-  examples: telemetryModeExamples,
-});
-
-/** @experimental */
-export type TelemetryMode = Schema.Schema.Type<typeof TelemetryModeSchema>;
-
 export const MinimumReleaseAgeSchema = Schema.String.check(
   Schema.isPattern(/^\d+(ms|s|m|h|d)$/, {
     message: "minimumReleaseAge must be a duration such as 24h, 1440m, or 0s",
@@ -1126,7 +1105,6 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "$schema",
-  "telemetry",
   "owner",
   "publish",
   "minimumReleaseAge",
@@ -1172,11 +1150,6 @@ const SettingsBaseSchema = Schema.Struct({
       description:
         "URL to the AXM settings JSON Schema. Editors use this to provide autocomplete and validation.",
       examples: ["https://axm.sh/schemas/settings.schema.json"],
-    }),
-  ),
-  telemetry: Schema.optionalKey(
-    Schema.Union([TelemetryModeSchema]).annotate({
-      description: "Workspace telemetry mode: full, errors-only, or disabled.",
     }),
   ),
   owner: Schema.optionalKey(
@@ -1304,7 +1277,6 @@ export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   examples: [
     {
-      telemetry: "errors",
       agents: ["claude-code", "codex"],
       skills: {
         "code-review": "@acme/skills/code-review@^1.0.0",

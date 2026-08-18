@@ -2,12 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/AxmSettings",
   "definitions": {
-    "TelemetryMode": {
-      "anyOf": [{ "type": "boolean" }, { "type": "string", "enum": ["errors"] }],
-      "title": "Telemetry Mode",
-      "description": "`true` sends usage and error telemetry, `\"errors\"` sends only errors, and `false` disables telemetry.",
-      "examples": [true, "errors", false]
-    },
     "Handle": {
       "type": "string",
       "allOf": [
@@ -682,10 +676,6 @@
           "description": "URL to the AXM settings JSON Schema. Editors use this to provide autocomplete and validation.",
           "examples": ["https://axm.sh/schemas/settings.schema.json"]
         },
-        "telemetry": {
-          "anyOf": [{ "$ref": "#/definitions/TelemetryMode" }],
-          "description": "Workspace telemetry mode: full, errors-only, or disabled."
-        },
         "owner": {
           "anyOf": [{ "$ref": "#/definitions/Handle" }],
           "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
@@ -766,7 +756,6 @@
       "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
       "examples": [
         {
-          "telemetry": "errors",
           "agents": ["claude-code", "codex"],
           "skills": {
             "code-review": "@acme/skills/code-review@^1.0.0",

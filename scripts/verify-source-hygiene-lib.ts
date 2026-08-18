@@ -22,6 +22,13 @@ export type MachineOutputBoundaryViolation = {
   readonly reason: string;
 };
 
+export type AxmEnvironmentContractViolation = {
+  readonly variable: string;
+  readonly filePath: string;
+  readonly line: number;
+  readonly reason: string;
+};
+
 const isForbiddenControlByte = (byte: number): boolean =>
   byte < 0x20 && !ALLOWED_CONTROL_BYTES.has(byte);
 
@@ -181,6 +188,100 @@ export const countUnboundedConcurrencySites = (repoRoot: string): number => {
     );
 };
 
+const AXM_ENVIRONMENT_LITERAL = /["'](AXM_[A-Z0-9_]+)["']/g;
+const AXM_ENVIRONMENT_CONTRACT_ROW =
+  /^\|\s*`(AXM_[A-Z0-9_]+)`\s*\|\s*(stable automation|internal)\s*\|/;
+
+/**
+ * Keep production AXM environment reads and the public environment reference
+ * in exact correspondence. An exact AXM-prefixed string literal in CLI or core
+ * production code is treated as an environment control and must be classified.
+ */
+export const findAxmEnvironmentContractViolations = (
+  repoRoot: string,
+): ReadonlyArray<AxmEnvironmentContractViolation> => {
+  const sourceFiles: string[] = [];
+  for (const root of [
+    path.join(repoRoot, "packages", "cli", "src"),
+    path.join(repoRoot, "packages", "core", "src"),
+  ]) {
+    if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
+  }
+
+  const sourceLocations = new Map<string, { readonly filePath: string; readonly line: number }>();
+  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const match of source.matchAll(AXM_ENVIRONMENT_LITERAL)) {
+      const variable = match[1];
+      if (variable === undefined || sourceLocations.has(variable)) continue;
+      sourceLocations.set(variable, {
+        filePath: path.relative(repoRoot, filePath),
+        line: lineAtOffset(source, match.index),
+      });
+    }
+  }
+
+  const contractPath = path.join(repoRoot, "packages", "cli", "help", "topics", "environment.md");
+  if (!fs.existsSync(contractPath)) {
+    return [
+      {
+        variable: "AXM_ENVIRONMENT_CONTRACT",
+        filePath: path.relative(repoRoot, contractPath),
+        line: 1,
+        reason: "canonical environment reference is missing",
+      },
+    ];
+  }
+
+  const contract = fs.readFileSync(contractPath, "utf8");
+  const contractLocations = new Map<string, number>();
+  const violations: AxmEnvironmentContractViolation[] = [];
+  for (const [index, line] of contract.split("\n").entries()) {
+    const match = AXM_ENVIRONMENT_CONTRACT_ROW.exec(line);
+    const variable = match?.[1];
+    if (variable === undefined) continue;
+    const previousLine = contractLocations.get(variable);
+    if (previousLine !== undefined) {
+      violations.push({
+        variable,
+        filePath: path.relative(repoRoot, contractPath),
+        line: index + 1,
+        reason: `classified more than once (first classification is on line ${previousLine})`,
+      });
+      continue;
+    }
+    contractLocations.set(variable, index + 1);
+  }
+
+  for (const [variable, location] of sourceLocations) {
+    if (!contractLocations.has(variable)) {
+      violations.push({
+        variable,
+        ...location,
+        reason: "production AXM environment literal lacks a classified reference row",
+      });
+    }
+  }
+
+  for (const [variable, line] of contractLocations) {
+    if (!sourceLocations.has(variable)) {
+      violations.push({
+        variable,
+        filePath: path.relative(repoRoot, contractPath),
+        line,
+        reason: "classified reference row has no production CLI/core string literal",
+      });
+    }
+  }
+
+  return violations.sort(
+    (left, right) =>
+      left.variable.localeCompare(right.variable) ||
+      left.filePath.localeCompare(right.filePath) ||
+      left.line - right.line,
+  );
+};
+
 export const formatViolation = (violation: ControlByteViolation): string =>
   `${violation.filePath}:${violation.line} contains forbidden control byte 0x${violation.byte
     .toString(16)
@@ -190,3 +291,7 @@ export const formatMachineOutputBoundaryViolation = (
   violation: MachineOutputBoundaryViolation,
 ): string =>
   `${violation.filePath}:${violation.line} uses ${violation.construct}: ${violation.reason}`;
+
+export const formatAxmEnvironmentContractViolation = (
+  violation: AxmEnvironmentContractViolation,
+): string => `${violation.filePath}:${violation.line} ${violation.variable}: ${violation.reason}`;

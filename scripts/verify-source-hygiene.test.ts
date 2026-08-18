@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  findAxmEnvironmentContractViolations,
   findControlBytes,
   findMachineOutputBoundaryViolations,
   findSourceHygieneViolations,
   countUnboundedConcurrencySites,
+  formatAxmEnvironmentContractViolation,
   formatMachineOutputBoundaryViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
@@ -110,6 +112,57 @@ describe("findMachineOutputBoundaryViolations", () => {
     const repoRoot = path.resolve(scriptsRoot, "..");
     expect(
       findMachineOutputBoundaryViolations(repoRoot).map(formatMachineOutputBoundaryViolation),
+    ).toEqual([]);
+  });
+});
+
+describe("findAxmEnvironmentContractViolations", () => {
+  it("reports an unclassified production AXM environment literal", () => {
+    const repoRoot = createRepoFixture({
+      "packages/cli/src/runtime.ts": 'const name = "AXM_NEW_CONTROL";\n',
+      "packages/cli/help/topics/environment.md": [
+        "| Variable | Classification | Details |",
+        "| --- | --- | --- |",
+        "",
+      ].join("\n"),
+    });
+
+    expect(
+      findAxmEnvironmentContractViolations(repoRoot).map(formatAxmEnvironmentContractViolation),
+    ).toEqual([
+      `${path.join("packages", "cli", "src", "runtime.ts")}:1 AXM_NEW_CONTROL: production AXM environment literal lacks a classified reference row`,
+    ]);
+  });
+
+  it("accepts stable and internal classifications and rejects stale rows", () => {
+    const repoRoot = createRepoFixture({
+      "packages/cli/src/runtime.ts": 'const stable = "AXM_STABLE";\n',
+      "packages/core/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
+      "packages/cli/help/topics/environment.md": [
+        "| Variable | Classification | Details |",
+        "| --- | --- | --- |",
+        "| `AXM_STABLE` | stable automation | Supported. |",
+        "| `AXM_INTERNAL` | internal | Reserved. |",
+        "| `AXM_STALE` | internal | Removed. |",
+        "",
+      ].join("\n"),
+    });
+
+    expect(findAxmEnvironmentContractViolations(repoRoot)).toEqual([
+      {
+        variable: "AXM_STALE",
+        filePath: path.join("packages", "cli", "help", "topics", "environment.md"),
+        line: 5,
+        reason: "classified reference row has no production CLI/core string literal",
+      },
+    ]);
+  });
+
+  it("finds no environment contract violations in this repository", () => {
+    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
+    const repoRoot = path.resolve(scriptsRoot, "..");
+    expect(
+      findAxmEnvironmentContractViolations(repoRoot).map(formatAxmEnvironmentContractViolation),
     ).toEqual([]);
   });
 });

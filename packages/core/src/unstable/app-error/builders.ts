@@ -35,7 +35,7 @@ export const errAuthTokenRequired = (cause?: unknown) =>
     detail: "No authentication token is available.",
     blockedOn: "human",
     suggestions: [
-      BC.do("Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication."),
+      BC.do("Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication."),
       {
         description: "Create a personal access token in AgentXM.ai.",
         url: "https://agentxm.ai/u/settings/tokens",

@@ -15,6 +15,7 @@ import {
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
+  SETTINGS_KNOWN_KEYS,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -54,13 +55,15 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
-    it("tolerates and retains unknown top-level keys under onExcessProperty error", () => {
+    it("treats removed telemetry settings as an unknown top-level key", () => {
       const input = { telemetry: false, futureKey: { x: 1 } };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input, {
         onExcessProperty: "error",
       });
 
+      expect(result["telemetry"]).toBe(false);
       expect(result["futureKey"]).toEqual({ x: 1 });
+      expect(SETTINGS_KNOWN_KEYS.has("telemetry")).toBe(false);
     });
 
     it("still rejects unknown keys nested inside entry objects", () => {

@@ -655,6 +655,7 @@ ${lintBlock}
           const settingsPath = path.join(axmDir, "settings.json");
           const firstContent = fs.readFileSync(settingsPath, "utf-8");
           const parsed = expectRecord(JSON.parse(firstContent));
+          expect(parsed["telemetry"]).toBe(false);
           expect(parsed["futureKey"]).toEqual({ alpha: 1, beta: ["x"] });
           // Unknown keys land after every canonical key.
           const keys = Object.keys(parsed);

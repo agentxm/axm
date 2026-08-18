@@ -152,17 +152,16 @@ axm whoami
 
 ### Non-interactive (CI, scripts, agents)
 
-Set the `AXM_TOKEN` environment variable with a pre-provisioned token:
+Store a pre-provisioned token in a restrictive, readable file and provide its
+path to AXM:
 
 ```bash
-export AXM_TOKEN=<your-token>
+export AXM_TOKEN_FILE=/path/to/axm-token
 ```
 
-If you have already completed an interactive login in another session, you can extract a reusable token:
-
-```bash
-export AXM_TOKEN=$(axm auth token)
-```
+`AXM_TOKEN` remains supported, but a token file is less likely to leak through
+process environments. Run `axm help environment` for credential precedence and
+the complete automation contract. Never print a token into logs.
 
 ---
 
@@ -224,7 +223,7 @@ export PATH="$(npm config get prefix)/bin:$PATH"
 ```bash
 axm auth login
 # Or for non-interactive environments:
-export AXM_TOKEN=<your-token>
+export AXM_TOKEN_FILE=/path/to/axm-token
 ```
 
 **Wrong account:**
@@ -240,5 +239,5 @@ Tokens may expire. Re-authenticate:
 ```bash
 axm auth login
 # Or refresh the token:
-export AXM_TOKEN=$(axm auth token)
+export AXM_TOKEN_FILE=/path/to/refreshed-axm-token
 ```

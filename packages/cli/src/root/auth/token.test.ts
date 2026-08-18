@@ -135,7 +135,8 @@ describe("auth token handler", () => {
         expect(result).toMatchObject({
           error: true,
           code: "auth_required",
-          guidance: "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
+          guidance:
+            "Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication.",
         });
       }),
     );

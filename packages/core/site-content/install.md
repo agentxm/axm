@@ -154,10 +154,12 @@ commands can reach the registry. Offer both paths:
   run it on their behalf because the browser step requires the user. In
   SSH/CI/Codespaces or with `--device-code`, AXM falls back to a five-minute
   device-code flow.
-- **Non-interactive:** ask the user to export `AXM_TOKEN` in the
-  environment where AXM will run. `AXM_TOKEN` is a pre-generated credential
-  that skips the browser step; never paste a token the user has not shared
-  with you.
+- **Non-interactive:** ask the user to place a pre-generated token in a
+  restrictive, readable file and export `AXM_TOKEN_FILE` with that path in the
+  environment where AXM will run. `AXM_TOKEN` remains supported but is easier
+  to leak through process environments. Never paste or print a token the user
+  has not shared with you. Run `axm help environment` for precedence and
+  security details.
 
 After the user confirms, re-run the probe from **§3**. If `type` is still
 `"error"`, ask them to retry the same path or switch paths.

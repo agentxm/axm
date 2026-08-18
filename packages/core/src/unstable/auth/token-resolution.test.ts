@@ -287,7 +287,7 @@ describe("resolveRequiredToken", () => {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
       expect(error.code).toBe("auth_required");
       expect(error.suggestions?.[0]?.description).toBe(
-        "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
+        "Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication.",
       );
     }).pipe(Effect.provide(layer));
   });

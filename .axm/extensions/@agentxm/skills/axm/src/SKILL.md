@@ -38,7 +38,8 @@ metadata:
    - `pack/*` → `axm help packs`
    - `workspace/axm-skill-compatible` → `axm help upgrade` and
      "CLI & skill compatibility" below
-   - workspace/config findings → `axm help settings`
+   - workspace/config findings → `axm help settings`; environment and
+     automation findings → `axm help environment`
 4. **Review Git hooks before editing**: For Git-hook setup, read `axm help
 git-hooks`, inspect the existing hook manager and CI gate, and propose the
    exact diff plus strictness, formatter order, missing-AXM, and bypass policies.
@@ -190,6 +191,10 @@ generated bundled-skill module. An executable upgrade and a workspace recovery
 are separate boundaries, not one atomic transaction. Preview every workspace
 mutation and re-run `axm lint` after each boundary. Read `axm help upgrade`
 before acting on a refused, authored, or incomplete recovery.
+
+For process controls, credential precedence, unattended network behavior, and
+telemetry policy, read `axm help environment`. Prefer `AXM_TOKEN_FILE` for
+non-interactive credentials and never print its contents.
 
 ### Creating & publishing extensions
 

@@ -61,9 +61,9 @@ const visibleSubcommands = (command: Command.Command.Any) => {
 };
 
 describe("axm help command conformance", () => {
-  it.effect("keeps the zero-segment index and all 28 existing topics", () =>
+  it.effect("keeps the zero-segment index and all 29 existing topics", () =>
     Effect.gen(function* () {
-      expect(HELP_TOPIC_NAMES).toHaveLength(28);
+      expect(HELP_TOPIC_NAMES).toHaveLength(29);
 
       const indexRenderer = TestRenderer.make();
       yield* handleHelpPath([], rootCommand).pipe(Effect.provide(indexRenderer.layer));

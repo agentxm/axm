@@ -27,6 +27,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   knowledge: "How AXM validates, projects, and synchronizes Knowledge bundles.",
   "hook-schema": "JSON Schema for a hook extension manifest.",
   "knowledge-schema": "JSON Schema for an Open Knowledge Format bundle manifest.",
+  environment: "Environment controls, precedence, side effects, and automation safety.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "workspace-state": "How desired, accepted-resolution, and observed state drive reconciliation.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",

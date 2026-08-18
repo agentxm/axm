@@ -9,9 +9,4 @@ export {
   type TelemetryPropertyValue,
   type TelemetryProperties,
 } from "./client.js";
-export {
-  type TelemetryEnvValues,
-  type TelemetryMode,
-  type TelemetrySettings,
-  resolveTelemetryMode,
-} from "./mode.js";
+export { type TelemetryEnvValues, type TelemetryMode, resolveTelemetryMode } from "./mode.js";

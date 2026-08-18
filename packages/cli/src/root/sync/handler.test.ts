@@ -14,6 +14,7 @@ import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -198,6 +199,10 @@ describe("root sync handler", () => {
       InstallPackCommandWorkflowActionsLive,
       Layer.mergeAll(managerDependencies, managersLayer, packManagerLayer),
     );
+    const invariantFactsLayer = Layer.provide(
+      WorkspaceInvariantFactsLive,
+      Layer.mergeAll(managerDependencies, managersLayer),
+    );
     return {
       provide: makeEffectProvide(
         Layer.mergeAll(
@@ -208,6 +213,7 @@ describe("root sync handler", () => {
           managersLayer,
           packManagerLayer,
           packActionsLayer,
+          invariantFactsLayer,
         ),
       ),
       logs: ctx.logs,

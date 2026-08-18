@@ -32,6 +32,7 @@ import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
 import {
   AxmSkillCompatibilityPolicy,
   SkillManagerLive,
@@ -138,7 +139,9 @@ describe("axm lint handler", () => {
       subagentsLayer,
     );
     const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
-    const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+    const extensionWorkspaceLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+    const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, extensionWorkspaceLayer);
+    const fullLayer = Layer.merge(extensionWorkspaceLayer, invariantFactsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

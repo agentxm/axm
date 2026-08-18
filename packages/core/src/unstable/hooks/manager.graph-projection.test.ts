@@ -141,7 +141,9 @@ describe("HookManager graph-derived unit projection", () => {
       const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
       expect(raw.split("pack-a-hook/src/hook.sh").length - 1).toBe(1);
       expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
-      expect(yield* manager.hooksProjectionCurrent).toBe(true);
+      expect((yield* manager.projectionUnitObservations).every(({ current }) => current)).toBe(
+        true,
+      );
     }).pipe(Effect.provide(layer));
   });
 
@@ -177,6 +179,47 @@ describe("HookManager graph-derived unit projection", () => {
       expect(raw).not.toContain("pack-a-hook");
       expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
     }).pipe(Effect.provide(after));
+  });
+
+  it.effect("reads an incomplete contributor set from a native hook unit", () => {
+    writeHookPackage("pack-a-hook");
+    writeHookPackage("pack-b-hook");
+    const layer = makeTestLayer({
+      graph: completeGraph([
+        packHookNode("pack-a-hook", "pack-a"),
+        packHookNode("pack-b-hook", "pack-b"),
+      ]),
+      locked: decodeLockMap({
+        "pack-a-hook": registryLock("pack-a-hook"),
+        "pack-b-hook": registryLock("pack-b-hook"),
+      }),
+      configuredAgents: ["claude-code"],
+    });
+    return Effect.gen(function* () {
+      const manager = yield* HookManager;
+      yield* manager.reconcileProjections();
+      const settingsPath = nodePath.join(baseDir, ".claude", "settings.json");
+      const edited = nodeFs
+        .readFileSync(settingsPath, "utf8")
+        .replace("pack-b-hook/src/hook.sh", "missing-hook/src/hook.sh");
+      nodeFs.writeFileSync(
+        settingsPath,
+        edited.replace(
+          /\}\s*$/u,
+          ',\n  "note": "bash .axm/extensions/@acme/hooks/pack-b-hook/src/hook.sh"\n}\n',
+        ),
+      );
+
+      expect(yield* manager.projectionUnitObservations).toContainEqual(
+        expect.objectContaining({
+          unitId: "hook:agent-hook-entries",
+          current: false,
+          present: true,
+          expectedContributors: ["@acme/hooks/pack-a-hook", "@acme/hooks/pack-b-hook"],
+          observedContributors: ["@acme/hooks/pack-a-hook"],
+        }),
+      );
+    }).pipe(Effect.provide(layer));
   });
 
   it.effect("renders both packs' hooks into the fallback region for writer-less agents", () => {

@@ -207,6 +207,41 @@ describe("RuleManager graph-derived region projection", () => {
     });
   });
 
+  it.effect("reads an incomplete contributor set from the managed region", () => {
+    writeRulePackage("pack-a-rule");
+    writeRulePackage("pack-b-rule");
+    const layer = makeTestLayer({
+      graph: completeGraph([
+        packRuleNode("pack-a-rule", "pack-a"),
+        packRuleNode("pack-b-rule", "pack-b"),
+      ]),
+      locked: decodeLockMap({
+        "pack-a-rule": registryLock("pack-a-rule"),
+        "pack-b-rule": registryLock("pack-b-rule"),
+      }),
+    });
+    return Effect.gen(function* () {
+      const manager = yield* RuleManager;
+      yield* manager.reconcileInstructions;
+      nodeFs.writeFileSync(
+        instructionsPath(),
+        `${readInstructions().replace(
+          "<!-- axm:rule @acme/rules/pack-b-rule@1.0.0 -->\n\nGuidance for pack-b-rule.",
+          "",
+        )}\n<!-- axm:rule @acme/rules/pack-b-rule@1.0.0 -->\nUser-owned text outside the region.\n`,
+      );
+
+      expect(yield* manager.projectionUnitObservations).toEqual([
+        expect.objectContaining({
+          current: false,
+          present: true,
+          expectedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
+          observedContributors: ["@acme/rules/pack-a-rule"],
+        }),
+      ]);
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect("re-renders an authored body edit and converges on repeat runs", () => {
     writeRulePackage("edited-rule", { body: "Original guidance." });
     const layer = makeTestLayer({

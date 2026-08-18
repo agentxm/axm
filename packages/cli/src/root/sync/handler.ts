@@ -65,6 +65,11 @@ import {
 } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
+  WorkspaceInvariantFacts,
+  projectionFactRequiresReconciliation,
+  type ProjectionInvariantFact,
+} from "@agentxm/client-core/unstable/projection";
+import {
   previewOrApplyPlan,
   type Job,
   type JobStepArtifact,
@@ -1168,36 +1173,35 @@ const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
   });
 });
 
-// When a unit's currency cannot be judged (failed render), plan its reconcile
-// step only if the complete graph still reaches enabled contributors — the
-// canonical steps planned alongside will restore the render inputs. On an
-// incomplete graph the blocked closure owns the outcome.
-const plannableAfterFailedJudgment = (
-  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
-  type: "hook" | "rule",
-): Effect.Effect<boolean> =>
-  Effect.result(ws.getDesiredStateGraph()).pipe(
-    Effect.map(
-      (graph) =>
-        graph._tag === "Success" &&
-        graph.success.complete &&
-        graph.success.nodes.some((node) => node.type === type && node.enabled),
-    ),
-  );
+export const projectionFactsNeedReconciliation = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): boolean => facts.some(projectionFactRequiresReconciliation);
 
-const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* () {
+export const projectionDivergenceLabel = (
+  label: string,
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): string => {
+  const violations = facts.filter(projectionFactRequiresReconciliation);
+  const statuses = Array.from(
+    new Set(violations.map(({ observation }) => observation.status)),
+  ).join(", ");
+  const contributors = Array.from(
+    new Set(violations.flatMap(({ affectedContributors }) => affectedContributors)),
+  );
+  const details = contributors.length === 0 ? statuses : `${statuses}: ${contributors.join(", ")}`;
+  return details.length === 0 ? label : `${label} (${details})`;
+};
+
+const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+) {
   const manager = yield* HookManager;
   const ws = yield* WorkspaceMutations;
-  // Judge the managed hook units from the outputs themselves.
-  const status = yield* Effect.result(manager.hooksProjectionCurrent);
-  if (status._tag === "Success" && status.success)
+  if (!projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncPlanRequirements>>();
-  if (status._tag === "Failure" && !(yield* plannableAfterFailedJudgment(ws, "hook"))) {
-    return Option.none<PlannedJobStep<SyncPlanRequirements>>();
-  }
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
     key: "hook:projections",
-    label: "managed hook projections",
+    label: projectionDivergenceLabel("managed hook projections", facts),
     readiness: "ready",
     artifact: {
       path: "managed hook projections",
@@ -1218,7 +1222,9 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* () {
   });
 });
 
-const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* () {
+const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* (
+  projectionFacts: ReadonlyArray<ProjectionInvariantFact>,
+) {
   const ws = yield* WorkspaceMutations;
   const config = yield* ws.getInstructionsConfig();
   if (Option.isNone(config) || config.value === false)
@@ -1248,15 +1254,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
         .pipe(Effect.catch(() => Effect.succeed(false))),
     { concurrency: "unbounded" },
   );
-  // Judge the managed Rules region from the unit itself: an incomplete or
-  // stale region is reconcilable work even when every canonical package is
-  // installed. A failed judgment plans the step only while the complete graph
-  // still reaches enabled rules, so canonical restoration can precede it.
-  const regionResult = yield* Effect.result(manager.instructionsRegionCurrent);
-  const regionCurrent =
-    regionResult._tag === "Success"
-      ? regionResult.success
-      : !(yield* plannableAfterFailedJudgment(ws, "rule"));
+  const regionCurrent = !projectionFactsNeedReconciliation(projectionFacts);
   const current =
     sourcesExist.every(Boolean) &&
     gitignore.current &&
@@ -1292,7 +1290,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
     key: "instruction:reconcile",
     readiness: "ready",
-    label: "instruction files",
+    label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact: {
       path: resolvedConfig.fileName,
       scope: ws.scope,
@@ -1324,6 +1322,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
+  const invariantFacts = yield* WorkspaceInvariantFacts;
   const syncPlanLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
@@ -1371,6 +1370,13 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
           }
           return false;
         };
+        const projectionFacts = yield* invariantFacts.projectionFacts;
+        const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
+          subject.unitId.startsWith("hook:"),
+        );
+        const ruleProjectionFacts = projectionFacts.filter(
+          ({ subject }) => subject.unitId === "rule:instructions-region",
+        );
         const knowledgeStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           scoped || !cleanupSafe
             ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
@@ -1378,7 +1384,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
         const hooksStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> = selectionTouches(
           "hook",
         )
-          ? yield* collectHooksStep()
+          ? yield* collectHooksStep(hookProjectionFacts)
           : Option.none<PlannedJobStep<SyncPlanRequirements>>();
         const cleanupStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           scoped || !cleanupSafe
@@ -1386,7 +1392,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
             : yield* collectCleanupStep(expectedSubagentNames);
         const instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           selectionTouches("rule")
-            ? yield* collectInstructionStep()
+            ? yield* collectInstructionStep(ruleProjectionFacts)
             : Option.none<PlannedJobStep<SyncPlanRequirements>>();
         return {
           steps,

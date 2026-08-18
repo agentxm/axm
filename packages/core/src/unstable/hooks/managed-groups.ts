@@ -59,11 +59,44 @@ const validateHooksShape = (
 };
 
 /** AXM renders hook commands that run out of the workspace extensions dir. */
-export const isManagedHookCommand = (value: unknown): boolean =>
+interface ManagedHookCommand {
+  readonly type: "command";
+  readonly command: string;
+}
+
+export const isManagedHookCommand = (value: unknown): value is ManagedHookCommand =>
   isRecord(value) &&
   value["type"] === "command" &&
   typeof value["command"] === "string" &&
   value["command"].includes(".axm/extensions/");
+
+/** Commands recovered from AXM-owned hook entries in one hooks object. */
+export const managedHookCommands = (hooks: unknown): ReadonlyArray<string> => {
+  if (!isRecord(hooks)) return [];
+  const commands: Array<string> = [];
+  for (const groups of Object.values(hooks)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
+      for (const entry of group["hooks"]) {
+        if (isManagedHookCommand(entry)) commands.push(entry.command);
+      }
+    }
+  }
+  return commands;
+};
+
+/** Parse a native config and recover commands only from its managed hook unit. */
+export const readManagedHookCommands = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  Effect.gen(function* () {
+    const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
+    yield* validateHooksShape(configPath, settingsKey, parsed);
+    return isRecord(parsed) ? managedHookCommands(parsed[settingsKey]) : [];
+  });
 
 const structurallyEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) return true;

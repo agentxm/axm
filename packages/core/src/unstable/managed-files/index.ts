@@ -6,6 +6,7 @@
 
 export {
   commentStyleForTarget,
+  managedRegionContent,
   parseRegionMarker,
   replaceManagedRegion,
   serializeRegionMarker,

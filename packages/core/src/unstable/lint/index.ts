@@ -87,6 +87,7 @@ export {
 
 // Path rendering
 export { composePath } from "./compose-path.js";
+export { findingsForProjectionFacts } from "./catalog/workspace/projections-current.js";
 
 // Schema-delegation helper
 export { issuesToFindings } from "./issues-to-findings.js";

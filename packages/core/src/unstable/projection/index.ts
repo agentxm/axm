@@ -19,3 +19,15 @@ export {
   type OwnershipUnitDeclaration,
   type OwnershipUnitId,
 } from "./units.js";
+export {
+  PROJECTION_INVARIANT_PREDICATE,
+  WorkspaceInvariantFacts,
+  WorkspaceInvariantFactsLive,
+  makeProjectionInvariantFact,
+  projectionFactIsViolation,
+  projectionFactRequiresReconciliation,
+  type ProjectionInvariantFact,
+  type ProjectionObservationStatus,
+  type ProjectionUnitObservation,
+  type WorkspaceInvariantFactsService,
+} from "./invariant-facts.js";

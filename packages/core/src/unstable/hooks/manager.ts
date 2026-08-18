@@ -38,7 +38,8 @@ import {
   materializeRegistryPackage,
   registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
-import { activeContributors } from "../projection/index.js";
+import { activeContributors } from "../projection/contributors.js";
+import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import { validatePathSafety } from "../extensions/utils.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import type { HookLockEntry } from "../lockfile/index.js";
@@ -50,6 +51,7 @@ import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import {
   commentStyleForTarget,
+  managedRegionContent,
   replaceManagedRegion,
   stripManagedRegion,
 } from "../managed-files/index.js";
@@ -79,11 +81,13 @@ import {
   type LocalHookRef,
   type RegistryHookRef,
 } from "./index.js";
-import { updateHooksJson } from "./managed-groups.js";
+import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
-  /** True when every managed hook unit already renders its complete contributor set. */
-  readonly hooksProjectionCurrent: Effect.Effect<boolean, AppError>;
+  readonly projectionUnitObservations: Effect.Effect<
+    ReadonlyArray<ProjectionUnitObservation>,
+    AppError
+  >;
   readonly reconcileProjections: () => Effect.Effect<void, AppError>;
   /** Strict reconcile for sync: fails instead of deferring when a contributor is unreadable. */
   readonly reconcileHooksProjections: Effect.Effect<void, AppError>;
@@ -725,6 +729,11 @@ export const HookManagerLive = Layer.effect(
                 style: style.value,
               });
         const changed = updated !== existing;
+        const observedRegion = managedRegionContent(
+          existing,
+          { region: HOOK_FALLBACKS_REGION },
+          style.value,
+        );
         if (changed && options?.dryRun !== true) {
           yield* protectWorkspacePath(targetPath);
           yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
@@ -758,6 +767,18 @@ export const HookManagerLive = Layer.effect(
             mode: "managed-region",
             region: HOOK_FALLBACKS_REGION,
           }),
+          projectionUnitObservation: {
+            unitId: "hook:fallback-region",
+            path: `${workspaceRelative.value}#${HOOK_FALLBACKS_REGION}`,
+            present: Option.isSome(observedRegion),
+            current: !changed,
+            expectedContributors: hooks.map(({ marker }) => marker),
+            observedContributors: Option.match(observedRegion, {
+              onNone: () => [],
+              onSome: (region) =>
+                hooks.filter(({ command }) => region.includes(command)).map(({ marker }) => marker),
+            }),
+          } satisfies ProjectionUnitObservation,
         };
       });
 
@@ -780,6 +801,7 @@ export const HookManagerLive = Layer.effect(
             changed: false,
             materializedTargets: [],
             materialization: { agents: [], targets: [] },
+            projectionUnitObservations: [],
           };
         }
         const contributors = contributorsOption.value;
@@ -799,6 +821,11 @@ export const HookManagerLive = Layer.effect(
           ({ target, rendered }) =>
             Effect.gen(function* () {
               const raw = yield* provide(readExisting(target.configPath));
+              const observedCommands = yield* readManagedHookCommands(
+                target.configPath,
+                target.writer.settingsKey,
+                raw,
+              );
               const next = yield* updateHooksJson(
                 target.configPath,
                 target.writer.settingsKey,
@@ -820,6 +847,8 @@ export const HookManagerLive = Layer.effect(
                 });
               }
 
+              const expectedCommands = managedHookCommands(rendered);
+
               return {
                 agentId: target.agent.id,
                 changed,
@@ -827,6 +856,18 @@ export const HookManagerLive = Layer.effect(
                   target: decodeRelativePathSync(workspaceRelative.value),
                   mode: "sync-always",
                 }),
+                projectionUnitObservation: {
+                  unitId: "hook:agent-hook-entries",
+                  path: workspaceRelative.value,
+                  present: observedCommands.length > 0,
+                  current: !changed,
+                  expectedContributors: contributors
+                    .filter(({ command }) => expectedCommands.includes(command))
+                    .map(({ marker }) => marker),
+                  observedContributors: contributors
+                    .filter(({ command }) => observedCommands.includes(command))
+                    .map(({ marker }) => marker),
+                } satisfies ProjectionUnitObservation,
               };
             }),
           { concurrency: "unbounded" },
@@ -869,6 +910,10 @@ export const HookManagerLive = Layer.effect(
                 };
               }),
           },
+          projectionUnitObservations: [
+            ...nativeTargets.map(({ projectionUnitObservation }) => projectionUnitObservation),
+            fallback.projectionUnitObservation,
+          ],
         };
         if (args?.dryRun !== true) {
           lastProjection = result.materialization;
@@ -970,8 +1015,8 @@ export const HookManagerLive = Layer.effect(
       runTransaction: ws.runTransaction,
       reconcileProjections: () => writeHooksConfig({ onUnready: "skip" }).pipe(Effect.asVoid),
       reconcileHooksProjections: writeHooksConfig().pipe(Effect.asVoid),
-      hooksProjectionCurrent: writeHooksConfig({ dryRun: true }).pipe(
-        Effect.map(({ changed }) => !changed),
+      projectionUnitObservations: writeHooksConfig({ dryRun: true }).pipe(
+        Effect.map(({ projectionUnitObservations }) => projectionUnitObservations),
       ),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(

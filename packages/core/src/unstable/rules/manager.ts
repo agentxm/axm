@@ -32,7 +32,8 @@ import {
   materializeRegistryPackage,
   registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
-import { activeContributors } from "../projection/index.js";
+import { activeContributors } from "../projection/contributors.js";
+import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
   frontmatterParseFailureToAppError,
   parseFrontmatterEffect,
@@ -48,6 +49,7 @@ import {
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import {
   commentStyleForTarget,
+  managedRegionContent,
   replaceManagedRegion,
   stripManagedRegion,
 } from "../managed-files/index.js";
@@ -83,8 +85,10 @@ import {
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
   readonly reconcileInstructions: Effect.Effect<MaterializedFileTarget, AppError>;
-  /** True when the managed Rules region already renders its complete contributor set. */
-  readonly instructionsRegionCurrent: Effect.Effect<boolean, AppError>;
+  readonly projectionUnitObservations: Effect.Effect<
+    ReadonlyArray<ProjectionUnitObservation>,
+    AppError
+  >;
   readonly reconcileProjections: () => Effect.Effect<void, AppError>;
 }
 
@@ -370,6 +374,13 @@ export const RuleManagerLive = Layer.effect(
       return `<!-- axm:rule ${args.marker}@${args.manifest.version} -->\n\n${header}${args.body}`;
     };
 
+    interface RenderedRuleContributor {
+      readonly name: string;
+      readonly marker: string;
+      readonly manifest: RuleManifest;
+      readonly body: string;
+    }
+
     // The Rules region is an aggregate ownership unit: its contributor set is
     // every enabled Rule the complete desired-state graph reaches, whether
     // declared directly or contributed by a Pack. Membership never comes from
@@ -418,7 +429,9 @@ export const RuleManagerLive = Layer.effect(
           }),
         );
         if (Result.isFailure(resolved)) {
-          if (args?.onUnready === "skip") return Option.none<string>();
+          if (args?.onUnready === "skip") {
+            return Option.none<ReadonlyArray<RenderedRuleContributor>>();
+          }
           return yield* resolved.failure;
         }
 
@@ -428,8 +441,13 @@ export const RuleManagerLive = Layer.effect(
           return a.marker.localeCompare(b.marker);
         });
 
-        return Option.some(sorted.map(renderRuleBlock).join("\n\n"));
+        return Option.some(sorted);
       });
+
+    const observedRuleContributors = (content: string): ReadonlyArray<string> =>
+      Array.from(content.matchAll(/<!-- axm:rule (.+)@[^@\s]+ -->/gu))
+        .map((match) => match[1])
+        .filter((identity): identity is string => identity !== undefined);
 
     const writeRulesRegion = (args?: {
       readonly dryRun?: boolean;
@@ -458,9 +476,18 @@ export const RuleManagerLive = Layer.effect(
             }),
             materialization: ruleMaterializationObservation(target.relative, []),
             changed: false,
+            projectionUnitObservation: {
+              unitId: "rule:instructions-region",
+              path: `${target.relative}#${RULES_REGION}`,
+              present: false,
+              current: true,
+              expectedContributors: [],
+              observedContributors: [],
+            } satisfies ProjectionUnitObservation,
           };
         }
-        const rendered = renderedOption.value;
+        const contributors = renderedOption.value;
+        const rendered = contributors.map(renderRuleBlock).join("\n\n");
         // Only treat an absent file as empty; a real read failure on an existing
         // file must propagate, or we would overwrite unreadable user content
         // with just the managed region.
@@ -499,11 +526,28 @@ export const RuleManagerLive = Layer.effect(
           mode: "managed-region",
           region: RULES_REGION,
         });
+        const observedRegion = managedRegionContent(
+          existing,
+          { region: RULES_REGION },
+          style.value,
+        );
+        const projectionUnitObservation = {
+          unitId: "rule:instructions-region",
+          path: `${target.relative}#${RULES_REGION}`,
+          present: Option.isSome(observedRegion),
+          current: !changed,
+          expectedContributors: contributors.map(({ marker }) => marker),
+          observedContributors: Option.match(observedRegion, {
+            onNone: () => [],
+            onSome: observedRuleContributors,
+          }),
+        } satisfies ProjectionUnitObservation;
         if (args?.dryRun === true) {
           return {
             materializedTarget,
             materialization: ruleMaterializationObservation(target.relative, []),
             changed,
+            projectionUnitObservation,
           };
         }
 
@@ -559,7 +603,7 @@ export const RuleManagerLive = Layer.effect(
 
         const materialization = ruleMaterializationObservation(target.relative, instructionItems);
         lastProjection = materialization;
-        return { materializedTarget, materialization, changed };
+        return { materializedTarget, materialization, changed, projectionUnitObservation };
       });
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
@@ -657,8 +701,8 @@ export const RuleManagerLive = Layer.effect(
         Effect.map(({ materializedTarget }) => materializedTarget),
       ),
       reconcileProjections: () => writeRulesRegion({ onUnready: "skip" }).pipe(Effect.asVoid),
-      instructionsRegionCurrent: writeRulesRegion({ dryRun: true }).pipe(
-        Effect.map(({ changed }) => !changed),
+      projectionUnitObservations: writeRulesRegion({ dryRun: true }).pipe(
+        Effect.map(({ projectionUnitObservation }) => [projectionUnitObservation]),
       ),
       runTransaction: ws.runTransaction,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>

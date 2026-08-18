@@ -31,6 +31,7 @@ import type { KnowledgeInspection } from "../knowledge/okf.js";
 import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
 import type { Handle } from "../extensions/handle.js";
 import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
+import type { ProjectionInvariantFact } from "../projection/index.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -357,18 +358,15 @@ export interface WorkspaceInstructionAccessor {
 }
 
 /**
- * Caller-bound read-back currency for aggregate managed output units. Each
- * accessor yields `Option.none()` when currency cannot be judged (for example
- * an incomplete desired-state graph or missing canonical content) so the rule
- * suppresses instead of cascading a root-cause failure.
+ * Caller-bound shared facts for aggregate managed output units. Fact
+ * evaluation suppresses unjudgeable intrinsic conclusions so lint does not
+ * cascade from an incomplete desired-state graph or missing canonical input.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface WorkspaceProjectionsAccessor {
-  /** Whether the managed Rules region renders its complete contributor set. */
-  readonly rulesRegionCurrent: Effect.Effect<Option.Option<boolean>>;
-  /** Whether managed hook entries and the fallback region render theirs. */
-  readonly hooksProjectionsCurrent: Effect.Effect<Option.Option<boolean>>;
+  /** One shared evaluation of output-derived intrinsic projection facts. */
+  readonly facts: Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
 }
 
 /**

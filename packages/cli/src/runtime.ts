@@ -45,6 +45,7 @@ import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeIndexLive, KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -315,7 +316,9 @@ const makeWorkspaceProgramLayer = (
     KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
-  return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+  const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
+  return Layer.merge(fullLayer, invariantFactsLayer);
 };
 
 const envToBool = (opt: Option.Option<string>): boolean =>

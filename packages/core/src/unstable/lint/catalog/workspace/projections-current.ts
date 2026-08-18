@@ -1,5 +1,8 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import {
+  projectionFactIsViolation,
+  type ProjectionInvariantFact,
+} from "../../../projection/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryRule, LintFinding } from "../../rule.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
@@ -23,27 +26,21 @@ export const projectionsCurrentRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       if (context.projections === undefined) return EMPTY_LINT_FINDINGS;
-      const rulesRegion = yield* context.projections.rulesRegionCurrent;
-      const hooks = yield* context.projections.hooksProjectionsCurrent;
-      const findings: Array<LintFinding> = [];
-      if (Option.isSome(rulesRegion) && !rulesRegion.value) {
-        findings.push({
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            "The managed Rules region does not render every enabled reachable rule exactly once.",
-        });
-      }
-      if (Option.isSome(hooks) && !hooks.value) {
-        findings.push({
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            "The managed hook entries or fallback region do not render every enabled reachable hook exactly once.",
-        });
-      }
-      return findings;
+      return findingsForProjectionFacts(yield* context.projections.facts);
     }),
 };
+
+const contributorSuffix = (fact: ProjectionInvariantFact): string =>
+  fact.affectedContributors.length === 0
+    ? ""
+    : ` Affected contributors: ${fact.affectedContributors.join(", ")}.`;
+
+export const findingsForProjectionFacts = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): ReadonlyArray<LintFinding> =>
+  facts.filter(projectionFactIsViolation).map((fact) => ({
+    kind: "advisory",
+    ruleId: RULE_ID,
+    severity: "error",
+    message: `The AXM-owned projection at ${fact.subject.path} is ${fact.observation.status}.${contributorSuffix(fact)}`,
+  }));

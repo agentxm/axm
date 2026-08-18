@@ -255,6 +255,16 @@ const findRegion = (
     : Option.none();
 };
 
+/** Read only the body of one well-formed managed region. */
+export const managedRegionContent = (
+  content: string,
+  identity: FileRegionMarkerIdentity,
+  style: FileCommentStyle,
+): Option.Option<string> =>
+  Option.map(findRegion(content, identity, style), ({ start, end, lines }) =>
+    lines.slice(start + 1, end).join("\n"),
+  );
+
 const markerLines = (identity: FileRegionMarkerIdentity, style: FileCommentStyle) => ({
   start: serializeRegionMarker({ ...identity, kind: "start" }, style),
   end: serializeRegionMarker({ ...identity, kind: "end" }, style),

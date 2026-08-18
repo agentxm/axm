@@ -127,6 +127,7 @@ export interface HandleSyncArgs {
 
 export interface SyncTestHooks {
   readonly beforeMaterialization?: () => Effect.Effect<void, AppError>;
+  readonly afterMaterialization?: (index: number) => Effect.Effect<void, AppError>;
 }
 
 type SyncPlanRequirements =
@@ -1430,12 +1431,21 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
     serialMaterialization,
   } = preflight;
   const materializeSteps = steps.map((step, index): PlannedJobStep<SyncPlanRequirements> => {
-    if (index !== 0 || hooks.beforeMaterialization === undefined || step.readiness === "error") {
+    if (step.readiness === "error") {
       return step;
     }
+    const before =
+      index === 0 && hooks.beforeMaterialization !== undefined
+        ? hooks.beforeMaterialization()
+        : Effect.void;
+    const after =
+      hooks.afterMaterialization === undefined ? Effect.void : hooks.afterMaterialization(index);
     return {
       ...step,
-      run: hooks.beforeMaterialization().pipe(Effect.andThen(step.run)),
+      run: before.pipe(
+        Effect.andThen(step.run),
+        Effect.tap(() => after),
+      ),
     };
   });
 

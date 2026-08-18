@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -12,11 +13,19 @@ import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "@agentxm/client-core/
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import {
+  computePackManifestContentIdentity,
+  PackManagerLive,
+  type PackRef,
+} from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SkillManagerLive, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+import {
+  SourceHostProviders,
+  SourceHostProvidersLive,
+  type SourceHostProvidersService,
+} from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
 import YAML from "yaml";
@@ -32,6 +41,10 @@ import {
 } from "../../test-helpers.js";
 import {
   computePackageContentHashSync,
+  dependencyConstraintMap,
+  exactVersion,
+  extensionName,
+  handle,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
@@ -153,6 +166,200 @@ const writeRenderedSubagent = (
   );
 };
 
+const writePackPackage = (root: string, manifest: Readonly<Record<string, unknown>>): void => {
+  writeJson(path.join(root, "pack.json"), manifest);
+};
+
+const writeSkillPackage = (root: string, name: string, version: string): void => {
+  writeJson(path.join(root, "skill.json"), {
+    owner: "@acme",
+    type: "skill",
+    name,
+    version,
+  });
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "src", "SKILL.md"),
+    `---\nname: ${name}\ndescription: Test skill\n---\n\n# ${name}\n`,
+  );
+};
+
+const makePackRollbackFixture = (
+  baseDir: string,
+  options: { readonly withMemberDependency?: boolean } = {},
+) => {
+  const withMemberDependency = options.withMemberDependency !== false;
+  const registrySource = {
+    type: "registry",
+    location: new URL("file:///tmp/test-registry"),
+    owner: Option.none(),
+  } satisfies PackRef["source"];
+  const acceptedPackManifest = {
+    owner: "@acme",
+    type: "pack",
+    name: "toolkit",
+    version: "1.0.0",
+    dependencies: withMemberDependency ? { "@acme/skills/review": "^1.0.0" } : {},
+  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  const availablePackManifest = {
+    ...acceptedPackManifest,
+    version: "2.0.0",
+    dependencies: withMemberDependency ? { "@acme/skills/review": "^2.0.0" } : {},
+  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  const acceptedPackSource = path.join(baseDir, "registry-fixtures", "toolkit-1");
+  const availablePackSource = path.join(baseDir, "registry-fixtures", "toolkit-2");
+  const acceptedSkillSource = path.join(baseDir, "registry-fixtures", "review-1");
+  const availableSkillSource = path.join(baseDir, "registry-fixtures", "review-2");
+  writePackPackage(acceptedPackSource, acceptedPackManifest);
+  writePackPackage(availablePackSource, availablePackManifest);
+  writeSkillPackage(acceptedSkillSource, "review", "1.0.0");
+  writeSkillPackage(availableSkillSource, "review", "2.0.0");
+
+  const availablePack = {
+    type: "pack",
+    refType: "registry",
+    pack: {
+      name: extensionName("toolkit"),
+      dependencies: dependencyConstraintMap(availablePackManifest.dependencies),
+    },
+    source: registrySource,
+    owner: handle("@acme"),
+    name: extensionName("toolkit"),
+    version: exactVersion("2.0.0"),
+    integrity: Option.none(),
+    publisherBindingId: "hbnd_test",
+    packages: [],
+  } satisfies PackRef;
+  const availableSkill = {
+    type: "skill",
+    refType: "registry",
+    skill: {
+      name: extensionName("review"),
+      description: Option.none(),
+      metadata: Option.none(),
+    },
+    source: registrySource,
+    owner: handle("@acme"),
+    name: extensionName("review"),
+    version: exactVersion("2.0.0"),
+    integrity: Option.none(),
+    publisherBindingId: "hbnd_test",
+    packages: [],
+  } satisfies SkillExtensionRef;
+  const lookupCalls: string[] = [];
+  const fetchedRefs: string[] = [];
+  const sources = {
+    find: (_source, options) => {
+      lookupCalls.push(options.type);
+      if (options.type === "pack") return Effect.succeed([availablePack]);
+      if (options.type === "skill") return Effect.succeed([availableSkill]);
+      return Effect.succeed([]);
+    },
+    resolveNamedRegistry: () => Effect.die("unused"),
+    fetch: (ref) => {
+      const version = ref.refType === "registry" ? ref.version : "workspace";
+      const name =
+        ref.type === "pack" ? ref.pack.name : ref.type === "skill" ? ref.skill.name : "unexpected";
+      fetchedRefs.push(`${ref.type}:${name}:${version}`);
+      if (ref.type === "pack" && version === "1.0.0") {
+        return Effect.succeed({ directory: acceptedPackSource });
+      }
+      if (ref.type === "pack" && version === "2.0.0") {
+        return Effect.succeed({ directory: availablePackSource });
+      }
+      if (ref.type === "skill" && version === "1.0.0") {
+        return Effect.succeed({ directory: acceptedSkillSource });
+      }
+      if (ref.type === "skill" && version === "2.0.0") {
+        return Effect.succeed({ directory: availableSkillSource });
+      }
+      return Effect.fail(
+        makeAppError({ code: "not_found", detail: `Unexpected fixture ref ${ref.type}` }),
+      );
+    },
+    cloneUrl: () => Option.none(),
+    origin: () => "test-registry",
+  } satisfies SourceHostProvidersService;
+
+  const axmDir = path.join(baseDir, ".axm");
+  writeWorkspaceFiles(axmDir, {
+    agents: ["claude-code"],
+    packs: { toolkit: "@acme/packs/toolkit" },
+    sources: [{ type: "registry", name: "default", location: registrySource.location.href }],
+    lockfilePacks: {
+      toolkit: {
+        type: "registry",
+        owner: "@acme",
+        name: "toolkit",
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+        manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
+      },
+    },
+    lockfileSkills: {
+      review: {
+        type: "registry",
+        owner: "@acme",
+        name: "review",
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        publisherBindingId: "hbnd_test",
+      },
+    },
+  });
+
+  const canonicalSkill = path.join(axmDir, "extensions", "@acme", "skills", "review");
+  writeSkillPackage(canonicalSkill, "review", "1.0.0");
+  const ownedOutput = path.join(baseDir, ".claude", "skills", "review", "SKILL.md");
+  fs.mkdirSync(path.dirname(ownedOutput), { recursive: true });
+  fs.writeFileSync(ownedOutput, "# accepted managed review\n");
+
+  return {
+    sources,
+    lookupCalls,
+    fetchedRefs,
+    paths: {
+      lockfile: path.join(axmDir, "axm-lock.yaml"),
+      settings: path.join(axmDir, "settings.json"),
+      canonicalPack: path.join(axmDir, "extensions", "@acme", "packs", "toolkit"),
+      canonicalSkillManifest: path.join(canonicalSkill, "skill.json"),
+      canonicalSkillContent: path.join(canonicalSkill, "src", "SKILL.md"),
+      ownedOutput,
+    },
+  };
+};
+
+type PackRollbackPaths = ReturnType<typeof makePackRollbackFixture>["paths"];
+
+const capturePackRollbackPreimages = (paths: PackRollbackPaths) => ({
+  lockfile: fs.readFileSync(paths.lockfile, "utf8"),
+  settings: fs.readFileSync(paths.settings, "utf8"),
+  canonicalSkillManifest: fs.readFileSync(paths.canonicalSkillManifest, "utf8"),
+  canonicalSkillContent: fs.readFileSync(paths.canonicalSkillContent, "utf8"),
+  ownedOutput: fs.readFileSync(paths.ownedOutput, "utf8"),
+});
+
+const expectPackRollbackPreimages = (
+  paths: PackRollbackPaths,
+  before: ReturnType<typeof capturePackRollbackPreimages>,
+): void => {
+  const lockfile = fs.readFileSync(paths.lockfile, "utf8");
+  expect(lockfile).toBe(before.lockfile);
+  expect(YAML.parse(lockfile)).toEqual(YAML.parse(before.lockfile));
+  expect(YAML.parse(lockfile)).toMatchObject({
+    packs: { toolkit: { resolvedVersion: "1.0.0" } },
+    skills: { review: { resolvedVersion: "1.0.0" } },
+  });
+  expect(fs.readFileSync(paths.settings, "utf8")).toBe(before.settings);
+  expect(fs.existsSync(paths.canonicalPack)).toBe(false);
+  expect(fs.readFileSync(paths.canonicalSkillManifest, "utf8")).toBe(before.canonicalSkillManifest);
+  expect(fs.readFileSync(paths.canonicalSkillContent, "utf8")).toBe(before.canonicalSkillContent);
+  expect(fs.readFileSync(paths.ownedOutput, "utf8")).toBe(before.ownedOutput);
+};
+
 describe("root sync handler", () => {
   let tempDir: string;
   let originalCwd: string;
@@ -168,12 +375,15 @@ describe("root sync handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
+  const makeLayers = (
+    opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0],
+    sourceHostProviders?: SourceHostProvidersService,
+  ) => {
     const ctx = makeWorkspaceHandlerTestContext(opts);
-    const sourceProvidersLayer = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(ctx.baseLayer, ctx.wsLayer),
-    );
+    const sourceProvidersLayer =
+      sourceHostProviders === undefined
+        ? Layer.provide(SourceHostProvidersLive, Layer.merge(ctx.baseLayer, ctx.wsLayer))
+        : Layer.succeed(SourceHostProviders, sourceHostProviders);
     const managerDependencies = Layer.mergeAll(
       ctx.baseLayer,
       ctx.wsLayer,
@@ -441,6 +651,90 @@ describe("root sync handler", () => {
       expect(error.detail).toContain("Invalid pack source for missing");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       expect(config.mcpServers.retained.command).toBe("node");
+    }),
+  );
+
+  it.effect("rolls back accepted Pack recovery when a later typed failure occurs", () =>
+    Effect.gen(function* () {
+      const fixture = makePackRollbackFixture(tempDir);
+      const before = capturePackRollbackPreimages(fixture.paths);
+      const { provide, rendererState } = makeLayers({ machine: true }, fixture.sources);
+
+      yield* provide(handleSync({ preview: false }));
+
+      const payload = expectRecord(rendererState.results[0]?.data);
+      expect(expectRecord(property(payload, "result"))).toMatchObject({
+        outcome: "failed",
+        reason: "execution-failed",
+        errorCode: "conflict",
+        steps: [
+          {
+            label: "@acme/packs/toolkit",
+            status: "failed",
+            message: expect.stringContaining("desired member graph incomplete"),
+          },
+        ],
+      });
+      expectPackRollbackPreimages(fixture.paths, before);
+      expect(fixture.lookupCalls).toEqual([]);
+      expect(fixture.fetchedRefs).toContain("pack:toolkit:1.0.0");
+      expect(fixture.fetchedRefs).not.toContain("pack:toolkit:2.0.0");
+      expect(fixture.fetchedRefs).not.toContain("skill:review:2.0.0");
+    }),
+  );
+
+  it.effect("rolls back accepted Pack recovery when the command is interrupted", () =>
+    Effect.gen(function* () {
+      const fixture = makePackRollbackFixture(tempDir, { withMemberDependency: false });
+      const before = capturePackRollbackPreimages(fixture.paths);
+      const { provide } = makeLayers(undefined, fixture.sources);
+
+      const exit = yield* Effect.exit(
+        provide(handleSync({ preview: false }, { afterMaterialization: () => Effect.interrupt })),
+      );
+
+      expect(exit._tag).toBe("Failure");
+      if (exit._tag === "Failure") {
+        expect(Cause.hasInterruptsOnly(exit.cause)).toBe(true);
+      }
+      expectPackRollbackPreimages(fixture.paths, before);
+    }),
+  );
+
+  it.effect("preserves an independent committed closure when later Pack recovery fails", () =>
+    Effect.gen(function* () {
+      const fixture = makePackRollbackFixture(tempDir);
+      const settings = expectRecord(YAML.parse(fs.readFileSync(fixture.paths.settings, "utf8")));
+      writeJson(fixture.paths.settings, {
+        ...settings,
+        skills: { independent: "workspace:@acme/skills/independent" },
+      });
+      const independentCanonical = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "skills",
+        "independent",
+      );
+      writeSkillPackage(independentCanonical, "independent", "1.0.0");
+      const independentOutput = path.join(tempDir, ".claude", "skills", "independent", "SKILL.md");
+      expect(fs.existsSync(independentOutput)).toBe(false);
+
+      const { provide } = makeLayers(undefined, fixture.sources);
+      yield* provide(
+        handleSync({
+          preview: false,
+          target: Option.some("@acme/skills/independent"),
+        }),
+      );
+      const committedIndependentOutput = fs.readFileSync(independentOutput, "utf8");
+      const beforeFailure = capturePackRollbackPreimages(fixture.paths);
+
+      yield* provide(handleSync({ preview: false }));
+
+      expect(fs.readFileSync(independentOutput, "utf8")).toBe(committedIndependentOutput);
+      expectPackRollbackPreimages(fixture.paths, beforeFailure);
     }),
   );
 

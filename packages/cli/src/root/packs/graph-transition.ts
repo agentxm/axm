@@ -224,7 +224,7 @@ export const validatePackGraphPostcondition = (args: {
     });
     if (relevantProblems.length > 0) {
       return yield* makeAppError({
-        code: "internal",
+        code: "conflict",
         detail: "Pack transition left its desired member graph incomplete",
       });
     }

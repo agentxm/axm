@@ -281,6 +281,11 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
 
 const syncEvidence = ["packages/cli/src/root/sync/handler.test.ts"] as const;
 const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
+  makeEntry("pack:manifest-divergence", {
+    owner: "sync",
+    field: "canonicalContent",
+    evidence: ["packages/cli/src/root/sync/handler.test.ts"],
+  }),
   makeEntry(INCOMPLETE_DESIRED_STATE_BLOCKER_ID, {
     owner: "direct-correction",
     field: "authoredIntent",

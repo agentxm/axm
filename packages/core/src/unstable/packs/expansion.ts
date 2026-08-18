@@ -17,6 +17,7 @@ import type * as Duration from "effect/Duration";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 import {
   resolvePackDependenciesWithReleaseAge,
+  type PackDependencyRefResolver,
   type ReleaseAgeAwarePackDependencyResolution,
   type WorkspacePackDependencyResolver,
 } from "./dependency-resolution.js";
@@ -42,15 +43,24 @@ export const expandPackInstallRefs = (args: {
   readonly sources: SourceHostProvidersService;
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
   readonly workspaceResolver?: WorkspacePackDependencyResolver;
+  readonly dependencyResolver?: PackDependencyRefResolver;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
   Effect.gen(function* () {
-    const { pack, supportedDependencyTypes, sources, minimumReleaseAge, workspaceResolver } = args;
+    const {
+      pack,
+      supportedDependencyTypes,
+      sources,
+      minimumReleaseAge,
+      workspaceResolver,
+      dependencyResolver,
+    } = args;
     const resolved = yield* resolvePackDependencies(
       pack,
       sources,
       minimumReleaseAge,
       undefined,
       workspaceResolver,
+      dependencyResolver,
     );
 
     const deps = resolved.dependencyRefs.filter((ref) =>
@@ -82,6 +92,7 @@ export const expandPackInstallRefsWithReleaseAge = (args: {
   readonly sources: SourceHostProvidersService;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   readonly workspaceResolver?: WorkspacePackDependencyResolver;
+  readonly dependencyResolver?: PackDependencyRefResolver;
 }): Effect.Effect<ReleaseAgeAwarePackExpansion, AppError> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependenciesWithReleaseAge(
@@ -90,6 +101,7 @@ export const expandPackInstallRefsWithReleaseAge = (args: {
       args.releaseAgeEvaluation,
       undefined,
       args.workspaceResolver,
+      args.dependencyResolver,
     );
     if (resolved.kind === "policy_held") return resolved;
     const dependencies = resolved.dependencies.dependencyRefs.filter((ref) =>

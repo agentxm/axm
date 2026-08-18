@@ -248,6 +248,51 @@ describe("resolvePackDependencies", () => {
       expect(find).not.toHaveBeenCalled();
     }),
   );
+
+  it.effect("uses an authorized immutable dependency without Registry selection", () =>
+    Effect.gen(function* () {
+      const find = vi.fn(() => Effect.die("Registry selection must not run"));
+      const resolver = vi.fn(() => Effect.succeed(registrySkill()));
+      const resolved = yield* resolvePackDependencies(
+        packRef({ "@acme/skills/release": "^2.0.0" }),
+        providers(find),
+        undefined,
+        undefined,
+        undefined,
+        resolver,
+      );
+
+      expect(resolved.resolvedSkills["@acme/skills/release"]).toMatchObject({
+        source: "registry",
+        version: "2.1.0",
+      });
+      expect(resolver).toHaveBeenCalledWith({
+        owner: "@acme",
+        type: "skill",
+        name: "release",
+        constraint: "^2.0.0",
+        root: "@acme/packs/toolkit",
+      });
+      expect(find).not.toHaveBeenCalled();
+    }),
+  );
+
+  it.effect("rejects an authorized immutable dependency outside the Pack constraint", () =>
+    Effect.gen(function* () {
+      const error = yield* resolvePackDependencies(
+        packRef({ "@acme/skills/release": "^3.0.0" }),
+        providers(() => Effect.die("Registry selection must not run")),
+        undefined,
+        undefined,
+        undefined,
+        () => Effect.succeed(registrySkill()),
+      ).pipe(Effect.flip);
+
+      expect(error.code).toBe("conflict");
+      expect(error.detail).toContain("@acme/skills/release@2.1.0");
+      expect(error.detail).toContain("^3.0.0");
+    }),
+  );
 });
 
 describe("resolvePackDependenciesWithReleaseAge", () => {
@@ -318,6 +363,34 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
         },
       ]);
     }),
+  );
+
+  it.effect(
+    "bypasses Registry and release-age selection for an accepted immutable dependency",
+    () =>
+      Effect.gen(function* () {
+        const resolver = vi.fn(() => Effect.succeed(registrySkill()));
+        const resolved = yield* resolvePackDependenciesWithReleaseAge(
+          packRef({ "@acme/skills/release": "^2.0.0" }),
+          namedProviders(() => Effect.die("Registry selection must not run")),
+          evaluation,
+          undefined,
+          undefined,
+          resolver,
+        );
+
+        expect(resolved).toMatchObject({
+          kind: "selected",
+          holdbacks: [],
+          bypasses: [],
+          dependencies: {
+            resolvedSkills: {
+              "@acme/skills/release": { source: "registry", version: "2.1.0" },
+            },
+          },
+        });
+        expect(resolver).toHaveBeenCalledOnce();
+      }),
   );
 
   it.effect("selects an eligible dependency while disclosing its newer held release", () =>

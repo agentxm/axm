@@ -81,73 +81,88 @@ const missingAccepted = (label: string, name: string): AppError =>
 
 const refFromAcceptedResolution = (
   workspace: WorkspaceMutationsService,
-  desired: DesiredExtensionNode,
+  type: DesiredExtensionNode["type"],
+  name: string,
 ): Effect.Effect<ExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (desired.identity.startsWith("workspace:")) {
-      return yield* resolveWorkspaceExtensionRef({
+    const path = yield* Path.Path;
+    const deps = lockRefDeps(workspace, path);
+    switch (type) {
+      case "skill": {
+        const entry = yield* workspace.getLockedSkill(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Skill", name)),
+          onSome: (value) => skillLockEntryToRef(name, value, deps),
+        });
+      }
+      case "mcp-server": {
+        const entry = yield* workspace.getLockedMcpServer(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("MCP", name)),
+          onSome: (value) => mcpServerLockEntryToRef(name, value, deps),
+        });
+      }
+      case "subagent": {
+        const entry = yield* workspace.getLockedSubagent(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Subagent", name)),
+          onSome: (value) => subagentLockEntryToRef(name, value, deps),
+        });
+      }
+      case "rule": {
+        const entry = yield* workspace.getLockedRuleEntry(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Rule", name)),
+          onSome: (value) => ruleLockEntryToRef(name, value, deps),
+        });
+      }
+      case "hook": {
+        const entry = yield* workspace.getLockedHookEntry(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Hook", name)),
+          onSome: (value) => hookLockEntryToRef(name, value, deps),
+        });
+      }
+      case "knowledge": {
+        const entry = yield* workspace.getLockedKnowledgeEntry(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Knowledge", name)),
+          onSome: (value) => knowledgeLockEntryToRef(name, value, deps),
+        });
+      }
+      case "pack": {
+        const entry = yield* workspace.getLockedPack(name);
+        return yield* Option.match(entry, {
+          onNone: () => Effect.fail(missingAccepted("Pack", name)),
+          onSome: (value) => packLockEntryToRef(name, value, deps),
+        });
+      }
+    }
+  });
+
+/** Reconstruct a ref directly from accepted lock authority without desired reachability. */
+export const acceptedLockedResolutionRef = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<Option.Option<ExtensionRef>, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const accepted = yield* getAcceptedResolution(args.workspace, args.type, args.name);
+    if (Option.isNone(accepted)) return Option.none();
+    return Option.some(yield* refFromAcceptedResolution(args.workspace, args.type, args.name));
+  });
+
+const refForDesired = (
+  workspace: WorkspaceMutationsService,
+  desired: DesiredExtensionNode,
+): Effect.Effect<ExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
+  desired.identity.startsWith("workspace:")
+    ? resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
         expectedType: desired.type,
         baseDir: workspace.baseDir,
         scope: workspace.scope,
-      });
-    }
-
-    const path = yield* Path.Path;
-    const deps = lockRefDeps(workspace, path);
-    switch (desired.type) {
-      case "skill": {
-        const entry = yield* workspace.getLockedSkill(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Skill", desired.name)),
-          onSome: (value) => skillLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "mcp-server": {
-        const entry = yield* workspace.getLockedMcpServer(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("MCP", desired.name)),
-          onSome: (value) => mcpServerLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "subagent": {
-        const entry = yield* workspace.getLockedSubagent(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Subagent", desired.name)),
-          onSome: (value) => subagentLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "rule": {
-        const entry = yield* workspace.getLockedRuleEntry(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Rule", desired.name)),
-          onSome: (value) => ruleLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "hook": {
-        const entry = yield* workspace.getLockedHookEntry(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Hook", desired.name)),
-          onSome: (value) => hookLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "knowledge": {
-        const entry = yield* workspace.getLockedKnowledgeEntry(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Knowledge", desired.name)),
-          onSome: (value) => knowledgeLockEntryToRef(desired.name, value, deps),
-        });
-      }
-      case "pack": {
-        const entry = yield* workspace.getLockedPack(desired.name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Pack", desired.name)),
-          onSome: (value) => packLockEntryToRef(desired.name, value, deps),
-        });
-      }
-    }
-  });
+      })
+    : refFromAcceptedResolution(workspace, desired.type, desired.name);
 
 /**
  * Reconstruct the immutable source reference recorded for a desired extension,
@@ -162,9 +177,7 @@ export const acceptedResolutionRef = (
     if (desired === undefined || desired.identity.startsWith("workspace:")) {
       return Option.none();
     }
-    const accepted = yield* getAcceptedResolution(args.workspace, args.type, args.name);
-    if (Option.isNone(accepted)) return Option.none();
-    return Option.some(yield* refFromAcceptedResolution(args.workspace, desired));
+    return yield* acceptedLockedResolutionRef(args);
   });
 
 export const acceptedCanonicalObservation = ({
@@ -223,7 +236,7 @@ export const usableAcceptedCanonical = (
   Effect.gen(function* () {
     const canonical = yield* usableAcceptedCanonicalObservation(args);
     if (Option.isNone(canonical)) return Option.none();
-    const ref = yield* refFromAcceptedResolution(args.workspace, canonical.value.desired);
+    const ref = yield* refForDesired(args.workspace, canonical.value.desired);
     return Option.some({ ...canonical.value, ref });
   });
 

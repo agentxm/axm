@@ -20,7 +20,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
         if ("pack" in problem) {
           const observed =
             problem.type === "pack-manifest-content-mismatch"
-              ? ` Canonical state: ${problem.status}.`
+              ? ` Accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}.`
               : "";
           return {
             kind: "advisory",

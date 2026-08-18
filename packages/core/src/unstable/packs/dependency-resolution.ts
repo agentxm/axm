@@ -51,6 +51,47 @@ export type WorkspacePackDependencyResolver = (args: {
   readonly root: string;
 }) => Effect.Effect<WorkspacePackDependencyResolution, AppError>;
 
+/** Resolve a Pack member from an already-authorized immutable candidate. */
+export type PackDependencyRefResolver = (args: {
+  readonly owner: Handle;
+  readonly type: SupportedPackDependencyType;
+  readonly name: ExtensionName;
+  readonly constraint: VersionRange;
+  readonly root: string;
+}) => Effect.Effect<ExtensionRef, AppError>;
+
+const validateSelectedDependency = (
+  candidate: ExtensionRef,
+  expectedType: SupportedPackDependencyType,
+  parsed: { readonly owner: Handle; readonly name: ExtensionName },
+  fqn: string,
+  constraint: VersionRange,
+): Effect.Effect<ResolvedDependency, AppError> => {
+  if (
+    candidate.type !== expectedType ||
+    (candidate.refType !== "registry" && candidate.refType !== "workspace") ||
+    candidate.owner !== parsed.owner ||
+    candidate.name !== parsed.name
+  ) {
+    return makeAppError({
+      code: "conflict",
+      detail: `Authorized dependency resolution does not match pack dependency ${fqn}`,
+    });
+  }
+  if (!semver.satisfies(candidate.version, constraint)) {
+    return makeAppError({
+      code: "conflict",
+      detail: `Authorized dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
+    });
+  }
+  return Effect.succeed({
+    owner: parsed.owner,
+    type: expectedType,
+    name: parsed.name,
+    ref: candidate,
+  });
+};
+
 export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedPackDependencyMap;
   readonly resolvedMcpServers: ResolvedPackDependencyMap;
@@ -139,6 +180,7 @@ const resolveDependencyRef = (
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
+  dependencyResolver?: PackDependencyRefResolver,
 ): Effect.Effect<ResolvedDependency, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
@@ -187,6 +229,17 @@ const resolveDependencyRef = (
           ref: candidate,
         };
       }
+    }
+
+    if (dependencyResolver !== undefined) {
+      const candidate = yield* dependencyResolver({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+        constraint,
+        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
+      });
+      return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
     }
 
     const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
@@ -259,6 +312,7 @@ const resolveDependencyRefWithReleaseAge = (
   evaluation: ReleaseAgeEvaluation,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
+  dependencyResolver?: PackDependencyRefResolver,
 ): Effect.Effect<ReleaseAgeAwareDependencyResolution, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
@@ -311,6 +365,28 @@ const resolveDependencyRefWithReleaseAge = (
           bypasses: [],
         };
       }
+    }
+
+    if (dependencyResolver !== undefined) {
+      const candidate = yield* dependencyResolver({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+        constraint,
+        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
+      });
+      return {
+        kind: "selected",
+        dependency: yield* validateSelectedDependency(
+          candidate,
+          expectedType,
+          parsed,
+          fqn,
+          constraint,
+        ),
+        holdbacks: [],
+        bypasses: [],
+      };
     }
 
     const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
@@ -421,6 +497,7 @@ const resolveDependencyGroup = (
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
+  dependencyResolver?: PackDependencyRefResolver,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency>, AppError> =>
   Effect.forEach(
     dependencies,
@@ -434,6 +511,7 @@ const resolveDependencyGroup = (
         minimumReleaseAge,
         sourceOverride,
         workspaceResolver,
+        dependencyResolver,
       ),
     { concurrency: "unbounded" },
   );
@@ -473,6 +551,7 @@ export const resolvePackDependencies = (
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
+  dependencyResolver?: PackDependencyRefResolver,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -492,6 +571,7 @@ export const resolvePackDependencies = (
         minimumReleaseAge,
         sourceOverride,
         workspaceResolver,
+        dependencyResolver,
       );
 
     const resolvedSkills = yield* resolveGroup("skill");
@@ -525,6 +605,7 @@ export const resolvePackDependenciesWithReleaseAge = (
   evaluation: ReleaseAgeEvaluation,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
+  dependencyResolver?: PackDependencyRefResolver,
 ): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, AppError> =>
   Effect.gen(function* () {
     const packExemption =
@@ -590,6 +671,7 @@ export const resolvePackDependenciesWithReleaseAge = (
           dependencyEvaluation,
           sourceOverride,
           workspaceResolver,
+          dependencyResolver,
         ),
       { concurrency: "unbounded" },
     );

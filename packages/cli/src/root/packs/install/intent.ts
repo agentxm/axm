@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackRef } from "@agentxm/client-core/unstable/packs";
+import type { PackDependencyRefResolver, PackRef } from "@agentxm/client-core/unstable/packs";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { ReleaseAgeEvaluation } from "@agentxm/client-core/unstable/registry";
 
@@ -18,4 +18,6 @@ export interface InstallPackCommandIntent {
   readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
   readonly diagnosticLines?: ReadonlyArray<string>;
+  /** Immutable dependency authority supplied by deterministic recovery workflows. */
+  readonly dependencyResolver?: PackDependencyRefResolver;
 }

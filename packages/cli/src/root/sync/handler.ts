@@ -106,6 +106,7 @@ import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js"
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export const SYNC_RECOVERY_IDS = {
+  packManifestDivergence: "pack:manifest-divergence",
   inlineMcpCollision: "mcp-server:inline",
   hookProjections: "hook:projections",
   instructionReconcile: "instruction:reconcile",
@@ -113,6 +114,7 @@ export const SYNC_RECOVERY_IDS = {
 
 /** Executable sync recovery and blocker identities covered by recovery conformance. */
 export const syncRecoveryIdentifiers = [
+  SYNC_RECOVERY_IDS.packManifestDivergence,
   SYNC_RECOVERY_IDS.inlineMcpCollision,
   SYNC_RECOVERY_IDS.hookProjections,
   SYNC_RECOVERY_IDS.instructionReconcile,
@@ -155,7 +157,7 @@ const desiredStateProblemText = (graph: DesiredStateGraph): string =>
         case "pack-resolution-unavailable":
           return `${problem.pack}: ${problem.detail}`;
         case "pack-manifest-content-mismatch":
-          return `${problem.pack}: canonical pack content is ${problem.status}`;
+          return `${problem.pack}: accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}`;
         case "projection-collision":
           return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
         case "constraint-conflict":
@@ -256,8 +258,11 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
   function* (args: { readonly selection: SyncSelection; readonly ignoreReleaseAge: boolean }) {
     const ws = yield* WorkspaceMutations;
     const graph = yield* ws.getDesiredStateGraph();
+    const recoveryProblems = scopedProblems(graph, args.selection).filter(
+      (problem) => recoverableExternalPackName(graph, problem) !== undefined,
+    );
     const packNames = new Set(
-      scopedProblems(graph, args.selection).flatMap((problem) => {
+      recoveryProblems.flatMap((problem) => {
         const name = recoverableExternalPackName(graph, problem);
         return name === undefined ? [] : [name];
       }),
@@ -273,7 +278,23 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
     return {
       packNames,
       releaseAge: result.plan.releaseAge,
-      steps: result.plan.jobs.flatMap((job) => job.steps),
+      steps: result.plan.jobs.flatMap((job) =>
+        job.steps.map((step) => {
+          const stepProblems = recoveryProblems.filter(
+            (problem) =>
+              "pack" in problem &&
+              normalizedIdentity(problem.pack) === normalizedIdentity(step.label),
+          );
+          return {
+            ...step,
+            key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${step.key ?? step.label}`,
+            label: `Recover ${step.label} (${desiredStateProblemText({
+              ...graph,
+              problems: stepProblems.length === 0 ? recoveryProblems : stepProblems,
+            })})`,
+          };
+        }),
+      ),
     } satisfies ConfiguredPackRecovery;
   },
 );

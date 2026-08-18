@@ -42,6 +42,7 @@ export {
 } from "./expansion.js";
 export {
   resolvePackDependenciesWithReleaseAge,
+  type PackDependencyRefResolver,
   type ReleaseAgeAwarePackDependencyResolution,
   type WorkspacePackDependencyResolver,
   type WorkspacePackDependencyResolution,

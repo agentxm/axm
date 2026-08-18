@@ -1004,6 +1004,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   sources,
                   minimumReleaseAge,
                   workspaceResolver: authority.workspaceResolver,
+                  ...(intent.dependencyResolver === undefined
+                    ? {}
+                    : { dependencyResolver: intent.dependencyResolver }),
                 }),
                 holdbacks: [],
                 bypasses: [],
@@ -1014,6 +1017,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 sources,
                 releaseAgeEvaluation: intent.releaseAgeEvaluation,
                 workspaceResolver: authority.workspaceResolver,
+                ...(intent.dependencyResolver === undefined
+                  ? {}
+                  : { dependencyResolver: intent.dependencyResolver }),
               });
         const releaseAge =
           intent.releaseAgeEvaluation === undefined

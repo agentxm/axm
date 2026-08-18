@@ -121,6 +121,8 @@ export const validateDesiredPackLock = ({
           pack: node.identity,
           path: manifestPath,
           status: "missing",
+          acceptedVersion: entry.resolvedVersion,
+          acceptedContentIdentity: entry.manifestContentIdentity,
         });
         invalidPacks.add(normalizedPackIdentity(node.identity));
         continue;
@@ -130,16 +132,29 @@ export const validateDesiredPackLock = ({
         try: () => decodeManifest(JSON.parse(readResult.success)),
         catch: () => undefined,
       });
+      const observedManifest =
+        Result.isSuccess(decoded) && decoded.success !== undefined ? decoded.success : undefined;
+      const observedContentIdentity =
+        observedManifest === undefined
+          ? undefined
+          : computePackManifestContentIdentity(observedManifest);
       if (
-        Result.isFailure(decoded) ||
-        decoded.success === undefined ||
-        computePackManifestContentIdentity(decoded.success) !== entry.manifestContentIdentity
+        observedManifest === undefined ||
+        observedContentIdentity !== entry.manifestContentIdentity
       ) {
         problems.push({
           type: "pack-manifest-content-mismatch",
           pack: node.identity,
           path: manifestPath,
           status: "changed",
+          acceptedVersion: entry.resolvedVersion,
+          acceptedContentIdentity: entry.manifestContentIdentity,
+          ...(observedManifest === undefined || observedContentIdentity === undefined
+            ? {}
+            : {
+                observedVersion: observedManifest.version,
+                observedContentIdentity,
+              }),
         });
         invalidPacks.add(normalizedPackIdentity(node.identity));
       }

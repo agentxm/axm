@@ -70,6 +70,10 @@ export type DesiredStateProblem =
       readonly pack: string;
       readonly path?: string;
       readonly status: string;
+      readonly acceptedVersion: string;
+      readonly acceptedContentIdentity: string;
+      readonly observedVersion?: string;
+      readonly observedContentIdentity?: string;
     }
   | {
       readonly type: "projection-collision";

@@ -1,12 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as DateTime from "effect/DateTime";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import {
   acceptedResolutionRef,
+  acceptedLockedResolutionRef,
   WorkspaceMutations,
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -31,6 +33,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
+  type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
@@ -42,6 +45,13 @@ import {
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import {
+  computePackManifestContentIdentity,
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+  type PackDependencyRefResolver,
+  type PackRef,
+} from "@agentxm/client-core/unstable/packs";
 
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
@@ -335,18 +345,116 @@ const resolveMcpServerIntent = (
     }),
   );
 
+const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const sources = yield* SourceHostProviders;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const locked = yield* ws.getLockedPack(name);
+    if (Option.isNone(locked)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Accepted Pack recovery has no lock authority for ${name}`,
+      });
+    }
+    const manifest = yield* Effect.scoped(
+      Effect.gen(function* () {
+        const fetched = yield* sources.fetch(ref).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: cause.code,
+              detail: `Failed to fetch accepted Pack ${ref.owner}/packs/${ref.name}@${ref.version}: ${cause.detail}`,
+              cause,
+            }),
+          ),
+        );
+        const manifestPath = path.join(fetched.directory, PACK_MANIFEST_FILENAME);
+        const manifestText = yield* fs.readFileString(manifestPath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Accepted Pack archive has no readable manifest at ${manifestPath}`,
+              cause,
+            }),
+          ),
+        );
+        const manifestJson = yield* Effect.try({
+          try: () => {
+            const value: unknown = JSON.parse(manifestText);
+            return value;
+          },
+          catch: (cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Accepted Pack archive manifest is not valid JSON: ${manifestPath}`,
+              cause,
+            }),
+        });
+        return yield* Schema.decodeUnknownEffect(PackManifestSchema)(manifestJson).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Accepted Pack archive manifest is invalid: ${manifestPath}`,
+              cause,
+            }),
+          ),
+        );
+      }),
+    );
+    const observedContentIdentity = computePackManifestContentIdentity(manifest);
+    if (
+      manifest.owner !== ref.owner ||
+      manifest.name !== ref.name ||
+      manifest.version !== ref.version ||
+      observedContentIdentity !== locked.value.manifestContentIdentity
+    ) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Accepted Pack ${ref.owner}/packs/${ref.name}@${ref.version} content ${locked.value.manifestContentIdentity} does not match fetched archive ${manifest.owner}/packs/${manifest.name}@${manifest.version} content ${observedContentIdentity}`,
+      });
+    }
+    return { ...ref, pack: { name: ref.pack.name, dependencies: manifest.dependencies } };
+  });
+
+const acceptedPackDependencyResolver =
+  (
+    ws: WorkspaceMutationsService,
+    fs: FileSystem.FileSystem,
+    path: Path.Path,
+  ): PackDependencyRefResolver =>
+  ({ owner, type, name, root }) =>
+    acceptedLockedResolutionRef({ workspace: ws, type, name }).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () =>
+            makeAppError({
+              code: "conflict",
+              detail: `Accepted Pack recovery for ${root} has no accepted ${type} resolution for ${owner}/${name}`,
+            }),
+          onSome: Effect.succeed,
+        }),
+      ),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+
 const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: ReleaseAgeEvaluation) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const accepted = yield* acceptedResolutionRef({ workspace: ws, type: "pack", name });
     if (Option.isSome(accepted) && accepted.value.type === "pack") {
+      const packToInstall = yield* hydrateAcceptedPackRef(name, accepted.value);
       return {
         intent: {
-          packToInstall: accepted.value,
+          packToInstall,
           versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(source)?.versionRange),
           unattended: true,
           releaseAgeEvaluation,
           releaseAgeHoldbackBehavior: "preserve-or-block",
+          dependencyResolver: acceptedPackDependencyResolver(ws, fs, path),
         } satisfies InstallPackCommandIntent,
         releaseAge: undefined,
       };

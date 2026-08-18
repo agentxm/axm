@@ -75,6 +75,7 @@ export {
 } from "./canonical-observation.js";
 export {
   acceptedResolutionRef,
+  acceptedLockedResolutionRef,
   acceptedCanonicalObservation,
   usableAcceptedCanonical,
   usableAcceptedCanonicalObservation,

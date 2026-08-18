@@ -186,7 +186,11 @@ const writeSkillPackage = (root: string, name: string, version: string): void =>
 
 const makePackRollbackFixture = (
   baseDir: string,
-  options: { readonly withMemberDependency?: boolean } = {},
+  options: {
+    readonly canonicalPackState?: "changed" | "missing";
+    readonly trustedMemberCanonical?: boolean;
+    readonly withMemberDependency?: boolean;
+  } = {},
 ) => {
   const withMemberDependency = options.withMemberDependency !== false;
   const registrySource = {
@@ -205,6 +209,10 @@ const makePackRollbackFixture = (
     ...acceptedPackManifest,
     version: "2.0.0",
     dependencies: withMemberDependency ? { "@acme/skills/review": "^2.0.0" } : {},
+  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  const divergentPackManifest = {
+    ...acceptedPackManifest,
+    version: "0.3.0",
   } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
   const acceptedPackSource = path.join(baseDir, "registry-fixtures", "toolkit-1");
   const availablePackSource = path.join(baseDir, "registry-fixtures", "toolkit-2");
@@ -312,7 +320,25 @@ const makePackRollbackFixture = (
   });
 
   const canonicalSkill = path.join(axmDir, "extensions", "@acme", "skills", "review");
+  const canonicalPack = path.join(axmDir, "extensions", "@acme", "packs", "toolkit");
+  if (options.canonicalPackState === "changed") {
+    writePackPackage(canonicalPack, divergentPackManifest);
+  }
   writeSkillPackage(canonicalSkill, "review", "1.0.0");
+  if (options.trustedMemberCanonical === true) {
+    writeJson(path.join(canonicalSkill, CANONICAL_MATERIALIZATION_MARKER_FILENAME), {
+      schemaVersion: 1,
+      identity: {
+        refType: "registry",
+        owner: "@acme",
+        type: "skill",
+        name: "review",
+        version: "1.0.0",
+        publisherBindingId: "hbnd_test",
+        integrity: null,
+      },
+    });
+  }
   const ownedOutput = path.join(baseDir, ".claude", "skills", "review", "SKILL.md");
   fs.mkdirSync(path.dirname(ownedOutput), { recursive: true });
   fs.writeFileSync(ownedOutput, "# accepted managed review\n");
@@ -321,10 +347,14 @@ const makePackRollbackFixture = (
     sources,
     lookupCalls,
     fetchedRefs,
+    manifests: {
+      accepted: acceptedPackManifest,
+      divergent: divergentPackManifest,
+    },
     paths: {
       lockfile: path.join(axmDir, "axm-lock.yaml"),
       settings: path.join(axmDir, "settings.json"),
-      canonicalPack: path.join(axmDir, "extensions", "@acme", "packs", "toolkit"),
+      canonicalPack,
       canonicalSkillManifest: path.join(canonicalSkill, "skill.json"),
       canonicalSkillContent: path.join(canonicalSkill, "src", "SKILL.md"),
       ownedOutput,
@@ -654,6 +684,99 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect(
+    "restores a divergent Pack and its reachable members from accepted immutable resolution",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makePackRollbackFixture(tempDir, {
+          canonicalPackState: "changed",
+          trustedMemberCanonical: true,
+        });
+        const before = {
+          lockfile: fs.readFileSync(fixture.paths.lockfile, "utf8"),
+          settings: fs.readFileSync(fixture.paths.settings, "utf8"),
+          canonicalPack: fs.readFileSync(
+            path.join(fixture.paths.canonicalPack, "pack.json"),
+            "utf8",
+          ),
+          canonicalSkillManifest: fs.readFileSync(fixture.paths.canonicalSkillManifest, "utf8"),
+          canonicalSkillContent: fs.readFileSync(fixture.paths.canonicalSkillContent, "utf8"),
+          ownedOutput: fs.readFileSync(fixture.paths.ownedOutput, "utf8"),
+        };
+        const acceptedContentIdentity = computePackManifestContentIdentity(
+          fixture.manifests.accepted,
+        );
+        const observedContentIdentity = computePackManifestContentIdentity(
+          fixture.manifests.divergent,
+        );
+
+        const human = makeLayers(undefined, fixture.sources);
+        yield* human.provide(handleSync({ preview: true }));
+        const humanPreview = expectPreviewedPlanResult(human.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        const humanLabel = property(planResultSteps(humanPreview)[0], "label");
+        expect(humanLabel).toContain("Recover @acme/packs/toolkit");
+        expect(humanLabel).toContain("accepted version=1.0.0");
+        expect(humanLabel).toContain(`content=${acceptedContentIdentity}`);
+        expect(humanLabel).toContain("observed status=changed version=0.3.0");
+        expect(humanLabel).toContain(`content=${observedContentIdentity}`);
+
+        const machine = makeLayers({ machine: true }, fixture.sources);
+        yield* machine.provide(handleSync({ preview: true }));
+        const machinePreview = expectPreviewedPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        const previewLabel = property(planResultSteps(machinePreview)[0], "label");
+        expect(previewLabel).toBe(humanLabel);
+        expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(before.lockfile);
+        expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(before.settings);
+        expect(fs.readFileSync(path.join(fixture.paths.canonicalPack, "pack.json"), "utf8")).toBe(
+          before.canonicalPack,
+        );
+        expect(fs.readFileSync(fixture.paths.canonicalSkillManifest, "utf8")).toBe(
+          before.canonicalSkillManifest,
+        );
+        expect(fs.readFileSync(fixture.paths.canonicalSkillContent, "utf8")).toBe(
+          before.canonicalSkillContent,
+        );
+        expect(fs.readFileSync(fixture.paths.ownedOutput, "utf8")).toBe(before.ownedOutput);
+
+        machine.rendererState.results.length = 0;
+        yield* machine.provide(handleSync({ preview: false }));
+        const applied = expectAppliedPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+        });
+        expect(property(planResultSteps(applied)[0], "label")).toBe(previewLabel);
+        expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
+          packs: { toolkit: { resolvedVersion: "1.0.0" } },
+          skills: { review: { resolvedVersion: "1.0.0" } },
+        });
+        expect(JSON.parse(fs.readFileSync(fixture.paths.settings, "utf8"))).toEqual(
+          JSON.parse(before.settings),
+        );
+        expect(
+          JSON.parse(fs.readFileSync(path.join(fixture.paths.canonicalPack, "pack.json"), "utf8")),
+        ).toMatchObject({ owner: "@acme", name: "toolkit", version: "1.0.0" });
+        expect(
+          JSON.parse(fs.readFileSync(fixture.paths.canonicalSkillManifest, "utf8")),
+        ).toMatchObject({ owner: "@acme", name: "review", version: "1.0.0" });
+        expect(fixture.lookupCalls).toEqual([]);
+        expect(fixture.fetchedRefs).toContain("pack:toolkit:1.0.0");
+        expect(fixture.fetchedRefs).not.toContain("skill:review:1.0.0");
+        expect(fixture.fetchedRefs).not.toContain("pack:toolkit:2.0.0");
+        expect(fixture.fetchedRefs).not.toContain("skill:review:2.0.0");
+
+        machine.rendererState.results.length = 0;
+        yield* machine.provide(handleSync({ preview: true }));
+        expectNoOpPlanResult(machine.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+        });
+      }),
+  );
+
   it.effect("rolls back accepted Pack recovery when a later typed failure occurs", () =>
     Effect.gen(function* () {
       const fixture = makePackRollbackFixture(tempDir);
@@ -666,12 +789,12 @@ describe("root sync handler", () => {
       expect(expectRecord(property(payload, "result"))).toMatchObject({
         outcome: "failed",
         reason: "execution-failed",
-        errorCode: "conflict",
+        errorCode: "internal",
         steps: [
           {
-            label: "@acme/packs/toolkit",
+            label: expect.stringContaining("Recover @acme/packs/toolkit"),
             status: "failed",
-            message: expect.stringContaining("desired member graph incomplete"),
+            message: expect.stringContaining("Failed to read index"),
           },
         ],
       });

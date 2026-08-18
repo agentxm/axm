@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema";
 import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import type { ConfigurableAgentId } from "../../agent-capabilities/index.js";
 import { isPathSafe } from "../../utils/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -50,6 +51,9 @@ import {
   type McpServerManifest,
   McpServerManifestSchema,
 } from "../manifest-schema.js";
+import type { McpServerEntry } from "../../settings/index.js";
+import { inspectAgentMcpServer } from "../inspection.js";
+import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
 import {
   agentConfigTargets,
   mcpServerArtifact,
@@ -78,6 +82,8 @@ export type InstallMcpServerOperationArgs = {
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
   readonly env?: Option.Option<Readonly<Record<string, string>>>;
+  /** Restrict this server to a reviewed subset of configured agents. */
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 };
 
 /**
@@ -372,6 +378,17 @@ const redactSettingsEnv = (
   return redacted;
 };
 
+const preserveSecretReferences = (
+  values: Readonly<Record<string, string>>,
+  secretNames: ReadonlySet<string>,
+): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [
+      name,
+      secretNames.has(name) ? `\${${name}}` : value,
+    ]),
+  );
+
 const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
   "claude-code",
   "opencode",
@@ -444,6 +461,7 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
   readonly configValues: Readonly<Record<string, string>>;
+  readonly entry: McpServerEntry;
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -465,6 +483,14 @@ const syncConfiguredAgentsOnInstall = (args: {
     }
 
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
+    const sharedTargetConflict = sharedMcpTargetPolicyConflict({
+      entry: args.entry,
+      agentIds: configuredAgents.map((agent) => agent.id),
+      scope: args.scope,
+    });
+    if (sharedTargetConflict !== undefined) {
+      return yield* makeAppError({ code: "conflict", detail: sharedTargetConflict });
+    }
 
     let outcomes: ReadonlyArray<AgentOutcome>;
     if (args.nothingRunnable) {
@@ -493,8 +519,32 @@ const syncConfiguredAgentsOnInstall = (args: {
                   observedContributors: [],
                 }),
               apply: () =>
-                agent
-                  .addMcpServer({
+                Effect.gen(function* () {
+                  if (!isMcpServerApplicableToAgent(args.entry, agent.id)) {
+                    const inspection = yield* inspectAgentMcpServer({
+                      workspaceRoot: args.wsBaseDir,
+                      scope: args.scope,
+                      agentId: agent.id,
+                      serverName: args.serverName,
+                      entry: args.entry,
+                    });
+                    if (inspection.status === "unmanaged") {
+                      return yield* makeAppError({
+                        code: "conflict",
+                        detail: `${agent.id} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
+                      });
+                    }
+                    const outcome =
+                      inspection.status === "drift"
+                        ? yield* agent.removeMcpServer({
+                            workspaceRoot: args.wsBaseDir,
+                            scope: args.scope,
+                            serverName: args.serverName,
+                          })
+                        : ({ _tag: "success", targets: [] } as const);
+                    return { agentId: agent.id, outcome };
+                  }
+                  const outcome = yield* agent.addMcpServer({
                     workspaceRoot: args.wsBaseDir,
                     scope: args.scope,
                     serverName: args.serverName,
@@ -503,12 +553,12 @@ const syncConfiguredAgentsOnInstall = (args: {
                     resolvedVersion: args.resolvedVersion,
                     enabled: args.enabled,
                     configValues: args.configValues,
-                  })
-                  .pipe(
-                    Effect.provideService(FileSystem.FileSystem, fs),
-                    Effect.provideService(Path.Path, path),
-                    Effect.map((outcome) => ({ agentId: agent.id, outcome })),
-                  ),
+                  });
+                  return { agentId: agent.id, outcome };
+                }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fs),
+                  Effect.provideService(Path.Path, path),
+                ),
             },
           }),
         ),
@@ -690,6 +740,13 @@ export const installMcpServer: (
     }
     const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
     const enabled = currentEntry?.enabled ?? true;
+    const agents = op.args.agents ?? currentEntry?.agents;
+    const settingsEntry: McpServerEntry = {
+      source: printSourceParams(ref.source),
+      env: persistedEnv,
+      enabled,
+      ...(agents === undefined ? {} : { agents }),
+    };
     const agentSync = yield* syncConfiguredAgentsOnInstall({
       wsBaseDir: ws.baseDir,
       scope: ws.scope,
@@ -700,7 +757,8 @@ export const installMcpServer: (
       resolvedVersion: ref.version,
       nothingRunnable,
       enabled,
-      configValues: mergedEnv,
+      configValues: preserveSecretReferences(mergedEnv, secretNames),
+      entry: settingsEntry,
     });
 
     const secretPersistence = yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
@@ -722,9 +780,7 @@ export const installMcpServer: (
               })
           : lockEntry === undefined
             ? ws.setMcpServerEntry(ref.server.name, {
-                source: printSourceParams(ref.source),
-                env: persistedEnv,
-                enabled,
+                ...settingsEntry,
               })
             : ws.setMcpServer({
                 name: ref.server.name,
@@ -732,6 +788,7 @@ export const installMcpServer: (
                 versionRange: op.args.versionRange,
                 env: persistedEnv,
                 enabled,
+                ...(agents === undefined ? {} : { agents }),
               });
     const writeWarning = yield* writeEffect.pipe(
       Effect.as(Option.none<string>()),

@@ -1631,7 +1631,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry, versionRange, env, enabled }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, versionRange, env, enabled, agents }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -1639,6 +1639,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const currentEnabled = currentMcpServers[name]?.enabled ?? true;
             const currentEnv = currentMcpServers[name]?.env ?? {};
+            const currentAgents = currentMcpServers[name]?.agents;
             const settingsEntry = {
               source:
                 lockEntry.type === "registry"
@@ -1653,6 +1654,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   : printSourceParams(lockEntryToSourceParams(lockEntry)),
               enabled: enabled ?? currentEnabled,
               env: env ?? currentEnv,
+              ...((agents ?? currentAgents) === undefined
+                ? {}
+                : { agents: agents ?? currentAgents }),
             };
             const updatedSettings = {
               ...currentSettings,

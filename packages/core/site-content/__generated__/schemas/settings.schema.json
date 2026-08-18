@@ -623,7 +623,14 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
-            "env": { "$ref": "#/definitions/McpServerEnv" }
+            "env": { "$ref": "#/definitions/McpServerEnv" },
+            "agents": {
+              "type": "array",
+              "description": "Coding agents this MCP server applies to. Omit to target every configured agent.",
+              "examples": [["claude-code", "codex"]],
+              "allOf": [{ "minItems": 1 }, { "uniqueItems": true }],
+              "items": { "$ref": "#/definitions/ConfigurableAgentId" }
+            }
           },
           "additionalProperties": false
         }
@@ -633,7 +640,12 @@
       "examples": [
         "@acme/mcps/context@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false },
-        { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
+        {
+          "command": "npx",
+          "args": ["-y", "linear-mcp-server"],
+          "env": ["LINEAR_API_KEY"],
+          "agents": ["claude-code"]
+        },
         {
           "url": "https://mcp.sentry.dev/sse",
           "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" }
@@ -749,7 +761,7 @@
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values."
+          "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset."
         },
         "lint": {
           "anyOf": [{ "$ref": "#/definitions/LintConfig" }],

@@ -171,6 +171,64 @@ describe("mcps add output", () => {
     );
   });
 
+  it.effect("persists and projects an explicit agent subset", () => {
+    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeMultiAgentSettings();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsAdd({
+          name: "demo",
+          command: Option.some("node server.js"),
+          url: Option.none(),
+          env: [],
+          header: [],
+          yes: true,
+          force: false,
+          preview: false,
+          agents: ["claude-code"],
+        });
+
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
+        expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".cursor", "mcp.json"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".codex", "config.toml"))).toBe(false);
+      }),
+    );
+  });
+
+  it.effect("rejects sensitive environment literals before mutation", () => {
+    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeMultiAgentSettings();
+
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          handleMcpsAdd({
+            name: "demo",
+            command: Option.some("node server.js"),
+            url: Option.none(),
+            env: ["API_TOKEN=literal-secret"],
+            header: [],
+            yes: true,
+            force: false,
+            preview: false,
+          }),
+        );
+
+        expect(Result.isFailure(result)).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(false);
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.mcpServers).toEqual({});
+      }),
+    );
+  });
+
   it.effect("rejects WebSocket remote URLs before writing workspace or agent files", () => {
     const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
     writeMultiAgentSettings();
@@ -234,7 +292,7 @@ describe("mcps add output", () => {
     );
   });
 
-  it.effect("warns per agent when env defaults cannot be expanded natively", () => {
+  it.effect("blocks agents that cannot represent environment defaults", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeEnvExpansionSettings();
 
@@ -251,21 +309,15 @@ describe("mcps add output", () => {
           preview: false,
         });
 
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Add MCP server",
-          totalSteps: 2,
-          warningCount: 2,
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            planName: "Add MCP server",
+            outcome: "failed",
+          },
         });
-        const steps = planResultSteps(result);
-        expect(steps[1]).toMatchObject({
-          label: "Sync demo to configured agents",
-          status: "applied",
-          message: "Synced demo to 3 agents with 2 warnings",
-          warnings: [
-            "cursor: env.FOO: does not expand environment default ${BAR:-fallback}",
-            "codex: env.FOO: does not expand environment default ${BAR:-fallback}",
-          ],
-        });
+        expect(JSON.stringify(rendererState.results[0]?.data)).toContain(
+          "does not expand environment default",
+        );
       }),
     );
   });

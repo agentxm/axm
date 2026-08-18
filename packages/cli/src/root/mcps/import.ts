@@ -159,21 +159,20 @@ const collectImportSources = (
     const sources: Array<McpImportSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
-    const addSource = (filePath: string, serversKey: string) => {
-      const sourceKey = `${filePath}\0${serversKey}`;
+    const addSource = (filePath: string, serversKey: string, agentId: ConfigurableAgentId) => {
+      const sourceKey = `${agentId}\0${filePath}\0${serversKey}`;
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return readJsonObject(fs, filePath).pipe(
         Effect.map(
           Option.match({
             onNone: () => undefined,
-            onSome: (config) => sources.push({ filePath, serversKey, config }),
+            onSome: (config) => sources.push({ filePath, serversKey, config, agents: [agentId] }),
           }),
         ),
       );
     };
 
-    yield* addSource(path.join(ws.baseDir, ".mcp.json"), "mcpServers");
     const agentIds = [...(yield* ws.getConfiguredAgents())].sort((left, right) =>
       left.localeCompare(right),
     );
@@ -200,7 +199,7 @@ const collectImportSources = (
           }
           continue;
         }
-        yield* addSource(configPath, mcpConfig.value.serversKey);
+        yield* addSource(configPath, mcpConfig.value.serversKey, agentId);
       }
     }
     return { sources, skipped: Array.from(skipped.values()) };
@@ -315,6 +314,13 @@ const recordsEqual = (
   );
 };
 
+const arraysEqual = (
+  left: ReadonlyArray<string> | undefined,
+  right: ReadonlyArray<string> | undefined,
+): boolean =>
+  JSON.stringify([...(left ?? [])].sort((a, b) => a.localeCompare(b))) ===
+  JSON.stringify([...(right ?? [])].sort((a, b) => a.localeCompare(b)));
+
 const candidateMatchesSettings = (
   candidate: McpImportCandidate,
   entry: McpServerEntry | undefined,
@@ -331,7 +337,8 @@ const candidateMatchesSettings = (
     entry.headers,
     candidate.definition.type === "http" ? candidate.definition.headers : undefined,
   ) &&
-  recordsEqual(entry.env, candidate.env);
+  recordsEqual(entry.env, candidate.env) &&
+  arraysEqual(entry.agents, candidate.agents);
 
 const validateAdoption = (
   fs: FileSystem.FileSystem,
@@ -363,6 +370,7 @@ const applyImport = (
       : { url: candidate.definition.url, headers: candidate.definition.headers }),
     env: candidate.env,
     enabled: true,
+    ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
   });
   return ws.runTransaction({
     targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
@@ -638,12 +646,14 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       source,
       enabled: true,
       env: candidate.env,
+      ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
     }),
     finalizeAuthored: args.ws
       .setMcpServerEntry(target.name, {
         source,
         enabled: args.enable,
         env: candidate.env,
+        ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
       })
       .pipe(
         Effect.andThen(

@@ -9,11 +9,8 @@
  */
 
 import type {
-  McpActivationField,
   McpExtensionCapability,
   McpConfig,
-  McpRemoteDialect,
-  McpStdioDialect,
   McpTransport,
 } from "../agent-capabilities/index.js";
 import type {
@@ -25,6 +22,8 @@ import type {
   McpServerManifest,
 } from "./manifest-schema.js";
 import { AXM_MCP_METADATA_KEY, buildAxmMcpMetadata } from "./metadata.js";
+import { projectExpectedEntry, type InlineRemoteTransport } from "./projection.js";
+import type { McpServerEntry } from "../settings/index.js";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
 type ConfiguredMcpCapability = McpExtensionCapability & {
@@ -133,6 +132,12 @@ const resolveInput = (
   input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument,
   values: Readonly<Record<string, string>>,
 ): ResolvedInput => {
+  if (input.isSecret === true) {
+    return {
+      value: `\${${name}}`,
+      missing: values[name] === undefined && input.isRequired === true,
+    };
+  }
   if (input.value !== undefined)
     return { value: substituteVariables(input.value, values), missing: false };
   const configured = values[name];
@@ -243,105 +248,63 @@ const packageCommand = (pkg: McpRegistryPackage): ReadonlyArray<string> | undefi
   }
 };
 
-const addTypeField = (
-  entry: Record<string, unknown>,
-  typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
-  transport: "stdio" | UpstreamRemoteTransport,
-): void => {
-  const required = typeField.required;
-  if (required === null) return;
-  if (typeof required.value === "string") {
-    entry[required.name] = required.value;
-    return;
-  }
-  if (transport !== "stdio") {
-    const value = required.value[transport];
-    if (value !== undefined) entry[required.name] = value;
-  }
-};
-
-const addActivationField = (
-  entry: Record<string, unknown>,
-  activationField: McpActivationField,
-  enabled: boolean,
-): void => {
-  const required = activationField.required;
-  if (required === null) return;
-  entry[required.name] = enabled ? required.enabled : required.disabled;
-};
-
-const projectStdio = (args: {
-  readonly dialect: McpStdioDialect;
-  readonly command: ReadonlyArray<string>;
-  readonly env: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly activationField: McpActivationField;
+const projectRegistryEntry = (args: {
+  readonly capability: ConfiguredMcpCapability;
+  readonly serverName: string;
+  readonly entry: McpServerEntry;
   readonly ref: string;
-}): Readonly<Record<string, unknown>> => {
-  const [command, ...rest] = args.command;
-  const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
+  readonly remoteTransport?: InlineRemoteTransport | undefined;
+}):
+  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
+  | { readonly _tag: "unsupported"; readonly reason: string } => {
+  const config = args.capability.axm.writer.config;
+  const projected = projectExpectedEntry({
+    serverName: args.serverName,
+    entry: args.entry,
+    stdio: config.stdio,
+    remote: config.remote,
+    activationField: config.activationField,
+    envExpansion: args.capability.native.mcpEnvExpansion,
+    ...(args.remoteTransport === undefined ? {} : { remoteTransport: args.remoteTransport }),
+  });
+  if (projected._tag === "unsupported") return projected;
+  return {
+    _tag: "projected",
+    entry: {
+      ...projected.entry,
+      [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
+    },
   };
-  addTypeField(entry, args.dialect.typeField, "stdio");
-  addActivationField(entry, args.activationField, args.enabled);
-  if (args.dialect.command === "array") {
-    entry["command"] = args.command;
-  } else {
-    entry["command"] = command ?? "";
-    if (rest.length > 0) entry["args"] = rest;
-  }
-  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== null) {
-    entry[args.dialect.envKey] = args.env;
-  }
-  return entry;
 };
 
-const projectRemote = (args: {
-  readonly dialect: McpRemoteDialect;
-  readonly urlKey: string;
-  readonly remote: McpRegistryRemoteTransport;
-  readonly headers: Readonly<Record<string, string>>;
-  readonly values: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly activationField: McpActivationField;
-  readonly ref: string;
-}): Readonly<Record<string, unknown>> => {
-  const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
-  };
-  addTypeField(entry, args.dialect.typeField, args.remote.type);
-  addActivationField(entry, args.activationField, args.enabled);
-  entry[args.urlKey] = substituteVariables(args.remote.url, args.values);
-  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
-    entry[args.dialect.headersKey] = args.headers;
-  }
-  return entry;
-};
-
-const resolveRemoteVariables = (
+const materializeRemote = (
   remote: McpRegistryRemoteTransport,
   values: Readonly<Record<string, string>>,
-): ReadonlyArray<string> => {
+): { readonly url: string; readonly missing: ReadonlyArray<string> } => {
   const missing: Array<string> = [];
+  const resolvedValues: Record<string, string> = { ...values };
   for (const [name, input] of Object.entries(remote.variables ?? {})) {
-    if (resolveInput(name, input, values).missing) missing.push(name);
+    const resolved = resolveInput(name, input, values);
+    resolvedValues[name] = resolved.value;
+    if (resolved.missing) missing.push(name);
   }
-  return missing;
+  return { url: substituteVariables(remote.url, resolvedValues), missing };
 };
 
 const resolvePackage = (
   manifest: McpServerManifest,
   pkg: McpRegistryPackage,
-  config: McpConfig,
+  capability: ConfiguredMcpCapability,
   values: Readonly<Record<string, string>>,
   enabled: boolean,
 ): McpResolution => {
+  const config = capability.axm.writer.config;
   if (config.stdio === null) {
     return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
   }
 
-  const command = packageCommand(pkg);
-  if (command === undefined) {
+  const baseCommand = packageCommand(pkg);
+  if (baseCommand === undefined) {
     return {
       _tag: "no-distribution",
       reason: `unsupported MCP package registryType: ${pkg.registryType}`,
@@ -355,21 +318,35 @@ const resolvePackage = (
   const invocation =
     pkg.registryType === "oci" || pkg.runtimeHint === "docker"
       ? [
-          ...command.slice(0, 3),
+          ...baseCommand.slice(0, 3),
           ...Object.keys(env.env).flatMap((name) => ["-e", name]),
-          ...command.slice(3),
+          ...baseCommand.slice(3),
           ...runtimeArgs.args,
           ...packageArgs.args,
         ]
-      : [...command.slice(0, 1), ...runtimeArgs.args, ...command.slice(1), ...packageArgs.args];
-  const entry = projectStdio({
-    dialect: config.stdio,
-    command: invocation,
-    env: env.env,
-    enabled,
-    activationField: config.activationField,
+      : [
+          ...baseCommand.slice(0, 1),
+          ...runtimeArgs.args,
+          ...baseCommand.slice(1),
+          ...packageArgs.args,
+        ];
+  const [command, ...commandArgs] = invocation;
+  const projected = projectRegistryEntry({
+    capability,
+    serverName: manifest.name,
+    entry: {
+      source: "registry",
+      command: command ?? "",
+      args: commandArgs,
+      env: env.env,
+      enabled,
+    },
     ref: `${manifest.owner}/mcps/${manifest.name}`,
   });
+  if (projected._tag === "unsupported") {
+    return { _tag: "no-distribution", reason: projected.reason };
+  }
+  const entry = projected.entry;
   if (missing.length > 0) {
     return {
       _tag: "needs-input",
@@ -386,13 +363,15 @@ const resolvePackage = (
 const resolveRemote = (
   manifest: McpServerManifest,
   remote: McpRegistryRemoteTransport,
-  config: McpConfig,
+  capability: ConfiguredMcpCapability,
   values: Readonly<Record<string, string>>,
   enabled: boolean,
   shimmed: boolean,
 ): McpResolution => {
+  const config = capability.axm.writer.config;
   const headers = materializeHeaders(remote.headers, values);
-  const missing = [...headers.missing, ...resolveRemoteVariables(remote, values)];
+  const materializedRemote = materializeRemote(remote, values);
+  const missing = [...headers.missing, ...materializedRemote.missing];
   if (shimmed) {
     if (config.stdio === null) {
       return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
@@ -401,20 +380,29 @@ const resolveRemote = (
       "npx",
       "-y",
       "mcp-remote",
-      substituteVariables(remote.url, values),
+      materializedRemote.url,
       ...Object.entries(headers.headers).flatMap(([name, value]) => [
         "--header",
         `${name}: ${value}`,
       ]),
     ];
-    const entry = projectStdio({
-      dialect: config.stdio,
-      command,
-      env: {},
-      enabled,
-      activationField: config.activationField,
+    const [executable, ...commandArgs] = command;
+    const projected = projectRegistryEntry({
+      capability,
+      serverName: manifest.name,
+      entry: {
+        source: "registry",
+        command: executable ?? "",
+        args: commandArgs,
+        env: {},
+        enabled,
+      },
       ref: `${manifest.owner}/mcps/${manifest.name}`,
     });
+    if (projected._tag === "unsupported") {
+      return { _tag: "no-distribution", reason: projected.reason };
+    }
+    const entry = projected.entry;
     return missing.length > 0
       ? {
           _tag: "needs-input",
@@ -443,16 +431,23 @@ const resolveRemote = (
       reason: `agent does not support the ${remote.type} remote transport`,
     };
   }
-  const entry = projectRemote({
-    dialect: config.remote,
-    urlKey,
-    remote,
-    headers: headers.headers,
-    values,
-    enabled,
-    activationField: config.activationField,
+  const projected = projectRegistryEntry({
+    capability,
+    serverName: manifest.name,
+    entry: {
+      source: "registry",
+      url: materializedRemote.url,
+      headers: headers.headers,
+      env: {},
+      enabled,
+    },
     ref: `${manifest.owner}/mcps/${manifest.name}`,
+    remoteTransport: remote.type,
   });
+  if (projected._tag === "unsupported") {
+    return { _tag: "no-distribution", reason: projected.reason };
+  }
+  const entry = projected.entry;
   return missing.length > 0
     ? {
         _tag: "needs-input",
@@ -470,7 +465,6 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
     return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
   }
   const capability = args.capability;
-  const config = capability.axm.writer.config;
 
   const hasPackages = (args.manifest.server.packages ?? []).length > 0;
   const hasRemotes = (args.manifest.server.remotes ?? []).length > 0;
@@ -490,7 +484,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
   }
 
   if (candidate.kind === "package") {
-    return resolvePackage(args.manifest, candidate.pkg, config, args.values, args.enabled);
+    return resolvePackage(args.manifest, candidate.pkg, capability, args.values, args.enabled);
   }
 
   if (!isRemoteTransport(candidate.remote.type)) {
@@ -502,7 +496,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
   return resolveRemote(
     args.manifest,
     candidate.remote,
-    config,
+    capability,
     args.values,
     args.enabled,
     candidate.shimmed,

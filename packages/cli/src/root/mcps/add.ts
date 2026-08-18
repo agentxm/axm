@@ -5,8 +5,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   syncInlineMcpServerToAgents,
+  CONFIGURABLE_AGENT_IDS,
   type McpServerSyncTarget,
 } from "@agentxm/client-core/unstable/agents";
+import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -38,6 +40,7 @@ export interface McpsAddArgs {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 const splitCommand = (value: string): ReadonlyArray<string> =>
@@ -51,16 +54,32 @@ const splitCommand = (value: string): ReadonlyArray<string> =>
     return part;
   }) ?? [];
 
-const parseEnv = (values: ReadonlyArray<string>): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    values.map((value) => {
+const isSensitiveName = (name: string): boolean =>
+  /(?:authorization|cookie|credential|password|secret|token|api[-_]?key)/iu.test(name);
+
+const hasEnvironmentReference = (value: string): boolean =>
+  /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u.test(value);
+
+const parseEnv = (
+  values: ReadonlyArray<string>,
+): Effect.Effect<Readonly<Record<string, string>>, AppError> =>
+  Effect.forEach(values, (value) =>
+    Effect.gen(function* () {
       const separator = value.indexOf("=");
       if (separator > 0) {
-        return [value.slice(0, separator), value.slice(separator + 1)];
+        const name = value.slice(0, separator);
+        const configured = value.slice(separator + 1);
+        if (isSensitiveName(name) && !hasEnvironmentReference(configured)) {
+          return yield* makeAppError({
+            code: "usage",
+            detail: `Sensitive MCP input ${name} must use an environment reference; pass --env ${name}`,
+          });
+        }
+        return [name, configured] as const;
       }
-      return [value, `\${${value}}`];
+      return [value, `\${${value}}`] as const;
     }),
-  );
+  ).pipe(Effect.map((entries) => Object.fromEntries(entries)));
 
 const parseHeader = (value: string): Effect.Effect<readonly [string, string], AppError> =>
   Effect.gen(function* () {
@@ -71,7 +90,15 @@ const parseHeader = (value: string): Effect.Effect<readonly [string, string], Ap
         detail: `Invalid header "${value}". Use Name:Value.`,
       });
     }
-    return [value.slice(0, separator).trim(), value.slice(separator + 1).trim()] as const;
+    const name = value.slice(0, separator).trim();
+    const configured = value.slice(separator + 1).trim();
+    if (isSensitiveName(name) && !hasEnvironmentReference(configured)) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `Sensitive MCP header ${name} must use an environment reference`,
+      });
+    }
+    return [name, configured] as const;
   });
 
 const parseHeaders = (
@@ -141,6 +168,7 @@ const matchesInlineMcpEntry = (args: {
   readonly existing: McpServerEntry | undefined;
   readonly definition: InlineMcpDefinition;
   readonly env: Readonly<Record<string, string>>;
+  readonly agents: ReadonlyArray<ConfigurableAgentId> | undefined;
 }): boolean =>
   args.existing !== undefined &&
   args.existing.source === "inline" &&
@@ -156,7 +184,8 @@ const matchesInlineMcpEntry = (args: {
     args.existing.headers,
     args.definition.type === "http" ? args.definition.headers : undefined,
   ) &&
-  recordsEqual(args.existing.env, args.env);
+  recordsEqual(args.existing.env, args.env) &&
+  arraysEqual(args.existing.agents, args.agents);
 
 const makeInlineDefinition = (
   args: McpsAddArgs,
@@ -324,7 +353,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const env = parseEnv(args.env);
+  const env = yield* parseEnv(args.env);
   const headers = yield* parseHeaders(args.header);
   if (Option.isSome(args.url)) {
     yield* validateRemoteUrl(args.url.value);
@@ -332,7 +361,14 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   const definition = yield* makeInlineDefinition(args, headers);
   const configured = yield* ws.getConfiguredMcpServerEntries();
   const existingEntry = configured[args.name];
-  if (matchesInlineMcpEntry({ existing: configured[args.name], definition, env })) {
+  if (
+    matchesInlineMcpEntry({
+      existing: configured[args.name],
+      definition,
+      env,
+      agents: args.agents,
+    })
+  ) {
     yield* emitNoOpOutcome("mcps.add", {
       planName: "Add MCP server",
       planDescription: `Configure ${args.name} and sync agent MCP configs`,
@@ -353,6 +389,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
             : { url: definition.url, headers: definition.headers }),
           env,
           enabled: true,
+          ...(args.agents === undefined ? {} : { agents: args.agents }),
         })
         .pipe(
           Effect.as({
@@ -390,6 +427,11 @@ const addConfig = {
     Flag.withDescription("Remote header as Name:Value; repeatable"),
     Flag.atLeast(0),
   ),
+  agent: Flag.choice("agent", CONFIGURABLE_AGENT_IDS).pipe(
+    Flag.withDescription("Coding agent to target; repeatable (default: all configured agents)"),
+    Flag.atLeast(1),
+    Flag.optional,
+  ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
@@ -398,11 +440,21 @@ const addConfig = {
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ name, scope, command, url, env, header, yes, force, preview }) =>
-    handleMcpsAdd({ name, command, url, env, header, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps add"),
-    ),
+  ({ name, scope, command, url, env, header, agent, yes, force, preview }) =>
+    handleMcpsAdd({
+      name,
+      command,
+      url,
+      env,
+      header,
+      ...Option.match(agent, {
+        onNone: () => ({}),
+        onSome: (value) => ({ agents: [...value] }),
+      }),
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(scope), withRuntime("mcps add")),
 ).pipe(
   withArgvTracking(addConfig),
   Command.withDescription("Add an inline MCP server"),

@@ -239,7 +239,7 @@ describe("MCP projection", () => {
     });
   });
 
-  it("warns and omits secret-backed headers when the dialect has no environment fields", () => {
+  it("blocks secret-backed headers when the dialect has no environment fields", () => {
     const projected = projectExpectedEntry({
       serverName: "demo",
       entry: {
@@ -266,15 +266,8 @@ describe("MCP projection", () => {
     });
 
     expect(projected).toEqual({
-      _tag: "projected",
-      warnings: [
-        "headers.Authorization: cannot project environment reference ${TOKEN} for this agent",
-      ],
-      entry: {
-        "x-axm": { managed: true, source: "inline" },
-        enabled: true,
-        url: "https://example.test/mcp",
-      },
+      _tag: "unsupported",
+      reason: "headers.Authorization: cannot project environment reference ${TOKEN} for this agent",
     });
   });
 

@@ -1,6 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { protectedRecoveryValue, recoveryOption } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  protectedRecoveryValue,
+  publicRecoveryValue,
+  recoveryOption,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { toPlanResolutionResult } from "../../../json-output.js";
@@ -12,6 +16,8 @@ import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
+import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 export interface InstallMcpServerFlags {
   readonly yes: boolean;
@@ -22,6 +28,7 @@ export interface InstallMcpServerFlags {
 export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 export const handleInstallMcpServer = (
@@ -30,6 +37,12 @@ export const handleInstallMcpServer = (
 ) =>
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
+      if (args.agents !== undefined) {
+        return yield* makeAppError({
+          code: "usage",
+          detail: "--agent requires an MCP server source",
+        });
+      }
       return yield* handleWorkspaceInstall({
         command: "mcps.install",
         type: Option.some("mcp-server"),
@@ -43,12 +56,18 @@ export const handleInstallMcpServer = (
     const sourceArgs: InstallMcpServerHandlerArgs = {
       source: args.source.value,
       env: args.env,
+      ...(args.agents === undefined ? {} : { agents: args.agents }),
     };
     const execution = yield* makeInstallPlanExecution(
       flags,
       ["mcps", "install"],
       [args.source.value],
-      args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
+      [
+        ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
+        ...(args.agents ?? []).map((agent) =>
+          recoveryOption("--agent", publicRecoveryValue(agent)),
+        ),
+      ],
     );
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
       execution,

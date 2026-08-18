@@ -34,6 +34,7 @@ import {
   type SharedMcpTargetMember,
   type SharedMcpTransport,
 } from "./shared-target.js";
+import { isMcpServerApplicableToAgent, MCP_NOT_APPLICABLE_REASON } from "./targeting.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
@@ -48,7 +49,8 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
   };
 };
 
-export type AgentMcpInspectionStatus = "unsupported" | "absent" | "match" | "drift" | "unmanaged";
+export type AgentMcpInspectionStatus =
+  "not-applicable" | "unsupported" | "absent" | "match" | "drift" | "unmanaged";
 
 export interface AgentMcpServerInspection {
   readonly agentId: string;
@@ -240,7 +242,7 @@ const inspectActual = (args: {
   readonly expected: ExpectedAgentEntry;
 }): Effect.Effect<
   {
-    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported">;
+    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "not-applicable">;
     readonly fields: ReadonlyArray<string>;
     readonly actual?: Readonly<Record<string, unknown>>;
   },
@@ -321,6 +323,27 @@ const inspectAgentMcpServerInternal = (
         fields: [],
         warnings: [],
         reason: `${args.agentId} has no ${args.scope} MCP config target`,
+      };
+    }
+
+    if (!isMcpServerApplicableToAgent(args.entry, args.agentId)) {
+      const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
+      const actual = yield* inspectActual({
+        target,
+        configPath: absolutePath,
+        serversKey: config.serversKey,
+        serverName: args.serverName,
+        expected: { _tag: "unsupported", reason: MCP_NOT_APPLICABLE_REASON },
+      });
+      return {
+        agentId: args.agentId,
+        path: target.path,
+        absolutePath,
+        status: actual.status === "absent" ? "not-applicable" : actual.status,
+        fields: actual.status === "drift" ? ["agents"] : actual.fields,
+        warnings: [],
+        reason: MCP_NOT_APPLICABLE_REASON,
+        ...(actual.actual === undefined ? {} : { actual: actual.actual }),
       };
     }
 
@@ -422,6 +445,7 @@ export const inspectMcpServerAcrossAgents = (args: {
     const transport = yield* inspectionTransportForEntry(args.entry);
     const groups = new Map<string, Array<SharedMcpTargetMember>>();
     for (const agentId of args.agentIds) {
+      if (!isMcpServerApplicableToAgent(args.entry, agentId)) continue;
       if (!isCapabilityAgentId(agentId)) continue;
       const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
       if (!hasMcpConfig(capability)) continue;

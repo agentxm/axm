@@ -168,6 +168,18 @@ describe("parseMcpServerInstallArgs", () => {
       expect(result.env).toEqual({ API_KEY: "abc", REGION: "us-east-1" });
     }),
   );
+
+  it.effect("retains the requested agent subset in parsed install arguments", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/mcps/my-server",
+          agents: ["claude-code", "cursor"],
+        }),
+      );
+      expect(result.agents).toEqual(["claude-code", "cursor"]);
+    }),
+  );
 });
 
 describe("parseEnvFlag", () => {

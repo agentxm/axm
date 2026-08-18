@@ -64,6 +64,7 @@ import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-co
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 import type { ProjectionPlan } from "../projection/planning.js";
+import type { ConfigurableAgentId } from "../agent-capabilities/index.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -295,6 +296,7 @@ export interface SetMcpServerArgs {
   readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
   readonly enabled?: boolean;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 /**

@@ -130,6 +130,7 @@ describe("mcps import output", () => {
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
         );
         expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
+        expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
         expect(JSON.stringify(settings)).not.toContain("secret-value");
       }),
     );
@@ -253,7 +254,7 @@ describe("mcps import output", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
       fs.writeFileSync(
         path.join(tempDir, ".axm", "settings.json"),
-        JSON.stringify({ agents: ["cursor"], mcpServers: {} }),
+        JSON.stringify({ agents: ["claude-code", "cursor"], mcpServers: {} }),
       );
       fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
       const workspaceConfig = JSON.stringify({
@@ -296,7 +297,10 @@ describe("mcps import output", () => {
 
   it.effect("rolls back settings and prior native config writes when any adoption fails", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
-    const originalSettings = JSON.stringify({ agents: ["cursor"], mcpServers: {} });
+    const originalSettings = JSON.stringify({
+      agents: ["claude-code", "cursor"],
+      mcpServers: {},
+    });
     fs.writeFileSync(path.join(tempDir, ".axm", "settings.json"), originalSettings);
     fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
     const workspaceConfig = JSON.stringify({

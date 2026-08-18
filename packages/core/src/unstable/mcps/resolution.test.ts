@@ -15,6 +15,7 @@ const stdioCapability = {
     sources: ["https://example.com/mcp"],
     scopes: ["project"],
     transports: ["stdio"],
+    mcpEnvExpansion: { variables: "braced", defaults: false },
   },
   axm: {
     status: "supported",
@@ -165,6 +166,30 @@ describe("resolveMcpServer", () => {
         env: { ACME_TOKEN: "secret" },
         enabled: true,
       });
+    }
+  });
+
+  it("keeps declared secret inputs as references in native config", () => {
+    const result = resolveMcpServer({
+      manifest: manifest({
+        packages: [
+          {
+            registryType: "npm",
+            identifier: "@acme/context-mcp",
+            transport: { type: "stdio" },
+            environmentVariables: [{ name: "ACME_TOKEN", isRequired: true, isSecret: true }],
+          },
+        ],
+      }),
+      capability: stdioCapability,
+      values: { ACME_TOKEN: "secret" },
+      enabled: true,
+    });
+
+    expect(result._tag).toBe("resolved");
+    if (result._tag === "resolved") {
+      expect(result.entry).toMatchObject({ env: { ACME_TOKEN: "${ACME_TOKEN}" } });
+      expect(JSON.stringify(result.entry)).not.toContain("secret");
     }
   });
   it("prefers native remotes when the agent supports HTTP", () => {

@@ -206,6 +206,7 @@ type McpServerVerboseEntryObject = {
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled?: boolean | undefined;
   readonly env?: McpServerEnvInput | undefined;
+  readonly agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type> | undefined;
 };
 
 type CanonicalMcpServerEntry = {
@@ -216,6 +217,7 @@ type CanonicalMcpServerEntry = {
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
   readonly env: Readonly<Record<string, string>>;
+  readonly agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type> | undefined;
 };
 
 const ExtensionMapKeySchema = Schema.String.check(
@@ -277,6 +279,13 @@ const McpServerEnvSchema = Schema.Union([
   description:
     "MCP environment values as a map or pass-through variable names. Array entries decode to ${VAR} references.",
 });
+
+const McpServerAgentsSchema = Schema.Array(ConfigurableAgentIdSchema)
+  .annotate({
+    description: "Coding agents this MCP server applies to. Omit to target every configured agent.",
+    examples: [["claude-code", "codex"]],
+  })
+  .check(Schema.isMinLength(1), Schema.isUnique());
 
 const decodeMcpEnv = (env: McpServerEnvInput | undefined): Readonly<Record<string, string>> => {
   if (env === undefined) return {};
@@ -637,6 +646,7 @@ export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
+  agents: Schema.optionalKey(McpServerAgentsSchema),
 }).annotate({
   title: "MCP Server Entry Object",
   description: "An MCP server entry with source and optional enabled/env fields.",
@@ -673,6 +683,7 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
   ),
   enabled: enabledFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
+  agents: Schema.optionalKey(McpServerAgentsSchema),
 }).pipe(
   Schema.check(
     Schema.makeFilter((entry: McpServerVerboseEntryObject) =>
@@ -699,6 +710,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     enabled: Schema.Boolean,
     env: Schema.Record(Schema.String, Schema.String),
+    agents: Schema.optional(Schema.Array(ConfigurableAgentIdSchema)),
   }),
   {
     decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
@@ -716,9 +728,15 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               : {}),
             enabled: entry.enabled ?? true,
             env: decodeMcpEnv(entry.env),
+            ...("agents" in entry && entry.agents !== undefined ? { agents: entry.agents } : {}),
           },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
-      if (entry.source !== "inline" && entry.enabled && Object.keys(entry.env).length === 0) {
+      if (
+        entry.source !== "inline" &&
+        entry.enabled &&
+        Object.keys(entry.env).length === 0 &&
+        entry.agents === undefined
+      ) {
         return entry.source;
       }
       const obj: {
@@ -729,6 +747,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         headers?: Readonly<Record<string, string>>;
         enabled?: boolean;
         env?: Readonly<Record<string, string>>;
+        agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type>;
       } = {};
       if (entry.source !== "inline") obj.source = entry.source;
       if (entry.command !== undefined) obj.command = entry.command;
@@ -739,11 +758,13 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       }
       if (!entry.enabled) obj.enabled = false;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
+      if (entry.agents !== undefined) obj.agents = entry.agents;
       if (entry.source !== "inline") {
         return {
           source: entry.source,
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
+          ...(obj.agents === undefined ? {} : { agents: obj.agents }),
         };
       }
       if (entry.command !== undefined) {
@@ -752,6 +773,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
           ...(obj.args === undefined ? {} : { args: obj.args }),
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
+          ...(obj.agents === undefined ? {} : { agents: obj.agents }),
         };
       }
       return {
@@ -759,6 +781,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         ...(obj.headers === undefined ? {} : { headers: obj.headers }),
         ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
         ...(obj.env === undefined ? {} : { env: obj.env }),
+        ...(obj.agents === undefined ? {} : { agents: obj.agents }),
       };
     },
   },
@@ -770,7 +793,12 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     examples: [
       "@acme/mcps/context@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
-      { command: "npx", args: ["-y", "linear-mcp-server"], env: ["LINEAR_API_KEY"] },
+      {
+        command: "npx",
+        args: ["-y", "linear-mcp-server"],
+        env: ["LINEAR_API_KEY"],
+        agents: ["claude-code"],
+      },
       { url: "https://mcp.sentry.dev/sse", headers: { Authorization: "Bearer ${SENTRY_TOKEN}" } },
     ],
   },
@@ -1239,7 +1267,7 @@ const SettingsBaseSchema = Schema.Struct({
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
+        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset.",
     }),
   ),
   lint: Schema.optionalKey(

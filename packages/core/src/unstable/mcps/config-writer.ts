@@ -10,13 +10,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { AppError, makeAppError } from "../app-error/index.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
-import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
+import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
+import { isAxmManagedMcpEntry } from "./metadata.js";
 import type {
   McpActivationField,
   McpConfigTarget,
@@ -219,6 +220,16 @@ const removeJsonLike = (args: {
     if (args.raw.trim().length === 0) return args.raw;
     const parsed = yield* parseJsonConfig(args.configPath, args.raw);
     yield* validateServersShape(args.configPath, parsed, args.serversKey);
+    if (!isRecord(parsed)) return args.raw;
+    const servers = parsed[args.serversKey];
+    const existing = isRecord(servers) ? servers[args.serverName] : undefined;
+    if (existing === undefined) return args.raw;
+    if (!isRecord(existing) || !isAxmManagedMcpEntry(existing)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP server ${args.serverName} is unmanaged in ${args.configPath}; AXM will not remove it`,
+      });
+    }
     const activation = args.activationField.required;
     if (args.disableOnly && activation !== null) {
       return applyEdits(
@@ -266,6 +277,14 @@ const removeYaml = (args: {
   Effect.try({
     try: () => {
       if (args.raw.trim().length === 0) return args.raw;
+      const existing = readYamlEntry(args.raw, args.serversKey, args.serverName);
+      if (existing === undefined) return args.raw;
+      if (!isAxmManagedMcpEntry(existing)) {
+        throw makeAppError({
+          code: "conflict",
+          detail: `MCP server ${args.serverName} is unmanaged in ${args.configPath}; AXM will not remove it`,
+        });
+      }
       const activation = args.activationField.required;
       if (args.disableOnly && activation !== null) {
         return setYamlScalar(
@@ -276,7 +295,7 @@ const removeYaml = (args: {
       }
       return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
     },
-    catch: (error) => mapYamlError(args.configPath, error),
+    catch: (error) => (error instanceof AppError ? error : mapYamlError(args.configPath, error)),
   });
 
 const managedTomlStart = (serverName: string): string =>

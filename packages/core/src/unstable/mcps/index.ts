@@ -99,3 +99,8 @@ export {
   type SharedMcpTargetResolution,
   type SharedMcpTransport,
 } from "./shared-target.js";
+export {
+  isMcpServerApplicableToAgent,
+  MCP_NOT_APPLICABLE_REASON,
+  sharedMcpTargetPolicyConflict,
+} from "./targeting.js";

@@ -1,10 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
 
 import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstallMcpServer } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/client-core/unstable/agents";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -24,16 +26,28 @@ const installConfig = {
     Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
     Flag.atLeast(0),
   ),
+  agent: Flag.choice("agent", CONFIGURABLE_AGENT_IDS).pipe(
+    Flag.withDescription("Coding agent to target; repeatable (default: all configured agents)"),
+    Flag.atLeast(1),
+    Flag.optional,
+  ),
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, env }) =>
-    handleInstallMcpServer({ source, env }, { yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps install"),
-    ),
+  ({ source, scope, yes, force, preview, env, agent }) =>
+    handleInstallMcpServer(
+      {
+        source,
+        env,
+        ...Option.match(agent, {
+          onNone: () => ({}),
+          onSome: (value) => ({ agents: [...value] }),
+        }),
+      },
+      { yes, force, preview },
+    ).pipe(withWorkspace(scope), withRuntime("mcps install")),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(

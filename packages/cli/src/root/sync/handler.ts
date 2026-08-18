@@ -950,7 +950,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           Effect.provideService(Path.Path, path),
         );
         const current = inspections.every(
-          (inspection) => inspection.status === "match" || inspection.status === "unsupported",
+          (inspection) =>
+            inspection.status === "match" ||
+            inspection.status === "unsupported" ||
+            inspection.status === "not-applicable",
         );
         if (current) return Option.none<PlannedJobStep<SyncPlanRequirements>>();
         const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");

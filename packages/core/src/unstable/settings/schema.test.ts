@@ -954,6 +954,33 @@ describe("Settings schema", () => {
         });
       });
 
+      it("decodes an MCP server agent target subset", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
+          command: "npx",
+          agents: ["claude-code", "codex"],
+        });
+
+        expect(result).toEqual({
+          source: "inline",
+          command: "npx",
+          enabled: true,
+          env: {},
+          agents: ["claude-code", "codex"],
+        });
+      });
+
+      it("rejects empty or duplicate MCP server agent target subsets", () => {
+        expect(() =>
+          Schema.decodeUnknownSync(McpServerEntrySchema)({ command: "npx", agents: [] }),
+        ).toThrow();
+        expect(() =>
+          Schema.decodeUnknownSync(McpServerEntrySchema)({
+            command: "npx",
+            agents: ["codex", "codex"],
+          }),
+        ).toThrow();
+      });
+
       it("decodes an inline remote object", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
           url: "https://mcp.sentry.dev/sse",
@@ -1006,6 +1033,20 @@ describe("Settings schema", () => {
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+        });
+      });
+
+      it("preserves MCP server agent targets in encoded settings", () => {
+        const result = Schema.encodeSync(McpServerEntrySchema)({
+          source: "@wayne/mcps/batcomputer",
+          enabled: true,
+          env: {},
+          agents: ["codex"],
+        });
+
+        expect(result).toEqual({
+          source: "@wayne/mcps/batcomputer",
+          agents: ["codex"],
         });
       });
     });

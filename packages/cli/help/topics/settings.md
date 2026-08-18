@@ -98,7 +98,7 @@ Registry MCP servers use the same source-string form as other extensions. Inline
 MCP servers can be declared directly with either `command`/`args` for stdio or
 `url`/`headers` for a remote server. Use `axm mcps add` for both forms, `axm
 mcps import` to adopt unmanaged entries from existing agent config files, and
-`axm sync` to re-emit configured servers to every configured agent.
+`axm sync` to reconcile configured servers with their applicable agents.
 
 ```jsonc
 {
@@ -108,6 +108,7 @@ mcps import` to adopt unmanaged entries from existing agent config files, and
       "command": "npx",
       "args": ["-y", "linear-mcp-server"],
       "env": ["LINEAR_API_KEY"],
+      "agents": ["claude-code", "codex"],
     },
     "sentry": {
       "url": "https://mcp.sentry.dev/sse",
@@ -120,7 +121,16 @@ mcps import` to adopt unmanaged entries from existing agent config files, and
 MCP `env` accepts either a map or an array of variable names. Array entries
 decode to `${VAR}` references. Keep secrets out of settings by storing
 `${VAR}` references in `env` and `headers`; AXM preserves those references when
-syncing agent config.
+syncing agent config and blocks an applicable agent that cannot represent one.
+
+An MCP entry's optional `agents` field is a non-empty inclusion list. Omit it
+to target every workspace-configured agent. Applicability also requires the
+agent to support the server transport and a native config target for the
+selected scope. `axm mcps add` and `axm mcps install` accept repeatable
+`--agent`; `axm mcps import` retains the native agent footprint where it found
+the unmanaged server. Removing an agent from the subset removes only AXM-owned
+native state. A subset that splits agents sharing one native config file is
+unsupported and blocks reconciliation.
 
 ## Authoring
 

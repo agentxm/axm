@@ -47,6 +47,7 @@ export interface ProjectExpectedEntryArgs {
   readonly remote: McpRemoteDialect | null;
   readonly activationField: McpActivationField;
   readonly envExpansion?: McpEnvExpansion | undefined;
+  readonly remoteTransport?: InlineRemoteTransport | undefined;
 }
 
 const ENV_REF_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/;
@@ -134,44 +135,49 @@ const projectEnvRecord = (args: {
   readonly values: Readonly<Record<string, string>>;
   readonly envExpansion: McpEnvExpansion;
   readonly field: string;
-}): {
-  readonly values: Readonly<Record<string, string>>;
-  readonly warnings: ReadonlyArray<string>;
-} => {
+}):
+  | { readonly _tag: "projected"; readonly values: Readonly<Record<string, string>> }
+  | { readonly _tag: "unsupported"; readonly reason: string } => {
   const values: Record<string, string> = {};
-  const warnings: Array<string> = [];
   for (const [key, value] of Object.entries(args.values)) {
     const rendered = renderEnvValue(value, args.envExpansion);
-    values[key] = rendered.value;
     if (rendered.warning !== undefined) {
-      warnings.push(`${args.field}.${key}: ${rendered.warning}`);
+      return {
+        _tag: "unsupported",
+        reason: `${args.field}.${key}: ${rendered.warning}; secret references are never resolved into native config literals`,
+      };
     }
+    values[key] = rendered.value;
   }
-  return { values, warnings };
+  return { _tag: "projected", values };
 };
 
 const projectRemoteHeaders = (args: {
   readonly values: Readonly<Record<string, string>>;
   readonly dialect: McpRemoteDialect;
   readonly envExpansion: McpEnvExpansion;
-}): {
-  readonly literal: Readonly<Record<string, string>>;
-  readonly env: Readonly<Record<string, string>>;
-  readonly bearerTokenEnv: string | undefined;
-  readonly warnings: ReadonlyArray<string>;
-} => {
+}):
+  | {
+      readonly _tag: "projected";
+      readonly literal: Readonly<Record<string, string>>;
+      readonly env: Readonly<Record<string, string>>;
+      readonly bearerTokenEnv: string | undefined;
+    }
+  | { readonly _tag: "unsupported"; readonly reason: string } => {
   const literal: Record<string, string> = {};
   const env: Record<string, string> = {};
-  const warnings: Array<string> = [];
   let bearerTokenEnv: string | undefined;
 
   for (const [name, value] of Object.entries(args.values)) {
     if (args.envExpansion.variables !== "none") {
       const rendered = renderEnvValue(value, args.envExpansion);
-      literal[name] = rendered.value;
       if (rendered.warning !== undefined) {
-        warnings.push(`headers.${name}: ${rendered.warning}`);
+        return {
+          _tag: "unsupported",
+          reason: `headers.${name}: ${rendered.warning}; secret references are never resolved into native config literals`,
+        };
       }
+      literal[name] = rendered.value;
       continue;
     }
 
@@ -182,9 +188,10 @@ const projectRemoteHeaders = (args: {
       if (args.dialect.bearerTokenEnvKey !== undefined && args.dialect.bearerTokenEnvKey !== null) {
         bearerTokenEnv = bearerVariable;
       } else {
-        warnings.push(
-          `headers.${name}: cannot project environment reference \${${bearerVariable}} for this agent`,
-        );
+        return {
+          _tag: "unsupported",
+          reason: `headers.${name}: cannot project environment reference \${${bearerVariable}} for this agent`,
+        };
       }
       continue;
     }
@@ -195,9 +202,10 @@ const projectRemoteHeaders = (args: {
       if (args.dialect.envHeadersKey !== undefined && args.dialect.envHeadersKey !== null) {
         env[name] = envVariable;
       } else {
-        warnings.push(
-          `headers.${name}: cannot project environment reference \${${envVariable}} for this agent`,
-        );
+        return {
+          _tag: "unsupported",
+          reason: `headers.${name}: cannot project environment reference \${${envVariable}} for this agent`,
+        };
       }
       continue;
     }
@@ -207,13 +215,14 @@ const projectRemoteHeaders = (args: {
       literal[name] = rendered.value;
     } else {
       const reference = ENV_REF_RE.exec(value)?.[0] ?? value;
-      warnings.push(
-        `headers.${name}: cannot project environment reference ${reference} for this agent`,
-      );
+      return {
+        _tag: "unsupported",
+        reason: `headers.${name}: cannot project environment reference ${reference} for this agent`,
+      };
     }
   }
 
-  return { literal, env, bearerTokenEnv, warnings };
+  return { _tag: "projected", literal, env, bearerTokenEnv };
 };
 
 const projectInlineStdio = (args: {
@@ -225,11 +234,19 @@ const projectInlineStdio = (args: {
   readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
-}): {
-  readonly entry: Readonly<Record<string, unknown>>;
-  readonly warnings: ReadonlyArray<string>;
-} => {
+}):
+  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
+  | { readonly _tag: "unsupported"; readonly reason: string } => {
   const invocation = [args.command, ...args.commandArgs];
+  for (const [index, value] of invocation.entries()) {
+    const rendered = renderEnvValue(value, args.envExpansion);
+    if (rendered.warning !== undefined) {
+      return {
+        _tag: "unsupported",
+        reason: `invocation.${index}: ${rendered.warning}; secret references are never resolved into native config literals`,
+      };
+    }
+  }
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
   };
@@ -238,6 +255,13 @@ const projectInlineStdio = (args: {
     envExpansion: args.envExpansion,
     field: "env",
   });
+  if (env._tag === "unsupported") return env;
+  if (Object.keys(env.values).length > 0 && args.dialect.envKey === null) {
+    return {
+      _tag: "unsupported",
+      reason: "agent cannot project MCP environment values",
+    };
+  }
   addInlineTypeField(entry, args.dialect.typeField, "stdio");
   addActivationField(entry, args.activationField, args.enabled);
   if (args.dialect.command === "array") {
@@ -249,7 +273,7 @@ const projectInlineStdio = (args: {
   if (Object.keys(env.values).length > 0 && args.dialect.envKey !== null) {
     entry[args.dialect.envKey] = env.values;
   }
-  return { entry, warnings: env.warnings };
+  return { _tag: "projected", entry };
 };
 
 const projectInlineRemote = (args: {
@@ -260,16 +284,14 @@ const projectInlineRemote = (args: {
   readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
+  readonly transport?: InlineRemoteTransport | undefined;
 }):
-  | {
-      readonly entry: Readonly<Record<string, unknown>>;
-      readonly warnings: ReadonlyArray<string>;
-    }
-  | {
-      readonly _tag: "unsupported";
-      readonly reason: string;
-    } => {
-  const inference = inferInlineRemoteTransport(args.url);
+  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
+  | { readonly _tag: "unsupported"; readonly reason: string } => {
+  const inference =
+    args.transport === undefined
+      ? inferInlineRemoteTransport(args.url)
+      : ({ _tag: "supported", transport: args.transport } as const);
   if (inference._tag === "unsupported") return inference;
   const transport = inference.transport;
   const urlKey = args.dialect.urlKey[transport];
@@ -287,6 +309,13 @@ const projectInlineRemote = (args: {
     dialect: args.dialect,
     envExpansion: args.envExpansion,
   });
+  if (headers._tag === "unsupported") return headers;
+  if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey === null) {
+    return {
+      _tag: "unsupported",
+      reason: "agent cannot project literal MCP request headers",
+    };
+  }
   addInlineTypeField(entry, args.dialect.typeField, transport);
   addActivationField(entry, args.activationField, args.enabled);
   entry[urlKey] = args.url;
@@ -307,7 +336,7 @@ const projectInlineRemote = (args: {
   ) {
     entry[args.dialect.envHeadersKey] = headers.env;
   }
-  return { entry, warnings: headers.warnings };
+  return { _tag: "projected", entry };
 };
 
 export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAgentEntry => {
@@ -328,10 +357,12 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
+      ...(args.remoteTransport === undefined ? {} : { transport: args.remoteTransport }),
     });
+    if (projected._tag === "unsupported") return projected;
     return {
       _tag: "projected",
-      warnings: projected.warnings,
+      warnings: [],
       entry: projected.entry,
     };
   }
@@ -355,10 +386,10 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       envExpansion,
       source: args.entry.source,
     });
-    if ("_tag" in projected) return projected;
+    if (projected._tag === "unsupported") return projected;
     return {
       _tag: "projected",
-      warnings: projected.warnings,
+      warnings: [],
       entry: projected.entry,
     };
   }

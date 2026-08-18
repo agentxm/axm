@@ -37,6 +37,8 @@ import {
   isAxmManagedMcpEntry,
 } from "../mcps/metadata.js";
 import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
+import { inspectAgentMcpServer } from "../mcps/inspection.js";
+import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,
@@ -631,21 +633,92 @@ export const syncInlineMcpServerToAgents = (
     const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
     const accumulators = new Map<string, SharedSyncAccumulator>();
     const groups = new Map<string, Array<SharedSyncMember>>();
+    const targetPolicies = new Map<
+      string,
+      { readonly applicable: Array<string>; readonly notApplicable: Array<string> }
+    >();
+    const capableAgents: Array<{
+      readonly agentId: CapabilityAgentId;
+      readonly capability: ConfiguredMcpCapability;
+      readonly applicable: boolean;
+    }> = [];
 
     for (const agentId of agentIds) {
+      const applicable = isMcpServerApplicableToAgent(args.entry, agentId);
       if (!isCapabilityAgentId(agentId)) {
-        terminalOutcomes.set(agentId, {
-          _tag: "unsupported",
-          reason: agentId + " has no MCP capability catalog entry",
-        });
+        terminalOutcomes.set(
+          agentId,
+          applicable
+            ? {
+                _tag: "unsupported",
+                reason: agentId + " has no MCP capability catalog entry",
+              }
+            : { _tag: "success", targets: [] },
+        );
         continue;
       }
       const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
       if (!hasMcpConfig(capability)) {
-        terminalOutcomes.set(agentId, {
-          _tag: "unsupported",
-          reason: agentId + " does not have MCP config support",
+        terminalOutcomes.set(
+          agentId,
+          applicable
+            ? {
+                _tag: "unsupported",
+                reason: agentId + " does not have MCP config support",
+              }
+            : { _tag: "success", targets: [] },
+        );
+        continue;
+      }
+      capableAgents.push({ agentId, capability, applicable });
+      for (const target of capability.axm.writer.config.targets.filter(
+        (candidate) => candidate.scope === scope,
+      )) {
+        const key = target.scope + ":" + target.path;
+        const policy = targetPolicies.get(key) ?? { applicable: [], notApplicable: [] };
+        (applicable ? policy.applicable : policy.notApplicable).push(agentId);
+        targetPolicies.set(key, policy);
+      }
+    }
+
+    const mixedTarget = Array.from(targetPolicies.entries()).find(
+      ([, policy]) => policy.applicable.length > 0 && policy.notApplicable.length > 0,
+    );
+    if (mixedTarget !== undefined) {
+      const [targetPath, policy] = mixedTarget;
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `MCP target policy cannot be represented at shared native target ${targetPath}; targeted agents ${policy.applicable.join(", ")} share it with untargeted agents ${policy.notApplicable.join(", ")}`,
+      });
+    }
+
+    for (const { agentId, capability, applicable } of capableAgents) {
+      if (!applicable) {
+        const inspection = yield* inspectAgentMcpServer({
+          workspaceRoot: args.workspaceRoot,
+          scope,
+          agentId,
+          serverName: args.serverName,
+          entry: args.entry,
         });
+        if (inspection.status === "unmanaged") {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `${agentId} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
+          });
+        }
+        if (inspection.status === "drift") {
+          terminalOutcomes.set(
+            agentId,
+            yield* removeMcpServerFromManifest(agentId, {
+              workspaceRoot: args.workspaceRoot,
+              scope,
+              serverName: args.serverName,
+            }),
+          );
+        } else {
+          terminalOutcomes.set(agentId, { _tag: "success", targets: [] });
+        }
         continue;
       }
       accumulators.set(agentId, { targets: [], warnings: [] });

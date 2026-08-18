@@ -15,6 +15,8 @@ import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
+import { inspectAgentMcpServer } from "../inspection.js";
+import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
 
 export type DisableMcpServerOperation = Operation<
   "disable-mcp-server",
@@ -44,16 +46,48 @@ export const disableMcpServer = (
     }
 
     const agents = yield* agentRepo.getConfiguredAgents();
+    const sharedTargetConflict = sharedMcpTargetPolicyConflict({
+      entry,
+      agentIds: agents.map((agent) => agent.id),
+      scope: ws.scope,
+    });
+    if (sharedTargetConflict !== undefined) {
+      return yield* makeAppError({ code: "conflict", detail: sharedTargetConflict });
+    }
     const outcomes = yield* ws.runTransaction({
       transition: Effect.gen(function* () {
         const synced = yield* Effect.forEach(
           agents,
           (agent) =>
-            agent.removeMcpServer({
-              workspaceRoot: ws.baseDir,
-              scope: ws.scope,
-              serverName: op.args.serverName,
-              disableOnly: true,
+            Effect.gen(function* () {
+              if (isMcpServerApplicableToAgent(entry, agent.id)) {
+                return yield* agent.removeMcpServer({
+                  workspaceRoot: ws.baseDir,
+                  scope: ws.scope,
+                  serverName: op.args.serverName,
+                  disableOnly: true,
+                });
+              }
+              const inspection = yield* inspectAgentMcpServer({
+                workspaceRoot: ws.baseDir,
+                scope: ws.scope,
+                agentId: agent.id,
+                serverName: op.args.serverName,
+                entry,
+              });
+              if (inspection.status === "unmanaged") {
+                return yield* makeAppError({
+                  code: "conflict",
+                  detail: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
+                });
+              }
+              return inspection.status === "drift"
+                ? yield* agent.removeMcpServer({
+                    workspaceRoot: ws.baseDir,
+                    scope: ws.scope,
+                    serverName: op.args.serverName,
+                  })
+                : ({ _tag: "success", targets: [] } as const);
             }),
           { concurrency: "unbounded" },
         );

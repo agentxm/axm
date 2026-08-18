@@ -2,7 +2,7 @@
 
 An MCP server extension registers a Model Context Protocol server that your
 coding agents connect to for extra tools and resources. AXM tracks the server
-once and writes it into every configured agent's native MCP config, so you do
+once and writes it into its applicable configured agents' native MCP configs, so you do
 not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
 friends in parallel.
 
@@ -62,12 +62,14 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
 
 - `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Pass
   `--env KEY=VALUE` to supply declared inputs, or `--non-interactive` to use
-  defaults and placeholders instead of prompting.
+  defaults and placeholders instead of prompting. Repeat `--agent <id>` to
+  restrict the server to a reviewed agent subset.
 - `axm mcps add <name> --command "npx -y linear-mcp-server"` — add an inline
   stdio server you define yourself. Use `--url` for a remote server, plus
-  `--env` and `--header` for its inputs.
+  `--env` and `--header` for its inputs. It also accepts repeatable `--agent`.
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
-  inline AXM entries.
+  inline AXM entries. Import records the native agents where each server was
+  discovered; it does not silently widen the server to every configured agent.
 - `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
   latest resolved version.
 - `axm mcps list` (`ls`) — show installed servers and their state.
@@ -100,7 +102,17 @@ The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 remote transports render as `url`/`headers`. AXM only edits entries whose
 ownership it can prove and preserves servers added by other tools. `axm sync`
 restores missing or stale AXM-owned entries and blocks the affected server on
-unowned or ambiguous collisions.
+unowned or ambiguous collisions. Applicability is the intersection of the
+workspace's configured agents, the server's optional `agents` subset, and each
+agent's transport/config capability. A selected agent that cannot represent the
+transport or a required secret reference blocks that server with an explicit
+unsupported reason. An unselected agent is intentionally not applicable and is
+not unhealthy.
+
+Some agents share one native config file. A target policy that selects one
+agent but excludes another agent sharing that file cannot be represented; AXM
+blocks it instead of widening the policy. Removing an agent from a server's
+subset removes only stale AXM-owned state and preserves unmanaged collisions.
 
 ## Settings and lockfile
 
@@ -114,11 +126,12 @@ declares exactly one transport — `source`, `command`, or `url`:
   "mcpServers": {
     // Registry server, compact form
     "database": "@acme/mcps/database@^1.0.0",
-    // Registry server with inputs and an opt-out
+    // Registry server with inputs, an agent subset, and an opt-out
     "search": {
       "source": "@acme/mcps/search@^2.0.0",
       "enabled": false,
-      "env": { "SEARCH_API_KEY": "${SEARCH_API_KEY}" },
+      "env": ["SEARCH_API_KEY"],
+      "agents": ["claude-code", "codex"],
     },
     // Inline stdio server
     "linear": { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
@@ -131,7 +144,11 @@ declares exactly one transport — `source`, `command`, or `url`:
 }
 ```
 
-- **`enabled: false`** keeps a server installed but omits it from agent configs.
+- **`enabled: false`** keeps a server installed but deactivates its applicable
+  AXM-owned agent entries.
+- **`agents`** is a non-empty inclusion list. Omit it to target every configured
+  agent; setting it never configures an agent that is absent from the
+  workspace-level `agents` list.
 - **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
   decodes to a `${VAR}` reference.
 - Agent-native entries without AXM ownership metadata remain unowned and are
@@ -144,7 +161,11 @@ configs through `axm sync`.
 
 Never store literal tokens in `.axm/settings.json`. Put secrets in `env` or
 `headers` as `${VAR}` references and let each agent resolve them from the
-environment at runtime. `axm lint` flags secret-looking literals through
+environment at runtime. Registry inputs marked `isSecret` may be supplied to
+the installer and saved in the system keychain, but native config receives only
+the reference. AXM never substitutes a secret value into native config. If an
+applicable agent cannot represent the reference, projection blocks instead of
+writing a literal or omitting authentication. `axm lint` flags secret-looking literals through
 `workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
 

@@ -37,7 +37,7 @@ const inlineEntry = {
   command: "npx",
   args: ["-y", "example-mcp-server"],
   enabled: true,
-  env: { EXAMPLE_TOKEN: "${EXAMPLE_TOKEN}" },
+  env: { EXAMPLE_REGION: "us-east-1" },
 } satisfies McpServerEntry;
 const inlineRemoteEntry = {
   source: "inline",
@@ -495,7 +495,7 @@ describe("mcp-sync helpers", () => {
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           enabled: true,
-          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+          env: { REGION: "us-east-1" },
         } as const;
 
         for (const agentIds of combinations) {
@@ -571,6 +571,112 @@ describe("mcp-sync helpers", () => {
 
         expect(rendered[0]).toBe(rendered[1]);
         expect(rendered[0]).toContain('"type": "stdio"');
+      }),
+    ),
+  );
+
+  it.effect("applies an agent subset and removes only stale AXM-managed projections", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-targets-"));
+        try {
+          const broadEntry = {
+            source: "inline",
+            command: "npx",
+            args: ["-y", "example-mcp"],
+            enabled: true,
+            env: {},
+          } satisfies McpServerEntry;
+          const targetedEntry = {
+            ...broadEntry,
+            agents: ["claude-code"],
+          } satisfies McpServerEntry;
+
+          yield* syncInlineMcpServerToAgents(["claude-code", "kilo"], {
+            workspaceRoot,
+            serverName: "example",
+            scope: "project",
+            entry: broadEntry,
+          });
+          const outcomes = yield* syncInlineMcpServerToAgents(["claude-code", "kilo"], {
+            workspaceRoot,
+            serverName: "example",
+            scope: "project",
+            entry: targetedEntry,
+          });
+          expect(outcomes.every((outcome) => outcome._tag === "success")).toBe(true);
+
+          const inspections = yield* inspectMcpServerAcrossAgents({
+            workspaceRoot,
+            scope: "project",
+            agentIds: ["claude-code", "kilo"],
+            serverName: "example",
+            entry: targetedEntry,
+          });
+          expect(inspections.map(({ status }) => status)).toEqual(["match", "not-applicable"]);
+          const fs = yield* FileSystem.FileSystem;
+          expect(yield* fs.readFileString(`${workspaceRoot}/kilo.json`)).not.toContain('"example"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("blocks an agent subset that cannot be represented by a shared native target", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-shared-targets-"));
+        try {
+          const error = yield* syncInlineMcpServerToAgents(["claude-code", "github-copilot-cli"], {
+            workspaceRoot,
+            serverName: "example",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              enabled: true,
+              env: {},
+              agents: ["claude-code"],
+            },
+          }).pipe(Effect.flip);
+
+          expect(error.code).toBe("conflict");
+          expect(error.detail).toContain("shared native target");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("preserves an unmanaged collision while removing an agent target", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-unmanaged-target-"));
+        try {
+          const fs = yield* FileSystem.FileSystem;
+          const configPath = `${workspaceRoot}/kilo.json`;
+          const original = '{\n  "mcp": { "example": { "command": ["other"] } }\n}\n';
+          yield* fs.writeFileString(configPath, original);
+          const error = yield* syncInlineMcpServerToAgents(["claude-code", "kilo"], {
+            workspaceRoot,
+            serverName: "example",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              enabled: true,
+              env: {},
+              agents: ["claude-code"],
+            },
+          }).pipe(Effect.flip);
+
+          expect(error.code).toBe("conflict");
+          expect(yield* fs.readFileString(configPath)).toBe(original);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
       }),
     ),
   );
@@ -657,16 +763,13 @@ describe("mcp-sync helpers", () => {
               command: "npx",
               args: ["-y", "linear-mcp-server"],
               enabled: true,
-              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+              env: { REGION: "us-east-1" },
             },
           });
 
           expect(outcome).toEqual({
             _tag: "success",
             targets: [{ path: "kilo.json", change: "created" }],
-            warnings: [
-              "env.LINEAR_API_KEY: does not expand environment reference ${LINEAR_API_KEY}",
-            ],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/kilo.json`);
@@ -695,16 +798,13 @@ describe("mcp-sync helpers", () => {
               command: "npx",
               args: ["-y", "linear-mcp-server"],
               enabled: true,
-              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+              env: { REGION: "us-east-1" },
             },
           });
 
           expect(outcome).toEqual({
             _tag: "success",
             targets: [{ path: ".codeartsdoer/codearts_cli.jsonc", change: "created" }],
-            warnings: [
-              "env.LINEAR_API_KEY: does not expand environment reference ${LINEAR_API_KEY}",
-            ],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(
@@ -822,13 +922,12 @@ describe("mcp-sync helpers", () => {
                   command: "npx",
                   args: ["-y", "@acme/context-mcp"],
                   enabled: true,
-                  env: { ACME_TOKEN: "${ACME_TOKEN}" },
+                  env: { REGION: "us-east-1" },
                 },
               });
               expect(stdioOutcome).toEqual({
                 _tag: "success",
                 targets: [{ path: "~/.hermes/config.yaml", change: "created" }],
-                warnings: ["env.ACME_TOKEN: does not expand environment reference ${ACME_TOKEN}"],
               });
 
               const remoteOutcome = yield* syncInlineMcpServerToAgent("hermes", {
@@ -838,7 +937,7 @@ describe("mcp-sync helpers", () => {
                 entry: {
                   source: "inline",
                   url: "https://mcp.stripe.com",
-                  headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
+                  headers: { Accept: "application/json" },
                   enabled: true,
                   env: {},
                 },
@@ -846,9 +945,6 @@ describe("mcp-sync helpers", () => {
               expect(remoteOutcome).toEqual({
                 _tag: "success",
                 targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
-                warnings: [
-                  "headers.Authorization: cannot project environment reference ${STRIPE_TOKEN} for this agent",
-                ],
               });
 
               const fs = yield* FileSystem.FileSystem;
@@ -859,14 +955,16 @@ describe("mcp-sync helpers", () => {
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
-                env: { ACME_TOKEN: "${ACME_TOKEN}" },
+                env: { REGION: "us-east-1" },
               });
               expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
                 "x-axm": { managed: true, source: "inline" },
                 enabled: true,
                 url: "https://mcp.stripe.com",
               });
-              expect(readYamlEntry(raw, "mcp_servers", "stripe")).not.toHaveProperty("headers");
+              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
+                headers: { Accept: "application/json" },
+              });
 
               const disableOutcome = yield* removeMcpServerFromManifest("hermes", {
                 workspaceRoot,

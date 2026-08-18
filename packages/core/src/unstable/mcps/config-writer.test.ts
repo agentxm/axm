@@ -118,7 +118,10 @@ describe("agent MCP config writer", () => {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-json-"));
         try {
           const configPath = nodePath.join(workspaceRoot, "agent.json");
-          writeFileSync(configPath, '{\n  "mcpServers": { "context": { "command": "npx" } }\n}\n');
+          writeFileSync(
+            configPath,
+            '{\n  "mcpServers": { "context": { "command": "npx", "x-axm": { "managed": true, "source": "inline" } } }\n}\n',
+          );
 
           const result = yield* removeAgentMcpConfig({
             workspaceRoot,

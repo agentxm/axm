@@ -46,6 +46,7 @@ import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
   readonly env?: ReadonlyArray<string>;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 // -----------------------------------------------------------------------------
@@ -59,6 +60,7 @@ export interface ParsedMcpServerInstallArgs {
   readonly resolvedInput: string;
   readonly force: boolean;
   readonly env: Readonly<Record<string, string>>;
+  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 // -----------------------------------------------------------------------------
@@ -174,6 +176,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               resolvedInput: trimmed,
               force: false,
               env,
+              ...(args.agents === undefined ? {} : { agents: args.agents }),
             };
           }
 
@@ -205,6 +208,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             resolvedInput: `${owner}/mcps/${parsed.success.name}`,
             force: false,
             env,
+            ...(args.agents === undefined ? {} : { agents: args.agents }),
           };
         }
 
@@ -347,6 +351,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           versionRange: parsed.versionRange,
           force: parsed.force,
           env: parsed.env,
+          ...(parsed.agents === undefined ? {} : { agents: parsed.agents }),
         };
       });
 
@@ -395,6 +400,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                         versionRange: intent.versionRange,
                         skipSettings: Option.none(),
                         env: Option.some(intent.env ?? {}),
+                        ...(intent.agents === undefined ? {} : { agents: intent.agents }),
                       },
                     }),
                   ),

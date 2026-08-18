@@ -22,6 +22,8 @@ import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
 } from "../../projection/planning.js";
+import { inspectAgentMcpServer } from "../inspection.js";
+import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",
@@ -145,6 +147,14 @@ export const enableMcpServer = (
     const resolvedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
+    const sharedTargetConflict = sharedMcpTargetPolicyConflict({
+      entry,
+      agentIds: agents.map((agent) => agent.id),
+      scope: ws.scope,
+    });
+    if (sharedTargetConflict !== undefined) {
+      return yield* makeAppError({ code: "conflict", detail: sharedTargetConflict });
+    }
     const outcomes = yield* ws.runTransaction({
       transition: Effect.gen(function* () {
         const synced = yield* applyProjectionPlansWithResults(
@@ -164,8 +174,30 @@ export const enableMcpServer = (
                     observedContributors: [],
                   }),
                 apply: () =>
-                  agent
-                    .addMcpServer({
+                  Effect.gen(function* () {
+                    if (!isMcpServerApplicableToAgent(entry, agent.id)) {
+                      const inspection = yield* inspectAgentMcpServer({
+                        workspaceRoot: ws.baseDir,
+                        scope: ws.scope,
+                        agentId: agent.id,
+                        serverName: op.args.serverName,
+                        entry,
+                      });
+                      if (inspection.status === "unmanaged") {
+                        return yield* makeAppError({
+                          code: "conflict",
+                          detail: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
+                        });
+                      }
+                      return inspection.status === "drift"
+                        ? yield* agent.removeMcpServer({
+                            workspaceRoot: ws.baseDir,
+                            scope: ws.scope,
+                            serverName: op.args.serverName,
+                          })
+                        : ({ _tag: "success", targets: [] } as const);
+                    }
+                    return yield* agent.addMcpServer({
                       workspaceRoot: ws.baseDir,
                       scope: ws.scope,
                       serverName: op.args.serverName,
@@ -174,11 +206,11 @@ export const enableMcpServer = (
                       resolvedVersion,
                       enabled: true,
                       configValues: entry.env,
-                    })
-                    .pipe(
-                      Effect.provideService(FileSystem.FileSystem, fs),
-                      Effect.provideService(Path.Path, path),
-                    ),
+                    });
+                  }).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                  ),
               },
             }),
           ),

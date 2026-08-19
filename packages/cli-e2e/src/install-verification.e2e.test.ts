@@ -275,13 +275,23 @@ const expectProgressMessages = (
   stderr: string,
   expectedMessages: ReadonlyArray<string | RegExp>,
 ) => {
-  const progressEvents = stderr
+  const machineEvents = stderr
     .trim()
     .split("\n")
     .filter((line) => line.length > 0)
     .map(parseJsonObject);
+  expect(machineEvents.length).toBeGreaterThan(0);
+  expect(
+    machineEvents.every(
+      (event) =>
+        event["type"] === "progress" ||
+        (event["type"] === "log" &&
+          ["error", "warn", "info"].includes(String(event["level"])) &&
+          typeof event["message"] === "string"),
+    ),
+  ).toBe(true);
+  const progressEvents = machineEvents.filter((event) => event["type"] === "progress");
   expect(progressEvents.length).toBeGreaterThan(0);
-  expect(progressEvents.every((event) => event["type"] === "progress")).toBe(true);
   const progressMessages = progressEvents.map((event) => event["message"]);
   for (const expectedMessage of expectedMessages) {
     if (typeof expectedMessage === "string") {

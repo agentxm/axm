@@ -263,8 +263,13 @@ const expectJsonObject = (value: unknown): Readonly<Record<string, unknown>> => 
   return Object.fromEntries(Object.entries(value));
 };
 
-const parseJsonObject = (input: string): Readonly<Record<string, unknown>> =>
-  expectJsonObject(JSON.parse(input));
+const parseJsonObject = (input: string): Readonly<Record<string, unknown>> => {
+  try {
+    return expectJsonObject(JSON.parse(input));
+  } catch (cause) {
+    throw new Error(`Expected one JSON object, received ${JSON.stringify(input)}`, { cause });
+  }
+};
 
 const expectProgressMessages = (
   stderr: string,

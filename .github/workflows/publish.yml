@@ -217,7 +217,7 @@ jobs:
             mkdir -p "$workspace"
             cd "$workspace"
 
-            if "$axm_binary" setup --agent claude-code --yes --non-interactive; then
+            if "$axm_binary" setup --scope project --agent claude-code --yes --non-interactive; then
               actual_version="$(
                 "$axm_binary" skills show axm --json |
                   jq -r '.result.item.version'

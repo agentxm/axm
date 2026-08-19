@@ -82,7 +82,67 @@ describe("InteractiveRenderer", () => {
     }),
   );
 
+  it.effect("keeps only outcomes, errors, and required actions visible in quiet mode", () =>
+    Effect.gen(function* () {
+      yield* runQuiet(
+        Effect.gen(function* () {
+          const renderer = yield* CliRenderer;
+          yield* renderer.intro("AXM");
+          yield* renderer.message("narration");
+          yield* renderer.info("detail");
+          yield* renderer.step("activity");
+          yield* renderer.diagnostic("diagnostic");
+          yield* renderer.note("note");
+          yield* renderer.box("box");
+          yield* renderer.success("Applied", { summary: "verbose summary" });
+          yield* renderer.warn("Needs attention");
+          yield* renderer.error("Failed", {
+            suggestions: [{ description: "Retry", cmd: "axm retry" }],
+          });
+          yield* renderer.instruction("Enter the displayed device code");
+          yield* renderer.outro("Done");
+        }),
+      );
+
+      const output = stderrWrites.join("");
+      expect(stdoutWrites).toEqual([]);
+      expect(output).toContain("Applied");
+      expect(output).toContain("Needs attention");
+      expect(output).toContain("Failed");
+      expect(output).toContain("axm retry");
+      expect(output).toContain("Enter the displayed device code");
+      for (const suppressed of [
+        "AXM",
+        "narration",
+        "detail",
+        "activity",
+        "diagnostic",
+        "note",
+        "box",
+        "verbose summary",
+        "Done",
+      ]) {
+        expect(output).not.toContain(suppressed);
+      }
+    }),
+  );
+
   describe("chrome methods", () => {
+    it.effect("removes ANSI styling and OSC links from plain output", () =>
+      Effect.gen(function* () {
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.message("\u001b[2mdim\u001b[0m");
+            yield* renderer.raw("\u001b]8;;https://example.com\u001b\\link\u001b]8;;\u001b\\\n");
+          }),
+        );
+
+        expect(stderrWrites).toEqual(["dim\n"]);
+        expect(stdoutWrites).toEqual(["link\n"]);
+      }),
+    );
+
     it.effect("writes raw diagnostic content only to stderr", () =>
       Effect.gen(function* () {
         yield* runPlain(

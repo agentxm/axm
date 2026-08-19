@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off — subprocess smoke tests run the source entrypoint
 import { spawn } from "node:child_process";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -76,6 +77,10 @@ describe("axm source smoke", () => {
       expect(output).not.toContain("--wizard");
       expect(output).not.toContain("-vv");
       expect(output).not.toContain("--version, -v");
+      expect(output).toContain("Never prompt; fail with guidance when input is required");
+      expect(output).toContain("Show only final outcomes, errors, and required actions");
+      expect(output).toContain("Show additional redacted diagnostic details for errors");
+      expect(output).toContain("Show redacted cause and stack details");
     },
   );
 
@@ -86,5 +91,33 @@ describe("axm source smoke", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("Unrecognized flag: -vv");
     expect(result.stderr).toContain("Use --debug");
+  });
+
+  it("keeps help and bundled skill guidance aligned with output-mode guarantees", async () => {
+    const help = await runAxm(["help", "environment"]);
+    const skill = fs.readFileSync(
+      path.resolve(PACKAGE_ROOT, "../..", ".axm/extensions/@agentxm/skills/axm/src/SKILL.md"),
+      "utf8",
+    );
+
+    expect(help.exitCode).toBe(0);
+    for (const guarantee of [
+      "never opens a prompt",
+      "only final outcomes, errors",
+      "Quiet wins over",
+      "TERM=dumb",
+      "remain redacted",
+    ]) {
+      expect(help.stdout).toContain(guarantee);
+    }
+    for (const guarantee of [
+      "never prompts",
+      "only final",
+      "wins over verbose and debug",
+      "TERM=dumb",
+      "remain redacted",
+    ]) {
+      expect(skill).toContain(guarantee);
+    }
   });
 });

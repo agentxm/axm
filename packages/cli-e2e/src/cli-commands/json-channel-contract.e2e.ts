@@ -193,7 +193,7 @@ describe("JSON-mode channel contract (--json)", () => {
       const fixture = fileURLToPath(
         new URL("../fixtures/machine-output-defect.mjs", import.meta.url),
       );
-      const result = await runCommand(process.execPath, [fixture], {});
+      const result = await runCommand(process.execPath, [fixture, "--json"], {});
 
       expect(result.exitCode).not.toBe(0);
       const { stdoutDocument, stderrEvents } = assertJsonChannelContract(result);

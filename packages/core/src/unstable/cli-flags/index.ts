@@ -25,14 +25,14 @@ export const jsonFlag = GlobalFlag.setting("axm-json")({
 export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
     Flag.withAlias("v"),
-    Flag.withDescription("Show additional diagnostic details for errors"),
+    Flag.withDescription("Show additional redacted diagnostic details for errors"),
     Flag.withDefault(false),
   ),
 });
 
 export const debugFlag = GlobalFlag.setting("axm-debug")({
   flag: Flag.boolean("debug").pipe(
-    Flag.withDescription("Show full debug details for errors (implies --verbose)"),
+    Flag.withDescription("Show redacted cause and stack details (implies --verbose)"),
     Flag.withDefault(false),
   ),
 });
@@ -40,7 +40,7 @@ export const debugFlag = GlobalFlag.setting("axm-debug")({
 export const quietFlag = GlobalFlag.setting("axm-quiet")({
   flag: Flag.boolean("quiet").pipe(
     Flag.withAlias("q"),
-    Flag.withDescription("Suppress non-essential output"),
+    Flag.withDescription("Show only final outcomes, errors, and required actions"),
     Flag.withDefault(false),
   ),
 });

@@ -66,6 +66,25 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("--json");
       expect(output).toContain("--verbose");
     });
+
+    it("describes output-mode guarantees in root help", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        globalFlags: [
+          {
+            name: "quiet",
+            aliases: [],
+            type: "boolean",
+            description: Option.some("Show only final outcomes, errors, and required actions"),
+            required: false,
+          },
+        ],
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toContain("OUTPUT MODES");
+      expect(output).toContain("--quiet Show only final outcomes, errors, and required actions");
+    });
   });
 
   describe("LearnMore footer", () => {

@@ -19,7 +19,12 @@ metadata:
    use stdout for primary human data and stderr for diagnostics. Treat an
    ordinary stdout document as compatible only when it owns `result`, or when
    it is the fixed `ok: false` error envelope; `type: help|version` documents
-   are formatter-owned exceptions.
+   are formatter-owned exceptions. For text automation, `--non-interactive`
+   never prompts and fails with guidance when required input is absent.
+   `--quiet` wins over verbose and debug modes and preserves only final
+   outcomes, errors, and values or actions required to continue. Verbose and
+   debug diagnostics remain redacted. Treat output as plain when `NO_COLOR`,
+   `FORCE_COLOR=0`, CI, non-TTY stdout, or `TERM=dumb` applies.
 2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:
    - User explicitly chose to trust AXM for filesystem mutations.
    - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.

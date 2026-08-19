@@ -4,7 +4,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { runCommand } from "@agentxm/client-e2e-utils";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
 /**
@@ -14,6 +16,9 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 function getOutput(result: { stdout: string; stderr: string }): string {
   return result.stdout + result.stderr;
 }
+
+// eslint-disable-next-line no-control-regex -- built output must not contain ANSI CSI or OSC sequences.
+const terminalControlPattern = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/u;
 
 describe("axm (root command)", () => {
   describe("without arguments", () => {
@@ -99,6 +104,87 @@ describe("axm (root command)", () => {
       });
       expect(result.stderr).toBe("");
     });
+  });
+});
+
+describe("global text-output policy", () => {
+  it.each([
+    { name: "non-TTY stdout", env: {} },
+    { name: "NO_COLOR", env: { NO_COLOR: "1" } },
+    { name: "FORCE_COLOR=0", env: { FORCE_COLOR: "0" } },
+    { name: "CI", env: { CI: "1" } },
+    { name: "TERM=dumb", env: { TERM: "dumb" } },
+  ])("keeps root help plain under $name", async ({ env }) => {
+    const result = await runCli(["--help"], { env });
+
+    expect(result.exitCode).toBe(0);
+    expect(terminalControlPattern.test(result.stdout)).toBe(false);
+    expect(terminalControlPattern.test(result.stderr)).toBe(false);
+  });
+
+  it("gives quiet precedence while preserving mutation and no-op outcomes", async () => {
+    const workspace = createTempDir();
+    try {
+      const args = [
+        "setup",
+        "--yes",
+        "--scope",
+        "project",
+        "--agent",
+        "claude-code",
+        "--non-interactive",
+        "--quiet",
+        "--verbose",
+        "--debug",
+      ];
+      const applied = await runCli(args, { cwd: workspace.path });
+      const noOp = await runCli(args, { cwd: workspace.path });
+
+      expect(applied.exitCode).toBe(0);
+      expect(getOutput(applied)).toMatch(/setup|initialized|created/iu);
+      expect(getOutput(applied)).not.toContain("Telemetry is enabled");
+      expect(noOp.exitCode).toBe(0);
+      expect(getOutput(noOp)).toMatch(/already|no changes|no-op/iu);
+    } finally {
+      workspace.cleanup();
+    }
+  });
+
+  it("keeps validation and authentication recovery visible in quiet mode", async () => {
+    const invalid = await runCli([
+      "setup",
+      "--scope",
+      "invalid",
+      "--quiet",
+      "--verbose",
+      "--debug",
+    ]);
+    const auth = await runCli(["token", "--quiet", "--verbose", "--debug"], {
+      env: { AXM_TOKEN: "", AXM_TOKEN_FILE: "" },
+    });
+
+    expect(invalid.exitCode).not.toBe(0);
+    expect(getOutput(invalid)).toMatch(/invalid|scope/iu);
+    expect(auth.exitCode).not.toBe(0);
+    expect(getOutput(auth)).toContain("No token available");
+    expect(getOutput(auth)).toContain("axm login --device-code --json");
+    expect(getOutput(auth)).toContain("https://agentxm.ai/u/settings/tokens");
+  });
+
+  it.each([
+    { mode: "verbose", args: ["--verbose"] },
+    { mode: "debug", args: ["--debug"] },
+    { mode: "quiet precedence", args: ["--quiet", "--verbose", "--debug"] },
+  ])("redacts built-runtime defects in human mode for $mode", async ({ args }) => {
+    const fixture = fileURLToPath(new URL("./fixtures/machine-output-defect.mjs", import.meta.url));
+    const result = await runCommand(process.execPath, [fixture, ...args], {});
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).not.toContain("e2e-secret-sentinel");
+    expect(result.stderr).not.toContain("e2e-secret-sentinel");
+    expect(result.stderr).toContain("[REDACTED]");
+    expect(terminalControlPattern.test(result.stdout)).toBe(false);
+    expect(terminalControlPattern.test(result.stderr)).toBe(false);
   });
 });
 

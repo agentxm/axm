@@ -9,10 +9,12 @@ import {
   findAxmEnvironmentContractViolations,
   findControlBytes,
   findMachineOutputBoundaryViolations,
+  findPromptBoundaryViolations,
   findSourceHygieneViolations,
   countUnboundedConcurrencySites,
   formatAxmEnvironmentContractViolation,
   formatMachineOutputBoundaryViolation,
+  formatPromptBoundaryViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
 
@@ -113,6 +115,26 @@ describe("findMachineOutputBoundaryViolations", () => {
     expect(
       findMachineOutputBoundaryViolations(repoRoot).map(formatMachineOutputBoundaryViolation),
     ).toEqual([]);
+  });
+});
+
+describe("findPromptBoundaryViolations", () => {
+  it("rejects direct production prompts outside the guarded helper", () => {
+    const repoRoot = createRepoFixture({
+      "packages/cli/src/root/unsafe.ts": "const answer = Prompt.run(prompt);\n",
+      "packages/core/src/unstable/cli/prompt/helpers.ts": "const answer = Prompt.run(prompt);\n",
+      "packages/cli/src/root/allowed.test.ts": "const answer = Prompt.run(prompt);\n",
+    });
+
+    expect(findPromptBoundaryViolations(repoRoot).map(formatPromptBoundaryViolation)).toEqual([
+      `${path.join("packages", "cli", "src", "root", "unsafe.ts")}:1 uses Prompt.run: production prompts must run through requireInteractive`,
+    ]);
+  });
+
+  it("finds no prompt boundary violations in this repository", () => {
+    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
+    const repoRoot = path.resolve(scriptsRoot, "..");
+    expect(findPromptBoundaryViolations(repoRoot).map(formatPromptBoundaryViolation)).toEqual([]);
   });
 });
 

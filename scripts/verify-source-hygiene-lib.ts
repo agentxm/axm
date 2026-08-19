@@ -22,6 +22,12 @@ export type MachineOutputBoundaryViolation = {
   readonly reason: string;
 };
 
+export type PromptBoundaryViolation = {
+  readonly filePath: string;
+  readonly line: number;
+  readonly reason: string;
+};
+
 export type AxmEnvironmentContractViolation = {
   readonly variable: string;
   readonly filePath: string;
@@ -102,6 +108,16 @@ const MACHINE_STDOUT_WRITERS = new Set([
   path.join("packages", "core", "src", "unstable", "cli-runtime", "runtime-envelope.ts"),
 ]);
 
+const PROMPT_RUN_BOUNDARY = path.join(
+  "packages",
+  "core",
+  "src",
+  "unstable",
+  "cli",
+  "prompt",
+  "helpers.ts",
+);
+
 const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
 
@@ -158,6 +174,36 @@ export const findMachineOutputBoundaryViolations = (
     }
   }
 
+  return violations;
+};
+
+/** Ensure production prompts cannot bypass non-interactive and JSON-mode policy. */
+export const findPromptBoundaryViolations = (
+  repoRoot: string,
+): ReadonlyArray<PromptBoundaryViolation> => {
+  const sourceFiles: string[] = [];
+  for (const root of [
+    path.join(repoRoot, "packages", "cli", "src"),
+    path.join(repoRoot, "packages", "core", "src"),
+  ]) {
+    if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
+  }
+
+  const violations: PromptBoundaryViolation[] = [];
+  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
+    const relativePath = path.relative(repoRoot, filePath);
+    if (relativePath === PROMPT_RUN_BOUNDARY) continue;
+    const source = fs.readFileSync(filePath, "utf8");
+    let offset = source.indexOf("Prompt.run");
+    while (offset >= 0) {
+      violations.push({
+        filePath: relativePath,
+        line: lineAtOffset(source, offset),
+        reason: "production prompts must run through requireInteractive",
+      });
+      offset = source.indexOf("Prompt.run", offset + "Prompt.run".length);
+    }
+  }
   return violations;
 };
 
@@ -291,6 +337,9 @@ export const formatMachineOutputBoundaryViolation = (
   violation: MachineOutputBoundaryViolation,
 ): string =>
   `${violation.filePath}:${violation.line} uses ${violation.construct}: ${violation.reason}`;
+
+export const formatPromptBoundaryViolation = (violation: PromptBoundaryViolation): string =>
+  `${violation.filePath}:${violation.line} uses Prompt.run: ${violation.reason}`;
 
 export const formatAxmEnvironmentContractViolation = (
   violation: AxmEnvironmentContractViolation,

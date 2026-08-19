@@ -55,6 +55,25 @@ telemetry and takes precedence over `AXM_TELEMETRY`. Otherwise:
 A top-level `telemetry` key in `.axm/settings.json` is unrecognized and is
 reported by strict workspace linting.
 
+## Interaction and text-output modes
+
+`--non-interactive` guarantees that AXM never opens a prompt. When required
+input is missing, the command fails with an actionable error instead. JSON
+mode and non-interactive environments, including CI and a non-TTY stdin, apply
+the same prompt prohibition.
+
+`--quiet` shows only final outcomes, errors, and values or actions required to
+continue. It suppresses narration, diagnostics, progress, tables, and other
+optional detail. Quiet wins over `--verbose`, `--debug`, `AXM_VERBOSE`, and
+`AXM_DEBUG` in every combination. Verbose and debug output remain redacted:
+credentials, tokens, secret environment values, sensitive causes, stacks,
+suggestions, and telemetry payloads are never intentionally rendered.
+
+Human output uses color and interactive activity only when stdout is a capable
+TTY. `NO_COLOR`, `FORCE_COLOR=0`, CI, a non-TTY stdout, and `TERM=dumb` each
+force plain output without ANSI styling or terminal hyperlinks on stdout or
+stderr.
+
 ## Variable reference
 
 | Variable                       | Classification    | Values and default                                               | Effect, precedence, and applicable modes                                                                                                                                           |

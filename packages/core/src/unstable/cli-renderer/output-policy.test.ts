@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveCliOutputPolicy } from "./output-policy.js";
+import { resolveCliOutputPolicy, stripTerminalFormatting } from "./output-policy.js";
+
+describe("stripTerminalFormatting", () => {
+  it("removes ANSI styling and OSC hyperlinks", () => {
+    expect(
+      stripTerminalFormatting(
+        "\u001b[2mdim\u001b[0m \u001b]8;;https://example.com\u001b\\link\u001b]8;;\u001b\\",
+      ),
+    ).toBe("dim link");
+  });
+});
 
 describe("resolveCliOutputPolicy", () => {
   it("enables colors and interactive activity for a TTY without suppressing env", () => {
@@ -43,6 +53,14 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity in CI", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { CI: "true" } })).toEqual({
+      colors: false,
+      interactiveActivity: false,
+      quiet: false,
+    });
+  });
+
+  it("disables colors and interactive activity for a dumb terminal", () => {
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { TERM: "dumb" } })).toEqual({
       colors: false,
       interactiveActivity: false,
       quiet: false,

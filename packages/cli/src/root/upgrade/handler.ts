@@ -1957,6 +1957,8 @@ const renderHuman = (result: UpgradeCoreResult) =>
         result.resultStatus === "rolled-back"
       ) {
         yield* renderer.warn(message);
+      } else {
+        yield* renderer.success(message);
       }
       return;
     }

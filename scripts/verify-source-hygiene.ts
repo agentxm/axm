@@ -16,9 +16,11 @@ import {
   countUnboundedConcurrencySites,
   findAxmEnvironmentContractViolations,
   findMachineOutputBoundaryViolations,
+  findPromptBoundaryViolations,
   findSourceHygieneViolations,
   formatAxmEnvironmentContractViolation,
   formatMachineOutputBoundaryViolation,
+  formatPromptBoundaryViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
 
@@ -30,6 +32,7 @@ const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const violations = findSourceHygieneViolations(repoRoot);
 const machineOutputViolations = findMachineOutputBoundaryViolations(repoRoot);
+const promptBoundaryViolations = findPromptBoundaryViolations(repoRoot);
 const environmentContractViolations = findAxmEnvironmentContractViolations(repoRoot);
 const unboundedConcurrencySites = countUnboundedConcurrencySites(repoRoot);
 
@@ -45,6 +48,14 @@ if (machineOutputViolations.length > 0) {
   console.error("Machine-output boundary violations found:");
   for (const violation of machineOutputViolations) {
     console.error(`  ${formatMachineOutputBoundaryViolation(violation)}`);
+  }
+  process.exit(1);
+}
+
+if (promptBoundaryViolations.length > 0) {
+  console.error("Prompt boundary violations found:");
+  for (const violation of promptBoundaryViolations) {
+    console.error(`  ${formatPromptBoundaryViolation(violation)}`);
   }
   process.exit(1);
 }
@@ -66,6 +77,7 @@ if (unboundedConcurrencySites > MAX_UNBOUNDED_CONCURRENCY_SITES) {
 
 console.log("Verified package sources contain no forbidden control bytes.");
 console.log("Verified production stdout is confined to approved renderer/runtime boundaries.");
+console.log("Verified production prompts are confined to the non-interactive guard boundary.");
 console.log("Verified production AXM environment literals have classified reference rows.");
 console.log(
   `Verified literal unbounded concurrency did not exceed the reviewed ${MAX_UNBOUNDED_CONCURRENCY_SITES}-site baseline.`,

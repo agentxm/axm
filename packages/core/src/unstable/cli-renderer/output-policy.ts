@@ -9,6 +9,13 @@ export interface CliOutputPolicy {
   readonly quiet: boolean;
 }
 
+const terminalFormattingPattern =
+  // eslint-disable-next-line no-control-regex -- plain output must remove ANSI CSI and OSC sequences.
+  /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\))/gu;
+
+export const stripTerminalFormatting = (value: string): string =>
+  value.replace(terminalFormattingPattern, "");
+
 const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
   const value = env[name];
   return value !== undefined && value !== "";
@@ -23,6 +30,8 @@ const hasDisabledForceColor = (env: NodeJS.ProcessEnv): boolean => {
   return value !== undefined && (value === "" || value === "0");
 };
 
+const hasDumbTerminal = (env: NodeJS.ProcessEnv): boolean => env["TERM"] === "dumb";
+
 export const resolveCliOutputPolicy = (
   environment?: Partial<CliOutputEnvironment> & { readonly quiet?: boolean },
 ): CliOutputPolicy => {
@@ -30,7 +39,11 @@ export const resolveCliOutputPolicy = (
   const env = environment?.env ?? process.env;
   const stdoutIsTTY = environment?.stdoutIsTTY ?? process.stdout.isTTY;
   const plainOutput =
-    stdoutIsTTY !== true || hasCi(env) || hasNoColor(env) || hasDisabledForceColor(env);
+    stdoutIsTTY !== true ||
+    hasCi(env) ||
+    hasNoColor(env) ||
+    hasDisabledForceColor(env) ||
+    hasDumbTerminal(env);
 
   return {
     colors: !plainOutput,

@@ -4,5 +4,5 @@ await runCliMain(
   () => {
     throw new Error("Unexpected built-runtime fixture defect: token=e2e-secret-sentinel");
   },
-  { args: ["--json"] },
+  { args: process.argv.slice(2) },
 );

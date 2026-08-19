@@ -22,7 +22,7 @@ export const isCI: Effect.Effect<boolean> = Effect.map(envOption("CI"), (value) 
 export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
   flag: Flag.boolean("non-interactive").pipe(
     Flag.optional,
-    Flag.withDescription("Disable all interactive prompts"),
+    Flag.withDescription("Never prompt; fail with guidance when input is required"),
   ),
 });
 

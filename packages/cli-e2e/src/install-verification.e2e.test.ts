@@ -310,7 +310,9 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
 
   const quietResult = await runBinary(["upgrade", "--quiet", "--verbose"], { env });
   expectCommandSuccess("axm upgrade --quiet --verbose", quietResult);
-  expect(getOutput(quietResult)).toBe("");
+  expect(getOutput(quietResult)).toContain("already up to date");
+  expect(getOutput(quietResult)).not.toContain("Checking AXM releases");
+  expect(getOutput(quietResult)).not.toContain("Detecting AXM installation method");
 
   const noColorResult = await runBinary(["upgrade"], { env: { ...env, NO_COLOR: "1" } });
   expectCommandSuccess("NO_COLOR=1 axm upgrade", noColorResult);

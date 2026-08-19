@@ -35,6 +35,7 @@ export { formatMarkdown } from "./markdown-formatter.js";
 export { count } from "./count.js";
 export {
   resolveCliOutputPolicy,
+  stripTerminalFormatting,
   type CliOutputEnvironment,
   type CliOutputPolicy,
 } from "./output-policy.js";

@@ -111,8 +111,8 @@ describe("displayPlan", () => {
             }),
           );
 
-          expect(logsByTag(state).info).toEqual(["Would publish 1 skill"]);
-          expect(logsByTag(state).success).toEqual([]);
+          expect(logsByTag(state).info).toEqual([]);
+          expect(logsByTag(state).success).toEqual(["Would publish 1 skill"]);
           expect(logsByTag(state).message).toEqual([]);
         }),
       { quiet: true },

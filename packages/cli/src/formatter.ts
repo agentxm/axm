@@ -10,6 +10,7 @@ import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
+import { stripTerminalFormatting } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
@@ -73,6 +74,7 @@ const SECTION_INDENT = "  ";
 
 /** Display label for the global flags compact row appended to root help. */
 const GLOBAL_FLAGS_LABEL = "GLOBAL FLAGS";
+const OUTPUT_MODE_FLAGS = new Set(["non-interactive", "verbose", "debug", "quiet"]);
 
 /** Target line width for wrapping the compact command lists. */
 const ROOT_HELP_WIDTH = 80;
@@ -112,6 +114,7 @@ const formatSubcommandName = (name: string, alias: string | undefined): string =
   alias === undefined ? name : `${name}, ${alias}`;
 
 interface HelpColors {
+  readonly enabled: boolean;
   readonly bold: (text: string) => string;
   readonly cyan: (text: string) => string;
   readonly dim: (text: string) => string;
@@ -121,6 +124,7 @@ interface HelpColors {
 const makeHelpColors = (enabled: boolean): HelpColors => {
   if (!enabled) {
     return {
+      enabled: false,
       bold: (text) => text,
       cyan: (text) => text,
       dim: (text) => text,
@@ -129,6 +133,7 @@ const makeHelpColors = (enabled: boolean): HelpColors => {
   }
 
   return {
+    enabled: true,
     bold: (text) => `\u001b[1m${text}\u001b[0m`,
     cyan: (text) => `\u001b[36m${text}\u001b[0m`,
     dim: (text) => `\u001b[2m${text}\u001b[0m`,
@@ -205,6 +210,27 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
   );
   if (globalFlagRow.length > 0) trailingGroups.push(globalFlagRow);
 
+  const outputModeFlags = (doc.globalFlags ?? []).filter(
+    (flag) => OUTPUT_MODE_FLAGS.has(flag.name) && Option.isSome(flag.description),
+  );
+  if (outputModeFlags.length > 0) {
+    const width =
+      outputModeFlags.reduce((max, flag) => Math.max(max, `--${flag.name}`.length), 0) + 1;
+    trailingGroups.push([
+      colors.bold("OUTPUT MODES"),
+      ...outputModeFlags.map((flag) =>
+        renderCommandRow(
+          {
+            name: `--${flag.name}`,
+            description: Option.getOrElse(flag.description, () => ""),
+          },
+          width,
+          colors,
+        ),
+      ),
+    ]);
+  }
+
   const sections: Array<ReadonlyArray<string>> = [...leadingGroups, ...trailingGroups].filter(
     (section) => section.length > 0,
   );
@@ -213,7 +239,7 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
   );
 
   return [
-    BRANDING,
+    colors.enabled ? BRANDING : stripTerminalFormatting(BRANDING),
     "",
     colors.bold("USAGE"),
     `${SECTION_INDENT}${colors.cyan(doc.usage.replace("<subcommand>", "<command>"))}`,

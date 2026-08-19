@@ -255,7 +255,11 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       return;
     }
 
-    yield* renderer.info(verbosity.level === "quiet" ? message : `${message}\n  ${summary}`);
+    if (verbosity.level === "quiet") {
+      yield* renderer.success(message);
+      return;
+    }
+    yield* renderer.info(`${message}\n  ${summary}`);
   });
 
 export interface RootVersionHandlerArgs {

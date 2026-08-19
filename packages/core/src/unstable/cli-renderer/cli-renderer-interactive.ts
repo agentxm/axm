@@ -30,7 +30,11 @@ import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 import { count } from "./count.js";
 import { getEntityView } from "./entity-registry.js";
 import { formatMarkdown } from "./markdown-formatter.js";
-import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
+import {
+  resolveCliOutputPolicy,
+  stripTerminalFormatting,
+  type CliOutputPolicy,
+} from "./output-policy.js";
 import {
   indentedMessage,
   normalizeSuggestions,
@@ -189,17 +193,28 @@ const dim = (message: string, outputPolicy: CliOutputPolicy): string =>
   outputPolicy.colors ? `${ANSI_DIM}${message}${ANSI_RESET}` : message;
 
 const plainLine = (symbol: string, message: string): Effect.Effect<void> =>
-  writeStderrLine(`${symbol}  ${message}`);
+  writeStderrLine(stripTerminalFormatting(`${symbol}  ${message}`));
+
+const plainStderrLine = (message: string): Effect.Effect<void> =>
+  writeStderrLine(stripTerminalFormatting(message));
+
+const formatOutput = (message: string, outputPolicy: CliOutputPolicy): string =>
+  outputPolicy.colors ? message : stripTerminalFormatting(message);
 
 const renderLogLine = (
   outputPolicy: CliOutputPolicy,
   level: LogLevel,
   message: string,
 ): Effect.Effect<void> => {
+  if (outputPolicy.quiet && (level === "message" || level === "info" || level === "step")) {
+    return Effect.void;
+  }
   if (outputPolicy.colors) {
     return chrome.logLine(level, message);
   }
-  return level === "message" ? writeStderrLine(message) : plainLine(chrome.Symbols[level], message);
+  return level === "message"
+    ? writeStderrLine(stripTerminalFormatting(message))
+    : plainLine(chrome.Symbols[level], message);
 };
 
 const plainSpinner = (message: string): Effect.Effect<SpinnerHandle> =>
@@ -246,23 +261,23 @@ const plainProgress = (
 };
 
 const plainTaskLogGroup = (depth: number): TaskLogGroupHandle => ({
-  message: (message: string) => writeStderrLine(indentedMessage(depth, message)),
+  message: (message: string) => plainStderrLine(indentedMessage(depth, message)),
   error: (message: string) =>
-    writeStderrLine(indentedMessage(depth, `${chrome.Symbols.error}  ${message}`)),
+    plainStderrLine(indentedMessage(depth, `${chrome.Symbols.error}  ${message}`)),
   success: (message: string) =>
-    writeStderrLine(indentedMessage(depth, `${chrome.Symbols.success}  ${message}`)),
+    plainStderrLine(indentedMessage(depth, `${chrome.Symbols.success}  ${message}`)),
 });
 
 const plainTaskLog = (config: TaskLogConfig): Effect.Effect<TaskLogHandle> =>
   plainLine(chrome.Symbols.step, config.title).pipe(
     Effect.as({
-      message: (message: string) => writeStderrLine(indentedMessage(2, message)),
+      message: (message: string) => plainStderrLine(indentedMessage(2, message)),
       group: (name: string) =>
         plainLine(chrome.Symbols.step, name).pipe(Effect.as(plainTaskLogGroup(4))),
       error: (message: string) =>
-        writeStderrLine(indentedMessage(2, `${chrome.Symbols.error}  ${message}`)),
+        plainStderrLine(indentedMessage(2, `${chrome.Symbols.error}  ${message}`)),
       success: (message: string) =>
-        writeStderrLine(indentedMessage(2, `${chrome.Symbols.success}  ${message}`)),
+        plainStderrLine(indentedMessage(2, `${chrome.Symbols.success}  ${message}`)),
     } satisfies TaskLogHandle),
   );
 
@@ -317,7 +332,7 @@ const renderSuggestions = (
     }),
   ];
 
-  return writeStderrLine(lines.join("\n"));
+  return writeStderrLine(formatOutput(lines.join("\n"), outputPolicy));
 };
 
 export const InteractiveRenderer = (options?: {
@@ -401,12 +416,21 @@ export const InteractiveRenderer = (options?: {
   return Layer.succeed(CliRenderer, {
     // Chrome (stderr)
     intro: (title) =>
-      outputPolicy.colors ? chrome.intro(title) : plainLine(chrome.Symbols.intro, title),
+      outputPolicy.quiet
+        ? Effect.void
+        : outputPolicy.colors
+          ? chrome.intro(title)
+          : plainLine(chrome.Symbols.intro, title),
     outro: (message) =>
-      outputPolicy.colors ? chrome.outro(message) : plainLine(chrome.Symbols.outro, message),
+      outputPolicy.quiet
+        ? Effect.void
+        : outputPolicy.colors
+          ? chrome.outro(message)
+          : plainLine(chrome.Symbols.outro, message),
     message: (message) => renderLogLine(outputPolicy, "message", message),
-    instruction: writeStderrLine,
-    diagnostic: (content) => (outputPolicy.quiet ? Effect.void : writeStderrLine(content)),
+    instruction: (message) => writeStderrLine(formatOutput(message, outputPolicy)),
+    diagnostic: (content) =>
+      outputPolicy.quiet ? Effect.void : writeStderrLine(formatOutput(content, outputPolicy)),
     diagnosticTable: <T extends object>(
       items: ReadonlyArray<T>,
       view: TableView<T>,
@@ -414,18 +438,23 @@ export const InteractiveRenderer = (options?: {
     ) => {
       if (outputPolicy.quiet) return Effect.void;
       const output = formatTable(items, resolveTableColumns(view), caption);
-      return output.length === 0 ? Effect.void : writeStderrLine(output);
+      return output.length === 0
+        ? Effect.void
+        : writeStderrLine(formatOutput(output, outputPolicy));
     },
     info: (message) => renderLogLine(outputPolicy, "info", message),
     success: (message, options?: SuccessOptions) =>
       renderLogLine(outputPolicy, "success", message).pipe(
         Effect.andThen(
-          options?.summary !== undefined
+          options?.summary !== undefined && !outputPolicy.quiet
             ? writeStderrLine(
-                options.summary
-                  .split("\n")
-                  .map((line) => `  ${line}`)
-                  .join("\n"),
+                formatOutput(
+                  options.summary
+                    .split("\n")
+                    .map((line) => `  ${line}`)
+                    .join("\n"),
+                  outputPolicy,
+                ),
               )
             : Effect.void,
         ),
@@ -442,8 +471,18 @@ export const InteractiveRenderer = (options?: {
       outputPolicy.colors
         ? chrome.cancel(message ?? "Cancelled")
         : plainLine(chrome.Symbols.cancel, message ?? "Cancelled"),
-    note: chrome.note,
-    box: chrome.box,
+    note: (message, title) =>
+      outputPolicy.quiet
+        ? Effect.void
+        : outputPolicy.colors
+          ? chrome.note(message, title)
+          : plainStderrLine([title, message].filter((part) => part !== undefined).join("\n")),
+    box: (message, title, opts) =>
+      outputPolicy.quiet
+        ? Effect.void
+        : outputPolicy.colors
+          ? chrome.box(message, title, opts)
+          : plainStderrLine([title, message].filter((part) => part !== undefined).join("\n")),
     streamLog: <E, R>(level: LogLevel, stream: Stream.Stream<string, E, R>) =>
       outputPolicy.colors
         ? chrome.streamLog(level, stream)
@@ -483,7 +522,7 @@ export const InteractiveRenderer = (options?: {
       if (outputPolicy.quiet) return Effect.void;
       const columns = resolveTableColumns(view);
       const output = formatTable(items, columns, caption);
-      if (output) return writeStdoutLine(output);
+      if (output) return writeStdoutLine(formatOutput(output, outputPolicy));
       return Effect.void;
     },
     list: <T extends object>(entity: string, payload: ListPayload<T>) => {
@@ -507,7 +546,7 @@ export const InteractiveRenderer = (options?: {
         output.length === 0
           ? summary
           : [summary, output].filter((line) => line.length > 0).join("\n");
-      return writeStdoutLine(content).pipe(
+      return writeStdoutLine(formatOutput(content, outputPolicy)).pipe(
         Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
         Effect.as(true),
       );
@@ -527,7 +566,7 @@ export const InteractiveRenderer = (options?: {
           view === undefined ? makeGenericDetailView(item) : { fields: view.fields };
         const title = options?.title ?? view?.title?.(item);
         const output = formatDetail(item, resolveDetailFields(detailView), title);
-        return (output ? writeStdoutLine(output) : Effect.void).pipe(
+        return (output ? writeStdoutLine(formatOutput(output, outputPolicy)) : Effect.void).pipe(
           Effect.andThen(renderSuggestions(options?.suggestions ?? [], outputPolicy, options)),
           Effect.as(false),
         );
@@ -541,7 +580,7 @@ export const InteractiveRenderer = (options?: {
       const view = second as DetailView<object>;
       const title = typeof third === "string" ? third : undefined;
       const output = formatDetail(item, resolveDetailFields(view), title);
-      if (output) return writeStdoutLine(output);
+      if (output) return writeStdoutLine(formatOutput(output, outputPolicy));
       return Effect.void;
     }) as typeof CliRenderer.Service.detail,
     // Assertion needed: function implements the service's overloaded tree signature.
@@ -556,7 +595,7 @@ export const InteractiveRenderer = (options?: {
           return Effect.succeed(false);
         }
         const output = formatTree(payload.roots, view);
-        return (output ? writeStdoutLine(output) : Effect.void).pipe(
+        return (output ? writeStdoutLine(formatOutput(output, outputPolicy)) : Effect.void).pipe(
           Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
           Effect.as(false),
         );
@@ -569,7 +608,7 @@ export const InteractiveRenderer = (options?: {
       const def = second as TreeDef<unknown>;
       const title = typeof third === "string" ? third : undefined;
       const output = formatTree(roots, def, title);
-      if (output) return writeStdoutLine(output);
+      if (output) return writeStdoutLine(formatOutput(output, outputPolicy));
       return Effect.void;
     }) as typeof CliRenderer.Service.tree,
 
@@ -577,11 +616,11 @@ export const InteractiveRenderer = (options?: {
     result: () => Effect.succeed(false),
 
     // Both modes
-    json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),
-    raw: (content) => writeStdout(content),
+    json: (data) => writeStdoutLine(formatOutput(JSON.stringify(data, null, 2), outputPolicy)),
+    raw: (content) => writeStdout(formatOutput(content, outputPolicy)),
     markdown: (content) =>
       outputPolicy.colors
         ? writeStdout(formatMarkdown(content, getTerminalWidth(), true))
-        : writeStdout(content),
+        : writeStdout(stripTerminalFormatting(content)),
   });
 };

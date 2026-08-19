@@ -87,12 +87,11 @@ export const displayPlan = (plan: Plan<unknown, unknown> | ExecutedPlan<unknown>
     } else {
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
       const plannedHeading = renderPlannedHeading(plan, allSteps);
-      yield* renderer.info(
-        verbosity.quiet ? (plannedHeading.split("\n")[0] ?? plannedHeading) : plannedHeading,
-      );
       if (verbosity.quiet) {
+        yield* renderer.success(plannedHeading.split("\n")[0] ?? plannedHeading);
         return;
       }
+      yield* renderer.info(plannedHeading);
       for (const step of allSteps) {
         yield* renderPlannedStep(step, renderer);
       }

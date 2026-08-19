@@ -30,14 +30,20 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           "src",
         );
         const cursorSkills = path.join(tempDir, ".cursor", "skills");
+        const sharedSkills = path.join(tempDir, ".agents", "skills");
         const cursorSubagents = path.join(tempDir, ".cursor", "agents");
         fs.mkdirSync(canonicalSkill, { recursive: true });
         fs.mkdirSync(cursorSkills, { recursive: true });
+        fs.mkdirSync(sharedSkills, { recursive: true });
         fs.mkdirSync(cursorSubagents, { recursive: true });
 
         const managedSkillLink = path.join(cursorSkills, "code-review");
+        const managedSharedLink = path.join(sharedSkills, "code-review");
+        const managedChainedLink = path.join(cursorSkills, "shared-code-review");
         const unmanagedSkill = path.join(cursorSkills, "user-skill");
         fs.symlinkSync(canonicalSkill, managedSkillLink);
+        fs.symlinkSync(canonicalSkill, managedSharedLink);
+        fs.symlinkSync(managedSharedLink, managedChainedLink);
         fs.mkdirSync(unmanagedSkill, { recursive: true });
         fs.writeFileSync(path.join(unmanagedSkill, "SKILL.md"), "# User skill\n");
 
@@ -71,7 +77,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         }).pipe(Effect.provide(layer));
 
         expect(preview.removedPaths).toEqual(
-          expect.arrayContaining([managedSkillLink, managedSubagent]),
+          expect.arrayContaining([managedSkillLink, managedChainedLink, managedSubagent]),
         );
         expect(preview.preservedPaths).toEqual(
           expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
@@ -84,12 +90,14 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual(
-          expect.arrayContaining([managedSkillLink, managedSubagent]),
+          expect.arrayContaining([managedSkillLink, managedChainedLink, managedSubagent]),
         );
         expect(result.preservedPaths).toEqual(
           expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
         );
         expect(fs.existsSync(managedSkillLink)).toBe(false);
+        expect(fs.existsSync(managedChainedLink)).toBe(false);
+        expect(fs.existsSync(managedSharedLink)).toBe(true);
         expect(fs.existsSync(managedSubagent)).toBe(false);
         expect(fs.existsSync(unmanagedSkill)).toBe(true);
         expect(fs.existsSync(unmanagedSubagent)).toBe(true);

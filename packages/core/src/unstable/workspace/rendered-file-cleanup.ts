@@ -96,7 +96,10 @@ const cleanupSkillArtifactsInDir = (args: {
       const linkTarget = yield* args.fs.readLink(artifactPath).pipe(Effect.option);
       if (linkTarget._tag === "Some") {
         const resolvedTarget = args.path.resolve(args.skillsDir, linkTarget.value);
-        if (!isWithin(args.path, extensionsDir, resolvedTarget)) {
+        const canonicalTarget = yield* args.fs.realPath(resolvedTarget).pipe(Effect.option);
+        const ownershipTarget =
+          canonicalTarget._tag === "Some" ? canonicalTarget.value : resolvedTarget;
+        if (!isWithin(args.path, extensionsDir, ownershipTarget)) {
           preservedPaths.push(artifactPath);
           continue;
         }

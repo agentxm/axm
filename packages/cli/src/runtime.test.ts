@@ -108,4 +108,28 @@ describe("makeCliLoggerLayer", () => {
       expect(errors[0]?.join(" ")).toContain("visible warning message");
     }),
   );
+
+  it.effect("emits machine-mode warnings as one typed JSON log event", () =>
+    Effect.gen(function* () {
+      const errors: Array<ReadonlyArray<unknown>> = [];
+      const testConsole: Console.Console = {
+        ...console,
+        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
+      };
+
+      yield* Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
+        Effect.provideService(Console.Console, testConsole),
+        Effect.provide(makeCliLoggerLayer("normal", "json")),
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toEqual([
+        JSON.stringify({
+          type: "log",
+          level: "warn",
+          message: "OS keychain unavailable; using restricted credential file.",
+        }),
+      ]);
+    }),
+  );
 });

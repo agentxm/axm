@@ -14,11 +14,16 @@ import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import { AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  AppError,
+  makeAppError,
+  redactSensitiveValue,
+} from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfigService,
+  type OutputFormat,
   getCommandSemanticProperties,
   makeFoundationLayer,
   resolveCliFormat,
@@ -173,16 +178,44 @@ export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConf
  * on stdout remains machine-readable. The minimum level tracks the full
  * verbosity ladder (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
  */
-export const makeCliLoggerLayer = (level: VerbosityLevel) =>
+const formatMachineLogMessage = (message: unknown): string => {
+  const redacted = redactSensitiveValue(message);
+  if (typeof redacted === "string") return redacted;
+  if (Array.isArray(redacted)) {
+    return redacted
+      .map((part) => (typeof part === "string" ? part : (JSON.stringify(part) ?? String(part))))
+      .join(" ");
+  }
+  return JSON.stringify(redacted) ?? String(redacted);
+};
+
+const machineLogLevel = (level: Logger.Options<unknown>["logLevel"]) => {
+  if (level === "Fatal" || level === "Error") return "error";
+  if (level === "Warn") return "warn";
+  return "info";
+};
+
+const machineLogger = Logger.withConsoleError(
+  Logger.make((options) =>
+    JSON.stringify({
+      type: "log",
+      level: machineLogLevel(options.logLevel),
+      message: formatMachineLogMessage(options.message),
+    }),
+  ),
+);
+
+export const makeCliLoggerLayer = (level: VerbosityLevel, format: OutputFormat = "text") =>
   Layer.mergeAll(
-    Logger.layer([Logger.consolePretty()], { mergeWithExisting: false }),
+    Logger.layer([format === "json" ? machineLogger : Logger.consolePretty()], {
+      mergeWithExisting: false,
+    }),
     Layer.succeed(References.LogToStderr, true),
     Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(level)),
   );
 
-const debugLoggerLayer = Layer.unwrap(
-  Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level)),
-);
+const makeRuntimeLoggerLayer = (format: OutputFormat) =>
+  Layer.unwrap(Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level, format)));
 
 interface RuntimeEnvConfig {
   readonly registryLocation: string;
@@ -422,7 +455,7 @@ export const withRuntime =
         WorkspaceInitializationInteractionLive,
       );
       const appLayer = Layer.provideMerge(
-        debugLoggerLayer,
+        makeRuntimeLoggerLayer(format),
         Layer.mergeAll(foundationLayer, interactionLayer),
       );
 

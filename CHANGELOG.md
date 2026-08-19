@@ -1,3 +1,13 @@
+## 0.27.11 (2026-08-19)
+
+### 🩹 Fixes
+
+- Preserve the JSON/NDJSON output contract when runtime warnings occur and align release verification with explicit setup scope.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.10 (2026-08-19)
 
 ### 🚀 Features

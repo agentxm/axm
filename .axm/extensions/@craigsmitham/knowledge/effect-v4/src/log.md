@@ -1,5 +1,16 @@
 # Directory Update Log
 
+## 2026-08-18
+
+* **Correction**: Revised [SQL](sql.md) to distinguish statement-local domain
+  handling from repository, service, handler, and scheduler failure policy.
+  Ordinary statements and transaction participants now explicitly preserve
+  `SqlError`; repeated defect conversion belongs once at an owning boundary.
+  The guide also corrects one official walkthrough from “the upstream default”
+  to an example-specific policy, routes nested reasons to `catchReason` and
+  `catchReasons`, distinguishes `catchTag` from `mapError`, and requires
+  serialization and deadlock retry to enclose the complete transaction.
+
 ## 2026-08-17
 
 * **Creation**: Added [SQL](sql.md) and [Date and time](date-and-time.md). SQL

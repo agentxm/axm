@@ -47,6 +47,9 @@ sources:
   - id: src-effect-catch-reason
     resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
     title: Effect module source — catchReason, catchReasons, unwrapReason, retry options (effect 4.0.0-rc.110)
+  - id: docs-effect-tsgo
+    resource: https://github.com/Effect-TS/tsgo/blob/83b8e2ae6707d67764da179523af07d23542bb27/README.md
+    title: Effect language service diagnostics — catchTagToCatchReason, redundantMapError, redundantOrDie (83b8e2a)
   - id: docs-sql-basics
     resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/40_sql/10_basics.ts
     title: Official Effect docs — the Model.Class / Migrator / SqlModel spine and SqlError as a defect at the repository boundary (effect 4.0.0-rc.110)
@@ -59,6 +62,9 @@ sources:
   - id: pg-errcodes
     resource: https://www.postgresql.org/docs/17/errcodes-appendix.html
     title: PostgreSQL 17 documentation — Appendix A, error codes
+  - id: pg-serialization
+    resource: https://www.postgresql.org/docs/17/mvcc-serialization-failure-handling.html
+    title: PostgreSQL 17 documentation — serialization and deadlock retry must cover the complete transaction
   - id: cf-d1-api
     resource: https://developers.cloudflare.com/d1/worker-api/d1-database/
     title: Cloudflare D1 Worker API — batch() executes statements as a SQL transaction
@@ -88,8 +94,8 @@ sources:
     resource: https://github.com/anomalyco/opencode/blob/65c35977bd564e23c0e9cf124b3e3e3b9308e9e8/packages/effect-drizzle-sqlite/src/effect-sqlite/session.ts
     title: opencode@65c3597 — independent reimplementation of the savepoint protocol that also releases savepoints
 generated:
-  by: claude/opus-5
-  at: 2026-08-17T21:36:42Z
+  by: codex/gpt-5
+  at: 2026-08-18T00:50:56Z
 verified:
   - by: claude/opus-5
     at: 2026-08-17T21:36:42Z
@@ -173,7 +179,15 @@ const countUsers = Effect.gen(function*() {
   `sql.updateValues` is unsupported on SQLite and `never` on
   D1.[^src-statement] [^src-d1-client]
 
-## Handle SqlError by reason
+## Propagate statements; classify SQL failures at owning boundaries
+
+A statement or transaction participant should normally preserve `SqlError` in
+its error channel. Handle a reason beside the statement only when that statement
+owns its domain meaning, such as an expected uniqueness conflict. Translate
+infrastructure failures or convert residual failures to defects once, at the
+repository, service, handler, or scheduler boundary that owns their
+disposition. Do not append `catchTag("SqlError", Effect.die)` to every statement
+merely to narrow its local signature.[^docs-effect-tsgo]
 
 The SQL layer surfaces exactly one tagged error, `SqlError`, whose `_tag` is
 always `"SqlError"`. The discriminant sits one level deeper, in `reason`.
@@ -201,9 +215,13 @@ column.[^src-sql-error] [^src-pg-client] [^pg-errcodes]
 
 - Specific codes are tested before their class (`42501` before `42*`, `23505`
   before `23*`), and anything a driver cannot place becomes `UnknownError`,
-  which is *not* retryable. The flag is deliberately conservative, so
-  `Effect.retry({ while: (e) => e.isRetryable, schedule })` is a safe default
-  for a read.[^src-sql-error] [^src-pg-client]
+  which is *not* retryable. The flag is deliberately conservative, but it
+  establishes technical eligibility rather than permission to retry. Combine
+  it with idempotency, transaction scope, a bounded schedule, and a total
+  timeout.[^src-sql-error] [^src-pg-client]
+- Retry a serialization or deadlock failure around the complete transaction,
+  including the logic that selected its statements and values — never around
+  one participant inside that transaction.[^pg-serialization]
 - Translate at the boundary that owns the domain meaning:
   `Effect.catchReason` for one reason, `Effect.catchReasons` for a
   partition.[^src-effect-catch-reason] Both leave `SqlError` in the channel
@@ -213,26 +231,58 @@ column.[^src-sql-error] [^src-pg-client] [^pg-errcodes]
 ```ts
 import { Effect } from "effect"
 
-// Transient infrastructure becomes one domain outage error; a specific
-// violated constraint becomes a domain failure; everything else is a defect.
-const unavailable = (cause: unknown) => new StorageUnavailable({ cause })
+// Data-access participant: preserve SqlError for the owning boundary.
+const insertUserRow = (email: string) =>
+  sql`INSERT INTO users ${sql.insert({ email })}`
 
-const insertUser = (email: string) =>
-  sql`INSERT INTO users ${sql.insert({ email })}`.pipe(
+// Feature boundary: own domain, availability, and residual-failure policy once.
+const createUser = (email: string) =>
+  insertUserRow(email).pipe(
+    Effect.catchReason(
+      "SqlError",
+      "UniqueViolation",
+      (reason, error) =>
+        reason.constraint === "users_email_key"
+          ? Effect.fail(new EmailTaken({ email }))
+          : Effect.fail(error),
+    ),
     Effect.catchReasons("SqlError", {
-      ConnectionError: unavailable,
-      DeadlockError: unavailable,
-      SerializationError: unavailable,
-      LockTimeoutError: unavailable,
-      StatementTimeoutError: unavailable,
-      UniqueViolation: (r) =>
-        r.constraint === "users_email_key"
-          ? new EmailTaken({ email })
-          : Effect.die(r),
+      ConnectionError: (_, error) =>
+        Effect.fail(
+          new StorageUnavailable({ operation: "create-user", cause: error }),
+        ),
+      DeadlockError: (_, error) =>
+        Effect.fail(
+          new StorageUnavailable({ operation: "create-user", cause: error }),
+        ),
+      SerializationError: (_, error) =>
+        Effect.fail(
+          new StorageUnavailable({ operation: "create-user", cause: error }),
+        ),
+      LockTimeoutError: (_, error) =>
+        Effect.fail(
+          new StorageUnavailable({ operation: "create-user", cause: error }),
+        ),
+      StatementTimeoutError: (_, error) =>
+        Effect.fail(
+          new StorageUnavailable({ operation: "create-user", cause: error }),
+        ),
     }),
+    // This feature declares the residual reasons unexpected; another feature
+    // may instead translate them into a typed operational failure.
     Effect.catchTag("SqlError", Effect.die),
   )
 ```
+
+- Choose the operator from the meaning of the transformation:
+
+  | Intent | Operation |
+  |---|---|
+  | Handle one nested SQL reason | `Effect.catchReason` |
+  | Handle a reason partition | `Effect.catchReasons` |
+  | Translate `SqlError` inside a mixed error union | `Effect.catchTag("SqlError", …)` |
+  | Translate every member of a homogeneous error channel identically | `Effect.mapError` |
+  | Make the complete remaining error channel defective after composition | `Effect.orDie` |
 
 - Enumerate the reasons you translate rather than catching `SqlError` whole.
   An exhaustive `catchReasons` turns a renamed or added reason into a build
@@ -249,9 +299,20 @@ const insertUser = (email: string) =>
   encryption variant.[^src-eventlog-encrypted] [^src-eventlog] Where
   first-party code does branch on a violation, it reads `error.reason._tag`
   in a small predicate and absorbs the conflict.[^src-eventlog] [^src-migrator]
-- The upstream default at a repository boundary is `SqlError: Effect.die`:
-  promote only genuine domain conditions into the public channel and let the
-  rest be defects.[^docs-sql-basics]
+- The official SQL walkthrough chooses `SqlError: Effect.die` at its `Groups`
+  service boundary because that example declares database and encoding
+  failures unexpected there. This demonstrates one legitimate repository
+  policy; it is not a library default or a reason to convert every statement
+  failure locally.[^docs-sql-basics]
+- Do not introduce a helper merely as a shorter spelling of
+  `catchTag("SqlError", Effect.die)`. A useful helper records reusable policy —
+  such as the reason partition that constitutes storage unavailability — while
+  allowing the owning feature to construct its public error. If a terminal
+  helper is warranted, name its consequence explicitly, such as
+  `dieOnUnexpectedSqlError`, and apply it at the boundary rather than to each
+  statement. The language service makes the same placement distinction when it
+  recommends hoisting repeated trailing `orDie` and `mapError`
+  transformations.[^docs-effect-tsgo]
 
 ## Adapt the boundary with SqlSchema
 
@@ -364,11 +425,17 @@ everything above this section is the consumer's contract.
 - Application services depend on `SqlClient`, not a dialect tag, and one client
   build is published under every tag that names it.
 - No `sql.unsafe` or `sql.literal` carries user input or a secret.
+- Ordinary statements and transaction participants preserve `SqlError`; every
+  statement-local catch owns statement-specific domain meaning.
 - Every `SqlError` translation names the reasons it handles; nothing catches
   `SqlError` whole and invents a message, and `reason.constraint` decisions
   have a fallback for `"unknown"`.
+- Repeated terminal `catchTag("SqlError", Effect.die)` calls are hoisted to the
+  owning boundary, and every residual defect conversion states why those
+  reasons are unexpected there.
 - `isRetryable` or an explicit reason list gates retry; unknown failures are
-  not retried.
+  not retried, and serialization or deadlock retry encloses the complete
+  transaction.
 - Transactions open at the handler or use case, every nested `withTransaction`
   has a written reason to exist, and no participant is built from a second
   client instance.
@@ -388,10 +455,12 @@ everything above this section is the consumer's contract.
 [^src-eventlog]: `packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts` at `effect@4.0.0-rc.110` — a first-party rc.110 consumer that absorbs an insert race with `Effect.catchIf(isConstraintConflict, () => Effect.void)`, where the predicate reads `error.reason._tag`.
 [^src-eventlog-encrypted]: `packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts` at `effect@4.0.0-rc.110` — the same insert expressed as `sql.insert(batch.entries)` with `ON CONFLICT DO NOTHING`, so no violation is raised.
 [^src-effect-catch-reason]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `catchReason(errorTag, reasonTag, f, orElse?)`, `catchReasons(errorTag, cases, orElse?)`, and `unwrapReason(errorTag)`; `retry` accepts `{ while, schedule, times, until }`. The reason machinery is generic over any tagged error carrying a `reason` union, not SQL-specific.
+[^docs-effect-tsgo]: Effect language service README at `Effect-TS/tsgo@83b8e2a` — `catchTagToCatchReason` recommends reason-specific combinators when a handler re-fails unmatched reasons; `redundantMapError` and `redundantOrDie` recommend hoisting repeated trailing transformations from individual `Effect.gen` yields.
 [^docs-sql-basics]: `ai-docs/src/40_sql/10_basics.ts` and `ai-docs/src/40_sql/index.md` at `effect@4.0.0-rc.110` — the only official SQL walkthrough: `Model.Class`, `SqliteMigrator.layer`, `SqlModel.makeRepository`, one `SqlSchema.findAll`, and a repository boundary that maps `NoSuchElementError` to a domain error while dying on `SchemaError` and `SqlError`.
 [^test-pg-classification]: `packages/sql/pg/test/SqlErrorClassification.test.ts` at `effect@4.0.0-rc.110` — 23505 yields a trimmed constraint name; missing, non-string, and blank constraints all yield `"unknown"`; 23503 stays a `ConstraintError`.
 [^otel-db-spans]: OpenTelemetry semantic conventions `docs/db/database-spans.md` at tag `v1.44.0` — `db.operation.name` and `db.query.text` are Stable; note [15] states non-parameterized query text SHOULD NOT be collected by default without sanitization, and note [16] states parameterized query text SHOULD NOT be sanitized. No `db.transaction.*` event is defined.
 [^pg-errcodes]: PostgreSQL 17 documentation, Appendix A — 23505 `unique_violation`, 40001 `serialization_failure`, 40P01 `deadlock_detected`, 55P03 `lock_not_available`, 42501 `insufficient_privilege`, 57014 `query_canceled`; class 08 connection exception, class 28 invalid authorization specification.
+[^pg-serialization]: PostgreSQL 17 documentation, 13.5 Serialization Failure Handling — applications must retry serialization failures, may retry deadlocks with care, and must retry the complete transaction including logic that decides which SQL and values to use.
 [^cf-d1-api]: Cloudflare D1 Worker API documentation — "Batched statements are SQL transactions. If a statement in the sequence fails, then an error is returned for that specific statement, and it aborts or rolls back the entire sequence." Read 2026-08-17; Cloudflare does not version these docs.
 [^sqlite-transaction]: SQLite documentation, `lang_transaction.html` — transactions started with `BEGIN` do not nest; `SAVEPOINT`/`RELEASE` are the nesting mechanism, and `ROLLBACK TO` unwinds to a savepoint. Read 2026-08-17; SQLite does not version this page.
 [^applied-alchemy-d1]: Observed in alchemy-effect@1596e503 `packages/alchemy/src/SQL/D1.ts` (effect 4.0.0-rc.110) — `Layer.effect(Sql.SqlClient, …).pipe(Layer.provideMerge(Layer.effect(D1Client.D1Client, …)))`, with an in-source comment stating the motive: "so both tags share one per-execution client (and one prepared-statement cache)". The same shape appears in that package's `SQL/Postgres.ts` and `SQL/MySQL.ts`.

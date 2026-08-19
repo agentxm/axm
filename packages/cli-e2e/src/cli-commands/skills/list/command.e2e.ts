@@ -157,32 +157,4 @@ describe("axm skills list", () => {
       }
     });
   });
-
-  describe("alias", () => {
-    it("works with ls alias", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        // Install skills first so there's something to list
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(["skills", "ls"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toContain("my-skill");
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
 });

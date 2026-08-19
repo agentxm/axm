@@ -1379,7 +1379,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
         `Wait for the eligible time, pin an eligible version, or change minimumReleaseAge in settings.${
           targets.length === 1
             ? ` To take it now for this run only, run axm update ${targets[0]} --ignore-release-age.`
-            : " To take one now for this run only, run axm update <fqn> --ignore-release-age."
+            : " To take one now for this run only, run axm update <extension[@version]> --ignore-release-age."
         }`,
       );
     }

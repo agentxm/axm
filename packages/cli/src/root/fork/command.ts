@@ -394,7 +394,7 @@ const config = {
   source: Argument.string("source").pipe(
     Argument.withDescription("Registry, workspace, local, or Git AXM package source"),
   ),
-  target: Argument.string("target").pipe(Argument.withDescription("New target FQN")),
+  target: Argument.string("extension").pipe(Argument.withDescription("New target FQN")),
   from: Flag.string("from").pipe(
     Flag.withDescription("Source package FQN when the source contains multiple packages"),
     Flag.optional,

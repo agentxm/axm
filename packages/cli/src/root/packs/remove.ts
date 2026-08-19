@@ -247,7 +247,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 });
 
 const removeConfig = {
-  pack: Argument.string("pack").pipe(
+  pack: Argument.string("name").pipe(
     Argument.withDescription("Configured pack name or unique configured pack FQN"),
   ),
   extension: Argument.string("extension").pipe(

@@ -1715,21 +1715,4 @@ describe("axm packs list", () => {
       cleanup();
     }
   });
-
-  it("works with ls alias", async () => {
-    const temp = createTempDir();
-    try {
-      await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-        { cwd: temp.path },
-      );
-
-      const result = await runCli(["packs", "ls"], { cwd: temp.path });
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).toContain("No packs found");
-    } finally {
-      temp.cleanup();
-    }
-  });
 });

@@ -7,7 +7,7 @@ import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
-  subagent: Argument.string("subagent").pipe(
+  subagent: Argument.string("name").pipe(
     Argument.withDescription("Name of the subagent to uninstall"),
   ),
   scope: scopeFlag.pipe(

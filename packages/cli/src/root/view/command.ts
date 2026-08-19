@@ -3,13 +3,14 @@ import * as Option from "effect/Option";
 
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
-  handle: Argument.string("handle").pipe(
+  handle: Argument.string("extension").pipe(
     Argument.withDescription("Fully-qualified extension handle (@owner/skills/name)"),
   ),
   field: Argument.string("field").pipe(
@@ -22,8 +23,10 @@ const viewConfig = {
     Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
-  type: Flag.choice("type", ["skill", "subagent"] as const).pipe(
-    Flag.withDescription("Resource type for bare-name lookup"),
+  // Pack is excluded by the identifier resolver because containers have no
+  // per-type installed-name map. Fully qualified pack identities still work.
+  type: Flag.choice("type", [...CATALOG_EXTENSION_TYPES]).pipe(
+    Flag.withDescription("Non-container extension type for bare-name lookup"),
     Flag.optional,
   ),
 } as const;

@@ -10,7 +10,7 @@ import {
   handleVisibilityStatus,
 } from "./handler.js";
 
-const targetArgument = Argument.string("fqn").pipe(
+const targetArgument = Argument.string("extension").pipe(
   Argument.withDescription("Exact extension FQN (@owner/<plural-type>/name)"),
 );
 

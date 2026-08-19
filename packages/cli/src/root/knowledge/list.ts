@@ -111,7 +111,6 @@ export const listCommand = Command.make("list", scopeConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(scopeConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List installed knowledge bundles"),
   Command.withExamples([
     { command: "axm knowledge list", description: "List installed knowledge bundles" },

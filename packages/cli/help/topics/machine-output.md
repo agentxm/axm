@@ -34,7 +34,7 @@ when the plan contains changes. A converged workspace returns a `no-op` result
 with `reconciliationRequired: false` and exit 0. Planning or validation
 failures retain their normal error or failed-plan contract.
 
-`axm view <ref> <field> --json` places the selected scalar or array directly
+`axm view <extension> <field> --json` places the selected scalar or array directly
 under `result`. Token commands also place their command payload under `result`;
 do not log or forward token result documents.
 

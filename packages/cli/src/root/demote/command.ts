@@ -269,7 +269,7 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
 });
 
 const config = {
-  fqn: Argument.string("fqn").pipe(
+  fqn: Argument.string("extension").pipe(
     Argument.withDescription("Workspace extension FQN (@owner/<plural-type>/name)"),
   ),
   source: Argument.string("source").pipe(

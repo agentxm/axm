@@ -36,7 +36,7 @@ const normalizeSelector = (type: PerTypePublishType, selector: string) =>
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
   const commonConfig = {
-    extensions: Argument.string("extensions").pipe(
+    extensions: Argument.string("name").pipe(
       Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
       Argument.atLeast(0),
     ),

@@ -14,9 +14,12 @@ row never declares an extension by itself. Canonical packages and agent-native
 outputs never reconstruct missing settings or lock authority.
 
 `axm sync` reconciles desired, accepted, and observed state. Use `axm sync
-<fqn>` for one root and its required pack members, or `axm sync --type <type>`
-to limit reconciliation by extension type. Run `axm sync --preview` to inspect
-the same semantic candidate that apply will execute. In CI, run `axm sync
+<extension>` for one root and its required pack members, or `axm sync --type <type>`
+to limit reconciliation by directly materialized extension type. Pack is
+intentionally absent from `--type` because it coordinates member extensions
+instead of materializing directly; pass the pack's fully qualified
+`<extension>` to sync that pack and its complete member closure. Run `axm sync
+--preview` to inspect the same semantic candidate that apply will execute. In CI, run `axm sync
 --preview --fail-on-change`; it exits 1 with a `reconciliation-required`
 result when that candidate contains changes and exits 0 when the workspace is
 already converged. Both preview forms are read-only.

@@ -166,7 +166,7 @@ their lifecycle:
 - **Install and update cannot replace source** — update reports the package unchanged and explicit refresh/constraint flags do not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.
 - **Uninstall removes owned state** — canonical source is deleted when nothing else reaches it; use disable to retain a managed package without activating it.
-- **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <fqn>` first.
+- **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <extension>` first.
 
 Omit `enabled` unless disabling an entry with `enabled: false`; enabled state
 does not affect workspace-authored publishing.

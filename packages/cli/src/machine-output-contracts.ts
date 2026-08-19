@@ -538,6 +538,7 @@ const lifecycleTransitionFamily = defineResultFamily({
 
 const formatterPaths = [
   "axm",
+  "axm agents",
   "axm cache",
   "axm hooks",
   "axm knowledge",
@@ -552,7 +553,6 @@ const planPaths = [
   "axm adopt",
   "axm agents add",
   "axm agents remove",
-  "axm agents rm",
   "axm demote",
   "axm fork",
   "axm hooks disable",
@@ -639,7 +639,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
   ...rowsFor(publishFamily, publishPaths),
-  ...rowsFor(agentsListFamily, ["axm agents", "axm agents list", "axm agents ls"]),
+  ...rowsFor(agentsListFamily, ["axm agents list"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
   ...rowsFor(loginFamily, ["axm login"]),
   ...rowsFor(logoutFamily, ["axm logout"]),
@@ -654,17 +654,11 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(discoverFamily, ["axm discover"]),
   ...rowsFor(inventoryFamily, [
     "axm hooks list",
-    "axm hooks ls",
     "axm mcps list",
-    "axm mcps ls",
     "axm packs list",
-    "axm packs ls",
     "axm rules list",
-    "axm rules ls",
     "axm skills list",
-    "axm skills ls",
     "axm subagents list",
-    "axm subagents ls",
   ]),
   ...rowsFor(extensionShowFamily, [
     "axm hooks show",
@@ -677,7 +671,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(packShowFamily, ["axm packs show"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
-  ...rowsFor(knowledgeListFamily, ["axm knowledge list", "axm knowledge ls"]),
+  ...rowsFor(knowledgeListFamily, ["axm knowledge list"]),
   ...rowsFor(knowledgeConceptResolveFamily, ["axm knowledge concepts resolve"]),
   ...rowsFor(knowledgeConceptQueryFamily, [
     "axm knowledge concepts search",

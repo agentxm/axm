@@ -109,7 +109,7 @@ describe("Knowledge uninstall ownership", () => {
           errorMessage: expect.stringContaining("no accepted AXM ownership"),
         });
         expect(plan.jobs[0]?.steps[0]).toMatchObject({
-          errorMessage: expect.stringContaining("axm adopt <fqn>"),
+          errorMessage: expect.stringContaining("axm adopt <extension>"),
         });
         expect(plan.sections).toEqual([
           {

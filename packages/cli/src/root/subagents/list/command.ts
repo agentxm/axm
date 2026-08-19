@@ -21,7 +21,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
   ),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected subagents and their lifecycle classification"),
   Command.withExamples([
     { command: "axm subagents list", description: "Inventory detected subagents" },

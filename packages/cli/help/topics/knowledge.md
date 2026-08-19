@@ -208,7 +208,7 @@ authoritative, and reconciles the table without advancing versions. Use
 
 ## Discovery
 
-- `axm knowledge list` (`ls`) — installed bundles with concept and diagnostic
+- `axm knowledge list` — installed bundles with concept and diagnostic
   counts.
 - `axm knowledge concepts resolve <input>` — resolve an exact compact or HTTPS
   reference; add `--fuzzy` to request bounded ID and title candidates.

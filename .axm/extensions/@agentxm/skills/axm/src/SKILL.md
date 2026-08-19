@@ -199,22 +199,22 @@ non-interactive credentials and never print its contents.
 
 ### Creating & publishing extensions
 
-| Task                                      | Command                                      |
-| ----------------------------------------- | -------------------------------------------- |
-| Scaffold a new workspace extension        | `axm <type> new <name>`                      |
-| Convert a native skill to an AXM package  | `axm skills import <source> <target-fqn>`    |
-| Convert a native subagent to a package    | `axm subagents import <source> <target-fqn>` |
-| Adopt a retained canonical package        | `axm adopt <fqn>`                            |
-| Explicitly return authorship to a source  | `axm demote <fqn> <source>`                  |
-| Add an extension to a pack                | `axm packs add <pack> <extension>`           |
-| Remove an extension from a pack           | `axm packs remove <pack> <extension>`        |
-| Inspect desired Pack state                | `axm packs show <pack>`                      |
-| Unpack a pack into individual entries     | `axm packs unpack <pack>`                    |
-| Publish all authored workspace extensions | `axm publish --yes`                          |
-| Publish selected extensions               | `axm publish <fqn...> --yes`                 |
-| Publish authored extensions of one type   | `axm <type> publish --yes`                   |
-| Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>`    |
-| Set an exact version                      | `axm version <fqn> set <x.y.z>`              |
+| Task                                      | Command                                         |
+| ----------------------------------------- | ----------------------------------------------- |
+| Scaffold a new workspace extension        | `axm <type> new <name>`                         |
+| Convert a native skill to an AXM package  | `axm skills import <source> <extension>`        |
+| Convert a native subagent to a package    | `axm subagents import <source> <extension>`     |
+| Adopt a retained canonical package        | `axm adopt <extension>`                         |
+| Explicitly return authorship to a source  | `axm demote <extension> <source>`               |
+| Add an extension to a pack                | `axm packs add <name> <extension>`              |
+| Remove an extension from a pack           | `axm packs remove <name> <extension>`           |
+| Inspect desired Pack state                | `axm packs show <extension>`                    |
+| Unpack a pack into individual entries     | `axm packs unpack <name>`                       |
+| Publish all authored workspace extensions | `axm publish --yes`                             |
+| Publish selected extensions               | `axm publish <extension...> --yes`              |
+| Publish authored extensions of one type   | `axm <type> publish --yes`                      |
+| Bump a workspace extension's version      | `axm version <extension> <patch\|minor\|major>` |
+| Set an exact version                      | `axm version <extension> set <x.y.z>`           |
 
 Publish preflights the complete selection before any upload. Bare and
 filter-only bulk selections verify and skip byte-identical published versions;
@@ -226,27 +226,27 @@ archives cannot be bypassed, and `--include-dependencies` /
 
 ### Managing installed extensions
 
-| Task                                        | Command                               |
-| ------------------------------------------- | ------------------------------------- |
-| List installed extensions of a type         | `axm <type> list`                     |
-| List all local extension state              | `axm list`                            |
-| Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>` |
-| Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                 |
-| Uninstall                                   | `axm uninstall <fqn>`                 |
-| Update (omit FQN to update all)             | `axm update [<fqn>]`                  |
-| Show extensions with available updates      | `axm list --outdated`                 |
-| Show deprecated installed extensions        | `axm list --deprecated`               |
-| View published extension metadata           | `axm view <fqn> [version\|versions]`  |
+| Task                                        | Command                                    |
+| ------------------------------------------- | ------------------------------------------ |
+| List installed extensions of a type         | `axm <type> list`                          |
+| List all local extension state              | `axm list`                                 |
+| Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>`      |
+| Install (omit source to reinstall all)      | `axm install [<source>]`                   |
+| Uninstall                                   | `axm uninstall <extension[@version]>`      |
+| Update (omit extension to update all)       | `axm update [<extension[@version]>]`       |
+| Show extensions with available updates      | `axm list --outdated`                      |
+| Show deprecated installed extensions        | `axm list --deprecated`                    |
+| View published extension metadata           | `axm view <extension> [version\|versions]` |
 
 ### Workspace state
 
-| Task                                 | Command                                      |
-| ------------------------------------ | -------------------------------------------- |
-| Reconcile the entire workspace       | `axm sync --preview` then `axm sync`         |
-| Assert convergence in CI             | `axm sync --preview --fail-on-change --json` |
-| Reconcile one root or extension type | `axm sync <fqn>` / `axm sync --type <type>`  |
-| Lint workspace (read-only)           | `axm lint`                                   |
-| Lint the exact Git index             | `axm lint --view git-index`                  |
+| Task                                 | Command                                           |
+| ------------------------------------ | ------------------------------------------------- |
+| Reconcile the entire workspace       | `axm sync --preview` then `axm sync`              |
+| Assert convergence in CI             | `axm sync --preview --fail-on-change --json`      |
+| Reconcile one root or extension type | `axm sync <extension>` / `axm sync --type <type>` |
+| Lint workspace (read-only)           | `axm lint`                                        |
+| Lint the exact Git index             | `axm lint --view git-index`                       |
 
 Ordinary sync may apply directly because it realizes intent already accepted
 in settings, authored Pack manifests, and the lockfile; it does not create or

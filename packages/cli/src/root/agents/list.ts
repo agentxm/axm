@@ -161,7 +161,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope, detected, 
   handleAgentsList({ detected, available }).pipe(withWorkspace(scope), withRuntime("agents list")),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List coding-agent harnesses configured for AXM"),
   Command.withExamples([
     { command: "axm agents list", description: "Show configured and detected coding agents" },

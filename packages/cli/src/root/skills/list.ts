@@ -112,7 +112,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
   ),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected skills and their lifecycle classification"),
   Command.withExamples([
     { command: "axm skills list", description: "Inventory detected skills" },

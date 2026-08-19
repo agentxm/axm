@@ -295,7 +295,7 @@ const supportedTypePluralPattern = versionableTypes
   .join("|");
 
 const rootVersionConfig = {
-  handle: Argument.string("handle").pipe(
+  handle: Argument.string("extension").pipe(
     Argument.withDescription(
       `Fully-qualified extension handle (@owner/<${supportedTypePluralPattern}>/name)`,
     ),

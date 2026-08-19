@@ -176,8 +176,8 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
         actualPaths.length === 0 || (hasAcceptedOwnership && normalizedExpected !== undefined)
           ? undefined
           : settingsPresent && !workspaceOwned
-            ? `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content is present, but its accepted resolution is missing. AXM will preserve the unowned canonical surface. Run \`axm adopt <fqn>\` to transfer it into AXM ownership, or leave it for its current owner.`
-            : `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content has no accepted AXM ownership fact. AXM will preserve the unowned canonical surface. Run \`axm adopt <fqn>\` to transfer it into AXM ownership, or leave it for its current owner.`;
+            ? `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content is present, but its accepted resolution is missing. AXM will preserve the unowned canonical surface. Run \`axm adopt <extension>\` to transfer it into AXM ownership, or leave it for its current owner.`
+            : `Cannot uninstall Knowledge bundle "${target.name}": canonical Knowledge content has no accepted AXM ownership fact. AXM will preserve the unowned canonical surface. Run \`axm adopt <extension>\` to transfer it into AXM ownership, or leave it for its current owner.`;
       const blocker =
         ownershipBlocker ??
         (Option.isNone(instructionRelative)

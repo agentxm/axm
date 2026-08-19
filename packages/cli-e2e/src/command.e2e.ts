@@ -83,7 +83,7 @@ describe("axm (root command)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(output).toContain("Publish project-workspace extensions to a registry");
-      expect(output).toContain("axm publish [flags] [<selectors...>]");
+      expect(output).toContain("axm publish [flags] [<extension...>]");
       expect(output).toContain("--authored");
     });
 
@@ -95,7 +95,7 @@ describe("axm (root command)", () => {
       expect(document).toMatchObject({
         type: "help",
         description: "Publish project-workspace extensions to a registry",
-        usage: "axm publish [flags] [<selectors...>]",
+        usage: "axm publish [flags] [<extension...>]",
       });
       expect(result.stderr).toBe("");
     });
@@ -177,9 +177,14 @@ describe("main CLI help", () => {
   });
 
   it.each([
+    { args: ["agents"], expected: ["list", "add", "remove", "capabilities"] },
     { args: ["skills"], expected: ["install", "list", "publish"] },
+    { args: ["subagents"], expected: ["install", "list", "publish"] },
     { args: ["packs"], expected: ["install", "publish", "unpack"] },
     { args: ["mcps"], expected: ["install", "uninstall"] },
+    { args: ["rules"], expected: ["install", "list", "publish"] },
+    { args: ["hooks"], expected: ["install", "show", "publish"] },
+    { args: ["knowledge"], expected: ["install", "list", "concepts"] },
   ])("shows group help for $args", async ({ args, expected }) => {
     const result = await runCli(args);
     const output = getOutput(result);
@@ -196,7 +201,7 @@ describe("main CLI help", () => {
     { args: ["skills", "install", "--help"], expected: ["--skill", "--all"] },
     { args: ["subagents", "install", "--help"], expected: ["--subagent", "--all"] },
     {
-      args: ["skills", "ls", "--help"],
+      args: ["skills", "list", "--help"],
       expected: ["List detected skills", "--agent"],
     },
     { args: ["packs", "unpack", "--help"], expected: ["--preview"] },
@@ -209,6 +214,48 @@ describe("main CLI help", () => {
     for (const text of expected) {
       expect(output).toContain(text);
     }
+  });
+
+  it.each([
+    {
+      args: ["list", "--help"],
+      choices: "skill, mcp-server, subagent, rule, hook, knowledge, pack",
+    },
+    {
+      args: ["publish", "--help"],
+      choices: "skill, mcp-server, subagent, rule, hook, knowledge, pack",
+    },
+    {
+      args: ["sync", "--help"],
+      choices: "skill, mcp-server, subagent, rule, hook, knowledge",
+    },
+    {
+      args: ["view", "--help"],
+      choices: "skill, mcp-server, subagent, rule, hook, knowledge",
+    },
+  ])("renders capability-derived --type choices for $args", async ({ args, choices }) => {
+    const result = await runCli(args);
+    const output = getOutput(result).replace(/\s+/gu, " ");
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain(`choices: ${choices}`);
+  });
+
+  it.each([
+    ["agents", "ls"],
+    ["agents", "rm"],
+    ["skills", "ls"],
+    ["subagents", "ls"],
+    ["packs", "ls"],
+    ["mcps", "ls"],
+    ["rules", "ls"],
+    ["hooks", "ls"],
+    ["knowledge", "ls"],
+  ])("rejects the removed command alias %s %s", async (...args) => {
+    const result = await runCli(args);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
   });
 
   it("does not show the removed --agent flag on subagents install", async () => {

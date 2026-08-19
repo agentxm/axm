@@ -43,7 +43,7 @@ Extensions are typically referenced by their full name: `<@owner>/<skills|subage
 ### Authoring and editing extensions
 
 Authorship derives from a `workspace:@owner/<plural-type>/<name>` source. Commands
-such as `axm <type> new` and `axm adopt <fqn>` create this relationship; there is
+such as `axm <type> new` and `axm adopt <extension>` create this relationship; there is
 no separate authored flag. Edit the canonical package under
 `.axm/extensions/<@owner>/<type>/<name>`, then run `axm sync` to refresh rendered
 agent artifacts.
@@ -123,6 +123,6 @@ structured reason and a safe recovery action.
 - `axm help subagents` — working with subagents
 - `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
-- `axm view <fqn> [version|versions]` — inspect published extension metadata
+- `axm view <extension> [version|versions]` — inspect published extension metadata
 - `axm help exit-codes` — process exit codes and their meaning
 - `axm <command> --help` — flags and examples for any command

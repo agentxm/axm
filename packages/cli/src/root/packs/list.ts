@@ -107,7 +107,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   handleList().pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("packs list")),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected packs and their lifecycle classification"),
   Command.withExamples([
     { command: "axm packs list", description: "Inventory detected packs" },

@@ -74,8 +74,8 @@ If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
 Agent-native skills without AXM ownership remain outside reconciliation. Choose one resolution per skill or related group:
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
-- **Import** unmanaged/native content when you want to own, customize, or publish it: `axm skills import <source> <target-fqn>`, then `axm skills publish`.
-- **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <target-fqn>`.
+- **Import** unmanaged/native content when you want to own, customize, or publish it: `axm skills import <source> <extension>`, then `axm skills publish`.
+- **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <extension>`.
 - **Leave it unowned** when another tool owns its lifecycle. AXM does not delete it.
 
 Import only when you deliberately create an AXM-owned copy. The native source

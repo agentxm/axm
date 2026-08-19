@@ -5,6 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { rootCommand } from "../../app.js";
 import { makeAxmFormatter } from "../../formatter.js";
 import { baseLayer } from "../../runtime.js";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
 
 const ANSI_ESCAPE = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-?]*[ -/]*[@-~]`, "g");
@@ -27,7 +28,12 @@ describe("root sync command help", () => {
         Effect.provideService(CliOutput.Formatter, formatter),
       );
 
-      expect(output.replace(ANSI_PATTERN, "")).toContain("--ignore-release-age");
+      const normalized = output.replace(ANSI_PATTERN, "").replace(/\s+/gu, " ");
+      expect(normalized).toContain("--ignore-release-age");
+      expect(normalized).toContain(`choices: ${CATALOG_EXTENSION_TYPES.join(", ")}`);
+      expect(normalized).not.toContain(
+        "choices: skill, mcp-server, subagent, rule, hook, knowledge, pack",
+      );
     }),
   );
 });

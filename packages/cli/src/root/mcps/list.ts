@@ -184,7 +184,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected MCP servers and their lifecycle classification"),
   Command.withExamples([
     { command: "axm mcps list", description: "Inventory detected MCP servers" },

@@ -256,7 +256,6 @@ export const removeCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(removeConfig),
-  Command.withAlias("rm"),
   Command.withDescription("Remove coding-agent harnesses and clean up AXM-managed artifacts"),
   Command.withExamples([
     { command: "axm agents remove cursor", description: "Remove Cursor from this workspace" },

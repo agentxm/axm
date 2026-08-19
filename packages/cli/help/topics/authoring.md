@@ -15,16 +15,16 @@ members.
 Use `fork` and the type-specific native import commands for different source
 states:
 
-- `axm fork <source> <target-fqn>` starts a new workspace-authored package from
+- `axm fork <source> <extension>` starts a new workspace-authored package from
   an existing managed AXM package. Registry, `workspace:`, local, and Git
   sources are supported. The source and target types must match; packs are
   copied shallowly, so their dependency map remains unchanged.
-- `axm skills import <source> <target-fqn>` and `axm subagents import <source>
-<target-fqn>` convert losslessly supported native content into managed Skill
+- `axm skills import <source> <extension>` and `axm subagents import <source>
+<extension>` convert losslessly supported native content into managed Skill
   and Subagent packages from local or Git sources. Rules, Knowledge bundles,
   Hooks, and Packs have no native package-conversion command.
 - `axm mcps import` is a distinct MCP configuration discovery and adoption
-  workflow: omit `--as` for inline management, or use `--as <target-fqn>` when
+  workflow: omit `--as` for inline management, or use `--as <extension>` when
   one remote server has a lossless package form.
 
 Both commands create target version `0.1.0` and start a fresh target disabled
@@ -55,7 +55,7 @@ knowledge`.
 ## Manifest `description`
 
 The `description` field in the extension manifest is the one-line summary shown
-in registry listings, search results, and `axm view <handle> description`. It is
+in registry listings, search results, and `axm view <extension> description`. It is
 optional, but an extension without one is far harder to find and evaluate.
 
 Write it for a person scanning a list:
@@ -140,4 +140,4 @@ content file instructs the model.
 - `axm help skills` — writing the `SKILL.md` frontmatter `description` for model invocation
 - `axm help knowledge` — writing bundle indexes and descriptions for progressive discovery
 - `axm help package-extensions` — companion packages and Official status
-- `axm view <handle>` — inspect the published metadata of any extension
+- `axm view <extension>` — inspect the published metadata of any extension

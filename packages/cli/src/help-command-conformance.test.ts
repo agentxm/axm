@@ -107,20 +107,69 @@ describe("axm help command conformance", () => {
     }),
   );
 
-  it.effect("resolves every alias combination to canonical command help", () =>
+  it.effect("keeps the pre-launch command tree alias-free", () =>
     Effect.gen(function* () {
       const aliases = yield* collectCommandAliases();
-      expect(aliases.size).toBeGreaterThan(0);
+      expect(aliases).toEqual(new Map());
+    }),
+  );
 
-      for (const [aliasPath, canonicalPath] of aliases) {
-        const canonicalDoc = yield* captureHelpDoc(pathSegments(canonicalPath));
-        for (const json of [false, true]) {
-          const aliasDoc = yield* captureHelpRequestDoc(pathSegments(aliasPath), { json });
-          expect(
-            helpSemantics(aliasDoc),
-            `${aliasPath} -> ${canonicalPath} json=${json}`,
-          ).toStrictEqual(helpSemantics(canonicalDoc));
-        }
+  it.effect("uses the canonical extension identity metavariables", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const retiredNames = new Set([
+        "fqn",
+        "handle",
+        "target",
+        "selectors",
+        "extensions",
+        "skill",
+        "subagent",
+        "name-or-fqn",
+        "pack",
+      ]);
+      const retiredArguments = Array.from(files).flatMap(([command, doc]) =>
+        (doc.args ?? []).flatMap((arg) =>
+          retiredNames.has(arg.name) ? [`${command} <${arg.name}>`] : [],
+        ),
+      );
+
+      expect(retiredArguments).toEqual([]);
+
+      const expectedArguments = new Map<string, ReadonlyArray<string>>([
+        ["axm install", ["source"]],
+        ["axm update", ["extension[@version]"]],
+        ["axm uninstall", ["extension[@version]"]],
+        ["axm adopt", ["extension"]],
+        ["axm demote", ["extension", "source"]],
+        ["axm fork", ["source", "extension"]],
+        ["axm skills import", ["source", "extension"]],
+        ["axm subagents import", ["source", "extension"]],
+        ["axm sync", ["extension"]],
+        ["axm view", ["extension", "field"]],
+        ["axm version", ["extension", "bump", "version"]],
+        ["axm publish", ["extension"]],
+        ["axm skills publish", ["name"]],
+        ["axm subagents publish", ["name"]],
+        ["axm mcps publish", ["name"]],
+        ["axm rules publish", ["name"]],
+        ["axm hooks publish", ["name"]],
+        ["axm knowledge publish", ["name"]],
+        ["axm packs publish", ["name"]],
+        ["axm packs show", ["extension"]],
+        ["axm packs add", ["name", "extension"]],
+        ["axm packs remove", ["name", "extension"]],
+        ["axm skills uninstall", ["name"]],
+        ["axm subagents uninstall", ["name"]],
+      ]);
+
+      for (const [command, expected] of expectedArguments) {
+        const doc = files.get(command);
+        expect(doc, `missing help for ${command}`).toBeDefined();
+        expect(
+          doc?.args?.map((arg) => arg.name),
+          command,
+        ).toEqual(expected);
       }
     }),
   );

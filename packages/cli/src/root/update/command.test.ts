@@ -38,7 +38,9 @@ describe("root update command help", () => {
       const output = stripAnsi(yield* captureHelpOutput(["update"]));
 
       expect(output).toContain("Update extensions to newer versions");
-      expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
+      expect(output).toContain("[<extension[@version]>]");
+      expect(output).toContain("Registry FQN");
+      expect(output).toContain("(@owner/<plural-type>/<name>[@version]) (optional)");
       expect(output).toContain("axm update");
       expect(output).toContain("axm update @acme/skills/code-review");
       expect(output).toContain("--ignore-release-age");

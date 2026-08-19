@@ -704,7 +704,7 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
   if (enablePackage && Option.isNone(packageTarget)) {
     return yield* makeAppError({
       code: "usage",
-      detail: "--enable requires --as <target-fqn>",
+      detail: "--enable requires --as <extension>",
     });
   }
   const ws = yield* WorkspaceMutations;

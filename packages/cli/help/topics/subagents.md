@@ -79,13 +79,13 @@ Run `axm subagents publish` to release a new version. Publish validates the mani
 ## Unmanaged subagents
 
 Agent-native subagents without AXM ownership remain outside reconciliation.
-Use `axm subagents import <source> <target-fqn>` when you deliberately want an
+Use `axm subagents import <source> <extension>` when you deliberately want an
 AXM-owned copy that you can customize or publish. Import accepts a supported
 local or Git source, creates a new project-workspace package, and leaves the
 native source unchanged. Use `--preview` to inspect the candidate without
 writing it.
 
-Use `axm fork <source> <target-fqn>` instead when the source is already a
+Use `axm fork <source> <extension>` instead when the source is already a
 managed AXM package. Leave content unowned when another tool owns its lifecycle;
 AXM does not delete it.
 

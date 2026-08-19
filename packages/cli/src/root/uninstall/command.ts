@@ -8,7 +8,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUninstall } from "./handler.js";
 
 const uninstallConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.string("extension[@version]").pipe(
     Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
   ),
   scope: scopeFlag.pipe(

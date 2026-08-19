@@ -163,7 +163,7 @@ All commands live under `axm hooks` and accept `--scope project` (default) or
   settings.
 - `axm hooks uninstall <name>` — remove the hook's settings entries and package
   files.
-- `axm hooks list` (`ls`) — show installed hooks with status, source, and lock
+- `axm hooks list` — show installed hooks with status, source, and lock
   state.
 - `axm hooks show <name>` — inspect one installed hook and its effective
   configured-agent outcomes.

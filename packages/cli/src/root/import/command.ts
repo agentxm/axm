@@ -217,7 +217,7 @@ const config = {
   source: Argument.string("source").pipe(
     Argument.withDescription("Local or Git native extension source"),
   ),
-  target: Argument.string("target").pipe(Argument.withDescription("New managed target FQN")),
+  target: Argument.string("extension").pipe(Argument.withDescription("New managed target FQN")),
   enable: Flag.boolean("enable").pipe(
     Flag.withDescription("Enable and materialize a newly imported extension"),
     Flag.withDefault(false),

@@ -8,7 +8,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.string("extension[@version]").pipe(
     Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
     Argument.optional,
   ),

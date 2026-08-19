@@ -10,22 +10,22 @@ Run `axm help pack-schema` to print the raw JSON Schema.
 
 ## Authoring and editing packs
 
-Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <pack> <extension>` and `axm packs remove <pack> <extension>` to edit dependencies when possible. `<pack>` accepts the configured local name or a unique configured pack FQN; ambiguous FQNs must be replaced with the local name AXM reports.
+Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <name> <extension>` and `axm packs remove <name> <extension>` to edit dependencies when possible. `<name>` accepts the configured local name or a unique configured pack FQN; ambiguous FQNs must be replaced with the local name AXM reports.
 
-Use `axm packs show <name-or-fqn>` to compare desired membership, accepted
+Use `axm packs show <extension>` to compare desired membership, accepted
 external resolution, canonical observation, and graph problems. A
 workspace-authored pack manifest is authority immediately; edit it through pack
 authoring commands when possible, then use `axm sync --preview` and `axm sync`
 to reconcile affected members and projections. Never hand-edit accepted lock
 rows.
 
-Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
+Run `axm packs publish <name>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
 Pack publication keeps the requested selection narrow by default. Use
 `--include-dependencies` with either `axm publish` or `axm packs publish` to add
 workspace-authored dependencies of selected packs. A dependency that is not
 workspace-authored is never added implicitly; pair `--include-dependencies`
-with a repeatable `--include-dependency <fqn>` to select one deliberately.
+with a repeatable `--include-dependency <extension>` to select one deliberately.
 
 Included dependencies publish before packs that reference them. Included
 versions that are already published are integrity-verified and skipped; a
@@ -146,7 +146,7 @@ pack unpack; removing the target extension may break the reference.
 
 Packs support the same lifecycle verbs as other extension types:
 
-- `axm packs install <fqn> [--preview]` resolves the complete member graph
+- `axm packs install <source> [--preview]` resolves the complete member graph
   before applying it. The preview names every canonical package that will be
   created or updated and every exclusive package that will be deleted.
 - `axm packs update [--preview]` re-resolves every enabled pack's configured

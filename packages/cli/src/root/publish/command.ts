@@ -51,6 +51,7 @@ import {
   HandleSchema,
   PublishOptionsSchema,
   REGISTRY_EXTENSIONS_DIR,
+  extensionTypes,
   extensionTypeToPlural,
   decodeExtensionNameSync,
   fqnInvalidErrorToAppError,
@@ -171,17 +172,8 @@ export type PublishableType = TruthyKeys<typeof PUBLISHABLE_TYPES>;
 export const isPublishableType = (type: ExtensionType): type is PublishableType =>
   PUBLISHABLE_TYPES[type];
 
-// Explicit order (rule last) is user-visible in the --type flag's help output.
-const selectableTypes = [
-  "skill",
-  "mcp-server",
-  "subagent",
-  "hook",
-  "knowledge",
-  "pack",
-  "rule",
-] as const satisfies ReadonlyArray<ExtensionType>;
-type SelectableType = (typeof selectableTypes)[number];
+const selectableTypes: ReadonlyArray<PublishableType> = extensionTypes.filter(isPublishableType);
+type SelectableType = PublishableType;
 type SelectionMode = PublishSelectionMode;
 type ExistingVersionPolicy = OnExistingPolicy;
 
@@ -386,13 +378,13 @@ const localPackConstraintErrors = (
               ? [
                   {
                     description: `Replace ${constraint.dependingPack ?? "the Pack"}'s constraint with the selected version, then publish the member and pack together`,
-                    cmd: `axm packs add ${constraint.dependingPack ?? "<pack>"} ${memberFqn}`,
+                    cmd: `axm packs add ${constraint.dependingPack ?? "<name>"} ${memberFqn}`,
                   },
                 ]
               : [
                   {
                     description: `Update ${constraint.dependingPack ?? "the Pack"} if its owner has published a compatible constraint`,
-                    cmd: `axm update ${constraint.dependingPack ?? "<pack>"}`,
+                    cmd: `axm update ${constraint.dependingPack ?? "<extension[@version]>"}`,
                   },
                   {
                     description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
@@ -2432,7 +2424,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(function* (
 });
 
 const publishConfig = {
-  selectors: Argument.string("selectors").pipe(
+  selectors: Argument.string("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
   ),

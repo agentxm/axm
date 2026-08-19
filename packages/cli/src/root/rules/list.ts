@@ -99,7 +99,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected rules and their lifecycle classification"),
   Command.withExamples([
     {

@@ -72,7 +72,7 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   discovered; it does not silently widen the server to every configured agent.
 - `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
   latest resolved version.
-- `axm mcps list` (`ls`) — show installed servers and their state.
+- `axm mcps list` — show installed servers and their state.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
 - `axm mcps uninstall <name>` — remove a server and its AXM-owned agent entries.

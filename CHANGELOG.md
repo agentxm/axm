@@ -1,3 +1,13 @@
+## 0.27.12 (2026-08-19)
+
+### 🚀 Features
+
+- Unify managed-file ownership under one versioned grammar with fail-closed cleanup, lint diagnostics, and formatter-stable reconciliation.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.11 (2026-08-19)
 
 ### 🩹 Fixes

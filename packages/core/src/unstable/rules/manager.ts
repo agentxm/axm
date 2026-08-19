@@ -49,7 +49,13 @@ import type { RuleLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
-import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
+import { reconcileManagedRegionFile } from "../projection/adapters.js";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  parseMarker,
+  serializeMarker,
+} from "../projection/marker-grammar.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
@@ -89,6 +95,7 @@ export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerServ
 ) {}
 
 const RULES_REGION = "rules";
+export const RULES_REGION_OWNER = "@agentxm/rules/instructions";
 
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
@@ -362,9 +369,16 @@ export const RuleManagerLive = Layer.effect(
         args.manifest.title !== undefined && !args.body.startsWith("#")
           ? `# ${args.manifest.title}\n\n`
           : "";
-      // The blank line after the marker keeps the rendered region stable under
-      // Prettier, which separates block HTML comments from following content.
-      return `<!-- axm:rule ${args.marker}@${args.manifest.version} -->\n\n${header}${args.body}`;
+      const marker = serializeMarker(
+        {
+          kind: MARKER_KIND_POINT,
+          v: MARKER_VERSION,
+          pointKind: "rule",
+          ext: `${args.marker}@${args.manifest.version}`,
+        },
+        { kind: "block", open: "<!--", close: "-->" },
+      );
+      return `${marker}\n\n${header}${args.body}`;
     };
 
     interface RenderedRuleContributor {
@@ -419,9 +433,18 @@ export const RuleManagerLive = Layer.effect(
       );
 
     const observedRuleContributors = (content: string): ReadonlyArray<string> =>
-      Array.from(content.matchAll(/<!-- axm:rule (.+)@[^@\s]+ -->/gu))
-        .map((match) => match[1])
-        .filter((identity): identity is string => identity !== undefined);
+      content.split(/\r?\n/u).flatMap((line) => {
+        const parsed = parseMarker(line, { kind: "block", open: "<!--", close: "-->" });
+        if (
+          parsed.state !== "complete" ||
+          parsed.marker.kind !== MARKER_KIND_POINT ||
+          parsed.marker.pointKind !== "rule"
+        ) {
+          return [];
+        }
+        const separator = parsed.marker.ext.lastIndexOf("@");
+        return separator > 0 ? [parsed.marker.ext.slice(0, separator)] : [];
+      });
 
     const reconcileRulesRegion = (args: {
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
@@ -458,6 +481,7 @@ export const RuleManagerLive = Layer.effect(
             targetPath: target.absolute,
             displayPath: target.relative,
             region: RULES_REGION,
+            owner: RULES_REGION_OWNER,
             rendered,
             ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
             writeWhenMissing: true,
@@ -473,6 +497,7 @@ export const RuleManagerLive = Layer.effect(
         const projectionUnitObservation = {
           unitId: "rule:instructions-region",
           path: `${target.relative}#${RULES_REGION}`,
+          owner: RULES_REGION_OWNER,
           present: Option.isSome(observedRegion),
           current: !changed,
           expectedContributors: contributors.map(({ marker }) => marker),

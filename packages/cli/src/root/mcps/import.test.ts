@@ -124,7 +124,12 @@ describe("mcps import output", () => {
           command: "node",
           args: ["server.js"],
           env: { DEMO_TOKEN: "secret-value" },
-          "x-axm": { managed: true, source: "inline" },
+          "x-axm": {
+            v: 1,
+            managed: true,
+            ext: "@workspace/mcps/demo",
+            source: "inline",
+          },
         });
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
@@ -362,7 +367,12 @@ describe("mcps import output", () => {
           command: "node",
           args: ["server.js"],
           env: { DEMO_TOKEN: "secret-value" },
-          "x-axm": { managed: true, source: "inline" },
+          "x-axm": {
+            v: 1,
+            managed: true,
+            ext: "@workspace/mcps/demo",
+            source: "inline",
+          },
         });
       }),
     );

@@ -238,7 +238,12 @@ describe("axm lint (e2e, Phase 7)", () => {
           writeJson(mcpPath, {
             mcpServers: {
               demo: {
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/demo",
+                  source: "inline",
+                },
                 type: "local",
                 enabled: false,
                 command: "node",

@@ -30,7 +30,6 @@ import {
   type SourceHostProvidersService,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -189,7 +188,9 @@ const writeRenderedSubagent = (
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(
     filePath,
-    managed ? `<!-- ${AXM_MANAGED_MARKER} -->\n# ${name}\n` : `# ${name}\n`,
+    managed
+      ? `<!-- axm:file v=1 ext=@acme/subagents/${name} src=.axm/extensions/@acme/subagents/${name} -->\n# ${name}\n`
+      : `# ${name}\n`,
   );
 };
 
@@ -677,7 +678,12 @@ describe("root sync handler", () => {
       writeJson(nativeConfigPath, {
         mcpServers: {
           demo: {
-            "x-axm": { managed: true, source: "inline" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@workspace/mcps/demo",
+              source: "inline",
+            },
             command: "node",
             args: ["server.js"],
           },
@@ -715,6 +721,34 @@ describe("root sync handler", () => {
       expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
       expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
       expect(fs.readFileSync(nativeConfigPath, "utf8")).toBe(before.nativeConfig);
+    }),
+  );
+
+  it.effect("reports unsupported marker versions in preview without writing", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+      writeSettings(tempDir, {
+        agents: [],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      });
+      const instructionsPath = path.join(tempDir, "AGENTS.md");
+      const before = [
+        "# User content",
+        "<!-- axm:start v=2 region=rules -->",
+        "generated",
+        "<!-- axm:end v=2 region=rules -->",
+        "",
+      ].join("\n");
+      fs.writeFileSync(instructionsPath, before);
+
+      yield* provide(handleSync({ preview: true }));
+
+      const payload = JSON.stringify(rendererState.results[0]?.data);
+      expect(payload).toContain("unsupported");
+      expect(payload).toContain("upgrade AXM");
+      expect(payload).toContain("@agentxm/rules/instructions");
+      expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
     }),
   );
 
@@ -870,7 +904,12 @@ describe("root sync handler", () => {
       writeJson(path.join(tempDir, ".mcp.json"), {
         mcpServers: {
           demo: {
-            "x-axm": { managed: true, source: "inline" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@workspace/mcps/demo",
+              source: "inline",
+            },
             command: "node",
             args: ["server.js"],
           },
@@ -908,7 +947,13 @@ describe("root sync handler", () => {
       writeJson(configPath, {
         mcpServers: {
           retained: {
-            "x-axm": { managed: true, source: "@acme/mcps/retained" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@acme/mcps/retained",
+              source: "registry",
+              ref: "@acme/mcps/retained",
+            },
             type: "stdio",
             command: "node",
           },
@@ -1312,7 +1357,12 @@ describe("root sync handler", () => {
       writeJson(path.join(tempDir, ".mcp.json"), {
         mcpServers: {
           demo: {
-            "x-axm": { managed: true, source: "inline" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@workspace/mcps/demo",
+              source: "inline",
+            },
             type: "stdio",
             command: "python",
           },
@@ -1477,6 +1527,23 @@ describe("root sync handler", () => {
       expect(planResultSteps(preview).map(projection)).toEqual(
         planResultSteps(applied).map(projection),
       );
+      const instructionArtifact = expectRecord(
+        property(
+          expectRecord(
+            planResultSteps(preview).find(
+              (step) => property(expectRecord(step), "label") === "instruction files",
+            ),
+          ),
+          "artifact",
+        ),
+      );
+      expect(property(instructionArtifact, "managedRegions")).toEqual([
+        {
+          unitId: "rule:instructions-region",
+          path: "AGENTS.md#rules",
+          owner: "@agentxm/rules/instructions",
+        },
+      ]);
 
       yield* provide(handleSync({ preview: false }));
       expectNoOpPlanResult(rendererState.results[2]?.data, {

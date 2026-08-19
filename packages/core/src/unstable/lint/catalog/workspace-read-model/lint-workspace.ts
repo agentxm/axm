@@ -140,6 +140,8 @@ export interface BuildLintWorkspaceArgs {
    */
   readonly userHome: string;
   readonly scope: "project" | "user";
+  /** The filesystem is a materialized Git-index snapshot, not the live workspace. */
+  readonly gitIndexView?: boolean;
   /**
    * Optional `displayRoot` override for the `WorkspaceRuleContext`. Defaults
    * to `""` (accessor-relative paths render under the workspace root).
@@ -219,6 +221,7 @@ export const buildLintWorkspace = (
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,
         readModel,
+        gitIndexView: args.gitIndexView === true,
       }),
       // The projection already read every installed manifest; hand the same
       // values to workspace rules rather than re-reading them per rule.
@@ -249,6 +252,7 @@ const makeInstructionAccessor = (args: {
   readonly workspaceRoot: string;
   readonly scope: "project" | "user";
   readonly readModel: WorkspaceReadModel;
+  readonly gitIndexView: boolean;
 }): WorkspaceInstructionAccessor => {
   const platformLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, args.platform.fs),
@@ -295,6 +299,7 @@ const makeInstructionAccessor = (args: {
         workspaceRoot: args.workspaceRoot,
         configuredAgents: loaded.value.configuredAgents,
         config: loaded.value.config,
+        gitIndexView: args.gitIndexView,
       }).pipe(Effect.provide(platformLayer));
       return Option.some(status);
     }),

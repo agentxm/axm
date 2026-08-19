@@ -112,19 +112,21 @@ describe("agent MCP config inspection", () => {
           writeFileSync(
             nodePath.join(configDir, "config.toml"),
             [
-              "# axm managed mcp-server context start",
+              "# axm:start v=1 region=mcp-server:context ext=@agentxm/mcps/context",
               "[mcp_servers.context]",
               'args = ["-y", "@acme/context-mcp"]',
               'command = "npx"',
               "enabled = true",
               "",
               '[mcp_servers.context."x-axm"]',
+              "v = 1",
+              'ext = "@workspace/mcps/context"',
               'source = "inline"',
               "managed = true",
               "",
               "[mcp_servers.context.env]",
               'ACME_TOKEN = "secret"',
-              "# axm managed mcp-server context end",
+              "# axm:end v=1 region=mcp-server:context ext=@agentxm/mcps/context",
               "",
             ].join("\n"),
           );
@@ -154,7 +156,12 @@ describe("agent MCP config inspection", () => {
           yield* withHome(
             workspaceRoot,
             writeHermesEntry(workspaceRoot, {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/context",
+                source: "inline",
+              },
               enabled: true,
               command: "npx",
               args: ["-y", "@acme/context-mcp"],
@@ -175,7 +182,12 @@ describe("agent MCP config inspection", () => {
               expect(result.status).toBe("match");
               expect(result.path).toBe("~/.hermes/config.yaml");
               expect(result.expected).toMatchObject({
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/context",
+                  source: "inline",
+                },
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
@@ -198,7 +210,12 @@ describe("agent MCP config inspection", () => {
           yield* withHome(
             workspaceRoot,
             writeHermesEntry(workspaceRoot, {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/context",
+                source: "inline",
+              },
               enabled: true,
               command: "pnpx",
               args: ["-y", "@acme/context-mcp"],
@@ -286,7 +303,9 @@ describe("agent MCP config inspection", () => {
               "    command: npx",
               "  context:",
               "    x-axm:",
+              "      v: 1",
               "      managed: true",
+              '      ext: "@workspace/mcps/context"',
               "      source: inline",
               "    command: npx",
               "",

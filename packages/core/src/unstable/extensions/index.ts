@@ -253,6 +253,7 @@ export {
 
 export {
   insertManagedFileBanner,
+  hasManagedFileBanner,
   managedFileFormatForPath,
   stripManagedFileBanner,
   type ManagedFileBannerOptions,

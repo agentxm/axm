@@ -131,7 +131,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       const manager = yield* KnowledgeManager;
       yield* applyPlannedProjections(manager);
       const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
-      expect(instructions).toContain("region=knowledge-base");
+      expect(instructions).toContain("region=knowledge");
       expect(instructions.split("[pack-a-bundle]").length - 1).toBe(1);
       expect(instructions.split("[pack-b-bundle]").length - 1).toBe(1);
     }).pipe(Effect.provide(layer));

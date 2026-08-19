@@ -9,11 +9,10 @@ import { CodingAgentRepository, makeProjectOnlyCodingAgent } from "../agents/ind
 import type { CodingAgentRepositoryService } from "../agents/index.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { makeBaseWorkspaceMock } from "./test-stubs.js";
-import {
-  AXM_MANAGED_MARKER,
-  cleanupManagedArtifactsForRemovedAgents,
-  hasAxmManagedMarker,
-} from "./index.js";
+import { cleanupManagedArtifactsForRemovedAgents, hasAxmManagedMarker } from "./index.js";
+
+const AXM_MANAGED_MARKER =
+  "<!-- axm:file v=1 ext=@acme/subagents/test src=.axm/extensions/@acme/subagents/test -->";
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
   it.effect("removes only AXM-managed skill and subagent artifacts for removed agents", () =>
@@ -44,7 +43,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
 
         const managedSubagent = path.join(cursorSubagents, "reviewer.md");
         const unmanagedSubagent = path.join(cursorSubagents, "manual.md");
-        fs.writeFileSync(managedSubagent, `# ${AXM_MANAGED_MARKER}\nsubagent body\n`);
+        fs.writeFileSync(managedSubagent, `${AXM_MANAGED_MARKER}\nsubagent body\n`);
         fs.writeFileSync(unmanagedSubagent, "# Manual subagent\n");
 
         const cursor = makeProjectOnlyCodingAgent({
@@ -114,7 +113,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const instructionFile = path.join(tempDir, "AGENTS.md");
         const renderedRule = path.join(rulesDir, "style.md");
         for (const file of [instructionFile, renderedRule]) {
-          fs.writeFileSync(file, `# ${AXM_MANAGED_MARKER}\nbody\n`);
+          fs.writeFileSync(file, `${AXM_MANAGED_MARKER}\nbody\n`);
         }
 
         const cursor = makeProjectOnlyCodingAgent({
@@ -187,7 +186,12 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                 "acme-managed": {
                   command: "npx",
                   args: ["-y", "acme-mcp"],
-                  "x-axm": { managed: true, source: "inline" },
+                  "x-axm": {
+                    v: 1,
+                    managed: true,
+                    ext: "@workspace/mcps/acme-managed",
+                    source: "inline",
+                  },
                 },
                 "user-server": { command: "npx", args: ["-y", "user-mcp"] },
               },
@@ -222,6 +226,10 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           matcher: "Write",
           hooks: [{ type: "command", command: "./scripts/user-hook.sh" }],
         };
+        const unownedCollision = {
+          matcher: "Bash",
+          hooks: [{ type: "command", command: managedHookCommand }],
+        };
         fs.writeFileSync(
           settingsPath,
           `${JSON.stringify(
@@ -229,7 +237,23 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
               permissions: { allow: ["Bash"] },
               hooks: {
                 PreToolUse: [
-                  { matcher: "Bash", hooks: [{ type: "command", command: managedHookCommand }] },
+                  {
+                    matcher: "Bash",
+                    hooks: [
+                      {
+                        type: "command",
+                        command: managedHookCommand,
+                        "x-axm": {
+                          v: 1,
+                          managed: true,
+                          unit: "hook:guard",
+                          source: "extension",
+                          ref: "@acme/hooks/guard",
+                        },
+                      },
+                    ],
+                  },
+                  unownedCollision,
                   userGroup,
                 ],
               },
@@ -239,6 +263,14 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           )}\n`,
         );
 
+        const before = fs.readFileSync(settingsPath, "utf8");
+        const preview = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["claude-code"]),
+          dryRun: true,
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+        expect(preview.removedPaths).toContain(settingsPath);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(before);
+
         const result = yield* cleanupManagedArtifactsForRemovedAgents({
           removedAgentIds: new Set(["claude-code"]),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
@@ -246,7 +278,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
         expect(parsed).toEqual({
           permissions: { allow: ["Bash"] },
-          hooks: { PreToolUse: [userGroup] },
+          hooks: { PreToolUse: [unownedCollision, userGroup] },
         });
         expect(result.removedPaths).toEqual(expect.arrayContaining([settingsPath]));
       } finally {
@@ -267,7 +299,22 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
             {
               hooks: {
                 PreToolUse: [
-                  { matcher: "Bash", hooks: [{ type: "command", command: managedHookCommand }] },
+                  {
+                    matcher: "Bash",
+                    hooks: [
+                      {
+                        type: "command",
+                        command: managedHookCommand,
+                        "x-axm": {
+                          v: 1,
+                          managed: true,
+                          unit: "hook:guard",
+                          source: "extension",
+                          ref: "@acme/hooks/guard",
+                        },
+                      },
+                    ],
+                  },
                 ],
               },
             },
@@ -298,7 +345,12 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
             mcpServers: {
               "acme-managed": {
                 command: "npx",
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/acme-managed",
+                  source: "inline",
+                },
               },
             },
           },
@@ -322,8 +374,8 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
 
 describe("hasAxmManagedMarker", () => {
   it("matches the full managed-file banner", () => {
-    expect(hasAxmManagedMarker("<!-- AXM managed file — do not edit directly -->")).toBe(true);
-    expect(hasAxmManagedMarker('{"_axm_managed": true}')).toBe(true);
+    expect(hasAxmManagedMarker(AXM_MANAGED_MARKER)).toBe(true);
+    expect(hasAxmManagedMarker('{"_axm_managed": true}')).toBe(false);
   });
 
   it("does not match a user file that merely mentions the phrase", () => {

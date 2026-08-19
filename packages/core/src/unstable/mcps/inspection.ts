@@ -8,6 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { managedKeyedBlockNames, reconcileKeyedBlock } from "../projection/adapters.js";
 import { parse, type ParseError } from "jsonc-parser";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -173,21 +174,13 @@ const readYamlConfigEntry = (
     catch: (error) => mapYamlError(configPath, error),
   }).pipe(Effect.map((entry) => Option.fromUndefinedOr(entry)));
 
-const managedTomlStart = (serverName: string): string =>
-  `# axm managed mcp-server ${serverName} start`;
-
-const managedTomlEnd = (serverName: string): string => `# axm managed mcp-server ${serverName} end`;
-
-const managedTomlBlock = (raw: string, serverName: string): Option.Option<string> => {
-  const start = managedTomlStart(serverName);
-  const end = managedTomlEnd(serverName);
-  const startIndex = raw.indexOf(start);
-  if (startIndex < 0) return Option.none();
-  const blockStart = startIndex + start.length;
-  const endIndex = raw.indexOf(end, blockStart);
-  if (endIndex < 0) return Option.none();
-  return Option.some(raw.slice(blockStart, endIndex).trim());
-};
+const managedTomlBlock = (raw: string, serverName: string) =>
+  reconcileKeyedBlock({
+    content: raw,
+    region: `mcp-server:${serverName}`,
+    owner: `@agentxm/mcps/${serverName}`,
+    rendered: "",
+  });
 
 const tableHeader = (serversKey: string, serverName: string, suffix?: string): string =>
   `[${stringifyTomlKey(serversKey)}.${stringifyTomlKey(serverName)}${suffix === undefined ? "" : `.${stringifyTomlKey(suffix)}`}]`;
@@ -255,9 +248,21 @@ const inspectActual = (args: {
 
     if (args.target.format === "toml") {
       const actualBlock = managedTomlBlock(raw.value, args.serverName);
-      if (Option.isNone(actualBlock)) return { status: "absent", fields: [] };
+      if (
+        actualBlock.state.state === "malformed" ||
+        actualBlock.state.state === "unsupported-version"
+      ) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail:
+            actualBlock.state.state === "unsupported-version"
+              ? `MCP server ${args.serverName} uses a newer AXM ownership marker; upgrade AXM before inspecting it`
+              : `MCP server ${args.serverName} has malformed AXM ownership markers`,
+        });
+      }
+      if (actualBlock.body === undefined) return { status: "absent", fields: [] };
       if (args.expected._tag !== "projected") return { status: "drift", fields: ["transport"] };
-      const actual = parseTomlEntry(actualBlock.value, args.serversKey, args.serverName);
+      const actual = parseTomlEntry(actualBlock.body, args.serversKey, args.serverName);
       const drift = diffAgentEntry(args.expected, actual);
       if (drift._tag === "match") return { status: "match", fields: [], actual };
       if (drift._tag === "unmanaged") return { status: "unmanaged", fields: [], actual };
@@ -531,17 +536,7 @@ const managedYamlNames = (
     catch: (error) => mapYamlError(configPath, error),
   });
 
-const managedTomlNames = (raw: string): ReadonlyArray<string> => {
-  const names: Array<string> = [];
-  const pattern = /^# axm managed mcp-server ([a-z0-9][a-z0-9-]*) start$/gm;
-  let match = pattern.exec(raw);
-  while (match !== null) {
-    const name = match[1];
-    if (name !== undefined) names.push(name);
-    match = pattern.exec(raw);
-  }
-  return names;
-};
+const managedTomlNames = managedKeyedBlockNames;
 
 export const collectManagedAgentMcpServers = (
   args: CollectManagedAgentMcpServersArgs,

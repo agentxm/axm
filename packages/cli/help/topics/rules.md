@@ -4,6 +4,8 @@ Rule extensions are installable guidance packages. A rule package has a
 `rule.json` manifest and a `src/RULE.md` body. When instruction-file management
 is enabled, active Rules contribute their bodies to the complete managed
 `region=rules` block in the canonical instruction source.
+The region carries `ext=@agentxm/rules/instructions`, and each Rule begins with
+a versioned `axm:point v=1 kind=rule` contributor anchor.
 
 Rule guidance targets the [AGENTS.md](https://agents.md) cross-vendor standard.
 AXM owns only the managed Rules region; authored prose and other contributors
@@ -65,6 +67,10 @@ AXM preserves authored prose outside its markers. A malformed, duplicate, or
 otherwise ambiguous managed region blocks the transition without changing
 settings or files. Use `axm lint` for diagnostics and `axm sync --preview` to
 inspect reconciliation.
+
+Marker identity is the region name; provenance attributes do not create a
+second region. Formatting-only prose wrapping and table padding do not create
+drift, and AXM writes no formatter directives.
 
 ## Self-containment and Packs
 

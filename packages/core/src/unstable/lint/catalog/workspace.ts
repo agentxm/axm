@@ -68,6 +68,8 @@ import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
+import { hookOwnershipAmbiguousRule } from "./workspace/hook-ownership-ambiguous.js";
+import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -115,6 +117,8 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
   agentsDetectedDeclaredRule,
   instructionsTargetCurrentRule,
   projectionsCurrentRule,
+  hookOwnershipAmbiguousRule,
+  managedFileUnownedRule,
   skillsArtifactsCorrectRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
@@ -135,6 +139,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   instructionsAgentSupportedRule,
   instructionsGitignoreCurrentRule,
   projectionsCurrentRule,
+  hookOwnershipAmbiguousRule,
+  managedFileUnownedRule,
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,

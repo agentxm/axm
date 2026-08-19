@@ -24,6 +24,7 @@ import type {
   McpServersKey,
 } from "../agent-capabilities/index.js";
 import type { ArtifactChange } from "../plan/plan.js";
+import { reconcileKeyedBlock } from "../projection/adapters.js";
 
 export interface WriteAgentMcpConfigArgs {
   readonly workspaceRoot: string;
@@ -298,24 +299,30 @@ const removeYaml = (args: {
     catch: (error) => (error instanceof AppError ? error : mapYamlError(args.configPath, error)),
   });
 
-const managedTomlStart = (serverName: string): string =>
-  `# axm managed mcp-server ${serverName} start`;
+const tomlRegion = (serverName: string) => `mcp-server:${serverName}` as const;
 
-const managedTomlEnd = (serverName: string): string => `# axm managed mcp-server ${serverName} end`;
-
-const stripManagedTomlBlock = (raw: string, serverName: string): string => {
-  const start = managedTomlStart(serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const end = managedTomlEnd(serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return raw.replace(new RegExp(`\\n?${start}[\\s\\S]*?${end}\\n?`, "g"), "\n");
+const tomlOwner = (serverName: string, entry?: Readonly<Record<string, unknown>>): string => {
+  const metadata = entry?.["x-axm"];
+  return isRecord(metadata) && typeof metadata["ref"] === "string"
+    ? metadata["ref"]
+    : `@agentxm/mcps/${serverName}`;
 };
+
+const invalidTomlRegion = (serverName: string, state: "malformed" | "unsupported-version") =>
+  makeAppError({
+    code: "conflict",
+    detail:
+      state === "unsupported-version"
+        ? `MCP server ${serverName} uses a newer AXM ownership marker; upgrade AXM before modifying it`
+        : `MCP server ${serverName} has malformed AXM ownership markers`,
+  });
 
 const upsertToml = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): string => {
-  const trimmed = stripManagedTomlBlock(args.raw, args.serverName);
+}): Effect.Effect<string, AppError> => {
   const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
   const block = stringifyToml({
     [args.serversKey]: { [args.serverName]: args.entry },
@@ -324,8 +331,16 @@ const upsertToml = (args: {
     .filter((line) => line !== parentHeader)
     .join("\n")
     .trim();
-  const prefix = trimmed.length === 0 ? "" : trimmed.endsWith("\n") ? trimmed : `${trimmed}\n`;
-  return `${prefix}${managedTomlStart(args.serverName)}\n${block}\n${managedTomlEnd(args.serverName)}\n`;
+  const reconciliation = reconcileKeyedBlock({
+    content: args.raw,
+    region: tomlRegion(args.serverName),
+    owner: tomlOwner(args.serverName, args.entry),
+    rendered: block,
+  });
+  return reconciliation.state.state === "malformed" ||
+    reconciliation.state.state === "unsupported-version"
+    ? Effect.fail(invalidTomlRegion(args.serverName, reconciliation.state.state))
+    : Effect.succeed(reconciliation.updated);
 };
 
 const removeToml = (args: {
@@ -333,21 +348,34 @@ const removeToml = (args: {
   readonly serverName: string;
   readonly disableOnly: boolean;
   readonly activationField: McpActivationField;
-}): string => {
+}): Effect.Effect<string, AppError> => {
+  const inspected = reconcileKeyedBlock({
+    content: args.raw,
+    region: tomlRegion(args.serverName),
+    owner: tomlOwner(args.serverName),
+    rendered: "",
+  });
+  if (inspected.state.state === "malformed" || inspected.state.state === "unsupported-version") {
+    return Effect.fail(invalidTomlRegion(args.serverName, inspected.state.state));
+  }
+  if (inspected.state.state === "absent") return Effect.succeed(args.raw);
   const activation = args.activationField.required;
   if (args.disableOnly && activation !== null) {
-    const start = managedTomlStart(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const end = managedTomlEnd(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const field = activation.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return args.raw.replace(new RegExp(`${start}[\\s\\S]*?${end}`), (block) =>
-      block.replace(
-        new RegExp(`^${field} = (?:true|false)$`, "m"),
-        `${activation.name} = ${String(activation.disabled)}`,
-      ),
+    const rendered = inspected.state.body.replace(
+      new RegExp(`^${field} = (?:true|false)$`, "m"),
+      `${activation.name} = ${String(activation.disabled)}`,
+    );
+    return Effect.succeed(
+      reconcileKeyedBlock({
+        content: args.raw,
+        region: tomlRegion(args.serverName),
+        owner: inspected.state.startMarker.ext ?? tomlOwner(args.serverName),
+        rendered,
+      }).updated,
     );
   }
-  const stripped = stripManagedTomlBlock(args.raw, args.serverName);
-  return stripped.length === 0 ? "" : stripped.endsWith("\n") ? stripped : `${stripped}\n`;
+  return Effect.succeed(inspected.updated);
 };
 
 const pickProjectTarget = (
@@ -380,7 +408,7 @@ export const writeAgentMcpConfig = (
         const next = yield* Effect.gen(function* () {
           switch (target.format) {
             case "toml":
-              return upsertToml({
+              return yield* upsertToml({
                 raw,
                 serversKey: args.serversKey,
                 serverName: args.serverName,
@@ -424,7 +452,7 @@ export const removeAgentMcpConfig = (
         const next = yield* Effect.gen(function* () {
           switch (target.format) {
             case "toml":
-              return removeToml({
+              return yield* removeToml({
                 raw,
                 serverName: args.serverName,
                 disableOnly: args.disableOnly,

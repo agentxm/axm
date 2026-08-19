@@ -98,7 +98,7 @@ describe("instructions handler", () => {
         });
         expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(true);
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-          "# >>> axm:instructions >>>",
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases",
         );
       }),
     );
@@ -351,12 +351,12 @@ describe("instructions handler", () => {
     fs.mkdirSync(path.join(tempDir, ".git"));
     fs.writeFileSync(
       path.join(tempDir, "AGENTS.md"),
-      "# Human instructions\n\n<!-- axm:start region=knowledge-base -->\n## Knowledge Base\n<!-- axm:end region=knowledge-base -->\n",
+      "# Human instructions\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Base\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
     fs.writeFileSync(
       path.join(tempDir, ".gitignore"),
-      "dist/\n\n# >>> axm:instructions >>>\n**/CLAUDE.md\n# <<< axm:instructions <<<\n",
+      "dist/\n\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n**/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
     );
 
     return provide(
@@ -372,7 +372,7 @@ describe("instructions handler", () => {
           "# Human instructions",
         );
         expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toContain(
-          "region=knowledge-base",
+          "region=knowledge",
         );
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe("dist/\n\n");
         expectAppliedPlanResult(rendererState.results[0]?.data, {

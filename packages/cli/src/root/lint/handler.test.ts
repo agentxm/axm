@@ -423,12 +423,22 @@ describe("axm lint handler", () => {
         {
           mcpServers: {
             demo: {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/demo",
+                source: "inline",
+              },
               type: "stdio",
               command: "python",
             },
             stale: {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/stale",
+                source: "inline",
+              },
               type: "stdio",
               command: "node",
             },
@@ -449,6 +459,29 @@ describe("axm lint handler", () => {
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo.command).toBe("python");
         expect(config.mcpServers.stale).toBeDefined();
+      }),
+    );
+  });
+
+  it.effect("reports an unsupported managed-region version without writing", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: [],
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    });
+    writeEmptyLockfile();
+    const instructionsPath = path.join(tempDir, "AGENTS.md");
+    const before =
+      "<!-- axm:start v=2 region=rules -->\ngenerated\n<!-- axm:end v=2 region=rules -->\n";
+    fs.writeFileSync(instructionsPath, before);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ details: true }).pipe(Effect.exit);
+        const report = rendererState.logs.map(({ message }) => message).join("\n");
+        expect(report).toContain("workspace/projections-current");
+        expect(report).toContain("upgrade AXM");
+        expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
       }),
     );
   });

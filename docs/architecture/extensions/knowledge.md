@@ -5,6 +5,7 @@ description: How AXM manages isolated knowledge bundles and makes their concepts
 depends-on:
   - ./overview.md
   - ../workspace/instruction-files.md
+  - ../workspace/managed-file-ownership.md
 ---
 
 # Knowledge
@@ -84,3 +85,8 @@ state, graph and index reproducibility, concept identity, query and read
 revision consistency, surrounding instruction preservation, ambiguous region
 boundaries, compact discovery, activation, safe stale-state removal,
 instruction-management interaction, and idempotent rebuilding.
+
+The compact discovery unit is `region=knowledge` with provenance owner
+`@agentxm/knowledge/discovery`; `knowledge-base` is not a region identifier.
+Its markers and ambiguity behavior follow the shared
+[ownership grammar](../workspace/managed-file-ownership.md).

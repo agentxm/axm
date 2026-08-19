@@ -109,6 +109,16 @@ const StepArtifactSourceSchema = Schema.Struct({
   description: "Optional source metadata describing where the artifact came from.",
 });
 
+const StepManagedRegionSchema = Schema.Struct({
+  unitId: Schema.String,
+  path: Schema.String,
+  owner: Schema.String,
+}).annotate({
+  identifier: "StepManagedRegion",
+  title: "Plan Step Managed Region",
+  description: "One managed-region ownership unit and its provenance owner.",
+});
+
 const StepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
@@ -121,6 +131,7 @@ const StepArtifactSchema = Schema.Struct({
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
   agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   source: Schema.optional(StepArtifactSourceSchema),
+  managedRegions: Schema.optional(Schema.Array(StepManagedRegionSchema)),
   registryLifecycle: Schema.optional(
     Schema.Struct({
       deprecation: DeprecationViewSchema,
@@ -302,10 +313,18 @@ const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
-  const { targets, source, ...base } = artifact;
+  const { targets, source, managedRegions, ...base } = artifact;
   const sanitizedBase = {
     ...base,
     ...(base.path === undefined ? {} : { path: redactSensitiveText(base.path) }),
+    ...(managedRegions === undefined
+      ? {}
+      : {
+          managedRegions: managedRegions.map((region) => ({
+            ...region,
+            path: redactSensitiveText(region.path),
+          })),
+        }),
   };
   const sanitizedSource =
     source === undefined

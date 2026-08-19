@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
 
 import { validateBundledAxmSkillContract } from "./bundled-axm-skill-contract.js";
+import { stripRegionMarkers } from "./type-enumerations.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const REPO_ROOT = path.join(CLI_ROOT, "..", "..");
@@ -42,14 +43,16 @@ const collectSourceFiles = (
           `unsupported bundled skill entry: ${path.relative(REPO_ROOT, absolutePath)}`,
         );
       }
-      return [{ path: relativePath, base64: fs.readFileSync(absolutePath).toString("base64") }];
+      const raw = fs.readFileSync(absolutePath, "utf-8");
+      const bundled = relativePath === "SKILL.md" ? stripRegionMarkers(raw) : raw;
+      return [{ path: relativePath, base64: Buffer.from(bundled).toString("base64") }];
     });
 
 const sourceFiles = collectSourceFiles(SKILL_SRC_DIR);
 if (!sourceFiles.some((file) => file.path === "SKILL.md")) {
   throw new Error(`missing ${path.relative(REPO_ROOT, path.join(SKILL_SRC_DIR, "SKILL.md"))}`);
 }
-const skillMd = fs.readFileSync(path.join(SKILL_SRC_DIR, "SKILL.md"), "utf-8");
+const skillMd = stripRegionMarkers(fs.readFileSync(path.join(SKILL_SRC_DIR, "SKILL.md"), "utf-8"));
 
 const skillJson: unknown = JSON.parse(skillJsonRaw);
 if (

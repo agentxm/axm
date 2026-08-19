@@ -62,3 +62,25 @@ export {
   reconcileManagedRegionFile,
   type ManagedRegionReconciliation,
 } from "./managed-region-adapter.js";
+export { reconcilePatternList, type PatternListReconciliation } from "./pattern-list-adapter.js";
+export {
+  managedKeyedBlockNames,
+  reconcileKeyedBlock,
+  type KeyedBlockReconciliation,
+} from "./keyed-block-adapter.js";
+export {
+  MARKER_KIND_END,
+  MARKER_KIND_FILE,
+  MARKER_KIND_POINT,
+  MARKER_KIND_START,
+  MARKER_VERSION,
+  commentStyleForTarget,
+  markerForFile,
+  parseMarker,
+  serializeMarker,
+  type FileCommentStyle,
+  type ManagedMarker,
+  type MarkerParseResult,
+  type RegionMarker,
+  type RegionName,
+} from "./marker-grammar.js";

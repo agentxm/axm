@@ -231,7 +231,7 @@ const writeAdoptedMcpConfig = (
         ...servers,
         [adoption.name]: {
           ...entry,
-          [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline"),
+          [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline", adoption.name),
         },
       },
     };

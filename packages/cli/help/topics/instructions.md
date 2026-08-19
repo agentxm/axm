@@ -74,9 +74,10 @@ the surrounding authored prose.
 
 ## Alias `.gitignore` entries
 
-`gitignoreAliases` controls the managed block between `# >>>
-axm:instructions >>>` and `# <<< axm:instructions <<<` markers. The canonical
-source named by `fileName` is never ignored.
+`gitignoreAliases` controls the managed block between `# axm:start v=1
+region=instruction-aliases ext=@agentxm/instructions/aliases` and `# axm:end
+v=1 region=instruction-aliases` markers. The canonical source named by
+`fileName` is never ignored.
 
 - `true` (default) manages ignore entries for propagated alias files.
 - `false` omits managed alias-ignore entries.
@@ -84,11 +85,16 @@ source named by `fileName` is never ignored.
 ## Diagnosis and reconciliation
 
 Use `axm lint` for missing sources, drifted targets, unsupported agent
-conventions, and stale managed `.gitignore` blocks. Use `axm sync --preview` to
-inspect reconciliation, then `axm sync` to restore configured state.
+conventions, stale managed `.gitignore` blocks, and tracked aliases covered by
+managed ignore patterns. The tracked-alias finding names
+`gitignoreAliases: false` as the reconciling setting. Use `axm sync --preview`
+to inspect reconciliation, then `axm sync` to restore configured state.
 
 Transitions fail closed when an alias or managed region is unowned or
 ambiguous. Settings and files remain unchanged; there is no generic force flag.
+Managed copies carry a structured `axm:file v=1` marker; the banner prose is
+guidance rather than an ownership signal. AXM tolerates formatter-only changes
+and emits no formatter directives.
 
 ## Where to go next
 

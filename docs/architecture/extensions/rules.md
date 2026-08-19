@@ -5,6 +5,7 @@ description: How AXM composes enabled Rule extensions into a managed instruction
 depends-on:
   - ./overview.md
   - ../workspace/instruction-files.md
+  - ../workspace/managed-file-ownership.md
 ---
 
 # Rules
@@ -67,3 +68,8 @@ preservation, formatter changes, safe removal, and idempotent reconciliation.
 The shared [multi-route contributor coverage](overview.md#testing-strategy)
 applies to the Rule region. Shared instruction-file tests own marker and alias
 behavior.
+
+The aggregate region is `region=rules` with provenance owner
+`@agentxm/rules/instructions`. Each contributed Rule begins with a versioned
+`axm:point` anchor, so observation recovers contributor identity through the
+shared [ownership grammar](../workspace/managed-file-ownership.md).

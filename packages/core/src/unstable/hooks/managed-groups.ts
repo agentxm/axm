@@ -58,17 +58,33 @@ const validateHooksShape = (
   return Effect.void;
 };
 
-/** AXM renders hook commands that run out of the workspace extensions dir. */
 interface ManagedHookCommand {
   readonly type: "command";
   readonly command: string;
+  readonly "x-axm": {
+    readonly v: 1;
+    readonly managed: true;
+    readonly unit: string;
+    readonly source: string;
+    readonly ref: string;
+  };
 }
 
-export const isManagedHookCommand = (value: unknown): value is ManagedHookCommand =>
-  isRecord(value) &&
-  value["type"] === "command" &&
-  typeof value["command"] === "string" &&
-  value["command"].includes(".axm/extensions/");
+export const isManagedHookEntry = (value: unknown): value is ManagedHookCommand => {
+  if (!isRecord(value) || value["type"] !== "command" || typeof value["command"] !== "string") {
+    return false;
+  }
+  const metadata = value["x-axm"];
+  return (
+    isRecord(metadata) &&
+    metadata["v"] === 1 &&
+    metadata["managed"] === true &&
+    typeof metadata["unit"] === "string" &&
+    metadata["unit"].startsWith("hook:") &&
+    typeof metadata["source"] === "string" &&
+    typeof metadata["ref"] === "string"
+  );
+};
 
 /** Commands recovered from AXM-owned hook entries in one hooks object. */
 export const managedHookCommands = (hooks: unknown): ReadonlyArray<string> => {
@@ -79,7 +95,30 @@ export const managedHookCommands = (hooks: unknown): ReadonlyArray<string> => {
     for (const group of groups) {
       if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
       for (const entry of group["hooks"]) {
-        if (isManagedHookCommand(entry)) commands.push(entry.command);
+        if (isManagedHookEntry(entry)) commands.push(entry.command);
+      }
+    }
+  }
+  return commands;
+};
+
+export const ambiguousHookCommands = (hooks: unknown): ReadonlyArray<string> => {
+  if (!isRecord(hooks)) return [];
+  const commands: Array<string> = [];
+  for (const groups of Object.values(hooks)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
+      for (const entry of group["hooks"]) {
+        if (
+          isRecord(entry) &&
+          entry["type"] === "command" &&
+          typeof entry["command"] === "string" &&
+          entry["command"].includes(".axm/extensions/") &&
+          !isManagedHookEntry(entry)
+        ) {
+          commands.push(entry["command"]);
+        }
       }
     }
   }
@@ -96,6 +135,17 @@ export const readManagedHookCommands = (
     const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
     return isRecord(parsed) ? managedHookCommands(parsed[settingsKey]) : [];
+  });
+
+export const readAmbiguousHookCommands = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  Effect.gen(function* () {
+    const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
+    yield* validateHooksShape(configPath, settingsKey, parsed);
+    return isRecord(parsed) ? ambiguousHookCommands(parsed[settingsKey]) : [];
   });
 
 const structurallyEqual = (left: unknown, right: unknown): boolean => {
@@ -136,7 +186,7 @@ export const stripManagedHookGroups = (hooks: Record<string, unknown>): Record<s
         continue;
       }
 
-      const retainedHooks = groupHooks.filter((entry) => !isManagedHookCommand(entry));
+      const retainedHooks = groupHooks.filter((entry) => !isManagedHookEntry(entry));
       if (retainedHooks.length > 0) {
         retainedGroups.push({ ...group, hooks: retainedHooks });
       }

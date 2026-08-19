@@ -10,6 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
@@ -1173,17 +1174,34 @@ const makeSyncPlan = ({
 
 const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (args?: {
   readonly deferPreview?: boolean;
+  readonly facts?: ReadonlyArray<ProjectionInvariantFact>;
 }) {
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
-  const preview = args?.deferPreview === true ? undefined : yield* manager.sync({ dryRun: true });
-  if (preview !== undefined && !preview.changed && preview.warnings.length === 0) {
-    return Option.none<PlannedJobStep<SyncPlanRequirements>>();
-  }
   const instructions = yield* ws.getInstructionsConfig();
   const instructionFile = resolveInstructionsConfig(
     Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
   ).fileName;
+  const previewResult =
+    args?.deferPreview === true ? undefined : yield* Effect.result(manager.sync({ dryRun: true }));
+  if (previewResult !== undefined && Result.isFailure(previewResult)) {
+    return Option.some<PlannedJobStep<SyncPlanRequirements>>({
+      key: "knowledge:discovery",
+      label: "Knowledge discovery",
+      readiness: "error",
+      errorMessage: previewResult.failure.detail,
+      artifact: {
+        path: instructionFile,
+        scope: ws.scope,
+        change: "unchanged",
+        managedRegions: managedRegionsForFacts(args?.facts ?? []),
+      },
+    });
+  }
+  const preview = previewResult === undefined ? undefined : previewResult.success;
+  if (preview !== undefined && !preview.changed && preview.warnings.length === 0) {
+    return Option.none<PlannedJobStep<SyncPlanRequirements>>();
+  }
   const details =
     preview?.artifacts
       .filter((artifact) => artifact.change !== "unchanged")
@@ -1192,10 +1210,17 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
           `${artifact.change} ${artifact.path}${artifact.mechanism === undefined ? "" : ` (${artifact.mechanism})`}`,
       ) ?? [];
   const message = [...details, ...(preview?.warnings ?? [])].join("; ");
+  const artifact = {
+    path: instructionFile,
+    scope: ws.scope,
+    change: preview?.changed === false ? "unchanged" : "updated",
+    managedRegions: managedRegionsForFacts(args?.facts ?? []),
+  } satisfies JobStepArtifact;
   return Option.some({
     key: "knowledge:discovery",
     label: "Knowledge discovery",
     readiness: "ready",
+    artifact,
     ...(message.length === 0 ? {} : { message }),
     run: manager.sync({ dryRun: false }).pipe(
       Effect.map((result): JobStepResult => {
@@ -1209,8 +1234,7 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
             : "Knowledge discovery already current",
           ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
           artifact: {
-            path: instructionFile,
-            scope: ws.scope,
+            ...artifact,
             change: result.changed ? "updated" : "unchanged",
             ...(mechanism === undefined ? {} : { mechanism }),
             targets: result.artifacts.map((artifact) => ({
@@ -1279,6 +1303,13 @@ export const projectionDivergenceLabel = (
   return details.length === 0 ? label : `${label} (${details})`;
 };
 
+const managedRegionsForFacts = (facts: ReadonlyArray<ProjectionInvariantFact>) =>
+  facts.flatMap(({ subject }) =>
+    subject.owner === undefined
+      ? []
+      : [{ unitId: subject.unitId, path: subject.path, owner: subject.owner }],
+  );
+
 const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   facts: ReadonlyArray<ProjectionInvariantFact>,
 ) {
@@ -1286,6 +1317,25 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   const ws = yield* WorkspaceMutations;
   if (!projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncPlanRequirements>>();
+  const unsupported = facts.find(
+    ({ observation }) => observation.reasonCode === "unsupported-version",
+  );
+  if (unsupported !== undefined) {
+    return Option.some<PlannedJobStep<SyncPlanRequirements>>({
+      key: SYNC_RECOVERY_IDS.hookProjections,
+      label: "managed hook projections",
+      readiness: "error",
+      errorMessage:
+        unsupported.observation.message ??
+        "Managed hook projection uses an unsupported marker version; upgrade AXM.",
+      artifact: {
+        path: "managed hook projections",
+        scope: ws.scope,
+        change: "unchanged",
+        managedRegions: managedRegionsForFacts(facts),
+      },
+    });
+  }
   const agentOutcomes =
     manager.configuredAgentOutcomes === undefined
       ? []
@@ -1295,6 +1345,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
     scope: ws.scope,
     change: "updated",
     agentOutcomes,
+    managedRegions: managedRegionsForFacts(facts),
   } satisfies JobStepArtifact;
   const blocked = agentOutcomes.filter(({ outcome }) => outcome === "blocked");
   if (blocked.length > 0) {
@@ -1338,6 +1389,25 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
 
   const configuredAgents = yield* ws.getConfiguredAgents();
   const resolvedConfig = resolveInstructionsConfig(config.value);
+  const unsupported = projectionFacts.find(
+    ({ observation }) => observation.reasonCode === "unsupported-version",
+  );
+  if (unsupported !== undefined) {
+    return Option.some<PlannedJobStep<SyncPlanRequirements>>({
+      key: SYNC_RECOVERY_IDS.instructionReconcile,
+      readiness: "error",
+      label: "instruction files",
+      errorMessage:
+        unsupported.observation.message ??
+        "Instruction projection uses an unsupported marker version; upgrade AXM.",
+      artifact: {
+        path: resolvedConfig.fileName,
+        scope: ws.scope,
+        change: "unchanged",
+        managedRegions: managedRegionsForFacts(projectionFacts),
+      },
+    });
+  }
   const status = yield* getInstructionsStatus({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
@@ -1393,24 +1463,23 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     });
   }
 
+  const artifact = {
+    path: resolvedConfig.fileName,
+    scope: ws.scope,
+    change: "updated",
+    managedRegions: managedRegionsForFacts(projectionFacts),
+  } satisfies JobStepArtifact;
+
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
     key: SYNC_RECOVERY_IDS.instructionReconcile,
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
-    artifact: {
-      path: resolvedConfig.fileName,
-      scope: ws.scope,
-      change: "updated",
-    },
+    artifact,
     run: applyPlannedProjections(manager).pipe(
       Effect.map((): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",
-        artifact: {
-          path: resolvedConfig.fileName,
-          scope: ws.scope,
-          change: "updated",
-        },
+        artifact,
       })),
     ),
   });
@@ -1495,10 +1564,16 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
         const ruleProjectionFacts = projectionFacts.filter(
           ({ subject }) => subject.unitId === "rule:instructions-region",
         );
+        const knowledgeProjectionFacts = projectionFacts.filter(
+          ({ subject }) => subject.unitId === "knowledge:discovery-region",
+        );
         const knowledgeStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           scoped || !cleanupSafe
             ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
-            : yield* collectKnowledgeStep({ deferPreview: knowledgeMayChange });
+            : yield* collectKnowledgeStep({
+                deferPreview: knowledgeMayChange,
+                facts: knowledgeProjectionFacts,
+              });
         const hooksStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> = selectionTouches(
           "hook",
         )

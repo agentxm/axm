@@ -27,6 +27,9 @@ export const REGION_NAMES = [
   "extension-type-namespace-set",
 ] as const;
 
+// This grammar is build-time-only. Generators must strip it before publishing
+// rendered help or bundled workspace artifacts.
+
 export type RegionName = (typeof REGION_NAMES)[number];
 
 export const openMarker = (region: RegionName): string => `<!-- axm:generated:${region} -->`;

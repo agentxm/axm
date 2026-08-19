@@ -126,8 +126,15 @@ export interface JobStepArtifact {
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly source?: JobStepArtifactSource;
+  readonly managedRegions?: ReadonlyArray<JobStepManagedRegion>;
   /** Registry lifecycle evidence captured when the candidate was resolved. */
   readonly registryLifecycle?: { readonly deprecation: DeprecationView };
+}
+
+export interface JobStepManagedRegion {
+  readonly unitId: string;
+  readonly path: string;
+  readonly owner: string;
 }
 
 export interface JobStepArtifactTarget {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   makeProjectionInvariantFact,
   projectionFactIsViolation,
+  type ProjectionInvariantFact,
   type ProjectionUnitObservation,
 } from "./invariant-facts.js";
 
@@ -67,5 +68,27 @@ describe("projection invariant facts", () => {
     ].map((fact) => fact.observation.status);
 
     expect(statuses).toEqual(["missing", "stale", "obsolete", "current"]);
+  });
+
+  it("treats an unsupported marker version as a reportable unavailable unit", () => {
+    const fact: ProjectionInvariantFact = {
+      predicate: "workspace/projection-current",
+      subject: {
+        unitId: "rule:instructions-region",
+        path: "AGENTS.md#rules",
+        scope: "project",
+        owner: "@agentxm/rules/instructions",
+      },
+      authority: { source: "desired-state-graph", contributors: [] },
+      observation: {
+        status: "unavailable",
+        contributors: [],
+        reasonCode: "unsupported-version",
+        message: "Marker version 2 is unsupported; upgrade AXM.",
+      },
+      expectation: { status: "current", contributors: [] },
+      affectedContributors: [],
+    };
+    expect(projectionFactIsViolation(fact)).toBe(true);
   });
 });

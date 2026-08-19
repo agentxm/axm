@@ -60,7 +60,11 @@ import {
   type KnowledgeManifest,
 } from "./manifest-schema.js";
 import { inspectKnowledgeBundle, type KnowledgeInspection } from "./okf.js";
-import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
+import {
+  KNOWLEDGE_REGION_OWNER,
+  reconcileKnowledgeDiscovery,
+  type KnowledgeDiscoveryBundle,
+} from "./discovery.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -576,6 +580,7 @@ export const KnowledgeManagerLive = Layer.effect(
                 Effect.map((result) => ({
                   unitId: "knowledge:discovery-region",
                   path: instructionsTarget.path,
+                  owner: KNOWLEDGE_REGION_OWNER,
                   present: input.contributors.length === 0 || !result.changed,
                   current: !result.changed,
                   expectedContributors: input.contributors.map(

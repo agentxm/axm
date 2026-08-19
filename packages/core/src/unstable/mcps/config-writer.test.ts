@@ -120,7 +120,7 @@ describe("agent MCP config writer", () => {
           const configPath = nodePath.join(workspaceRoot, "agent.json");
           writeFileSync(
             configPath,
-            '{\n  "mcpServers": { "context": { "command": "npx", "x-axm": { "managed": true, "source": "inline" } } }\n}\n',
+            '{\n  "mcpServers": { "context": { "command": "npx", "x-axm": { "v": 1, "managed": true, "ext": "@workspace/mcps/context", "source": "inline" } } }\n}\n',
           );
 
           const result = yield* removeAgentMcpConfig({
@@ -165,7 +165,7 @@ describe("agent MCP config writer", () => {
           });
 
           expect(readFileSync(configPath, "utf8")).toContain(
-            "# axm managed mcp-server context start",
+            "# axm:start v=1 region=mcp-server:context ext=@agentxm/mcps/context",
           );
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(writeResult.targets).toEqual([{ path: "agent.toml", change: "updated" }]);
@@ -345,7 +345,12 @@ describe("agent MCP config writer", () => {
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
             entry: {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/context",
+                source: "inline",
+              },
               enabled: true,
               command: "npx",
               args: ["-y", "@acme/context-mcp"],
@@ -362,7 +367,12 @@ describe("agent MCP config writer", () => {
             timeout: 30,
           });
           expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
-            "x-axm": { managed: true, source: "inline" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@workspace/mcps/context",
+              source: "inline",
+            },
             enabled: true,
             command: "npx",
             args: ["-y", "@acme/context-mcp"],
@@ -389,7 +399,12 @@ describe("agent MCP config writer", () => {
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
             entry: {
-              "x-axm": { managed: true, source: "inline" },
+              "x-axm": {
+                v: 1,
+                managed: true,
+                ext: "@workspace/mcps/stripe",
+                source: "inline",
+              },
               enabled: true,
               url: "https://mcp.stripe.com",
               headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
@@ -399,7 +414,12 @@ describe("agent MCP config writer", () => {
           expect(parseYaml(readFileSync(configPath, "utf8"))).toMatchObject({
             mcp_servers: {
               stripe: {
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/stripe",
+                  source: "inline",
+                },
                 enabled: true,
                 url: "https://mcp.stripe.com",
                 headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
@@ -427,7 +447,9 @@ describe("agent MCP config writer", () => {
               "    command: npx",
               "  context:",
               "    x-axm:",
+              "      v: 1",
               "      managed: true",
+              '      ext: "@workspace/mcps/context"',
               "      source: inline",
               "    enabled: true",
               "    command: npx",

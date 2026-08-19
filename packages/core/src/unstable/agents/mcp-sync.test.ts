@@ -951,14 +951,24 @@ describe("mcp-sync helpers", () => {
               const configPath = `${workspaceRoot}/.hermes/config.yaml`;
               let raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/context",
+                  source: "inline",
+                },
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
                 env: { REGION: "us-east-1" },
               });
               expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/stripe",
+                  source: "inline",
+                },
                 enabled: true,
                 url: "https://mcp.stripe.com",
               });

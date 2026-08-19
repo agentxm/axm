@@ -272,7 +272,11 @@ const projectRegistryEntry = (args: {
     _tag: "projected",
     entry: {
       ...projected.entry,
-      [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
+      [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({
+        ext: args.ref,
+        source: "registry",
+        ref: args.ref,
+      }),
     },
   };
 };

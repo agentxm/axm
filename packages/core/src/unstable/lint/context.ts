@@ -32,6 +32,7 @@ import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js
 import type { Handle } from "../extensions/handle.js";
 import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
 import type { ProjectionInvariantFact } from "../projection/index.js";
+import type { WorkspaceOwnershipIssue } from "../workspace/rendered-file-cleanup.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -319,6 +320,7 @@ export interface WorkspaceRuleContext {
   readonly instructions?: WorkspaceInstructionAccessor;
   /** Read-back currency for aggregate managed output units. */
   readonly projections?: WorkspaceProjectionsAccessor;
+  readonly ownership?: Effect.Effect<ReadonlyArray<WorkspaceOwnershipIssue>>;
   /**
    * Installed non-pack extension manifests, keyed by nothing — rules walk the
    * list. Landed for `workspace/recommended-packs-retained`, which needs the

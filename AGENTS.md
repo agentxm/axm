@@ -244,30 +244,30 @@ Wait for the user to review changes and decide when to commit.
 | axm-cli-interactions | survey | Sessions that directly run `axm` to complete work in this workspace or manually validate AXM behavior; automated test invocations excluded | —                | Recurring notes support a specific target condition, or two triage reviews find no pattern                 |
 | ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                                  | —                | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
 
-<!-- prettier-ignore-start -->
-<!-- axm:start region=knowledge-base -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
+
 ## Knowledge Base
 
 ### @agentxm
 
-| Bundle | Description |
-| --- | --- |
+| Bundle                                                                                 | Description                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agent-engineering](.axm/extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
+| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
-| Bundle | Description |
-| --- | --- |
-| [docs](.axm/extensions/@craigsmitham/knowledge/docs/src/index.md) | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
-| [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md) | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md) | Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action |
-| [software-engineering](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/index.md) | Software engineering guidance for architecture documentation, functional and quality concerns, boundaries, changeability, invariants, and actionable work items |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
-<!-- axm:end region=knowledge-base -->
-<!-- prettier-ignore-end -->
-<!-- axm:start region=rules -->
-<!-- axm:rule @craigsmitham/rules/use-effect-v4@0.1.0 -->
+| Bundle                                                                                            | Description                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](.axm/extensions/@craigsmitham/knowledge/docs/src/index.md)                                 | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
+| [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md)                       | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                           |
+| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                   | Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action                                        |
+| [software-engineering](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/index.md) | Software engineering guidance for architecture documentation, functional and quality concerns, boundaries, changeability, invariants, and actionable work items        |
+| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md)   | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+
+<!-- axm:end v=1 region=knowledge -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.0 kind=rule -->
 
 ## Use Effect v4
 
@@ -275,7 +275,7 @@ When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
 v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
 v4 sources.
 
-<!-- axm:rule @craigsmitham/rules/yagni@0.1.1 -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/yagni@0.1.1 kind=rule -->
 
 ## YAGNI
 
@@ -285,7 +285,7 @@ Defer the commitment unless it serves a current feature, constraint, invariant,
 or concrete risk. If delay would close an option that is costly to recover,
 take only the cheapest safe action that preserves it.
 
-<!-- axm:rule @craigsmitham/rules/tidy-first@0.1.1 -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/tidy-first@0.1.1 kind=rule -->
 
 ## Tidy First
 
@@ -295,7 +295,7 @@ pattern](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design
 Choose first, after, later, or never. If tidying first, make only the smallest
 behavior-preserving change that makes the authorized change easier.
 
-<!-- axm:rule @craigsmitham/rules/field-notes@0.2.0 -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.0 kind=rule -->
 
 ## Field notes
 
@@ -336,4 +336,4 @@ three options.
 
 To declare subjects, triage notes, or promote them into findings, use the
 `field-notes` skill. Never do that work inline.
-<!-- axm:end region=rules -->
+<!-- axm:end v=1 region=rules -->

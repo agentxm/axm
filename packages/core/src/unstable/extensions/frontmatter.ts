@@ -107,7 +107,11 @@ const findFrontmatterBoundaries = (
   }
 
   const closingEnd = closingIndex + 1 + FRONTMATTER_DELIMITER.length;
-  const bodyStart = content[closingEnd] === "\n" ? closingEnd + 1 : closingEnd;
+  const bodyStart = content.startsWith("\r\n", closingEnd)
+    ? closingEnd + 2
+    : content[closingEnd] === "\n"
+      ? closingEnd + 1
+      : closingEnd;
 
   return {
     yamlStart: afterOpening + 1,

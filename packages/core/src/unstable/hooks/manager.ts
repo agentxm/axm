@@ -55,7 +55,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
+import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import {
@@ -101,6 +101,7 @@ export class HookManager extends ServiceMap.Service<HookManager, HookManagerServ
 ) {}
 
 const HOOK_FALLBACKS_REGION = "hook-fallbacks";
+export const HOOK_FALLBACKS_REGION_OWNER = "@agentxm/hooks/fallbacks";
 
 // Per-package in-process mutex so concurrent re-materialization of the same hook
 // package (remove+copy) is serialized rather than racing.
@@ -334,6 +335,7 @@ const appendCommandHookBinding = (
   writer: HooksWriter,
   binding: HookBinding,
   hookName: string,
+  hookRef: string,
   command: string,
   timeoutMs: number | undefined,
 ): Effect.Effect<void, AppError> =>
@@ -359,6 +361,13 @@ const appendCommandHookBinding = (
     const commandEntry: Record<string, unknown> = {
       type: "command",
       command,
+      "x-axm": {
+        v: 1,
+        managed: true,
+        unit: `hook:${hookName}`,
+        source: "extension",
+        ref: hookRef,
+      },
     };
     if (writer.commandNameSerialization === "manifest") {
       commandEntry["name"] = hookName;
@@ -673,6 +682,7 @@ export const HookManagerLive = Layer.effect(
               target.writer,
               binding,
               rendered.manifest.name,
+              rendered.marker,
               rendered.command,
               rendered.manifest.timeoutMs,
             );
@@ -715,6 +725,7 @@ export const HookManagerLive = Layer.effect(
             targetPath: target.targetPath,
             displayPath: target.workspaceRelative,
             region: HOOK_FALLBACKS_REGION,
+            owner: HOOK_FALLBACKS_REGION_OWNER,
             rendered,
             ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
             unsupportedTargetDetail: `Hook fallback target does not support managed regions: ${target.workspaceRelative}`,
@@ -738,6 +749,7 @@ export const HookManagerLive = Layer.effect(
           projectionUnitObservation: {
             unitId: "hook:fallback-region",
             path: `${target.workspaceRelative}#${HOOK_FALLBACKS_REGION}`,
+            owner: HOOK_FALLBACKS_REGION_OWNER,
             present: Option.isSome(observedRegion),
             current: !changed,
             expectedContributors: input.contributors.map(({ marker }) => marker),

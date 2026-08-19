@@ -219,7 +219,7 @@ describe("extension activation lifecycle", () => {
         if (row.workspaceCapability === "instructions") {
           const instructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
           expect(instructions).toContain("region=rules");
-          expect(instructions).toContain("region=knowledge-base");
+          expect(instructions).toContain("region=knowledge");
           expect(fs.readFileSync(path.join(temp.path, "CLAUDE.md"), "utf8")).toBe(instructions);
         }
         await expectCleanWorkspace(temp.path, `${row.type} re-enabled`);

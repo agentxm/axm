@@ -143,7 +143,7 @@ describe("RuleManager graph-derived region projection", () => {
   const instructionsPath = () => nodePath.join(baseDir, "AGENTS.md");
   const readInstructions = () => nodeFs.readFileSync(instructionsPath(), "utf8");
   const markerCount = (content: string, name: string): number =>
-    content.split(`axm:rule ${OWNER}/rules/${name}@`).length - 1;
+    content.split(`axm:point v=1 ext=${OWNER}/rules/${name}@`).length - 1;
 
   it.effect("renders direct and two-pack contributors exactly once each", () => {
     writeRulePackage("direct-rule", { priority: 10 });
@@ -227,9 +227,9 @@ describe("RuleManager graph-derived region projection", () => {
       nodeFs.writeFileSync(
         instructionsPath(),
         `${readInstructions().replace(
-          "<!-- axm:rule @acme/rules/pack-b-rule@1.0.0 -->\n\nGuidance for pack-b-rule.",
+          "<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\n\nGuidance for pack-b-rule.",
           "",
-        )}\n<!-- axm:rule @acme/rules/pack-b-rule@1.0.0 -->\nUser-owned text outside the region.\n`,
+        )}\n<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\nUser-owned text outside the region.\n`,
       );
 
       expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(

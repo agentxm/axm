@@ -44,7 +44,7 @@ describe("disableSubagent", () => {
       // the relative-only RenderedFilePathSchema.
       fs.writeFileSync(
         path.join(subagentsDir, "my-subagent.md"),
-        "---\nname: my-subagent\n---\n<!-- AXM managed file -->\n# my-subagent\n",
+        "---\nname: my-subagent\n---\n<!-- axm:file v=1 ext=@acme/subagents/my-subagent src=.axm/extensions/@acme/subagents/my-subagent -->\n# my-subagent\n",
       );
 
       const received: { paths: ReadonlyArray<string> } = { paths: [] };

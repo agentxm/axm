@@ -114,13 +114,14 @@ export {
 } from "./configured-entry-resolution/index.js";
 
 export {
-  AXM_MANAGED_MARKER,
   cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSubagentFiles,
   findManagedSubagentFiles,
   hasAxmManagedMarker,
+  inspectWorkspaceOwnership,
   type RemovedAgentArtifactCleanupResult,
   type RenderedFileCleanupResult,
+  type WorkspaceOwnershipIssue,
 } from "./rendered-file-cleanup.js";
 
 // Source metadata

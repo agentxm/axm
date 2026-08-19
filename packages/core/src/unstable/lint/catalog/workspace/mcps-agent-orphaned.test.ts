@@ -18,7 +18,12 @@ const makeContext = (): WorkspaceRuleContext =>
               contentRoot: null,
               configFile: ".mcp.json",
               config: {
-                "x-axm": { managed: true, source: "inline" },
+                "x-axm": {
+                  v: 1,
+                  managed: true,
+                  ext: "@workspace/mcps/orphaned",
+                  source: "inline",
+                },
                 type: "stdio",
                 command: "node",
               },

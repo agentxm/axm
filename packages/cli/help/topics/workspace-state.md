@@ -24,6 +24,26 @@ instead of materializing directly; pass the pack's fully qualified
 result when that candidate contains changes and exits 0 when the workspace is
 already converged. Both preview forms are read-only.
 
+## Managed ownership versions
+
+Comment-bearing managed units use `axm:start`, `axm:end`, `axm:file`, or
+`axm:point` with an explicit `v=1`. JSON and YAML keyed entries carry the same
+version in `x-axm.v`. The version tells AXM which ownership grammar is safe to
+interpret; it is not an extension version.
+
+An unknown marker version is reported as `unsupported-version`. `axm lint` and
+`axm sync --preview` instruct you to upgrade AXM, and sync performs no writes
+for the affected closure. Do not hand-edit the version or marker boundaries.
+After upgrading, preview again before applying reconciliation.
+
+Machine previews expose an `owner` for every managed-region unit so callers
+can distinguish unit identity from extension provenance.
+
+`axm lint` reports `workspace/managed-file-unowned` when an artifact in a
+configured agent directory has neither a structured file marker nor a managed
+symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
+delete it automatically.
+
 ## Accepted external resolution
 
 Lockfile v4 contains only external resolutions. Registry rows pin version,

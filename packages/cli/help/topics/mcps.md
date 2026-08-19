@@ -153,6 +153,9 @@ declares exactly one transport — `source`, `command`, or `url`:
   decodes to a `${VAR}` reference.
 - Agent-native entries without AXM ownership metadata remain unowned and are
   never deleted by reconciliation.
+- AXM-owned JSON and YAML entries carry versioned `x-axm` metadata. Its `ext`
+  field is the installed extension FQN or `@workspace/mcps/<name>` for an
+  inline server; source and reference fields retain provenance.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
 configs through `axm sync`.

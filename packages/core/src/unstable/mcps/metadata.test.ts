@@ -13,44 +13,78 @@ const decodeMetadata = Schema.decodeUnknownSync(AxmMcpMetadataSchema);
 
 describe("AXM MCP metadata", () => {
   it("builds inline metadata without a ref", () => {
-    expect(buildAxmMcpMetadataFromSettingsSource("inline")).toEqual({
+    expect(buildAxmMcpMetadataFromSettingsSource("inline", "linear")).toEqual({
+      v: 1,
       managed: true,
+      ext: "@workspace/mcps/linear",
       source: "inline",
     });
   });
 
   it("builds registry metadata with a resolvable ref", () => {
-    expect(buildAxmMcpMetadata({ source: "registry", ref: "@owner/mcps/secure-api" })).toEqual({
+    expect(
+      buildAxmMcpMetadata({
+        ext: "@owner/mcps/secure-api",
+        source: "registry",
+        ref: "@owner/mcps/secure-api",
+      }),
+    ).toEqual({
+      v: 1,
       managed: true,
+      ext: "@owner/mcps/secure-api",
       source: "registry",
       ref: "@owner/mcps/secure-api",
     });
-    expect(buildAxmMcpMetadataFromSettingsSource("@owner/mcps/secure-api")).toEqual({
+    expect(buildAxmMcpMetadataFromSettingsSource("@owner/mcps/secure-api", "secure-api")).toEqual({
+      v: 1,
       managed: true,
+      ext: "@owner/mcps/secure-api",
       source: "registry",
       ref: "@owner/mcps/secure-api",
     });
   });
 
   it("validates ref presence by source", () => {
-    expect(decodeMetadata({ managed: true, source: "inline" })).toEqual({
+    expect(
+      decodeMetadata({ v: 1, managed: true, ext: "@workspace/mcps/linear", source: "inline" }),
+    ).toEqual({
+      v: 1,
       managed: true,
+      ext: "@workspace/mcps/linear",
       source: "inline",
     });
     expect(
       Option.isNone(
         readAxmMcpMetadata({
-          "x-axm": { managed: true, source: "inline", ref: "ignored" },
+          "x-axm": {
+            v: 1,
+            managed: true,
+            ext: "@workspace/mcps/linear",
+            source: "inline",
+            ref: "ignored",
+          },
         }),
       ),
     ).toBe(true);
-    expect(() => decodeMetadata({ managed: true, source: "registry" })).toThrow();
+    expect(() =>
+      decodeMetadata({
+        v: 1,
+        managed: true,
+        ext: "@owner/mcps/secure-api",
+        source: "registry",
+      }),
+    ).toThrow();
   });
 
   it("detects only entries with a valid managed metadata envelope", () => {
     expect(
       isAxmManagedMcpEntry({
-        "x-axm": { managed: true, source: "inline" },
+        "x-axm": {
+          v: 1,
+          managed: true,
+          ext: "@workspace/mcps/linear",
+          source: "inline",
+        },
       }),
     ).toBe(true);
     expect(isAxmManagedMcpEntry({ managedBy: "axm" })).toBe(false);

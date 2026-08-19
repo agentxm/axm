@@ -10,16 +10,11 @@ import {
 import { AGENTS as CAPABILITY_AGENTS } from "../agent-capabilities/index.js";
 import { PER_AGENT_EXTENSION_TYPES, type PerAgentType } from "../extensions/common.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import { stripManagedHooksFromJson } from "../hooks/managed-groups.js";
+import { hasManagedFileBanner } from "../extensions/managed-file-banner.js";
+import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "./scope.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { protectWorkspacePath } from "./transaction.js";
-
-// Match the full managed-file banner ("AXM managed file — do not edit
-// directly…"), not a bare "AXM managed" substring: the loose form would flag —
-// and delete — user-authored files that merely mention the phrase or carry a
-// managed region.
-export const AXM_MANAGED_MARKER = "AXM managed file";
 
 export interface RenderedFileCleanupResult {
   readonly removedPaths: ReadonlyArray<string>;
@@ -30,6 +25,12 @@ export interface RemovedAgentArtifactCleanupResult {
   readonly preservedPaths: ReadonlyArray<string>;
 }
 
+export interface WorkspaceOwnershipIssue {
+  readonly kind: "hook-ownership-ambiguous" | "managed-file-unowned";
+  readonly path: string;
+  readonly detail: string;
+}
+
 type RemovedAgentCleanupPaths = RemovedAgentArtifactCleanupResult;
 
 const extensionNameFromFilename = (fileName: string): string => {
@@ -37,8 +38,7 @@ const extensionNameFromFilename = (fileName: string): string => {
   return dotIndex === -1 ? fileName : fileName.slice(0, dotIndex);
 };
 
-export const hasAxmManagedMarker = (content: string): boolean =>
-  content.includes(AXM_MANAGED_MARKER) || content.includes("_axm_managed");
+export const hasAxmManagedMarker = hasManagedFileBanner;
 
 const isWithin = (path: Path.Path, parent: string, child: string): boolean => {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
@@ -342,6 +342,89 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
       removedPaths: [...new Set(removedPaths)],
       preservedPaths: [...new Set(preservedPaths)],
     };
+  });
+
+/** Inspect ownership proofs without mutating any agent-native artifact. */
+export const inspectWorkspaceOwnership = (): Effect.Effect<
+  ReadonlyArray<WorkspaceOwnershipIssue>,
+  AppError,
+  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+    const agentRepo = yield* CodingAgentRepository;
+    const configured = new Set(yield* ws.getConfiguredAgents());
+    const agents = yield* agentRepo.all;
+    const issues: Array<WorkspaceOwnershipIssue> = [];
+    for (const agent of agents) {
+      if (!configured.has(agent.id)) continue;
+      const skillsDir = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
+      if (skillsDir._tag === "supported") {
+        const result = yield* cleanupSkillArtifactsInDir({
+          fs,
+          path,
+          baseDir: ws.baseDir,
+          skillsDir: skillsDir.dir,
+          dryRun: true,
+        });
+        issues.push(
+          ...result.preservedPaths.map((artifactPath) => ({
+            kind: "managed-file-unowned" as const,
+            path: artifactPath,
+            detail: "Agent skill artifact has no AXM symlink or structured file ownership proof.",
+          })),
+        );
+      }
+      const subagentsDir = yield* agent.resolveEffectiveSubagentsDir({
+        workspaceRoot: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (subagentsDir._tag === "supported") {
+        const result = yield* cleanupSubagentArtifactsInDir({
+          fs,
+          path,
+          subagentsDir: subagentsDir.dir,
+          dryRun: true,
+        });
+        issues.push(
+          ...result.preservedPaths.map((artifactPath) => ({
+            kind: "managed-file-unowned" as const,
+            path: artifactPath,
+            detail: "Agent subagent artifact has no structured file ownership proof.",
+          })),
+        );
+      }
+      const capabilityAgent = CAPABILITY_AGENTS.find((candidate) => candidate.id === agent.id);
+      const writer = capabilityAgent?.capabilities.hook.axm.writer;
+      if (writer === undefined || writer === null) continue;
+      for (const file of writer.configFiles.filter(
+        (candidate) => candidate.scope === ws.scope && candidate.format === "json",
+      )) {
+        const configPath = path.resolve(ws.baseDir, file.path);
+        if (!(yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)))))
+          continue;
+        const raw = yield* safeReadFileString(fs, configPath);
+        const commands = yield* readAmbiguousHookCommands(configPath, writer.settingsKey, raw);
+        issues.push(
+          ...commands.map((command) => ({
+            kind: "hook-ownership-ambiguous" as const,
+            path: configPath,
+            detail: `Hook command targets .axm/extensions/ without x-axm ownership metadata: ${command}`,
+          })),
+        );
+      }
+    }
+    return issues.filter(
+      (issue, index) =>
+        issues.findIndex(
+          (candidate) =>
+            candidate.kind === issue.kind &&
+            candidate.path === issue.path &&
+            candidate.detail === issue.detail,
+        ) === index,
+    );
   });
 
 export const cleanupStaleManagedSubagentFiles = (args: {

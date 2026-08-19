@@ -109,7 +109,12 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        "x-axm": { managed: true, source: "inline" },
+        "x-axm": {
+          v: 1,
+          managed: true,
+          ext: "@workspace/mcps/demo",
+          source: "inline",
+        },
         type: "http",
         enabled: true,
         url: "https://example.test/mcp",
@@ -229,7 +234,12 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        "x-axm": { managed: true, source: "inline" },
+        "x-axm": {
+          v: 1,
+          managed: true,
+          ext: "@workspace/mcps/demo",
+          source: "inline",
+        },
         enabled: true,
         url: "https://example.test/mcp",
         http_headers: { Accept: "application/json" },
@@ -295,7 +305,12 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        "x-axm": { managed: true, source: "inline" },
+        "x-axm": {
+          v: 1,
+          managed: true,
+          ext: "@workspace/mcps/demo",
+          source: "inline",
+        },
         httpUrl: "https://example.test/mcp",
         headers: { Authorization: "Bearer ${TOKEN}" },
       },
@@ -339,7 +354,12 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        "x-axm": { managed: true, source: "inline" },
+        "x-axm": {
+          v: 1,
+          managed: true,
+          ext: "@workspace/mcps/demo",
+          source: "inline",
+        },
         type: "stdio",
         enabled: true,
         command: "npx",
@@ -384,7 +404,12 @@ describe("MCP projection", () => {
 
     expect(
       diffAgentEntry(expected, {
-        "x-axm": { source: "inline", managed: true },
+        "x-axm": {
+          source: "inline",
+          ext: "@workspace/mcps/demo",
+          managed: true,
+          v: 1,
+        },
         type: "stdio",
         enabled: true,
         command: "npx",

@@ -42,5 +42,7 @@ export const findingsForProjectionFacts = (
     kind: "advisory",
     ruleId: RULE_ID,
     severity: "error",
-    message: `The AXM-owned projection at ${fact.subject.path} is ${fact.observation.status}.${contributorSuffix(fact)}`,
+    message:
+      fact.observation.message ??
+      `The AXM-owned projection at ${fact.subject.path} is ${fact.observation.status}.${contributorSuffix(fact)}`,
   }));

@@ -30,6 +30,8 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/instructions-gitignore-current", severity: "info" },
   // Aggregate managed outputs render complete contributor sets.
   { id: "workspace/projections-current", severity: "error" },
+  { id: "workspace/hook-ownership-ambiguous", severity: "warning" },
+  { id: "workspace/managed-file-unowned", severity: "warning" },
   // Declaration valid (configured).
   { id: "workspace/skills-declarations-valid", severity: "error" },
   { id: "workspace/packs-declarations-valid", severity: "error" },

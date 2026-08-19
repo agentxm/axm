@@ -9,6 +9,10 @@ import { instructionsSourcePresentRule } from "./instructions-source-present.js"
 import { instructionsTargetCurrentRule } from "./instructions-target-current.js";
 
 const root = "/repo";
+const trackedAliasFixture = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../__fixtures__/workspace/instructions-gitignore-current",
+);
 
 const baseStatus: InstructionsStatus = {
   enabled: true,
@@ -22,6 +26,7 @@ const gitignoreCurrent: InstructionsGitignoreStatus = {
   file: `${root}/.gitignore`,
   desired: true,
   current: true,
+  trackedAliases: [],
 };
 
 const contextFor = (args: {
@@ -158,6 +163,7 @@ describe("instruction workspace rules", () => {
           file: `${root}/.gitignore`,
           desired: false,
           current: false,
+          trackedAliases: [],
         }),
       });
 
@@ -173,4 +179,34 @@ describe("instruction workspace rules", () => {
       expect("fix" in instructionsGitignoreCurrentRule).toBe(false);
     }),
   );
+
+  it.effect("reports tracked aliases and names the reconciling setting", () =>
+    Effect.gen(function* () {
+      expect(fs.readFileSync(path.join(trackedAliasFixture, ".gitignore"), "utf8")).toContain(
+        "**/CLAUDE.md",
+      );
+      expect(fs.existsSync(path.join(trackedAliasFixture, "CLAUDE.md"))).toBe(true);
+      const findings = yield* instructionsGitignoreCurrentRule.check(
+        contextFor({
+          gitignore: Option.some({
+            ...gitignoreCurrent,
+            trackedAliases: ["CLAUDE.md"],
+          }),
+        }),
+      );
+      expect(findings).toEqual([
+        {
+          kind: "advisory",
+          ruleId: "workspace/instructions-gitignore-current",
+          severity: "info",
+          message:
+            "Managed ignore entries cover paths already present in the Git index (CLAUDE.md); set gitignoreAliases: false to reconcile tracked instruction aliases.",
+          location: { file: ".gitignore" },
+        },
+      ]);
+    }),
+  );
 });
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";

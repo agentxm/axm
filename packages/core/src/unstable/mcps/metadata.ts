@@ -23,11 +23,15 @@ const ResolvableSourceTypeSchema = Schema.Literals([
 
 export const AxmMcpMetadataSchema = Schema.Union([
   Schema.Struct({
+    v: Schema.Literal(1),
     managed: Schema.Literal(true),
+    ext: Schema.NonEmptyString,
     source: Schema.Literal("inline"),
   }),
   Schema.Struct({
+    v: Schema.Literal(1),
     managed: Schema.Literal(true),
+    ext: Schema.NonEmptyString,
     source: ResolvableSourceTypeSchema,
     ref: Schema.NonEmptyString,
   }),
@@ -74,17 +78,38 @@ const sourceTypeFromSettingsSource = (source: string): Exclude<SourceType, "inli
 };
 
 export const buildAxmMcpMetadata = (args: {
+  readonly ext: string;
   readonly source: SourceType;
   readonly ref?: string | undefined;
 }): AxmMcpMetadata =>
   args.source === "inline"
-    ? { managed: true, source: "inline" }
-    : { managed: true, source: args.source, ref: args.ref ?? args.source };
+    ? { v: 1, managed: true, ext: args.ext, source: "inline" }
+    : {
+        v: 1,
+        managed: true,
+        ext: args.ext,
+        source: args.source,
+        ref: args.ref ?? args.source,
+      };
 
-export const buildAxmMcpMetadataFromSettingsSource = (source: string): AxmMcpMetadata =>
+export const buildAxmMcpMetadataFromSettingsSource = (
+  source: string,
+  serverName: string,
+): AxmMcpMetadata =>
   source === "inline"
-    ? { managed: true, source: "inline" }
-    : { managed: true, source: sourceTypeFromSettingsSource(source), ref: source };
+    ? {
+        v: 1,
+        managed: true,
+        ext: `@workspace/mcps/${serverName}`,
+        source: "inline",
+      }
+    : {
+        v: 1,
+        managed: true,
+        ext: source,
+        source: sourceTypeFromSettingsSource(source),
+        ref: source,
+      };
 
 export const readAxmMcpMetadata = (
   entry: Readonly<Record<string, unknown>>,

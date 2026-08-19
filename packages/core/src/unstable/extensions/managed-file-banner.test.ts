@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
+  hasManagedFileBanner,
   insertManagedFileBanner,
   managedFileFormatForPath,
   stripManagedFileBanner,
@@ -36,7 +37,8 @@ Review code.`;
     expect(result).toBe(`---
 name: reviewer
 ---
-<!-- AXM managed file — do not edit directly, instead:
+<!-- axm:file v=1 ext=@acme/subagents/reviewer src=.axm/extensions/@acme/subagents/reviewer/src/reviewer.md
+     AXM managed file — do not edit directly, instead:
      1. Edit: .axm/extensions/@acme/subagents/reviewer/src/reviewer.md
      2. Sync: \`axm sync\`
      Learn more: \`axm help subagents\` -->
@@ -52,7 +54,9 @@ Review code.`);
       format: "markdown",
     });
 
-    expect(result).toBe(`<!-- AXM managed file — do not edit directly, instead:
+    expect(result)
+      .toBe(`<!-- axm:file v=1 ext=@acme/rules/review src=.axm/extensions/@acme/rules/review/src/review.md
+     AXM managed file — do not edit directly, instead:
      1. Edit: .axm/extensions/@acme/rules/review/src/review.md
      2. Sync: \`axm sync\`
      Learn more: \`axm help rules\` -->
@@ -67,7 +71,9 @@ Review code.`);
       format: "toml",
     });
 
-    expect(result).toBe(`# AXM managed file — do not edit directly, instead:
+    expect(result)
+      .toBe(`# axm:file v=1 ext=@acme/rules/review src=.axm/extensions/@acme/rules/review/src/review.md
+# AXM managed file — do not edit directly, instead:
 # 1. Edit: .axm/extensions/@acme/rules/review/src/review.md
 # 2. Sync: \`axm sync\`
 # Learn more: \`axm help rules\`
@@ -92,6 +98,27 @@ prompt = "Review code."
     expect(second).toBe(first);
   });
 
+  it("does not claim prose and still inserts a structured marker", () => {
+    const prose = "This document explains how an AXM managed file behaves.";
+    expect(hasManagedFileBanner(prose)).toBe(false);
+    expect(
+      insertManagedFileBanner(prose, {
+        editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+        helpTopic: "rules",
+        format: "markdown",
+      }),
+    ).toContain("axm:file v=1");
+  });
+
+  it("recognizes ownership independently of human banner prose", () => {
+    const content = `<!-- axm:file v=1 ext=@acme/rules/review src=source.md
+     Completely different guidance. -->
+
+# Review\n`;
+    expect(hasManagedFileBanner(content)).toBe(true);
+    expect(stripManagedFileBanner(content, "markdown")).toBe("# Review\n");
+  });
+
   it("strips an existing markdown banner", () => {
     const content = insertManagedFileBanner("# Workspace\n", {
       editPath: "AGENTS.md",
@@ -100,5 +127,24 @@ prompt = "Review code."
     });
 
     expect(stripManagedFileBanner(content, "markdown")).toBe("# Workspace\n");
+  });
+
+  it.each(["\n", "\r\n"])("strips markdown and TOML banners under %j", (eol) => {
+    const markdown = insertManagedFileBanner("---\nname: review\n---\n# Body\n", {
+      editPath: "source.md",
+      helpTopic: "rules",
+      format: "markdown",
+    }).replaceAll("\n", eol);
+    expect(stripManagedFileBanner(markdown, "markdown")).toBe(
+      `---${eol}name: review${eol}---${eol}# Body${eol}`,
+    );
+
+    const tomlBody = 'prompt = "Review"\n';
+    const toml = insertManagedFileBanner(tomlBody, {
+      editPath: "source.md",
+      helpTopic: "rules",
+      format: "toml",
+    }).replaceAll("\n", eol);
+    expect(stripManagedFileBanner(toml, "toml")).toBe(tomlBody.replaceAll("\n", eol));
   });
 });

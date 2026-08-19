@@ -124,6 +124,13 @@ AXM preserves unrelated settings and removes only the entries it manages, so
 native hook availability until a writer is implemented behind the same manifest
 contract.
 
+Every generated command entry carries structured `x-axm` metadata with
+`v: 1`, `managed: true`, `unit: "hook:<name>"`, source, and reference. A command
+that merely points into `.axm/extensions/` is not AXM-owned and is never removed
+on that basis. `axm lint` reports such an unmarked entry as
+`workspace/hook-ownership-ambiguous`; add or remove it manually after deciding
+who owns it.
+
 ## Configuration
 
 Installed hooks are tracked in `.axm/settings.json` under the `hooks` map

@@ -11,9 +11,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
-import { HookManager } from "../hooks/manager.js";
+import { HOOK_FALLBACKS_REGION_OWNER, HookManager } from "../hooks/manager.js";
+import { KNOWLEDGE_REGION_OWNER } from "../knowledge/discovery.js";
 import { KnowledgeManager } from "../knowledge/manager.js";
-import { RuleManager } from "../rules/manager.js";
+import { RULES_REGION_OWNER, RuleManager } from "../rules/manager.js";
+import type { AppError } from "../app-error/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { OwnershipUnitId } from "./units.js";
@@ -28,6 +30,8 @@ export type ProjectionObservationStatus =
 export interface ProjectionUnitObservation {
   readonly unitId: OwnershipUnitId;
   readonly path: string;
+  /** Marker provenance owner for comment-bearing managed-region units. */
+  readonly owner?: string;
   /** Whether the AXM-owned unit itself is present, not merely its surrounding file. */
   readonly present: boolean;
   /** Whether the complete expected rendering byte-for-byte matches the output. */
@@ -43,6 +47,7 @@ export interface ProjectionInvariantFact {
     readonly unitId: OwnershipUnitId;
     readonly path: string;
     readonly scope: WorkspaceScope;
+    readonly owner?: string;
   };
   readonly authority: {
     readonly source: "desired-state-graph";
@@ -51,6 +56,8 @@ export interface ProjectionInvariantFact {
   readonly observation: {
     readonly status: ProjectionObservationStatus;
     readonly contributors: ReadonlyArray<string>;
+    readonly reasonCode?: string;
+    readonly message?: string;
   };
   readonly expectation: {
     readonly status: "current";
@@ -67,13 +74,31 @@ const makeUnavailableProjectionFact = (args: {
   readonly path: string;
   readonly scope: WorkspaceScope;
   readonly expectedContributors: ReadonlyArray<string>;
+  readonly owner?: string;
+  readonly error?: AppError;
 }): ProjectionInvariantFact => {
   const contributors = uniqueSorted(args.expectedContributors);
   return {
     predicate: PROJECTION_INVARIANT_PREDICATE,
-    subject: { unitId: args.unitId, path: args.path, scope: args.scope },
+    subject: {
+      unitId: args.unitId,
+      path: args.path,
+      scope: args.scope,
+      ...(args.owner === undefined ? {} : { owner: args.owner }),
+    },
     authority: { source: "desired-state-graph", contributors },
-    observation: { status: "unavailable", contributors: [] },
+    observation: {
+      status: "unavailable",
+      contributors: [],
+      ...(args.error === undefined
+        ? {}
+        : {
+            reasonCode: args.error.detail.includes("upgrade AXM")
+              ? "unsupported-version"
+              : "unavailable",
+            message: args.error.detail,
+          }),
+    },
     expectation: { status: "current", contributors },
     affectedContributors: contributors,
   };
@@ -114,7 +139,12 @@ export const makeProjectionInvariantFact = (
         : uniqueSorted([...expectedContributors, ...observedContributors]);
   return {
     predicate: PROJECTION_INVARIANT_PREDICATE,
-    subject: { unitId: unit.unitId, path: unit.path, scope },
+    subject: {
+      unitId: unit.unitId,
+      path: unit.path,
+      scope,
+      ...(unit.owner === undefined ? {} : { owner: unit.owner }),
+    },
     authority: { source: "desired-state-graph", contributors: expectedContributors },
     observation: { status, contributors: observedContributors },
     expectation: { status: "current", contributors: expectedContributors },
@@ -123,7 +153,9 @@ export const makeProjectionInvariantFact = (
 };
 
 export const projectionFactIsViolation = (fact: ProjectionInvariantFact): boolean =>
-  fact.observation.status !== "current" && fact.observation.status !== "unavailable";
+  fact.observation.status !== "current" &&
+  (fact.observation.status !== "unavailable" ||
+    fact.observation.reasonCode === "unsupported-version");
 
 /** Sync work implied by an intrinsic violation or an unready required unit. */
 export const projectionFactRequiresReconciliation = (fact: ProjectionInvariantFact): boolean =>
@@ -177,50 +209,51 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
             .map(({ identity }) => identity);
         if (Result.isFailure(ruleResult)) {
           const contributors = contributorsFor("rule");
-          if (contributors.length > 0) {
-            facts.push(
-              makeUnavailableProjectionFact({
-                unitId: "rule:instructions-region",
-                path: "managed Rules region",
-                scope: workspace.scope,
-                expectedContributors: contributors,
-              }),
-            );
-          }
+          facts.push(
+            makeUnavailableProjectionFact({
+              unitId: "rule:instructions-region",
+              path: "managed Rules region",
+              scope: workspace.scope,
+              expectedContributors: contributors,
+              owner: RULES_REGION_OWNER,
+              error: ruleResult.failure,
+            }),
+          );
         }
         if (Result.isFailure(hookResult)) {
           const contributors = contributorsFor("hook");
-          if (contributors.length > 0) {
-            facts.push(
-              makeUnavailableProjectionFact({
-                unitId: "hook:agent-hook-entries",
-                path: "managed hook projections",
-                scope: workspace.scope,
-                expectedContributors: contributors,
-              }),
-            );
-            facts.push(
-              makeUnavailableProjectionFact({
-                unitId: "hook:fallback-region",
-                path: "managed Hook fallback region",
-                scope: workspace.scope,
-                expectedContributors: contributors,
-              }),
-            );
-          }
+          facts.push(
+            makeUnavailableProjectionFact({
+              unitId: "hook:agent-hook-entries",
+              path: "managed hook projections",
+              scope: workspace.scope,
+              expectedContributors: contributors,
+              error: hookResult.failure,
+            }),
+          );
+          facts.push(
+            makeUnavailableProjectionFact({
+              unitId: "hook:fallback-region",
+              path: "managed Hook fallback region",
+              scope: workspace.scope,
+              expectedContributors: contributors,
+              owner: HOOK_FALLBACKS_REGION_OWNER,
+              error: hookResult.failure,
+            }),
+          );
         }
         if (Result.isFailure(knowledgeResult)) {
           const contributors = contributorsFor("knowledge");
-          if (contributors.length > 0) {
-            facts.push(
-              makeUnavailableProjectionFact({
-                unitId: "knowledge:discovery-region",
-                path: "managed Knowledge discovery region",
-                scope: workspace.scope,
-                expectedContributors: contributors,
-              }),
-            );
-          }
+          facts.push(
+            makeUnavailableProjectionFact({
+              unitId: "knowledge:discovery-region",
+              path: "managed Knowledge discovery region",
+              scope: workspace.scope,
+              expectedContributors: contributors,
+              owner: KNOWLEDGE_REGION_OWNER,
+              error: knowledgeResult.failure,
+            }),
+          );
         }
         return facts;
       }),

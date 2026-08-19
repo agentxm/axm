@@ -169,6 +169,7 @@ describe("agent instructions", () => {
           file: path.join(tempDir, ".gitignore"),
           desired: false,
           current: true,
+          trackedAliases: [],
         });
       }),
     ),
@@ -514,7 +515,7 @@ describe("agent instructions", () => {
           dryRun: false,
         });
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-          "# >>> axm:instructions >>>",
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases",
         );
 
         yield* syncInstructions({
@@ -527,7 +528,7 @@ describe("agent instructions", () => {
         });
 
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).not.toContain(
-          "# >>> axm:instructions >>>",
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases",
         );
       }),
     ),
@@ -538,7 +539,7 @@ describe("agent instructions", () => {
       Effect.gen(function* () {
         fs.mkdirSync(path.join(tempDir, ".git"));
         const before =
-          "dist/  \r\n\r\n# >>> axm:instructions >>>\r\n**/OLD.md\r\n# <<< axm:instructions <<<\r\n\r\n# keep  \r\n";
+          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n**/OLD.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n";
         fs.writeFileSync(path.join(tempDir, ".gitignore"), before);
 
         yield* syncInstructionsGitignore({
@@ -550,7 +551,7 @@ describe("agent instructions", () => {
         });
 
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(
-          "dist/  \r\n\r\n# >>> axm:instructions >>>\r\n**/CLAUDE.md\r\n# <<< axm:instructions <<<\r\n\r\n# keep  \r\n",
+          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n**/CLAUDE.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n",
         );
 
         yield* syncInstructionsGitignore({
@@ -572,7 +573,8 @@ describe("agent instructions", () => {
     run(
       Effect.gen(function* () {
         fs.mkdirSync(path.join(tempDir, ".git"));
-        const malformed = "dist/\n# >>> axm:instructions >>>\n**/CLAUDE.md\n";
+        const malformed =
+          "dist/\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n**/CLAUDE.md\n";
         fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
         const result = yield* Effect.result(

@@ -45,7 +45,12 @@ const makeContext = (
                 config:
                   args.actualConfig ??
                   ({
-                    "x-axm": { managed: true, source: "inline" },
+                    "x-axm": {
+                      v: 1,
+                      managed: true,
+                      ext: "@workspace/mcps/context",
+                      source: "inline",
+                    },
                     type: "stdio",
                     command: "python",
                   } satisfies Readonly<Record<string, unknown>>),
@@ -83,7 +88,12 @@ describe("workspace/mcps-agent-drift", () => {
           agentIds: ["claude-code", "github-copilot-cli"],
           actualAgentId: "github-copilot-cli",
           actualConfig: {
-            "x-axm": { managed: true, source: "inline" },
+            "x-axm": {
+              v: 1,
+              managed: true,
+              ext: "@workspace/mcps/context",
+              source: "inline",
+            },
             type: "local",
             command: "node",
             args: ["server.js"],

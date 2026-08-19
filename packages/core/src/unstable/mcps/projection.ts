@@ -234,6 +234,7 @@ const projectInlineStdio = (args: {
   readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
+  readonly serverName: string;
 }):
   | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
   | { readonly _tag: "unsupported"; readonly reason: string } => {
@@ -248,7 +249,7 @@ const projectInlineStdio = (args: {
     }
   }
   const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
   };
   const env = projectEnvRecord({
     values: args.env,
@@ -284,6 +285,7 @@ const projectInlineRemote = (args: {
   readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
+  readonly serverName: string;
   readonly transport?: InlineRemoteTransport | undefined;
 }):
   | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
@@ -302,7 +304,7 @@ const projectInlineRemote = (args: {
     };
   }
   const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
   };
   const headers = projectRemoteHeaders({
     values: args.headers,
@@ -357,6 +359,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
+      serverName: args.serverName,
       ...(args.remoteTransport === undefined ? {} : { transport: args.remoteTransport }),
     });
     if (projected._tag === "unsupported") return projected;
@@ -385,6 +388,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
+      serverName: args.serverName,
     });
     if (projected._tag === "unsupported") return projected;
     return {

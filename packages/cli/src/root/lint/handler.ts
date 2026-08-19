@@ -32,6 +32,7 @@ import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { WorkspaceInvariantFacts } from "@agentxm/client-core/unstable/projection";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
   buildLintWorkspace,
   buildPackRuleContexts,
@@ -55,6 +56,7 @@ import {
   WorkspaceMutations,
   getUserScopeDir,
   acceptedCanonicalObservation,
+  inspectWorkspaceOwnership,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
@@ -429,6 +431,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const path = yield* Path.Path;
   const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
   const ws = yield* WorkspaceMutations;
+  const agentRepo = yield* CodingAgentRepository;
   const workspaceRoot = yield* resolveLintRootEffect({
     pathArg: args.pathArg,
     scope: args.scope,
@@ -451,6 +454,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     workspaceRoot,
     userHome,
     scope: args.scope,
+    gitIndexView: args.input.view === "git-index",
     axmSkillCompatibilityPolicy,
     owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
     projections: {
@@ -525,8 +529,15 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       { concurrency: 16 },
     );
   });
+  const ownershipIssues = yield* inspectWorkspaceOwnership().pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(WorkspaceMutations, ws),
+    Effect.provideService(CodingAgentRepository, agentRepo),
+  );
   const workspaceHealthContext = {
     ...workspaceContext,
+    ownership: Effect.succeed(ownershipIssues),
     health: {
       desiredState: ws.getDesiredStateGraph(),
       canonicalObservations,

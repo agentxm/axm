@@ -256,7 +256,7 @@ describe("uninstall.handler (subagents)", () => {
       fs.mkdirSync(renderedDir, { recursive: true });
       fs.writeFileSync(
         path.join(renderedDir, "my-subagent.md"),
-        "<!-- AXM managed file -->\n# my-subagent",
+        "<!-- axm:file v=1 ext=@acme/subagents/my-subagent src=source.md\n     AXM managed file. -->\n# my-subagent",
       );
 
       return provide(

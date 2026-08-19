@@ -4,10 +4,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { reconcileManagedRegionFile } from "../projection/managed-region-adapter.js";
+import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
 
-const KNOWLEDGE_REGION = "knowledge-base";
+const KNOWLEDGE_REGION = "knowledge";
+export const KNOWLEDGE_REGION_OWNER = "@agentxm/knowledge/discovery";
 
 export interface KnowledgeDiscoveryBundle {
   readonly owner: string;
@@ -99,6 +100,7 @@ export const reconcileKnowledgeDiscovery = (args: {
       targetPath: args.instructionsPath,
       displayPath: instructionRelative,
       region: KNOWLEDGE_REGION,
+      owner: KNOWLEDGE_REGION_OWNER,
       rendered: renderedRegion,
       ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
       removeEmptyFile: true,

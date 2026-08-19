@@ -20,6 +20,7 @@ import {
 } from "@agentxm/client-core/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { MARKER_KIND_START, parseMarker } from "@agentxm/client-core/unstable/projection";
 import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
 import {
   WorkspaceMutations,
@@ -155,7 +156,18 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             .readFileString(path.resolve(ws.baseDir, instructionRelative.value))
             .pipe(Effect.option);
       const instructionRegionPresent = Option.exists(instructionBody, (content) =>
-        content.includes("axm:start region=knowledge-base"),
+        content.split(/\r?\n/u).some((line) => {
+          const parsed = parseMarker(line, {
+            kind: "block",
+            open: "<!--",
+            close: "-->",
+          });
+          return (
+            parsed.state === "complete" &&
+            parsed.marker.kind === MARKER_KIND_START &&
+            parsed.marker.region === "knowledge"
+          );
+        }),
       );
       const renderedInstructions = instructionRegionPresent
         ? instructionsManaged

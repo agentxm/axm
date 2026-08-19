@@ -1,9 +1,13 @@
-/**
- * Managed-file banner insertion for materialized extension artifacts.
- *
- * @experimental This API is unstable and may change without notice.
- */
+/** Managed-file banner insertion for materialized extension artifacts. */
 
+import * as Option from "effect/Option";
+import {
+  MARKER_KIND_FILE,
+  MARKER_VERSION,
+  markerForFile,
+  serializeMarker,
+  type FileCommentStyle,
+} from "../projection/marker-grammar.js";
 import { parseFrontmatterSync } from "./frontmatter.js";
 
 export type ManagedFileFormat = "markdown" | "toml";
@@ -12,9 +16,8 @@ export interface ManagedFileBannerOptions {
   readonly editPath: string;
   readonly helpTopic: string;
   readonly format: ManagedFileFormat;
+  readonly ext?: string | undefined;
 }
-
-const MANAGED_FILE_BANNER_MARKER = "AXM managed file";
 
 export const managedFileFormatForPath = (filePath: string): ManagedFileFormat | undefined => {
   if (filePath.endsWith(".md")) return "markdown";
@@ -22,66 +25,106 @@ export const managedFileFormatForPath = (filePath: string): ManagedFileFormat | 
   return undefined;
 };
 
-const makeMarkdownBanner = (options: ManagedFileBannerOptions): string =>
-  `<!-- AXM managed file — do not edit directly, instead:
+const styleFor = (format: ManagedFileFormat): FileCommentStyle =>
+  format === "markdown"
+    ? { kind: "block", open: "<!--", close: "-->" }
+    : { kind: "line", prefix: "#" };
+
+const extFromEditPath = (options: ManagedFileBannerOptions): string => {
+  if (options.ext !== undefined) return options.ext;
+  const match = options.editPath
+    .replaceAll("\\", "/")
+    .match(
+      /(?:^|\/)\.axm\/extensions\/(@[^/]+)\/(skills|subagents|mcps|rules|hooks|knowledge|packs)\/([^/]+)/u,
+    );
+  const owner = match?.[1];
+  const type = match?.[2];
+  const name = match?.[3];
+  return owner !== undefined && type !== undefined && name !== undefined
+    ? `${owner}/${type}/${name}`
+    : `@agentxm/${options.helpTopic}/managed-file`;
+};
+
+const markerLine = (options: ManagedFileBannerOptions): string =>
+  serializeMarker(
+    {
+      kind: MARKER_KIND_FILE,
+      v: MARKER_VERSION,
+      ext: extFromEditPath(options),
+      src: options.editPath,
+    },
+    styleFor(options.format),
+  );
+
+const makeMarkdownBanner = (options: ManagedFileBannerOptions): string => {
+  const marker = markerLine(options);
+  return `${marker.slice(0, -" -->".length)}
+     AXM managed file — do not edit directly, instead:
      1. Edit: ${options.editPath}
      2. Sync: \`axm sync\`
      Learn more: \`axm help ${options.helpTopic}\` -->`;
+};
 
 const makeTomlBanner = (options: ManagedFileBannerOptions): string =>
-  `# AXM managed file — do not edit directly, instead:
+  `${markerLine(options)}
+# AXM managed file — do not edit directly, instead:
 # 1. Edit: ${options.editPath}
 # 2. Sync: \`axm sync\`
 # Learn more: \`axm help ${options.helpTopic}\``;
 
-const insertMarkdownBanner = (content: string, options: ManagedFileBannerOptions): string => {
+const markdownBodyStart = (content: string): number => {
   const parsed = parseFrontmatterSync(content);
-  const insertAt = parsed.frontmatter === undefined ? 0 : content.length - parsed.body.length;
-  const banner = `${makeMarkdownBanner(options)}\n\n`;
-  return `${content.slice(0, insertAt)}${banner}${content.slice(insertAt)}`;
+  return parsed.frontmatter === undefined ? 0 : content.length - parsed.body.length;
+};
+
+const hasFileMarker = (content: string, format: ManagedFileFormat): boolean => {
+  const body = format === "markdown" ? content.slice(markdownBodyStart(content)) : content;
+  return Option.isSome(markerForFile(body, styleFor(format)));
+};
+
+const insertMarkdownBanner = (content: string, options: ManagedFileBannerOptions): string => {
+  const insertAt = markdownBodyStart(content);
+  return `${content.slice(0, insertAt)}${makeMarkdownBanner(options)}\n\n${content.slice(insertAt)}`;
 };
 
 const stripMarkdownBanner = (content: string): string => {
-  const parsed = parseFrontmatterSync(content);
-  const insertAt = parsed.frontmatter === undefined ? 0 : content.length - parsed.body.length;
+  const insertAt = markdownBodyStart(content);
   const prefix = content.slice(0, insertAt);
   const body = content.slice(insertAt);
-  if (!body.startsWith(`<!-- ${MANAGED_FILE_BANNER_MARKER}`)) return content;
-
+  if (!hasFileMarker(content, "markdown")) return content;
   const end = body.indexOf("-->");
   if (end < 0) return content;
-
-  return `${prefix}${body.slice(end + "-->".length).replace(/^(?:\r?\n){1,2}/, "")}`;
+  let remainder = body.slice(end + "-->".length).replace(/^(?:\r?\n){1,2}/u, "");
+  if (remainder.startsWith("<!-- AXM managed file")) {
+    const guidanceEnd = remainder.indexOf("-->");
+    if (guidanceEnd >= 0) {
+      remainder = remainder.slice(guidanceEnd + "-->".length).replace(/^(?:\r?\n){1,2}/u, "");
+    }
+  }
+  return `${prefix}${remainder}`;
 };
 
 const stripTomlBanner = (content: string): string => {
-  if (!content.startsWith(`# ${MANAGED_FILE_BANNER_MARKER}`)) return content;
-
-  const end = content.search(/\r?\n\r?\n/);
-  if (end < 0) return content;
-
-  return content.slice(end).replace(/^(?:\r?\n){1,2}/, "");
+  if (!hasFileMarker(content, "toml")) return content;
+  const lines = content.split(/(?<=\n)/u);
+  let index = 0;
+  while (index < lines.length && lines[index]?.trimStart().startsWith("#")) index += 1;
+  while (index < lines.length && lines[index]?.trim().length === 0) index += 1;
+  return lines.slice(index).join("");
 };
 
 export const insertManagedFileBanner = (
   content: string,
   options: ManagedFileBannerOptions,
 ): string => {
-  if (content.includes(MANAGED_FILE_BANNER_MARKER)) return content;
-
-  switch (options.format) {
-    case "markdown":
-      return insertMarkdownBanner(content, options);
-    case "toml":
-      return `${makeTomlBanner(options)}\n\n${content}`;
-  }
+  if (hasFileMarker(content, options.format)) return content;
+  return options.format === "markdown"
+    ? insertMarkdownBanner(content, options)
+    : `${makeTomlBanner(options)}\n\n${content}`;
 };
 
-export const stripManagedFileBanner = (content: string, format: ManagedFileFormat): string => {
-  switch (format) {
-    case "markdown":
-      return stripMarkdownBanner(content);
-    case "toml":
-      return stripTomlBanner(content);
-  }
-};
+export const stripManagedFileBanner = (content: string, format: ManagedFileFormat): string =>
+  format === "markdown" ? stripMarkdownBanner(content) : stripTomlBanner(content);
+
+export const hasManagedFileBanner = (content: string): boolean =>
+  hasFileMarker(content, "markdown") || hasFileMarker(content, "toml");

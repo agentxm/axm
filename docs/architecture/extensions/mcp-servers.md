@@ -5,6 +5,7 @@ description: How AXM manages MCP server definitions from extension content or in
 depends-on:
   - ./overview.md
   - ../workspace/settings.md
+  - ../workspace/managed-file-ownership.md
 ---
 
 # MCP Servers
@@ -84,3 +85,11 @@ secret-safe output, unrelated-entry preservation, same-name collisions,
 provenance drift, explicit import boundaries, manual unowned-collision
 recovery, target-dialect rendering, shared-target concurrency, unsupported
 transports, activation, safe removal, and repeated reconciliation.
+
+JSON and YAML entries prove ownership through versioned `x-axm` metadata with
+the extension or workspace-local inline identity in `ext`, plus source and
+reference provenance.
+TOML uses one `region=mcp-server:<name>` fence per server so AXM can replace
+only that byte range without an AST round trip that reformats unrelated user
+configuration. Both forms follow the shared
+[managed-file ownership contract](../workspace/managed-file-ownership.md).

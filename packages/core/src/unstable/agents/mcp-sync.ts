@@ -8,6 +8,7 @@ import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { managedKeyedBlockNames } from "../projection/adapters.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
@@ -352,14 +353,7 @@ const collectManagedTomlServerNames = (
   raw: string,
   declaredServerNames: ReadonlySet<string>,
 ): ReadonlyArray<string> => {
-  const names: Array<string> = [];
-  const blockPattern = /^# axm managed mcp-server ([a-z0-9][a-z0-9-]*) start$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = blockPattern.exec(raw)) !== null) {
-    const name = match[1];
-    if (name !== undefined && !declaredServerNames.has(name)) names.push(name);
-  }
-  return names;
+  return managedKeyedBlockNames(raw).filter((name) => !declaredServerNames.has(name));
 };
 
 const collectManagedYamlServerNames = (
@@ -565,6 +559,7 @@ const REMOVE_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/not installed/i, /no
 
 const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({
+    ext: `${args.owner}/mcps/${args.serverName}`,
     source: "registry",
     ref: `${args.owner}/mcps/${args.serverName}`,
   }),

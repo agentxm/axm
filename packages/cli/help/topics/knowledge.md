@@ -185,6 +185,8 @@ When instruction management is enabled, AXM writes one managed `Knowledge Base`
 table to the canonical instruction source. Rows sort by owner and bundle name,
 and link directly to each installed bundle's canonical `src/index.md`. Existing
 instruction aliases continue to propagate from that canonical source.
+The versioned region is `region=knowledge` with
+`ext=@agentxm/knowledge/discovery`.
 
 Discovery is enabled by default. Disable only the table with:
 

@@ -6,6 +6,7 @@ depends-on:
   - ./overview.md
   - ./settings.md
   - ./agents.md
+  - ./managed-file-ownership.md
 ---
 
 # Instruction files
@@ -77,6 +78,12 @@ An absent region may be created when instruction management authorizes it. A
 one-sided, duplicate, nested, or malformed marker sequence makes ownership
 ambiguous and blocks the affected reconciliation. An unowned file at a required
 alias path is a collision and remains untouched.
+
+The shared [managed-file ownership grammar](managed-file-ownership.md) names
+the Rules, Knowledge, Hook fallback, and instruction-alias units. Alias copies
+carry a structured `axm:file` banner, while `.gitignore` uses the
+`instruction-aliases` pattern-list region. Formatting-only changes do not
+create drift, and AXM emits no formatter directives.
 
 The canonical filename and alias behavior are durable instruction-file
 settings choices. Contributor participation follows the contributor's own

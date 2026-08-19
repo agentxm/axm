@@ -23,15 +23,28 @@ const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
   });
 
 describe("aggregate ownership unit conformance", () => {
-  it("keeps marker primitives and render-input construction inside projection planning", () => {
-    const offenders = productionTypeScriptFiles(packageSrc)
+  it("keeps adapter implementations sealed and exposes the marker grammar", () => {
+    const adapterOffenders = productionTypeScriptFiles(packageSrc)
       .filter((file) => !file.includes(`${nodePath.sep}projection${nodePath.sep}`))
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
-        return source.includes("projection/markers") || source.includes("managed-files");
+        return (
+          source.includes("projection/managed-region-adapter") ||
+          source.includes("projection/pattern-list-adapter") ||
+          source.includes("projection/keyed-block-adapter")
+        );
       })
       .map((file) => nodePath.relative(packageSrc, file));
-    expect(offenders).toEqual([]);
+    expect(adapterOffenders).toEqual([]);
+
+    const markerReaderOffenders = productionTypeScriptFiles(packageSrc)
+      .filter((file) => !file.includes(`${nodePath.sep}__generated__${nodePath.sep}`))
+      .filter((file) => {
+        const source = nodeFs.readFileSync(file, "utf8");
+        return source.includes('.includes("axm:') || source.includes(".includes('axm:");
+      })
+      .map((file) => nodePath.relative(packageSrc, file));
+    expect(markerReaderOffenders).toEqual([]);
 
     const planningSource = nodeFs.readFileSync(
       nodePath.join(packageSrc, "projection", "planning.ts"),
@@ -40,6 +53,10 @@ describe("aggregate ownership unit conformance", () => {
     expect(planningSource).toContain("ProjectionRenderInputTypeId");
     expect(planningSource).toContain("planAggregateProjection");
     expect(planningSource).toContain("planSingletonProjection");
+
+    expect(
+      nodeFs.readFileSync(nodePath.join(packageSrc, "projection", "marker-grammar.ts"), "utf8"),
+    ).toContain("export const parseMarker");
   });
 
   it("routes every ownership-unit cardinality through shared plans", () => {

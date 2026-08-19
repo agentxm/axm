@@ -21,7 +21,19 @@ export const instructionsGitignoreCurrentRule: AdvisoryRule<WorkspaceRuleContext
     Effect.gen(function* () {
       if (context.instructions === undefined) return EMPTY_LINT_FINDINGS;
       const status = yield* context.instructions.gitignore;
-      if (Option.isNone(status) || status.value.current) return EMPTY_LINT_FINDINGS;
+      if (Option.isNone(status)) return EMPTY_LINT_FINDINGS;
+      if (status.value.trackedAliases.length > 0) {
+        return [
+          {
+            kind: "advisory",
+            ruleId: RULE_ID,
+            severity: "info",
+            message: `Managed ignore entries cover paths already present in the Git index (${status.value.trackedAliases.join(", ")}); set gitignoreAliases: false to reconcile tracked instruction aliases.`,
+            location: { file: relativeToRoot(context.subject.root, status.value.file) },
+          },
+        ] satisfies ReadonlyArray<LintFinding>;
+      }
+      if (status.value.current) return EMPTY_LINT_FINDINGS;
       return [
         {
           kind: "advisory",

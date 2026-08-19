@@ -179,5 +179,9 @@ export const parseTomlValue = (rawValue: string): unknown => {
     return rawValue === "true";
   }
 
+  if (/^[+-]?\d+(?:\.\d+)?$/u.test(rawValue)) {
+    return Number(rawValue);
+  }
+
   return rawValue;
 };

@@ -14,6 +14,7 @@ import { createSymlink } from "../utils/create-symlink.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { reconcilePatternList } from "../projection/adapters.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
 
@@ -53,18 +54,18 @@ export interface InstructionsSyncResult {
 }
 
 type ManagedInstructionTargetState = "absent" | "owned-current" | "owned-drift" | "unowned";
-type ManagedGitignoreRegionState = "absent" | "complete" | "malformed";
+type ManagedGitignoreRegionState = "absent" | "complete" | "malformed" | "unsupported-version";
 
 export interface InstructionsGitignoreStatus {
   readonly file: string;
   readonly desired: boolean;
   readonly current: boolean;
+  readonly trackedAliases: ReadonlyArray<string>;
 }
 
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
-const START_MARKER = "# >>> axm:instructions >>>";
-const END_MARKER = "# <<< axm:instructions <<<";
+const INSTRUCTION_ALIASES_OWNER = "@agentxm/instructions/aliases";
 
 export const resolveInstructionsConfig = (
   config: InstructionsConfig | undefined,
@@ -493,14 +494,7 @@ const isManagedCopy = (args: {
   const format = managedFileFormatForPath(args.targetPath);
   if (format === undefined) return false;
   const body = stripManagedFileBanner(args.content, format);
-  if (body === args.content) return false;
-  return (
-    withManagedCopyBanner({
-      targetPath: args.targetPath,
-      sourceFileName: args.sourceFileName,
-      content: body,
-    }) === args.content
-  );
+  return body !== args.content;
 };
 
 const inspectManagedTargetState = (args: {
@@ -747,54 +741,31 @@ const syncOneTarget = (args: {
     return Option.some(args.targetPath);
   });
 
-const managedRegion = (patterns: ReadonlyArray<string>): string =>
-  patterns.length === 0 ? "" : `${START_MARKER}\n${patterns.join("\n")}\n${END_MARKER}\n`;
-
 const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionState => {
-  const start = content.indexOf(START_MARKER);
-  const end = content.indexOf(END_MARKER);
-  if (start < 0 && end < 0) return "absent";
-  if (
-    start >= 0 &&
-    end >= start &&
-    content.lastIndexOf(START_MARKER) === start &&
-    content.lastIndexOf(END_MARKER) === end
-  ) {
-    return "complete";
-  }
-  return "malformed";
+  const reconciliation = reconcilePatternList({
+    content,
+    target: ".gitignore",
+    region: "instruction-aliases",
+    owner: INSTRUCTION_ALIASES_OWNER,
+    patterns: [],
+  });
+  return Option.isSome(reconciliation) ? reconciliation.value.state.state : "malformed";
 };
 
 const hasManagedRegion = (content: string): boolean =>
   managedGitignoreRegionState(content) === "complete";
 
-const lineEndingFor = (content: string): "\r\n" | "\n" =>
-  content.includes("\r\n") ? "\r\n" : "\n";
-
-const withLineEnding = (content: string, lineEnding: "\r\n" | "\n"): string =>
-  content.replace(/\r?\n/g, lineEnding);
-
-const replaceManagedRegion = (content: string, region: string): string => {
-  const start = content.indexOf(START_MARKER);
-  const end = content.indexOf(END_MARKER);
-  if (start >= 0 && end >= start) {
-    const afterMarker = end + END_MARKER.length;
-    const afterRegion = content.startsWith("\r\n", afterMarker)
-      ? afterMarker + 2
-      : content.startsWith("\n", afterMarker)
-        ? afterMarker + 1
-        : afterMarker;
-    return (
-      content.slice(0, start) +
-      withLineEnding(region, lineEndingFor(content)) +
-      content.slice(afterRegion)
-    );
-  }
-  if (region.length === 0) return content;
-  const lineEnding = lineEndingFor(content);
-  const separator = content.length > 0 && !content.endsWith("\n") ? lineEnding : "";
-  return content + separator + withLineEnding(region, lineEnding);
-};
+const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
+  Option.getOrThrowWith(
+    reconcilePatternList({
+      content,
+      target: ".gitignore",
+      region: "instruction-aliases",
+      owner: INSTRUCTION_ALIASES_OWNER,
+      patterns,
+    }),
+    () => new Error("Invariant: .gitignore must support hash comments"),
+  );
 
 const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
@@ -806,12 +777,16 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const filePath = yield* instructionGitignorePath(workspaceRoot);
     const current = yield* readFileOption(filePath);
-    if (Option.isNone(current) || managedGitignoreRegionState(current.value) !== "malformed") {
+    const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
+    if (state !== "malformed" && state !== "unsupported-version") {
       return;
     }
     return yield* makeAppError({
       code: "conflict",
-      detail: `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+      detail:
+        state === "unsupported-version"
+          ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
+          : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
       suggestions: [
         {
           description: "Inspect instruction-file ownership and drift",
@@ -821,19 +796,16 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
     });
   });
 
-const desiredGitignoreRegion = (args: {
+const desiredGitignorePatterns = (args: {
   readonly desired: boolean;
   readonly sourceFileName: string;
   readonly configuredAgents: ReadonlyArray<string>;
-}): string =>
+}): ReadonlyArray<string> =>
   args.desired
-    ? managedRegion(
-        listInstructionAliases(
-          findAgentDescriptors(args.configuredAgents),
-          args.sourceFileName,
-        ).map((alias) => `**/${alias}`),
+    ? listInstructionAliases(findAgentDescriptors(args.configuredAgents), args.sourceFileName).map(
+        (alias) => `**/${alias}`,
       )
-    : "";
+    : [];
 
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
@@ -847,16 +819,20 @@ const writeGitignoreRegion = (args: {
     if (!gitManaged) return Option.none<string>();
 
     const filePath = yield* instructionGitignorePath(args.workspaceRoot);
-    const region = desiredGitignoreRegion({
+    const patterns = desiredGitignorePatterns({
       desired: args.desired,
       sourceFileName: args.sourceFileName,
       configuredAgents: args.configuredAgents,
     });
     const current = yield* readFileOption(filePath);
-    if (Option.isSome(current) && managedGitignoreRegionState(current.value) === "malformed") {
+    const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
+    if (state === "malformed" || state === "unsupported-version") {
       return yield* makeAppError({
         code: "conflict",
-        detail: `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+        detail:
+          state === "unsupported-version"
+            ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
+            : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
         suggestions: [
           {
             description: "Inspect instruction-file ownership and drift",
@@ -865,14 +841,14 @@ const writeGitignoreRegion = (args: {
         ],
       });
     }
-    if (region.length === 0 && Option.isNone(current)) return Option.none<string>();
-    if (region.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
+    if (patterns.length === 0 && Option.isNone(current)) return Option.none<string>();
+    if (patterns.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
       return Option.none<string>();
     }
-    const next = replaceManagedRegion(
+    const next = reconcileGitignorePatterns(
       Option.getOrElse(current, () => ""),
-      region,
-    );
+      patterns,
+    ).updated;
     if (Option.isSome(current) && current.value === next) return Option.none<string>();
     if (!args.dryRun) yield* writeFile(filePath, next);
     return Option.some(filePath);
@@ -882,8 +858,12 @@ export const getInstructionsGitignoreStatus = (args: {
   readonly workspaceRoot: string;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
+  /** True only when the supplied filesystem is a snapshot of the Git index. */
+  readonly gitIndexView?: boolean;
 }): Effect.Effect<InstructionsGitignoreStatus, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const file = yield* instructionGitignorePath(args.workspaceRoot);
     const gitManaged = yield* isGitManaged(args.workspaceRoot);
     if (!gitManaged) {
@@ -891,30 +871,48 @@ export const getInstructionsGitignoreStatus = (args: {
         file,
         desired: false,
         current: true,
+        trackedAliases: [],
       };
     }
 
     const currentContent = yield* readFileOption(file);
+    const aliasNames = listInstructionAliases(
+      findAgentDescriptors(args.configuredAgents),
+      args.config.fileName,
+    );
+    const trackedAliases =
+      args.config.gitignoreAliases && args.gitIndexView === true
+        ? (yield* Effect.forEach(aliasNames, (alias) =>
+            fs.exists(path.join(args.workspaceRoot, alias)).pipe(
+              Effect.catch(() => Effect.succeed(false)),
+              Effect.map((exists) => ({ alias, exists })),
+            ),
+          ))
+            .filter(({ exists }) => exists)
+            .map(({ alias }) => alias)
+        : [];
     const currentRegionState = Option.isSome(currentContent)
       ? managedGitignoreRegionState(currentContent.value)
       : "absent";
     const current = currentRegionState === "complete";
-    const region = desiredGitignoreRegion({
+    const patterns = desiredGitignorePatterns({
       desired: args.config.gitignoreAliases,
       sourceFileName: args.config.fileName,
       configuredAgents: args.configuredAgents,
     });
-    const desired = region.length > 0;
-    const next = replaceManagedRegion(
+    const desired = patterns.length > 0;
+    const next = reconcileGitignorePatterns(
       Option.getOrElse(currentContent, () => ""),
-      region,
-    );
+      patterns,
+    ).updated;
     return {
       file,
       desired,
+      trackedAliases,
       current:
         currentRegionState !== "malformed" &&
-        ((region.length === 0 && !current) ||
+        currentRegionState !== "unsupported-version" &&
+        ((patterns.length === 0 && !current) ||
           (Option.isSome(currentContent) && currentContent.value === next)),
     };
   });

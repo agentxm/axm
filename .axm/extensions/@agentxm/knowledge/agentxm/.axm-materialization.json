@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@agentxm",
+    "type": "knowledge",
+    "name": "agentxm",
+    "version": "1.2.1",
+    "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+    "integrity": "sha512-2oVn4RgZ0X1elSDK9woiVX1RlS0lFz0NYGvFL+dTV7Ifmcp7NLhrewYLWw3zQNrYm3GSxFAcKQkQCvmwFVAgZQ=="
+  }
+}

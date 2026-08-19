@@ -253,7 +253,7 @@ Wait for the user to review changes and decide when to commit.
 | Bundle | Description |
 | --- | --- |
 | [agent-engineering](.axm/extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Curated public knowledge about the AgentXM platform and the AXM extension model: domain concepts, identifiers, packs, visibility, and publishing workflows |
+| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
 
 ### @craigsmitham
 

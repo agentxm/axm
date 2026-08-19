@@ -4,8 +4,8 @@ description: How AgentXM handles work as publisher identity — one handle per a
 tags: [handle, ownership, publisher, identity, supply-chain, security]
 status: stable
 generated:
-  by: claude/fable-5
-  at: 2026-08-06T13:04:04Z
+  by: openai/codex
+  at: 2026-08-13T18:34:00Z
 ---
 
 # Handles and ownership
@@ -49,7 +49,8 @@ supply-chain safety
 posture: it prevents revival-hijack attacks where an abandoned publisher name
 is re-registered to serve malicious updates.
 
-Workspaces additionally record the **publisher epoch** they installed from in
-the lockfile. A recycled handle cannot silently substitute a new publisher for
+AXM workspaces preserve the accepted **publisher epoch** for installed
+extensions. A recycled handle cannot silently substitute a new publisher for
 an old one: interactive flows require explicit confirmation when an install
-would cross a publisher epoch, and unattended flows fail instead.
+would cross a publisher epoch, and unattended flows fail instead. The AXM
+workspace design owns how that acceptance is recorded.

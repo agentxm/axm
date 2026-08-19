@@ -1,5 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "@agentxm/client-core/unstable/cli-runtime";
@@ -147,6 +149,21 @@ describe("machine-output contract register", () => {
       expect(row.family.centralizedCoverage.length).toBeGreaterThan(0);
       expect(row.family.documentation.length).toBeGreaterThan(0);
       expect(row.helpSchemaName).toBe("JsonHelpDocSchema");
+    }
+  });
+
+  it("keeps every repository coverage pointer connected to an existing file", () => {
+    const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+    const coveragePointers = new Set(
+      [...MACHINE_OUTPUT_CONTRACT_ROWS, FORMATTER_VERSION_CONTRACT].flatMap((row) => [
+        ...row.family.commandCoverage,
+        ...row.family.livenessCoverage,
+      ]),
+    );
+
+    for (const pointer of coveragePointers) {
+      if (!pointer.startsWith("packages/")) continue;
+      expect(fs.existsSync(path.join(repositoryRoot, pointer)), pointer).toBe(true);
     }
   });
 

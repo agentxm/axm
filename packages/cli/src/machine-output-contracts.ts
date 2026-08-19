@@ -321,7 +321,7 @@ const packShowFamily = defineResultFamily({
   ],
   scenarios: ["authored pack", "accepted Registry pack", "unresolved dependencies"],
   rationale: "Pack inspection joins desired, accepted-resolution, and observed state.",
-  commandCoverage: ["packages/cli/src/root/packs/show.test.ts"],
+  commandCoverage: ["packages/cli-e2e/src/cli-commands/packs/packs.e2e.ts"],
 });
 
 const helpTopicFamily = defineResultFamily({

@@ -40,7 +40,9 @@ describe("example files", () => {
 
   it("settings.example.json conforms to SettingsSchema", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "settings/settings.example.json"));
-    const result = Schema.decodeUnknownSync(SettingsSchema)(example);
+    const result = Schema.decodeUnknownSync(SettingsSchema)(example, {
+      onExcessProperty: "error",
+    });
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");
     expect(result.agents).toContain("claude-code");

@@ -1,56 +1,48 @@
 ---
 type: Domain Concept
-description: Extension pack semantics — packs reference (never copy) leaf extensions, stay depth-1 by construction, resolve to pinned dependency maps, and uninstall orphan-aware.
-tags: [packs, dependencies, resolution, composition]
+description: "The shared semantics of extension packs: versioned extensions that compose references to leaf extensions without copying or nesting them."
+tags: [packs, extensions, dependencies, composition]
 status: stable
 generated:
-  by: claude/fable-5
-  at: 2026-08-06T13:04:04Z
+  by: openai/codex
+  at: 2026-08-16T01:34:22Z
 sources:
   - id: pack-schema
     resource: https://axm.sh/schemas/pack.schema.json
     title: Pack manifest JSON Schema
-  - id: workspace-state
-    resource: https://github.com/agentxm/axm/blob/main/contributing/guides/workspace-state.md
-    title: AXM workspace-state guide (packs section)
 ---
 
 # Extension pack semantics
 
-`pack` is the extension type whose payload references other
-extensions.[^pack-schema]
+A **pack** is an extension whose content is a collection of references to other
+extensions.[^pack-schema] It gives the collection one name and lifecycle without
+merging the identities or content of its members.
 
-- A pack contains zero or more entries of
-  `(handle, type, name, version range or pin)`.
-- A pack entry **references** an extension; it does not copy extension
-  identity.
-- **Pack entries must target non-pack extension types only.** Packs may not
-  include other packs, which keeps the pack graph at depth 1 by construction
-  and eliminates cyclic-inclusion concerns entirely. A pack is a curated
-  bundle of leaf extensions, not a hierarchy of meta-packs.
-- Pack resolution materializes exact dependency maps keyed by FQN and pinned
-  version (surfaced in the workspace lockfile as per-type maps such as
-  `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers`; the lockfile
-  schema owns the concrete field enumeration).
-- Pack-managed dependency entries may exist as lockfile-only native installs,
-  and therefore classify as _implicit_ until explicitly configured.
-- Pack-driven uninstall removes only orphaned dependency entries — never
-  directly configured entries, and never dependencies still referenced by
-  other packs.
+## Composition rules
 
-## Dependency invariants
+- A pack contains zero or more extension references.
+- Each reference identifies an extension and a permitted version or version
+  range.
+- A reference does not copy the member extension or transfer its ownership.
+- Pack members remain independently versioned extensions with their own types,
+  owners, visibility, and lifecycle.
+- A pack may reference leaf extension types only. A pack cannot reference
+  another pack, so pack composition has one level and cannot form cycles.
 
-- Pack manifests contribute desired members for all eight non-pack extension
-  types; resolution maps are keyed by FQN and pinned version.[^workspace-state]
-- Dependency removal during pack uninstall is orphan-aware across the
-  remaining pack references.
-- Directly configured entries are protected from pack-driven orphan cleanup.
-- Receipt history (the lockfile) never creates or retains pack membership.
+Installing or resolving a pack therefore means resolving its member references;
+it does not create a combined extension identity. Exact resolution records,
+local retention, and uninstall behavior are AXM workspace concerns rather than
+part of the shared pack definition.
 
-Related: [Extension types](extension-types.md),
-[The AgentXM extension model](extension-model.md) for the
-configured/implicit/unmanaged lifecycle classification packs participate in.
+Member lifecycle remains live and independent of the pack. A member's later
+deprecation does not invalidate the pack, change its published content, or alter
+version resolution. Pack inspection and installation can surface that member's
+current warning and actionable replacement guidance when the reader is allowed
+to see it; unavailable guidance does not disclose a private or deleted target.
+
+Related: [The AgentXM product model](extension-model.md) and
+[Extension types](extension-types.md). The identity-level lifecycle and its
+visibility boundary are defined by
+[Visibility and discovery](visibility-and-discovery.md).
 
 [^pack-schema]: Pack manifest JSON Schema.
-
-[^workspace-state]: AXM workspace-state guide (packs section).

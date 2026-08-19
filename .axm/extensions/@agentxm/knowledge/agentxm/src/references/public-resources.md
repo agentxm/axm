@@ -23,9 +23,9 @@ generated:
 ## Contracts and schemas
 
 - Extension manifest and workspace JSON Schemas under
-  [axm.sh/schemas](https://axm.sh/schemas/): `settings`, `axm-lock`, `trust`,
-  `axm-package-meta`, `skill`, `command`, `mcp`, `subagent`, `files`, `rule`,
-  `hook`, `knowledge`, and `pack` (`*.schema.json`).
+  [axm.sh/schemas](https://axm.sh/schemas/): `settings`, `axm-lock`,
+  `axm-package-meta`, `skill`, `mcp`, `subagent`, `rule`, `hook`, `knowledge`,
+  and `pack` (`*.schema.json`).
 - The registry REST API is self-describing via OpenAPI at
   registry.agentxm.ai.
 
@@ -33,8 +33,8 @@ generated:
 
 `axm help` topics are the system of record for CLI behavior — including
 `getting-started`, `basic-usage`, `authoring`, `workspace-state`,
-`machine-output`, `exit-codes`, per-type topics (`skills`, `commands`,
-`mcps`, `subagents`, `files`, `rules`, `hooks`, `knowledge`, `packs`), and
+`machine-output`, `exit-codes`, per-type topics (`skills`, `mcps`, `subagents`,
+`rules`, `hooks`, `knowledge`, `packs`), and
 `package-extensions`.
 
 ## Source and standards
@@ -42,10 +42,13 @@ generated:
 - CLI source: [github.com/agentxm/axm](https://github.com/agentxm/axm),
   licensed under the [Functional Source License](https://fsl.software)
   (see also [fair.io](https://fair.io)).
-- Governing standards: [Agent Skills](https://agentskills.io),
+- Ecosystem standards and formats: [Agent Skills](https://agentskills.io),
+  [AGENTS.md](https://agents.md),
   [Model Context Protocol](https://modelcontextprotocol.io),
-  [AGENTS.md](https://agents.md), and
-  [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
+  [Agent Plugins](https://agent-plugins.org/),
+  [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md),
+  [Package URL](https://www.packageurl.org/docs/purl/introduction), and
+  [VERS](https://www.packageurl.org/docs/vers/introduction).
 
 ## Official accounts and contact
 

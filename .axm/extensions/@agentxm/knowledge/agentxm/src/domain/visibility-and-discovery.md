@@ -4,8 +4,8 @@ description: How extension visibility works on the AgentXM registry — the two-
 tags: [visibility, discovery, private, public, yank, deprecation, access]
 status: stable
 generated:
-  by: claude/fable-5
-  at: 2026-08-06T13:04:04Z
+  by: openai/codex
+  at: 2026-08-16T01:34:22Z
 ---
 
 # Visibility and discovery
@@ -42,13 +42,34 @@ unlisted" state.
   is permanently claimed — see
   [Handles and ownership](handles-and-ownership.md).
 
+## Deprecation guidance
+
+Deprecation belongs to an extension identity rather than to any one published
+version. A deprecated extension carries structured guidance with a publisher
+message, a replacement extension, or both. The replacement is another exact
+extension identity in the same Registry; it is guidance, not an identity
+rename, redirect, dependency, or automatic migration.
+
+Deprecation starts a period that continues while its guidance is edited.
+Restoring the extension ends that period, and deprecating it again starts a new
+one. The state is warning-only: it does not change version selection, artifact
+availability, exact-reference behavior, or authorization.
+
+Replacement disclosure follows the same visibility perimeter as any other
+extension read. A reader who cannot see the replacement learns only that the
+guidance is unavailable, not its identity. If the replacement later becomes
+unreadable, deprecated, unresolved, or deleted, consumers retain the source
+deprecation but treat the replacement as unavailable. Reusing the replacement's
+former spelling for a different identity does not make the old guidance point
+to the new extension.
+
 ## Yank vs. deprecation vs. visibility
 
 | Mechanism   | Granularity                                        | Effect                                                                                                                                             |
 | ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Visibility  | Whole extension                                    | Who can see and fetch it at all                                                                                                                    |
 | Yank        | Exact version (or an atomic all-versions snapshot) | "Stop using this" — yanked versions stop resolving for new installs; exact yanked references remain fetchable by authorized readers with a warning |
-| Deprecation | Metadata                                           | Warning-only guidance to move on; nothing stops resolving                                                                                          |
+| Deprecation | Whole extension identity                           | Warning-only guidance to move on; nothing stops resolving                                                                                          |
 
-Yank is the version-level withdrawal mechanism; visibility is never used to
-simulate it.
+Yank is the version-level withdrawal mechanism; deprecation does not replace or
+imply yank, and visibility is never used to simulate either lifecycle.

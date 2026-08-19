@@ -4,8 +4,8 @@ description: The extension lifecycle from an author's and consumer's point of vi
 tags: [publishing, authoring, install, lifecycle, workflow, lint]
 status: stable
 generated:
-  by: codex/gpt-5
-  at: 2026-08-08T18:58:57Z
+  by: openai/codex
+  at: 2026-08-13T18:34:00Z
 sources:
   - id: axm-readme
     resource: https://github.com/agentxm/axm/blob/main/README.md
@@ -17,9 +17,7 @@ sources:
 ## Authoring and publishing
 
 1. **Scaffold** — `axm <type> new <name>` creates a workspace-authored
-   package under `.axm/extensions/`; the workspace settings record it with a
-   `workspace:@owner/<plural-type>/<name>` source, which is what marks
-   authorship.
+   extension under `.axm/extensions/`; AXM records it as workspace-authored.
 2. **Author** — complete the manifest (description, keywords, license) and
    the type's content (for example `SKILL.md`, concept documents, hook
    bodies).
@@ -40,12 +38,12 @@ does not.
 1. **Discover** — search the registry (web app, `axm discover`, CLI search,
    or the public MCP server's catalog tools).
 2. **Install** — `axm install @owner/<plural-type>/<name>` materializes the
-   package into the workspace, records desired state in settings, trust
-   identity in the trust file, and the resolution receipt in the lockfile.
-3. **Reconcile** — `axm sync` continuously re-derives one plan from desired
-   plus observed state; a clean workspace syncs as a no-op.
-4. **Update** — `axm update` (or `axm list --outdated` to inspect) moves configured
-   entries forward within their version constraints.
+   extension in the workspace and records the local configuration and exact
+   resolution AXM needs to manage it.
+3. **Reconcile** — `axm sync` brings AXM-managed local content in line with
+   the workspace configuration; a clean workspace syncs as a no-op.
+4. **Update** — `axm update` moves configured entries forward within their
+   version constraints; `axm list --outdated` reports available updates.
 5. **Retire** — `axm uninstall` removes an entry; pack-driven removal is
    orphan-aware per [Pack semantics](../domain/pack-semantics.md).
 

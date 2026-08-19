@@ -117,7 +117,7 @@ const resolveRegistrySource = (
 
     if (registrySources.length === 0) {
       return yield* makeAppError({
-        code: "internal",
+        code: "validation",
         detail: `No registry source is configured for owner "${owner}"`,
         recover: `Add a registry source for owner "${owner}"`,
         cmd: ADD_REGISTRY_SOURCE.cmd,
@@ -300,7 +300,7 @@ const resolveSkillRegistrySource = (
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
       return yield* makeAppError({
-        code: "internal",
+        code: "usage",
         detail: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
         recover: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
@@ -359,7 +359,7 @@ export const resolveSkillInstallSource = (
       // Unsupported:
       case "glob-input":
         return yield* makeAppError({
-          code: "internal",
+          code: "usage",
           detail: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           recover:
             "Use a registry reference (e.g., @owner/skill-name), a URL, or a shorthand (owner/repo) instead",

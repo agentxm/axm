@@ -3,6 +3,7 @@ export {
   AppErrorCodeSchema,
   AppErrorCodes,
   ExitCode,
+  ExitCodeDefinitions,
   defaultSuggestionsFor,
   defaultDetailFor,
   defaultTitleFor,

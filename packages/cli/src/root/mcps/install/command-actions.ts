@@ -186,7 +186,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 onNone: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "internal",
+                      code: "validation",
                       detail: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
                       suggestions: [
                         {

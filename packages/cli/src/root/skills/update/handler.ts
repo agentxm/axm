@@ -376,7 +376,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       const latestVersion = latestEntry?.version;
       if (latestVersion === undefined) {
         return yield* makeAppError({
-          code: "internal",
+          code: "conflict",
           detail: `Registry skill "${skillFqn}" has no published versions`,
           recover: "Publish a skill version first.",
           cmd: "axm skills publish",

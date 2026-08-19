@@ -123,7 +123,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
           onNone: () =>
             Effect.fail(
               makeAppError({
-                code: "internal",
+                code: "validation",
                 detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
                 suggestions: [
                   {
@@ -279,7 +279,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   if (matched.length === 0) {
     if (isGlob) {
       return yield* makeAppError({
-        code: "internal",
+        code: "not_found",
         detail: `No managed, versioned extensions match '${args.extension}'`,
         suggestions: [{ description: "Inspect installed extensions", cmd: "axm packs list" }],
       });
@@ -287,7 +287,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     if (installedNames.has(args.extension)) {
       return yield* makeAppError({
-        code: "internal",
+        code: "validation",
         detail: `Extension '${args.extension}' is not a managed, versioned extension`,
         suggestions: [
           {

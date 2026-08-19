@@ -247,7 +247,7 @@ const whoamiFamily = defineResultFamily({
 const cacheStatusFamily = defineResultFamily({
   id: "cache-status",
   schemaNames: ["CacheStatusOutputSchema"],
-  requiredTopLevelKeys: ["data"],
+  requiredTopLevelKeys: ["entries", "bytes", "maxBytes", "maxAgeDays"],
   scenarios: ["populated cache", "empty cache"],
   rationale: "Cache status is a read query.",
   commandCoverage: ["packages/cli/src/root/cache/command.test.ts"],

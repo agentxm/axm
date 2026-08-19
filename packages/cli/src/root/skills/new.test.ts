@@ -287,7 +287,10 @@ describe("skills-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
-          expect(getAppError(error).detail).toContain("No owner configured");
+          expect(getAppError(error)).toMatchObject({
+            code: "validation",
+            detail: expect.stringContaining("No owner configured"),
+          });
         }),
       );
     });

@@ -622,7 +622,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   onNone: () =>
                     Effect.fail(
                       makeAppError({
-                        code: "internal",
+                        code: "validation",
                         detail: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
                         suggestions: [
                           {

@@ -225,7 +225,7 @@ const resolveBareViewHandle = (handle: string) =>
 
     if (matches.length > 1) {
       return yield* makeAppError({
-        code: "internal",
+        code: "validation",
         detail: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
         suggestions: [{ description: "Re-run with --type or the fully-qualified name." }],
       });
@@ -396,7 +396,7 @@ const handleResolvedView = (args: {
       const value = fieldValue(data, field);
       if (value === undefined) {
         return yield* makeAppError({
-          code: "internal",
+          code: "validation",
           detail: `Field "${field}" is not available for ${data.handle}`,
         });
       }

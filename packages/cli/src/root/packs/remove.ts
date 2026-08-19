@@ -85,7 +85,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
           onNone: () =>
             Effect.fail(
               makeAppError({
-                code: "internal",
+                code: "validation",
                 detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
                 suggestions: [
                   {
@@ -153,14 +153,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   if (matchedNames.length === 0) {
     if (isGlob) {
       return yield* makeAppError({
-        code: "internal",
+        code: "not_found",
         detail: `No extensions in pack match '${args.extension}'`,
         suggestions: [{ description: "Check pack contents" }],
       });
     }
 
     return yield* makeAppError({
-      code: "internal",
+      code: "not_found",
       detail: `Extension '${args.extension}' is not in the pack`,
       suggestions: [
         {

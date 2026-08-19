@@ -14,7 +14,7 @@ const CacheStatusSchema = Schema.Struct({
   maxAgeDays: Schema.Number,
 });
 
-export const CacheStatusOutputSchema = Schema.Struct({ data: CacheStatusSchema });
+export const CacheStatusOutputSchema = CacheStatusSchema;
 export type CacheStatusOutput = typeof CacheStatusOutputSchema.Type;
 
 const CacheVerifySchema = Schema.Struct({
@@ -55,7 +55,7 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const status = yield* renderer.withSpinner("Loading archive cache status", () => cache.status(), {
     successMessage: "Loaded archive cache status",
   });
-  if (yield* renderer.result({ data: status }, CacheStatusOutputSchema)) return;
+  if (yield* renderer.result(status, CacheStatusOutputSchema)) return;
   yield* renderer.raw(
     [
       "Archive cache",

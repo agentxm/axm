@@ -80,15 +80,41 @@ Expected errors and defects return the fixed stdout envelope:
   "ok": false,
   "code": "auth",
   "title": "Unauthorized",
-  "detail": "Credentials are missing, expired, or invalid."
+  "detail": "Credentials were rejected, are invalid, or expired."
 }
 ```
 
 The matching stderr stream ends with an event such as:
 
 ```json
-{ "type": "error", "code": "auth", "message": "Credentials are missing, expired, or invalid." }
+{
+  "type": "error",
+  "code": "auth",
+  "message": "Credentials were rejected, are invalid, or expired."
+}
 ```
+
+The required fields are `ok: false`, `code`, `title`, and `detail`. The only
+optional error-envelope fields are:
+
+- `cause[]`: redacted cause-chain entries with `_tag`, `message`, and optional
+  `code` and `stack`;
+- `metadata.request`: Registry `service`, `url`, and optional `method`;
+- `metadata.response`: numeric `status` and optional `requestId`,
+  `problemCode`, and redacted `body`;
+- `metadata.requestPolicy`: `retryable`, `attemptCount`, `maxAttempts`,
+  `exhausted`, `replaySafety`, and optional `stoppedBy`;
+- `blockedOn: "human"`: the command requires a person to continue;
+- `action`: an `open-url` action with `url` and optional `code`, `expiresAt`,
+  and `resume` fields; and
+- `suggestions[]`: typed recovery actions with a description and optional
+  command or URL.
+
+Exit 4 with `code: "auth"` means supplied or stored credentials were rejected,
+invalid, or expired. Missing credentials or a sign-in/authorization flow that
+needs a person uses exit 13 with `code: "auth_required"` and
+`blockedOn: "human"`. Expired and denied pending flows use
+`auth_expired`/exit 14 and `auth_denied`/exit 15 respectively.
 
 Normal, verbose, and debug error surfaces redact credentials from metadata,
 response bodies, causes, stacks, URLs, suggestions, and telemetry.

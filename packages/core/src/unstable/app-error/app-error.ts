@@ -33,7 +33,7 @@ export const ExitCode = {
   Usage: 2,
   /** Resource doesn't exist or isn't visible. Pairs with `AppErrorCode` `not_found`. */
   NotFound: 3,
-  /** Credentials are missing, expired, or invalid. Sign in again. Pairs with `AppErrorCode` `auth`. */
+  /** Credentials were rejected, are invalid, or expired. Sign in again. Pairs with `AppErrorCode` `auth`. */
   Auth: 4,
   /** Signed in, but not authorized for this action. Pairs with `AppErrorCode` `forbidden`. */
   Forbidden: 5,
@@ -51,7 +51,7 @@ export const ExitCode = {
   Unavailable: 11,
   /** Quota, storage, or plan limit exhausted. Pairs with `AppErrorCode` `quota`. */
   Quota: 12,
-  /** Progress is waiting on a person to complete an action. Pairs with `AppErrorCode` `auth_required`. */
+  /** Authentication or authorization is waiting on a person to complete a required action. Pairs with `AppErrorCode` `auth_required`. */
   AuthRequired: 13,
   /** A pending authentication flow expired. Pairs with `AppErrorCode` `auth_expired`. */
   AuthExpired: 14,
@@ -62,6 +62,80 @@ export const ExitCode = {
 } as const;
 
 export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
+
+/** Canonical public meaning of every AXM process exit code. */
+export const ExitCodeDefinitions = [
+  {
+    code: ExitCode.Success,
+    meaning: "Success. Also used for help output and cancelled prompts.",
+  },
+  {
+    code: ExitCode.Issues,
+    meaning:
+      'Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here.',
+  },
+  {
+    code: ExitCode.Usage,
+    meaning:
+      "Invalid invocation, confirmable approval required in non-interactive mode, or a named policy override is required. Fix the invocation or use the reported recovery action.",
+  },
+  { code: ExitCode.NotFound, meaning: "Resource doesn't exist or isn't visible." },
+  {
+    code: ExitCode.Auth,
+    meaning: "Credentials were rejected, are invalid, or expired. Sign in again.",
+  },
+  {
+    code: ExitCode.Forbidden,
+    meaning: "Signed in, but not authorized for this action.",
+  },
+  {
+    code: ExitCode.Conflict,
+    meaning:
+      "Conflicts with current state, including a stale execution candidate (already exists, version mismatch, concurrent update). Reconcile and retry.",
+  },
+  { code: ExitCode.RateLimit, meaning: "Rate limited. Retry after a backoff." },
+  {
+    code: ExitCode.Network,
+    meaning: "Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable.",
+  },
+  {
+    code: ExitCode.Validation,
+    meaning: "Input parsed but failed validation. Correct it and retry.",
+  },
+  {
+    code: ExitCode.Internal,
+    meaning: "Unexpected internal error. Likely a bug — please report it.",
+  },
+  {
+    code: ExitCode.Unavailable,
+    meaning: "Service is responsive but temporarily unable to serve.",
+  },
+  {
+    code: ExitCode.Quota,
+    meaning: "Quota, storage, or plan limit exhausted.",
+  },
+  {
+    code: ExitCode.AuthRequired,
+    meaning:
+      "Authentication or authorization is waiting on a person to complete a required action.",
+  },
+  {
+    code: ExitCode.AuthExpired,
+    meaning: "A pending authentication flow expired.",
+  },
+  {
+    code: ExitCode.AuthDenied,
+    meaning: "A person denied or cancelled a pending authentication flow.",
+  },
+  {
+    code: ExitCode.Timeout,
+    meaning: "A bounded operation did not complete before its caller-selected deadline.",
+  },
+  {
+    code: 130,
+    meaning: "Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.",
+  },
+] as const;
 
 /** `ExitCode` names that carry an `AppErrorCode`. Every exit code except `Success`. */
 type ErrorExitName = Exclude<keyof typeof ExitCode, "Success">;
@@ -196,7 +270,7 @@ const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
 };
 
 const DefaultDetailByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
-  auth: "Credentials are missing, expired, or invalid.",
+  auth: "Credentials were rejected, are invalid, or expired.",
   forbidden: "You do not have permission to perform this operation.",
   not_found: "The requested resource was not found.",
   conflict: "The request conflicts with the current state.",

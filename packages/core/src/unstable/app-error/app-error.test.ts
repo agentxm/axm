@@ -6,6 +6,7 @@ import {
   AppErrorCodeSchema,
   AppErrorCodes,
   ExitCode,
+  ExitCodeDefinitions,
   errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
@@ -27,6 +28,13 @@ describe("AppError", () => {
     }
     expect(new Set(mappedExitCodes).size).toBe(AppErrorCodes.length);
     expect(mappedExitCodes.length).toBe(exitCodeValues.size - 1);
+  });
+
+  it("defines one canonical public meaning for every application and signal exit", () => {
+    expect(ExitCodeDefinitions.map(({ code }) => code)).toEqual([...Object.values(ExitCode), 130]);
+    expect(new Set(ExitCodeDefinitions.map(({ code }) => code)).size).toBe(
+      ExitCodeDefinitions.length,
+    );
   });
 
   it("classifies AppErrorCode values for telemetry routing", () => {

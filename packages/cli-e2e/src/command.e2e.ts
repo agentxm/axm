@@ -188,6 +188,77 @@ describe("global text-output policy", () => {
   });
 });
 
+describe("application exit-code contract", () => {
+  const applicationExitCases = [
+    { code: "issues", exitCode: 1 },
+    { code: "usage", exitCode: 2 },
+    { code: "not_found", exitCode: 3 },
+    { code: "auth", exitCode: 4 },
+    { code: "forbidden", exitCode: 5 },
+    { code: "conflict", exitCode: 6 },
+    { code: "rate_limit", exitCode: 7 },
+    { code: "network", exitCode: 8 },
+    { code: "validation", exitCode: 9 },
+    { code: "internal", exitCode: 10 },
+    { code: "unavailable", exitCode: 11 },
+    { code: "quota", exitCode: 12 },
+    { code: "auth_required", exitCode: 13 },
+    { code: "auth_expired", exitCode: 14 },
+    { code: "auth_denied", exitCode: 15 },
+    { code: "timeout", exitCode: 16 },
+  ] as const;
+
+  it.each(applicationExitCases)(
+    "emits the built-runtime discriminator and process status for $code",
+    async ({ code, exitCode }) => {
+      const fixture = fileURLToPath(new URL("./fixtures/app-error-exit.mjs", import.meta.url));
+      const result = await runCommand(process.execPath, [fixture, code, "--json", "--quiet"], {});
+      const document: unknown = JSON.parse(result.stdout);
+      const stderrEvents: ReadonlyArray<unknown> = result.stderr
+        .trim()
+        .split("\n")
+        .filter((line) => line.length > 0)
+        .map((line) => JSON.parse(line));
+
+      expect(result.exitCode).toBe(exitCode);
+      expect(document).toMatchObject({
+        ok: false,
+        code,
+        detail: `Deterministic ${code} fixture`,
+      });
+      expect(stderrEvents.at(-1)).toEqual(expect.objectContaining({ type: "error", code }));
+
+      if (code === "auth_required") {
+        expect(document).toMatchObject({
+          blockedOn: "human",
+          action: { kind: "open-url" },
+        });
+      } else {
+        expect(document).not.toHaveProperty("blockedOn");
+      }
+    },
+  );
+
+  it("keeps cache status flat inside the ordinary result envelope", async () => {
+    const home = createTempDir();
+    try {
+      const result = await runCli(["cache", "status", "--json"], {
+        env: { AXM_USER_HOME: home.path },
+      });
+      const document: unknown = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(0);
+      expect(document).toMatchObject({
+        ok: true,
+        result: { entries: 0, bytes: 0, maxBytes: 2_147_483_648, maxAgeDays: 90 },
+      });
+      expect(document).not.toHaveProperty("result.data");
+    } finally {
+      home.cleanup();
+    }
+  });
+});
+
 describe("axm instructions", () => {
   it("exposes inspection at root and only enable and disable subcommands", async () => {
     const help = await runCli(["instructions", "--help"]);

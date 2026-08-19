@@ -6,7 +6,7 @@
 | 1    | Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here. |
 | 2    | Invalid invocation, confirmable approval required in non-interactive mode, or a named policy override is required. Fix the invocation or use the reported recovery action.              |
 | 3    | Resource doesn't exist or isn't visible.                                                                                                                                                |
-| 4    | Credentials are missing, expired, or invalid. Sign in again.                                                                                                                            |
+| 4    | Credentials were rejected, are invalid, or expired. Sign in again.                                                                                                                      |
 | 5    | Signed in, but not authorized for this action.                                                                                                                                          |
 | 6    | Conflicts with current state, including a stale execution candidate (already exists, version mismatch, concurrent update). Reconcile and retry.                                         |
 | 7    | Rate limited. Retry after a backoff.                                                                                                                                                    |
@@ -15,7 +15,7 @@
 | 10   | Unexpected internal error. Likely a bug — please report it.                                                                                                                             |
 | 11   | Service is responsive but temporarily unable to serve.                                                                                                                                  |
 | 12   | Quota, storage, or plan limit exhausted.                                                                                                                                                |
-| 13   | Progress is waiting on a person to complete an action.                                                                                                                                  |
+| 13   | Authentication or authorization is waiting on a person to complete a required action.                                                                                                   |
 | 14   | A pending authentication flow expired.                                                                                                                                                  |
 | 15   | A person denied or cancelled a pending authentication flow.                                                                                                                             |
 | 16   | A bounded operation did not complete before its caller-selected deadline.                                                                                                               |

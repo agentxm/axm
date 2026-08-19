@@ -224,7 +224,10 @@ describe("hooks-new.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleHooksNew(defaultArgs("tool-audit")).pipe(Effect.flip);
-          expect(getAppError(error).detail).toContain("No owner configured");
+          expect(getAppError(error)).toMatchObject({
+            code: "validation",
+            detail: expect.stringContaining("No owner configured"),
+          });
         }),
       );
     });

@@ -11,7 +11,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 const makeOwnerRequiredError = (action: string): AppError =>
   makeAppError({
-    code: "internal",
+    code: "validation",
     detail: `No owner configured for ${action}`,
     suggestions: [
       {

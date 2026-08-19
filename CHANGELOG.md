@@ -1,3 +1,13 @@
+## 0.27.10 (2026-08-19)
+
+### 🚀 Features
+
+- Stabilize workspace reconciliation, command and output contracts, setup targeting, platform projections, and recovery behavior for the MVP launch.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.9 (2026-08-17)
 
 ### 🩹 Fixes

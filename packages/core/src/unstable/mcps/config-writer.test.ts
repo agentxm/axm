@@ -50,7 +50,12 @@ describe("agent MCP config writer", () => {
               workspaceRoot,
               serverName: "context",
               serversKey: "mcpServers",
-              target: { scope: "project", path: "agent.jsonc", format: "jsonc" },
+              target: {
+                scope: "project",
+                path: "agent.jsonc",
+                format: "jsonc",
+                attribution: "agent",
+              },
               entry: {
                 command: "npx",
                 args: ["-y", "@acme/context-mcp@1.0.0"],
@@ -90,7 +95,12 @@ describe("agent MCP config writer", () => {
                 workspaceRoot,
                 serverName,
                 serversKey: "mcpServers",
-                target: { scope: "project", path: "agent.json", format: "json" },
+                target: {
+                  scope: "project",
+                  path: "agent.json",
+                  format: "json",
+                  attribution: "agent",
+                },
                 entry: { command: "npx", args: [`@acme/${serverName}`], enabled: true },
               }),
             ),
@@ -127,7 +137,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcpServers",
-            target: { scope: "project", path: "agent.json", format: "json" },
+            target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             activationField: {
               required: null,
               accepted: [null],
@@ -157,7 +167,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "agent.toml", format: "toml" },
+            target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             entry: {
               command: "npx",
               args: ["-y", "@acme/context-mcp@1.0.0"],
@@ -174,7 +184,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "agent.toml", format: "toml" },
+            target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             activationField: {
               required: null,
               accepted: [null],
@@ -205,6 +215,7 @@ describe("agent MCP config writer", () => {
             scope: "project",
             path: "agent.toml",
             format: "toml",
+            attribution: "agent",
           };
 
           yield* writeAgentMcpConfig({
@@ -240,6 +251,7 @@ describe("agent MCP config writer", () => {
             scope: "project",
             path: "agent.toml",
             format: "toml",
+            attribution: "agent",
           } as const;
 
           for (const serverName of ["alpha", "beta"]) {
@@ -280,6 +292,7 @@ describe("agent MCP config writer", () => {
             scope: "project",
             path: "agent.toml",
             format: "toml",
+            attribution: "agent",
           } as const;
 
           for (const serverName of ["alpha", "beta"]) {
@@ -343,7 +356,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
               "x-axm": {
                 v: 1,
@@ -397,7 +410,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "stripe",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
               "x-axm": {
                 v: 1,
@@ -461,7 +474,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {
               required: { name: "enabled", enabled: true, disabled: false },
               accepted: [{ name: "enabled", enabled: true, disabled: false }],
@@ -481,7 +494,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcp_servers",
-            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {
               required: { name: "enabled", enabled: true, disabled: false },
               accepted: [{ name: "enabled", enabled: true, disabled: false }],
@@ -515,7 +528,12 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcpServers",
-            target: { scope: "project", path: "agent.jsonc", format: "jsonc" },
+            target: {
+              scope: "project",
+              path: "agent.jsonc",
+              format: "jsonc",
+              attribution: "agent",
+            },
             entry: { command: "npx" },
           }).pipe(Effect.flip);
 
@@ -539,7 +557,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcpServers",
-            target: { scope: "project", path: "agent.json", format: "json" },
+            target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             entry: { command: "npx" },
           });
 
@@ -566,7 +584,7 @@ describe("agent MCP config writer", () => {
             workspaceRoot,
             serverName: "context",
             serversKey: "mcpServers",
-            target: { scope: "project", path: "agent.json", format: "json" },
+            target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             entry: { command: "npx" },
           }).pipe(Effect.result),
           configPath,

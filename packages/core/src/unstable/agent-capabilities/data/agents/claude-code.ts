@@ -22,16 +22,7 @@ export const claudeCodeAgent = {
   },
   lifecycle: { state: "active" },
   detection: {
-    project: {
-      markers: [
-        {
-          kind: "file",
-          path: ".mcp.json",
-          signal: "ambiguous",
-          note: "Universal MCP file, not Claude-specific.",
-        },
-      ],
-    },
+    project: { markers: [] },
     user: {
       markers: [
         { kind: "dir", path: "~/.claude", signal: "definitive", note: null },
@@ -95,6 +86,7 @@ export const claudeCodeAgent = {
                 scope: "project",
                 path: ".mcp.json",
                 format: "json",
+                attribution: "shared",
               },
             ],
             stdio: {

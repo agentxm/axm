@@ -7,9 +7,8 @@
  * compute those derived fields from minimal inputs so test sites supply only
  * the discriminators they care about.
  *
- * `McpConfigOccurrence` is now a discriminated union on `origin`. The
- * `makeMcpConfigOccurrence` factory accepts the variant tag and returns the
- * correct shape — workspace omits `agentId`; agent carries it non-null.
+ * `McpConfigOccurrence` carries a discriminated physical surface. Shared
+ * observations omit agent identity; agent-native observations retain it.
  */
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -20,11 +19,10 @@ import { AbsolutePathSchema, type AbsolutePath } from "../../../utils/path-types
 import type {
   AgentDirOccurrence,
   AgentDirSubjectType,
-  AgentMcpConfigOccurrence,
   AgentSettingsOccurrence,
   CanonicalExtensionOccurrence,
   CanonicalExtensionOriginKind,
-  WorkspaceMcpConfigOccurrence,
+  McpConfigOccurrence,
 } from "../scanners/types.js";
 import type { Scope } from "../types.js";
 
@@ -200,10 +198,10 @@ export interface MakeAgentMcpConfigOccurrenceInput {
 
 export const makeWorkspaceMcpConfigOccurrence = (
   input: MakeWorkspaceMcpConfigOccurrenceInput,
-): WorkspaceMcpConfigOccurrence => ({
+): McpConfigOccurrence => ({
   _tag: "mcp-config",
   scope: input.scope,
-  origin: "workspace",
+  surface: { _tag: "shared" },
   name: decodeExtensionNameSync(input.name),
   contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
   config: input.config ?? {},
@@ -211,11 +209,10 @@ export const makeWorkspaceMcpConfigOccurrence = (
 
 export const makeAgentMcpConfigOccurrence = (
   input: MakeAgentMcpConfigOccurrenceInput,
-): AgentMcpConfigOccurrence => ({
+): McpConfigOccurrence => ({
   _tag: "mcp-config",
   scope: input.scope,
-  origin: "agent",
-  agentId: input.agentId,
+  surface: { _tag: "agent", agentId: input.agentId },
   name: decodeExtensionNameSync(input.name),
   contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
   config: input.config ?? {},

@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import {
   AGENTS,
   CONFIGURABLE_AGENT_IDS,
-  detectAgents,
+  detectAgentsForScope,
   getInstructionsStatus,
   resolveInstructionsConfig,
 } from "@agentxm/client-core/unstable/agents";
@@ -82,7 +82,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const configured = yield* ws.getConfiguredAgents();
-  const detected = yield* detectAgents(ws.baseDir).pipe(
+  const detected = yield* detectAgentsForScope(ws.baseDir, ws.scope).pipe(
     Effect.map((agents) => agents.map((agent) => agent.id)),
   );
   const configuredSet = new Set(configured);

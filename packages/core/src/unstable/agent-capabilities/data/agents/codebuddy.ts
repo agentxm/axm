@@ -69,11 +69,13 @@ export const codebuddyAgent = {
                 scope: "project",
                 path: ".mcp.json",
                 format: "jsonc",
+                attribution: "shared",
               },
               {
                 scope: "user",
                 path: "~/.codebuddy/.mcp.json",
                 format: "jsonc",
+                attribution: "agent",
               },
             ],
             stdio: {

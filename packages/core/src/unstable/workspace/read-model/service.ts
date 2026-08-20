@@ -9,7 +9,9 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import { detectAgentsForScope } from "../../agents/detection.js";
 import { AGENTS } from "../../agents/registry.js";
+import type { AgentId } from "../../agents/types.js";
 import type { CatalogExtensionType } from "../../extension-types/schema.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
@@ -530,9 +532,26 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       })),
     ),
   );
+  const presence = yield* Effect.cached(
+    detectAgentsForScope(workspaceRoot, scope).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.map((detectedAgents) => new Set<AgentId>(detectedAgents.map((agent) => agent.id))),
+      Effect.catch((error) =>
+        diagnostics
+          .append({
+            source: "scanner",
+            message: `agent-presence: structured detection failed: ${error.message}`,
+            code: "scanner-io",
+          })
+          .pipe(Effect.map(() => new Set<AgentId>())),
+      ),
+    ),
+  );
   const agents: ScopedAgentsApi = makeScopedAgentsApi({
     scope,
     settings: agentsSettings,
+    presence,
     observations,
   });
 

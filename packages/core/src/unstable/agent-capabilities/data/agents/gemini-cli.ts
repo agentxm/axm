@@ -84,11 +84,13 @@ export const geminiCliAgent = {
                 scope: "project",
                 path: ".gemini/settings.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.gemini/settings.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

@@ -73,11 +73,13 @@ export const neovateAgent = {
                 scope: "user",
                 path: "~/.neovate/config.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".neovate/config.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

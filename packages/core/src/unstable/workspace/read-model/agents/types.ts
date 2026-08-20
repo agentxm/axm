@@ -104,6 +104,7 @@ export interface DetectedAgent {
   readonly scope: Scope;
   readonly agentId: AgentId;
   readonly status: DetectionStatus;
+  readonly present: boolean;
   readonly declared: Option.Option<DeclaredAgent>;
   readonly actual: Option.Option<ActualAgent>;
 }
@@ -172,6 +173,7 @@ export interface AgentModule<
   readonly detected: (
     scope: Scope,
     declared: Option.Option<DeclaredAgent>,
+    present: boolean,
     actual: Option.Option<ActualAgent>,
   ) => Option.Option<DetectedAgent>;
   readonly _nativeConfig?: TNativeConfig;
@@ -222,6 +224,7 @@ export const defineAgentModule = <
     subjects,
     declared: (scope, settings) => defaultDeclared(agentId, scope, settings),
     actual: (scope, observations) => defaultActual(agentId, scope, observations),
-    detected: (scope, declared, actual) => defaultDetected(agentId, scope, declared, actual),
+    detected: (scope, declared, present, actual) =>
+      defaultDetected(agentId, scope, declared, present, actual),
   };
 };

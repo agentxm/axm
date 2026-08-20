@@ -92,11 +92,13 @@ export const cursorAgent = {
                 scope: "project",
                 path: ".cursor/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.cursor/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

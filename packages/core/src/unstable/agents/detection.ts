@@ -280,3 +280,11 @@ export const detectAgentScopeResults = (projectDir: string) =>
   Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {
     concurrency: "unbounded",
   }).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
+
+/** Detect agents whose structured evidence satisfies one selected scope. */
+export const detectAgentsForScope = (projectDir: string, scope: "project" | "user") =>
+  detectAgentScopeResults(projectDir).pipe(
+    Effect.map((detections) =>
+      detections.flatMap((detection) => (detection[scope] ? [detection.agent] : [])),
+    ),
+  );

@@ -71,11 +71,13 @@ export const pochiAgent = {
                 scope: "project",
                 path: ".pochi/config.jsonc",
                 format: "jsonc",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.pochi/config.jsonc",
                 format: "jsonc",
+                attribution: "agent",
               },
             ],
             stdio: {

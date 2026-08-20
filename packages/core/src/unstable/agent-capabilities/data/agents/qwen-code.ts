@@ -68,11 +68,13 @@ export const qwenCodeAgent = {
                 scope: "user",
                 path: "~/.qwen/settings.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".qwen/settings.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

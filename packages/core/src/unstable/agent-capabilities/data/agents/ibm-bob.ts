@@ -69,11 +69,13 @@ export const ibmBobAgent = {
                 scope: "user",
                 path: "~/.bob/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".bob/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

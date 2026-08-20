@@ -73,7 +73,7 @@ describe("scanner occurrence identity", () => {
       expect(id.origin).toBe("agent-dir:claude-code");
     });
 
-    it("mcp-config workspace and agent identities differ at the origin tier", () => {
+    it("shared and agent MCP identities differ at the origin tier", () => {
       const workspace = makeWorkspaceMcpConfigOccurrence({
         scope: "project",
         name: "srv",
@@ -87,7 +87,7 @@ describe("scanner occurrence identity", () => {
       });
       const wId = occurrenceIdentity(workspace);
       const aId = occurrenceIdentity(agent);
-      expect(wId.origin).toBe("workspace-mcp-config");
+      expect(wId.origin).toBe("shared-mcp-config");
       expect(aId.origin).toBe("agent-mcp-config:claude-code");
       expect(occurrenceIdentityKey(wId)).not.toBe(occurrenceIdentityKey(aId));
     });
@@ -291,44 +291,47 @@ describe("scanner occurrence identity", () => {
         }).pipe(Effect.provide(Path.layer)),
     );
 
-    it.effect("workspace and agent MCP servers with the same name yield distinct identities", () =>
-      Effect.gen(function* () {
-        const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-        const diag = makeDiagnostics(ref);
-        const deps = yield* buildFixture({
-          workspaceRoot: WORKSPACE_ROOT,
-          userHome: USER_HOME,
-          project: {
-            mcpJson: {
-              _tag: "valid",
-              contents: { mcpServers: { shared: { command: "ws" } } },
-            },
-            agentDirs: {
-              "claude-code": {
-                "mcp.json": JSON.stringify({
-                  mcpServers: { shared: { command: "agent" } },
-                }),
+    it.effect(
+      "shared and agent-native MCP servers with the same name yield distinct identities",
+      () =>
+        Effect.gen(function* () {
+          const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+          const diag = makeDiagnostics(ref);
+          const deps = yield* buildFixture({
+            workspaceRoot: WORKSPACE_ROOT,
+            userHome: USER_HOME,
+            project: {
+              mcpJson: {
+                _tag: "valid",
+                contents: { mcpServers: { shared: { command: "ws" } } },
+              },
+              agentDirs: {
+                cursor: {
+                  "mcp.json": JSON.stringify({
+                    mcpServers: { shared: { command: "agent" } },
+                  }),
+                },
               },
             },
-          },
-        });
-        const occurrences = yield* makeMcpConfigScanner({
-          fs: deps.fs,
-          path: deps.path,
-          workspaceRoot: WORKSPACE_ROOT,
-          scope: "project",
-          diagnostics: diag,
-          agentRegistry: {
-            "claude-code": AGENTS["claude-code"],
-          },
-        });
-        const sharedOccurrences = occurrences.filter((o) => o.name === "shared");
-        expect(sharedOccurrences).toHaveLength(2);
-        const identityKeys = new Set(
-          sharedOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
-        );
-        expect(identityKeys.size).toBe(2);
-      }).pipe(Effect.provide(Path.layer)),
+          });
+          const occurrences = yield* makeMcpConfigScanner({
+            fs: deps.fs,
+            path: deps.path,
+            workspaceRoot: WORKSPACE_ROOT,
+            scope: "project",
+            diagnostics: diag,
+            agentRegistry: {
+              "claude-code": AGENTS["claude-code"],
+              cursor: AGENTS.cursor,
+            },
+          });
+          const sharedOccurrences = occurrences.filter((o) => o.name === "shared");
+          expect(sharedOccurrences).toHaveLength(2);
+          const identityKeys = new Set(
+            sharedOccurrences.map((o) => occurrenceIdentityKey(occurrenceIdentity(o))),
+          );
+          expect(identityKeys.size).toBe(2);
+        }).pipe(Effect.provide(Path.layer)),
     );
   });
 

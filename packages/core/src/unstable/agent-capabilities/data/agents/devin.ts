@@ -72,11 +72,13 @@ export const devinAgent = {
                 scope: "project",
                 path: ".devin/mcp_config.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.config/devin/mcp_config.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

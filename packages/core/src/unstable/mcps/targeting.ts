@@ -7,8 +7,11 @@
 import type { McpServerEntry } from "../settings/index.js";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
+  type Agent,
   type ConfigurableAgentId,
+  type McpConfig,
 } from "../agent-capabilities/index.js";
+import type { SharedMcpTargetMember } from "./shared-target.js";
 
 export const isMcpServerApplicableToAgent = (entry: McpServerEntry, agentId: string): boolean =>
   entry.agents === undefined || entry.agents.some((candidate) => candidate === agentId);
@@ -18,35 +21,77 @@ export const MCP_NOT_APPLICABLE_REASON = "MCP server is not targeted to this age
 const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
   Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, agentId);
 
+type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
+type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly axm: { readonly writer: { readonly config: McpConfig } };
+};
+
+const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
+  capability.axm.writer !== null;
+
+export interface McpTargetGroup {
+  readonly key: string;
+  readonly path: string;
+  readonly members: ReadonlyArray<SharedMcpTargetMember>;
+}
+
+export const groupConfiguredMcpTargets = (args: {
+  readonly agentIds: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+}): ReadonlyArray<McpTargetGroup> => {
+  const groups = new Map<
+    string,
+    { readonly path: string; readonly members: Array<SharedMcpTargetMember> }
+  >();
+  for (const agentId of args.agentIds) {
+    if (!isConfigurableAgentId(agentId)) continue;
+    const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+    if (!hasMcpConfig(capability)) continue;
+    for (const target of capability.axm.writer.config.targets) {
+      if (target.scope !== args.scope) continue;
+      const key = `${target.scope}:${target.path}`;
+      const group = groups.get(key) ?? { path: target.path, members: [] };
+      group.members.push({ agentId, config: capability.axm.writer.config, target });
+      groups.set(key, group);
+    }
+  }
+  return [...groups.entries()].map(([key, group]) => ({
+    key,
+    path: group.path,
+    members: group.members,
+  }));
+};
+
+export const planMcpTargetGroups = (args: {
+  readonly configuredAgentIds: ReadonlyArray<string>;
+  readonly entry: McpServerEntry;
+  readonly scope: "project" | "user";
+}): ReadonlyArray<McpTargetGroup> =>
+  groupConfiguredMcpTargets({ agentIds: args.configuredAgentIds, scope: args.scope }).flatMap(
+    (group) => {
+      const members = group.members.filter((member) =>
+        isMcpServerApplicableToAgent(args.entry, member.agentId),
+      );
+      return members.length === 0 ? [] : [{ ...group, members }];
+    },
+  );
+
 export const sharedMcpTargetPolicyConflict = (args: {
   readonly entry: McpServerEntry;
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: "project" | "user";
 }): string | undefined => {
-  const targets = new Map<
-    string,
-    { readonly applicable: Array<string>; readonly notApplicable: Array<string> }
-  >();
-  for (const agentId of args.agentIds) {
-    if (!isConfigurableAgentId(agentId)) continue;
-    const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
-    if (agent === undefined) continue;
-    const capability = agent.capabilities["mcp-server"];
-    if (capability.axm.writer === null || !("transports" in capability.native)) continue;
-    const applicable = isMcpServerApplicableToAgent(args.entry, agentId);
-    for (const target of capability.axm.writer.config.targets.filter(
-      (candidate) => candidate.scope === args.scope,
-    )) {
-      const key = target.scope + ":" + target.path;
-      const policy = targets.get(key) ?? { applicable: [], notApplicable: [] };
-      (applicable ? policy.applicable : policy.notApplicable).push(agentId);
-      targets.set(key, policy);
-    }
-  }
-  const conflict = Array.from(targets.entries()).find(
-    ([, policy]) => policy.applicable.length > 0 && policy.notApplicable.length > 0,
-  );
+  const conflict = groupConfiguredMcpTargets(args)
+    .map((group) => ({
+      group,
+      applicable: group.members
+        .filter((member) => isMcpServerApplicableToAgent(args.entry, member.agentId))
+        .map((member) => member.agentId),
+      notApplicable: group.members
+        .filter((member) => !isMcpServerApplicableToAgent(args.entry, member.agentId))
+        .map((member) => member.agentId),
+    }))
+    .find((candidate) => candidate.applicable.length > 0 && candidate.notApplicable.length > 0);
   if (conflict === undefined) return undefined;
-  const [targetPath, policy] = conflict;
-  return `MCP target policy cannot be represented at shared native target ${targetPath}; targeted agents ${policy.applicable.join(", ")} share it with untargeted agents ${policy.notApplicable.join(", ")}`;
+  return `MCP target policy cannot be represented at shared native target ${conflict.group.key}; targeted agents ${conflict.applicable.join(", ")} share it with untargeted agents ${conflict.notApplicable.join(", ")}`;
 };

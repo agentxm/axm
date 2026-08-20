@@ -17,6 +17,7 @@ export {
   detectAgentScopeResults,
   detectAgentScopes,
   detectAgents,
+  detectAgentsForScope,
   detectAgentsInRoot,
   type AgentScopeDetection,
   type AgentExecutableResolverService,

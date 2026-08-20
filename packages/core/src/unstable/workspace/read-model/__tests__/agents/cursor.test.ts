@@ -46,7 +46,7 @@ describe("agents/cursor module", () => {
       ...noObservations,
       agentDir: [cursorDirObservation],
     });
-    const result = module.detected("project", declaredOpt, actualOpt);
+    const result = module.detected("project", declaredOpt, true, actualOpt);
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.status).toBe("managed-and-present");
@@ -54,7 +54,7 @@ describe("agents/cursor module", () => {
   });
 
   it("detected returns None when neither declared nor actual", () => {
-    const result = module.detected("project", Option.none(), Option.none());
+    const result = module.detected("project", Option.none(), false, Option.none());
     expect(Option.isNone(result)).toBe(true);
   });
 });

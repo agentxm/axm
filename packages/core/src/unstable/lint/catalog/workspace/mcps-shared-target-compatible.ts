@@ -1,15 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type Agent,
-  type ConfigurableAgentId,
-  type McpConfig,
-  type McpTransport,
-} from "../../../agent-capabilities/index.js";
 import { inferInlineRemoteTransport } from "../../../mcps/projection.js";
-import { resolveSharedMcpTarget, type SharedMcpTargetMember } from "../../../mcps/shared-target.js";
+import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
+import { groupConfiguredMcpTargets } from "../../../mcps/targeting.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
@@ -17,51 +11,11 @@ import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 const RULE_ID = "workspace/mcps-shared-target-compatible";
 const SETTINGS_REL = ".axm/settings.json";
 
-type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly native: Extract<
-    AgentMcpCapability["native"],
-    { readonly transports: ReadonlyArray<McpTransport> }
-  >;
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
-
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.native;
-
-const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  agentId in CONFIGURABLE_AGENTS_BY_ID;
-
 const transportFor = (entry: McpServerEntry) => {
   if (entry.command !== undefined) return "stdio";
   if (entry.url === undefined) return undefined;
   const inference = inferInlineRemoteTransport(entry.url);
   return inference._tag === "supported" ? inference.transport : undefined;
-};
-
-const membersByTarget = (
-  agentIds: ReadonlyArray<string>,
-  scope: "project" | "user",
-): ReadonlyArray<ReadonlyArray<SharedMcpTargetMember>> => {
-  const groups = new Map<string, Array<SharedMcpTargetMember>>();
-  for (const agentId of agentIds) {
-    if (!isCapabilityAgentId(agentId)) continue;
-    const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) continue;
-    for (const target of capability.axm.writer.config.targets.filter(
-      (candidate) => candidate.scope === scope,
-    )) {
-      const key = target.scope + ":" + target.path;
-      const members = groups.get(key) ?? [];
-      members.push({ agentId, config: capability.axm.writer.config, target });
-      groups.set(key, members);
-    }
-  }
-  return [...groups.values()].filter((members) => members.length > 1);
 };
 
 const findingFor = (serverName: string, path: string, reason: string): AdvisoryFinding => ({
@@ -90,12 +44,15 @@ export const mcpServerSharedTargetCompatibleRule: AdvisoryRule<WorkspaceRuleCont
       if (Result.isFailure(settings) || Option.isNone(settings.success)) return [];
       const agentIds = settings.success.value.agents ?? [];
       const entries = settings.success.value.mcpServers ?? {};
-      const groups = membersByTarget(agentIds, context.subject.scope);
+      const groups = groupConfiguredMcpTargets({
+        agentIds,
+        scope: context.subject.scope,
+      }).filter((group) => group.members.length > 1);
       return Object.entries(entries).flatMap(([serverName, entry]) => {
         const transport = transportFor(entry);
         if (transport === undefined) return [];
-        return groups.flatMap((members) => {
-          const resolution = resolveSharedMcpTarget({ members, transport });
+        return groups.flatMap((group) => {
+          const resolution = resolveSharedMcpTarget({ members: group.members, transport });
           return resolution._tag === "conflict"
             ? [findingFor(serverName, resolution.path, resolution.reason)]
             : [];

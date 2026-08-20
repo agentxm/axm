@@ -117,54 +117,19 @@ export interface AgentDirOccurrence {
 // MCP config scanner
 // ---------------------------------------------------------------------------
 
-/**
- * Origin discriminator for MCP-config-derived occurrences. `workspace` covers
- * the workspace-root `.mcp.json`; `agent` covers each agent's native MCP
- * configuration file (e.g., `.cursor/mcp.json`).
- */
-export type McpConfigOriginKind = "workspace" | "agent";
+/** Physical MCP configuration surface that supplied an observation. */
+export type McpConfigSurface =
+  { readonly _tag: "shared" } | { readonly _tag: "agent"; readonly agentId: AgentId };
 
-/**
- * One MCP server entry observed in a workspace MCP config file
- * (`<workspaceRoot>/.mcp.json`).
- *
- * `contentLocation` is the absolute path to the config file containing the
- * entry (not to a per-server directory): there is no on-disk subject root for
- * MCP-config-declared servers. The workspace variant intentionally omits
- * `agentId` — its absence is the discriminator with the `agent` variant.
- */
-export interface WorkspaceMcpConfigOccurrence {
+/** One MCP server entry observed on one physical configuration surface. */
+export interface McpConfigOccurrence {
   readonly _tag: "mcp-config";
   readonly scope: Scope;
-  readonly origin: "workspace";
+  readonly surface: McpConfigSurface;
   readonly name: ExtensionName;
   readonly contentLocation: AbsolutePath;
   readonly config: Readonly<Record<string, unknown>>;
 }
-
-/**
- * One MCP server entry observed in a per-agent native MCP config file
- * (e.g., `<workspaceRoot>/.claude/mcp.json`).
- *
- * `agentId` is non-null and carries the agent whose native config produced
- * the occurrence.
- */
-export interface AgentMcpConfigOccurrence {
-  readonly _tag: "mcp-config";
-  readonly scope: Scope;
-  readonly origin: "agent";
-  readonly agentId: AgentId;
-  readonly name: ExtensionName;
-  readonly contentLocation: AbsolutePath;
-  readonly config: Readonly<Record<string, unknown>>;
-}
-
-/**
- * Discriminated union over `origin` for MCP-config occurrences. The
- * workspace variant omits `agentId` entirely; the agent variant carries it
- * non-nullable. Consumers narrow on `origin` to access the right shape.
- */
-export type McpConfigOccurrence = WorkspaceMcpConfigOccurrence | AgentMcpConfigOccurrence;
 
 // ---------------------------------------------------------------------------
 // Agent-settings scanner
@@ -232,17 +197,17 @@ export const occurrenceIdentity = (occurrence: ScannerOccurrence): OccurrenceIde
         contentLocation: occurrence.contentLocation,
       };
     case "mcp-config":
-      return occurrence.origin === "workspace"
+      return occurrence.surface._tag === "shared"
         ? {
             scope: occurrence.scope,
             subjectKey: "mcp-server",
-            origin: "workspace-mcp-config",
+            origin: "shared-mcp-config",
             contentLocation: `${occurrence.contentLocation}#${occurrence.name}`,
           }
         : {
             scope: occurrence.scope,
-            subjectKey: `mcp-server:${occurrence.agentId}`,
-            origin: `agent-mcp-config:${occurrence.agentId}`,
+            subjectKey: `mcp-server:${occurrence.surface.agentId}`,
+            origin: `agent-mcp-config:${occurrence.surface.agentId}`,
             contentLocation: `${occurrence.contentLocation}#${occurrence.name}`,
           };
     case "agent-settings":

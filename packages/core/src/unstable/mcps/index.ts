@@ -100,7 +100,10 @@ export {
   type SharedMcpTransport,
 } from "./shared-target.js";
 export {
+  groupConfiguredMcpTargets,
   isMcpServerApplicableToAgent,
   MCP_NOT_APPLICABLE_REASON,
+  planMcpTargetGroups,
   sharedMcpTargetPolicyConflict,
+  type McpTargetGroup,
 } from "./targeting.js";

@@ -69,11 +69,13 @@ export const commandCodeAgent = {
                 scope: "project",
                 path: ".mcp.json",
                 format: "json",
+                attribution: "shared",
               },
               {
                 scope: "user",
                 path: "~/.commandcode/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

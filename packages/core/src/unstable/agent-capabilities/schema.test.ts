@@ -25,7 +25,14 @@ const activeMcpCapability = {
           required: { name: "enabled", enabled: true, disabled: false },
           accepted: [{ name: "enabled", enabled: true, disabled: false }],
         },
-        targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        targets: [
+          {
+            scope: "project",
+            path: ".mcp.json",
+            format: "json",
+            attribution: "shared",
+          },
+        ],
         stdio: {
           typeField: { required: null, accepted: [null] },
           command: "split",
@@ -52,6 +59,23 @@ const activeMcpCapability = {
   },
 };
 describe("MCP capability schema", () => {
+  it("requires explicit attribution on every config target", () => {
+    expect(() =>
+      decodeMcpCapability({
+        ...activeMcpCapability,
+        axm: {
+          ...activeMcpCapability.axm,
+          writer: {
+            config: {
+              ...activeMcpCapability.axm.writer.config,
+              targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+            },
+          },
+        },
+      }),
+    ).toThrow("attribution");
+  });
+
   it("allows non-full active MCP capabilities to carry writer config", () => {
     for (const standardsCompliance of ["parity", "partial", "none"] as const) {
       expect(

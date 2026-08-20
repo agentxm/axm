@@ -68,6 +68,7 @@ export const traeCnAgent = {
                 scope: "project",
                 path: ".trae/mcp.json",
                 format: "json",
+                attribution: "shared",
               },
             ],
             stdio: {

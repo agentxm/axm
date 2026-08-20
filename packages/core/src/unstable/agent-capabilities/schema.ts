@@ -784,14 +784,27 @@ export const McpServersKeySchema = Schema.Literals([
 export type McpServersKey = Schema.Schema.Type<typeof McpServersKeySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const McpTargetAttributionSchema = Schema.Literals(["shared", "agent"]).annotate({
+  identifier: "McpTargetAttribution",
+  title: "MCP Target Attribution",
+  description:
+    "Whether a config target identifies one agent or is a shared surface read by multiple agents.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpTargetAttribution = Schema.Schema.Type<typeof McpTargetAttributionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const McpConfigTargetSchema = Schema.Struct({
   scope: ScopeSchema,
   path: Schema.NonEmptyString,
   format: ConfigFileFormatSchema,
+  attribution: McpTargetAttributionSchema,
 }).annotate({
   identifier: "McpConfigTarget",
   title: "MCP Config Target",
-  description: "A config file target where MCP server entries can be written.",
+  description:
+    "A config file target where MCP server entries can be written, with explicit presence attribution.",
 });
 
 /** @experimental This API is unstable and may change without notice. */

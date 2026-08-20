@@ -26,7 +26,7 @@ const stdioField = (value: string): McpTypeField => ({
 const configWithTypeField = (typeField: McpTypeField): McpConfig => ({
   serversKey: "mcpServers",
   activationField: { required: null, accepted: [null] },
-  targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+  targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
   stdio: {
     typeField,
     command: "split",
@@ -77,12 +77,12 @@ describe("shared MCP target compatibility", () => {
     const alpha: SharedMcpTargetMember = {
       agentId: "alpha",
       config: configWithTypeField(stdioField("stdio")),
-      target: { scope: "project", path: ".mcp.json", format: "json" },
+      target: { scope: "project", path: ".mcp.json", format: "json", attribution: "shared" },
     };
     const beta: SharedMcpTargetMember = {
       agentId: "beta",
       config: configWithTypeField(stdioField("local")),
-      target: { scope: "project", path: ".mcp.json", format: "jsonc" },
+      target: { scope: "project", path: ".mcp.json", format: "jsonc", attribution: "shared" },
     };
     const result = resolveSharedMcpTarget({
       members: [beta, alpha],

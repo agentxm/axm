@@ -174,9 +174,11 @@ describe("agents add.handler", () => {
     readonly machine?: boolean;
     readonly quiet?: boolean;
     readonly skillManager?: ServiceMap.Service.Shape<typeof SkillManager>;
+    readonly scope?: "project" | "user";
   }) => {
     const context = makeWorkspaceHandlerTestContext({
       machine: opts?.machine,
+      wsOptions: { scope: opts?.scope ?? "project" },
       ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
     });
     const fullLayer = Layer.mergeAll(
@@ -195,9 +197,9 @@ describe("agents add.handler", () => {
     };
   };
 
-  const readConfiguredAgents = (): ReadonlyArray<string> => {
+  const readConfiguredAgents = (root = tempDir): ReadonlyArray<string> => {
     const settings: { readonly agents?: unknown } = JSON.parse(
-      fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+      fs.readFileSync(path.join(root, ".axm", "settings.json"), "utf8"),
     );
     return Array.isArray(settings.agents)
       ? settings.agents.filter((agent): agent is string => typeof agent === "string")
@@ -471,8 +473,8 @@ describe("agents add.handler", () => {
   });
 
   it.effect("does not auto-add a detected retired agent", () => {
-    const { provide, rendererState } = makeLayers();
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+    const { provide, rendererState } = makeLayers({ scope: "user" });
+    writeWorkspaceFiles(path.join(homeDir, ".axm"), { agents: [] });
     fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
 
     return provide(
@@ -485,7 +487,7 @@ describe("agents add.handler", () => {
           preview: false,
         });
 
-        expect(readConfiguredAgents()).toEqual([]);
+        expect(readConfiguredAgents(homeDir)).toEqual([]);
         expect(rendererState.logs).toContainEqual(
           expect.objectContaining({
             _tag: "warn",

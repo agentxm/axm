@@ -49,7 +49,7 @@ describe("agents/roo module", () => {
       ...noObservations,
       agentDir: [rooModesObservation],
     });
-    const result = module.detected("project", declaredOpt, actualOpt);
+    const result = module.detected("project", declaredOpt, true, actualOpt);
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.status).toBe("managed-and-present");

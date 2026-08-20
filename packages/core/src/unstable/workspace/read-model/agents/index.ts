@@ -390,6 +390,7 @@ export interface ScopedAgentsApi {
 export interface ScopedAgentsApiDeps {
   readonly scope: Scope;
   readonly settings: Effect.Effect<Option.Option<DeclaredSettingsShape>, SettingsReadError>;
+  readonly presence: Effect.Effect<ReadonlySet<AgentId>>;
   readonly observations: Effect.Effect<AgentScannerObservations>;
 }
 
@@ -403,7 +404,7 @@ export interface ScopedAgentsApiDeps {
  * folds the per-agent results, and returns the projection in registry order.
  */
 export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi => {
-  const { scope, settings, observations } = deps;
+  const { scope, settings, presence, observations } = deps;
 
   // Pure projection: `Effect.map` over the cached settings cell. Avoids the
   // `Effect.gen` wrapper that previously fronted a one-yield-plus-pure-call
@@ -426,7 +427,7 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
   // Combine the (possibly recovered) settings cell with `observations` via
   // `Effect.zip`, then project. The body stays pure post-zip — no `Effect.gen`
   // wrapper needed.
-  const detected = Effect.zip(
+  const detected = Effect.all([
     Effect.result(settings).pipe(
       Effect.map((settingsResult) =>
         settingsResult._tag === "Failure"
@@ -434,12 +435,18 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
           : settingsResult.success,
       ),
     ),
+    presence,
     observations,
-  ).pipe(
-    Effect.map(([decoded, obs]) =>
+  ]).pipe(
+    Effect.map(([decoded, presentAgentIds, obs]) =>
       Array.getSomes(
         registeredAgentModules.map((m) =>
-          m.detected(scope, m.declared(scope, decoded), m.actual(scope, obs)),
+          m.detected(
+            scope,
+            m.declared(scope, decoded),
+            presentAgentIds.has(m.agentId),
+            m.actual(scope, obs),
+          ),
         ),
       ),
     ),

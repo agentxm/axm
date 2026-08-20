@@ -39,7 +39,11 @@ import {
 } from "../mcps/metadata.js";
 import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
 import { inspectAgentMcpServer } from "../mcps/inspection.js";
-import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
+import {
+  isMcpServerApplicableToAgent,
+  planMcpTargetGroups,
+  sharedMcpTargetPolicyConflict,
+} from "../mcps/targeting.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,
@@ -627,14 +631,8 @@ export const syncInlineMcpServerToAgents = (
     const scope = args.scope ?? "project";
     const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
     const accumulators = new Map<string, SharedSyncAccumulator>();
-    const groups = new Map<string, Array<SharedSyncMember>>();
-    const targetPolicies = new Map<
-      string,
-      { readonly applicable: Array<string>; readonly notApplicable: Array<string> }
-    >();
     const capableAgents: Array<{
       readonly agentId: CapabilityAgentId;
-      readonly capability: ConfiguredMcpCapability;
       readonly applicable: boolean;
     }> = [];
 
@@ -665,29 +663,22 @@ export const syncInlineMcpServerToAgents = (
         );
         continue;
       }
-      capableAgents.push({ agentId, capability, applicable });
-      for (const target of capability.axm.writer.config.targets.filter(
-        (candidate) => candidate.scope === scope,
-      )) {
-        const key = target.scope + ":" + target.path;
-        const policy = targetPolicies.get(key) ?? { applicable: [], notApplicable: [] };
-        (applicable ? policy.applicable : policy.notApplicable).push(agentId);
-        targetPolicies.set(key, policy);
-      }
+      capableAgents.push({ agentId, applicable });
     }
 
-    const mixedTarget = Array.from(targetPolicies.entries()).find(
-      ([, policy]) => policy.applicable.length > 0 && policy.notApplicable.length > 0,
-    );
-    if (mixedTarget !== undefined) {
-      const [targetPath, policy] = mixedTarget;
+    const targetPolicyConflict = sharedMcpTargetPolicyConflict({
+      entry: args.entry,
+      agentIds,
+      scope,
+    });
+    if (targetPolicyConflict !== undefined) {
       return yield* makeAppError({
         code: "conflict",
-        detail: `MCP target policy cannot be represented at shared native target ${targetPath}; targeted agents ${policy.applicable.join(", ")} share it with untargeted agents ${policy.notApplicable.join(", ")}`,
+        detail: targetPolicyConflict,
       });
     }
 
-    for (const { agentId, capability, applicable } of capableAgents) {
+    for (const { agentId, applicable } of capableAgents) {
       if (!applicable) {
         const inspection = yield* inspectAgentMcpServer({
           workspaceRoot: args.workspaceRoot,
@@ -717,24 +708,25 @@ export const syncInlineMcpServerToAgents = (
         continue;
       }
       accumulators.set(agentId, { targets: [], warnings: [] });
-      for (const target of capability.axm.writer.config.targets.filter(
-        (candidate) => candidate.scope === scope,
-      )) {
-        const key = target.scope + ":" + target.path;
-        const members = groups.get(key) ?? [];
-        members.push({
-          targetMember: {
-            agentId,
-            config: capability.axm.writer.config,
-            target,
-          },
-          envExpansion: capability.native.mcpEnvExpansion,
-        });
-        groups.set(key, members);
-      }
     }
 
-    for (const members of groups.values()) {
+    const groups = planMcpTargetGroups({
+      configuredAgentIds: agentIds,
+      entry: args.entry,
+      scope,
+    });
+    for (const group of groups) {
+      const members: ReadonlyArray<SharedSyncMember> = group.members.map((targetMember) => {
+        if (!isCapabilityAgentId(targetMember.agentId)) {
+          return { targetMember, envExpansion: undefined };
+        }
+        const capability =
+          CONFIGURABLE_AGENTS_BY_ID[targetMember.agentId].capabilities["mcp-server"];
+        return {
+          targetMember,
+          envExpansion: hasMcpConfig(capability) ? capability.native.mcpEnvExpansion : undefined,
+        };
+      });
       const resolution = resolveSharedMcpTarget({
         members: members.map((member) => member.targetMember),
         transport,

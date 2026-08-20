@@ -73,6 +73,7 @@ export const clineAgent = {
                 scope: "user",
                 path: "~/.cline/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

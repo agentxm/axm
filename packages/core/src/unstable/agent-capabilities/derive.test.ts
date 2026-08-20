@@ -616,12 +616,46 @@ describe("agent capability derivation", () => {
         marker.kind === "file" ? [marker.path] : [],
       );
 
-    for (const agentId of ["codebuddy", "command-code", "qoder"] as const) {
+    for (const agentId of [
+      "claude-code",
+      "codebuddy",
+      "command-code",
+      "github-copilot-cli",
+      "qoder",
+    ] as const) {
       expect(projectFileMarkers(agentId)).not.toContain(".mcp.json");
     }
-    for (const agentId of ["claude-code", "github-copilot-cli"] as const) {
-      expect(projectFileMarkers(agentId)).toContain(".mcp.json");
-    }
+  });
+  it("uses catalog attribution rather than reader count for MCP detection", () => {
+    const cursor = agentById("cursor");
+    const writer = cursor.capabilities["mcp-server"].axm.writer;
+    if (writer === null) throw new Error("Cursor MCP writer fixture is required");
+    const synthetic = {
+      ...cursor,
+      capabilities: {
+        ...cursor.capabilities,
+        "mcp-server": {
+          ...cursor.capabilities["mcp-server"],
+          axm: {
+            ...cursor.capabilities["mcp-server"].axm,
+            writer: {
+              config: {
+                ...writer.config,
+                targets: writer.config.targets.map((target) => ({
+                  ...target,
+                  attribution: "shared" as const,
+                })),
+              },
+            },
+          },
+        },
+      },
+    } satisfies Agent;
+
+    const projectFiles = deriveAgentDescriptor(synthetic).detection.project.markers.flatMap(
+      (marker) => (marker.kind === "file" ? [marker.path] : []),
+    );
+    expect(projectFiles).not.toContain(".cursor/mcp.json");
   });
   it("derives detection from rootDir, config files, and authored markers", () => {
     expect(
@@ -667,8 +701,18 @@ describe("agent capability derivation", () => {
                     accepted: [{ name: "enabled", enabled: true, disabled: false }],
                   },
                   targets: [
-                    { scope: "project", path: ".sample/settings.json", format: "json" },
-                    { scope: "user", path: "~/.sample/settings.json", format: "json" },
+                    {
+                      scope: "project",
+                      path: ".sample/settings.json",
+                      format: "json",
+                      attribution: "agent",
+                    },
+                    {
+                      scope: "user",
+                      path: "~/.sample/settings.json",
+                      format: "json",
+                      attribution: "agent",
+                    },
                   ],
                   stdio: {
                     typeField: { required: null, accepted: [null] },

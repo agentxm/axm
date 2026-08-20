@@ -27,7 +27,7 @@ const stdioCapability = {
           required: { name: "enabled", enabled: true, disabled: false },
           accepted: [{ name: "enabled", enabled: true, disabled: false }],
         },
-        targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
         stdio: {
           typeField: { required: null, accepted: [null] },
           command: "split",
@@ -60,7 +60,7 @@ const remoteCapability = {
           required: { name: "enabled", enabled: true, disabled: false },
           accepted: [{ name: "enabled", enabled: true, disabled: false }],
         },
-        targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
         stdio: {
           typeField: { required: null, accepted: [null] },
           command: "array",

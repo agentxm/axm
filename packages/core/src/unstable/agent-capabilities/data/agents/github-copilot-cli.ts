@@ -12,12 +12,6 @@ export const githubCopilotCliAgent = {
     project: {
       markers: [
         {
-          kind: "file",
-          path: ".mcp.json",
-          signal: "supporting",
-          note: "Project-level MCP config used by GitHub Copilot CLI and other MCP clients.",
-        },
-        {
           kind: "dir",
           path: ".github/copilot",
           signal: "supporting",
@@ -99,11 +93,13 @@ export const githubCopilotCliAgent = {
                 scope: "user",
                 path: "~/.copilot/mcp-config.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".mcp.json",
                 format: "json",
+                attribution: "shared",
               },
             ],
             stdio: {

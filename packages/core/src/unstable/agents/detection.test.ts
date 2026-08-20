@@ -22,6 +22,7 @@ import {
   detectAgentScopes,
   detectAgentInRoot,
   detectAgents,
+  detectAgentsForScope,
   detectAgentsInRoot,
 } from "./detection.js";
 import { AGENTS } from "./registry.js";
@@ -242,6 +243,17 @@ describe("detectAgentInRoot", () => {
 });
 
 describe("detectAgents", () => {
+  it.effect("does not attribute a shared MCP file to any reader", () =>
+    Effect.gen(function* () {
+      const result = yield* provideDetectionLayer(
+        detectAgentsForScope(testProjectDir, "project"),
+        new Set([path.join(testProjectDir, ".mcp.json")]),
+      );
+
+      expect(result).toEqual([]);
+    }),
+  );
+
   it.effect("reports the scope for every detected registry agent", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(

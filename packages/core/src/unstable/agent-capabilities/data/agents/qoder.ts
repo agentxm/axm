@@ -71,11 +71,13 @@ export const qoderAgent = {
                 scope: "user",
                 path: "~/.qoder/settings.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".mcp.json",
                 format: "json",
+                attribution: "shared",
               },
             ],
             stdio: {

@@ -131,9 +131,9 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
 const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpServer => ({
   key: { scope, type: "mcp-server", name: occ.name },
   origin:
-    occ.origin === "workspace"
+    occ.surface._tag === "shared"
       ? { _tag: "workspace-mcp-config" }
-      : { _tag: "agent-mcp-config", agentId: occ.agentId },
+      : { _tag: "agent-mcp-config", agentId: occ.surface.agentId },
   contentRoot: null,
   packageRoot: null,
   configFile: occ.contentLocation,

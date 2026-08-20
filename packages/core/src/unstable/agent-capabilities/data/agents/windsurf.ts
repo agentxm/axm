@@ -73,6 +73,7 @@ export const windsurfAgent = {
                 scope: "user",
                 path: "~/.codeium/windsurf/mcp_config.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

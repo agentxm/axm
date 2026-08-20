@@ -30,12 +30,13 @@ import {
   projectExpectedEntry,
   type ExpectedAgentEntry,
 } from "./projection.js";
+import { resolveSharedMcpTarget, type SharedMcpTransport } from "./shared-target.js";
 import {
-  resolveSharedMcpTarget,
-  type SharedMcpTargetMember,
-  type SharedMcpTransport,
-} from "./shared-target.js";
-import { isMcpServerApplicableToAgent, MCP_NOT_APPLICABLE_REASON } from "./targeting.js";
+  isMcpServerApplicableToAgent,
+  groupConfiguredMcpTargets,
+  MCP_NOT_APPLICABLE_REASON,
+  planMcpTargetGroups,
+} from "./targeting.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
@@ -448,24 +449,15 @@ export const inspectMcpServerAcrossAgents = (args: {
       );
     }
     const transport = yield* inspectionTransportForEntry(args.entry);
-    const groups = new Map<string, Array<SharedMcpTargetMember>>();
-    for (const agentId of args.agentIds) {
-      if (!isMcpServerApplicableToAgent(args.entry, agentId)) continue;
-      if (!isCapabilityAgentId(agentId)) continue;
-      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-      if (!hasMcpConfig(capability)) continue;
-      for (const target of capability.axm.writer.config.targets.filter(
-        (candidate) => candidate.scope === args.scope,
-      )) {
-        const key = target.scope + ":" + target.path;
-        const members = groups.get(key) ?? [];
-        members.push({ agentId, config: capability.axm.writer.config, target });
-        groups.set(key, members);
-      }
-    }
+    const groups = planMcpTargetGroups({
+      configuredAgentIds: args.agentIds,
+      entry: args.entry,
+      scope: args.scope,
+    });
 
     const byAgentId = new Map<string, AgentMcpServerInspection>();
-    for (const members of groups.values()) {
+    for (const group of groups) {
+      const members = group.members;
       const resolution = resolveSharedMcpTarget({ members, transport });
       if (resolution._tag === "conflict") {
         return yield* makeAppError({
@@ -546,60 +538,41 @@ export const collectManagedAgentMcpServers = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const perAgent = yield* Effect.forEach(
-      args.agentIds,
-      (agentId) =>
+    const groups = groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
+    const perGroup = yield* Effect.forEach(
+      groups,
+      (group) =>
         Effect.gen(function* () {
-          if (!isCapabilityAgentId(agentId)) return [];
-          const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-          if (!hasMcpConfig(capability)) return [];
-          const targets = capability.axm.writer.config.targets.filter(
-            (target) => target.scope === args.scope,
+          const [first] = group.members;
+          if (first === undefined) return [];
+          const target = first.target;
+          const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
+          const raw = yield* readOptional(absolutePath);
+          if (Option.isNone(raw)) return [];
+          const names = yield* Effect.gen(function* () {
+            switch (target.format) {
+              case "toml":
+                return managedTomlNames(raw.value);
+              case "yaml":
+                return yield* managedYamlNames(absolutePath, raw.value, first.config.serversKey);
+              case "json":
+              case "jsonc":
+              case "starlark":
+              case "vscode-settings":
+                return yield* managedJsonNames(absolutePath, raw.value, first.config.serversKey);
+            }
+          });
+          return names.flatMap((serverName) =>
+            group.members.map((member) => ({
+              agentId: member.agentId,
+              serverName,
+              path: target.path,
+              absolutePath,
+              target,
+            })),
           );
-          const perTarget = yield* Effect.forEach(
-            targets,
-            (target) =>
-              Effect.gen(function* () {
-                const absolutePath = yield* resolveAgentMcpConfigTargetPath(
-                  args.workspaceRoot,
-                  target,
-                );
-                const raw = yield* readOptional(absolutePath);
-                if (Option.isNone(raw)) return [];
-                const names = yield* Effect.gen(function* () {
-                  switch (target.format) {
-                    case "toml":
-                      return managedTomlNames(raw.value);
-                    case "yaml":
-                      return yield* managedYamlNames(
-                        absolutePath,
-                        raw.value,
-                        capability.axm.writer.config.serversKey,
-                      );
-                    case "json":
-                    case "jsonc":
-                    case "starlark":
-                    case "vscode-settings":
-                      return yield* managedJsonNames(
-                        absolutePath,
-                        raw.value,
-                        capability.axm.writer.config.serversKey,
-                      );
-                  }
-                });
-                return names.map((serverName) => ({
-                  agentId,
-                  serverName,
-                  path: target.path,
-                  absolutePath,
-                  target,
-                }));
-              }),
-            { concurrency: "unbounded" },
-          );
-          return perTarget.flat();
         }),
       { concurrency: "unbounded" },
     );
-    return perAgent.flat();
+    return perGroup.flat();
   });

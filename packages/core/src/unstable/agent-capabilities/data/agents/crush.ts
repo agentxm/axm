@@ -77,11 +77,13 @@ export const crushAgent = {
                 scope: "project",
                 path: "crush.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.config/crush/crush.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

@@ -14,7 +14,7 @@ const makeContext = (): WorkspaceRuleContext =>
             key: { scope: "project", type: "mcp-server", name: "demo" },
             actual: {
               key: { scope: "project", type: "mcp-server", name: "demo" },
-              origin: { _tag: "agent-mcp-config", agentId: "claude-code" },
+              origin: { _tag: "workspace-mcp-config" },
               contentRoot: null,
               configFile: ".mcp.json",
               config: {
@@ -33,9 +33,9 @@ const makeContext = (): WorkspaceRuleContext =>
             key: { scope: "project", type: "mcp-server", name: "manual" },
             actual: {
               key: { scope: "project", type: "mcp-server", name: "manual" },
-              origin: { _tag: "agent-mcp-config", agentId: "claude-code" },
+              origin: { _tag: "agent-mcp-config", agentId: "cursor" },
               contentRoot: null,
-              configFile: ".mcp.json",
+              configFile: ".cursor/mcp.json",
               config: {
                 type: "stdio",
                 command: "node",
@@ -54,13 +54,14 @@ const makeContext = (): WorkspaceRuleContext =>
   }) as unknown as WorkspaceRuleContext;
 
 describe("workspace/mcps-agent-orphaned", () => {
-  it.effect("reports owned MCP entries not declared in settings without mutating", () =>
+  it.effect("reports an orphaned shared MCP entry once without mutating", () =>
     Effect.gen(function* () {
       const findings = yield* mcpServerAgentOrphanedRule.check(makeContext());
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/mcps-agent-orphaned");
       expect(findings[0]?.kind).toBe("advisory");
+      expect(findings[0]?.message).toContain("shared config");
       expect(findings[0]?.location).toEqual({ file: ".mcp.json" });
       expect("fix" in mcpServerAgentOrphanedRule).toBe(false);
     }),

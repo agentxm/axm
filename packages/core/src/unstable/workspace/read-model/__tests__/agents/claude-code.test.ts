@@ -121,7 +121,7 @@ describe("agents/claude-code module", () => {
       ...noObservations,
       agentDir: [skillObservation],
     });
-    const result = module.detected("project", declaredOpt, actualOpt);
+    const result = module.detected("project", declaredOpt, true, actualOpt);
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.status).toBe("managed-and-present");
@@ -131,7 +131,7 @@ describe("agents/claude-code module", () => {
   it("detected returns managed-not-present when declared but no actual", () => {
     const declaredOpt = module.declared("project", Option.some({ agents: ["claude-code"] }));
     const actualOpt = module.actual("project", noObservations);
-    const result = module.detected("project", declaredOpt, actualOpt);
+    const result = module.detected("project", declaredOpt, false, actualOpt);
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.status).toBe("managed-not-present");
@@ -144,7 +144,7 @@ describe("agents/claude-code module", () => {
       ...noObservations,
       agentDir: [skillObservation],
     });
-    const result = module.detected("project", declaredOpt, actualOpt);
+    const result = module.detected("project", declaredOpt, true, actualOpt);
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.status).toBe("unmanaged-present");
@@ -152,7 +152,7 @@ describe("agents/claude-code module", () => {
   });
 
   it("detected returns None when neither declared nor actual", () => {
-    const result = module.detected("project", Option.none(), Option.none());
+    const result = module.detected("project", Option.none(), false, Option.none());
     expect(Option.isNone(result)).toBe(true);
   });
 });

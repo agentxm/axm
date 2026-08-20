@@ -68,11 +68,13 @@ export const junieAgent = {
                 scope: "project",
                 path: ".junie/mcp/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.junie/mcp/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

@@ -74,11 +74,13 @@ export const codeartsAgentAgent = {
                 scope: "project",
                 path: ".codeartsdoer/codearts_cli.jsonc",
                 format: "jsonc",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.codeartsdoer/codearts_cli.jsonc",
                 format: "jsonc",
+                attribution: "agent",
               },
             ],
             stdio: {

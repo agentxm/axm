@@ -10,6 +10,7 @@ const makeContext = (
     readonly agentIds?: ReadonlyArray<string>;
     readonly actualAgentId?: string;
     readonly actualConfig?: Readonly<Record<string, unknown>>;
+    readonly shared?: boolean;
   } = {},
 ): WorkspaceRuleContext =>
   // Assertion needed: this rule only reads the MCP server installed cell.
@@ -36,12 +37,14 @@ const makeContext = (
             actual: [
               {
                 key: { scope: "project", type: "mcp-server", name: "demo" },
-                origin: {
-                  _tag: "agent-mcp-config",
-                  agentId: args.actualAgentId ?? "claude-code",
-                },
+                origin: args.shared
+                  ? { _tag: "workspace-mcp-config" }
+                  : {
+                      _tag: "agent-mcp-config",
+                      agentId: args.actualAgentId ?? "cursor",
+                    },
                 contentRoot: null,
-                configFile: ".mcp.json",
+                configFile: args.shared ? ".mcp.json" : ".cursor/mcp.json",
                 config:
                   args.actualConfig ??
                   ({
@@ -61,7 +64,7 @@ const makeContext = (
         ]),
       },
       state: {
-        settings: Effect.succeed(Option.some({ agents: args.agentIds ?? ["claude-code"] })),
+        settings: Effect.succeed(Option.some({ agents: args.agentIds ?? ["cursor"] })),
       },
     },
     subject: { root: "/tmp/project", scope: "project" },
@@ -81,12 +84,12 @@ describe("workspace/mcps-agent-drift", () => {
     }),
   );
 
-  it.effect("reports a Copilot projection that another shared-file reader rejects", () =>
+  it.effect("reports a shared projection once with every configured consumer", () =>
     Effect.gen(function* () {
       const findings = yield* mcpServerAgentDriftRule.check(
         makeContext({
           agentIds: ["claude-code", "github-copilot-cli"],
-          actualAgentId: "github-copilot-cli",
+          shared: true,
           actualConfig: {
             "x-axm": {
               v: 1,
@@ -102,6 +105,8 @@ describe("workspace/mcps-agent-drift", () => {
       );
 
       expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("shared config");
+      expect(findings[0]?.message).toContain("claude-code");
       expect(findings[0]?.message).toContain("github-copilot-cli");
       expect(findings[0]?.message).toContain("type");
     }),
@@ -135,7 +140,7 @@ describe("workspace/mcps-agent-drift", () => {
                 ...row,
                 actual: row.actual.map((actual) => ({
                   ...actual,
-                  configFile: "/tmp/project/.mcp.json",
+                  configFile: "/tmp/project/.cursor/mcp.json",
                 })),
               },
             ]),
@@ -143,7 +148,7 @@ describe("workspace/mcps-agent-drift", () => {
         },
       });
 
-      expect(findings[0]?.location).toEqual({ file: ".mcp.json" });
+      expect(findings[0]?.location).toEqual({ file: ".cursor/mcp.json" });
     }),
   );
 });

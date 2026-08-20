@@ -646,7 +646,14 @@ describe("agent capability catalog", () => {
                       required: null,
                       accepted: [null],
                     },
-                    targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+                    targets: [
+                      {
+                        scope: "project",
+                        path: ".mcp.json",
+                        format: "json",
+                        attribution: "shared",
+                      },
+                    ],
                     stdio: null,
                     remote: null,
                   },
@@ -672,6 +679,9 @@ describe("agent capability catalog", () => {
     }
     for (const members of groups.values()) {
       if (members.length < 2) continue;
+      expect(new Set(members.map((member) => member.target.attribution))).toEqual(
+        new Set(["shared"]),
+      );
       const transports = new Set<SharedMcpTransport>();
       for (const member of members) {
         if (member.config.stdio !== null) transports.add("stdio");
@@ -688,6 +698,20 @@ describe("agent capability catalog", () => {
         ).toBe("resolved");
       }
     }
+  });
+  it("marks every universal project .mcp.json reader as shared", () => {
+    const readers = AGENTS.flatMap((agent) => {
+      const writer = agent.capabilities["mcp-server"].axm.writer;
+      if (writer === null) return [];
+      return writer.config.targets.flatMap((target) =>
+        target.scope === "project" && target.path === ".mcp.json"
+          ? [{ agentId: agent.id, attribution: target.attribution }]
+          : [],
+      );
+    });
+
+    expect(readers.length).toBeGreaterThanOrEqual(5);
+    expect(readers.every((reader) => reader.attribution === "shared")).toBe(true);
   });
   it("keeps every required MCP writer representation in its accepted set", () => {
     for (const agent of AGENTS) {

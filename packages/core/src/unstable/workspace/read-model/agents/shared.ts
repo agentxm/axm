@@ -53,7 +53,7 @@ export const defaultActual = (
   );
   const agentSettings = observations.agentSettings.filter((occ) => occ.agentId === agentId);
   const mcpConfig = observations.mcpConfig.filter(
-    (occ) => occ.origin === "agent" && occ.agentId === agentId,
+    (occ) => occ.surface._tag === "agent" && occ.surface.agentId === agentId,
   );
   if (agentDir.length === 0 && agentSettings.length === 0 && mcpConfig.length === 0) {
     return Option.none();
@@ -71,22 +71,23 @@ export const defaultDetected = (
   agentId: AgentId,
   scope: Scope,
   declared: Option.Option<DeclaredAgent>,
+  present: boolean,
   actual: Option.Option<ActualAgent>,
 ): Option.Option<DetectedAgent> => {
   const isDeclared = Option.isSome(declared);
-  const isActual = Option.isSome(actual);
   const status: Option.Option<DetectionStatus> =
-    isDeclared && isActual
+    isDeclared && present
       ? Option.some("managed-and-present")
       : isDeclared
         ? Option.some("managed-not-present")
-        : isActual
+        : present
           ? Option.some("unmanaged-present")
           : Option.none();
   return Option.map(status, (s) => ({
     scope,
     agentId,
     status: s,
+    present,
     declared,
     actual,
   }));

@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { detectAgents } from "@agentxm/client-core/unstable/agents";
+import { detectAgentsForScope } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -184,7 +184,9 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     ? yield* renderer.withSpinner(
         "Detecting coding agents",
         () =>
-          detectAgents(ws.baseDir).pipe(Effect.map((agents) => agents.map((agent) => agent.id))),
+          detectAgentsForScope(ws.baseDir, ws.scope).pipe(
+            Effect.map((agents) => agents.map((agent) => agent.id)),
+          ),
         { successMessage: "Detected coding agents" },
       )
     : [];

@@ -2,14 +2,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
+import { groupConfiguredMcpTargets } from "../../../mcps/targeting.js";
 import type { UnmanagedMcpServer } from "../../../workspace/read-model/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 
 const RULE_ID = "workspace/mcps-agent-orphaned";
 
-const isManagedAgentEntry = (row: UnmanagedMcpServer): boolean =>
-  row.actual.origin._tag === "agent-mcp-config" &&
+const isManagedConfigEntry = (row: UnmanagedMcpServer): boolean =>
+  (row.actual.origin._tag === "agent-mcp-config" ||
+    row.actual.origin._tag === "workspace-mcp-config") &&
   row.actual.config !== null &&
   isAxmManagedMcpEntry(row.actual.config);
 
@@ -23,12 +25,15 @@ const configuredAgentIds = (context: WorkspaceRuleContext): Effect.Effect<Readon
   });
 
 const findingFor = (row: UnmanagedMcpServer): AdvisoryFinding => {
-  const agent = row.actual.origin._tag === "agent-mcp-config" ? row.actual.origin.agentId : "agent";
+  const target =
+    row.actual.origin._tag === "agent-mcp-config"
+      ? `agent config for ${row.actual.origin.agentId}`
+      : "shared config";
   const finding = {
     kind: "advisory",
     ruleId: RULE_ID,
     severity: "warning",
-    message: `MCP server '${row.key.name}' has an orphaned AXM-owned agent config for ${agent}.`,
+    message: `MCP server '${row.key.name}' has an orphaned AXM-owned ${target}.`,
   } satisfies Omit<AdvisoryFinding, "location">;
   return row.actual.configFile === null
     ? finding
@@ -36,13 +41,31 @@ const findingFor = (row: UnmanagedMcpServer): AdvisoryFinding => {
 };
 
 const orphanedRows = (rows: ReadonlyArray<UnmanagedMcpServer>): ReadonlyArray<UnmanagedMcpServer> =>
-  rows.filter(isManagedAgentEntry);
+  rows.filter(isManagedConfigEntry);
+
+const configFileMatchesTarget = (configFile: string, targetPath: string): boolean =>
+  configFile === targetPath ||
+  configFile.endsWith(`/${targetPath}`) ||
+  (targetPath.startsWith("~/") && configFile.endsWith(`/${targetPath.slice(2)}`));
 
 const isConfiguredAgentRow = (
   row: UnmanagedMcpServer,
   configuredAgents: ReadonlySet<string>,
 ): boolean =>
-  row.actual.origin._tag === "agent-mcp-config" && configuredAgents.has(row.actual.origin.agentId);
+  row.actual.origin._tag === "agent-mcp-config"
+    ? configuredAgents.has(row.actual.origin.agentId)
+    : row.actual.configFile !== null &&
+      groupConfiguredMcpTargets({
+        agentIds: [...configuredAgents],
+        scope: row.key.scope,
+      }).some((group) => {
+        const [first] = group.members;
+        return (
+          first !== undefined &&
+          first.target.attribution === "shared" &&
+          configFileMatchesTarget(row.actual.configFile ?? "", first.target.path)
+        );
+      });
 
 const findingsForRows = (
   rows: ReadonlyArray<UnmanagedMcpServer>,

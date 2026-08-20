@@ -69,11 +69,13 @@ export const kimiCliAgent = {
                 scope: "project",
                 path: ".kimi-code/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.kimi-code/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

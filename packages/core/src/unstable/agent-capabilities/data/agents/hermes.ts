@@ -61,7 +61,14 @@ export const hermesAgent = {
               required: { name: "enabled", enabled: true, disabled: false },
               accepted: [{ name: "enabled", enabled: true, disabled: false }],
             },
-            targets: [{ scope: "user", path: "~/.hermes/config.yaml", format: "yaml" }],
+            targets: [
+              {
+                scope: "user",
+                path: "~/.hermes/config.yaml",
+                format: "yaml",
+                attribution: "agent",
+              },
+            ],
             stdio: {
               typeField: { required: null, accepted: [null] },
               command: "split",

@@ -68,11 +68,13 @@ export const kiroCliAgent = {
                 scope: "project",
                 path: ".kiro/settings/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.kiro/settings/mcp.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

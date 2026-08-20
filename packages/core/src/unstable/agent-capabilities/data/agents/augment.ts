@@ -70,6 +70,7 @@ export const augmentAgent = {
                 scope: "user",
                 path: "~/.augment/settings.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

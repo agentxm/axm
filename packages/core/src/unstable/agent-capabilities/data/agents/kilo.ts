@@ -75,11 +75,13 @@ export const kiloAgent = {
                 scope: "project",
                 path: "kilo.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.config/kilo/kilo.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

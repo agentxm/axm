@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { AGENTS } from "../../../agents/registry.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeMcpConfigScanner } from "./mcp-config.js";
 
@@ -41,7 +42,7 @@ describe("makeMcpConfigScanner", () => {
             workspaceRoot,
             scope: "project",
             diagnostics: makeDiagnostics(ref),
-            agentRegistry: {},
+            agentRegistry: { "claude-code": AGENTS["claude-code"] },
           });
 
           const names = occurrences.map((occurrence) => occurrence.name);

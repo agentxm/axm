@@ -96,11 +96,13 @@ export const codexAgent = {
                 scope: "project",
                 path: ".codex/config.toml",
                 format: "toml",
+                attribution: "agent",
               },
               {
                 scope: "user",
                 path: "~/.codex/config.toml",
                 format: "toml",
+                attribution: "agent",
               },
             ],
             stdio: {

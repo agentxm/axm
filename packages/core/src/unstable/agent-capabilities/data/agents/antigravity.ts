@@ -87,11 +87,13 @@ export const antigravityAgent = {
                 scope: "user",
                 path: "~/.gemini/config/mcp_config.json",
                 format: "json",
+                attribution: "agent",
               },
               {
                 scope: "project",
                 path: ".agents/mcp_config.json",
                 format: "json",
+                attribution: "agent",
               },
             ],
             stdio: {

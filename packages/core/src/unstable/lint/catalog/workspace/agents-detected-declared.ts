@@ -24,27 +24,9 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
-import { AGENTS } from "../../../agents/registry.js";
-import { isUniversalSkillsRelativeDir } from "../../../extensions/universal-skills-dir.js";
-import type { DetectedAgent } from "../../../workspace/read-model/agents/types.js";
 
 const RULE_ID = "workspace/agents-detected-declared";
 const SETTINGS_REL = ".axm/settings.json";
-
-const isUniversalDirOnlyDetection = (detection: DetectedAgent): boolean => {
-  const descriptor = AGENTS[detection.agentId];
-  if (!isUniversalSkillsRelativeDir(descriptor.skills.dir)) {
-    return false;
-  }
-  return Option.match(detection.actual, {
-    onNone: () => false,
-    onSome: (actual) =>
-      actual.agentSettingsOccurrences.length === 0 &&
-      actual.mcpConfigOccurrences.length === 0 &&
-      actual.agentDirOccurrences.length > 0 &&
-      actual.agentDirOccurrences.every((occurrence) => occurrence.type === "skill"),
-  });
-};
 
 export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -73,17 +55,11 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
         if (detection.status !== "unmanaged-present") {
           continue;
         }
-        if (isUniversalDirOnlyDetection(detection)) {
-          continue;
-        }
         findings.push({
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "warning",
-          message:
-            `Agent '${detection.agentId}' is present on disk but missing from \`settings.agents[]\`. ` +
-            `To manage it, add '${detection.agentId}' under \`agents\` in \`.axm/settings.json\`. ` +
-            'If it is intentionally unmanaged, set `lint.rules["workspace/agents-detected-declared"]` to `off` in `.axm/settings.json`.',
+          message: `Agent '${detection.agentId}' is present on disk but missing from \`settings.agents[]\`.`,
           location: { file: SETTINGS_REL },
         });
       }

@@ -14,7 +14,8 @@ import {
   inferInlineRemoteTransport,
   projectExpectedEntry,
 } from "../../../mcps/projection.js";
-import { resolveSharedMcpTarget, type SharedMcpTargetMember } from "../../../mcps/shared-target.js";
+import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
+import { planMcpTargetGroups } from "../../../mcps/targeting.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type {
   ActualMcpServer,
@@ -55,10 +56,13 @@ const isInlineEntry = (entry: McpServerEntry): boolean =>
 const configuredEntry = (row: InstalledMcpServer): McpServerEntry | undefined =>
   row.installationOrigin._tag === "direct" ? row.installationOrigin.declared.entry : undefined;
 
-const agentActuals = (actuals: ReadonlyArray<ActualMcpServer>): ReadonlyArray<ActualMcpServer> =>
+const managedConfigActuals = (
+  actuals: ReadonlyArray<ActualMcpServer>,
+): ReadonlyArray<ActualMcpServer> =>
   actuals.filter(
     (actual) =>
-      actual.origin._tag === "agent-mcp-config" &&
+      (actual.origin._tag === "agent-mcp-config" ||
+        actual.origin._tag === "workspace-mcp-config") &&
       actual.config !== null &&
       isAxmManagedMcpEntry(actual.config),
   );
@@ -76,6 +80,7 @@ const findingFor = (args: {
   readonly name: string;
   readonly actual: ActualMcpServer;
   readonly fields: ReadonlyArray<string>;
+  readonly consumers: ReadonlyArray<string>;
   readonly root: string;
 }): AdvisoryFinding => {
   const finding = {
@@ -83,7 +88,7 @@ const findingFor = (args: {
     ruleId: RULE_ID,
     severity: "warning",
     message:
-      `MCP server '${args.name}' has drifted agent config for ${args.actual.origin._tag === "agent-mcp-config" ? args.actual.origin.agentId : "agent"} ` +
+      `MCP server '${args.name}' has drifted ${args.actual.origin._tag === "agent-mcp-config" ? `agent config for ${args.actual.origin.agentId}` : `shared config for ${args.consumers.join(", ")}`} ` +
       `(${args.fields.join(", ")}).`,
   } satisfies Omit<AdvisoryFinding, "location">;
   return args.actual.configFile === null
@@ -95,7 +100,13 @@ interface DriftedAgentConfig {
   readonly row: InstalledMcpServer;
   readonly actual: ActualMcpServer;
   readonly fields: ReadonlyArray<string>;
+  readonly consumers: ReadonlyArray<string>;
 }
+
+const configFileMatchesTarget = (configFile: string, targetPath: string): boolean =>
+  configFile === targetPath ||
+  configFile.endsWith(`/${targetPath}`) ||
+  (targetPath.startsWith("~/") && configFile.endsWith(`/${targetPath.slice(2)}`));
 
 const checkActual = (args: {
   readonly row: InstalledMcpServer;
@@ -103,30 +114,32 @@ const checkActual = (args: {
   readonly actual: ActualMcpServer;
   readonly configuredAgents: ReadonlySet<string>;
 }): DriftedAgentConfig | undefined => {
-  if (args.actual.origin._tag !== "agent-mcp-config") return undefined;
-  if (!isCapabilityAgentId(args.actual.origin.agentId)) return undefined;
-  if (args.actual.config === null) return undefined;
-  const capability =
-    CONFIGURABLE_AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
-  if (!hasMcpConfig(capability)) return undefined;
-  const nativeConfig = capability.axm.writer.config;
-  const target = nativeConfig.targets.find((candidate) => candidate.scope === args.row.key.scope);
-  if (target === undefined) return undefined;
-  const members: Array<SharedMcpTargetMember> = [];
-  for (const agentId of args.configuredAgents) {
-    if (!isCapabilityAgentId(agentId)) continue;
-    const candidateCapability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-    if (!hasMcpConfig(candidateCapability)) continue;
-    const candidateTarget = candidateCapability.axm.writer.config.targets.find(
-      (candidate) => candidate.scope === args.row.key.scope && candidate.path === target.path,
-    );
-    if (candidateTarget === undefined) continue;
-    members.push({
-      agentId,
-      config: candidateCapability.axm.writer.config,
-      target: candidateTarget,
-    });
+  if (args.actual.config === null || args.actual.configFile === null) return undefined;
+  const groups = planMcpTargetGroups({
+    configuredAgentIds: [...args.configuredAgents],
+    entry: args.entry,
+    scope: args.row.key.scope,
+  });
+  const agentId =
+    args.actual.origin._tag === "agent-mcp-config" ? args.actual.origin.agentId : undefined;
+  const group = groups.find((candidate) => {
+    const [first] = candidate.members;
+    if (first === undefined) return false;
+    if (!configFileMatchesTarget(args.actual.configFile ?? "", first.target.path)) return false;
+    return agentId !== undefined
+      ? candidate.members.some((member) => member.agentId === agentId)
+      : first.target.attribution === "shared";
+  });
+  if (group === undefined) return undefined;
+  const projectionMember =
+    agentId !== undefined
+      ? group.members.find((member) => member.agentId === agentId)
+      : group.members[0];
+  if (projectionMember === undefined || !isCapabilityAgentId(projectionMember.agentId)) {
+    return undefined;
   }
+  const capability = CONFIGURABLE_AGENTS_BY_ID[projectionMember.agentId].capabilities["mcp-server"];
+  if (!hasMcpConfig(capability)) return undefined;
   const inference =
     args.entry.url === undefined ? undefined : inferInlineRemoteTransport(args.entry.url);
   const transport =
@@ -136,7 +149,7 @@ const checkActual = (args: {
         ? inference.transport
         : undefined;
   if (transport === undefined) return undefined;
-  const resolution = resolveSharedMcpTarget({ members, transport });
+  const resolution = resolveSharedMcpTarget({ members: group.members, transport });
   if (resolution._tag === "conflict") return undefined;
   const config = resolution.config;
   const projected = projectExpectedEntry({
@@ -150,7 +163,12 @@ const checkActual = (args: {
   if (projected._tag !== "projected") return undefined;
   const drift = diffAgentEntry(projected, args.actual.config);
   return drift._tag === "drift"
-    ? { row: args.row, actual: args.actual, fields: drift.fields }
+    ? {
+        row: args.row,
+        actual: args.actual,
+        fields: drift.fields,
+        consumers: group.members.map((member) => member.agentId),
+      }
     : undefined;
 };
 
@@ -161,15 +179,16 @@ const driftedAgentConfigs = (
   rows.flatMap((row) => {
     const entry = configuredEntry(row);
     if (entry === undefined || !isInlineEntry(entry)) return [];
-    return agentActuals(row.actual)
-      .filter(
-        (actual) =>
-          actual.origin._tag === "agent-mcp-config" && configuredAgents.has(actual.origin.agentId),
-      )
-      .flatMap((actual) => {
-        const drift = checkActual({ row, entry, actual, configuredAgents });
-        return drift === undefined ? [] : [drift];
-      });
+    return managedConfigActuals(row.actual).flatMap((actual) => {
+      if (
+        actual.origin._tag === "agent-mcp-config" &&
+        !configuredAgents.has(actual.origin.agentId)
+      ) {
+        return [];
+      }
+      const drift = checkActual({ row, entry, actual, configuredAgents });
+      return drift === undefined ? [] : [drift];
+    });
   });
 
 const findingsForRows = (
@@ -182,6 +201,7 @@ const findingsForRows = (
       name: drift.row.key.name,
       actual: drift.actual,
       fields: drift.fields,
+      consumers: drift.consumers,
       root,
     }),
   );

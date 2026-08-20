@@ -132,6 +132,7 @@ export {
   type McpActivationFieldRepresentation,
   type McpConfig,
   type McpConfigTarget,
+  type McpTargetAttribution,
   type McpRemoteDialect,
   type McpServersKey,
   type McpStdioDialect,

@@ -108,6 +108,32 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("stops instruction discovery at a nested separate working tree", () =>
+    run(
+      Effect.gen(function* () {
+        const worktree = path.join(tempDir, ".claude", "worktrees", "feature");
+        fs.mkdirSync(path.join(worktree, "docs"), { recursive: true });
+        fs.mkdirSync(path.join(tempDir, "docs"), { recursive: true });
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(path.join(tempDir, "docs", "AGENTS.md"), "# Docs\n");
+        // A registered worktree carries a `.git` file rather than a directory.
+        fs.writeFileSync(path.join(worktree, ".git"), "gitdir: /elsewhere/worktrees/feature\n");
+        fs.writeFileSync(path.join(worktree, "AGENTS.md"), "# Worktree\n");
+        fs.writeFileSync(path.join(worktree, "docs", "AGENTS.md"), "# Worktree docs\n");
+
+        const status = yield* getInstructionsStatus({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: true,
+        });
+
+        expect([...status.roots].sort()).toEqual([path.join(tempDir, "docs"), tempDir].sort());
+      }),
+    ),
+  );
+
   it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(
       Effect.gen(function* () {

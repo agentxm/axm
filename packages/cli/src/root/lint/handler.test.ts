@@ -161,12 +161,14 @@ describe("axm lint handler", () => {
     readonly scope?: "project" | "user";
     readonly strict?: boolean;
     readonly details?: boolean;
+    readonly fix?: boolean;
   }) =>
     handleLint({
       pathArg: Option.none(),
       scope: args.scope ?? "project",
       strict: args.strict ?? false,
       details: args.details ?? false,
+      fix: args.fix ?? false,
       input: { view: "workspace" },
     });
 

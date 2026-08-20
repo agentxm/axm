@@ -34,6 +34,10 @@ import { WorkspaceInvariantFacts } from "@agentxm/client-core/unstable/projectio
 import { AxmSkillCompatibilityPolicy } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
+  reconcileInstructionTargets,
+  resolveInstructionsConfig,
+} from "@agentxm/client-core/unstable/agents";
+import {
   buildLintWorkspace,
   buildPackRuleContexts,
   buildSkillRuleContexts,
@@ -73,6 +77,8 @@ export interface HandleLintArgs {
   readonly scope: WorkspaceScope;
   readonly strict: boolean;
   readonly details: boolean;
+  /** Apply repairs whose desired state is already determined, then report. */
+  readonly fix: boolean;
   readonly input: LintInput;
   readonly displayWorkspaceRoot?: string;
   readonly ruleOverrides?: LintConfig["rules"];
@@ -190,31 +196,29 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
   return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
 };
 
-const isLintCommandGuidance = (message: string): boolean => message.includes("axm ");
-
 /**
- * Read `lint.rules` from `.axm/settings.json`. Returns the empty config when
- * the file is missing, unparseable, or when the `lint` section is absent.
- * Errors are surfaced as empty config so lint still runs — the relevant
- * `workspace/settings-schema-valid` rule produces the user-facing finding
- * for a bad settings file.
+ * Decode `.axm/settings.json`. Returns `None` when the file is missing, empty,
+ * or unparseable, so lint still runs — the relevant
+ * `workspace/settings-schema-valid` rule produces the user-facing finding for a
+ * bad settings file. Callers derive `lint.rules` and the `--fix` inputs from
+ * the one decode.
  *
  * @internal
  */
-const loadLintConfig = (
+const loadSettingsDocument = (
   workspaceRoot: string,
-): Effect.Effect<LintConfig, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Option.Option<Settings>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, "settings.json");
     const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
-      return {};
+      return Option.none();
     }
     const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
     if (raw.length === 0) {
-      return {};
+      return Option.none();
     }
     const parsed = Effect.try({
       try: (): unknown => JSON.parse(raw),
@@ -225,12 +229,41 @@ const loadLintConfig = (
       Effect.catch(() => Effect.succeed(Option.none<unknown>())),
     );
     if (Option.isNone(parsedOpt)) {
-      return {};
+      return Option.none();
     }
-    const decoded = decodeSettings(parsedOpt.value);
-    return Option.match(decoded, {
-      onNone: () => ({}),
-      onSome: (s) => s.lint ?? {},
+    return decodeSettings(parsedOpt.value);
+  });
+
+const lintConfigFromSettings = (settings: Option.Option<Settings>): LintConfig =>
+  Option.match(settings, {
+    onNone: () => ({}),
+    onSome: (s) => s.lint ?? {},
+  });
+
+/**
+ * Apply the repairs whose desired state is already determined by authoritative
+ * local state. Instruction targets are content-derived from their canonical
+ * source, so regenerating them expresses no preference.
+ *
+ * This delegates to the same reconciliation `axm sync` performs rather than
+ * defining a second desired state. A workspace that has not enabled
+ * instruction-file management has nothing determined to restore, so `--fix`
+ * leaves it untouched.
+ */
+const applyDeterminedRepairs = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly settings: Option.Option<Settings>;
+}) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.settings)) return;
+    const instructionFiles = args.settings.value.instructionFiles;
+    if (instructionFiles === undefined || instructionFiles === false) return;
+    yield* reconcileInstructionTargets({
+      workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
+      configuredAgents: args.settings.value.agents ?? [],
+      config: resolveInstructionsConfig(instructionFiles),
     });
   });
 
@@ -270,22 +303,16 @@ const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details
           switch (block.kind) {
             case "overview":
               yield* emitSummary(renderer, block.message, block.counts);
-              yield* Effect.forEach(
-                block.notes.filter((note) => !isLintCommandGuidance(note)),
-                (note) => renderer.message(note),
-                {
-                  discard: true,
-                },
-              );
+              yield* Effect.forEach(block.notes, (note) => renderer.message(note), {
+                discard: true,
+              });
               return;
             case "blank":
               yield* renderer.message("");
               return;
             case "section": {
               const label =
-                block.note !== undefined && !isLintCommandGuidance(block.note)
-                  ? `${block.title} (${block.note})`
-                  : block.title;
+                block.note === undefined ? block.title : `${block.title} (${block.note})`;
               yield* renderer.step(label);
               return;
             }
@@ -361,13 +388,9 @@ const emitFullHumanDiagnostic = (
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,
     });
-    yield* Effect.forEach(
-      diagnostic.helps.filter((help) => !isLintCommandGuidance(help)),
-      (help) => renderer.message(`  ${help}`),
-      {
-        discard: true,
-      },
-    );
+    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
+      discard: true,
+    });
   });
 
 const emitGroupedHumanDiagnostic = (
@@ -399,13 +422,9 @@ const emitGroupedHumanDiagnostic = (
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,
     });
-    yield* Effect.forEach(
-      diagnostic.helps.filter((help) => !isLintCommandGuidance(help)),
-      (help) => renderer.message(`  ${help}`),
-      {
-        discard: true,
-      },
-    );
+    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
+      discard: true,
+    });
   });
 
 const emitSummary = (
@@ -438,7 +457,14 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   });
 
   // -- Load settings + lockfile + config --
-  const loadedConfig = yield* loadLintConfig(workspaceRoot);
+  const settings = yield* loadSettingsDocument(workspaceRoot);
+
+  // -- Repair before observing, so the report reflects the reconciled state --
+  if (args.fix) {
+    yield* applyDeterminedRepairs({ workspaceRoot, scope: args.scope, settings });
+  }
+
+  const loadedConfig = lintConfigFromSettings(settings);
   const config =
     args.ruleOverrides === undefined
       ? loadedConfig

@@ -458,7 +458,12 @@ const acceptedPackDependencyResolver =
       Effect.provideService(Path.Path, path),
     );
 
-const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const resolvePackRef = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  forceCanonical?: boolean,
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
@@ -474,6 +479,7 @@ const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: Rele
           releaseAgeEvaluation,
           releaseAgeHoldbackBehavior: "preserve-or-block",
           dependencyResolver: acceptedPackDependencyResolver(ws, fs, path),
+          ...(forceCanonical === true ? { forceCanonical: true } : {}),
         } satisfies InstallPackCommandIntent,
         releaseAge: undefined,
       };
@@ -489,6 +495,7 @@ const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: Rele
         unattended: true,
         releaseAgeEvaluation,
         releaseAgeHoldbackBehavior: "preserve-or-block",
+        ...(forceCanonical === true ? { forceCanonical: true } : {}),
       } satisfies InstallPackCommandIntent,
       releaseAge,
     };
@@ -659,6 +666,7 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
 const collectPackPlans = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   selectedNames?: ReadonlySet<string>,
+  forceCanonical?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -671,7 +679,7 @@ const collectPackPlans = (
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(name, entry.source, releaseAgeEvaluation).pipe(
+        resolvePackRef(name, entry.source, releaseAgeEvaluation, forceCanonical).pipe(
           Effect.flatMap(({ intent, releaseAge }) =>
             actions
               .buildPlan(intent)
@@ -735,7 +743,9 @@ export const buildConfiguredPackInstallPlan = (args: {
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
       args.ignoreReleaseAge === true ? "ignore" : "enforce",
     );
-    const collection = yield* collectPackPlans(releaseAgeEvaluation, args.packNames);
+    // Recovery only runs for Packs whose observed tree already diverged from the
+    // accepted resolution, so the installed tree must never be reused.
+    const collection = yield* collectPackPlans(releaseAgeEvaluation, args.packNames, true);
     const fragments = mergeFragments([collection]);
     if (fragments.length === 0) {
       return {

@@ -47,7 +47,6 @@ import {
   insertManagedFileBanner,
   materializeExternalPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
   RenderedFilePathSchema,
   type SourceHash,
 } from "../extensions/index.js";
@@ -240,19 +239,12 @@ export const SubagentManagerLive = Layer.effect(
           yield* ws.getLockedSubagent(ref.subagent.name),
           ref,
         );
-        const identity = registryCanonicalMaterializationIdentity({
-          owner: ref.owner,
-          type: "subagent",
-          name: ref.name,
-          version: ref.version,
-          publisherBindingId: ref.publisherBindingId,
-          integrity: ref.integrity,
-        });
         const useExisting = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force,
-            identity,
+            refVersion: ref.version,
+            hasIntegrity: Option.isSome(ref.integrity),
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
           }),
@@ -269,7 +261,6 @@ export const SubagentManagerLive = Layer.effect(
               name: ref.name,
               version: ref.version,
               integrity: ref.integrity,
-              publisherBindingId: ref.publisherBindingId,
               messages: {
                 integrityMismatchCode: "internal",
                 integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,

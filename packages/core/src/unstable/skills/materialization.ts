@@ -2,13 +2,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
   canReuseExternalPackage,
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
   validatePathSafety,
 } from "../extensions/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
@@ -47,7 +47,6 @@ const replaceExternalCanonical = (
       canReuseExternalPackage({
         installedPath: copyTarget,
         force,
-        sourceLocation: sourcePath,
         existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
       }),
     );
@@ -174,19 +173,12 @@ const materializeRegistry = (
       );
       yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
-      const identity = registryCanonicalMaterializationIdentity({
-        owner: ref.owner,
-        type: "skill",
-        name: ref.name,
-        version: ref.version,
-        publisherBindingId: ref.publisherBindingId,
-        integrity: ref.integrity,
-      });
       const useExisting = yield* provide(
         canReuseInstalledPackage({
           installedPath: canonicalPath,
           force: reuse.force,
-          identity,
+          refVersion: ref.version,
+          hasIntegrity: Option.isSome(ref.integrity),
           ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
           existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
         }),
@@ -203,7 +195,6 @@ const materializeRegistry = (
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
-            publisherBindingId: ref.publisherBindingId,
             messages: {
               integrityMismatchCode: "internal",
               integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,

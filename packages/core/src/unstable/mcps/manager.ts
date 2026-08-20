@@ -27,7 +27,6 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   canReuseInstalledPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
   REGISTRY_EXTENSIONS_DIR,
 } from "../extensions/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
@@ -139,19 +138,12 @@ export const McpServerManagerLive = Layer.effect(
           yield* ws.getLockedMcpServer(registryRef.server.name),
           registryRef,
         );
-        const identity = registryCanonicalMaterializationIdentity({
-          owner: registryRef.owner,
-          type: "mcp-server",
-          name: registryRef.name,
-          version: registryRef.version,
-          publisherBindingId: registryRef.publisherBindingId,
-          integrity: registryRef.integrity,
-        });
         const useExisting = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force: force === true,
-            identity,
+            refVersion: registryRef.version,
+            hasIntegrity: Option.isSome(registryRef.integrity),
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
           }),
@@ -168,7 +160,6 @@ export const McpServerManagerLive = Layer.effect(
               name: registryRef.name,
               version: registryRef.version,
               integrity: registryRef.integrity,
-              publisherBindingId: registryRef.publisherBindingId,
               messages: {
                 integrityMismatchCode: "internal",
                 integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,

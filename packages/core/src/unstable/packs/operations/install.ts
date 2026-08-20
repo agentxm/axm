@@ -221,15 +221,6 @@ export const installPack: OperationHandler<
         yield* replaceCanonicalDirectory({
           baseDir: ws.baseDir,
           canonicalPath: packDir,
-          identity: {
-            refType: "registry",
-            owner: op.args.owner,
-            type: "pack",
-            name: op.args.packName,
-            version: op.args.resolvedVersion,
-            publisherBindingId: op.args.publisherBindingId,
-            integrity: op.args.integrity,
-          },
           populate: (stagingPath) =>
             copyExtensionDirectory(fetched.directory, stagingPath).pipe(
               Effect.mapError((cause) =>

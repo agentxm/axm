@@ -179,6 +179,22 @@ const readDirSafe = (dir: string) =>
     return yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed(empty)));
   });
 
+/**
+ * A nested directory carrying its own `.git` entry is a separate working tree —
+ * a registered worktree (`.git` file), a submodule, or a nested clone. Its
+ * instruction files belong to that tree, so propagation stops at the boundary
+ * rather than attributing the foreign tree's state to this workspace.
+ *
+ * The workspace root is visited directly and never tested, so a workspace that
+ * is itself a repository still propagates normally.
+ */
+const isSeparateWorkingTree = (dir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    return yield* fs.exists(path.join(dir, ".git")).pipe(Effect.catch(() => Effect.succeed(false)));
+  });
+
 export const findInstructionRoots = (
   workspaceRoot: string,
   fileName: string,
@@ -205,6 +221,7 @@ export const findInstructionRoots = (
               const full = path.join(dir, entry);
               const stat = yield* fs.stat(full).pipe(Effect.option);
               if (Option.isNone(stat) || stat.value.type !== "Directory") return [];
+              if (yield* isSeparateWorkingTree(full)) return [];
               return yield* visit(full);
             }),
           { concurrency: "unbounded" },

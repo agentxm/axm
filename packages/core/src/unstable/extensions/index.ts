@@ -267,22 +267,15 @@ export {
   materializeExternalPackage,
   materializeRegistryPackage,
   recoverCanonicalDirectory,
-  registryCanonicalMaterializationIdentity,
   replaceCanonicalDirectory,
-  type CanonicalMaterializationIdentity,
   type CanReuseExternalPackageArgs,
   type CanReuseInstalledPackageArgs,
-  type ExternalCanonicalMaterializationIdentity,
   type MaterializeExternalPackageArgs,
   type MaterializeRegistryPackageArgs,
-  type RegistryCanonicalMaterializationIdentity,
-  type RegistryCanonicalMaterializationIdentityArgs,
   type RegistryPackageMaterializationMessages,
   type RecoverCanonicalDirectoryArgs,
   type ReplaceCanonicalDirectoryArgs,
 } from "./package-materialization.js";
-
-export { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "./materialization-marker.js";
 
 export { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 

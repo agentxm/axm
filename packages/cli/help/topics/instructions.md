@@ -90,6 +90,11 @@ managed ignore patterns. The tracked-alias finding names
 `gitignoreAliases: false` as the reconciling setting. Use `axm sync --preview`
 to inspect reconciliation, then `axm sync` to restore configured state.
 
+A missing or drifted target is determined by its canonical source, so
+`axm lint --fix` restores just those targets through the same reconciliation.
+A missing source is not — it needs an authoring decision, and `--fix` leaves it
+alone.
+
 Transitions fail closed when an alias or managed region is unowned or
 ambiguous. Settings and files remain unchanged; there is no generic force flag.
 Managed copies carry a structured `axm:file v=1` marker; the banner prose is

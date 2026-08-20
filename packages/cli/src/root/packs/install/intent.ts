@@ -20,4 +20,10 @@ export interface InstallPackCommandIntent {
   readonly diagnosticLines?: ReadonlyArray<string>;
   /** Immutable dependency authority supplied by deterministic recovery workflows. */
   readonly dependencyResolver?: PackDependencyRefResolver;
+  /**
+   * Reacquire the Pack's canonical content instead of reusing the installed
+   * tree. Recovery sets this because the observed tree already diverged from
+   * the accepted resolution, so reusing it would preserve the divergence.
+   */
+  readonly forceCanonical?: boolean;
 }

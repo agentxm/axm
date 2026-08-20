@@ -7,26 +7,16 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import {
-  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
   canReuseExternalPackage,
   canReuseInstalledPackage,
   canonicalMaterializationPaths,
-  computePackageContentHash,
   materializeExternalPackage,
   replaceCanonicalDirectory,
 } from "./index.js";
 
 const existsFailureDetail = (installedPath: string) => `failed to check ${installedPath}`;
 
-const registryIdentity = {
-  refType: "registry" as const,
-  owner: "@acme",
-  type: "hook" as const,
-  name: "review",
-  version: "1.0.0",
-  publisherBindingId: "hbnd_acme",
-  integrity: "sha512-review",
-};
+const pinnedRef = { refVersion: "1.0.0", hasIntegrity: true };
 
 describe("package materialization helpers", () => {
   let tempDir: string;
@@ -45,9 +35,11 @@ describe("package materialization helpers", () => {
   const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
     effect.pipe(Effect.provide(NodeServices.layer));
 
-  it.effect("does not reuse a canonical directory without a completion marker", () =>
+  it.effect("reuses an existing tree for a ref without pinned integrity", () =>
     run(
       Effect.gen(function* () {
+        // Synthetic refs from publish carry no integrity, so an existing tree
+        // is accepted as-is rather than re-materialized.
         const installedPath = nodePath.join(
           workspaceRoot,
           ".axm",
@@ -62,48 +54,50 @@ describe("package materialization helpers", () => {
         const reuse = yield* canReuseInstalledPackage({
           installedPath,
           force: false,
-          identity: { ...registryIdentity, integrity: null },
-          existsFailureDetail,
-        });
-
-        expect(reuse).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("reuses a complete canonical directory with matching accepted identity", () =>
-    run(
-      Effect.gen(function* () {
-        const installedPath = nodePath.join(
-          workspaceRoot,
-          ".axm",
-          "extensions",
-          "@acme",
-          "hooks",
-          "review",
-        );
-        yield* replaceCanonicalDirectory({
-          baseDir: workspaceRoot,
-          canonicalPath: installedPath,
-          identity: registryIdentity,
-          populate: (stagingPath) =>
-            Effect.sync(() => {
-              nodeFs.mkdirSync(stagingPath, { recursive: true });
-              nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "complete");
-            }),
-        });
-
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath,
-          force: false,
-          identity: registryIdentity,
-          lockedVersion: "1.0.0",
+          refVersion: "1.0.0",
+          hasIntegrity: false,
           existsFailureDetail,
         });
 
         expect(reuse).toBe(true);
       }),
     ),
+  );
+
+  it.effect(
+    "reuses a complete canonical directory when the lockfile pins the requested version",
+    () =>
+      run(
+        Effect.gen(function* () {
+          const installedPath = nodePath.join(
+            workspaceRoot,
+            ".axm",
+            "extensions",
+            "@acme",
+            "hooks",
+            "review",
+          );
+          yield* replaceCanonicalDirectory({
+            baseDir: workspaceRoot,
+            canonicalPath: installedPath,
+            populate: (stagingPath) =>
+              Effect.sync(() => {
+                nodeFs.mkdirSync(stagingPath, { recursive: true });
+                nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "complete");
+              }),
+          });
+
+          const reuse = yield* canReuseInstalledPackage({
+            installedPath,
+            force: false,
+            ...pinnedRef,
+            lockedVersion: "1.0.0",
+            existsFailureDetail,
+          });
+
+          expect(reuse).toBe(true);
+        }),
+      ),
   );
 
   it.effect("decides reuse from the installed tree, not the staging destination", () =>
@@ -128,18 +122,13 @@ describe("package materialization helpers", () => {
         const reuse = yield* canReuseInstalledPackage({
           installedPath,
           force: false,
-          identity: {
-            ...registryIdentity,
-            type: "knowledge",
-            name: "handbook",
-            version: "0.3.0",
-            integrity: "sha512-pinned",
-          },
+          refVersion: "0.3.0",
+          hasIntegrity: true,
           lockedVersion: "0.3.0",
           existsFailureDetail,
         });
 
-        expect(reuse).toBe(false);
+        expect(reuse).toBe(true);
         expect(nodeFs.existsSync(stagingDestination)).toBe(false);
         expect(nodeFs.readFileSync(nodePath.join(installedPath, "index.md"), "utf8")).toBe(
           "locally formatted",
@@ -164,13 +153,8 @@ describe("package materialization helpers", () => {
         const reuse = yield* canReuseInstalledPackage({
           installedPath,
           force: false,
-          identity: {
-            ...registryIdentity,
-            type: "knowledge",
-            name: "handbook",
-            version: "0.4.0",
-            integrity: "sha512-pinned",
-          },
+          refVersion: "0.4.0",
+          hasIntegrity: true,
           lockedVersion: "0.3.0",
           existsFailureDetail,
         });
@@ -194,7 +178,6 @@ describe("package materialization helpers", () => {
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: registryIdentity,
           populate: (stagingPath) =>
             Effect.sync(() => {
               nodeFs.mkdirSync(stagingPath, { recursive: true });
@@ -205,7 +188,6 @@ describe("package materialization helpers", () => {
         const failure = yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: { ...registryIdentity, version: "2.0.0", integrity: "sha512-next" },
           populate: (stagingPath) =>
             Effect.gen(function* () {
               yield* Effect.sync(() => {
@@ -242,7 +224,6 @@ describe("package materialization helpers", () => {
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: registryIdentity,
           populate: (stagingPath) =>
             Effect.sync(() => {
               nodeFs.mkdirSync(stagingPath, { recursive: true });
@@ -253,7 +234,6 @@ describe("package materialization helpers", () => {
         const failure = yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: { ...registryIdentity, version: "2.0.0", integrity: "sha512-next" },
           populate: (stagingPath) =>
             Effect.sync(() => {
               nodeFs.mkdirSync(stagingPath, { recursive: true });
@@ -296,7 +276,6 @@ describe("package materialization helpers", () => {
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: registryIdentity,
           populate: (stagingPath) =>
             Effect.sync(() => {
               nodeFs.mkdirSync(stagingPath, { recursive: true });
@@ -311,7 +290,6 @@ describe("package materialization helpers", () => {
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: { ...registryIdentity, version: "2.0.0", integrity: "sha512-next" },
           populate: (stagingPath) =>
             Effect.sync(() => {
               expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
@@ -343,7 +321,6 @@ describe("package materialization helpers", () => {
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: registryIdentity,
           populate: (stagingPath) =>
             Effect.sync(() => {
               nodeFs.mkdirSync(stagingPath, { recursive: true });
@@ -358,7 +335,7 @@ describe("package materialization helpers", () => {
         const reuse = yield* canReuseInstalledPackage({
           installedPath: canonicalPath,
           force: false,
-          identity: registryIdentity,
+          ...pinnedRef,
           lockedVersion: "1.0.0",
           existsFailureDetail,
         });
@@ -373,7 +350,7 @@ describe("package materialization helpers", () => {
     ),
   );
 
-  it.effect("discards a stale complete staging tree before the next replacement", () =>
+  it.effect("discards a stale staging tree before the next replacement", () =>
     run(
       Effect.gen(function* () {
         const canonicalPath = nodePath.join(
@@ -387,15 +364,10 @@ describe("package materialization helpers", () => {
         const { stagingPath } = canonicalMaterializationPaths(canonicalPath);
         nodeFs.mkdirSync(stagingPath, { recursive: true });
         nodeFs.writeFileSync(nodePath.join(stagingPath, "stale.txt"), "stale");
-        nodeFs.writeFileSync(
-          nodePath.join(stagingPath, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
-          JSON.stringify({ schemaVersion: 1, identity: registryIdentity }),
-        );
 
         yield* replaceCanonicalDirectory({
           baseDir: workspaceRoot,
           canonicalPath,
-          identity: registryIdentity,
           populate: (freshStagingPath) =>
             Effect.sync(() => {
               expect(nodeFs.existsSync(nodePath.join(freshStagingPath, "stale.txt"))).toBe(false);
@@ -408,60 +380,6 @@ describe("package materialization helpers", () => {
           "fresh",
         );
         expect(nodeFs.existsSync(nodePath.join(canonicalPath, "stale.txt"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("does not reuse a replaced tree against prior persisted state", () =>
-    run(
-      Effect.gen(function* () {
-        const canonicalPath = nodePath.join(
-          workspaceRoot,
-          ".axm",
-          "extensions",
-          "@acme",
-          "hooks",
-          "review",
-        );
-        const nextIdentity = { ...registryIdentity, version: "2.0.0", integrity: "sha512-next" };
-        yield* replaceCanonicalDirectory({
-          baseDir: workspaceRoot,
-          canonicalPath,
-          identity: nextIdentity,
-          populate: (stagingPath) =>
-            Effect.sync(() => {
-              nodeFs.mkdirSync(stagingPath, { recursive: true });
-              nodeFs.writeFileSync(nodePath.join(stagingPath, "review.md"), "next");
-            }),
-        });
-
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath: canonicalPath,
-          force: false,
-          identity: registryIdentity,
-          lockedVersion: "1.0.0",
-          existsFailureDetail,
-        });
-
-        expect(reuse).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("excludes the completion marker from package content identity", () =>
-    run(
-      Effect.gen(function* () {
-        const packagePath = nodePath.join(workspaceRoot, "package");
-        nodeFs.mkdirSync(packagePath, { recursive: true });
-        nodeFs.writeFileSync(nodePath.join(packagePath, "hook.json"), "{}");
-        const before = yield* computePackageContentHash(packagePath);
-        nodeFs.writeFileSync(
-          nodePath.join(packagePath, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
-          JSON.stringify({ schemaVersion: 1, identity: registryIdentity }),
-        );
-        const after = yield* computePackageContentHash(packagePath);
-
-        expect(after).toBe(before);
       }),
     ),
   );
@@ -527,7 +445,6 @@ describe("package materialization helpers", () => {
           yield* canReuseExternalPackage({
             installedPath: canonicalPath,
             force: false,
-            sourceLocation: sourcePath,
             existsFailureDetail,
           }),
         ).toBe(true);
@@ -535,7 +452,6 @@ describe("package materialization helpers", () => {
           yield* canReuseExternalPackage({
             installedPath: canonicalPath,
             force: true,
-            sourceLocation: sourcePath,
             existsFailureDetail,
           }),
         ).toBe(false);

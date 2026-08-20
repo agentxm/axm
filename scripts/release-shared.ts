@@ -199,6 +199,31 @@ const requireCompatibleSkillDeclaration = (
   return declaration;
 };
 
+/**
+ * The release's minor band, e.g. `0.27.11` -> `>=0.27.0 <0.28.0`.
+ *
+ * An exact pin declares the skill compatible with exactly one CLI build, so
+ * every patch release reports a false incompatibility in each workspace until
+ * that workspace updates its installed skill. The band stays bounded and
+ * wildcard-free, as `validateAxmSkillCliVersionRange` requires, while
+ * tolerating patch drift within the minor.
+ */
+const minorBandRange = (version: string): string => {
+  const match = /^(\d+)\.(\d+)\./.exec(version);
+  const major = match?.[1];
+  const minor = match?.[2];
+  if (major === undefined || minor === undefined) {
+    return fail(`Cannot derive a compatibility range from version: ${version}`);
+  }
+  return `>=${major}.${minor}.0 <${major}.${Number(minor) + 1}.0`;
+};
+
+/**
+ * An exact pin widens to the release's minor band. Any other range is an
+ * intentional declaration and is preserved verbatim — the compatibility guard
+ * then fails the release when it no longer covers the release version, which
+ * keeps widening across a minor an explicit decision.
+ */
 export const transitionSkillCompatibility = (
   current: AxmSkillCompatibilityDeclaration,
   releaseVersion: string,
@@ -207,7 +232,9 @@ export const transitionSkillCompatibility = (
   const next = {
     cliVersion: releaseVersion,
     cliVersionRange:
-      current.cliVersionRange === current.cliVersion ? releaseVersion : current.cliVersionRange,
+      current.cliVersionRange === current.cliVersion
+        ? minorBandRange(releaseVersion)
+        : current.cliVersionRange,
   } satisfies AxmSkillCompatibilityDeclaration;
   return requireCompatibleSkillDeclaration(releaseVersion, next, "next AXM skill");
 };

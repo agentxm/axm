@@ -17,7 +17,6 @@ import { makeAppError } from "../app-error/index.js";
 import {
   REGISTRY_EXTENSIONS_DIR,
   canReuseInstalledPackage,
-  registryCanonicalMaterializationIdentity,
   replaceCanonicalDirectory,
 } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -162,20 +161,13 @@ export const PackManagerLive = Layer.effect(
         yield* ws.getLockedPack(ref.pack.name),
         ref,
       );
-      const identity = registryCanonicalMaterializationIdentity({
-        owner: ref.owner,
-        type: "pack",
-        name: ref.name,
-        version: ref.version,
-        publisherBindingId: ref.publisherBindingId,
-        integrity: ref.integrity,
-      });
       if (
         yield* provide(
           canReuseInstalledPackage({
             installedPath: packDir,
             force: force === true,
-            identity,
+            refVersion: ref.version,
+            hasIntegrity: Option.isSome(ref.integrity),
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) =>
               `Failed to check if canonical pack path exists: ${target}`,
@@ -200,7 +192,6 @@ export const PackManagerLive = Layer.effect(
             replaceCanonicalDirectory({
               baseDir,
               canonicalPath: packDir,
-              identity,
               populate: (stagingPath) =>
                 copyExtensionDirectory(fetched.directory, stagingPath).pipe(
                   Effect.mapError((cause) =>

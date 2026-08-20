@@ -12,7 +12,6 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
-import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "@agentxm/client-core/unstable/extensions";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -216,7 +215,12 @@ const makePackRollbackFixture = (
   baseDir: string,
   options: {
     readonly canonicalPackState?: "changed" | "missing";
-    readonly trustedMemberCanonical?: boolean;
+    /**
+     * Leave the member's canonical tree in place. Omitting it forces the member
+     * to be reacquired from the registry, which is how these fixtures trigger a
+     * typed failure partway through a Pack closure.
+     */
+    readonly memberCanonical?: boolean;
     readonly withMemberDependency?: boolean;
   } = {},
 ) => {
@@ -352,20 +356,8 @@ const makePackRollbackFixture = (
   if (options.canonicalPackState === "changed") {
     writePackPackage(canonicalPack, divergentPackManifest);
   }
-  writeSkillPackage(canonicalSkill, "review", "1.0.0");
-  if (options.trustedMemberCanonical === true) {
-    writeJson(path.join(canonicalSkill, CANONICAL_MATERIALIZATION_MARKER_FILENAME), {
-      schemaVersion: 1,
-      identity: {
-        refType: "registry",
-        owner: "@acme",
-        type: "skill",
-        name: "review",
-        version: "1.0.0",
-        publisherBindingId: "hbnd_test",
-        integrity: null,
-      },
-    });
+  if (options.memberCanonical !== false) {
+    writeSkillPackage(canonicalSkill, "review", "1.0.0");
   }
   const ownedOutput = path.join(baseDir, ".claude", "skills", "review", "SKILL.md");
   fs.mkdirSync(path.dirname(ownedOutput), { recursive: true });
@@ -392,11 +384,15 @@ const makePackRollbackFixture = (
 
 type PackRollbackPaths = ReturnType<typeof makePackRollbackFixture>["paths"];
 
+/** `undefined` records an absent path, which rollback must restore as absent. */
+const readIfPresent = (target: string): string | undefined =>
+  fs.existsSync(target) ? fs.readFileSync(target, "utf8") : undefined;
+
 const capturePackRollbackPreimages = (paths: PackRollbackPaths) => ({
   lockfile: fs.readFileSync(paths.lockfile, "utf8"),
   settings: fs.readFileSync(paths.settings, "utf8"),
-  canonicalSkillManifest: fs.readFileSync(paths.canonicalSkillManifest, "utf8"),
-  canonicalSkillContent: fs.readFileSync(paths.canonicalSkillContent, "utf8"),
+  canonicalSkillManifest: readIfPresent(paths.canonicalSkillManifest),
+  canonicalSkillContent: readIfPresent(paths.canonicalSkillContent),
   ownedOutput: fs.readFileSync(paths.ownedOutput, "utf8"),
 });
 
@@ -413,8 +409,8 @@ const expectPackRollbackPreimages = (
   });
   expect(fs.readFileSync(paths.settings, "utf8")).toBe(before.settings);
   expect(fs.existsSync(paths.canonicalPack)).toBe(false);
-  expect(fs.readFileSync(paths.canonicalSkillManifest, "utf8")).toBe(before.canonicalSkillManifest);
-  expect(fs.readFileSync(paths.canonicalSkillContent, "utf8")).toBe(before.canonicalSkillContent);
+  expect(readIfPresent(paths.canonicalSkillManifest)).toBe(before.canonicalSkillManifest);
+  expect(readIfPresent(paths.canonicalSkillContent)).toBe(before.canonicalSkillContent);
   expect(fs.readFileSync(paths.ownedOutput, "utf8")).toBe(before.ownedOutput);
 };
 
@@ -974,7 +970,6 @@ describe("root sync handler", () => {
       Effect.gen(function* () {
         const fixture = makePackRollbackFixture(tempDir, {
           canonicalPackState: "changed",
-          trustedMemberCanonical: true,
         });
         const before = {
           lockfile: fs.readFileSync(fixture.paths.lockfile, "utf8"),
@@ -1063,7 +1058,7 @@ describe("root sync handler", () => {
 
   it.effect("rolls back accepted Pack recovery when a later typed failure occurs", () =>
     Effect.gen(function* () {
-      const fixture = makePackRollbackFixture(tempDir);
+      const fixture = makePackRollbackFixture(tempDir, { memberCanonical: false });
       const before = capturePackRollbackPreimages(fixture.paths);
       const { provide, rendererState } = makeLayers({ machine: true }, fixture.sources);
 
@@ -1110,7 +1105,7 @@ describe("root sync handler", () => {
 
   it.effect("preserves an independent committed closure when later Pack recovery fails", () =>
     Effect.gen(function* () {
-      const fixture = makePackRollbackFixture(tempDir);
+      const fixture = makePackRollbackFixture(tempDir, { memberCanonical: false });
       const settings = expectRecord(YAML.parse(fs.readFileSync(fixture.paths.settings, "utf8")));
       writeJson(fixture.paths.settings, {
         ...settings,
@@ -1609,18 +1604,6 @@ describe("root sync handler", () => {
       const axmDir = path.join(tempDir, ".axm");
       const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
       writeSkillExtension(tempDir, "review");
-      writeJson(path.join(skillDir, CANONICAL_MATERIALIZATION_MARKER_FILENAME), {
-        schemaVersion: 1,
-        identity: {
-          refType: "registry",
-          owner: "@acme",
-          type: "skill",
-          name: "review",
-          version: "1.0.0",
-          publisherBindingId: "hbnd_test",
-          integrity: "sha512-AAAA==",
-        },
-      });
       const sourceHash = computePackageContentHashSync(skillDir);
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],

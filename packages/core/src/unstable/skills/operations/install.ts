@@ -20,7 +20,6 @@ import {
   sourceToLockEntry,
 } from "../../sources/index.js";
 import {
-  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
   UNIVERSAL_SKILLS_DIR,
   computePackageContentHash,
   type RenderedFilePath,
@@ -30,7 +29,6 @@ import {
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
   stripTrailingSeparators,
 } from "../../extensions/index.js";
 import * as Schema from "effect/Schema";
@@ -239,7 +237,6 @@ const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSy
     const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
     let total = 0;
     for (const entry of entries) {
-      if (entry === CANONICAL_MATERIALIZATION_MARKER_FILENAME) continue;
       const fullPath = path.join(dir, entry);
       const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
       if (Option.isNone(statOption)) continue;
@@ -487,18 +484,11 @@ const installFromRegistry = (
     });
     yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
-    const identity = registryCanonicalMaterializationIdentity({
-      owner: ref.owner,
-      type: "skill",
-      name: ref.name,
-      version: ref.version,
-      publisherBindingId: ref.publisherBindingId,
-      integrity: ref.integrity,
-    });
     const useExisting = yield* canReuseInstalledPackage({
       installedPath: canonicalPath,
       force: reuse.force,
-      identity,
+      refVersion: ref.version,
+      hasIntegrity: Option.isSome(ref.integrity),
       ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
       existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
@@ -513,7 +503,6 @@ const installFromRegistry = (
         name: ref.name,
         version: ref.version,
         integrity: ref.integrity,
-        publisherBindingId: ref.publisherBindingId,
         messages: {
           integrityMismatchCode: "internal",
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,

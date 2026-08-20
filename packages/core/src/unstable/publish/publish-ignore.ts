@@ -19,7 +19,6 @@ import * as Result from "effect/Result";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
-import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "../extensions/materialization-marker.js";
 import type { BuildZipArchiveOptions } from "../utils/build-zip-archive.js";
 import { expandGlobs } from "../utils/glob.js";
 import { manifestFilenameForType } from "./manifest-policy.js";
@@ -52,7 +51,7 @@ export const resolvePublishIgnore = (
   declared: ReadonlyArray<string> | undefined,
 ): Result.Result<ReadonlyArray<string>, PublishIgnoreError> => {
   if (declared === undefined || declared.length === 0) {
-    return Result.succeed([CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
+    return Result.succeed([]);
   }
 
   const protectedPaths = protectedPublishPaths(type);
@@ -69,14 +68,12 @@ export const resolvePublishIgnore = (
     }
   }
 
-  return Result.succeed([...declared, CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
+  return Result.succeed(declared);
 };
 
 /**
  * Archive options for one publish, as an Effect the per-type publish operations
- * can yield directly. AXM's canonical completion marker is always excluded;
- * ordinary authored trees do not contain it, so their archive bytes remain
- * unchanged.
+ * can yield directly.
  */
 export const publishArchiveOptions = (
   type: ExtensionType,

@@ -163,7 +163,6 @@ const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
     for (const entry of fs
       .readdirSync(currentDir, { withFileTypes: true })
       .sort((a, b) => a.name.localeCompare(b.name))) {
-      if (entry.name === ".axm-materialization.json") continue;
       const absolutePath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
         walk(absolutePath);

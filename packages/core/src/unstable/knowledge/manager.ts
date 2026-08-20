@@ -20,7 +20,6 @@ import {
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
   parseExtensionFqnParts,
 } from "../extensions/index.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
@@ -187,7 +186,6 @@ export const KnowledgeManagerLive = Layer.effect(
                 name: ref.name,
                 version: ref.version,
                 integrity: ref.integrity,
-                publisherBindingId: ref.publisherBindingId,
                 messages: {
                   integrityMismatchCode: "network",
                   integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
@@ -304,19 +302,12 @@ export const KnowledgeManagerLive = Layer.effect(
             yield* ws.getLockedKnowledgeEntry(ref.knowledge.name),
             ref,
           );
-          const identity = registryCanonicalMaterializationIdentity({
-            owner: ref.owner,
-            type: "knowledge",
-            name: ref.name,
-            version: ref.version,
-            publisherBindingId: ref.publisherBindingId,
-            integrity: ref.integrity,
-          });
           const reuse = yield* provide(
             canReuseInstalledPackage({
               installedPath: canonicalPath,
               force,
-              identity,
+              refVersion: ref.version,
+              hasIntegrity: Option.isSome(ref.integrity),
               ...(lockedVersion === undefined ? {} : { lockedVersion }),
               existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
             }),

@@ -149,8 +149,23 @@ describe("bundled skill release stamps", () => {
     expect(readFileSync(manifestPath, "utf8")).toContain('"version": "0.24.9"');
     expect(readSkillCompatibility(documentPath)).toEqual({
       cliVersion: "0.24.9",
-      cliVersionRange: "0.24.9",
+      cliVersionRange: ">=0.24.0 <0.25.0",
     });
+  });
+
+  it("widens an exact pin into the release minor band", () => {
+    expect(
+      transitionSkillCompatibility({ cliVersion: "0.27.9", cliVersionRange: "0.27.9" }, "0.27.11"),
+    ).toEqual({ cliVersion: "0.27.11", cliVersionRange: ">=0.27.0 <0.28.0" });
+
+    // A patch release no longer strands workspaces still holding the previous
+    // patch's skill.
+    expect(
+      transitionSkillCompatibility(
+        { cliVersion: "0.27.11", cliVersionRange: ">=0.27.0 <0.28.0" },
+        "0.27.12",
+      ),
+    ).toEqual({ cliVersion: "0.27.12", cliVersionRange: ">=0.27.0 <0.28.0" });
   });
 
   it("preserves an intentional range only when it includes the next release", () => {

@@ -32,13 +32,28 @@ Each finding identifies:
 - relevant identities and locations.
 
 Messages should be understandable without knowing AXM internals. They state the
-problem and its context, not a command to run. Structured output preserves the
-same facts and does not add suggested actions or recovery instructions.
+problem and its context. A finding whose repair is deterministic may also name
+the single operation that performs it; a finding whose repair depends on user
+intent states the problem alone and leaves the choice to the reader. Structured
+output preserves the same facts and marks which findings are repairable.
 
 The finding is the entry point into recovery, not the complete recovery guide.
 It carries enough identity, authority, observed-state, expected-state, and
 location information to select the relevant AXM introspection surfaces. Those
 surfaces provide the surrounding schema, state model, and available operations.
+
+## Repairable findings
+
+A finding is repairable when the desired state is fully determined by
+authoritative local state, so restoring it cannot express a preference. A
+missing AXM-owned agent projection whose canonical source is present is the
+motivating case: the target's content is a function of the source, so
+regenerating it decides nothing.
+
+`axm lint --fix` applies exactly those repairs and reports the remaining
+findings. It reuses the same reconciliation sync performs rather than
+implementing a second recovery path, so both commands converge on one desired
+state. Findings that are not repairable are never guessed at.
 
 ## Non-responsibilities
 
@@ -47,9 +62,13 @@ content, registry availability, recovery classifications, or predictions about
 which mutation a finding would block. It does not use the network.
 
 Lint does not guess user intent, choose workspace configuration, install or
-remove extensions, change authoritative lock state, or reconcile agent
-projections. Those responsibilities belong to the user, lifecycle commands, or
-sync.
+remove extensions, or change authoritative lock state. Those responsibilities
+belong to the user or to lifecycle commands.
+
+Reconciling agent projections belongs to sync. Lint reaches it only through
+`--fix`, only for findings whose desired state is already determined, and only
+by delegating to the same reconciliation — never by owning a second definition
+of the desired state. Without `--fix`, lint remains read-only.
 
 The presence of unowned native content is not itself an invariant violation.
 Lint reports it only when the relevant extension contract makes the state a

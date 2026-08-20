@@ -37,7 +37,6 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   canReuseInstalledPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
 } from "../../extensions/index.js";
 import { printSourceParams } from "../../sources/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
@@ -260,18 +259,11 @@ const installFromRegistry = (
       });
     }
 
-    const identity = registryCanonicalMaterializationIdentity({
-      owner: ref.owner,
-      type: "mcp-server",
-      name: ref.name,
-      version: ref.version,
-      publisherBindingId: ref.publisherBindingId,
-      integrity: ref.integrity,
-    });
     const useExisting = yield* canReuseInstalledPackage({
       installedPath: canonicalPath,
       force: reuse.force,
-      identity,
+      refVersion: ref.version,
+      hasIntegrity: Option.isSome(ref.integrity),
       ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
       existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
@@ -286,7 +278,6 @@ const installFromRegistry = (
         name: ref.name,
         version: ref.version,
         integrity: ref.integrity,
-        publisherBindingId: ref.publisherBindingId,
         messages: {
           integrityMismatchCode: "internal",
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,

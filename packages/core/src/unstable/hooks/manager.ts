@@ -35,7 +35,6 @@ import {
   materializeExternalPackage,
   canReuseInstalledPackage,
   materializeRegistryPackage,
-  registryCanonicalMaterializationIdentity,
 } from "../extensions/index.js";
 import type { ConfiguredAgentOutcome } from "../plan/plan.js";
 import { activeContributors } from "../projection/contributors.js";
@@ -433,19 +432,12 @@ export const HookManagerLive = Layer.effect(
           yield* ws.getLockedHookEntry(ref.hook.name),
           ref,
         );
-        const identity = registryCanonicalMaterializationIdentity({
-          owner: ref.owner,
-          type: "hook",
-          name: ref.name,
-          version: ref.version,
-          publisherBindingId: ref.publisherBindingId,
-          integrity: ref.integrity,
-        });
         const reuse = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
             force: false,
-            identity,
+            refVersion: ref.version,
+            hasIntegrity: Option.isSome(ref.integrity),
             ...(lockedVersion === undefined ? {} : { lockedVersion }),
             existsFailureDetail: (target) =>
               `Failed to check if canonical hook package path exists: ${target}`,
@@ -462,7 +454,6 @@ export const HookManagerLive = Layer.effect(
             name: ref.name,
             version: ref.version,
             integrity: ref.integrity,
-            publisherBindingId: ref.publisherBindingId,
             messages: {
               integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,

@@ -555,6 +555,8 @@ const bucketForFinding = (entry: RenderedFinding, parsed: { readonly title: stri
       return "alignment";
     case "workspace/skills-integrity-valid":
       return "integrity";
+    case "workspace/instructions-target-current":
+      return "target-health";
     default:
       return entry.finding.ruleId;
   }
@@ -925,11 +927,25 @@ const coalesceGroupedDiagnostic = (
   }
 };
 
-const factOnlyDiagnostic = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => ({
-  ...diagnostic,
-  helps: [],
-  fixable: false,
-});
+/**
+ * Repairs whose desired state is fully determined by authoritative local state,
+ * keyed by rule. Naming the operation is a reporting concern, so it lives here
+ * rather than in the rule, which states the intrinsic fact alone.
+ */
+const DETERMINED_REPAIRS: Readonly<Record<string, string>> = {
+  "workspace/instructions-target-current":
+    "Fix: Run `axm lint --fix` to regenerate the instruction files from their canonical source.",
+};
+
+const withDeterminedRepair = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => {
+  const repair = DETERMINED_REPAIRS[diagnostic.ruleId];
+  if (repair === undefined) return diagnostic;
+  return {
+    ...diagnostic,
+    helps: diagnostic.helps.includes(repair) ? diagnostic.helps : [...diagnostic.helps, repair],
+    fixable: true,
+  };
+};
 
 const joinList = (values: ReadonlyArray<string>): string => {
   if (values.length === 0) {
@@ -1030,7 +1046,7 @@ const buildFullDiagnostics = (
       path,
       diagnostics: groupOrder.flatMap((key) => {
         const grouped = groups.get(key);
-        return grouped === undefined ? [] : [factOnlyDiagnostic(coalesceFullDiagnostic(grouped))];
+        return grouped === undefined ? [] : [withDeterminedRepair(coalesceFullDiagnostic(grouped))];
       }),
     });
 
@@ -1070,7 +1086,7 @@ const buildGroupedDiagnostics = (
 
   return order.flatMap((key) => {
     const grouped = groups.get(key);
-    return grouped === undefined ? [] : [factOnlyDiagnostic(coalesceGroupedDiagnostic(grouped))];
+    return grouped === undefined ? [] : [withDeterminedRepair(coalesceGroupedDiagnostic(grouped))];
   });
 };
 

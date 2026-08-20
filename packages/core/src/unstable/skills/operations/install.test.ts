@@ -12,11 +12,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import {
-  CANONICAL_MATERIALIZATION_MARKER_FILENAME,
-  computeSourceHash,
-  type ExtensionRef,
-} from "../../extensions/index.js";
+import { computeSourceHash, type ExtensionRef } from "../../extensions/index.js";
 import type {
   GitHostedSkillRef,
   LocalSkillRef,
@@ -392,12 +388,7 @@ describe("installSkill", () => {
    * Registry tests use empty integrity (synthetic refs from publish pipeline),
    * so the handler reuses existing canonical files instead of fetching.
    */
-  const setupRegistryCanonical = (
-    base: string,
-    owner: string,
-    name = "my-skill",
-    identity: { readonly version?: string; readonly integrity?: string | null } = {},
-  ) => {
+  const setupRegistryCanonical = (base: string, owner: string, name = "my-skill") => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", name);
     const srcDir = path.join(canonicalPath, "src");
     fs.mkdirSync(srcDir, { recursive: true });
@@ -407,21 +398,6 @@ describe("installSkill", () => {
     );
     fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
     fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
-    fs.writeFileSync(
-      path.join(canonicalPath, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
-      JSON.stringify({
-        schemaVersion: 1,
-        identity: {
-          refType: "registry",
-          owner,
-          type: "skill",
-          name,
-          version: identity.version ?? "1.0.0",
-          publisherBindingId: "hbnd_test",
-          integrity: identity.integrity ?? null,
-        },
-      }),
-    );
     return canonicalPath;
   };
 
@@ -991,7 +967,7 @@ describe("installSkill", () => {
     it.effect("writes registry lockfile fields (resolvedVersion, integrity, sourceName)", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@community", "my-skill", { version: "1.2.3" });
+        setupRegistryCanonical(base, "@community", "my-skill");
 
         // Create an empty lockfile
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
@@ -1068,9 +1044,7 @@ describe("installSkill", () => {
       () =>
         Effect.gen(function* () {
           const { axmDir, base } = setupBase();
-          setupRegistryCanonical(base, "@community", "my-skill", {
-            integrity: "sha512-abc",
-          });
+          setupRegistryCanonical(base, "@community", "my-skill");
           writeRegistryLock(axmDir, "1.0.0");
 
           // Workspace-owned rewrite of installed content (e.g. a formatter run).
@@ -1185,21 +1159,6 @@ describe("installSkill", () => {
           const srcDir = path.join(registryCanonical, "src");
           fs.mkdirSync(srcDir, { recursive: true });
           fs.writeFileSync(path.join(srcDir, "SKILL.md"), "# my-skill");
-          fs.writeFileSync(
-            path.join(registryCanonical, CANONICAL_MATERIALIZATION_MARKER_FILENAME),
-            JSON.stringify({
-              schemaVersion: 1,
-              identity: {
-                refType: "registry",
-                owner: "@community",
-                type: "skill",
-                name: "my-skill",
-                version: "1.0.0",
-                publisherBindingId: "hbnd_test",
-                integrity: null,
-              },
-            }),
-          );
 
           const result = yield* installSkill(
             makeOp({
@@ -1292,7 +1251,7 @@ describe("installSkill", () => {
     it.effect("passes caret versionRange for @acme/tool@^1.0.0", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@acme", "tool", { version: "1.2.3" });
+        setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
           (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );
@@ -1321,7 +1280,7 @@ describe("installSkill", () => {
     it.effect("passes exact versionRange for @acme/tool@1.2.3", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@acme", "tool", { version: "1.2.3" });
+        setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
           (_args: Parameters<WorkspaceMutationsService["setSkill"]>[0]) => Effect.void,
         );

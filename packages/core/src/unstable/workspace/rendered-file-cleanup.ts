@@ -90,6 +90,9 @@ const cleanupSkillArtifactsInDir = (args: {
     const preservedPaths: Array<string> = [];
     const entries = yield* safeReadDirectory(args.fs, args.skillsDir);
     const extensionsDir = args.path.join(args.baseDir, REGISTRY_EXTENSIONS_DIR);
+    const canonicalExtensionsDir = yield* args.fs.realPath(extensionsDir).pipe(Effect.option);
+    const ownershipRoot =
+      canonicalExtensionsDir._tag === "Some" ? canonicalExtensionsDir.value : extensionsDir;
 
     for (const entry of entries) {
       const artifactPath = args.path.join(args.skillsDir, entry);
@@ -99,7 +102,7 @@ const cleanupSkillArtifactsInDir = (args: {
         const canonicalTarget = yield* args.fs.realPath(resolvedTarget).pipe(Effect.option);
         const ownershipTarget =
           canonicalTarget._tag === "Some" ? canonicalTarget.value : resolvedTarget;
-        if (!isWithin(args.path, extensionsDir, ownershipTarget)) {
+        if (!isWithin(args.path, ownershipRoot, ownershipTarget)) {
           preservedPaths.push(artifactPath);
           continue;
         }

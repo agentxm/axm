@@ -35,6 +35,12 @@ const lintConfig = {
     Flag.withDescription("Show the full human report instead of the grouped summary."),
     Flag.withDefault(false),
   ),
+  fix: Flag.boolean("fix").pipe(
+    Flag.withDescription(
+      "Apply repairs whose desired state is already determined, then report what remains.",
+    ),
+    Flag.withDefault(false),
+  ),
   view: Flag.choice("view", ["workspace", "git-index"] as const).pipe(
     Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),
     Flag.withDefault("workspace"),
@@ -46,6 +52,7 @@ interface RunLintCommandArgs {
   readonly scope: WorkspaceScope;
   readonly strict: boolean;
   readonly details: boolean;
+  readonly fix: boolean;
   readonly view: LintView;
 }
 
@@ -56,6 +63,14 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
     onNone: () => executionDirectory.path,
     onSome: (value) => resolveExecutionPath(path, executionDirectory, value),
   });
+
+  if (args.fix && args.view === "git-index") {
+    return yield* makeAppError({
+      code: "validation",
+      detail:
+        "--fix cannot be combined with --view git-index because the index snapshot is not the working tree",
+    });
+  }
 
   if (args.view === "git-index" && args.scope === "user") {
     return yield* makeAppError({
@@ -75,6 +90,7 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
       scope: "project",
       strict: args.strict,
       details: args.details,
+      fix: false,
       displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
       input: { view: "git-index", fingerprint: snapshot.fingerprint },
     }).pipe(withWorkspace({ scope: "project", projectRoot: snapshotRoot }));
@@ -85,6 +101,7 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
     scope: args.scope,
     strict: args.strict,
     details: args.details,
+    fix: args.fix,
     input: { view: "workspace" },
   }).pipe(withWorkspace({ scope: args.scope, projectRoot }));
 });
@@ -92,8 +109,8 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
 export const lintCommand = Command.make(
   "lint",
   lintConfig,
-  ({ path, scope, strict, details, view }) =>
-    runLintCommand({ path, scope, strict, details, view }).pipe(withRuntime("lint")),
+  ({ path, scope, strict, details, fix, view }) =>
+    runLintCommand({ path, scope, strict, details, fix, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
   Command.withDescription("Check workspace configuration"),
@@ -110,6 +127,10 @@ export const lintCommand = Command.make(
     {
       command: "axm lint --details",
       description: "Show the detailed path-by-path report",
+    },
+    {
+      command: "axm lint --fix",
+      description: "Restore determined state, such as missing agent instruction files",
     },
     {
       command: "axm lint --view git-index",

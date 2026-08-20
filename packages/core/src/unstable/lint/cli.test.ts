@@ -4,7 +4,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
 } from "../skills/axm-skill-compatibility.js";
-import { resolveLintExitCategory, toLintJsonDocument } from "./cli.js";
+import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
 
 describe("lint fact rendering", () => {
   it("maps a rule predicate to explicit machine-readable facts", () => {
@@ -37,6 +37,72 @@ describe("lint fact rendering", () => {
       observed: "Observed state differs.",
       expected: "Example state is valid.",
     });
+  });
+
+  it("names the determined repair for a missing instruction projection", () => {
+    const blocks = toLintHumanBlocks({
+      summary: {
+        findings: [
+          {
+            group: "workspace",
+            ruleDescription: "Configured agent instruction target files are current.",
+            displayRoot: ".",
+            path: "./docs/CLAUDE.md",
+            finding: {
+              kind: "advisory",
+              ruleId: "workspace/instructions-target-current",
+              severity: "warning",
+              message: "The Claude Code instruction file is missing.",
+              location: { file: "docs/CLAUDE.md" },
+            },
+          },
+        ],
+        counts: { total: 1, errors: 0, warnings: 1, infos: 0 },
+        exitCategory: "warnings",
+        driftBanner: [],
+      },
+      reporter: "grouped",
+    });
+
+    const diagnostics = blocks.flatMap((block) =>
+      block.kind === "diagnostic" ? [block.diagnostic] : [],
+    );
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.fixable).toBe(true);
+    expect(diagnostics[0]?.helps).toContain(
+      "Fix: Run `axm lint --fix` to regenerate the instruction files from their canonical source.",
+    );
+  });
+
+  it("leaves a finding with no determined repair unannotated", () => {
+    const blocks = toLintHumanBlocks({
+      summary: {
+        findings: [
+          {
+            group: "workspace",
+            ruleDescription: "Workspace settings keys are recognized.",
+            displayRoot: ".",
+            path: "./.axm/settings.json",
+            finding: {
+              kind: "advisory",
+              ruleId: "workspace/settings-keys-recognized",
+              severity: "error",
+              message: "Workspace settings has unrecognized top-level key 'rulesConfig'.",
+              location: { file: ".axm/settings.json" },
+            },
+          },
+        ],
+        counts: { total: 1, errors: 1, warnings: 0, infos: 0 },
+        exitCategory: "errors",
+        driftBanner: [],
+      },
+      reporter: "grouped",
+    });
+
+    const diagnostics = blocks.flatMap((block) =>
+      block.kind === "diagnostic" ? [block.diagnostic] : [],
+    );
+    expect(diagnostics[0]?.fixable).toBe(false);
   });
 
   it("keeps strictness as exit policy without relabeling warnings", () => {

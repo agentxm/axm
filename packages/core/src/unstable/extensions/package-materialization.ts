@@ -8,178 +8,41 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import type { AppError, AppErrorCode } from "../app-error/index.js";
 import { makeAppError } from "../app-error/index.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { computeIntegrity, stripFileProtocol, writeFileAtomic } from "../utils/index.js";
+import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import type { ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { copyExtensionDirectory, validatePathSafety } from "./utils.js";
-import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "./materialization-marker.js";
-
-export interface RegistryCanonicalMaterializationIdentity {
-  readonly refType: "registry";
-  readonly owner: string;
-  readonly type: ExtensionType;
-  readonly name: string;
-  readonly version: string;
-  readonly publisherBindingId: string;
-  readonly integrity: string | null;
-}
-
-export interface ExternalCanonicalMaterializationIdentity {
-  readonly refType: "external";
-  readonly sourceLocation: string;
-}
-
-export type CanonicalMaterializationIdentity =
-  RegistryCanonicalMaterializationIdentity | ExternalCanonicalMaterializationIdentity;
-
-export interface RegistryCanonicalMaterializationIdentityArgs {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version | VersionRange;
-  readonly publisherBindingId: string;
-  readonly integrity: Option.Option<string>;
-}
-
-export const registryCanonicalMaterializationIdentity = (
-  args: RegistryCanonicalMaterializationIdentityArgs,
-): RegistryCanonicalMaterializationIdentity => ({
-  refType: "registry",
-  owner: args.owner,
-  type: args.type,
-  name: args.name,
-  version: args.version,
-  publisherBindingId: args.publisherBindingId,
-  integrity: Option.getOrNull(args.integrity),
-});
-
-const RegistryCanonicalMaterializationIdentitySchema = Schema.Struct({
-  refType: Schema.Literal("registry"),
-  owner: Schema.String,
-  type: Schema.Literals([
-    "skill",
-    "mcp-server",
-    "subagent",
-    "rule",
-    "hook",
-    "knowledge",
-    "pack",
-  ] as const),
-  name: Schema.String,
-  version: Schema.String,
-  publisherBindingId: Schema.String,
-  integrity: Schema.NullOr(Schema.String),
-});
-
-const ExternalCanonicalMaterializationIdentitySchema = Schema.Struct({
-  refType: Schema.Literal("external"),
-  sourceLocation: Schema.String,
-});
-
-const CanonicalMaterializationMarkerSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
-  identity: Schema.Union([
-    RegistryCanonicalMaterializationIdentitySchema,
-    ExternalCanonicalMaterializationIdentitySchema,
-  ]),
-});
-
-type CanonicalMaterializationMarker = typeof CanonicalMaterializationMarkerSchema.Type;
-
-const decodeCanonicalMaterializationMarker = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(CanonicalMaterializationMarkerSchema),
-);
 
 export const canonicalMaterializationPaths = (canonicalPath: string) => ({
   stagingPath: `${canonicalPath}.axm-staging`,
   backupPath: `${canonicalPath}.axm-backup`,
 });
 
-const markerPath = (root: string, path: Path.Path): string =>
-  path.join(root, CANONICAL_MATERIALIZATION_MARKER_FILENAME);
-
-const readCompletionMarker = (root: string, fs: FileSystem.FileSystem, path: Path.Path) =>
-  fs
-    .readFileString(markerPath(root, path))
-    .pipe(Effect.flatMap(decodeCanonicalMaterializationMarker), Effect.option);
-
-const identityMatches = (
-  left: CanonicalMaterializationIdentity,
-  right: CanonicalMaterializationIdentity,
-): boolean => {
-  if (left.refType !== right.refType) return false;
-  if (left.refType === "external" || right.refType === "external") {
-    return (
-      left.refType === "external" &&
-      right.refType === "external" &&
-      left.sourceLocation === right.sourceLocation
-    );
-  }
-  return (
-    left.owner === right.owner &&
-    left.type === right.type &&
-    left.name === right.name &&
-    left.version === right.version &&
-    left.publisherBindingId === right.publisherBindingId &&
-    left.integrity === right.integrity
-  );
-};
-
-const writeCompletionMarker = (
-  root: string,
-  identity: CanonicalMaterializationIdentity,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-) => {
-  const targetPath = markerPath(root, path);
-  const marker: CanonicalMaterializationMarker = { schemaVersion: 1, identity };
-  return fs.makeDirectory(root, { recursive: true }).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to prepare canonical materialization marker at ${targetPath}`,
-        cause,
-      }),
-    ),
-    Effect.andThen(
-      writeFileAtomic(fs, {
-        targetPath,
-        content: `${JSON.stringify(marker, null, 2)}\n`,
-        mapError: ({ cause }) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to record canonical materialization completion at ${targetPath}`,
-            cause,
-          }),
-      }),
-    ),
-  );
-};
-
-const recoverInterruptedReplacement = (
-  canonicalPath: string,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-) =>
+/**
+ * Resolve the sibling replacement state left by an interrupted swap.
+ *
+ * `replaceCanonicalDirectory` never populates the canonical path in place: it
+ * fills a sibling staging directory, then commits with two same-parent renames.
+ * So the canonical path only ever holds a whole tree, and the pair of
+ * (canonical present, backup present) names the interruption point exactly:
+ *
+ * - backup, no canonical — died between the two renames; restore the backup.
+ * - backup and canonical — the second rename landed; the backup is superseded.
+ * - no backup — nothing was swapped; only staging needs discarding.
+ */
+const recoverInterruptedReplacement = (canonicalPath: string, fs: FileSystem.FileSystem) =>
   Effect.gen(function* () {
     const { stagingPath, backupPath } = canonicalMaterializationPaths(canonicalPath);
     const canonicalExists = yield* fs.exists(canonicalPath);
     const backupExists = yield* fs.exists(backupPath);
-    const canonicalComplete = canonicalExists
-      ? Option.isSome(yield* readCompletionMarker(canonicalPath, fs, path))
-      : false;
 
-    if (backupExists && !canonicalComplete) {
-      if (canonicalExists) {
-        yield* fs.remove(canonicalPath, { recursive: true, force: true });
-      }
+    if (backupExists && !canonicalExists) {
       yield* fs.rename(backupPath, canonicalPath);
     } else if (backupExists) {
       yield* fs.remove(backupPath, { recursive: true, force: true });
@@ -209,13 +72,12 @@ export const recoverCanonicalDirectory = (args: RecoverCanonicalDirectoryArgs) =
     yield* validatePathSafety(path, args.baseDir, args.canonicalPath);
     yield* validatePathSafety(path, args.baseDir, stagingPath);
     yield* validatePathSafety(path, args.baseDir, backupPath);
-    yield* recoverInterruptedReplacement(args.canonicalPath, fs, path);
+    yield* recoverInterruptedReplacement(args.canonicalPath, fs);
   });
 
 export interface ReplaceCanonicalDirectoryArgs<R> {
   readonly baseDir: string;
   readonly canonicalPath: string;
-  readonly identity: CanonicalMaterializationIdentity;
   readonly populate: (stagingPath: string) => Effect.Effect<void, AppError, R>;
   readonly validate?: (stagingPath: string) => Effect.Effect<void, AppError, R>;
 }
@@ -247,7 +109,6 @@ export const replaceCanonicalDirectory = <R>(
     const prepare = Effect.gen(function* () {
       yield* args.populate(stagingPath);
       if (args.validate !== undefined) yield* args.validate(stagingPath);
-      yield* writeCompletionMarker(stagingPath, args.identity, fs, path);
     }).pipe(
       Effect.tapError(() =>
         fs.remove(stagingPath, { recursive: true, force: true }).pipe(Effect.ignore),
@@ -309,8 +170,10 @@ export interface CanReuseInstalledPackageArgs {
   readonly installedPath: string;
   /** Caller demanded an unconditional re-materialization. */
   readonly force: boolean;
-  /** Immutable Registry identity requested by the ref being installed. */
-  readonly identity: RegistryCanonicalMaterializationIdentity;
+  /** Exact version requested by the ref being installed. */
+  readonly refVersion: string;
+  /** The ref carries a pinned archive integrity (registry-resolved). */
+  readonly hasIntegrity: boolean;
   /** Resolved version recorded in the current lockfile entry, when any. */
   readonly lockedVersion?: string;
   readonly existsFailureDetail: (installedPath: string) => string;
@@ -319,16 +182,14 @@ export interface CanReuseInstalledPackageArgs {
 export interface CanReuseExternalPackageArgs {
   readonly installedPath: string;
   readonly force: boolean;
-  readonly sourceLocation: string;
   readonly existsFailureDetail: (installedPath: string) => string;
 }
 
-/** Preserve a completed external canonical tree unless refresh was explicitly requested. */
+/** Preserve an existing external canonical tree unless refresh was explicitly requested. */
 export const canReuseExternalPackage = (args: CanReuseExternalPackageArgs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    yield* recoverInterruptedReplacement(args.installedPath, fs, path);
+    yield* recoverInterruptedReplacement(args.installedPath, fs);
     const canonicalExists = yield* fs.exists(args.installedPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -338,15 +199,7 @@ export const canReuseExternalPackage = (args: CanReuseExternalPackageArgs) =>
         }),
       ),
     );
-    if (!canonicalExists || args.force) return false;
-    const marker = yield* readCompletionMarker(args.installedPath, fs, path);
-    return (
-      Option.isSome(marker) &&
-      identityMatches(marker.value.identity, {
-        refType: "external",
-        sourceLocation: args.sourceLocation,
-      })
-    );
+    return canonicalExists && !args.force;
   });
 
 /**
@@ -360,8 +213,7 @@ export const canReuseExternalPackage = (args: CanReuseExternalPackageArgs) =>
 export const canReuseInstalledPackage = (args: CanReuseInstalledPackageArgs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    yield* recoverInterruptedReplacement(args.installedPath, fs, path);
+    yield* recoverInterruptedReplacement(args.installedPath, fs);
     const canonicalExists = yield* fs.exists(args.installedPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -371,24 +223,20 @@ export const canReuseInstalledPackage = (args: CanReuseInstalledPackageArgs) =>
         }),
       ),
     );
-    const reusableByLock = shouldReuseCanonicalInstall({
+    return shouldReuseCanonicalInstall({
       canonicalExists,
       force: args.force,
-      hasIntegrity: args.identity.integrity !== null,
-      refVersion: args.identity.version,
+      hasIntegrity: args.hasIntegrity,
+      refVersion: args.refVersion,
       lockedVersion: args.lockedVersion,
     });
-    if (!reusableByLock) return false;
-    const marker = yield* readCompletionMarker(args.installedPath, fs, path);
-    return Option.isSome(marker) && identityMatches(marker.value.identity, args.identity);
   });
 
 export interface MaterializeRegistryPackageArgs {
   readonly baseDir: string;
   /**
-   * Directory that receives the extracted package bytes. Equals the canonical
-   * installed path for in-place installs, and a staging directory for callers
-   * that swap the tree into place after validating it.
+   * Canonical installed path for this extension. Bytes always land in a sibling
+   * staging directory first and are swapped in after validation.
    */
   readonly destinationPath: string;
   readonly sourceLocation: URL;
@@ -397,7 +245,6 @@ export interface MaterializeRegistryPackageArgs {
   readonly name: ExtensionName;
   readonly version: Version | VersionRange;
   readonly integrity: Option.Option<string>;
-  readonly publisherBindingId: string;
   readonly messages: RegistryPackageMaterializationMessages;
   readonly validate?: (
     stagingPath: string,
@@ -438,14 +285,6 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
     return yield* replaceCanonicalDirectory({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
-      identity: registryCanonicalMaterializationIdentity({
-        owner: args.owner,
-        type: args.type,
-        name: args.name,
-        version: args.version,
-        publisherBindingId: args.publisherBindingId,
-        integrity: args.integrity,
-      }),
       populate: (stagingPath) => extractZip(archive, stagingPath),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
     });
@@ -475,7 +314,6 @@ export const materializeExternalPackage = (args: MaterializeExternalPackageArgs)
     return yield* replaceCanonicalDirectory({
       baseDir: args.baseDir,
       canonicalPath: args.canonicalPath,
-      identity: { refType: "external", sourceLocation: args.sourceLocation },
       populate: (stagingPath) =>
         copyExtensionDirectory(sourcePath, stagingPath).pipe(
           Effect.mapError((error) =>

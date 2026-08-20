@@ -10,12 +10,11 @@
 import { describe, expect, it } from "vitest";
 import * as Result from "effect/Result";
 
-import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "../extensions/index.js";
 import { protectedPublishPaths, resolvePublishIgnore } from "./publish-ignore.js";
 
 describe("resolvePublishIgnore", () => {
-  it("always excludes AXM's canonical materialization marker", () => {
-    const expected = Result.succeed([CANONICAL_MATERIALIZATION_MARKER_FILENAME]);
+  it("resolves no patterns when none are declared", () => {
+    const expected = Result.succeed([]);
 
     expect(resolvePublishIgnore("skill", undefined)).toStrictEqual(expected);
     expect(resolvePublishIgnore("skill", [])).toStrictEqual(expected);
@@ -25,11 +24,7 @@ describe("resolvePublishIgnore", () => {
     const resolved = resolvePublishIgnore("skill", ["*.test.ts", "fixtures/*"]);
 
     expect(Result.isSuccess(resolved)).toBe(true);
-    expect(Result.getOrElse(resolved, () => [])).toEqual([
-      "*.test.ts",
-      "fixtures/*",
-      CANONICAL_MATERIALIZATION_MARKER_FILENAME,
-    ]);
+    expect(Result.getOrElse(resolved, () => [])).toEqual(["*.test.ts", "fixtures/*"]);
   });
 
   it("rejects a pattern that names the manifest outright", () => {

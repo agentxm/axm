@@ -11,11 +11,9 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeSourceHash } from "./rendered-files.js";
 import type { SourceHash } from "./rendered-files.js";
-import { CANONICAL_MATERIALIZATION_MARKER_FILENAME } from "./materialization-marker.js";
 
 /**
  * Compute an advisory SHA-256 change marker over package content recursively.
- * AXM's canonical completion marker is workspace metadata and is excluded.
  *
  * File order is normalized by sorting on relative path, and each entry
  * contributes its path and bytes separated by NUL so that a rename cannot
@@ -44,10 +42,7 @@ export const computePackageContentHash = (
         }),
       { concurrency: 16 },
     );
-    const files = candidates.filter(
-      (candidate) =>
-        candidate.isFile && candidate.relativePath !== CANONICAL_MATERIALIZATION_MARKER_FILENAME,
-    );
+    const files = candidates.filter((candidate) => candidate.isFile);
     files.sort((left, right) =>
       left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
     );

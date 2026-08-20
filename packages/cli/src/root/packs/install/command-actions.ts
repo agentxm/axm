@@ -1121,6 +1121,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                   buildInstallOperation<PackRef>(packMgr, {
                     ref,
                     versionRange: intent.versionRange,
+                    ...(intent.forceCanonical === true ? { force: true } : {}),
                     installedBefore: graph.complete
                       ? packMgr.isInstalled({
                           target: { type: "pack", name: ref.pack.name, owner: ref.owner },

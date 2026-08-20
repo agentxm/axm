@@ -400,6 +400,8 @@ export const withWorkspace =
             title: error.title,
             detail: error.detail,
             ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
+            ...(error.status === undefined ? {} : { status: error.status }),
+            ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
             ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
             ...(error.action === undefined ? {} : { action: error.action }),
             suggestions: suggestionsForScope(error.suggestions, resolved.scope),

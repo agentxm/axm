@@ -141,7 +141,9 @@ axm login
 Opens a browser for AgentXM.ai authorization. Grant access when prompted.
 On desktop systems this uses a local loopback callback with PKCE. In SSH, CI,
 Codespaces, or `--device-code` mode, AXM displays a five-minute device code and
-opens the static verification page.
+opens a complete authorization link. It also prints the clean verification page
+and code for manual recovery. Re-running the command reuses the same unexpired
+request; pass `--restart` only to replace it intentionally.
 
 Verify authentication:
 

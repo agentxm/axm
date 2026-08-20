@@ -87,7 +87,7 @@ const makeLayers = (opts?: {
         device_code: "dc-123",
         user_code: "ABCD-1234",
         verification_uri: "https://auth.agentxm.ai/device",
-        verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+        verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         interval: 5,
         expires_in: 600,
       }),
@@ -234,6 +234,54 @@ describe("auth login handler", () => {
         );
 
         expect(deviceLoginCalls).toEqual([["extensions:publish:new"]]);
+      }),
+    );
+  });
+
+  it.effect("passes explicit restart intent to device login", () => {
+    const { provide } = makeLayers();
+    const restartOptions: Array<boolean | undefined> = [];
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          {
+            yes: false,
+            deviceCode: true,
+            restart: true,
+            scopes: [],
+          },
+          {
+            runDeviceLogin: (_registryUrl, options) => {
+              restartOptions.push(options?.restart);
+              return Effect.void;
+            },
+          },
+        );
+
+        expect(restartOptions).toEqual([true]);
+      }),
+    );
+  });
+
+  it.effect("requires device-code mode for explicit restart", () => {
+    const { provide } = makeLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          handleLogin({
+            yes: false,
+            deviceCode: false,
+            restart: true,
+            scopes: [],
+          }),
+        );
+
+        expect(error).toMatchObject({
+          code: "usage",
+          detail: "--restart requires --device-code.",
+        });
       }),
     );
   });
@@ -423,7 +471,7 @@ describe("auth login handler", () => {
     },
   );
 
-  it.effect("displays the stable URL and code separately for manual entry", () => {
+  it.effect("displays the complete URL, clean fallback, and code separately", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -433,10 +481,13 @@ describe("auth login handler", () => {
           .map((log) => log.message);
         expect(rendererState.suggestions).toContainEqual({
           description: "Open the AXM device authorization page",
+          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+        });
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Open the clean fallback page and enter the code",
           url: "https://auth.agentxm.ai/device",
         });
         expect(instructions.some((message) => message.includes("ABCD-1234"))).toBe(true);
-        expect(JSON.stringify(rendererState)).not.toContain("?code=ABCD-1234");
       }),
     );
   });
@@ -606,7 +657,7 @@ describe("auth login handler", () => {
           device_code: "dc-123",
           user_code: "ABCD-1234",
           verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
           interval: 5,
           expires_in: 600,
         }),

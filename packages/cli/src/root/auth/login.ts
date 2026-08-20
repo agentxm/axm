@@ -27,6 +27,7 @@ import { isNonInteractive, jsonFlag, yesFlag } from "@agentxm/client-core/unstab
 import {
   OperationPlanFields,
   makeSingleStepOperationPlan,
+  setCommandSemanticProperties,
   type SuggestedAction,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
@@ -108,6 +109,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   options: {
     readonly yes: boolean;
     readonly deviceCode: boolean;
+    readonly restart?: boolean;
     readonly wait?: boolean;
     readonly timeoutSeconds?: number;
     readonly scopes: ReadonlyArray<string>;
@@ -127,6 +129,18 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
       code: "usage",
       detail:
         "--wait resumes an existing device sign-in and cannot be combined with --device-code.",
+    });
+  }
+  if (options.wait && options.restart) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--restart starts a replacement device sign-in and cannot be combined with --wait.",
+    });
+  }
+  if (options.restart && !options.deviceCode) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--restart requires --device-code.",
     });
   }
   if (!options.wait && options.timeoutSeconds !== undefined) {
@@ -232,6 +246,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const performInitiateDeviceLogin = interactions?.initiateDeviceLogin ?? initiateDeviceLogin;
   const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
+  const restartOptions = options.restart === undefined ? {} : { restart: options.restart };
 
   if (strategy === "device-code") {
     if (!options.deviceCode) {
@@ -240,13 +255,18 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
       );
     }
     if (nonInteractive) {
-      yield* performInitiateDeviceLogin(registryUrl, {
+      const result = yield* performInitiateDeviceLogin(registryUrl, {
         openBrowser: false,
+        ...restartOptions,
         ...requestedScopeOptions,
+      });
+      yield* setCommandSemanticProperties({
+        "cli.auth.device_flow": result.flow,
       });
     } else {
       yield* performDeviceLogin(registryUrl, {
         openBrowser: false,
+        ...restartOptions,
         ...requestedScopeOptions,
       });
     }
@@ -269,7 +289,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
               "Could not start a local callback server; using device-code sign-in instead.",
             );
             yield* performDeviceLogin(registryUrl, {
-              openBrowser: false,
+              openBrowser: true,
+              ...restartOptions,
               ...requestedScopeOptions,
             });
           })
@@ -323,6 +344,10 @@ const loginConfig = {
     Flag.withDescription("Resume and wait for a pending device sign-in"),
     Flag.withDefault(false),
   ),
+  restart: Flag.boolean("restart").pipe(
+    Flag.withDescription("Replace an existing pending device sign-in intentionally"),
+    Flag.withDefault(false),
+  ),
   timeout: Flag.integer("timeout").pipe(
     Flag.withDescription("Maximum seconds to wait for device approval"),
     Flag.optional,
@@ -336,11 +361,12 @@ const loginConfig = {
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, wait, timeout, scope }) =>
+  ({ yes, deviceCode, wait, restart, timeout, scope }) =>
     handleLogin({
       yes,
       deviceCode,
       wait,
+      restart,
       ...Option.match(timeout, {
         onNone: () => ({}),
         onSome: (timeoutSeconds) => ({ timeoutSeconds }),

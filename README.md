@@ -216,9 +216,10 @@ axm token                   # Print the current token (for scripting)
 `axm login` starts a local loopback PKCE flow, prints a manual authorization
 URL, and then tries to open your browser. SSH, CI, and Codespaces automatically
 use device-code sign-in; pass `--device-code` to select that flow explicitly.
-Device-code sign-in shows the stable authorization page and one-time code
-separately, and copies only the code. Never enter a code that another person or
-website gave you.
+Device-code sign-in opens a complete authorization link when possible and also
+shows the clean fallback page plus the one-time code. Retrying the command
+reuses the same unexpired request; use `--restart` only when you intentionally
+want to replace it. Never enter a code that another person or website gave you.
 
 ## Supported agents
 

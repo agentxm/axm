@@ -17,11 +17,13 @@ import { DateTimeUtcSchema } from "../date-time.js";
 import { envOption } from "../utils/index.js";
 
 export const PendingDeviceLoginSchema = Schema.Struct({
-  version: Schema.Literal(1),
+  version: Schema.Literal(2),
   registryUrl: Schema.String,
   deviceCode: Schema.String,
   userCode: Schema.String,
   verificationUri: Schema.String,
+  verificationUriComplete: Schema.String,
+  requestedScopes: Schema.Array(Schema.String),
   interval: Schema.Number,
   expiresAt: DateTimeUtcSchema,
 }).annotate({

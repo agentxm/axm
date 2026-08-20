@@ -31,7 +31,6 @@ const makeLayers = (opts?: {
   readonly browserOpens?: boolean;
   readonly getMeFails?: boolean;
   readonly machine?: boolean;
-  readonly omitCompleteUri?: boolean;
   readonly deviceCodeExpired?: boolean;
   readonly deviceCodeDenied?: boolean;
   readonly pollNever?: boolean;
@@ -39,24 +38,24 @@ const makeLayers = (opts?: {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = renderer.layer;
   const rendererState = renderer.state;
+  const initiateCalls: Array<ReadonlyArray<string> | undefined> = [];
   const interaction = DeviceLoginInteractionTest({
     openBrowser: () => Effect.succeed(opts?.browserOpens ?? false),
     copyToClipboard: () => Effect.succeed(true),
   });
 
   const authClientLayer = AuthClientTest({
-    initiateDeviceFlow: () =>
-      Effect.succeed({
-        device_code: "dc-123",
-        user_code: "ABCD-1234",
-        verification_uri: "https://auth.agentxm.ai/device",
-        ...(opts?.omitCompleteUri
-          ? {}
-          : {
-              verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
-            }),
-        interval: 5,
-        expires_in: 600,
+    initiateDeviceFlow: (options) =>
+      Effect.sync(() => {
+        initiateCalls.push(options?.scopes);
+        return {
+          device_code: "dc-123",
+          user_code: "ABCD-1234",
+          verification_uri: "https://auth.agentxm.ai/device",
+          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          interval: 5,
+          expires_in: 600,
+        };
       }),
     pollDeviceToken: () =>
       opts?.pollNever
@@ -101,18 +100,21 @@ const makeLayers = (opts?: {
     logs: logsByTag(rendererState),
     rendererState,
     interactionState: interaction.state,
+    initiateCalls,
   };
 };
 
 describe("runDeviceLogin", () => {
-  it.effect("opens the stable verification URL and copies only the one-time code", () => {
+  it.effect("opens the complete verification URL and keeps the clean fallback plus code", () => {
     const { layer, logs, rendererState, interactionState } = makeLayers({ browserOpens: true });
 
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
-        expect(interactionState.openBrowserCalls).toEqual(["https://auth.agentxm.ai/device"]);
+        expect(interactionState.openBrowserCalls).toEqual([
+          "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+        ]);
         expect(logs.info).toContain("Opening your browser to complete device authorization.");
         expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
         expect(logs.info).toContain("This code expires in 10 minutes.");
@@ -122,13 +124,20 @@ describe("runDeviceLogin", () => {
         );
         expect(rendererState.suggestions).toContainEqual({
           description: "Open the AXM device authorization page",
+          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+        });
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Open the clean fallback page and enter the code",
           url: "https://auth.agentxm.ai/device",
         });
-        expect(JSON.stringify(rendererState)).not.toContain("?code=ABCD-1234");
         expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
         expect(rendererState.suggestions).toEqual([
           {
             description: "Open the AXM device authorization page",
+            url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          },
+          {
+            description: "Open the clean fallback page and enter the code",
             url: "https://auth.agentxm.ai/device",
           },
           { description: "Check active account", cmd: "axm whoami" },
@@ -145,18 +154,6 @@ describe("runDeviceLogin", () => {
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
-        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
-      }),
-    );
-  });
-
-  it.effect("falls back to the base verification URL when a complete URL is unavailable", () => {
-    const { layer, logs, interactionState } = makeLayers({ omitCompleteUri: true });
-
-    return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
-      Effect.provide(layer),
-      Effect.map(() => {
         expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
         expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
       }),
@@ -188,7 +185,7 @@ describe("runDeviceLogin", () => {
         expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
         expect(rendererState.suggestions).toContainEqual({
           description: "Open the AXM device authorization page",
-          url: "https://auth.agentxm.ai/device",
+          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         });
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -215,6 +212,10 @@ describe("runDeviceLogin", () => {
         expect(rendererState.suggestions).toEqual([
           {
             description: "Open the AXM device authorization page",
+            url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          },
+          {
+            description: "Open the clean fallback page and enter the code",
             url: "https://auth.agentxm.ai/device",
           },
           { description: "Check active account", cmd: "axm whoami" },
@@ -256,7 +257,7 @@ describe("runDeviceLogin", () => {
           device_code: "dc-123",
           user_code: "ABCD-1234",
           verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
           interval: 5,
           expires_in: 600,
         }),
@@ -297,27 +298,83 @@ describe("runDeviceLogin", () => {
 });
 
 describe("resumable device login", () => {
-  it.effect("starts without polling and emits only the stable URL plus separate code", () => {
-    const { layer, rendererState } = makeLayers({ machine: true });
+  it.effect(
+    "starts without polling and emits complete and fallback URLs plus separate code",
+    () => {
+      const { layer } = makeLayers({ machine: true });
+
+      return Effect.gen(function* () {
+        const result = yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
+        expect(result).toMatchObject({
+          status: "pending-human",
+          blockedOn: "human",
+          retryable: true,
+          flow: "started",
+          verificationUri: "https://auth.agentxm.ai/device",
+          verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          requestedScopes: [
+            "account:read",
+            "email",
+            "extensions:read",
+            "offline_access",
+            "openid",
+            "profile",
+          ],
+          userCode: "ABCD-1234",
+          resume: "axm login --wait --json",
+          action: {
+            kind: "open-url",
+            url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+            fallbackUrl: "https://auth.agentxm.ai/device",
+            code: "ABCD-1234",
+          },
+        });
+        const pendingStore = yield* PendingDeviceLoginStore;
+        expect(Option.isSome(yield* pendingStore.load())).toBe(true);
+      }).pipe(Effect.provide(layer));
+    },
+  );
+
+  it.effect("re-emits an equivalent unexpired flow without replacing its device code", () => {
+    const { layer, initiateCalls } = makeLayers({ machine: true });
 
     return Effect.gen(function* () {
-      const result = yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
-      expect(result).toMatchObject({
-        status: "pending-human",
-        blockedOn: "human",
-        verificationUri: "https://auth.agentxm.ai/device",
-        userCode: "ABCD-1234",
-        resume: "axm login --wait --json",
-        action: {
-          kind: "open-url",
-          url: "https://auth.agentxm.ai/device",
-          code: "ABCD-1234",
-        },
+      const first = yield* initiateDeviceLogin(REGISTRY_URL, {
+        openBrowser: false,
+        scopes: ["extensions:read", "account:read"],
       });
-      expect(JSON.stringify(rendererState.results)).not.toContain("?code=ABCD-1234");
+      const second = yield* initiateDeviceLogin(REGISTRY_URL, {
+        openBrowser: false,
+        scopes: ["account:read", "extensions:read", "extensions:read"],
+      });
 
-      const pendingStore = yield* PendingDeviceLoginStore;
-      expect(Option.isSome(yield* pendingStore.load())).toBe(true);
+      expect(second).toEqual({ ...first, flow: "re-emitted" });
+      expect(initiateCalls).toHaveLength(1);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("conflicts on a different scope set and replaces only with restart", () => {
+    const { layer, initiateCalls } = makeLayers({ machine: true });
+
+    return Effect.gen(function* () {
+      yield* initiateDeviceLogin(REGISTRY_URL, {
+        openBrowser: false,
+        scopes: ["extensions:read"],
+      });
+      const conflict = yield* Effect.flip(
+        initiateDeviceLogin(REGISTRY_URL, {
+          openBrowser: false,
+          scopes: ["account:write"],
+        }),
+      );
+      expect(conflict).toMatchObject({ code: "conflict" });
+
+      yield* initiateDeviceLogin(REGISTRY_URL, {
+        openBrowser: false,
+        restart: true,
+        scopes: ["account:write"],
+      });
+      expect(initiateCalls).toHaveLength(2);
     }).pipe(Effect.provide(layer));
   });
 
@@ -370,7 +427,18 @@ describe("resumable device login", () => {
     return Effect.gen(function* () {
       yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
       const error = yield* Effect.flip(resumeDeviceLogin(REGISTRY_URL, { timeoutSeconds: 0 }));
-      expect(error).toMatchObject({ code: "timeout" });
+      expect(error).toMatchObject({
+        code: "timeout",
+        status: "pending-human",
+        blockedOn: "human",
+        retryable: true,
+        action: {
+          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          fallbackUrl: "https://auth.agentxm.ai/device",
+          code: "ABCD-1234",
+          resume: "axm login --wait --json",
+        },
+      });
       const pendingStore = yield* PendingDeviceLoginStore;
       expect(Option.isSome(yield* pendingStore.load())).toBe(true);
     }).pipe(Effect.provide(layer));

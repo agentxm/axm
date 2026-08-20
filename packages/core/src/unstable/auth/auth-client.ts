@@ -51,17 +51,12 @@ import {
 // -----------------------------------------------------------------------------
 
 const CLIENT_ID = "axm-cli";
-const OIDC_LOGIN_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
-const REGISTRY_LOGIN_SCOPES = [
-  "extensions:read",
-  "extensions:publish:new",
-  "extensions:publish:version",
-  "extensions:yank",
-  "extensions:admin",
-  "account:read",
-  "account:write",
+export const OIDC_LOGIN_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
+export const BASELINE_REGISTRY_LOGIN_SCOPES = ["extensions:read", "account:read"] as const;
+export const DEFAULT_LOGIN_SCOPES = [
+  ...OIDC_LOGIN_SCOPES,
+  ...BASELINE_REGISTRY_LOGIN_SCOPES,
 ] as const;
-const DEFAULT_LOGIN_SCOPES = [...OIDC_LOGIN_SCOPES, ...REGISTRY_LOGIN_SCOPES];
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
@@ -76,10 +71,17 @@ export interface DeviceFlowResponse {
   readonly device_code: string;
   readonly user_code: string;
   readonly verification_uri: string;
-  readonly verification_uri_complete?: string;
+  readonly verification_uri_complete: string;
   readonly interval: number;
   readonly expires_in: number;
 }
+
+export const normalizeRequestedLoginScopes = (
+  scopes: ReadonlyArray<string> = DEFAULT_LOGIN_SCOPES,
+): ReadonlyArray<string> =>
+  Array.from(
+    new Set([...OIDC_LOGIN_SCOPES, ...scopes].map((scope) => scope.trim()).filter(Boolean)),
+  ).sort();
 
 export interface LoginScopeOptions {
   readonly scopes?: ReadonlyArray<string>;
@@ -649,7 +651,7 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("state", state);
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("scope", (scopes ?? DEFAULT_LOGIN_SCOPES).join(" "));
+      url.searchParams.set("scope", normalizeRequestedLoginScopes(scopes).join(" "));
       if (expiresAt !== undefined) {
         url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
       }
@@ -800,7 +802,7 @@ export const AuthClientLive = Layer.effect(
         .AuthIssueDeviceCode({
           payload: {
             client_id: CLIENT_ID,
-            scope: (options?.scopes ?? DEFAULT_LOGIN_SCOPES).join(" "),
+            scope: normalizeRequestedLoginScopes(options?.scopes).join(" "),
           },
         })
         .pipe(

@@ -16,11 +16,13 @@ import {
 } from "./pending-device-login-store.js";
 
 const pending: PendingDeviceLogin = {
-  version: 1,
+  version: 2,
   registryUrl: "https://registry.agentxm.ai",
   deviceCode: "device-secret",
   userCode: "ABCD-1234",
   verificationUri: "https://agentxm.ai/device",
+  verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
+  requestedScopes: ["account:read", "extensions:read"],
   interval: 5,
   expiresAt: DateTime.makeUnsafe("2099-08-03T15:10:00Z"),
 };
@@ -73,7 +75,7 @@ describe("PendingDeviceLoginStore", () => {
     const directory = join(home, ".axm");
     const file = join(directory, "pending-login.json");
     mkdirSync(directory);
-    writeFileSync(file, '{"version":2}');
+    writeFileSync(file, '{"version":1}');
     const layer = PendingDeviceLoginStoreLive.pipe(Layer.provide(NodeServices.layer));
 
     return Effect.gen(function* () {

@@ -85,7 +85,8 @@ export const DeviceCodeResponse = Schema.Struct({
     format: "uri",
   }),
   verification_uri_complete: Schema.String.annotate({
-    description: "URI with the user code pre-filled, suitable for QR codes or direct links.",
+    description:
+      "URI with the one-time code in the user_code query parameter, suitable for QR codes or direct links.",
     format: "uri",
   }),
   expires_in: Schema.Number.annotate({
@@ -388,13 +389,15 @@ export const TokenId = Schema.String.check(
   }),
 );
 export type ScopeCheckDetails = {
-  readonly requiredScope: string;
+  readonly requiredScope?: string;
   readonly grantedScopes: ReadonlyArray<string>;
 };
 export const ScopeCheckDetails = Schema.Struct({
-  requiredScope: Schema.String.annotate({
-    description: "The scope required to perform the requested operation.",
-  }),
+  requiredScope: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "The scope required to perform the requested operation.",
+    }),
+  ),
   grantedScopes: Schema.Array(Schema.String).annotate({
     description: "The scopes granted to the current credential.",
   }),
@@ -404,14 +407,16 @@ export const ScopeCheckDetails = Schema.Struct({
   identifier: "ScopeCheckDetails",
 });
 export type AuthorizationDenyDetails = {
-  readonly requiredScope: string;
+  readonly requiredScope?: string;
   readonly tokenScopes: ReadonlyArray<string>;
   readonly requiredRole?: string;
 };
 export const AuthorizationDenyDetails = Schema.Struct({
-  requiredScope: Schema.String.annotate({
-    description: "The scope required to perform the requested operation.",
-  }),
+  requiredScope: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "The scope required to perform the requested operation.",
+    }),
+  ),
   tokenScopes: Schema.Array(Schema.String).annotate({
     description: "The scopes present on the token used for the request.",
   }),

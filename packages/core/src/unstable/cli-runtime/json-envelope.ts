@@ -61,11 +61,14 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
       ),
     }),
   ),
+  status: Schema.optional(Schema.Literal("pending-human")),
+  retryable: Schema.optional(Schema.Boolean),
   blockedOn: Schema.optional(Schema.Literal("human")),
   action: Schema.optional(
     Schema.Struct({
       kind: Schema.Literal("open-url"),
       url: Schema.String,
+      fallbackUrl: Schema.optional(Schema.String),
       code: Schema.optional(Schema.String),
       expiresAt: Schema.optional(Schema.String),
       resume: Schema.optional(Schema.String),
@@ -148,6 +151,8 @@ export const makeJsonErrorEnvelope = (args: {
   readonly detail: string;
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
   readonly metadata?: AppErrorMetadata;
+  readonly status?: "pending-human";
+  readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppError["action"];
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
@@ -172,6 +177,8 @@ export const makeJsonErrorEnvelope = (args: {
     ...(args.metadata !== undefined
       ? { metadata: redactAppErrorMetadata(args.metadata, secrets) }
       : {}),
+    ...(args.status !== undefined ? { status: args.status } : {}),
+    ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
     ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
     ...(args.action !== undefined ? { action: args.action } : {}),
     ...(args.suggestions !== undefined && args.suggestions.length > 0
@@ -199,6 +206,8 @@ export const makeJsonErrorEnvelopeFromAppError = (
         secrets,
       }),
       ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
+      ...(error.status !== undefined ? { status: error.status } : {}),
+      ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
       ...(error.blockedOn !== undefined ? { blockedOn: error.blockedOn } : {}),
       ...(error.action !== undefined ? { action: error.action } : {}),
       suggestions: effectiveSuggestionsFor(error),

@@ -16,7 +16,7 @@ import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { normalizeHandle } from "../extensions/handle.js";
 
-import { AuthClient } from "./auth-client.js";
+import { AuthClient, normalizeRequestedLoginScopes } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { emitLoginSuccess } from "./login-output.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
@@ -101,6 +101,7 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
 export interface RunDeviceLoginOptions {
   readonly emitPendingResult?: boolean;
   readonly openBrowser?: boolean;
+  readonly restart?: boolean;
   readonly scopes?: ReadonlyArray<string>;
 }
 
@@ -111,6 +112,7 @@ export interface ResumeDeviceLoginOptions {
 const DeviceLoginActionSchema = Schema.Struct({
   kind: Schema.Literal("open-url"),
   url: Schema.String,
+  fallbackUrl: Schema.String,
   code: Schema.String,
   expiresAt: Schema.String,
   resume: Schema.String,
@@ -119,8 +121,12 @@ const DeviceLoginActionSchema = Schema.Struct({
 export const DeviceLoginPendingResultSchema = Schema.Struct({
   status: Schema.Literal("pending-human"),
   blockedOn: Schema.Literal("human"),
+  retryable: Schema.Literal(true),
+  flow: Schema.Literals(["started", "re-emitted"]),
   registryHost: Schema.String,
   verificationUri: Schema.String,
+  verificationUriComplete: Schema.String,
+  requestedScopes: Schema.Array(Schema.String),
   userCode: Schema.String,
   expiresAt: Schema.String,
   interval: Schema.Number,
@@ -136,6 +142,7 @@ const DeviceLoginPendingDocumentSchema = Schema.Struct({
 
 const presentDeviceFlow = (
   verificationUri: string,
+  verificationUriComplete: string,
   userCode: string,
   expiresInSeconds: number,
   options: RunDeviceLoginOptions,
@@ -147,7 +154,7 @@ const presentDeviceFlow = (
     const shouldOpenBrowser = options.openBrowser ?? true;
     const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
     if (shouldOpenBrowser) {
-      const openedBrowser = yield* interaction.openBrowser(verificationUri);
+      const openedBrowser = yield* interaction.openBrowser(verificationUriComplete);
       if (openedBrowser) {
         yield* renderer.info("Opening your browser to complete device authorization.");
       }
@@ -161,6 +168,10 @@ const presentDeviceFlow = (
     yield* renderer.suggestions([
       {
         description: "Open the AXM device authorization page",
+        url: verificationUriComplete,
+      },
+      {
+        description: "Open the clean fallback page and enter the code",
         url: verificationUri,
       },
     ]);
@@ -175,22 +186,30 @@ const presentDeviceFlow = (
     );
   });
 
-const makePendingResult = (pending: PendingDeviceLogin): DeviceLoginPendingResult => {
+const makePendingResult = (
+  pending: PendingDeviceLogin,
+  flow: DeviceLoginPendingResult["flow"] = "started",
+): DeviceLoginPendingResult => {
   const registryHost = new URL(pending.registryUrl).host;
   const expiresAt = DateTime.formatIso(pending.expiresAt);
   const resume = "axm login --wait --json";
   return {
     status: "pending-human",
     blockedOn: "human",
+    retryable: true,
+    flow,
     registryHost,
     verificationUri: pending.verificationUri,
+    verificationUriComplete: pending.verificationUriComplete,
+    requestedScopes: pending.requestedScopes,
     userCode: pending.userCode,
     expiresAt,
     interval: pending.interval,
     resume,
     action: {
       kind: "open-url",
-      url: pending.verificationUri,
+      url: pending.verificationUriComplete,
+      fallbackUrl: pending.verificationUri,
       code: pending.userCode,
       expiresAt,
       resume,
@@ -198,13 +217,21 @@ const makePendingResult = (pending: PendingDeviceLogin): DeviceLoginPendingResul
   };
 };
 
-const emitPendingDeviceLogin = (pending: PendingDeviceLogin, options: RunDeviceLoginOptions) =>
+const emitPendingDeviceLogin = (
+  pending: PendingDeviceLogin,
+  options: RunDeviceLoginOptions,
+  flow: DeviceLoginPendingResult["flow"] = "started",
+) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const result = makePendingResult(pending);
+    const result = makePendingResult(pending, flow);
     const suggestions = [
       {
         description: "Open the AXM device authorization page",
+        url: pending.verificationUriComplete,
+      },
+      {
+        description: "Open the clean fallback page and enter the code",
         url: pending.verificationUri,
       },
       {
@@ -221,6 +248,7 @@ const emitPendingDeviceLogin = (pending: PendingDeviceLogin, options: RunDeviceL
     }
     yield* presentDeviceFlow(
       pending.verificationUri,
+      pending.verificationUriComplete,
       pending.userCode,
       Math.max(
         0,
@@ -243,6 +271,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
     const pendingStore = yield* PendingDeviceLoginStore;
     const renderer = yield* CliRenderer;
     const registryHost = new URL(registryUrl).host;
+    const requestedScopes = normalizeRequestedLoginScopes(options.scopes);
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -251,16 +280,29 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
     const existing = yield* pendingStore.load();
     if (Option.isSome(existing)) {
       const expired = yield* DateTime.isPast(existing.value.expiresAt);
-      if (expired || existing.value.registryUrl === registryUrl) {
+      if (expired || options.restart === true) {
         yield* pendingStore.clear();
+      } else if (
+        existing.value.registryUrl === registryUrl &&
+        existing.value.requestedScopes.length === requestedScopes.length &&
+        existing.value.requestedScopes.every((scope, index) => scope === requestedScopes[index])
+      ) {
+        return yield* emitPendingDeviceLogin(existing.value, options, "re-emitted");
       } else {
         return yield* makeAppError({
           code: "conflict",
-          detail: `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
+          detail:
+            existing.value.registryUrl === registryUrl
+              ? `A device sign-in for ${registryHost} is already pending with a different scope set.`
+              : `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
           suggestions: [
             {
               description: "Finish the pending sign-in before starting another.",
               cmd: "axm login --wait --json",
+            },
+            {
+              description: "Replace the pending sign-in intentionally.",
+              cmd: "axm login --device-code --restart --json",
             },
           ],
         });
@@ -269,19 +311,18 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
 
     const deviceFlow = yield* renderer.withSpinner(
       `Starting device authorization for ${registryHost}`,
-      () =>
-        authClient.initiateDeviceFlow({
-          ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
-        }),
+      () => authClient.initiateDeviceFlow({ scopes: requestedScopes }),
       { successMessage: `Started device authorization for ${registryHost}` },
     );
 
     const pending: PendingDeviceLogin = {
-      version: 1,
+      version: 2,
       registryUrl,
       deviceCode: deviceFlow.device_code,
       userCode: deviceFlow.user_code,
       verificationUri: deviceFlow.verification_uri,
+      verificationUriComplete: deviceFlow.verification_uri_complete,
+      requestedScopes,
       interval: deviceFlow.interval,
       expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
     };
@@ -289,6 +330,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
     if (options.emitPendingResult === false) {
       yield* presentDeviceFlow(
         pending.verificationUri,
+        pending.verificationUriComplete,
         pending.userCode,
         deviceFlow.expires_in,
         options,
@@ -363,6 +405,10 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
                 Effect.fail(
                   makeAppError({
                     code: "timeout",
+                    status: "pending-human",
+                    retryable: true,
+                    blockedOn: "human",
+                    action: makePendingResult(pending).action,
                     detail: `Device sign-in did not complete within ${options.timeoutSeconds} seconds. The pending flow is still available.`,
                     suggestions: [
                       {

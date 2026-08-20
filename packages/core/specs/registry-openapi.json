@@ -3613,7 +3613,7 @@
           },
           "verification_uri_complete": {
             "type": "string",
-            "description": "URI with the user code pre-filled, suitable for QR codes or direct links.",
+            "description": "URI with the one-time code in the user_code query parameter, suitable for QR codes or direct links.",
             "format": "uri"
           },
           "expires_in": {
@@ -4565,7 +4565,7 @@
             "description": "The scopes granted to the current credential."
           }
         },
-        "required": ["requiredScope", "grantedScopes"],
+        "required": ["grantedScopes"],
         "additionalProperties": false,
         "title": "Scope Check Details",
         "description": "Diagnostic details returned when a request is denied due to insufficient scopes."
@@ -4587,7 +4587,7 @@
             "description": "The management role required, if applicable."
           }
         },
-        "required": ["requiredScope", "tokenScopes"],
+        "required": ["tokenScopes"],
         "additionalProperties": false,
         "title": "Authorization Deny Details",
         "description": "Diagnostic details returned when a request is denied due to insufficient authorization."

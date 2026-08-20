@@ -245,6 +245,7 @@ export type AppErrorMetadata = {
 export type AppErrorAction = {
   readonly kind: "open-url";
   readonly url: string;
+  readonly fallbackUrl?: string;
   readonly code?: string;
   readonly expiresAt?: string;
   readonly resume?: string;
@@ -366,6 +367,8 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly title: string;
   readonly detail: string;
   readonly metadata?: AppErrorMetadata;
+  readonly status?: "pending-human";
+  readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
@@ -377,6 +380,8 @@ export const makeAppError = (args: {
   readonly title?: string;
   readonly detail?: string;
   readonly metadata?: AppErrorMetadata;
+  readonly status?: "pending-human";
+  readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
   readonly recover?: string;
@@ -400,6 +405,8 @@ export const makeAppError = (args: {
     title: args.title ?? defaultTitleFor(args.code),
     detail: args.detail ?? defaultDetailFor(args.code),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
+    ...(args.status !== undefined ? { status: args.status } : {}),
+    ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
     ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
     ...(args.action !== undefined ? { action: args.action } : {}),
     ...(suggestions.length > 0 ? { suggestions } : {}),

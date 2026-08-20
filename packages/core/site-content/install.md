@@ -153,7 +153,9 @@ commands can reach the registry. Offer both paths:
   terminal. It opens a browser for a one-time authorization flow; AXM can't
   run it on their behalf because the browser step requires the user. In
   SSH/CI/Codespaces or with `--device-code`, AXM falls back to a five-minute
-  device-code flow.
+  device-code flow. The CLI emits a complete authorization link and a separate
+  clean fallback URL plus code. A retry re-emits the same unexpired request;
+  `--restart` explicitly replaces it.
 - **Non-interactive:** ask the user to place a pre-generated token in a
   restrictive, readable file and export `AXM_TOKEN_FILE` with that path in the
   environment where AXM will run. `AXM_TOKEN` remains supported but is easier

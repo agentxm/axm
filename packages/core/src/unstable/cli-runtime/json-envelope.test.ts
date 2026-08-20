@@ -113,10 +113,13 @@ describe("JsonEnvelopeSchema", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({
         code: "auth_required",
+        status: "pending-human",
+        retryable: true,
         blockedOn: "human",
         action: {
           kind: "open-url",
-          url: "https://agentxm.ai/device",
+          url: "https://agentxm.ai/device?user_code=ABCD-1234",
+          fallbackUrl: "https://agentxm.ai/device",
           code: "ABCD-1234",
           expiresAt: "2026-08-03T15:10:00.000Z",
           resume: "axm login --wait --json",
@@ -127,10 +130,13 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toMatchObject({
       ok: false,
       code: "auth_required",
+      status: "pending-human",
+      retryable: true,
       blockedOn: "human",
       action: {
         kind: "open-url",
-        url: "https://agentxm.ai/device",
+        url: "https://agentxm.ai/device?user_code=ABCD-1234",
+        fallbackUrl: "https://agentxm.ai/device",
         code: "ABCD-1234",
         resume: "axm login --wait --json",
       },

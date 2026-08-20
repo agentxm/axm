@@ -110,6 +110,7 @@ describe("axm login", () => {
     expect(output).toContain("axm login");
     expect(output).toContain("axm login --device-code");
     expect(output).toContain("--wait");
+    expect(output).toContain("--restart");
     expect(output).toContain("--timeout");
     expect(output).not.toContain("--device-auth");
   });
@@ -133,7 +134,8 @@ describe("axm login", () => {
       expect(started.stdout).toContain('"status": "pending-human"');
       expect(started.stdout).toContain('"userCode": "ABCD-1234"');
       expect(started.stdout).toContain('"resume": "axm login --wait --json"');
-      expect(started.stdout).not.toContain("user_code=ABCD-1234");
+      expect(started.stdout).toContain('"verificationUri": "' + auth.url + '/device"');
+      expect(started.stdout).toContain(auth.url + "/device?user_code=ABCD-1234");
 
       auth.setOutcome("approved");
       const resumed = await runCli(

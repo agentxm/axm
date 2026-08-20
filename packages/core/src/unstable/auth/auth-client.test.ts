@@ -27,7 +27,13 @@ import {
   publicationDescriptorDigest,
   publicationSetDigest,
 } from "../registry/publication-set.js";
-import { AuthClient, AuthClientLive, pollOnce, readStepUpRequest } from "./auth-client.js";
+import {
+  AuthClient,
+  AuthClientLive,
+  normalizeRequestedLoginScopes,
+  pollOnce,
+  readStepUpRequest,
+} from "./auth-client.js";
 import { RegistryUrl } from "./registry-url.js";
 
 // -----------------------------------------------------------------------------
@@ -154,7 +160,9 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 
       expect(url.pathname).toBe("/oauth/authorize");
       expect(url.searchParams.get("request_expires_at")).toBe(DateTime.formatIso(expiresAt));
-      expect(url.searchParams.get("scope")).toContain("extensions:publish:new");
+      expect(url.searchParams.get("scope")).toBe(
+        "account:read email extensions:read offline_access openid profile",
+      );
     }).pipe(Effect.provide(layer));
   });
 });
@@ -301,6 +309,24 @@ describe("AuthClient exact publish authorization", () => {
 });
 
 describe("AuthClient.initiateDeviceFlow", () => {
+  it("uses baseline read authority and preserves OIDC session semantics", () => {
+    expect(normalizeRequestedLoginScopes()).toEqual([
+      "account:read",
+      "email",
+      "extensions:read",
+      "offline_access",
+      "openid",
+      "profile",
+    ]);
+    expect(normalizeRequestedLoginScopes(["account:write", "account:write"])).toEqual([
+      "account:write",
+      "email",
+      "offline_access",
+      "openid",
+      "profile",
+    ]);
+  });
+
   it.effect("returns device flow response on success", () => {
     const layer = makeTestLayer(
       () =>
@@ -309,7 +335,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
             device_code: "dev_123",
             user_code: "ABCD-1234",
             verification_uri: "https://agentxm.ai/device",
-            verification_uri_complete: "https://agentxm.ai/device?code=ABCD-1234",
+            verification_uri_complete: "https://agentxm.ai/device?user_code=ABCD-1234",
             interval: 5,
             expires_in: 900,
           }),
@@ -323,7 +349,9 @@ describe("AuthClient.initiateDeviceFlow", () => {
       expect(result.device_code).toBe("dev_123");
       expect(result.user_code).toBe("ABCD-1234");
       expect(result.verification_uri).toBe("https://agentxm.ai/device");
-      expect(result.verification_uri_complete).toBe("https://agentxm.ai/device?code=ABCD-1234");
+      expect(result.verification_uri_complete).toBe(
+        "https://agentxm.ai/device?user_code=ABCD-1234",
+      );
       expect(result.interval).toBe(5);
       expect(result.expires_in).toBe(900);
     }).pipe(Effect.provide(layer));
@@ -373,7 +401,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
           device_code: "dev_123",
           user_code: "ABCD-1234",
           verification_uri: "https://agentxm.ai/device",
-          verification_uri_complete: "https://agentxm.ai/device?code=ABCD-1234",
+          verification_uri_complete: "https://agentxm.ai/device?user_code=ABCD-1234",
           interval: 5,
           expires_in: 900,
         }),

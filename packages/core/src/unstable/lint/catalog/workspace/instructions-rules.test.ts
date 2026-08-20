@@ -161,7 +161,7 @@ describe("instruction workspace rules", () => {
       const context = contextFor({
         gitignore: Option.some({
           file: `${root}/.gitignore`,
-          desired: false,
+          desired: true,
           current: false,
           trackedAliases: [],
         }),
@@ -173,6 +173,7 @@ describe("instruction workspace rules", () => {
           kind: "advisory",
           ruleId: "workspace/instructions-gitignore-current",
           severity: "info",
+          message: "Instruction-file ignore entries are missing or stale.",
           location: { file: ".gitignore" },
         },
       ]);

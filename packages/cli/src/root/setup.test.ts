@@ -562,7 +562,7 @@ describe("setup.handler", () => {
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
           expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-            "**/CLAUDE.md",
+            "/CLAUDE.md",
           );
         }),
       );

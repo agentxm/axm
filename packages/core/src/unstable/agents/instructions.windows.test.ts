@@ -22,7 +22,10 @@ describe("Windows instruction-file materialization", () => {
 
             const sourcePath = path.join(workspaceRoot, "AGENTS.md");
             const targetPath = path.join(workspaceRoot, "CLAUDE.md");
-            const config = { fileName: "AGENTS.md", gitignoreAliases: false } as const;
+            fs.mkdirSync(path.join(workspaceRoot, ".git"));
+            fs.mkdirSync(path.join(workspaceRoot, "docs"));
+            fs.writeFileSync(path.join(workspaceRoot, "docs", "AGENTS.md"), "# Docs\n");
+            const config = { fileName: "AGENTS.md", gitignoreAliases: true } as const;
             fs.writeFileSync(sourcePath, "# Windows workspace\n");
 
             const first = yield* reconcileInstructionTargets({
@@ -35,6 +38,12 @@ describe("Windows instruction-file materialization", () => {
             expect(first.written).toContain(targetPath);
             expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Windows workspace");
+            expect(fs.readFileSync(path.join(workspaceRoot, ".gitignore"), "utf8")).toContain(
+              "/docs/CLAUDE.md",
+            );
+            expect(fs.readFileSync(path.join(workspaceRoot, ".gitignore"), "utf8")).not.toContain(
+              "\\",
+            );
 
             const unchanged = yield* reconcileInstructionTargets({
               workspaceRoot,
@@ -63,9 +72,8 @@ describe("Windows instruction-file materialization", () => {
               configuredAgents: ["claude-code"],
               config,
               dryRun: false,
-              symlinkSupported: false,
             });
-            expect(removed).toEqual([targetPath]);
+            expect(removed).toEqual([targetPath, path.join(workspaceRoot, "docs", "CLAUDE.md")]);
             expect(fs.existsSync(targetPath)).toBe(false);
             expect(fs.existsSync(sourcePath)).toBe(true);
 
@@ -75,7 +83,6 @@ describe("Windows instruction-file materialization", () => {
               configuredAgents: ["claude-code"],
               config,
               dryRun: false,
-              symlinkSupported: false,
             });
             expect(repeated).toEqual([]);
           }),

@@ -18,7 +18,7 @@ import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { detectAgentScopeResults, type AgentScopeDetection } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
 import {
-  resolveInstructionMechanism,
+  resolveInstructionTarget,
   syncInstructions,
   type InstructionMechanism,
 } from "../agents/instructions.js";
@@ -330,22 +330,21 @@ const instructionPlanRows = (args: {
       }),
     },
     ...args.selectedAgents.map((agent) => {
-      if (agent.instructions === undefined) {
+      const resolution = resolveInstructionTarget({
+        instructions: agent.instructions,
+        sourceFileName: args.sourceFileName,
+        symlinkSupported: true,
+      });
+      if (resolution.action === "skip") {
         return {
           target: agent.name,
           action: "skip",
           detail: "no instruction convention",
         } satisfies SetupPlanRow;
       }
-      const mechanism = resolveInstructionMechanism(agent.instructions, true);
       return {
-        target:
-          agent.instructions.kind === "own-file"
-            ? agent.instructions.file
-            : agent.instructions.kind === "rules-dir"
-              ? agent.instructions.dir
-              : agent.name,
-        action: instructionMechanismLabel(mechanism),
+        target: resolution.relativeTarget,
+        action: instructionMechanismLabel(resolution.mechanism),
         detail: agent.name,
       } satisfies SetupPlanRow;
     }),

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
 import {
+  buildInstructionProjectionPlan,
   resolveInstructionMechanism,
   resolveInstructionTarget,
+  resolveInstructionTargetShape,
   type InstructionTargetResolution,
 } from "./instructions.js";
 import { AGENTS, getAgentIds } from "./registry.js";
@@ -124,6 +128,54 @@ describe("resolveInstructionTarget", () => {
       }),
     ).toEqual({ action: "write", mechanism: "copy", relativeTarget: "CLAUDE.md" });
   });
+
+  it("treats an own-file convention matching the canonical source as native", () => {
+    expect(
+      resolveInstructionTargetShape({
+        instructions: AGENTS["claude-code"].instructions,
+        sourceFileName: "CLAUDE.md",
+      }),
+    ).toEqual({ action: "native", relativeTarget: "CLAUDE.md" });
+    expect(
+      resolveInstructionTarget({
+        instructions: AGENTS["claude-code"].instructions,
+        sourceFileName: "CLAUDE.md",
+        symlinkSupported: true,
+      }),
+    ).toEqual({ action: "native", mechanism: "native", relativeTarget: "CLAUDE.md" });
+  });
+
+  it.effect("expands every configured agent across every instruction root", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const plan = buildInstructionProjectionPlan({
+        roots: ["/workspace", "/workspace/docs"],
+        configuredAgents: ["claude-code", "junie", "codex", "aider-desk", "unknown"],
+        sourceFileName: SOURCE,
+        path,
+      });
+
+      expect(plan.items).toHaveLength(10);
+      expect(
+        plan.items.flatMap((item) => (item.action === "write" ? [item.targetPath] : [])),
+      ).toEqual([
+        "/workspace/CLAUDE.md",
+        "/workspace/.junie/AGENTS.md",
+        "/workspace/docs/CLAUDE.md",
+        "/workspace/docs/.junie/AGENTS.md",
+      ]);
+      expect(
+        plan.items
+          .filter((item) => item.action === "skip")
+          .map((item) => [item.root, item.agentId, item.reason]),
+      ).toEqual([
+        ["/workspace", "aider-desk", "no-convention"],
+        ["/workspace", "unknown", "unknown-agent"],
+        ["/workspace/docs", "aider-desk", "no-convention"],
+        ["/workspace/docs", "unknown", "unknown-agent"],
+      ]);
+    }).pipe(Effect.provide(Path.layer)),
+  );
 
   it("points agents-md agents at the source file itself, honoring a custom name", () => {
     expect(

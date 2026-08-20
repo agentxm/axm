@@ -9,9 +9,9 @@ import {
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
   removeManagedInstructionTargets,
+  removeInstructionsGitignore,
   resolveInstructionsConfig,
   syncInstructions,
-  syncInstructionsGitignore,
   type InstructionsStatus,
   type ResolvedInstructionsConfig,
 } from "@agentxm/client-core/unstable/agents";
@@ -49,6 +49,7 @@ export const instructionStateIsCurrent = Effect.fn("Instructions.stateIsCurrent"
   });
   const gitignore = yield* getInstructionsGitignoreStatus({
     workspaceRoot: args.ws.baseDir,
+    scope: args.ws.scope,
     configuredAgents: agents,
     config: args.config,
   });
@@ -116,6 +117,7 @@ export const reconcileInstructionTransition = <A>(args: {
     });
     const gitignore = yield* getInstructionsGitignoreStatus({
       workspaceRoot: args.ws.baseDir,
+      scope: args.ws.scope,
       configuredAgents: agents,
       config: args.config,
     });
@@ -142,11 +144,8 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
       config: args.config,
       dryRun: false,
     });
-    const gitignore = yield* syncInstructionsGitignore({
+    const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: args.ws.baseDir,
-      configuredAgents: agents,
-      config: args.config,
-      desired: false,
       dryRun: false,
     });
     yield* args.ws.setInstructionsConfig(false);

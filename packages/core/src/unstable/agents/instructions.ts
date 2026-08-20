@@ -115,24 +115,44 @@ export type InstructionTargetResolution =
     }
   | { readonly action: "skip"; readonly reason: InstructionSkipReason };
 
+export type InstructionTargetShape =
+  | {
+      readonly action: "native" | "write" | "adapter";
+      readonly relativeTarget: string;
+    }
+  | { readonly action: "skip"; readonly reason: InstructionSkipReason };
+
+export const resolveInstructionTargetShape = (args: {
+  readonly instructions: AgentInstructionsDescriptor | undefined;
+  readonly sourceFileName: string;
+}): InstructionTargetShape => {
+  const { instructions, sourceFileName } = args;
+  if (instructions === undefined) {
+    return { action: "skip", reason: "no-convention" };
+  }
+  switch (instructions.kind) {
+    case "agents-md":
+      return { action: "native", relativeTarget: sourceFileName };
+    case "own-file":
+      return instructions.file === sourceFileName
+        ? { action: "native", relativeTarget: sourceFileName }
+        : { action: "write", relativeTarget: instructions.file };
+    case "rules-dir":
+      return { action: "adapter", relativeTarget: instructions.dir };
+  }
+};
+
 export const resolveInstructionTarget = (args: {
   readonly instructions: AgentInstructionsDescriptor | undefined;
   readonly sourceFileName: string;
   readonly symlinkSupported: boolean;
 }): InstructionTargetResolution => {
   const { instructions, sourceFileName, symlinkSupported } = args;
-  if (instructions === undefined) {
-    return { action: "skip", reason: "no-convention" };
-  }
-  const mechanism = resolveInstructionMechanism(instructions, symlinkSupported);
-  switch (instructions.kind) {
-    case "agents-md":
-      return { action: "native", mechanism, relativeTarget: sourceFileName };
-    case "own-file":
-      return { action: "write", mechanism, relativeTarget: instructions.file };
-    case "rules-dir":
-      return { action: "adapter", mechanism, relativeTarget: instructions.dir };
-  }
+  const shape = resolveInstructionTargetShape({ instructions, sourceFileName });
+  if (shape.action === "skip") return shape;
+  if (shape.action === "native") return { ...shape, mechanism: "native" };
+  if (shape.action === "adapter") return { ...shape, mechanism: "adapter" };
+  return { ...shape, mechanism: symlinkSupported ? "symlink" : "copy" };
 };
 
 export const normalizeMarkdownBody = (content: string): string => {
@@ -291,48 +311,95 @@ const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
   Object.values(AGENTS).find((descriptor) => descriptor.id === agentId);
 
-export const listInstructionAliases = (
-  agents: ReadonlyArray<AgentDescriptor>,
-  sourceFileName: string,
-): ReadonlyArray<string> =>
-  [
-    ...new Set(
-      agents.flatMap((agent) => {
-        if (agent.instructions?.kind !== "own-file") return [];
-        if (agent.instructions.file === sourceFileName) return [];
-        return [agent.instructions.file];
-      }),
-    ),
-  ].sort();
+export type PlannedInstructionItem =
+  | {
+      readonly action: "skip";
+      readonly reason: "unknown-agent";
+      readonly root: string;
+      readonly agentId: string;
+      readonly agentName: string;
+      readonly sourcePath: string;
+    }
+  | {
+      readonly action: "skip";
+      readonly reason: InstructionSkipReason;
+      readonly root: string;
+      readonly agentId: AgentId;
+      readonly agentName: string;
+      readonly sourcePath: string;
+    }
+  | {
+      readonly action: "native" | "write" | "adapter";
+      readonly root: string;
+      readonly agentId: AgentId;
+      readonly agentName: string;
+      readonly sourcePath: string;
+      readonly targetPath: string;
+      readonly relativeTarget: string;
+      readonly instructions: AgentInstructionsDescriptor;
+    };
 
-const findAgentDescriptors = (agentIds: ReadonlyArray<string>): ReadonlyArray<AgentDescriptor> =>
-  agentIds.flatMap((agentId) => {
-    const descriptor = findAgentDescriptor(agentId);
-    return descriptor === undefined ? [] : [descriptor];
-  });
+export interface InstructionProjectionPlan {
+  readonly roots: ReadonlyArray<string>;
+  readonly items: ReadonlyArray<PlannedInstructionItem>;
+}
+
+export const buildInstructionProjectionPlan = (args: {
+  readonly roots: ReadonlyArray<string>;
+  readonly configuredAgents: ReadonlyArray<string>;
+  readonly sourceFileName: string;
+  readonly path: Path.Path;
+}): InstructionProjectionPlan => ({
+  roots: args.roots,
+  items: args.roots.flatMap((root) => {
+    const sourcePath = args.path.join(root, args.sourceFileName);
+    return args.configuredAgents.map((agentId): PlannedInstructionItem => {
+      const descriptor = findAgentDescriptor(agentId);
+      if (descriptor === undefined) {
+        return {
+          action: "skip",
+          reason: "unknown-agent",
+          root,
+          agentId,
+          agentName: agentId,
+          sourcePath,
+        };
+      }
+      const instructions = descriptor.instructions;
+      if (instructions === undefined) {
+        return {
+          action: "skip",
+          reason: "no-convention",
+          root,
+          agentId: descriptor.id,
+          agentName: descriptor.name,
+          sourcePath,
+        };
+      }
+      const shape = resolveInstructionTargetShape({
+        instructions,
+        sourceFileName: args.sourceFileName,
+      });
+      if (shape.action === "skip") {
+        return { ...shape, root, agentId: descriptor.id, agentName: descriptor.name, sourcePath };
+      }
+      return {
+        ...shape,
+        root,
+        agentId: descriptor.id,
+        agentName: descriptor.name,
+        sourcePath,
+        targetPath: args.path.join(root, shape.relativeTarget),
+        instructions,
+      };
+    });
+  }),
+});
 
 const fileExists = (filePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     return yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
-  });
-
-const targetForDescriptor = (
-  root: string,
-  sourceFile: string,
-  descriptor: AgentInstructionsDescriptor,
-  mechanism: InstructionMechanism,
-) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const resolution = resolveInstructionTarget({
-      instructions: descriptor,
-      sourceFileName: sourceFile,
-      symlinkSupported: mechanism === "symlink",
-    });
-    // `descriptor` is always defined here, so the resolution is never a skip.
-    const relativeTarget = resolution.action === "skip" ? sourceFile : resolution.relativeTarget;
-    return path.join(root, relativeTarget);
   });
 
 const inspectTarget = (args: {
@@ -366,6 +433,68 @@ const inspectTarget = (args: {
     };
   });
 
+const instructionsStatusFromPlan = (args: {
+  readonly plan: InstructionProjectionPlan;
+  readonly config: ResolvedInstructionsConfig;
+  readonly symlinkSupported: boolean;
+}) =>
+  Effect.gen(function* () {
+    const items = yield* Effect.forEach(
+      args.plan.items,
+      (item) =>
+        Effect.gen(function* () {
+          if (item.action === "skip") {
+            return {
+              root: item.root,
+              agentId: item.reason === "unknown-agent" ? "universal" : item.agentId,
+              agentName: item.agentName,
+              sourceFile: item.sourcePath,
+              targetFile: item.sourcePath,
+              mechanism: "copy",
+              health: "unsupported",
+              details:
+                item.reason === "unknown-agent"
+                  ? "Unknown agent ID."
+                  : "Agent descriptor has no instruction-file convention.",
+            } satisfies InstructionStatusItem;
+          }
+          const mechanism =
+            item.action === "native"
+              ? "native"
+              : item.action === "adapter"
+                ? "adapter"
+                : resolveInstructionMechanism(item.instructions, args.symlinkSupported);
+          const sourceContent = yield* readFileOption(item.sourcePath);
+          const inspected = yield* inspectTarget({
+            sourceContent,
+            sourcePath: item.sourcePath,
+            targetPath: item.targetPath,
+            mechanism,
+            sourceFileName: args.config.fileName,
+          });
+          const health = toInstructionHealth({ ...inspected, mechanism });
+          return {
+            root: item.root,
+            agentId: item.agentId,
+            agentName: item.agentName,
+            sourceFile: item.sourcePath,
+            targetFile: item.targetPath,
+            mechanism,
+            health,
+            details: instructionDetails(item.instructions, health),
+          } satisfies InstructionStatusItem;
+        }),
+      { concurrency: "unbounded" },
+    );
+    return {
+      enabled: true,
+      sourceFileName: args.config.fileName,
+      gitignoreAliases: args.config.gitignoreAliases,
+      roots: args.plan.roots,
+      items,
+    } satisfies InstructionsStatus;
+  });
+
 export const getInstructionsStatus = (args: {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
@@ -376,82 +505,15 @@ export const getInstructionsStatus = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
+    const plan = buildInstructionProjectionPlan({
+      roots,
+      configuredAgents: args.configuredAgents,
+      sourceFileName: args.config.fileName,
+      path,
+    });
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
-    const items = yield* Effect.forEach(
-      roots,
-      (root) =>
-        Effect.forEach(
-          args.configuredAgents,
-          (agentId) =>
-            Effect.gen(function* () {
-              const sourcePath = path.join(root, args.config.fileName);
-              const descriptor = findAgentDescriptor(agentId);
-              if (descriptor === undefined) {
-                return {
-                  root,
-                  agentId: "universal",
-                  agentName: agentId,
-                  sourceFile: sourcePath,
-                  targetFile: sourcePath,
-                  mechanism: "copy",
-                  health: "unsupported",
-                  details: "Unknown agent ID.",
-                } satisfies InstructionStatusItem;
-              }
-              if (descriptor.instructions === undefined) {
-                return {
-                  root,
-                  agentId: descriptor.id,
-                  agentName: descriptor.name,
-                  sourceFile: sourcePath,
-                  targetFile: sourcePath,
-                  mechanism: "copy",
-                  health: "unsupported",
-                  details: "Agent descriptor has no instruction-file convention.",
-                } satisfies InstructionStatusItem;
-              }
-              const mechanism = resolveInstructionMechanism(
-                descriptor.instructions,
-                symlinkSupported,
-              );
-              const targetPath = yield* targetForDescriptor(
-                root,
-                args.config.fileName,
-                descriptor.instructions,
-                mechanism,
-              );
-              const sourceContent = yield* readFileOption(sourcePath);
-              const inspected = yield* inspectTarget({
-                sourceContent,
-                sourcePath,
-                targetPath,
-                mechanism,
-                sourceFileName: args.config.fileName,
-              });
-              const health = toInstructionHealth({ ...inspected, mechanism });
-              return {
-                root,
-                agentId: descriptor.id,
-                agentName: descriptor.name,
-                sourceFile: sourcePath,
-                targetFile: targetPath,
-                mechanism,
-                health,
-                details: instructionDetails(descriptor.instructions, health),
-              } satisfies InstructionStatusItem;
-            }),
-          { concurrency: "unbounded" },
-        ),
-      { concurrency: "unbounded" },
-    );
-    return {
-      enabled: true,
-      sourceFileName: args.config.fileName,
-      gitignoreAliases: args.config.gitignoreAliases,
-      roots,
-      items: items.flat(),
-    } satisfies InstructionsStatus;
+    return yield* instructionsStatusFromPlan({ plan, config: args.config, symlinkSupported });
   });
 
 const writeFile = (filePath: string, content: string) =>
@@ -568,56 +630,33 @@ const managedTargetStates = (args: {
   readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
-  readonly symlinkSupported?: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
-    const symlinkSupported =
-      args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
-    return yield* Effect.forEach(
+    const plan = buildInstructionProjectionPlan({
       roots,
-      (root) =>
+      configuredAgents: args.configuredAgents,
+      sourceFileName: args.config.fileName,
+      path,
+    });
+    const states = yield* Effect.forEach(
+      plan.items,
+      (item) =>
         Effect.gen(function* () {
-          const sourcePath = path.join(root, args.config.fileName);
-          const sourceContent = yield* readFileOption(sourcePath);
-          return yield* Effect.forEach(
-            args.configuredAgents,
-            (agentId) =>
-              Effect.gen(function* () {
-                const descriptor = findAgentDescriptor(agentId);
-                if (descriptor?.instructions === undefined) return Option.none();
-                const mechanism = resolveInstructionMechanism(
-                  descriptor.instructions,
-                  symlinkSupported,
-                );
-                if (mechanism === "native" || mechanism === "adapter") return Option.none();
-                const targetPath = yield* targetForDescriptor(
-                  root,
-                  args.config.fileName,
-                  descriptor.instructions,
-                  mechanism,
-                );
-                const state = yield* inspectManagedTargetState({
-                  sourcePath,
-                  targetPath,
-                  sourceContent,
-                  sourceFileName: args.config.fileName,
-                });
-                return Option.some({ sourcePath, targetPath, state });
-              }),
-            { concurrency: 1 },
-          );
+          if (item.action !== "write") return Option.none();
+          const sourceContent = yield* readFileOption(item.sourcePath);
+          const state = yield* inspectManagedTargetState({
+            sourcePath: item.sourcePath,
+            targetPath: item.targetPath,
+            sourceContent,
+            sourceFileName: args.config.fileName,
+          });
+          return Option.some({ sourcePath: item.sourcePath, targetPath: item.targetPath, state });
         }),
       { concurrency: 1 },
-    ).pipe(
-      Effect.map((nested) =>
-        nested
-          .flat()
-          .filter(Option.isSome)
-          .map((item) => item.value),
-      ),
     );
+    return states.filter(Option.isSome).map((item) => item.value);
   });
 
 export const assertInstructionTargetsSafe = (args: {
@@ -625,7 +664,6 @@ export const assertInstructionTargetsSafe = (args: {
   readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
-  readonly symlinkSupported?: boolean;
 }) =>
   Effect.gen(function* () {
     const states = yield* managedTargetStates(args);
@@ -651,7 +689,6 @@ export const removeManagedInstructionTargets = (args: {
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
   readonly dryRun: boolean;
-  readonly symlinkSupported?: boolean;
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -813,22 +850,53 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
     });
   });
 
+const workspaceRelativeGitPath = (args: {
+  readonly path: Path.Path;
+  readonly workspaceRoot: string;
+  readonly targetPath: string;
+}): string => {
+  const relative = args.path.relative(args.workspaceRoot, args.targetPath);
+  return args.path.sep === "/" ? relative : relative.split(args.path.sep).join("/");
+};
+
+const GITIGNORE_LITERAL_CHARACTERS = new Set(["\\", "*", "?", "[", "]", " "]);
+
+const escapeGitignoreLiteral = (value: string): string =>
+  [...value]
+    .map((character) =>
+      GITIGNORE_LITERAL_CHARACTERS.has(character) ? `\\${character}` : character,
+    )
+    .join("");
+
 const desiredGitignorePatterns = (args: {
-  readonly desired: boolean;
-  readonly sourceFileName: string;
-  readonly configuredAgents: ReadonlyArray<string>;
+  readonly enabled: boolean;
+  readonly path: Path.Path;
+  readonly workspaceRoot: string;
+  readonly plan: InstructionProjectionPlan;
 }): ReadonlyArray<string> =>
-  args.desired
-    ? listInstructionAliases(findAgentDescriptors(args.configuredAgents), args.sourceFileName).map(
-        (alias) => `**/${alias}`,
-      )
+  args.enabled
+    ? [
+        ...new Set(
+          args.plan.items.flatMap((item) =>
+            item.action === "write"
+              ? [
+                  `/${escapeGitignoreLiteral(
+                    workspaceRelativeGitPath({
+                      path: args.path,
+                      workspaceRoot: args.workspaceRoot,
+                      targetPath: item.targetPath,
+                    }),
+                  )}`,
+                ]
+              : [],
+          ),
+        ),
+      ].sort()
     : [];
 
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
-  readonly desired: boolean;
-  readonly sourceFileName: string;
-  readonly configuredAgents: ReadonlyArray<string>;
+  readonly patterns: ReadonlyArray<string>;
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
@@ -836,11 +904,6 @@ const writeGitignoreRegion = (args: {
     if (!gitManaged) return Option.none<string>();
 
     const filePath = yield* instructionGitignorePath(args.workspaceRoot);
-    const patterns = desiredGitignorePatterns({
-      desired: args.desired,
-      sourceFileName: args.sourceFileName,
-      configuredAgents: args.configuredAgents,
-    });
     const current = yield* readFileOption(filePath);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
     if (state === "malformed" || state === "unsupported-version") {
@@ -858,13 +921,13 @@ const writeGitignoreRegion = (args: {
         ],
       });
     }
-    if (patterns.length === 0 && Option.isNone(current)) return Option.none<string>();
-    if (patterns.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
+    if (args.patterns.length === 0 && Option.isNone(current)) return Option.none<string>();
+    if (args.patterns.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
       return Option.none<string>();
     }
     const next = reconcileGitignorePatterns(
       Option.getOrElse(current, () => ""),
-      patterns,
+      args.patterns,
     ).updated;
     if (Option.isSome(current) && current.value === next) return Option.none<string>();
     if (!args.dryRun) yield* writeFile(filePath, next);
@@ -873,6 +936,7 @@ const writeGitignoreRegion = (args: {
 
 export const getInstructionsGitignoreStatus = (args: {
   readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
@@ -893,29 +957,53 @@ export const getInstructionsGitignoreStatus = (args: {
     }
 
     const currentContent = yield* readFileOption(file);
-    const aliasNames = listInstructionAliases(
-      findAgentDescriptors(args.configuredAgents),
-      args.config.fileName,
-    );
+    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
+    const plan = buildInstructionProjectionPlan({
+      roots,
+      configuredAgents: args.configuredAgents,
+      sourceFileName: args.config.fileName,
+      path,
+    });
+    const writeTargets = plan.items
+      .flatMap((item) =>
+        item.action === "write"
+          ? [
+              {
+                targetPath: item.targetPath,
+                relativePath: workspaceRelativeGitPath({
+                  path,
+                  workspaceRoot: args.workspaceRoot,
+                  targetPath: item.targetPath,
+                }),
+              },
+            ]
+          : [],
+      )
+      .filter(
+        (target, index, targets) =>
+          targets.findIndex((candidate) => candidate.targetPath === target.targetPath) === index,
+      )
+      .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
     const trackedAliases =
       args.config.gitignoreAliases && args.gitIndexView === true
-        ? (yield* Effect.forEach(aliasNames, (alias) =>
-            fs.exists(path.join(args.workspaceRoot, alias)).pipe(
+        ? (yield* Effect.forEach(writeTargets, (target) =>
+            fs.exists(target.targetPath).pipe(
               Effect.catch(() => Effect.succeed(false)),
-              Effect.map((exists) => ({ alias, exists })),
+              Effect.map((exists) => ({ ...target, exists })),
             ),
           ))
             .filter(({ exists }) => exists)
-            .map(({ alias }) => alias)
+            .map(({ relativePath }) => relativePath)
         : [];
     const currentRegionState = Option.isSome(currentContent)
       ? managedGitignoreRegionState(currentContent.value)
       : "absent";
     const current = currentRegionState === "complete";
     const patterns = desiredGitignorePatterns({
-      desired: args.config.gitignoreAliases,
-      sourceFileName: args.config.fileName,
-      configuredAgents: args.configuredAgents,
+      enabled: args.config.gitignoreAliases,
+      path,
+      workspaceRoot: args.workspaceRoot,
+      plan,
     });
     const desired = patterns.length > 0;
     const next = reconcileGitignorePatterns(
@@ -948,40 +1036,35 @@ export const syncInstructionTarget = (args: {
     if (descriptor === undefined || descriptor.instructions === undefined) {
       return Option.none<string>();
     }
+    const symlinkSupported = args.symlinkSupported ?? (yield* probeSymlinkSupport(args.root));
+    const resolution = resolveInstructionTarget({
+      instructions: descriptor.instructions,
+      sourceFileName: args.config.fileName,
+      symlinkSupported,
+    });
+    if (resolution.action === "skip") return Option.none<string>();
     const sourcePath = path.join(args.root, args.config.fileName);
     const sourceContent = yield* readFileOption(sourcePath);
     if (Option.isNone(sourceContent)) return Option.none<string>();
-    const symlinkSupported = args.symlinkSupported ?? (yield* probeSymlinkSupport(args.root));
-    const mechanism = resolveInstructionMechanism(descriptor.instructions, symlinkSupported);
-    const targetPath = yield* targetForDescriptor(
-      args.root,
-      args.config.fileName,
-      descriptor.instructions,
-      mechanism,
-    );
+    const targetPath = path.join(args.root, resolution.relativeTarget);
     return yield* syncOneTarget({
       sourcePath,
       targetPath,
       sourceContent: sourceContent.value,
-      mechanism,
+      mechanism: resolution.mechanism,
       force: args.force,
       dryRun: args.dryRun,
       sourceFileName: args.config.fileName,
     });
   });
 
-export const syncInstructionsGitignore = (args: {
+export const removeInstructionsGitignore = (args: {
   readonly workspaceRoot: string;
-  readonly configuredAgents: ReadonlyArray<string>;
-  readonly config: ResolvedInstructionsConfig;
-  readonly desired: boolean;
   readonly dryRun: boolean;
 }): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem | Path.Path> =>
   writeGitignoreRegion({
     workspaceRoot: args.workspaceRoot,
-    desired: args.desired,
-    sourceFileName: args.config.fileName,
-    configuredAgents: args.configuredAgents,
+    patterns: [],
     dryRun: args.dryRun,
   });
 
@@ -997,66 +1080,54 @@ export const syncInstructions = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
+    const plan = buildInstructionProjectionPlan({
+      roots,
+      configuredAgents: args.configuredAgents,
+      sourceFileName: args.config.fileName,
+      path,
+    });
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
-    const writtenNested = yield* Effect.forEach(
-      roots,
-      (root) =>
+    const writes = yield* Effect.forEach(
+      plan.items,
+      (item) =>
         Effect.gen(function* () {
-          const sourcePath = path.join(root, args.config.fileName);
-          const sourceContent = yield* readFileOption(sourcePath);
-          if (Option.isNone(sourceContent)) return [];
-          const writes = yield* Effect.forEach(
-            args.configuredAgents,
-            (agentId) =>
-              Effect.gen(function* () {
-                const descriptor = findAgentDescriptor(agentId);
-                if (descriptor === undefined) return Option.none<string>();
-                if (descriptor.instructions === undefined) return Option.none<string>();
-                const mechanism = resolveInstructionMechanism(
-                  descriptor.instructions,
-                  symlinkSupported,
-                );
-                const targetPath = yield* targetForDescriptor(
-                  root,
-                  args.config.fileName,
-                  descriptor.instructions,
-                  mechanism,
-                );
-                return yield* syncOneTarget({
-                  sourcePath,
-                  targetPath,
-                  sourceContent: sourceContent.value,
-                  mechanism,
-                  force: args.force,
-                  dryRun: args.dryRun,
-                  sourceFileName: args.config.fileName,
-                });
-              }),
-            { concurrency: "unbounded" },
-          );
-          return writes.filter(Option.isSome).map((item) => item.value);
+          if (item.action !== "write") return Option.none<string>();
+          const sourceContent = yield* readFileOption(item.sourcePath);
+          if (Option.isNone(sourceContent)) return Option.none<string>();
+          const mechanism = resolveInstructionMechanism(item.instructions, symlinkSupported);
+          return yield* syncOneTarget({
+            sourcePath: item.sourcePath,
+            targetPath: item.targetPath,
+            sourceContent: sourceContent.value,
+            mechanism,
+            force: args.force,
+            dryRun: args.dryRun,
+            sourceFileName: args.config.fileName,
+          });
         }),
       { concurrency: "unbounded" },
     );
+    const patterns = desiredGitignorePatterns({
+      enabled: args.config.gitignoreAliases,
+      path,
+      workspaceRoot: args.workspaceRoot,
+      plan,
+    });
     const gitignoreWrite = yield* writeGitignoreRegion({
       workspaceRoot: args.workspaceRoot,
-      desired: args.config.gitignoreAliases,
-      sourceFileName: args.config.fileName,
-      configuredAgents: args.configuredAgents,
+      patterns,
       dryRun: args.dryRun,
     });
-    const status = yield* getInstructionsStatus({
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-      configuredAgents: args.configuredAgents,
+    const status = yield* instructionsStatusFromPlan({
+      plan,
       config: args.config,
       symlinkSupported,
     });
     return {
       status,
       written: [
-        ...writtenNested.flat(),
+        ...writes.filter(Option.isSome).map((item) => item.value),
         ...Option.match(gitignoreWrite, { onNone: () => [], onSome: (value) => [value] }),
       ],
       skipped: status.items.filter((item) => item.health !== "ok").map((item) => item.targetFile),
@@ -1078,6 +1149,7 @@ export const reconcileInstructionTargets = (args: {
     });
     const gitignore = yield* getInstructionsGitignoreStatus({
       workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
       configuredAgents: args.configuredAgents,
       config: args.config,
     });

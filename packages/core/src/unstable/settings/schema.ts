@@ -1023,7 +1023,7 @@ export const InstructionsConfigSchema = Schema.Struct({
   gitignoreAliases: Schema.optionalKey(
     Schema.Boolean.annotate({
       description:
-        "Whether AXM adds propagated alias instruction files (e.g. CLAUDE.md) to a managed .gitignore region. The source-of-truth file (fileName) is never ignored.",
+        "Whether AXM adds each exact propagated alias target (e.g. /CLAUDE.md or /docs/CLAUDE.md) to a managed .gitignore region. The source-of-truth file (fileName) is never ignored.",
       default: true,
       examples: [true, false],
     }),

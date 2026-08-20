@@ -297,6 +297,7 @@ const makeInstructionAccessor = (args: {
       if (Option.isNone(loaded)) return Option.none();
       const status = yield* getInstructionsGitignoreStatus({
         workspaceRoot: args.workspaceRoot,
+        scope: args.scope,
         configuredAgents: loaded.value.configuredAgents,
         config: loaded.value.config,
         gitIndexView: args.gitIndexView,

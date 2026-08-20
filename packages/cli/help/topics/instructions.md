@@ -79,7 +79,9 @@ region=instruction-aliases ext=@agentxm/instructions/aliases` and `# axm:end
 v=1 region=instruction-aliases` markers. The canonical source named by
 `fileName` is never ignored.
 
-- `true` (default) manages ignore entries for propagated alias files.
+- `true` (default) manages one exact workspace-relative ignore entry for each
+  propagated alias target at every discovered instruction root. It does not
+  reserve the alias filename elsewhere in the workspace.
 - `false` omits managed alias-ignore entries.
 
 ## Diagnosis and reconciliation

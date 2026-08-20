@@ -1416,6 +1416,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   });
   const gitignore = yield* getInstructionsGitignoreStatus({
     workspaceRoot: ws.baseDir,
+    scope: ws.scope,
     configuredAgents,
     config: resolvedConfig,
   });

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -9,16 +10,21 @@ import {
   assertInstructionTargetsSafe,
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
-  listInstructionAliases,
   normalizeMarkdownBody,
   probeSymlinkSupport,
   reconcileInstructionTargets,
   removeManagedInstructionTargets,
+  removeInstructionsGitignore,
   resolveInstructionMechanism,
   syncInstructions,
-  syncInstructionsGitignore,
 } from "./instructions.js";
 import { AGENTS } from "./registry.js";
+
+const git = (root: string, args: ReadonlyArray<string>) =>
+  spawnSync("git", args, { cwd: root, encoding: "utf8" });
+
+const isGitIgnored = (root: string, relativePath: string): boolean =>
+  git(root, ["check-ignore", "--quiet", "--no-index", relativePath]).status === 0;
 
 describe("agent instructions", () => {
   let tempDir: string;
@@ -49,15 +55,6 @@ describe("agent instructions", () => {
     expect(resolveInstructionMechanism({ kind: "own-file", file: "GEMINI.md" }, false)).toBe(
       "copy",
     );
-  });
-
-  it("lists per-agent instruction aliases from agent descriptors", () => {
-    expect(
-      listInstructionAliases(
-        [AGENTS["claude-code"], AGENTS["gemini-cli"], AGENTS.codex],
-        "AGENTS.md",
-      ),
-    ).toEqual(["CLAUDE.md", "GEMINI.md"]);
   });
 
   it.effect("does not leave a .axm/tmp directory behind after probing symlinks", () =>
@@ -163,9 +160,9 @@ describe("agent instructions", () => {
         expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
         expect(fs.readlinkSync(path.join(tempDir, "GEMINI.md"))).toBe("AGENTS.md");
         const gitignore = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8");
-        expect(gitignore).toContain("**/CLAUDE.md");
-        expect(gitignore).toContain("**/GEMINI.md");
-        expect(gitignore).not.toContain("**/AGENTS.md");
+        expect(gitignore).toContain("/CLAUDE.md");
+        expect(gitignore).toContain("/GEMINI.md");
+        expect(gitignore).not.toContain("/AGENTS.md");
       }),
     ),
   );
@@ -185,6 +182,7 @@ describe("agent instructions", () => {
         });
         const status = yield* getInstructionsGitignoreStatus({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
         });
@@ -237,9 +235,7 @@ describe("agent instructions", () => {
         });
 
         expect(result.written).toEqual(expect.arrayContaining([path.join(tempDir, ".gitignore")]));
-        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-          "**/CLAUDE.md",
-        );
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain("/CLAUDE.md");
       }),
     ),
   );
@@ -262,7 +258,203 @@ describe("agent instructions", () => {
         });
 
         expect(result.written).toEqual(expect.arrayContaining([path.join(nested, ".gitignore")]));
-        expect(fs.readFileSync(path.join(nested, ".gitignore"), "utf-8")).toContain("**/CLAUDE.md");
+        expect(fs.readFileSync(path.join(nested, ".gitignore"), "utf-8")).toContain("/CLAUDE.md");
+      }),
+    ),
+  );
+
+  for (const ignoreCase of [true, false]) {
+    it.effect(
+      `limits managed patterns to exact projection targets with core.ignorecase=${ignoreCase}`,
+      () =>
+        run(
+          Effect.gen(function* () {
+            git(tempDir, ["init", "--quiet", "--initial-branch=main"]);
+            git(tempDir, ["config", "core.ignorecase", String(ignoreCase)]);
+            const roots = ["", "docs", "docs[old]", "docs "];
+            for (const root of roots) {
+              const directory = path.join(tempDir, root);
+              fs.mkdirSync(directory, { recursive: true });
+              fs.writeFileSync(path.join(directory, "AGENTS.md"), `# ${root || "root"}\n`);
+            }
+            for (const unrelated of ["content/claude.md", "other/CLAUDE.md", "docso/CLAUDE.md"]) {
+              const target = path.join(tempDir, unrelated);
+              fs.mkdirSync(path.dirname(target), { recursive: true });
+              fs.writeFileSync(target, "# Authored\n");
+            }
+
+            yield* syncInstructions({
+              workspaceRoot: tempDir,
+              scope: "project",
+              configuredAgents: ["claude-code", "junie"],
+              config: { fileName: "AGENTS.md", gitignoreAliases: true },
+              force: false,
+              dryRun: false,
+              symlinkSupported: true,
+            });
+
+            const gitignore = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8");
+            expect(gitignore).toContain("/CLAUDE.md");
+            expect(gitignore).toContain("/.junie/AGENTS.md");
+            expect(gitignore).toContain("/docs/CLAUDE.md");
+            expect(gitignore).toContain("/docs/.junie/AGENTS.md");
+            expect(gitignore).toContain("/docs\\[old\\]/CLAUDE.md");
+            expect(gitignore).toContain("/docs\\ /CLAUDE.md");
+            expect(gitignore).not.toContain("**/");
+
+            expect(isGitIgnored(tempDir, "CLAUDE.md")).toBe(true);
+            expect(isGitIgnored(tempDir, "docs/CLAUDE.md")).toBe(true);
+            expect(isGitIgnored(tempDir, "docs/.junie/AGENTS.md")).toBe(true);
+            expect(isGitIgnored(tempDir, "docs[old]/CLAUDE.md")).toBe(true);
+            expect(isGitIgnored(tempDir, "docs /CLAUDE.md")).toBe(true);
+            expect(isGitIgnored(tempDir, "content/claude.md")).toBe(false);
+            expect(isGitIgnored(tempDir, "other/CLAUDE.md")).toBe(false);
+            expect(isGitIgnored(tempDir, "docso/CLAUDE.md")).toBe(false);
+            expect(isGitIgnored(tempDir, "claude.md")).toBe(ignoreCase);
+
+            const status = git(tempDir, ["status", "--short", "--untracked-files=all"]);
+            expect(status.status).toBe(0);
+            for (const projected of [
+              "?? CLAUDE.md",
+              "?? .junie/AGENTS.md",
+              "?? docs/CLAUDE.md",
+              "?? docs/.junie/AGENTS.md",
+              "?? docs[old]/CLAUDE.md",
+              "?? docs[old]/.junie/AGENTS.md",
+            ]) {
+              expect(status.stdout).not.toContain(projected);
+            }
+          }),
+        ),
+    );
+  }
+
+  it.effect("reconciles exact patterns as roots, agents, and the source filename change", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.mkdirSync(path.join(tempDir, "docs"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+        fs.writeFileSync(path.join(tempDir, "docs", "AGENTS.md"), "# Docs\n");
+
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toContain(
+          "/docs/GEMINI.md",
+        );
+
+        fs.rmSync(path.join(tempDir, "docs", "AGENTS.md"));
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+        );
+
+        fs.rmSync(path.join(tempDir, "AGENTS.md"));
+        fs.rmSync(path.join(tempDir, "CLAUDE.md"));
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Canonical Claude source\n");
+        yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code", "gemini-cli"],
+          config: { fileName: "CLAUDE.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+        const gitignore = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8");
+        expect(gitignore).toContain("/GEMINI.md");
+        expect(gitignore).not.toContain("/CLAUDE.md");
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe(
+          "# Canonical Claude source\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("reports exact tracked aliases at root and nested instruction roots", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.mkdirSync(path.join(tempDir, "docs"));
+        for (const relative of ["AGENTS.md", "CLAUDE.md", "docs/AGENTS.md", "docs/CLAUDE.md"]) {
+          fs.writeFileSync(path.join(tempDir, relative), "# Tracked snapshot\n");
+        }
+
+        const status = yield* getInstructionsGitignoreStatus({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          gitIndexView: true,
+        });
+
+        expect(status.trackedAliases).toEqual(["CLAUDE.md", "docs/CLAUDE.md"]);
+      }),
+    ),
+  );
+
+  it.effect("reports recursive managed patterns as stale and converges idempotently", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(
+          path.join(tempDir, ".gitignore"),
+          "keep/\n\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n**/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+        );
+
+        const stale = yield* getInstructionsGitignoreStatus({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+        });
+        expect(stale.current).toBe(false);
+
+        const first = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+        const second = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+          symlinkSupported: true,
+        });
+
+        expect(first.written).toEqual(
+          expect.arrayContaining([
+            path.join(tempDir, "CLAUDE.md"),
+            path.join(tempDir, ".gitignore"),
+          ]),
+        );
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
+          "keep/\n\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+        );
+        expect(second.written).toEqual([]);
       }),
     ),
   );
@@ -357,7 +549,6 @@ describe("agent instructions", () => {
           scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
-          symlinkSupported: false,
         });
         const result = yield* reconcileInstructionTargets({
           workspaceRoot: tempDir,
@@ -385,7 +576,6 @@ describe("agent instructions", () => {
             scope: "project",
             configuredAgents: ["claude-code"],
             config: { fileName: "AGENTS.md", gitignoreAliases: false },
-            symlinkSupported: true,
           }),
         );
 
@@ -437,7 +627,6 @@ describe("agent instructions", () => {
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           dryRun: false,
-          symlinkSupported: true,
         });
 
         expect(removed).toEqual([path.join(tempDir, "CLAUDE.md")]);
@@ -461,7 +650,6 @@ describe("agent instructions", () => {
             configuredAgents: ["claude-code", "gemini-cli"],
             config: { fileName: "AGENTS.md", gitignoreAliases: false },
             dryRun: false,
-            symlinkSupported: true,
           }),
         );
 
@@ -568,23 +756,23 @@ describe("agent instructions", () => {
           "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n**/OLD.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n";
         fs.writeFileSync(path.join(tempDir, ".gitignore"), before);
 
-        yield* syncInstructionsGitignore({
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
-          desired: true,
+          force: false,
           dryRun: false,
+          symlinkSupported: true,
         });
 
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(
-          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n**/CLAUDE.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n",
+          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n/CLAUDE.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n",
         );
 
-        yield* syncInstructionsGitignore({
+        yield* removeInstructionsGitignore({
           workspaceRoot: tempDir,
-          configuredAgents: ["claude-code"],
-          config: { fileName: "AGENTS.md", gitignoreAliases: true },
-          desired: false,
           dryRun: false,
         });
 
@@ -604,12 +792,14 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
         const result = yield* Effect.result(
-          syncInstructionsGitignore({
+          syncInstructions({
             workspaceRoot: tempDir,
+            scope: "project",
             configuredAgents: ["claude-code"],
             config: { fileName: "AGENTS.md", gitignoreAliases: true },
-            desired: true,
+            force: false,
             dryRun: false,
+            symlinkSupported: true,
           }),
         );
 

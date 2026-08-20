@@ -37,7 +37,7 @@ const run = (
   }).pipe(Effect.provide(NodeServices.layer));
 
 describe("reconcileKnowledgeDiscovery", () => {
-  it.effect("renders one deterministic, escaped Knowledge Base table with canonical links", () =>
+  it.effect("renders one deterministic, escaped Knowledge Bundles table with canonical links", () =>
     Effect.gen(function* () {
       const root = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-table-"));
       try {

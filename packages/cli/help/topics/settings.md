@@ -85,7 +85,7 @@ effective state and `axm instructions enable|disable` to change it.
 
 Knowledge contribution config lives under `knowledgeConfig`.
 
-`knowledgeConfig.instructions` controls the managed `Knowledge Base` table in
+`knowledgeConfig.instructions` controls the managed `Knowledge Bundles` table in
 the canonical instruction source. It defaults to enabled; persist only the
 non-default `false`. This setting does not affect install, accepted resolution, enablement, or
 concept discovery.

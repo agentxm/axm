@@ -704,7 +704,7 @@ describe("axm knowledge lifecycle", () => {
         "platform:",
       );
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
-      expect(installedInstructions).toContain("## Knowledge Base");
+      expect(installedInstructions).toContain("## Knowledge Bundles");
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
         "[platform](.axm/extensions/external/knowledge/platform/src/index.md)",
@@ -742,7 +742,7 @@ describe("axm knowledge lifecycle", () => {
       });
       expect(preview.exitCode).toBe(0);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
-        "## Knowledge Base",
+        "## Knowledge Bundles",
       );
 
       const sync = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
@@ -751,7 +751,7 @@ describe("axm knowledge lifecycle", () => {
         output: expect.any(String),
       });
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
-        "## Knowledge Base",
+        "## Knowledge Bundles",
       );
       expect(fs.existsSync(canonical)).toBe(true);
       const searchWhileHidden = await runCli(["knowledge", "concepts", "search", "architecture"], {

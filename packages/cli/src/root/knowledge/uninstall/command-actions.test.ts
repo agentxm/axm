@@ -211,7 +211,7 @@ describe("Knowledge uninstall ownership", () => {
     const instructionsPath = path.join(tempDir, "AGENTS.md");
     fs.writeFileSync(
       instructionsPath,
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Base\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 
@@ -258,7 +258,7 @@ describe("Knowledge uninstall ownership", () => {
     enableManagedInstructions(axmDir);
     fs.writeFileSync(
       path.join(tempDir, "AGENTS.md"),
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Base\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 

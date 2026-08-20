@@ -351,7 +351,7 @@ describe("instructions handler", () => {
     fs.mkdirSync(path.join(tempDir, ".git"));
     fs.writeFileSync(
       path.join(tempDir, "AGENTS.md"),
-      "# Human instructions\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Base\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Human instructions\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
     fs.writeFileSync(

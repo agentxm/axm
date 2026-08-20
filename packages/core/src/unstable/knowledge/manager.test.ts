@@ -180,7 +180,7 @@ describe("KnowledgeManager", () => {
         expect(existsSync(nodePath.join(workspaceRoot, ".agents", "knowledge"))).toBe(false);
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
         expect(instructions).toContain("region=knowledge");
-        expect(instructions).toContain("## Knowledge Base");
+        expect(instructions).toContain("## Knowledge Bundles");
         expect(instructions).toContain(".axm/extensions/external/knowledge/handbook/src/index.md");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });

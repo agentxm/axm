@@ -246,7 +246,7 @@ Wait for the user to review changes and decide when to commit.
 
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
 
-## Knowledge Base
+## Knowledge Bundles
 
 ### @agentxm
 

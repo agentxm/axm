@@ -88,7 +88,7 @@ information to route the reader to the next one:
 | Concept document       | Markdown body                    | What detailed knowledge applies?        |
 
 The manifest `description` appears in Registry discovery and the managed
-Knowledge Base table. Write one scannable sentence naming the bundle's domain
+Knowledge Bundles table. Write one scannable sentence naming the bundle's domain
 and distinctive scope. Avoid “A Knowledge extension that…”, repeating the
 owner or name, keyword lists, and exhaustive inventories.
 
@@ -181,7 +181,7 @@ axm knowledge uninstall platform
 
 ## Instruction discovery
 
-When instruction management is enabled, AXM writes one managed `Knowledge Base`
+When instruction management is enabled, AXM writes one managed `Knowledge Bundles`
 table to the canonical instruction source. Rows sort by owner and bundle name,
 and link directly to each installed bundle's canonical `src/index.md`. Existing
 instruction aliases continue to propagate from that canonical source.

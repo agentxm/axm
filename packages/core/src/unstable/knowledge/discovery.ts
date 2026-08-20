@@ -70,7 +70,7 @@ export const renderKnowledgeBaseTable = (args: {
       ...rows,
     ].join("\n");
   });
-  return ["## Knowledge Base", ...sections].join("\n\n");
+  return ["## Knowledge Bundles", ...sections].join("\n\n");
 };
 
 export const reconcileKnowledgeDiscovery = (args: {

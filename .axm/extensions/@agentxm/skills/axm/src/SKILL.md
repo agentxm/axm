@@ -112,7 +112,7 @@ Install/uninstall/update accept a registry FQN
 <!-- /axm:generated -->
 
 Knowledge bundles stay canonical under `.axm/extensions`; active bundles are
-listed in the managed `Knowledge Base` table in the canonical instruction file.
+listed in the managed `Knowledge Bundles` table in the canonical instruction file.
 Use `knowledgeConfig.instructions: false` only to suppress that table. It does
 not disable install, accepted resolution, search, or open behavior; use `axm knowledge disable`
 to retain a bundle without active discovery.

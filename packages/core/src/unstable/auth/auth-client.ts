@@ -12,9 +12,7 @@
  */
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Data from "effect/Data";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -37,13 +35,16 @@ import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
 import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
 import {
+  isHttpClientError,
   isRegistryClientError,
-  isAnyRegistryClientError,
-  isSchemaError,
-  hasTagSuffix,
   getString,
   isTransientHttpClientError,
 } from "../registry/error-mapping.js";
+import {
+  captureRegistryErrorResponseBodies,
+  mapRegistryFailure,
+  withAppErrorSemantics,
+} from "../registry/failure-mapping.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -291,6 +292,12 @@ class RetryableDevicePollError extends Data.TaggedError("RetryableDevicePollErro
   readonly cause: unknown;
 }> {}
 
+class OAuthTokenResponseError extends Data.TaggedError("OAuthTokenResponseError")<{
+  readonly oauthCode?: string;
+  readonly cause: unknown;
+  readonly retryable: boolean;
+}> {}
+
 const retryAfterSeconds = (value: string | undefined, fallback: number): number => {
   if (value === undefined) return fallback;
   const parsed = Number(value);
@@ -311,12 +318,6 @@ const normalizeTokenResponse = (token: {
 const SessionTokenResponseSchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
-  expires_at: DateTimeUtcSchema,
-});
-
-const PublishAuthorizationRequestResponseSchema = Schema.Struct({
-  request_id: Schema.String,
-  authorization_url: Schema.String,
   expires_at: DateTimeUtcSchema,
 });
 
@@ -345,82 +346,12 @@ const PublishAuthorizationExchangeResponseSchema = Schema.Union([
   }),
 ]);
 
-const OAuthTokenErrorResponseSchema = Schema.Struct({
-  error: Schema.String,
-  error_description: Schema.optional(Schema.String),
-});
-
-const WhoamiResponseSchema = Schema.Struct({
-  handle: Schema.String,
-});
-
-const CreatedTokenResponseSchema = Schema.Struct({
-  id: Schema.String,
-  token: Schema.String,
-  name: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  permissions: Schema.Unknown,
-  created_at: DateTimeUtcSchema,
-  expires_at: DateTimeUtcSchema,
-});
-
-const TokenListResponseSchema = Schema.Struct({
-  tokens: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      name: Schema.NullOr(Schema.String),
-      type: Schema.String,
-      scopes: Schema.Array(Schema.String),
-      permissions: Schema.NullOr(Schema.Unknown),
-      created_at: DateTimeUtcSchema,
-      expires_at: DateTimeUtcSchema,
-      last_used_at: Schema.NullOr(DateTimeUtcSchema),
-    }),
-  ),
-  has_more: Schema.Boolean,
-  cursor: Schema.NullOr(Schema.String),
-});
-
-const StepUpRequiredResponseSchema = Schema.Struct({
-  code: Schema.Literal("eotp"),
-  max_age: Schema.optionalKey(Schema.Int),
-  step_up: Schema.Struct({
-    request_id: Schema.String,
-    verification_url: Schema.String,
-    status_url: Schema.String,
-    expires_at: DateTimeUtcSchema,
-    interval: Schema.Int,
-    action: Schema.String,
-    target: Schema.String,
-  }),
-});
-
-const StepUpRequestStatusResponseSchema = Schema.Struct({
-  status: Schema.Literals(["pending", "verified", "consumed", "cancelled", "expired"]),
-  expires_at: DateTimeUtcSchema,
-});
-
 type StepUpPollResult =
   | {
       readonly kind: "status";
-      readonly response: typeof StepUpRequestStatusResponseSchema.Type;
+      readonly response: GeneratedRegistryClient.StepUpRequestStatusResponse;
     }
   | { readonly kind: "rate_limited"; readonly retryAfterSeconds: number };
-
-const unexpectedTokenStatus = (response: HttpClientResponse.HttpClientResponse) =>
-  Effect.flatMap(
-    Effect.orElseSucceed(response.text, () => "Unexpected status code"),
-    (description) =>
-      Effect.fail(
-        new HttpClientError.HttpClientError({
-          reason: new HttpClientError.StatusCodeError({
-            request: response.request,
-            response,
-            description,
-          }),
-        }),
-      ),
-  );
 
 const deriveAuthorizationOrigin = (registryUrl: string): string => {
   const url = new URL(registryUrl);
@@ -442,14 +373,6 @@ const deriveAuthorizationOrigin = (registryUrl: string): string => {
   return url.origin;
 };
 
-const mapAuthCodeExchangeError = (error: unknown) =>
-  makeAppError({
-    code: "auth",
-    detail: "Authorization code exchange failed",
-    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-    cause: error,
-  });
-
 const getOAuthErrorCode = (error: unknown): string | undefined =>
   getString(error, "error") ?? getString(error, "code");
 
@@ -457,80 +380,58 @@ const isRetryableDevicePollError = (
   error: AppError | RetryableDevicePollError,
 ): error is RetryableDevicePollError => error._tag === "RetryableDevicePollError";
 
-const makeTransientDevicePollAppError = (cause: unknown) =>
-  makeAppError({
-    code: "auth",
-    detail: "Lost connection to the registry during login",
-    suggestions: [
-      {
-        description: "Verify the registry is reachable, then try signing in again.",
-        cmd: "axm login",
-      },
-    ],
-    cause,
+const registryAuthFailure = (registryUrl: string, operation: string, error: unknown): AppError =>
+  mapRegistryFailure(error, {
+    baseUrl: registryUrl,
+    networkDetail: `${operation}: the Registry could not be reached.`,
+    incompatibleDetail: `${operation}: the Registry response does not match the expected contract.`,
+    requestConstructionDetail: `${operation}: the Registry request could not be constructed.`,
+    fallbackDetail: operation,
   });
 
 const isAppError = (error: unknown): error is AppError => getString(error, "_tag") === "AppError";
 
-const registryHttpErrorMetadata = (error: HttpClientError.HttpClientError) => ({
-  request: {
-    service: "registry",
-    method: error.request.method,
-    url: error.request.url,
-  },
-  ...(error.response === undefined
-    ? {}
-    : {
-        response: {
-          status: error.response.status,
-        },
-      }),
-});
+const mapRegistryAuthError = (registryUrl: string, operation: string, error: unknown): AppError =>
+  isAppError(error) ? error : registryAuthFailure(registryUrl, operation, error);
 
-const mapRegistryAuthError = (operation: string, error: unknown): AppError =>
-  isAppError(error)
-    ? error
-    : makeAppError({
-        code: "auth",
-        detail: operation,
-        ...(HttpClientError.isHttpClientError(error)
-          ? { metadata: registryHttpErrorMetadata(error) }
-          : {}),
-        suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-        cause: error,
-      });
-
-const executeAuthedRequest = (
+const makeGeneratedAuthClient = (
   httpClient: HttpClient.HttpClient,
   registryUrl: string,
-  accessToken: string,
-  request: HttpClientRequest.HttpClientRequest,
-) =>
-  httpClient
-    .pipe(
-      HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
-      HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)),
-    )
-    .execute(request);
+  accessToken?: string,
+  stepUpRequestId?: string,
+) => {
+  const remoteHttpClient = httpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
+  );
+  const authedHttpClient =
+    accessToken === undefined
+      ? remoteHttpClient
+      : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)));
+  const registryHttpClient = captureRegistryErrorResponseBodies(
+    stepUpRequestId === undefined
+      ? authedHttpClient
+      : authedHttpClient.pipe(
+          HttpClient.mapRequest(
+            HttpClientRequest.setHeaders({ "x-axm-step-up-request": stepUpRequestId }),
+          ),
+        ),
+  );
+  return GeneratedRegistryClient.make(registryHttpClient);
+};
 
-const stepUpRequiredAppError = (response: typeof StepUpRequiredResponseSchema.Type) =>
+const stepUpRequiredAppError = (error: AppError, stepUp: StepUpRequest) =>
   makeAppError({
     code: "auth_required",
     detail: "Step-up authentication is required",
     blockedOn: "human",
     action: {
       kind: "open-url",
-      url: response.step_up.verification_url,
-      expiresAt: DateTime.formatIso(response.step_up.expires_at),
+      url: stepUp.verificationUrl,
+      expiresAt: stepUp.expiresAt,
     },
-    metadata: {
-      response: {
-        status: 401,
-        body: { ...response },
-      },
-    },
+    ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
     recover: "Complete verification while the command is waiting, or rerun the command to restart.",
-    cause: response,
+    cause: error.cause,
   });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -597,6 +498,7 @@ export const readStepUpRequest = (error: AppError): StepUpRequest | null => {
  * survives retry exhaustion is translated to a user-facing AppError.
  */
 const retryTransientDevicePollFailure = <A>(
+  registryUrl: string,
   effect: Effect.Effect<A, AppError | RetryableDevicePollError>,
 ): Effect.Effect<A, AppError> =>
   effect.pipe(
@@ -606,7 +508,11 @@ const retryTransientDevicePollFailure = <A>(
       while: isRetryableDevicePollError,
     }),
     Effect.catchTag("RetryableDevicePollError", (e) =>
-      Effect.fail(makeTransientDevicePollAppError(e.cause)),
+      Effect.fail(
+        isAppError(e.cause)
+          ? e.cause
+          : registryAuthFailure(registryUrl, "Device token exchange failed", e.cause),
+      ),
     ),
   );
 
@@ -617,26 +523,36 @@ const retryTransientDevicePollFailure = <A>(
 const postTokenForm = (
   httpClient: HttpClient.HttpClient,
   registryUrl: string,
-  body: Readonly<Record<string, string>>,
-): Effect.Effect<NormalizedTokenResponse, unknown> =>
-  HttpClientRequest.post("/v1/auth/token").pipe(
-    HttpClientRequest.bodyUrlParams(body),
-    (request) =>
-      httpClient
-        .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)))
-        .execute(request),
-    Effect.flatMap(
-      HttpClientResponse.matchStatus({
-        "2xx": HttpClientResponse.schemaBodyJson(SessionTokenResponseSchema),
-        "400": (response) =>
-          HttpClientResponse.schemaBodyJson(OAuthTokenErrorResponseSchema)(response).pipe(
-            Effect.flatMap((error) => Effect.fail(error)),
+  body: typeof GeneratedRegistryClient.AuthExchangeTokenRequestFormUrlEncoded.Encoded,
+): Effect.Effect<NormalizedTokenResponse, AppError | OAuthTokenResponseError> => {
+  const client = makeGeneratedAuthClient(httpClient, registryUrl);
+  return client.AuthExchangeToken({ payload: body }).pipe(
+    Effect.catch((error) => {
+      const oauthCode = isRegistryClientError("AuthExchangeToken400")(error)
+        ? getOAuthErrorCode(error.cause)
+        : undefined;
+      return Effect.fail(
+        new OAuthTokenResponseError({
+          ...(oauthCode === undefined ? {} : { oauthCode }),
+          cause: error,
+          retryable: isTransientHttpClientError(error),
+        }),
+      );
+    }),
+    Effect.flatMap((response) =>
+      Schema.is(SessionTokenResponseSchema)(response)
+        ? Effect.succeed(response)
+        : Effect.fail(
+            registryAuthFailure(
+              registryUrl,
+              "Token exchange failed: the Registry response does not match the expected contract",
+              response,
+            ),
           ),
-        orElse: unexpectedTokenStatus,
-      }),
     ),
     Effect.map(normalizeTokenResponse),
   );
+};
 
 /**
  * Internal: execute a single device token poll against the OAuth token endpoint.
@@ -663,7 +579,8 @@ const pollOnceInternal = (
       token,
     })),
     Effect.catch((error): Effect.Effect<PollResult, AppError | RetryableDevicePollError> => {
-      const code = getOAuthErrorCode(error);
+      if (isAppError(error)) return Effect.fail(error);
+      const code = error.oauthCode;
       switch (code) {
         case "authorization_pending":
           return Effect.succeed<PollResult>({ _tag: "Pending" });
@@ -677,18 +594,11 @@ const pollOnceInternal = (
           break;
       }
 
-      if (isTransientHttpClientError(error)) {
-        return Effect.fail(new RetryableDevicePollError({ cause: error }));
+      if (error.retryable) {
+        return Effect.fail(new RetryableDevicePollError({ cause: error.cause }));
       }
 
-      return Effect.fail(
-        makeAppError({
-          code: "auth",
-          detail: "Device token exchange failed with an unexpected error",
-          suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-          cause: error,
-        }),
-      );
+      return Effect.fail(registryAuthFailure(registryUrl, "Token exchange failed", error.cause));
     }),
   );
 
@@ -705,7 +615,11 @@ export const pollOnce = (
 ): Effect.Effect<PollResult, AppError> =>
   pollOnceInternal(httpClient, registryUrl, deviceCode).pipe(
     Effect.catchTag("RetryableDevicePollError", (e) =>
-      Effect.fail(makeTransientDevicePollAppError(e.cause)),
+      Effect.fail(
+        isAppError(e.cause)
+          ? e.cause
+          : registryAuthFailure(registryUrl, "Device token exchange failed", e.cause),
+      ),
     ),
   );
 
@@ -719,9 +633,7 @@ export const AuthClientLive = Layer.effect(
     const httpClient = yield* HttpClient.HttpClient;
     const registryUrl = yield* RegistryUrl;
     const authorizationOrigin = deriveAuthorizationOrigin(registryUrl);
-    const client = GeneratedRegistryClient.make(
-      httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl))),
-    );
+    const client = makeGeneratedAuthClient(httpClient, registryUrl);
 
     const buildAuthorizeUrl: AuthClientService["buildAuthorizeUrl"] = ({
       challenge,
@@ -756,36 +668,58 @@ export const AuthClientLive = Layer.effect(
         code_verifier: verifier,
         client_id: CLIENT_ID,
         redirect_uri: redirectUri,
-      }).pipe(Effect.mapError(mapAuthCodeExchangeError));
+      }).pipe(
+        Effect.catchTag("OAuthTokenResponseError", (error) =>
+          Effect.fail(
+            withAppErrorSemantics(
+              registryAuthFailure(registryUrl, "Token exchange failed", error.cause),
+              {
+                code: "auth",
+                detail: "Authorization code exchange failed",
+                suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+              },
+            ),
+          ),
+        ),
+      );
 
       return response;
     });
 
     const createPublishAuthorizationRequest: AuthClientService["createPublishAuthorizationRequest"] =
       Effect.fn("AuthClient.createPublishAuthorizationRequest")(function* (params) {
-        const response = yield* HttpClientRequest.post("/v1/auth/publish-requests").pipe(
-          HttpClientRequest.bodyJsonUnsafe({
-            client_id: CLIENT_ID,
-            redirect_uri: params.redirectUri,
-            state: params.state,
-            code_challenge: params.codeChallenge,
-            code_challenge_method: "S256",
-            publication_set: params.publicationSet,
-          }),
-          (request) =>
-            httpClient
-              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(params.registryUrl)))
-              .execute(request),
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(PublishAuthorizationRequestResponseSchema),
-              orElse: unexpectedTokenStatus,
-            }),
-          ),
+        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
+        const publicationSet = yield* Schema.encodeUnknownEffect(
+          GeneratedRegistryClient.PreviewPublicationSetRequest,
+        )(params.publicationSet).pipe(
           Effect.mapError((error) =>
-            mapRegistryAuthError("Could not create publish authorization request", error),
+            mapRegistryAuthError(
+              params.registryUrl,
+              "Could not encode publish authorization request",
+              error,
+            ),
           ),
         );
+        const response = yield* publishClient
+          .AuthCreatePublishAuthorizationRequest({
+            payload: {
+              client_id: CLIENT_ID,
+              redirect_uri: params.redirectUri,
+              state: params.state,
+              code_challenge: params.codeChallenge,
+              code_challenge_method: "S256",
+              publication_set: publicationSet,
+            },
+          })
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAuthError(
+                params.registryUrl,
+                "Could not create publish authorization request",
+                error,
+              ),
+            ),
+          );
 
         return {
           requestId: response.request_id,
@@ -796,56 +730,48 @@ export const AuthClientLive = Layer.effect(
 
     const exchangePublishAuthorizationCode: AuthClientService["exchangePublishAuthorizationCode"] =
       Effect.fn("AuthClient.exchangePublishAuthorizationCode")(function* (params) {
-        const response = yield* HttpClientRequest.post("/v1/auth/token").pipe(
-          HttpClientRequest.bodyUrlParams({
-            grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
-            code: params.code,
-            code_verifier: params.verifier,
-            client_id: CLIENT_ID,
-            redirect_uri: params.redirectUri,
-          }),
-          (request) =>
-            httpClient
-              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(params.registryUrl)))
-              .execute(request),
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(PublishAuthorizationExchangeResponseSchema),
-              "400": (publishResponse) =>
-                HttpClientResponse.schemaBodyJson(OAuthTokenErrorResponseSchema)(
-                  publishResponse,
-                ).pipe(Effect.flatMap((error) => Effect.fail(error))),
-              orElse: unexpectedTokenStatus,
+        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
+        const response = yield* publishClient
+          .AuthExchangeToken({
+            payload: {
+              grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
+              code: params.code,
+              code_verifier: params.verifier,
+              client_id: CLIENT_ID,
+              redirect_uri: params.redirectUri,
+            },
+          })
+          .pipe(
+            Effect.mapError((error) => {
+              const mapped = mapRegistryAuthError(
+                params.registryUrl,
+                "Publish authorization code exchange failed",
+                error,
+              );
+              const code = isRegistryClientError("AuthExchangeToken400")(error)
+                ? getOAuthErrorCode(error.cause)
+                : undefined;
+              return code === "invalid_grant"
+                ? withAppErrorSemantics(mapped, {
+                    code: "auth",
+                    detail: "Publish authorization expired or was already used",
+                    suggestions: [
+                      {
+                        description: "Review the exact publish request again by rerunning publish.",
+                      },
+                    ],
+                  })
+                : mapped;
             }),
-          ),
-          Effect.mapError((error) => {
-            const code = getOAuthErrorCode(error);
-            if (isSchemaError(error)) {
-              return makeAppError({
-                code: "internal",
-                detail: "The registry is incompatible with exact publish authorization.",
-                suggestions: [
-                  {
-                    description:
-                      "Use a registry that supports visibility-bound exact publish capabilities.",
-                  },
-                ],
-                cause: error,
-              });
-            }
-            return makeAppError({
-              code: "auth",
-              detail:
-                code === "invalid_grant"
-                  ? "Publish authorization expired or was already used"
-                  : "Publish authorization code exchange failed",
-              suggestions: [
-                { description: "Review the exact publish request again by rerunning publish." },
-              ],
-              cause: error,
-            });
-          }),
-        );
+          );
+
+        if (!Schema.is(PublishAuthorizationExchangeResponseSchema)(response)) {
+          return yield* mapRegistryAuthError(
+            params.registryUrl,
+            "The Registry is incompatible with exact publish authorization",
+            response,
+          );
+        }
 
         if (response.status === "blocked") {
           return response;
@@ -879,16 +805,7 @@ export const AuthClientLive = Layer.effect(
         })
         .pipe(
           Effect.mapError((error) =>
-            makeAppError({
-              code: "auth",
-              detail: "Could not connect to the registry",
-              suggestions: [
-                {
-                  description: "Verify the registry is running and reachable, then try again.",
-                },
-              ],
-              cause: error,
-            }),
+            mapRegistryAuthError(registryUrl, "Could not initiate device sign-in", error),
           ),
         );
 
@@ -910,6 +827,7 @@ export const AuthClientLive = Layer.effect(
       while (true) {
         yield* Effect.sleep(currentInterval);
         const result = yield* retryTransientDevicePollFailure(
+          registryUrl,
           pollOnceInternal(httpClient, registryUrl, deviceCode),
         );
 
@@ -944,13 +862,17 @@ export const AuthClientLive = Layer.effect(
           refresh_token: refreshTokenValue,
           client_id: CLIENT_ID,
         }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "auth",
-              detail: "Token refresh request failed",
-              suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-              cause: error,
-            }),
+          Effect.catchTag("OAuthTokenResponseError", (error) =>
+            Effect.fail(
+              withAppErrorSemantics(
+                registryAuthFailure(registryUrl, "Token exchange failed", error.cause),
+                {
+                  code: "auth",
+                  detail: "Token refresh request failed",
+                  suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
+                },
+              ),
+            ),
           ),
         );
       },
@@ -958,27 +880,17 @@ export const AuthClientLive = Layer.effect(
 
     const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
       function* (token) {
-        yield* HttpClientRequest.post("/v1/auth/revoke").pipe(
-          HttpClientRequest.bodyUrlParams({
-            token,
-            token_type_hint: "refresh_token",
-          }),
-          (request) =>
-            httpClient
-              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)))
-              .execute(request),
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "200": () => Effect.void,
-              orElse: (response) => response.text.pipe(Effect.flatMap(Effect.fail)),
-            }),
-          ),
-          Effect.catch((error) =>
-            Effect.logWarning(
-              `Token revocation failed: ${String(error)}. Local credentials will still be cleared.`,
+        yield* client
+          .AuthRevokeOAuthToken({
+            payload: { token, token_type_hint: "refresh_token" },
+          })
+          .pipe(
+            Effect.catch((error) =>
+              Effect.logWarning(
+                `${mapRegistryAuthError(registryUrl, "Token revocation failed", error).detail} Local credentials will still be cleared.`,
+              ),
             ),
-          ),
-        );
+          );
       },
     );
 
@@ -987,58 +899,15 @@ export const AuthClientLive = Layer.effect(
         // Inject bearer token via a per-request HttpClient wrapper for getMe.
         // The generated AuthGetMe operation uses GET /v1/auth/me with no payload,
         // so we need to add the Authorization header via the httpClient.
-        const authedClient = GeneratedRegistryClient.make(
-          httpClient.pipe(
-            HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
-            HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)),
-          ),
-        );
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
 
-        const decoded = yield* authedClient.AuthGetMe(undefined).pipe(
-          Effect.mapError((error): AppError => {
-            if (isRegistryClientError("AuthGetMe401")(error)) {
-              return makeAppError({
-                code: "auth",
-                detail: "Not authenticated or token is invalid",
-                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-                cause: error,
-              });
-            }
-            if (isRegistryClientError("AuthGetMe400")(error)) {
-              return makeAppError({
-                code: "auth",
-                detail: "Not authenticated or token is invalid",
-                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-                cause: error,
-              });
-            }
-            // Defense-in-depth: currently unreachable because AuthGetMe doesn't produce
-            // 5xx RegistryClientError tags (500+ responses arrive as HttpClientError), but
-            // kept to safely handle future generated-client changes that add 5xx variants.
-            if (isAnyRegistryClientError(error) && hasTagSuffix(error, "5xx")) {
-              return makeAppError({
-                code: "network",
-                detail: "Registry returned server error",
-                suggestions: [
-                  {
-                    description: "The registry may be temporarily unavailable. Try again later.",
-                  },
-                ],
-                cause: error,
-              });
-            }
-            return makeAppError({
-              code: "auth",
-              detail: "Could not connect to the registry",
-              suggestions: [
-                {
-                  description: "Verify the registry is running and reachable, then try again.",
-                },
-              ],
-              cause: error,
-            });
-          }),
-        );
+        const decoded = yield* authedClient
+          .AuthGetMe(undefined)
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAuthError(registryUrl, "Could not read authenticated user", error),
+            ),
+          );
 
         return {
           userId: decoded.user.id,
@@ -1053,22 +922,14 @@ export const AuthClientLive = Layer.effect(
 
     const getWhoami: AuthClientService["getWhoami"] = Effect.fn("AuthClient.getWhoami")(
       function* (accessToken) {
-        const decoded = yield* executeAuthedRequest(
-          httpClient,
-          registryUrl,
-          accessToken,
-          HttpClientRequest.get("/v1/auth/whoami"),
-        ).pipe(
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(WhoamiResponseSchema),
-              orElse: unexpectedTokenStatus,
-            }),
-          ),
-          Effect.mapError((error) =>
-            mapRegistryAuthError("Could not read authenticated identity", error),
-          ),
-        );
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const decoded = yield* authedClient
+          .AuthGetWhoami(undefined)
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAuthError(registryUrl, "Could not read authenticated identity", error),
+            ),
+          );
 
         return {
           handle: normalizeHandle(decoded.handle),
@@ -1078,32 +939,25 @@ export const AuthClientLive = Layer.effect(
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
       function* (accessToken, params, options) {
-        const baseRequest = HttpClientRequest.post("/v1/tokens");
-        const request =
-          options?.stepUpRequestId === undefined
-            ? baseRequest
-            : HttpClientRequest.setHeaders({
-                "x-axm-step-up-request": options.stepUpRequestId,
-              })(baseRequest);
-        const decoded = yield* request.pipe(
-          HttpClientRequest.bodyJsonUnsafe({
-            name: params.name,
-            permissions: params.permissions,
-            expires_in: params.expiresIn,
-          }),
-          (request) => executeAuthedRequest(httpClient, registryUrl, accessToken, request),
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(CreatedTokenResponseSchema),
-              "401": (response) =>
-                HttpClientResponse.schemaBodyJson(StepUpRequiredResponseSchema)(response).pipe(
-                  Effect.flatMap((body) => Effect.fail(stepUpRequiredAppError(body))),
-                ),
-              orElse: unexpectedTokenStatus,
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const decoded = yield* authedClient
+          .TokensCreate({
+            ...(options?.stepUpRequestId === undefined
+              ? {}
+              : { params: { "x-axm-step-up-request": options.stepUpRequestId } }),
+            payload: {
+              name: params.name,
+              permissions: params.permissions,
+              expires_in: params.expiresIn,
+            },
+          })
+          .pipe(
+            Effect.mapError((error) => {
+              const mapped = mapRegistryAuthError(registryUrl, "Could not create token", error);
+              const stepUp = readStepUpRequest(mapped);
+              return stepUp === null ? mapped : stepUpRequiredAppError(mapped, stepUp);
             }),
-          ),
-          Effect.mapError((error) => mapRegistryAuthError("Could not create token", error)),
-        );
+          );
 
         return {
           id: decoded.id,
@@ -1119,30 +973,19 @@ export const AuthClientLive = Layer.effect(
 
     const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
       function* (accessToken, params) {
-        const search = new URLSearchParams();
-        if (params?.limit !== undefined) {
-          search.set("limit", String(params.limit));
-        }
-        if (params?.cursor !== undefined) {
-          search.set("cursor", params.cursor);
-        }
-        const query = search.toString();
-        const path = query.length > 0 ? `/v1/tokens?${query}` : "/v1/tokens";
-
-        const decoded = yield* executeAuthedRequest(
-          httpClient,
-          registryUrl,
-          accessToken,
-          HttpClientRequest.get(path),
-        ).pipe(
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": HttpClientResponse.schemaBodyJson(TokenListResponseSchema),
-              orElse: unexpectedTokenStatus,
-            }),
-          ),
-          Effect.mapError((error) => mapRegistryAuthError("Could not list tokens", error)),
-        );
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const decoded = yield* authedClient
+          .TokensList({
+            params: {
+              ...(params?.limit === undefined ? {} : { limit: String(params.limit) }),
+              ...(params?.cursor === undefined ? {} : { cursor: params.cursor }),
+            },
+          })
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAuthError(registryUrl, "Could not list tokens", error),
+            ),
+          );
 
         return {
           tokens: decoded.tokens.map((token) => ({
@@ -1165,36 +1008,31 @@ export const AuthClientLive = Layer.effect(
       "AuthClient.waitForStepUpRequest",
     )(function* (accessToken, statusUrl, intervalSeconds) {
       const parsedStatusUrl = new URL(statusUrl);
-      const statusPath = `${parsedStatusUrl.pathname}${parsedStatusUrl.search}`;
+      const requestId = parsedStatusUrl.pathname.slice(
+        parsedStatusUrl.pathname.lastIndexOf("/") + 1,
+      );
 
       for (let attempt = 0; attempt < 300; attempt += 1) {
-        const result: StepUpPollResult = yield* executeAuthedRequest(
-          httpClient,
-          registryUrl,
-          accessToken,
-          HttpClientRequest.get(statusPath),
-        ).pipe(
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": (response) =>
-                HttpClientResponse.schemaBodyJson(StepUpRequestStatusResponseSchema)(response).pipe(
-                  Effect.map(
-                    (decoded) => ({ kind: "status", response: decoded }) satisfies StepUpPollResult,
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const result: StepUpPollResult = yield* authedClient
+          .AuthGetStepUpRequest(requestId, undefined)
+          .pipe(
+            Effect.map((response) => ({ kind: "status", response }) satisfies StepUpPollResult),
+            Effect.catch((error) =>
+              isRegistryClientError("AuthGetStepUpRequest429")(error) ||
+              (isHttpClientError(error) && error.response?.status === 429)
+                ? Effect.succeed({
+                    kind: "rate_limited",
+                    retryAfterSeconds: retryAfterSeconds(
+                      error.response?.headers["retry-after"],
+                      Math.max(1, intervalSeconds),
+                    ),
+                  } satisfies StepUpPollResult)
+                : Effect.fail(
+                    mapRegistryAuthError(registryUrl, "Could not complete step-up", error),
                   ),
-                ),
-              "429": (response) =>
-                Effect.succeed({
-                  kind: "rate_limited",
-                  retryAfterSeconds: retryAfterSeconds(
-                    response.headers["retry-after"],
-                    Math.max(1, intervalSeconds),
-                  ),
-                } satisfies StepUpPollResult),
-              orElse: unexpectedTokenStatus,
-            }),
-          ),
-          Effect.mapError((error) => mapRegistryAuthError("Could not complete step-up", error)),
-        );
+            ),
+          );
 
         if (result.kind === "rate_limited") {
           yield* Effect.sleep(Duration.seconds(result.retryAfterSeconds));
@@ -1237,26 +1075,20 @@ export const AuthClientLive = Layer.effect(
 
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
       function* (accessToken, tokenId, options) {
-        const baseRequest = HttpClientRequest.delete(`/v1/tokens/${encodeURIComponent(tokenId)}`);
-        const request =
-          options?.stepUpRequestId === undefined
-            ? baseRequest
-            : HttpClientRequest.setHeaders({
-                "x-axm-step-up-request": options.stepUpRequestId,
-              })(baseRequest);
-
-        yield* executeAuthedRequest(httpClient, registryUrl, accessToken, request).pipe(
-          Effect.flatMap(
-            HttpClientResponse.matchStatus({
-              "2xx": () => Effect.void,
-              "401": (response) =>
-                HttpClientResponse.schemaBodyJson(StepUpRequiredResponseSchema)(response).pipe(
-                  Effect.flatMap((body) => Effect.fail(stepUpRequiredAppError(body))),
-                ),
-              orElse: unexpectedTokenStatus,
-            }),
+        const authedClient = makeGeneratedAuthClient(
+          httpClient,
+          registryUrl,
+          accessToken,
+          options?.stepUpRequestId,
+        );
+        yield* authedClient.TokensDelete(tokenId, undefined).pipe(
+          Effect.mapError((error) =>
+            mapRegistryAuthError(registryUrl, "Could not revoke token", error),
           ),
-          Effect.mapError((error) => mapRegistryAuthError("Could not revoke token", error)),
+          Effect.mapError((error) => {
+            const stepUp = readStepUpRequest(error);
+            return stepUp === null ? error : stepUpRequiredAppError(error, stepUp);
+          }),
         );
       },
     );

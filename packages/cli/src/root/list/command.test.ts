@@ -347,7 +347,7 @@ describe("root list", () => {
           deprecated: false,
         }).pipe(Effect.flip);
 
-        expect(error.code).toBe("network");
+        expect(error.code).toBe("internal");
       }),
     );
   });

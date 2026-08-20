@@ -78,7 +78,7 @@ const makeTokenResponse = (overrides?: {
 type OAuthDeviceError = "authorization_pending" | "slow_down" | "expired_token" | "access_denied";
 
 const makeOAuthError = (error: OAuthDeviceError) => ({
-  kind: "DeviceTokenOAuthError",
+  kind: "TokenOAuthError",
   error,
   error_description: `OAuth error: ${error}`,
 });
@@ -174,8 +174,9 @@ describe("AuthClient exact publish authorization", () => {
         requests.push(Object.fromEntries(Object.entries(body)));
         return new Response(
           JSON.stringify({
-            request_id: "pubreq_test",
-            authorization_url: "https://agentxm.ai/publish/authorize/pubreq_test",
+            request_id: "pubreq_01h455vb4pexka56gq5w2r7cpc",
+            authorization_url:
+              "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpc",
             expires_at: "2099-01-01T00:10:00.000Z",
           }),
           { status: 201, headers: { "content-type": "application/json" } },
@@ -221,9 +222,11 @@ describe("AuthClient exact publish authorization", () => {
           grants: [
             {
               access_token: "axm_pub_capability",
+              token_type: "Bearer",
+              expires_in: 900,
               expires_at: "2099-01-01T00:15:00.000Z",
               scope: "extensions:publish:new",
-              publish_request_id: "pubreq_test",
+              publish_request_id: "pubreq_01h455vb4pexka56gq5w2r7cpc",
               visibility_contract: "v2",
               visibility: {
                 value: "private",
@@ -326,7 +329,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_LOGIN_FAILED on 400 error", () => {
+  it.effect("preserves a declared 400 problem response", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("unknown_client", 400)), {
@@ -338,11 +341,18 @@ describe("AuthClient.initiateDeviceFlow", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("validation");
+      expect(error.detail).toBe("Decode error: unknown_client");
+      expect(error.metadata?.response).toMatchObject({
+        status: 400,
+        problemCode: "unknown_client",
+        body: makeDecodeError("unknown_client", 400),
+      });
+      expect(error.cause).toMatchObject({ _tag: "AuthIssueDeviceCode400" });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_LOGIN_FAILED on network error", () => {
+  it.effect("classifies a transport-only failure as network", () => {
     const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
@@ -350,7 +360,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.initiateDeviceFlow().pipe(Effect.flip);
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("network");
     }).pipe(Effect.provide(layer));
   });
 
@@ -463,9 +473,7 @@ describe("pollOnce", () => {
     });
   });
 
-  it.effect("maps transient HttpClientError (500) to AUTH_LOGIN_FAILED", () => {
-    // pollOnce does not retry on its own; a 5xx StatusCodeError is classified
-    // as transient and collapses into the "Lost connection" AppError message.
+  it.effect("preserves an undeclared 500 response after retry classification", () => {
     const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify({ message: "internal error" }), {
@@ -476,15 +484,15 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
-      expect(error.code).toBe("auth");
-      expect(error.detail).toBe("Lost connection to the registry during login");
+      expect(error.code).toBe("internal");
+      expect(error.metadata?.response).toMatchObject({
+        status: 500,
+        body: { message: "internal error" },
+      });
     });
   });
 
-  it.effect("fails with AUTH_LOGIN_FAILED on schema decode error (malformed 200 body)", () => {
-    // A 200 with a body that does not match the token response schema surfaces
-    // a SchemaError (not an HttpClientError), which is NOT considered transient
-    // and must flow through the "unexpected error" branch.
+  it.effect("classifies a malformed 200 response as incompatible", () => {
     const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify({ not: "a token" }), {
@@ -495,8 +503,11 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip);
-      expect(error.code).toBe("auth");
-      expect(error.detail).toBe("Device token exchange failed with an unexpected error");
+      expect(error.code).toBe("internal");
+      expect(error.detail).toBe(
+        "Token exchange failed: the Registry response does not match the expected contract.",
+      );
+      expect(error.cause).toMatchObject({ _tag: "SchemaError" });
     });
   });
 });
@@ -604,8 +615,11 @@ describe("AuthClient.pollDeviceToken", () => {
       yield* TestClock.adjust("1 second");
       const error = yield* Fiber.join(fiber);
 
-      expect(error.code).toBe("auth");
-      expect(error.detail).toBe("Lost connection to the registry during login");
+      expect(error.code).toBe("internal");
+      expect(error.metadata?.response).toMatchObject({
+        status: 500,
+        body: { message: "internal error" },
+      });
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
   });
@@ -990,7 +1004,7 @@ describe("AuthClient.getMe", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_UNAUTHENTICATED on 401", () => {
+  it.effect("preserves a declared 401 problem response", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeUnauthorizedError()), {
@@ -1003,10 +1017,17 @@ describe("AuthClient.getMe", () => {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
       expect(error.code).toBe("auth");
+      expect(error.detail).toBe("Invalid or expired token");
+      expect(error.metadata?.response).toMatchObject({
+        status: 401,
+        problemCode: "unauthorized",
+        body: makeUnauthorizedError(),
+      });
+      expect(error.cause).toMatchObject({ _tag: "AuthGetMe401" });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_UNAUTHENTICATED on 400", () => {
+  it.effect("preserves a declared 400 validation response", () => {
     const layer = makeTestLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("bad_request", 400)), {
@@ -1018,13 +1039,16 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("validation");
+      expect(error.metadata?.response).toMatchObject({
+        status: 400,
+        problemCode: "bad_request",
+        body: makeDecodeError("bad_request", 400),
+      });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_UNAUTHENTICATED on unexpected status (404)", () => {
-    // 404 is not a known status handler for AuthGetMe, so hits unexpectedStatus
-    // which produces an HttpClientError — mapped to AUTH_UNAUTHENTICATED
+  it.effect("preserves an undeclared 404 response", () => {
     const layer = makeTestLayer(
       () => new Response(JSON.stringify({ message: "not found" }), { status: 404 }),
     );
@@ -1032,11 +1056,15 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("not_found");
+      expect(error.metadata?.response).toMatchObject({
+        status: 404,
+        body: { message: "not found" },
+      });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_UNAUTHENTICATED on network error", () => {
+  it.effect("classifies a transport-only failure as network", () => {
     const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
     const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
     const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
@@ -1044,14 +1072,7 @@ describe("AuthClient.getMe", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = yield* client.getMe("axm_ses_bad").pipe(Effect.flip);
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("network");
     }).pipe(Effect.provide(layer));
   });
-
-  // Note: AUTH_SERVER_ERROR on 5xx is hard to test via HTTP mocks because the
-  // generated client's `orElse: unexpectedStatus` handler for unknown status codes
-  // (including 500) produces HttpClientError.StatusCodeError, not a RegistryClientError
-  // with a 5xx tag suffix. The mapError handler falls through to the final
-  // AUTH_UNAUTHENTICATED catch-all. This matches the production behavior since
-  // the generated client doesn't have a 5xx handler for AuthGetMe.
 });

@@ -5,14 +5,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { RegistryUrl } from "../auth/index.js";
-import {
-  isAnyRegistryClientError,
-  isHttpClientError,
-  isSchemaError,
-  mapNetworkError,
-  mapSchemaError,
-} from "./error-mapping.js";
-import { registryClientErrorToAppError } from "./translate.js";
+import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 import {
   executeRegistryRequest,
   type RegistryRequestPolicy,
@@ -111,39 +104,30 @@ const normalizeTransition = (value: GeneratedRegistryClient.DeprecationTransitio
 
 const mapAdminClientError =
   (registryUrl: string) =>
-  (error: unknown): AppError => {
-    if (isAnyRegistryClientError(error)) {
-      return registryClientErrorToAppError(error);
-    }
-
-    if (isHttpClientError(error)) {
-      return mapNetworkError(error, "Registry request failed.", registryUrl);
-    }
-
-    if (isSchemaError(error)) {
-      return mapSchemaError(error, "Registry response did not match the expected schema.");
-    }
-
-    return makeAppError({
-      code: "internal",
-      detail: "Unexpected registry client failure.",
-      cause: error,
+  (error: unknown): AppError =>
+    mapRegistryFailure(error, {
+      baseUrl: registryUrl,
+      networkDetail: "Registry request failed.",
+      incompatibleDetail: "Registry response did not match the expected schema.",
+      requestConstructionDetail: "Could not construct the Registry request.",
+      fallbackDetail: "Unexpected registry client failure.",
     });
-  };
 
 const makeLifecycleClient = (options?: RegistryLifecycleCallOptions) =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;
     const httpClient = yield* HttpClient.HttpClient;
-    const remoteHttpClient = httpClient.pipe(
-      HttpClient.mapRequest((request) => {
-        const withUrl = HttpClientRequest.prependUrl(request, registryUrl);
-        return options?.stepUpRequestId === undefined
-          ? withUrl
-          : HttpClientRequest.setHeaders(withUrl, {
-              "x-axm-step-up-request": options.stepUpRequestId,
-            });
-      }),
+    const remoteHttpClient = captureRegistryErrorResponseBodies(
+      httpClient.pipe(
+        HttpClient.mapRequest((request) => {
+          const withUrl = HttpClientRequest.prependUrl(request, registryUrl);
+          return options?.stepUpRequestId === undefined
+            ? withUrl
+            : HttpClientRequest.setHeaders(withUrl, {
+                "x-axm-step-up-request": options.stepUpRequestId,
+              });
+        }),
+      ),
     );
     return {
       registryUrl,

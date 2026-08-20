@@ -54,7 +54,7 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
             ? "expired_token"
             : "authorization_pending";
       sendJson(response, 400, {
-        kind: "DeviceTokenOAuthError",
+        kind: "TokenOAuthError",
         error,
         error_description: error,
       });

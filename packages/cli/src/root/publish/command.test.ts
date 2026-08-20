@@ -2322,7 +2322,12 @@ describe("publish recovery", () => {
         code,
         detail: "Transient Registry failure",
         metadata: {
-          response: { status: code === "rate_limit" ? 429 : 503, requestId: "req_public" },
+          response: {
+            status: code === "rate_limit" ? 429 : 503,
+            requestId: "req_public",
+            problemCode: "service_unavailable",
+            body: { detail: "private upstream detail", secret: "must-not-leak" },
+          },
           requestPolicy: {
             retryable: true,
             attemptCount: 1,
@@ -2344,7 +2349,10 @@ describe("publish recovery", () => {
       attemptsExhausted: true,
       retryStoppedBy: stoppedBy,
       requestId: "req_public",
+      responseStatus: code === "rate_limit" ? 429 : 503,
+      problemCode: "service_unavailable",
     });
+    expect(cause).not.toHaveProperty("body");
   });
 
   it.each(["auth", "validation", "conflict", "internal"] as const)(

@@ -551,6 +551,72 @@ describe("HTTP registry transport", () => {
     },
   );
 
+  it("preserves a 503 publish-preview problem without uploading", async () => {
+    const registry = await startHttpRegistry({ publishPreviewMode: "service-unavailable" });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(
+        [
+          "skills",
+          "new",
+          "preview-service-unavailable",
+          "--owner",
+          OWNER,
+          "--agent",
+          "claude-code",
+          "--yes",
+        ],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+
+      const target = `${OWNER}/skills/preview-service-unavailable`;
+      const structured = await runCli(["skills", "publish", target, "--yes", "--json"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(structured.exitCode).not.toBe(0);
+      expect(structured.stdout).not.toContain("must-not-leak");
+      const output: unknown = JSON.parse(structured.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected structured failed publish output");
+      }
+      const execution = output["result"]["execution"];
+      if (!isRecord(execution) || !isRecord(execution["failure"])) {
+        throw new Error("Expected a structured publish failure");
+      }
+      expect(execution["failure"]).toMatchObject({
+        code: "unavailable",
+        message: "Publish admission is temporarily unavailable.",
+        responseStatus: 503,
+        problemCode: "service_unavailable",
+        requestId: "req_preview_503",
+      });
+      expect(execution["failure"]).not.toHaveProperty("body");
+
+      const human = await runCli(["skills", "publish", target, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(human.exitCode).not.toBe(0);
+      expect(`${human.stdout}\n${human.stderr}`).toContain(
+        "Publish admission is temporarily unavailable.",
+      );
+      expect(`${human.stdout}\n${human.stderr}`).not.toContain("must-not-leak");
+      expect(registry.publishes).toHaveLength(0);
+      expect(
+        registry.requests.filter(
+          (request) => request.method === "PUT" && request.path.startsWith("/v1/extensions/"),
+        ),
+      ).toHaveLength(0);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
   it("root publish uploads selected pack dependencies before the pack", async () => {
     const registry = await startHttpRegistry({
       enforcePackDependencies: true,

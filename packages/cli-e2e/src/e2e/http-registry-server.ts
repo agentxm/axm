@@ -85,8 +85,8 @@ export interface HttpRegistryOptions {
   readonly enforcePackDependencies?: boolean;
   /** Require and complete the durable step-up flow for POST /v1/tokens. */
   readonly stepUpTokenCreate?: boolean;
-  /** Return a deliberately unusable publish-preview contract. */
-  readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing";
+  /** Return a deliberately unusable publish-preview contract or HTTP failure. */
+  readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing" | "service-unavailable";
   /** Map bearer tokens to the owner whose private extensions they may read. */
   readonly tokenOwners?: Readonly<Record<string, string>>;
 }
@@ -349,6 +349,11 @@ export const startHttpRegistry = async (
         const requestOrigin = `http://${request.headers.host ?? "127.0.0.1"}`;
         if (request.headers["x-axm-step-up-request"] !== STEP_UP_REQUEST_ID) {
           sendJson(response, 401, {
+            kind: "StepUpRequiredError",
+            type: "https://axm.dev/problems/step-up-required",
+            title: "Step-up verification required",
+            status: 401,
+            detail: "Complete step-up verification before creating the token.",
             code: "eotp",
             max_age: 300,
             step_up: {
@@ -364,7 +369,7 @@ export const startHttpRegistry = async (
           return;
         }
         sendJson(response, 201, {
-          id: "token_step_up_e2e",
+          id: "tok_01h455vb4pexka56gq5w2r7cpc",
           token: "axmt_step_up_e2e",
           name: "e2e-step-up",
           scopes: ["extensions:read"],
@@ -382,6 +387,18 @@ export const startHttpRegistry = async (
         }
         if (request.headers.authorization === undefined) {
           sendProblem(response, 401, "Publishing requires a bearer token.");
+          return;
+        }
+        if (options.publishPreviewMode === "service-unavailable") {
+          sendJson(response, 503, {
+            type: "about:blank",
+            title: "Service Unavailable",
+            status: 503,
+            detail: "Publish admission is temporarily unavailable.",
+            code: "service_unavailable",
+            requestId: "req_preview_503",
+            internalDiagnostic: "must-not-leak",
+          });
           return;
         }
         const body: unknown = JSON.parse((await readBody(request)).toString("utf8"));
@@ -577,7 +594,7 @@ export const startHttpRegistry = async (
           sendProblem(response, 409, `Version ${version} already exists.`);
           return;
         }
-        const published = new Date("2026-01-01T00:00:00.000Z").toISOString();
+        const published = "2026-01-01T00:00:00.000Z";
         const existingVisibility = extensionVisibilities.get(extensionKey);
         const requestedVisibility = url.searchParams.get("visibility");
         if (existingVisibility !== undefined && requestedVisibility !== null) {

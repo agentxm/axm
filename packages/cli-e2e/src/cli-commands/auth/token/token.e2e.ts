@@ -56,7 +56,7 @@ describe("axm token", () => {
       expect(document.result).toMatchObject({
         result: {
           status: "created",
-          tokenId: "token_step_up_e2e",
+          tokenId: "tok_01h455vb4pexka56gq5w2r7cpc",
           stepUpCompleted: true,
         },
         data: { token: "axmt_step_up_e2e" },

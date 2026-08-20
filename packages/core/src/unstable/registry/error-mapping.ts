@@ -151,6 +151,7 @@ export const isAnyRegistryClientError = (e: unknown): e is RegistryClientError<s
   e !== null &&
   e !== undefined &&
   typeof e === "object" &&
+  !HttpClientError.isHttpClientError(e) &&
   "_tag" in e &&
   "response" in e &&
   "request" in e;

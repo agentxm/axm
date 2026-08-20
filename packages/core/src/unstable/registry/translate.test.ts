@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { httpStatusToAppCode, registryErrorToAppError } from "./translate.js";
+import { RegistryClientError } from "./__generated__/registry-client.js";
+import {
+  httpStatusToAppCode,
+  registryClientErrorToAppError,
+  registryErrorToAppError,
+} from "./translate.js";
 
 const responseFor = (status: number, headers?: Readonly<Record<string, string>>) =>
   HttpClientResponse.fromWeb(
@@ -36,6 +41,57 @@ describe("httpStatusToAppCode", () => {
 });
 
 describe("registryErrorToAppError", () => {
+  it("uses the HTTP status when the problem document disagrees and retains the body", () => {
+    const body = {
+      title: "Advisory title",
+      status: 400,
+      detail: "The service is unavailable.",
+      code: "service_unavailable",
+      request_id: "req_mismatch",
+    };
+    const cause = new Error("generated failure");
+
+    const error = registryErrorToAppError(body, responseFor(503), { cause });
+
+    expect(error.code).toBe("unavailable");
+    expect(error.detail).toBe("The service is unavailable.");
+    expect(error.metadata?.response).toEqual({
+      status: 503,
+      requestId: "req_mismatch",
+      problemCode: "service_unavailable",
+      body,
+    });
+    expect(error.cause).toBe(cause);
+  });
+
+  it.each(["gateway unavailable", ["unexpected"], null])(
+    "retains a non-problem response body without requiring object fields: %j",
+    (body) => {
+      const cause = new Error("response failure");
+      const error = registryErrorToAppError(body, responseFor(502), { cause });
+
+      expect(error.code).toBe("internal");
+      expect(error.metadata?.response).toEqual({ status: 502, body });
+      expect(error.cause).toBe(cause);
+    },
+  );
+
+  it("retains the generated client error as the cause", () => {
+    const response = responseFor(400);
+    const body = {
+      title: "Invalid request",
+      status: 400,
+      detail: "The request was rejected.",
+      code: "invalid_request",
+    };
+    const generated = RegistryClientError("Test400", body, response);
+
+    const error = registryClientErrorToAppError(generated);
+
+    expect(error.metadata?.response?.body).toBe(body);
+    expect(error.cause).toBe(generated);
+  });
+
   it("adds retry-after suggestions from the header before the body", () => {
     const error = registryErrorToAppError(
       {

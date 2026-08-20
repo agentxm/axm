@@ -288,6 +288,14 @@ export const publicPublishCause = (error: AppError) => ({
   ...(error.metadata?.response?.requestId === undefined
     ? {}
     : { requestId: redactSensitiveText(error.metadata.response.requestId) }),
+  ...(error.metadata?.response === undefined
+    ? {}
+    : {
+        responseStatus: error.metadata.response.status,
+        ...(error.metadata.response.problemCode === undefined
+          ? {}
+          : { problemCode: redactSensitiveText(error.metadata.response.problemCode) }),
+      }),
 });
 
 interface LocalPackConstraintCandidate {

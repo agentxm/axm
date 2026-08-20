@@ -17,6 +17,7 @@ import {
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
+import { retainedRegistryResponseBody } from "./response-body.js";
 
 export interface ProblemDetails {
   readonly [key: string]: unknown;
@@ -187,19 +188,21 @@ const problemSuggestions = (
 };
 
 export const registryErrorToAppError = (
-  problem: ProblemDetails,
+  body: unknown,
   response: HttpClientResponse.HttpClientResponse,
   ctx?: {
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
+    readonly cause?: unknown;
   },
 ): AppError => {
-  const status = problem.status ?? response.status;
+  const problem = isProblemDetails(body) ? body : EmptyProblem;
+  const status = response.status;
   const code = httpStatusToAppCode(status, problem.code);
   const suggestions = [
     ...problemSuggestions(status, problem, response),
     ...(ctx?.suggestions ?? []),
   ];
-  const requestId = getStringField(problem, "requestId");
+  const requestId = getStringField(problem, "requestId") ?? getStringField(problem, "request_id");
 
   return makeAppError({
     code,
@@ -215,11 +218,11 @@ export const registryErrorToAppError = (
         status,
         ...(requestId === undefined ? {} : { requestId }),
         ...(problem.code === undefined ? {} : { problemCode: problem.code }),
-        body: problem,
+        body,
       },
     },
     ...(suggestions.length > 0 ? { suggestions } : {}),
-    cause: problem,
+    cause: ctx?.cause ?? body,
   });
 };
 
@@ -230,7 +233,10 @@ export const registryClientErrorToAppError = (
   },
 ): AppError =>
   registryErrorToAppError(
-    isProblemDetails(error.cause) ? error.cause : EmptyProblem,
+    retainedRegistryResponseBody(error.response, error.cause),
     error.response,
-    ctx,
+    {
+      ...(ctx?.suggestions === undefined ? {} : { suggestions: ctx.suggestions }),
+      cause: error,
+    },
   );

@@ -501,6 +501,8 @@ const PublishCauseSchema = Schema.Struct({
     Schema.Literals(["attempt-limit", "deadline", "replay-unsafe"] as const),
   ),
   requestId: Schema.optional(Schema.String),
+  responseStatus: Schema.optional(Schema.Number),
+  problemCode: Schema.optional(Schema.String),
 }).annotate({
   identifier: "PublishCause",
   title: "Publish Cause",

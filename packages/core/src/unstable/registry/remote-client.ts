@@ -51,20 +51,12 @@ import type {
   RegistryExtensionManifest,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
+import { isRegistryClientError, hasTagSuffix, getTag } from "./error-mapping.js";
 import {
-  isRegistryClientError,
-  isHttpClientError,
-  isSchemaError,
-  isAnyRegistryClientError,
-  hasTagSuffix,
-  getTag,
-  mapNetworkError,
-  mapResponseSchemaError,
-  mapUnexpectedStatusError,
-  buildNetworkSuggestions,
-  buildNetworkDiagnosis,
-} from "./error-mapping.js";
-import { registryClientErrorToAppError } from "./translate.js";
+  captureRegistryErrorResponseBodies,
+  mapRegistryFailure,
+  withAppErrorSemantics,
+} from "./failure-mapping.js";
 import {
   executeRegistryRequest,
   type RegistryRequestPolicy,
@@ -296,8 +288,8 @@ export const createRemoteRegistryClient = (
   archiveCache?: ArchiveCache,
   requestPolicy?: RegistryRequestPolicy,
 ): RegistryClient => {
-  const remoteHttpClient = httpClient.pipe(
-    HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
+  const remoteHttpClient = captureRegistryErrorResponseBodies(
+    httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
   );
   const client = GeneratedRegistryClient.make(remoteHttpClient);
   const verificationArchiveClient = GeneratedRegistryClient.make(remoteHttpClient, {
@@ -329,6 +321,19 @@ export const createRemoteRegistryClient = (
     });
   const safe = { kind: "safe" } as const;
   const mutation = { kind: "mutation" } as const;
+  const mapFailure = (
+    error: unknown,
+    context: {
+      readonly networkDetail: string;
+      readonly incompatibleDetail: string;
+      readonly fallbackDetail: string;
+    },
+  ): AppError =>
+    mapRegistryFailure(error, {
+      baseUrl,
+      requestConstructionDetail: "Could not construct the Registry request.",
+      ...context,
+    });
 
   // ---------------------------------------------------------------------------
   // getExtensionIndex
@@ -369,22 +374,10 @@ export const createRemoteRegistryClient = (
    * Map all discovery/read errors to AppError.
    */
   const mapDiscoveryError = (e: unknown, _prefix: string): AppError => {
-    if (isHttpClientError(e)) {
-      return mapNetworkError(e, "Failed to connect to remote registry discovery endpoint", baseUrl);
-    }
-
-    if (isSchemaError(e)) {
-      return mapResponseSchemaError(e, "Remote discovery response does not match expected schema");
-    }
-
-    if (isAnyRegistryClientError(e)) {
-      return mapUnexpectedStatusError(e, "Remote discovery failed");
-    }
-
-    return makeAppError({
-      code: "internal",
-      detail: "Remote discovery failed",
-      cause: e,
+    return mapFailure(e, {
+      networkDetail: "Failed to connect to remote registry discovery endpoint",
+      incompatibleDetail: "Remote discovery response does not match expected schema",
+      fallbackDetail: "Remote discovery failed",
     });
   };
 
@@ -558,23 +551,10 @@ export const createRemoteRegistryClient = (
    * Map ownerExists errors to AppError.
    */
   const mapOwnerExistsError = (e: unknown): AppError => {
-    if (isHttpClientError(e)) {
-      return mapNetworkError(e, "Failed to connect to remote registry owner endpoint", baseUrl);
-    }
-
-    if (isSchemaError(e)) {
-      return mapResponseSchemaError(
-        e,
-        "Remote owner endpoint response does not match expected schema",
-      );
-    }
-    if (isAnyRegistryClientError(e)) {
-      return mapUnexpectedStatusError(e, "Remote owner check failed");
-    }
-    return makeAppError({
-      code: "network",
-      detail: "Remote owner check failed",
-      cause: e,
+    return mapFailure(e, {
+      networkDetail: "Failed to connect to remote registry owner endpoint",
+      incompatibleDetail: "Remote owner endpoint response does not match expected schema",
+      fallbackDetail: "Remote owner check failed",
     });
   };
 
@@ -658,59 +638,34 @@ export const createRemoteRegistryClient = (
    * Map errors from the index fetch step of getExtensionPackage.
    */
   const mapPackageFetchError = (e: unknown): AppError => {
-    if (isRegistryClientError("ExtensionsGet404")(e)) {
-      return makeAppError({
-        code: "not_found",
-        detail: "Remote package index was not found",
-      });
-    }
-    if (isHttpClientError(e)) {
-      return mapNetworkError(e, "Failed to connect to remote registry package endpoint", baseUrl);
-    }
-    if (isSchemaError(e)) {
-      return mapResponseSchemaError(
-        e,
-        "Remote package index response does not match expected schema",
-      );
-    }
-    if (isAnyRegistryClientError(e)) {
-      return mapUnexpectedStatusError(e, "Remote package index request failed");
-    }
-    return makeAppError({
-      code: "network",
-      detail: "Remote package index request failed",
-      cause: e,
+    const mapped = mapFailure(e, {
+      networkDetail: "Failed to connect to remote registry package endpoint",
+      incompatibleDetail: "Remote package index response does not match expected schema",
+      fallbackDetail: "Remote package index request failed",
     });
+    return mapped.metadata?.response?.status === 404
+      ? withAppErrorSemantics(mapped, {
+          code: "not_found",
+          detail: "Remote package index was not found",
+        })
+      : mapped;
   };
 
   /**
    * Map errors from the archive download step of getExtensionPackage.
    */
   const mapArchiveFetchError = (e: unknown): AppError => {
-    if (isRegistryClientError("ExtensionsDownloadArchive404")(e) || getTag(e) === "404") {
-      return makeAppError({
-        code: "not_found",
-        detail: "Remote package archive was not found",
-      });
-    }
-    if (isHttpClientError(e)) {
-      return mapNetworkError(
-        e,
-        "Failed to connect to remote registry package archive endpoint",
-        baseUrl,
-      );
-    }
-    if (isSchemaError(e)) {
-      return mapResponseSchemaError(e, "Failed to read remote package archive response");
-    }
-    if (isAnyRegistryClientError(e)) {
-      return mapUnexpectedStatusError(e, "Remote package archive request failed");
-    }
-    return makeAppError({
-      code: "network",
-      detail: "Remote package archive request failed",
-      cause: e,
+    const mapped = mapFailure(e, {
+      networkDetail: "Failed to connect to remote registry package archive endpoint",
+      incompatibleDetail: "Failed to read remote package archive response",
+      fallbackDetail: "Remote package archive request failed",
     });
+    return mapped.metadata?.response?.status === 404
+      ? withAppErrorSemantics(mapped, {
+          code: "not_found",
+          detail: "Remote package archive was not found",
+        })
+      : mapped;
   };
 
   // ---------------------------------------------------------------------------
@@ -742,20 +697,10 @@ export const createRemoteRegistryClient = (
    * Map extensionExists errors to AppError.
    */
   const mapExtensionExistsError = (e: unknown): AppError => {
-    if (isHttpClientError(e)) {
-      return mapNetworkError(
-        e,
-        "Failed to connect to remote registry extension check endpoint",
-        baseUrl,
-      );
-    }
-    if (isAnyRegistryClientError(e)) {
-      return mapUnexpectedStatusError(e, "Remote extension check failed");
-    }
-    return makeAppError({
-      code: "network",
-      detail: "Remote extension check failed",
-      cause: e,
+    return mapFailure(e, {
+      networkDetail: "Failed to connect to remote registry extension check endpoint",
+      incompatibleDetail: "Remote extension check response does not match expected schema",
+      fallbackDetail: "Remote extension check failed",
     });
   };
 
@@ -778,16 +723,6 @@ export const createRemoteRegistryClient = (
         }),
       );
     }
-    const networkSuggestions = buildNetworkSuggestions(baseUrl);
-    const networkDiagnosisDetails = buildNetworkDiagnosis(baseUrl);
-    const publishRequest = registryRequestMetadata(
-      "PUT",
-      new URL(
-        `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
-        baseUrl,
-      ).href,
-    );
-
     const contentDigest = args.metadata.integrity.startsWith("sha512-")
       ? `sha-512=:${args.metadata.integrity.slice("sha512-".length)}:`
       : args.metadata.integrity;
@@ -849,8 +784,7 @@ export const createRemoteRegistryClient = (
         method: "PUT",
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
         replaySafety: mutation,
-        mapError: (error) =>
-          mapPublishError(error, networkSuggestions, networkDiagnosisDetails, publishRequest),
+        mapError: mapPublishError,
       },
     );
   };
@@ -886,51 +820,13 @@ export const createRemoteRegistryClient = (
         method: "POST",
         path: "/v1/publish-previews",
         replaySafety: safe,
-        mapError: (error) => {
-          if (error instanceof AppError) return error;
-          if (isHttpClientError(error)) {
-            if (error.reason._tag === "StatusCodeError") {
-              return makeAppError({
-                code: "internal",
-                detail: "The registry is incompatible with authoritative publish previews.",
-                cause: error,
-              });
-            }
-            return mapNetworkError(
-              error,
-              "Failed to connect to the publish preview endpoint",
-              baseUrl,
-            );
-          }
-          if (isSchemaError(error)) {
-            return makeAppError({
-              code: "internal",
-              detail: "The registry is incompatible with authoritative publish previews.",
-              cause: error,
-            });
-          }
-          if (isAnyRegistryClientError(error)) {
-            if (getTag(error) === "PublishPreviewsPreviewExtensionPublishes413") {
-              return registryClientErrorToAppError(error);
-            }
-            if (
-              getTag(error) === "PublishPreviewsPreviewExtensionPublishes401" ||
-              getTag(error) === "PublishPreviewsPreviewExtensionPublishes403"
-            ) {
-              return registryClientErrorToAppError(error);
-            }
-            return makeAppError({
-              code: "internal",
-              detail: "The registry is incompatible with authoritative publish previews.",
-              cause: error,
-            });
-          }
-          return makeAppError({
-            code: "internal",
-            detail: "Publish preview failed",
-            cause: error,
-          });
-        },
+        mapError: (error) =>
+          mapFailure(error, {
+            networkDetail: "Failed to connect to the publish preview endpoint",
+            incompatibleDetail:
+              "The registry returned an incompatible authoritative publish preview.",
+            fallbackDetail: "Publish preview failed",
+          }),
       },
     );
 
@@ -965,15 +861,11 @@ export const createRemoteRegistryClient = (
         path: `/v1/extensions/${target.owner}/${pluralizeType(target.type)}/${target.name}`,
         replaySafety: mutation,
         mapError: (error) =>
-          isHttpClientError(error)
-            ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
-            : isAnyRegistryClientError(error)
-              ? registryClientErrorToAppError(error)
-              : makeAppError({
-                  code: "network",
-                  detail: "Remote extension visibility update failed",
-                  cause: error,
-                }),
+          mapFailure(error, {
+            networkDetail: "Failed to connect to extension visibility endpoint",
+            incompatibleDetail: "Extension visibility response does not match the expected schema.",
+            fallbackDetail: "Remote extension visibility update failed",
+          }),
       },
     );
   };
@@ -998,73 +890,23 @@ export const createRemoteRegistryClient = (
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/visibility`,
         replaySafety: safe,
         mapError: (error) =>
-          isHttpClientError(error)
-            ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
-            : isAnyRegistryClientError(error)
-              ? registryClientErrorToAppError(error)
-              : makeAppError({
-                  code: "network",
-                  detail: "Remote extension visibility evaluation failed",
-                  cause: error,
-                }),
+          mapFailure(error, {
+            networkDetail: "Failed to connect to extension visibility endpoint",
+            incompatibleDetail: "Extension visibility response does not match the expected schema.",
+            fallbackDetail: "Remote extension visibility evaluation failed",
+          }),
       },
     );
 
   /**
-   * Map all publish error types to AppError.
-   * Uses tag-based dispatch to handle each RegistryClientError variant.
+   * Map all publish error types to AppError through the shared Registry boundary.
    */
-  const mapPublishError = (
-    e: unknown,
-    networkSuggestions: ReadonlyArray<SuggestedAction>,
-    _networkDiagnosisDetails: ReadonlyArray<string>,
-    publishRequest: NonNullable<AppErrorMetadata["request"]>,
-  ): AppError => {
-    // HttpClientError — network error
-    if (isHttpClientError(e)) {
-      return makeAppError({
-        code: "network",
-        detail: "Remote registry is unreachable",
-        metadata: {
-          request: registryRequestMetadata(e.request.method, e.request.url),
-        },
-        suggestions: networkSuggestions,
-        cause: e,
-      });
-    }
-
-    if (isSchemaError(e)) {
-      return makeAppError({
-        code: "internal",
-        detail: "The registry returned a response the CLI could not parse.",
-        metadata: {
-          request: publishRequest,
-        },
-        suggestions: [
-          {
-            description:
-              "The registry may be misconfigured or running a version incompatible with this CLI.",
-          },
-          { description: "Re-run with --verbose to inspect the raw response." },
-          {
-            description: "If this persists, report it.",
-            url: "https://github.com/agentxm/axm/issues",
-          },
-        ],
-        cause: e,
-      });
-    }
-
-    if (isAnyRegistryClientError(e)) {
-      return registryClientErrorToAppError(e);
-    }
-
-    return makeAppError({
-      code: "internal",
-      detail: "Publish failed",
-      cause: e,
+  const mapPublishError = (e: unknown): AppError =>
+    mapFailure(e, {
+      networkDetail: "Remote registry is unreachable",
+      incompatibleDetail: "The registry returned a response the CLI could not parse.",
+      fallbackDetail: "Publish failed",
     });
-  };
 
   // ---------------------------------------------------------------------------
   // discoverPackages
@@ -1096,12 +938,7 @@ export const createRemoteRegistryClient = (
         method: "POST",
         path: "/v1/discovery",
         replaySafety: safe,
-        mapError: (error) =>
-          isHttpClientError(error) || isSchemaError(error)
-            ? mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY")
-            : isAnyRegistryClientError(error)
-              ? registryClientErrorToAppError(error)
-              : mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
       },
     );
   };

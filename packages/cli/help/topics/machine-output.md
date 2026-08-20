@@ -57,9 +57,10 @@ recovery command.
 An upload failure's `cause` includes a stable error `class`, `retryable`, and,
 when a Registry request policy ran, `attemptCount`, `maxAttempts`,
 `attemptsExhausted`, and `retryStoppedBy`. Retry stop reasons are
-`attempt-limit`, `deadline`, or `replay-unsafe`. `requestId` is included when
-the Registry supplied one. Automation should use these fields rather than
-matching error messages.
+`attempt-limit`, `deadline`, or `replay-unsafe`. `requestId`, `responseStatus`,
+and `problemCode` are included when the Registry supplied them. Opaque response
+bodies are not included. Automation should use these fields rather than matching
+error messages.
 
 Built-in formatter documents are the two success-envelope exceptions:
 

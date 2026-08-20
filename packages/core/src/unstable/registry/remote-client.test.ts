@@ -660,6 +660,13 @@ describe("getExtensionPackage", () => {
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs("nonexistent")));
 
       expect(error.code).toBe("not_found");
+      expect(error.detail).toBe("Remote package index was not found");
+      expect(error.metadata?.response).toMatchObject({
+        status: 404,
+        problemCode: "extension_not_found",
+        body: { detail: "Extension not found" },
+      });
+      expect(error.cause).toMatchObject({ _tag: "ExtensionsGet404" });
     }),
   );
 
@@ -677,6 +684,13 @@ describe("getExtensionPackage", () => {
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
 
       expect(error.code).toBe("not_found");
+      expect(error.detail).toBe("Remote package archive was not found");
+      expect(error.metadata?.response).toMatchObject({
+        status: 404,
+        problemCode: "version_not_found",
+        body: { detail: "Archive not found" },
+      });
+      expect(error.cause).toMatchObject({ _tag: "ExtensionsDownloadArchive404" });
     }),
   );
 
@@ -958,7 +972,57 @@ describe("previewExtensionPublishes", () => {
     }),
   );
 
-  it.effect("fails closed when an older Registry lacks the endpoint", () =>
+  it.effect.each([
+    [400, "invalid_request", "The publication set is invalid.", "validation"],
+    [503, "service_unavailable", "Publish preview is temporarily unavailable.", "unavailable"],
+  ] as const)("preserves a declared %s problem response", ([status, code, detail, expectedCode]) =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(status, code, detail, { requestId: `req_${String(status)}` }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(
+        client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [],
+        }),
+      );
+
+      expect(error.code).toBe(expectedCode);
+      expect(error.detail).toBe(detail);
+      expect(error.metadata?.response).toMatchObject({
+        status,
+        problemCode: code,
+        requestId: `req_${String(status)}`,
+        body: { detail, code },
+      });
+      expect(error.cause).toMatchObject({
+        _tag: `PublishPreviewsPreviewExtensionPublishes${String(status)}`,
+      });
+    }),
+  );
+
+  it.effect("reports a successful response decode failure as incompatible", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(JSON.stringify({ unexpected: "shape" }), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(
+        client.previewExtensionPublishes({
+          contract: PUBLICATION_SET_CONTRACT,
+          candidates: [],
+        }),
+      );
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toContain("incompatible");
+    }),
+  );
+
+  it.effect("fails closed while preserving an undeclared endpoint response", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
         () => new Response(JSON.stringify({ detail: "Not found" }), { status: 404 }),
@@ -972,8 +1036,12 @@ describe("previewExtensionPublishes", () => {
         }),
       );
 
-      expect(error.code).toBe("internal");
-      expect(error.detail).toContain("incompatible");
+      expect(error.code).toBe("not_found");
+      expect(error.detail).toBe("Not found");
+      expect(error.metadata?.response).toEqual({
+        status: 404,
+        body: { detail: "Not found" },
+      });
     }),
   );
 });

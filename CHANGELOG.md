@@ -1,3 +1,13 @@
+## 0.27.15 (2026-08-20)
+
+### 🚀 Features
+
+- Make device-code login retry-safe, expose complete verification links, and request least-privilege Registry scopes.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.14 (2026-08-20)
 
 ### 🚀 Features

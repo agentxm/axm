@@ -1,3 +1,13 @@
+## 0.27.13 (2026-08-19)
+
+### 🩹 Fixes
+
+- Recognize managed skill projections that resolve through chained symlinks.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.12 (2026-08-19)
 
 ### 🚀 Features

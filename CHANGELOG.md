@@ -1,3 +1,13 @@
+## 0.27.14 (2026-08-20)
+
+### 🚀 Features
+
+- Stabilize instruction projection ownership and cleanup, preserve Registry HTTP failure details, and align agent and extension reconciliation.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.13 (2026-08-19)
 
 ### 🩹 Fixes

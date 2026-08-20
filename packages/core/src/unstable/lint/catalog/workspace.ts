@@ -50,6 +50,8 @@ import { agentsRecognizedRule } from "./workspace/agents-recognized.js";
 import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared.js";
 import { instructionsSourcePresentRule } from "./workspace/instructions-source-present.js";
 import { instructionsTargetCurrentRule } from "./workspace/instructions-target-current.js";
+import { instructionsTargetUnownedRule } from "./workspace/instructions-target-unowned.js";
+import { instructionsTargetStaleRule } from "./workspace/instructions-target-stale.js";
 import { projectionsCurrentRule } from "./workspace/projections-current.js";
 import { instructionsAgentSupportedRule } from "./workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./workspace/instructions-gitignore-current.js";
@@ -116,6 +118,8 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
 export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   agentsDetectedDeclaredRule,
   instructionsTargetCurrentRule,
+  instructionsTargetUnownedRule,
+  instructionsTargetStaleRule,
   projectionsCurrentRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
@@ -136,6 +140,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   agentsDetectedDeclaredRule,
   instructionsSourcePresentRule,
   instructionsTargetCurrentRule,
+  instructionsTargetUnownedRule,
+  instructionsTargetStaleRule,
   instructionsAgentSupportedRule,
   instructionsGitignoreCurrentRule,
   projectionsCurrentRule,

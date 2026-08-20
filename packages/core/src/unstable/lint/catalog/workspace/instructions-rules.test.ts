@@ -1,12 +1,22 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { InstructionsGitignoreStatus, InstructionsStatus } from "../../../agents/index.js";
+import type {
+  InstructionProjectionSnapshot,
+  InstructionsGitignoreStatus,
+  InstructionsStatus,
+  InstructionStatusItem,
+} from "../../../agents/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import { instructionsAgentSupportedRule } from "./instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./instructions-gitignore-current.js";
 import { instructionsSourcePresentRule } from "./instructions-source-present.js";
 import { instructionsTargetCurrentRule } from "./instructions-target-current.js";
+import { instructionsTargetStaleRule } from "./instructions-target-stale.js";
+import { instructionsTargetUnownedRule } from "./instructions-target-unowned.js";
 
 const root = "/repo";
 const trackedAliasFixture = path.resolve(
@@ -19,7 +29,9 @@ const baseStatus: InstructionsStatus = {
   sourceFileName: "AGENTS.md",
   gitignoreAliases: true,
   roots: [root],
+  missingSources: [],
   items: [],
+  staleTargets: [],
 };
 
 const gitignoreCurrent: InstructionsGitignoreStatus = {
@@ -29,31 +41,57 @@ const gitignoreCurrent: InstructionsGitignoreStatus = {
   trackedAliases: [],
 };
 
+const claudeItem = (overrides: Partial<InstructionStatusItem>): InstructionStatusItem => ({
+  root,
+  agentId: "claude-code",
+  agentName: "Claude Code",
+  sourceFile: `${root}/AGENTS.md`,
+  targetFile: `${root}/CLAUDE.md`,
+  mechanism: "symlink",
+  health: "ok",
+  ownership: "owned-current",
+  observedForm: "symlink",
+  details: "Instruction file is current.",
+  ...overrides,
+});
+
 const contextFor = (args: {
   readonly status?: Option.Option<InstructionsStatus>;
-  readonly gitignore?: Option.Option<InstructionsGitignoreStatus>;
-}): WorkspaceRuleContext => ({
-  subject: { root, scope: "project" },
-  // Assertion needed: these focused rule tests exercise only the instruction accessor.
-  workspace: {} as unknown as WorkspaceRuleContext["workspace"],
-  axmDirExists: Effect.succeed(true),
-  instructions: {
-    status: Effect.succeed(args.status ?? Option.some(baseStatus)),
-    gitignore: Effect.succeed(args.gitignore ?? Option.some(gitignoreCurrent)),
-  },
-  displayRoot: "",
-});
+  readonly gitignore?: InstructionsGitignoreStatus;
+}): WorkspaceRuleContext => {
+  const snapshot: Option.Option<InstructionProjectionSnapshot> =
+    args.status === undefined
+      ? Option.some({
+          plan: { roots: [root], items: [] },
+          symlinkSupported: true,
+          status: baseStatus,
+          gitignore: args.gitignore ?? gitignoreCurrent,
+        })
+      : Option.map(args.status, (status) => ({
+          plan: { roots: status.roots, items: [] },
+          symlinkSupported: true,
+          status,
+          gitignore: args.gitignore ?? gitignoreCurrent,
+        }));
+  return {
+    subject: { root, scope: "project" },
+    // Assertion needed: these focused rule tests exercise only the instruction accessor.
+    workspace: {} as unknown as WorkspaceRuleContext["workspace"],
+    axmDirExists: Effect.succeed(true),
+    instructions: { snapshot: Effect.succeed(snapshot) },
+    displayRoot: "",
+  };
+};
 
 describe("instruction workspace rules", () => {
   it.effect("self-gate when instruction config is disabled", () =>
     Effect.gen(function* () {
-      const context = contextFor({
-        status: Option.none(),
-        gitignore: Option.none(),
-      });
+      const context = contextFor({ status: Option.none() });
 
       expect(yield* instructionsSourcePresentRule.check(context)).toEqual([]);
       expect(yield* instructionsTargetCurrentRule.check(context)).toEqual([]);
+      expect(yield* instructionsTargetUnownedRule.check(context)).toEqual([]);
+      expect(yield* instructionsTargetStaleRule.check(context)).toEqual([]);
       expect(yield* instructionsAgentSupportedRule.check(context)).toEqual([]);
       expect(yield* instructionsGitignoreCurrentRule.check(context)).toEqual([]);
     }),
@@ -64,17 +102,14 @@ describe("instruction workspace rules", () => {
       const context = contextFor({
         status: Option.some({
           ...baseStatus,
+          missingSources: [`${root}/docs/AGENTS.md`],
           items: [
-            {
-              root,
-              agentId: "claude-code",
-              agentName: "Claude Code",
-              sourceFile: `${root}/AGENTS.md`,
-              targetFile: `${root}/CLAUDE.md`,
-              mechanism: "symlink",
+            claudeItem({
               health: "missing-source",
+              ownership: "absent",
+              observedForm: "none",
               details: "Instruction file needs attention.",
-            },
+            }),
           ],
         }),
       });
@@ -85,28 +120,31 @@ describe("instruction workspace rules", () => {
           kind: "advisory",
           ruleId: "workspace/instructions-source-present",
           severity: "error",
+          location: { file: "docs/AGENTS.md" },
+        },
+        {
+          kind: "advisory",
+          ruleId: "workspace/instructions-source-present",
+          severity: "error",
           location: { file: "AGENTS.md" },
         },
       ]);
     }),
   );
 
-  it.effect("reports target drift as a fact without a mutation capability", () =>
+  it.effect("reports AXM-owned drift as regenerable without a mutation capability", () =>
     Effect.gen(function* () {
       const context = contextFor({
         status: Option.some({
           ...baseStatus,
           items: [
-            {
-              root,
-              agentId: "claude-code",
-              agentName: "Claude Code",
-              sourceFile: `${root}/AGENTS.md`,
-              targetFile: `${root}/CLAUDE.md`,
+            claudeItem({
               mechanism: "copy",
               health: "drift",
+              ownership: "owned-drift",
+              observedForm: "copy",
               details: "Instruction file needs attention.",
-            },
+            }),
           ],
         }),
       });
@@ -117,10 +155,79 @@ describe("instruction workspace rules", () => {
           kind: "advisory",
           ruleId: "workspace/instructions-target-current",
           severity: "warning",
+          message: "The AXM-managed Claude Code instruction copy differs from the source file.",
           location: { file: "CLAUDE.md" },
         },
       ]);
       expect("fix" in instructionsTargetCurrentRule).toBe(false);
+      expect(yield* instructionsTargetUnownedRule.check(context)).toEqual([]);
+    }),
+  );
+
+  it.effect("reports an unowned collision as its own finding, never as drift", () =>
+    Effect.gen(function* () {
+      const context = contextFor({
+        status: Option.some({
+          ...baseStatus,
+          items: [
+            claudeItem({
+              health: "drift",
+              ownership: "unowned",
+              observedForm: "file",
+              details: "An unowned file occupies the instruction target; AXM will not modify it.",
+            }),
+          ],
+        }),
+      });
+
+      expect(yield* instructionsTargetCurrentRule.check(context)).toEqual([]);
+      const findings = yield* instructionsTargetUnownedRule.check(context);
+      expect(findings).toMatchObject([
+        {
+          kind: "advisory",
+          ruleId: "workspace/instructions-target-unowned",
+          severity: "warning",
+          location: { file: "CLAUDE.md" },
+        },
+      ]);
+      expect(findings[0]?.message).toContain(
+        "An unowned file occupies the Claude Code instruction target",
+      );
+      expect(findings[0]?.message).toContain("AXM will not modify it");
+      expect("fix" in instructionsTargetUnownedRule).toBe(false);
+    }),
+  );
+
+  it.effect("reports stale AXM-owned aliases the plan no longer desires", () =>
+    Effect.gen(function* () {
+      const context = contextFor({
+        status: Option.some({
+          ...baseStatus,
+          staleTargets: [
+            claudeItem({
+              agentId: "gemini-cli",
+              agentName: "Gemini CLI",
+              targetFile: `${root}/docs/GEMINI.md`,
+              sourceFile: `${root}/docs/AGENTS.md`,
+              health: "stale",
+              observedForm: "broken-link",
+            }),
+          ],
+        }),
+      });
+
+      const findings = yield* instructionsTargetStaleRule.check(context);
+      expect(findings).toMatchObject([
+        {
+          kind: "advisory",
+          ruleId: "workspace/instructions-target-stale",
+          severity: "warning",
+          message:
+            "The AXM-owned Gemini CLI instruction symlink is no longer desired by the current instruction configuration.",
+          location: { file: "docs/GEMINI.md" },
+        },
+      ]);
+      expect(yield* instructionsTargetCurrentRule.check(context)).toEqual([]);
     }),
   );
 
@@ -130,16 +237,16 @@ describe("instruction workspace rules", () => {
         status: Option.some({
           ...baseStatus,
           items: [
-            {
-              root,
+            claudeItem({
               agentId: "cursor",
               agentName: "Cursor",
-              sourceFile: `${root}/AGENTS.md`,
               targetFile: `${root}/.cursor/rules`,
               mechanism: "adapter",
               health: "unsupported",
+              ownership: "absent",
+              observedForm: "none",
               details: "Instruction file needs attention.",
-            },
+            }),
           ],
         }),
       });
@@ -159,12 +266,12 @@ describe("instruction workspace rules", () => {
   it.effect("reports stale gitignore state without a mutation capability", () =>
     Effect.gen(function* () {
       const context = contextFor({
-        gitignore: Option.some({
+        gitignore: {
           file: `${root}/.gitignore`,
           desired: true,
           current: false,
           trackedAliases: [],
-        }),
+        },
       });
 
       const findings = yield* instructionsGitignoreCurrentRule.check(context);
@@ -189,10 +296,10 @@ describe("instruction workspace rules", () => {
       expect(fs.existsSync(path.join(trackedAliasFixture, "CLAUDE.md"))).toBe(true);
       const findings = yield* instructionsGitignoreCurrentRule.check(
         contextFor({
-          gitignore: Option.some({
+          gitignore: {
             ...gitignoreCurrent,
             trackedAliases: ["CLAUDE.md"],
-          }),
+          },
         }),
       );
       expect(findings).toEqual([
@@ -208,6 +315,3 @@ describe("instruction workspace rules", () => {
     }),
   );
 });
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";

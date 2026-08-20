@@ -22,6 +22,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
   activeInstructionsConfig,
   instructionReconciliationReadiness,
+  observeInstructions,
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
 
@@ -54,7 +55,10 @@ export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args
 
   const instructionsConfig = yield* activeInstructionsConfig(ws);
   const readiness = Option.isSome(instructionsConfig)
-    ? yield* instructionReconciliationReadiness({ ws, config: instructionsConfig.value })
+    ? yield* instructionReconciliationReadiness({
+        ws,
+        snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }),
+      })
     : Option.none();
   const disableTransition = Effect.gen(function* () {
     yield* ws.updateRuleEntry(args.name, (current) => ({

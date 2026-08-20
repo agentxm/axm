@@ -4,7 +4,11 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { reconcileInstructionTargets, removeManagedInstructionTargets } from "./instructions.js";
+import {
+  observeInstructionProjection,
+  reconcileInstructionTargets,
+  removeManagedInstructionTargets,
+} from "./instructions.js";
 
 const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -26,15 +30,16 @@ describe("Windows instruction-file materialization", () => {
             fs.mkdirSync(path.join(workspaceRoot, "docs"));
             fs.writeFileSync(path.join(workspaceRoot, "docs", "AGENTS.md"), "# Docs\n");
             const config = { fileName: "AGENTS.md", gitignoreAliases: true } as const;
-            fs.writeFileSync(sourcePath, "# Windows workspace\n");
-
-            const first = yield* reconcileInstructionTargets({
+            const args = {
               workspaceRoot,
               scope: "project",
               configuredAgents: ["claude-code"],
               config,
               symlinkSupported: false,
-            });
+            } as const;
+            fs.writeFileSync(sourcePath, "# Windows workspace\n");
+
+            const first = yield* reconcileInstructionTargets(args);
             expect(first.written).toContain(targetPath);
             expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Windows workspace");
@@ -45,32 +50,17 @@ describe("Windows instruction-file materialization", () => {
               "\\",
             );
 
-            const unchanged = yield* reconcileInstructionTargets({
-              workspaceRoot,
-              scope: "project",
-              configuredAgents: ["claude-code"],
-              config,
-              symlinkSupported: false,
-            });
+            const unchanged = yield* reconcileInstructionTargets(args);
             expect(unchanged.written).toEqual([]);
 
             fs.writeFileSync(sourcePath, "# Refreshed Windows workspace\n");
-            const refreshed = yield* reconcileInstructionTargets({
-              workspaceRoot,
-              scope: "project",
-              configuredAgents: ["claude-code"],
-              config,
-              symlinkSupported: false,
-            });
+            const refreshed = yield* reconcileInstructionTargets(args);
             expect(refreshed.written).toContain(targetPath);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Refreshed Windows workspace");
             expect(fs.readFileSync(sourcePath, "utf8")).toBe("# Refreshed Windows workspace\n");
 
             const removed = yield* removeManagedInstructionTargets({
-              workspaceRoot,
-              scope: "project",
-              configuredAgents: ["claude-code"],
-              config,
+              snapshot: yield* observeInstructionProjection(args),
               dryRun: false,
             });
             expect(removed).toEqual([targetPath, path.join(workspaceRoot, "docs", "CLAUDE.md")]);
@@ -78,10 +68,7 @@ describe("Windows instruction-file materialization", () => {
             expect(fs.existsSync(sourcePath)).toBe(true);
 
             const repeated = yield* removeManagedInstructionTargets({
-              workspaceRoot,
-              scope: "project",
-              configuredAgents: ["claude-code"],
-              config,
+              snapshot: yield* observeInstructionProjection(args),
               dryRun: false,
             });
             expect(repeated).toEqual([]);

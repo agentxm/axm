@@ -465,6 +465,67 @@ describe("axm lint handler", () => {
     );
   });
 
+  it.effect("refuses to replace an unowned instruction target on --fix", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    });
+    writeEmptyLockfile();
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+    const privateNotes = "# Private Claude notes\n\nNOT IN GIT. Irreplaceable.\n";
+    fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), privateNotes);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ details: true }).pipe(Effect.exit);
+        const report = rendererState.logs.map(({ message }) => message).join("\n");
+        expect(report).toContain("workspace/instructions-target-unowned");
+        expect(report).not.toContain("workspace/instructions-target-current");
+        expect(report).not.toContain("axm lint --fix");
+
+        const exit = yield* lint({ fix: true }).pipe(Effect.exit);
+
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe(privateNotes);
+      }),
+    );
+  });
+
+  it.effect("removes stale AXM-owned instruction aliases on --fix", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    });
+    writeEmptyLockfile();
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+    fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+    // Left behind by an agent that is no longer configured.
+    fs.symlinkSync("AGENTS.md", path.join(tempDir, "GEMINI.md"));
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ details: true }).pipe(Effect.exit);
+        const before = rendererState.logs.map(({ message }) => message).join("\n");
+        expect(before).toContain("workspace/instructions-target-stale");
+        expect(before).toContain("axm lint --fix");
+
+        const exit = yield* lint({ fix: true }).pipe(Effect.exit);
+
+        expect(Exit.isSuccess(exit)).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
+        expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
+        const after = rendererState.logs
+          .slice(before.split("\n").length)
+          .map(({ message }) => message)
+          .join("\n");
+        expect(after).not.toContain("workspace/instructions-target-stale");
+      }),
+    );
+  });
+
   it.effect("reports an unsupported managed-region version without writing", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({

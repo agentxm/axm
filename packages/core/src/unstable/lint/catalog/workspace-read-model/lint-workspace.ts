@@ -29,8 +29,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import {
-  getInstructionsGitignoreStatus,
-  getInstructionsStatus,
+  observeInstructionProjection,
   resolveInstructionsConfig,
 } from "../../../agents/instructions.js";
 import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
@@ -216,7 +215,7 @@ export const buildLintWorkspace = (
       subject: { root: args.workspaceRoot, scope: args.scope },
       workspace: readModel,
       axmDirExists: args.platform.fs.exists(axmDir).pipe(Effect.catch(() => Effect.succeed(false))),
-      instructions: makeInstructionAccessor({
+      instructions: yield* makeInstructionAccessor({
         platform: args.platform,
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,
@@ -244,6 +243,11 @@ export const buildLintWorkspace = (
   }).pipe(Effect.provide(env));
 };
 
+/**
+ * The instruction rules share one observation per lint run: roots are
+ * discovered and the plan is expanded once, and every rule reads target and
+ * `.gitignore` facts from the same snapshot.
+ */
 const makeInstructionAccessor = (args: {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
@@ -253,59 +257,33 @@ const makeInstructionAccessor = (args: {
   readonly scope: "project" | "user";
   readonly readModel: WorkspaceReadModel;
   readonly gitIndexView: boolean;
-}): WorkspaceInstructionAccessor => {
-  const platformLayer = Layer.mergeAll(
-    Layer.succeed(FileSystem.FileSystem, args.platform.fs),
-    Layer.succeed(Path.Path, args.platform.path),
-  );
-  const load = Effect.gen(function* () {
-    const settings = yield* args.readModel.state.settings.pipe(
-      Effect.catch(() => Effect.succeed(Option.none())),
+}): Effect.Effect<WorkspaceInstructionAccessor> =>
+  Effect.gen(function* () {
+    const platformLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, args.platform.fs),
+      Layer.succeed(Path.Path, args.platform.path),
     );
-    if (Option.isNone(settings)) {
-      return Option.none<{
-        readonly configuredAgents: ReadonlyArray<string>;
-        readonly config: ReturnType<typeof resolveInstructionsConfig>;
-      }>();
-    }
-    const rawConfig = Option.fromUndefinedOr(settings.value.instructionFiles);
-    if (Option.isNone(rawConfig) || rawConfig.value === false) {
-      return Option.none<{
-        readonly configuredAgents: ReadonlyArray<string>;
-        readonly config: ReturnType<typeof resolveInstructionsConfig>;
-      }>();
-    }
-    return Option.some({
-      configuredAgents: settings.value.agents ?? [],
-      config: resolveInstructionsConfig(rawConfig.value),
-    });
+    const snapshot = yield* Effect.cached(
+      Effect.gen(function* () {
+        const settings = yield* args.readModel.state.settings.pipe(
+          Effect.catch(() => Effect.succeed(Option.none())),
+        );
+        if (Option.isNone(settings)) return Option.none();
+        const rawConfig = Option.fromUndefinedOr(settings.value.instructionFiles);
+        if (Option.isNone(rawConfig) || rawConfig.value === false) return Option.none();
+        return Option.some(
+          yield* observeInstructionProjection({
+            workspaceRoot: args.workspaceRoot,
+            scope: args.scope,
+            configuredAgents: settings.value.agents ?? [],
+            config: resolveInstructionsConfig(rawConfig.value),
+            gitIndexView: args.gitIndexView,
+          }).pipe(Effect.provide(platformLayer)),
+        );
+      }),
+    );
+    return { snapshot };
   });
-  return {
-    status: Effect.gen(function* () {
-      const loaded = yield* load;
-      if (Option.isNone(loaded)) return Option.none();
-      const status = yield* getInstructionsStatus({
-        workspaceRoot: args.workspaceRoot,
-        scope: args.scope,
-        configuredAgents: loaded.value.configuredAgents,
-        config: loaded.value.config,
-      }).pipe(Effect.provide(platformLayer));
-      return Option.some(status);
-    }),
-    gitignore: Effect.gen(function* () {
-      const loaded = yield* load;
-      if (Option.isNone(loaded)) return Option.none();
-      const status = yield* getInstructionsGitignoreStatus({
-        workspaceRoot: args.workspaceRoot,
-        scope: args.scope,
-        configuredAgents: loaded.value.configuredAgents,
-        config: loaded.value.config,
-        gitIndexView: args.gitIndexView,
-      }).pipe(Effect.provide(platformLayer));
-      return Option.some(status);
-    }),
-  };
-};
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView projection (internal)

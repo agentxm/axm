@@ -38,8 +38,9 @@ shape. Correct unsupported settings directly before continuing.
 
 All commands accept `--scope project` (default) or `--scope user`:
 
-- `axm instructions` — show the source, target, mechanism, and health for each
-  configured agent and propagation root.
+- `axm instructions` — show the source, target, mechanism, health, and
+  ownership for each configured agent and propagation root, followed by any
+  AXM-owned alias the current configuration no longer needs.
 - `axm instructions enable [--file AGENTS.md]
 [--gitignore|--no-gitignore]` — enable propagation and reconcile owned
   aliases and `.gitignore`. Add `--preview` to inspect the plan.
@@ -58,7 +59,10 @@ mechanism automatically:
 - Unsupported native conventions are reported without a guessed target.
 
 AXM also walks nested directories. A subdirectory containing the configured
-canonical filename becomes an additional propagation root.
+canonical filename becomes an additional propagation root. Agent configuration
+directories such as `.junie` are never roots; directory symlinks, nested Git
+repositories, registered worktrees, and nested AXM workspaces are never
+entered.
 
 ## Contributed regions
 
@@ -86,22 +90,32 @@ v=1 region=instruction-aliases` markers. The canonical source named by
 
 ## Diagnosis and reconciliation
 
-Use `axm lint` for missing sources, drifted targets, unsupported agent
-conventions, stale managed `.gitignore` blocks, and tracked aliases covered by
-managed ignore patterns. The tracked-alias finding names
-`gitignoreAliases: false` as the reconciling setting. Use `axm sync --preview`
-to inspect reconciliation, then `axm sync` to restore configured state.
+Use `axm lint` for missing sources, drifted AXM-owned targets, unowned files at
+target paths, stale AXM-owned aliases, unsupported agent conventions, stale
+managed `.gitignore` blocks, and tracked aliases covered by managed ignore
+patterns. The tracked-alias finding names `gitignoreAliases: false` as the
+reconciling setting. Use `axm sync --preview` to inspect reconciliation, then
+`axm sync` to restore configured state.
 
-A missing or drifted target is determined by its canonical source, so
-`axm lint --fix` restores just those targets through the same reconciliation.
-A missing source is not — it needs an authoring decision, and `--fix` leaves it
-alone.
+Ownership is inspected, not remembered. A symlink that resolves to the canonical
+source or an `axm:file v=1` marker proves an alias is AXM's; the banner prose is
+guidance rather than an ownership signal. Anything else at a target path is an
+unowned collision: `axm instructions` reports it as `unowned`, `axm lint` names
+it, and no reconciliation modifies it. An AXM-owned alias left behind by a
+removed propagation root, a removed agent, or a changed canonical filename is
+`stale`: `axm sync` removes it before rewriting the `.gitignore` block, and
+`axm sync --preview` names every file it would remove.
+
+A missing, drifted, or stale AXM-owned target is determined by its canonical
+source and configuration, so `axm lint --fix` restores or removes just those
+targets through the same reconciliation `axm sync` performs — refusing first,
+exactly as `axm sync` does, when any target path holds a file AXM does not own.
+A missing source is not determined — it needs an authoring decision, and
+`--fix` leaves it alone.
 
 Transitions fail closed when an alias or managed region is unowned or
 ambiguous. Settings and files remain unchanged; there is no generic force flag.
-Managed copies carry a structured `axm:file v=1` marker; the banner prose is
-guidance rather than an ownership signal. AXM tolerates formatter-only changes
-and emits no formatter directives.
+AXM tolerates formatter-only changes and emits no formatter directives.
 
 ## Where to go next
 

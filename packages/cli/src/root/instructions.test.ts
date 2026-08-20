@@ -283,8 +283,11 @@ describe("instructions handler", () => {
           items: expect.arrayContaining([
             expect.objectContaining({
               agentId: "claude-code",
+              ownership: expect.any(String),
+              observedForm: expect.any(String),
             }),
           ]),
+          staleTargets: [],
         });
       }),
     );
@@ -402,6 +405,56 @@ describe("instructions handler", () => {
         expectPreviewedPlanResult(rendererState.results[0]?.data, {
           planName: "Disable instruction-file management",
           totalSteps: 1,
+        });
+      }),
+    );
+  });
+
+  it.effect("lists stale AXM-owned aliases in status and removes them on disable", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(tempDir, ["claude-code"], {
+      fileName: "AGENTS.md",
+      gitignoreAliases: false,
+    });
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+    fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+    // Left behind by an agent that is no longer configured.
+    fs.symlinkSync("AGENTS.md", path.join(tempDir, "GEMINI.md"));
+    // Authored content at an alias name outside the plan is not AXM's.
+    fs.writeFileSync(path.join(tempDir, "IFLOW.md"), "# Authored\n");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstructionsStatus();
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          enabled: true,
+          items: [
+            expect.objectContaining({
+              agentId: "claude-code",
+              health: "ok",
+              ownership: "owned-current",
+              observedForm: "symlink",
+            }),
+          ],
+          staleTargets: [
+            expect.objectContaining({
+              agentId: "gemini-cli",
+              health: "stale",
+              ownership: "owned-current",
+              observedForm: "symlink",
+              targetFile: path.join(tempDir, "GEMINI.md"),
+            }),
+          ],
+        });
+
+        yield* handleInstructionsDisable();
+
+        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
+        expect(fs.readFileSync(path.join(tempDir, "IFLOW.md"), "utf-8")).toBe("# Authored\n");
+        expectAppliedPlanResult(rendererState.results[1]?.data, {
+          planName: "Disable instruction-file management",
         });
       }),
     );

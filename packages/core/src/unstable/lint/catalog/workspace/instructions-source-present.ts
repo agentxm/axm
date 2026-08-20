@@ -20,14 +20,15 @@ export const instructionsSourcePresentRule: AdvisoryRule<WorkspaceRuleContext> =
   check: (context) =>
     Effect.gen(function* () {
       if (context.instructions === undefined) return EMPTY_ADVISORY_FINDINGS;
-      const status = yield* context.instructions.status;
-      if (Option.isNone(status)) return EMPTY_ADVISORY_FINDINGS;
+      const snapshot = yield* context.instructions.snapshot;
+      if (Option.isNone(snapshot)) return EMPTY_ADVISORY_FINDINGS;
 
-      const sourceFiles = new Set(
-        status.value.items
+      const sourceFiles = new Set([
+        ...snapshot.value.status.missingSources,
+        ...snapshot.value.status.items
           .filter((item) => item.health === "missing-source")
           .map((item) => item.sourceFile),
-      );
+      ]);
       const findings: Array<AdvisoryFinding> = [];
       for (const sourceFile of sourceFiles) {
         findings.push({

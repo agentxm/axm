@@ -45,7 +45,15 @@ const COLLECTION_PAYLOADS = [
   [
     "axm instructions",
     InstructionsStatusOutputSchema.fields,
-    ["enabled", "sourceFileName", "gitignoreAliases", "roots", "items"],
+    [
+      "enabled",
+      "sourceFileName",
+      "gitignoreAliases",
+      "roots",
+      "missingSources",
+      "items",
+      "staleTargets",
+    ],
   ],
   ["axm token list", TokenListDocumentSchema.fields, ["items", "count", "hasMore", "cursor"]],
   [

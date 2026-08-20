@@ -309,6 +309,7 @@ const instructionMechanismLabel = (mechanism: InstructionMechanism): string => {
     case "copy":
       return "write ← copy";
     case "adapter":
+    case "none":
       return "unsupported";
   }
 };
@@ -538,7 +539,6 @@ const applyProjectSetup = (args: {
   readonly sourceFileName: string;
   readonly sourceContent: Option.Option<string>;
   readonly syncInstructions: boolean;
-  readonly force: boolean;
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
@@ -566,7 +566,6 @@ const applyProjectSetup = (args: {
         fileName: args.sourceFileName,
         gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
       },
-      force: args.force,
       dryRun: args.dryRun,
     });
   });
@@ -708,7 +707,6 @@ const configureProjectWorkspace = (args: {
       sourceFileName: instructionSetup.fileName,
       sourceContent,
       syncInstructions: instructionSetup.enabled,
-      force: false,
       dryRun: args.options.preview ?? false,
     });
     return { settings, agentCandidates: selection.candidates, confirmed: true };

@@ -15,6 +15,7 @@ import * as ServiceMap from "effect/Context";
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
+  observeInstructionProjection,
   reconcileInstructionTargets,
   resolveInstructionsConfig,
   type ResolvedInstructionsConfig,
@@ -453,18 +454,16 @@ export const RuleManagerLive = Layer.effect(
         const instructions = args.instructions;
         if (args.dryRun !== true && Option.isSome(instructions)) {
           yield* provide(
-            Effect.all(
-              [
-                assertInstructionTargetsSafe({
-                  workspaceRoot: baseDir,
-                  scope: workspaceScope,
-                  configuredAgents: instructions.value.agents,
-                  config: instructions.value.config,
-                }),
-                assertInstructionsGitignoreSafe(baseDir),
-              ],
-              { concurrency: 1, discard: true },
-            ),
+            Effect.gen(function* () {
+              const snapshot = yield* observeInstructionProjection({
+                workspaceRoot: baseDir,
+                scope: workspaceScope,
+                configuredAgents: instructions.value.agents,
+                config: instructions.value.config,
+              });
+              yield* assertInstructionTargetsSafe(snapshot.status);
+              yield* assertInstructionsGitignoreSafe(baseDir);
+            }),
           );
         }
         const reconciliation = yield* provide(
@@ -514,7 +513,7 @@ export const RuleManagerLive = Layer.effect(
                 configuredAgents: instructions.value.agents,
                 config: instructions.value.config,
               }),
-            )).status.items
+            )).snapshot.status.items
           : [];
 
         const materialization = ruleMaterializationObservation(target.relative, instructionItems);

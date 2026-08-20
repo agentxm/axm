@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as PlatformError from "effect/PlatformError";
 import {
   buildFixture,
   type FixtureSpec,
@@ -9,6 +10,12 @@ import { buildSkillRuleContexts } from "../skill-accessor/contexts.js";
 import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
 import { collectRenderedFindings, evaluateAllCatalogs } from "../../cli.js";
 import { platformCanonicalLintConfig } from "../../config.js";
+import { instructionsAgentSupportedRule } from "../workspace/instructions-agent-supported.js";
+import { instructionsGitignoreCurrentRule } from "../workspace/instructions-gitignore-current.js";
+import { instructionsSourcePresentRule } from "../workspace/instructions-source-present.js";
+import { instructionsTargetCurrentRule } from "../workspace/instructions-target-current.js";
+import { instructionsTargetStaleRule } from "../workspace/instructions-target-stale.js";
+import { instructionsTargetUnownedRule } from "../workspace/instructions-target-unowned.js";
 import { buildLintWorkspace } from "./lint-workspace.js";
 
 const WORKSPACE_ROOT = "/workspace";
@@ -249,6 +256,78 @@ describe("buildLintWorkspace manifest JSON population", () => {
         okfVersion: "0.2",
       });
       expect(calls).toBe(1);
+    }),
+  );
+
+  it.effect("observes the instruction projection exactly once per lint workspace", () =>
+    Effect.gen(function* () {
+      const spec = fixture(manifestFixtures.pack);
+      const deps = yield* buildFixture({
+        ...spec,
+        project: {
+          ...spec.project,
+          settings: {
+            _tag: "valid",
+            contents: {
+              ...settings,
+              agents: ["claude-code", "gemini-cli"],
+              instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+            },
+          },
+        },
+      });
+      let rootListings = 0;
+      // The fixture filesystem dies on methods it does not model; observation
+      // probes links and symlink support, which must fail (typed), not die.
+      const unsupported = (method: string, path: string) =>
+        Effect.fail(
+          PlatformError.systemError({
+            _tag: "NotFound",
+            module: "FileSystem",
+            method,
+            description: "No such file or directory",
+            pathOrDescriptor: path,
+          }),
+        );
+      const fs = {
+        ...deps.fs,
+        readDirectory: (...params: Parameters<typeof deps.fs.readDirectory>) => {
+          if (params[0] === deps.workspaceRoot) rootListings += 1;
+          return deps.fs.readDirectory(...params);
+        },
+        readLink: (path: string) => unsupported("readLink", path),
+        makeDirectory: (path: string) => unsupported("makeDirectory", path),
+        writeFileString: (path: string) => unsupported("writeFileString", path),
+        symlink: (_target: string, path: string) => unsupported("symlink", path),
+        remove: (path: string) => unsupported("remove", path),
+      };
+      const lintWorkspace = yield* buildLintWorkspace({
+        platform: { fs, path: deps.path },
+        workspaceRoot: deps.workspaceRoot,
+        userHome: deps.userHome,
+        scope: "project",
+      });
+
+      // Building the workspace must not observe; the first rule that asks does,
+      // and every later rule reads the same snapshot.
+      rootListings = 0;
+      const findings = yield* Effect.forEach(
+        [
+          instructionsSourcePresentRule,
+          instructionsTargetCurrentRule,
+          instructionsTargetUnownedRule,
+          instructionsTargetStaleRule,
+          instructionsAgentSupportedRule,
+          instructionsGitignoreCurrentRule,
+        ],
+        (rule) => rule.check(lintWorkspace.rule),
+        { concurrency: 1 },
+      );
+
+      expect(rootListings).toBe(1);
+      expect(findings.flat().map((finding) => finding.ruleId)).toContain(
+        "workspace/instructions-source-present",
+      );
     }),
   );
 });

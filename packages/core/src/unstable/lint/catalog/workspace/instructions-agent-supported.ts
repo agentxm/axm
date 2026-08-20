@@ -20,11 +20,11 @@ export const instructionsAgentSupportedRule: AdvisoryRule<WorkspaceRuleContext> 
   check: (context) =>
     Effect.gen(function* () {
       if (context.instructions === undefined) return EMPTY_ADVISORY_FINDINGS;
-      const status = yield* context.instructions.status;
-      if (Option.isNone(status)) return EMPTY_ADVISORY_FINDINGS;
+      const snapshot = yield* context.instructions.snapshot;
+      if (Option.isNone(snapshot)) return EMPTY_ADVISORY_FINDINGS;
 
       const findings: Array<AdvisoryFinding> = [];
-      for (const item of status.value.items) {
+      for (const item of snapshot.value.status.items) {
         if (item.health !== "unsupported" && item.mechanism !== "adapter") continue;
         findings.push({
           kind: "advisory",

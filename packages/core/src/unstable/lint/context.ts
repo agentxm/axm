@@ -20,7 +20,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/instructions.js";
+import type { InstructionProjectionSnapshot } from "../agents/instructions.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
@@ -354,9 +354,13 @@ export interface WorkspaceRuleContext {
   readonly displayRoot: string;
 }
 
+/**
+ * One observation of the instruction projection per lint run, shared by every
+ * instruction rule so target and `.gitignore` facts come from the same moment.
+ * `None` when instruction-file management is not enabled.
+ */
 export interface WorkspaceInstructionAccessor {
-  readonly status: Effect.Effect<Option.Option<InstructionsStatus>>;
-  readonly gitignore: Effect.Effect<Option.Option<InstructionsGitignoreStatus>>;
+  readonly snapshot: Effect.Effect<Option.Option<InstructionProjectionSnapshot>>;
 }
 
 /**

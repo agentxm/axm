@@ -26,6 +26,8 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   // Instruction files.
   { id: "workspace/instructions-source-present", severity: "error" },
   { id: "workspace/instructions-target-current", severity: "warning" },
+  { id: "workspace/instructions-target-unowned", severity: "warning" },
+  { id: "workspace/instructions-target-stale", severity: "warning" },
   { id: "workspace/instructions-agent-supported", severity: "warning" },
   { id: "workspace/instructions-gitignore-current", severity: "info" },
   // Aggregate managed outputs render complete contributor sets.

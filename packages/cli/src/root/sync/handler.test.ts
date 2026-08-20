@@ -1450,6 +1450,45 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("names stale aliases in the instruction preview and removes them on apply", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["claude-code"] });
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
+      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+      // Left behind by an agent that is no longer configured.
+      fs.symlinkSync("AGENTS.md", path.join(tempDir, "GEMINI.md"));
+
+      yield* provide(handleSync({ preview: true }));
+      expect(fs.lstatSync(path.join(tempDir, "GEMINI.md")).isSymbolicLink()).toBe(true);
+      yield* provide(handleSync({ preview: false }));
+
+      const instructionArtifact = (value: unknown) =>
+        expectRecord(
+          property(
+            expectRecord(
+              planResultSteps(expectRecord(property(expectRecord(value), "result"))).find(
+                (step) => property(expectRecord(step), "label") === "instruction files",
+              ),
+            ),
+            "artifact",
+          ),
+        );
+      // The preview names the residue; the apply removes exactly that file and
+      // nothing else. (The applied step echoes the planned artifact, so the
+      // dry-run/apply parity of the removed set is proven at the core boundary.)
+      expect(property(instructionArtifact(rendererState.results[0]?.data), "targets")).toEqual([
+        { path: "GEMINI.md", change: "removed" },
+      ]);
+      expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
+      expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
+    }),
+  );
+
   it.effect("blocks cleanup and instructions after an earlier runtime failure", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });

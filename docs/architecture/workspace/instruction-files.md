@@ -65,6 +65,32 @@ AXM-owned regions. Each contribution region is a derived output with its own
 type-specific identity. AXM owns an alias only when it created the alias for the
 configured canonical source and can still prove that relationship.
 
+Ownership is inspected, never remembered. Every view a command plans from —
+status, lint rules, readiness, cleanup, the sync plan — derives from one
+observation: a single walk of the workspace discovers the propagation roots and
+every path where a registry-known alias convention is present, the configured
+agents expand into the expected plan, and target, residue, and `.gitignore`
+facts are read against that plan at one moment. A mutation observes once more
+immediately before writing and reads the workspace back afterwards rather than
+reporting its pre-write observation. The snapshot is command-scoped data — not
+a cache, a persisted ledger, or a service. Discovery does not enter directory
+symlinks or a nested directory with its own `.git` or `.axm`, and agent
+configuration directories named by a nested alias convention, such as
+`.junie`, are never propagation roots.
+
+An observed target is `absent`, `owned-current`, `owned-drift`, or `unowned`.
+At a planned target the proof is a symlink that resolves to the canonical
+source or any `axm:file` banner; outside the plan only a symlink to the
+canonical file beside it or a banner carrying the instruction-alias identity
+counts. An unowned file at a planned target is a collision: status and lint
+name it as such, distinct from AXM-managed drift, and no reconciliation path —
+including `axm lint --fix` — replaces it. An AXM-owned alias the current plan no longer desires, left behind
+by a removed source root, a removed agent, or a changed canonical filename, is a
+stale target: status lists it, lint reports it, and sync removes it before the
+`.gitignore` region is rewritten, so an ignore entry never disappears while the
+file it covered remains. Unowned files at undesired alias names are not AXM's
+concern and are left alone without a report.
+
 A contribution region is owned by its contributing capability, not by any
 single extension. It is an aggregate ownership unit under the shared
 [output reconciliation contract](overview.md#output-reconciliation): its
@@ -105,10 +131,19 @@ contributors.
 - Disabling a contributing capability removes only its owned region; disabling
   one contributing extension removes only that extension's contribution; and
   disabling instruction management removes only AXM-owned regions and aliases.
+- Every write and removal decision rests on an ownership proof read from the
+  workspace in the same command; no prior-ownership record is persisted.
+- Removing a source root or an agent, or changing the canonical filename,
+  leaves no AXM-owned alias behind after the next reconciliation and never
+  removes a file AXM cannot prove it produced.
+- A dry run names exactly the targets a real run would write and remove.
 
 ## Testing strategy
 
 Behavior tests prove canonical prose preservation, contributor independence,
 deterministic ordering, formatting changes, malformed and duplicate markers,
-owned alias drift, unowned alias collisions, configured-agent transitions,
-safe disablement, scope isolation, and idempotent reconciliation.
+owned alias drift, unowned alias collisions, stale-alias discovery after a
+removed nested root, a removed agent, and a changed canonical filename, cleanup
+without a managed `.gitignore` region, dry-run parity with apply,
+configured-agent transitions, safe disablement, scope isolation, nested
+working-tree boundaries, and idempotent reconciliation.

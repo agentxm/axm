@@ -6,23 +6,32 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
-  getInstructionsGitignoreStatus,
-  getInstructionsStatus,
+  instructionProjectionIsCurrent,
+  observeInstructionProjection,
   removeManagedInstructionTargets,
   removeInstructionsGitignore,
   resolveInstructionsConfig,
   syncInstructions,
-  type InstructionsStatus,
+  type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "@agentxm/client-core/unstable/agents";
 import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
 
-const ownedTargetsCurrent = (status: InstructionsStatus): boolean =>
-  status.items.every(
-    (item) => (item.mechanism !== "symlink" && item.mechanism !== "copy") || item.health === "ok",
-  );
-
 const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
+
+/** The one observation a command's planning derives its views from. */
+export const observeInstructions = Effect.fn("Instructions.observe")(function* (args: {
+  readonly ws: WorkspaceMutationsService;
+  readonly config: ResolvedInstructionsConfig;
+}) {
+  const agents = yield* configuredAgents(args.ws);
+  return yield* observeInstructionProjection({
+    workspaceRoot: args.ws.baseDir,
+    scope: args.ws.scope,
+    configuredAgents: agents,
+    config: args.config,
+  });
+});
 
 export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(function* (
   ws: WorkspaceMutationsService,
@@ -34,51 +43,18 @@ export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(f
   return Option.some(resolveInstructionsConfig(value.value));
 });
 
-export const instructionStateIsCurrent = Effect.fn("Instructions.stateIsCurrent")(function* (args: {
-  readonly ws: WorkspaceMutationsService;
-  readonly config: ResolvedInstructionsConfig;
-}) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const agents = yield* configuredAgents(args.ws);
-  const status = yield* getInstructionsStatus({
-    workspaceRoot: args.ws.baseDir,
-    scope: args.ws.scope,
-    configuredAgents: agents,
-    config: args.config,
-  });
-  const gitignore = yield* getInstructionsGitignoreStatus({
-    workspaceRoot: args.ws.baseDir,
-    scope: args.ws.scope,
-    configuredAgents: agents,
-    config: args.config,
-  });
-  const sourcesExist = yield* Effect.forEach(
-    status.roots,
-    (root) =>
-      fs
-        .exists(path.join(root, args.config.fileName))
-        .pipe(Effect.catch(() => Effect.succeed(false))),
-    { concurrency: "unbounded" },
-  );
-  return sourcesExist.every(Boolean) && ownedTargetsCurrent(status) && gitignore.current;
-});
+export const instructionStateIsCurrent = (snapshot: InstructionProjectionSnapshot): boolean =>
+  snapshot.status.missingSources.length === 0 && instructionProjectionIsCurrent(snapshot);
 
 export const instructionReconciliationReadiness = Effect.fn("Instructions.reconciliationReadiness")(
   function* (args: {
     readonly ws: WorkspaceMutationsService;
-    readonly config: ResolvedInstructionsConfig;
+    readonly snapshot: InstructionProjectionSnapshot;
   }) {
-    const agents = yield* configuredAgents(args.ws);
     return yield* Effect.result(
       Effect.all(
         [
-          assertInstructionTargetsSafe({
-            workspaceRoot: args.ws.baseDir,
-            scope: args.ws.scope,
-            configuredAgents: agents,
-            config: args.config,
-          }),
+          assertInstructionTargetsSafe(args.snapshot.status),
           assertInstructionsGitignoreSafe(args.ws.baseDir),
         ],
         { concurrency: 1, discard: true },
@@ -91,6 +67,27 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
   },
 );
 
+/**
+ * Remove every alias the given configuration owns, observing fresh so the
+ * decision reflects the workspace at the moment of removal. Used before a new
+ * configuration is reconciled, so a changed source filename or alias policy
+ * never leaves the old arrangement behind. Refuses on an unowned target like
+ * every other path.
+ */
+export const removeInstructionTargetsFor = (args: {
+  readonly ws: WorkspaceMutationsService;
+  readonly config: ResolvedInstructionsConfig;
+}) =>
+  Effect.gen(function* () {
+    const snapshot = yield* observeInstructions(args);
+    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+  });
+
+/**
+ * Runs inside the workspace transaction: preflight against a fresh
+ * observation (the plan's readiness check ran before the transaction opened),
+ * apply the transition, reconcile, and verify from the sync's own readback.
+ */
 export const reconcileInstructionTransition = <A>(args: {
   readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
@@ -99,12 +96,11 @@ export const reconcileInstructionTransition = <A>(args: {
 }): Effect.Effect<A, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const agents = yield* configuredAgents(args.ws);
-    yield* assertInstructionTargetsSafe({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
-      configuredAgents: agents,
+    const preflight = yield* observeInstructions({
+      ws: args.ws,
       config: args.preflightConfig ?? args.config,
     });
+    yield* assertInstructionTargetsSafe(preflight.status);
     yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
     const transitionResult = yield* args.transition;
     const syncResult = yield* syncInstructions({
@@ -112,16 +108,9 @@ export const reconcileInstructionTransition = <A>(args: {
       scope: args.ws.scope,
       configuredAgents: agents,
       config: args.config,
-      force: true,
       dryRun: false,
     });
-    const gitignore = yield* getInstructionsGitignoreStatus({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
-      configuredAgents: agents,
-      config: args.config,
-    });
-    if (!ownedTargetsCurrent(syncResult.status) || !gitignore.current) {
+    if (!instructionProjectionIsCurrent(syncResult.snapshot)) {
       return yield* makeAppError({
         code: "internal",
         detail: "Instruction reconciliation did not reach the desired state",
@@ -135,15 +124,8 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
     readonly ws: WorkspaceMutationsService;
     readonly config: ResolvedInstructionsConfig;
   }) {
-    const agents = yield* configuredAgents(args.ws);
     yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
-    const removed = yield* removeManagedInstructionTargets({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
-      configuredAgents: agents,
-      config: args.config,
-      dryRun: false,
-    });
+    const removed = yield* removeInstructionTargetsFor(args);
     const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: args.ws.baseDir,
       dryRun: false,

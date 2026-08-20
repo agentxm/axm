@@ -935,6 +935,8 @@ const coalesceGroupedDiagnostic = (
 const DETERMINED_REPAIRS: Readonly<Record<string, string>> = {
   "workspace/instructions-target-current":
     "Fix: Run `axm lint --fix` to regenerate the instruction files from their canonical source.",
+  "workspace/instructions-target-stale":
+    "Fix: Run `axm lint --fix` to remove AXM-owned instruction files the configuration no longer needs.",
 };
 
 const withDeterminedRepair = (diagnostic: LintHumanDiagnostic): LintHumanDiagnostic => {

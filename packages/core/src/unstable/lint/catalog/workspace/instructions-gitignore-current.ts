@@ -20,29 +20,30 @@ export const instructionsGitignoreCurrentRule: AdvisoryRule<WorkspaceRuleContext
   check: (context) =>
     Effect.gen(function* () {
       if (context.instructions === undefined) return EMPTY_LINT_FINDINGS;
-      const status = yield* context.instructions.gitignore;
-      if (Option.isNone(status)) return EMPTY_LINT_FINDINGS;
-      if (status.value.trackedAliases.length > 0) {
+      const snapshot = yield* context.instructions.snapshot;
+      if (Option.isNone(snapshot)) return EMPTY_LINT_FINDINGS;
+      const status = snapshot.value.gitignore;
+      if (status.trackedAliases.length > 0) {
         return [
           {
             kind: "advisory",
             ruleId: RULE_ID,
             severity: "info",
-            message: `Managed ignore entries cover paths already present in the Git index (${status.value.trackedAliases.join(", ")}); set gitignoreAliases: false to reconcile tracked instruction aliases.`,
-            location: { file: relativeToRoot(context.subject.root, status.value.file) },
+            message: `Managed ignore entries cover paths already present in the Git index (${status.trackedAliases.join(", ")}); set gitignoreAliases: false to reconcile tracked instruction aliases.`,
+            location: { file: relativeToRoot(context.subject.root, status.file) },
           },
         ] satisfies ReadonlyArray<LintFinding>;
       }
-      if (status.value.current) return EMPTY_LINT_FINDINGS;
+      if (status.current) return EMPTY_LINT_FINDINGS;
       return [
         {
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "info",
-          message: status.value.desired
+          message: status.desired
             ? "Instruction-file ignore entries are missing or stale."
             : "Instruction-file ignore entries are disabled but a managed block remains.",
-          location: { file: relativeToRoot(context.subject.root, status.value.file) },
+          location: { file: relativeToRoot(context.subject.root, status.file) },
         },
       ] satisfies ReadonlyArray<LintFinding>;
     }),

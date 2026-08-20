@@ -92,6 +92,8 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/agents-detected-declared",
   "workspace/instructions-source-present",
   "workspace/instructions-target-current",
+  "workspace/instructions-target-unowned",
+  "workspace/instructions-target-stale",
   "workspace/instructions-agent-supported",
   "workspace/instructions-gitignore-current",
   "workspace/projections-current",

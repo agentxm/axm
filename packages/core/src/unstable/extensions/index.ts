@@ -255,6 +255,7 @@ export {
   insertManagedFileBanner,
   hasManagedFileBanner,
   managedFileFormatForPath,
+  managedFileMarker,
   stripManagedFileBanner,
   type ManagedFileBannerOptions,
   type ManagedFileFormat,

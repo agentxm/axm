@@ -23,7 +23,8 @@ AXM uses one ownership vocabulary through four substrate encodings:
 - A banner owns a whole comment-bearing file.
 - An `x-axm` property owns one keyed JSON or YAML entry.
 - A symlink whose resolved target is inside `.axm/extensions/` proves
-  structural ownership without a marker.
+  structural ownership without a marker; an instruction alias proves it by
+  resolving to its canonical source.
 
 The canonical comment-bearing grammar is:
 
@@ -82,7 +83,8 @@ that follows is guidance and may change without affecting ownership.
 
 `axm sync --preview --json` identifies each managed-region unit and exposes
 its `owner` provenance. `axm lint` reports unowned agent-directory artifacts,
-ambiguous unmarked Hook entries, tracked instruction aliases covered by a
+ambiguous unmarked Hook entries, unowned files at planned instruction targets,
+stale AXM-owned instruction aliases, tracked instruction aliases covered by a
 managed ignore pattern, malformed regions, and unsupported marker versions.
 
 ## One-time pre-launch cutover

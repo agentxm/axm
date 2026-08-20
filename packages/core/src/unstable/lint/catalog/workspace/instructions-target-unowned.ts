@@ -5,7 +5,20 @@ import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryRule, LintFinding } from "../../rule.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 
-const RULE_ID = "workspace/instructions-target-current";
+const RULE_ID = "workspace/instructions-target-unowned";
+
+const occupantFor = (item: InstructionStatusItem): string => {
+  switch (item.observedForm) {
+    case "directory":
+      return "directory";
+    case "symlink":
+      return "symlink";
+    case "broken-link":
+      return "dangling symlink";
+    default:
+      return "file";
+  }
+};
 
 const relativeToRoot = (root: string, file: string): string => {
   if (file === root) return "";
@@ -13,28 +26,15 @@ const relativeToRoot = (root: string, file: string): string => {
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 };
 
-const targetHealth = new Set(["missing-target", "drift"]);
-
 /**
- * A projected target whose desired state is fully determined by its source:
- * absent, or an AXM-owned copy that drifted. Anything unowned at the same
- * path — authored content, a foreign or dangling symlink — is a collision,
- * reported by `workspace/instructions-target-unowned`, never as regenerable
- * drift. A missing source is reported by `workspace/instructions-source-present`.
+ * An unowned file at a planned instruction target is a collision, not drift:
+ * AXM cannot prove it produced the content, so no reconciliation may replace
+ * it and `axm sync` refuses until a person decides. The finding names the
+ * path and the decision; it carries no repair.
  */
-const isTargetFinding = (item: InstructionStatusItem): boolean =>
-  (item.mechanism === "symlink" || item.mechanism === "copy") &&
-  targetHealth.has(item.health) &&
-  item.ownership !== "unowned";
-
-const messageFor = (item: InstructionStatusItem): string =>
-  item.health === "missing-target"
-    ? `The ${item.agentName} instruction file is missing.`
-    : `The AXM-managed ${item.agentName} instruction copy differs from the source file.`;
-
-export const instructionsTargetCurrentRule: AdvisoryRule<WorkspaceRuleContext> = {
+export const instructionsTargetUnownedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Configured agent instruction target files are current.",
+  description: "Planned instruction targets are free of files AXM does not own.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>
@@ -45,12 +45,16 @@ export const instructionsTargetCurrentRule: AdvisoryRule<WorkspaceRuleContext> =
 
       const findings: Array<LintFinding> = [];
       for (const item of snapshot.value.status.items) {
-        if (!isTargetFinding(item)) continue;
+        if (item.mechanism !== "symlink" && item.mechanism !== "copy") continue;
+        if (item.ownership !== "unowned") continue;
         findings.push({
           kind: "advisory",
           ruleId: RULE_ID,
           severity: "warning",
-          message: messageFor(item),
+          message:
+            `An unowned ${occupantFor(item)} occupies the ${item.agentName} instruction target; ` +
+            "AXM will not modify it. Remove or rename it, or make it the canonical source with " +
+            "`axm instructions enable --file`.",
           location: { file: relativeToRoot(context.subject.root, item.targetFile) },
         });
       }

@@ -26,6 +26,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
   activeInstructionsConfig,
   instructionReconciliationReadiness,
+  observeInstructions,
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
 
@@ -75,7 +76,10 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
   });
   const instructionsConfig = yield* activeInstructionsConfig(ws);
   const readiness = Option.isSome(instructionsConfig)
-    ? yield* instructionReconciliationReadiness({ ws, config: instructionsConfig.value })
+    ? yield* instructionReconciliationReadiness({
+        ws,
+        snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }),
+      })
     : Option.none();
   const activationStep: PlannedJobStep =
     installStep.readiness === "error"

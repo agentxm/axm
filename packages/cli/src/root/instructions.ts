@@ -9,9 +9,9 @@ import type {
   InstructionsConfigValue,
 } from "@agentxm/client-core/unstable/settings";
 import {
-  getInstructionsStatus,
-  removeManagedInstructionTargets,
+  observeInstructionProjection,
   resolveInstructionsConfig,
+  type InstructionStatusItem,
 } from "@agentxm/client-core/unstable/agents";
 import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -33,13 +33,16 @@ import {
   disableInstructionManagement,
   instructionReconciliationReadiness,
   instructionStateIsCurrent,
+  observeInstructions,
   reconcileInstructionTransition,
+  removeInstructionTargetsFor,
 } from "./instruction-reconciliation.js";
 
 interface InstructionTableItem {
   readonly agentId: string;
   readonly mechanism: string;
   readonly health: string;
+  readonly ownership: string;
   readonly sourceFile: string;
   readonly targetFile: string;
 }
@@ -52,6 +55,8 @@ const InstructionStatusItemSchema = Schema.Struct({
   targetFile: Schema.String,
   mechanism: Schema.String,
   health: Schema.String,
+  ownership: Schema.String,
+  observedForm: Schema.String,
   details: Schema.String,
 });
 
@@ -60,7 +65,9 @@ export const InstructionsStatusOutputSchema = Schema.Struct({
   sourceFileName: Schema.String,
   gitignoreAliases: Schema.Boolean,
   roots: Schema.Array(Schema.String),
+  missingSources: Schema.Array(Schema.String),
   items: Schema.Array(InstructionStatusItemSchema),
+  staleTargets: Schema.Array(InstructionStatusItemSchema),
 });
 export type InstructionsStatusOutput = typeof InstructionsStatusOutputSchema.Type;
 
@@ -69,10 +76,20 @@ const InstructionsTable = {
     agentId: { header: "Agent" },
     mechanism: { header: "Mode" },
     health: { header: "Status" },
+    ownership: { header: "Ownership" },
     sourceFile: { header: "Source" },
     targetFile: { header: "Target" },
   },
 } as const satisfies TableView<InstructionTableItem>;
+
+const toTableItem = (item: InstructionStatusItem): InstructionTableItem => ({
+  agentId: item.agentId,
+  mechanism: item.mechanism,
+  health: item.health,
+  ownership: item.ownership,
+  sourceFile: item.sourceFile,
+  targetFile: item.targetFile,
+});
 
 // Instruction-file targets are a workspace capability, not rule extensions, so
 // this entity stays under its own id. The catalog entity for the `rule` type is
@@ -132,7 +149,9 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
       sourceFileName: "AGENTS.md",
       gitignoreAliases: false,
       roots: [],
+      missingSources: [],
       items: [],
+      staleTargets: [],
     };
     if (yield* renderer.result(output, InstructionsStatusOutputSchema)) return;
     yield* renderer.list("agent-rule", {
@@ -144,7 +163,7 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
   }
 
   const configuredAgents = yield* ws.getConfiguredAgents();
-  const status = yield* getInstructionsStatus({
+  const { status } = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
     configuredAgents,
@@ -152,7 +171,10 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
   });
 
   if (yield* renderer.result(status, InstructionsStatusOutputSchema)) return;
-  if (status.items.length === 0) {
+  // Stale rows follow the configured rows so residue AXM still owns is visible
+  // beside the targets it currently maintains.
+  const tableItems = [...status.items, ...status.staleTargets].map(toTableItem);
+  if (tableItems.length === 0) {
     yield* renderer.list("agent-rule", {
       items: [],
       count: 0,
@@ -160,13 +182,6 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
     });
     return;
   }
-  const tableItems = status.items.map((item): InstructionTableItem => ({
-    agentId: item.agentId,
-    mechanism: item.mechanism,
-    health: item.health,
-    sourceFile: item.sourceFile,
-    targetFile: item.targetFile,
-  }));
   yield* renderer.list("agent-rule", {
     items: tableItems,
     count: tableItems.length,
@@ -197,10 +212,11 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     Option.isSome(previousConfig) &&
     (previousConfig.value.fileName !== resolvedConfig.fileName ||
       previousConfig.value.gitignoreAliases !== resolvedConfig.gitignoreAliases);
+  const observed = yield* observeInstructions({ ws, config: resolvedConfig });
   const alreadyCurrent =
     Option.isSome(current) &&
     rawInstructionsConfigEquals(current.value, config) &&
-    (yield* instructionStateIsCurrent({ ws, config: resolvedConfig }));
+    instructionStateIsCurrent(observed);
   if (alreadyCurrent) {
     yield* emitNoOpOutcome("instructions.enable", {
       planName: "Enable instruction-file management",
@@ -210,10 +226,13 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     return;
   }
 
-  const readiness = yield* instructionReconciliationReadiness({
-    ws,
-    config: configChanged && Option.isSome(previousConfig) ? previousConfig.value : resolvedConfig,
-  });
+  // A changed configuration is preflighted against the aliases the previous
+  // configuration owns, because those are the files the transition removes.
+  const preflight =
+    configChanged && Option.isSome(previousConfig)
+      ? yield* observeInstructions({ ws, config: previousConfig.value })
+      : observed;
+  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot: preflight });
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Enable instruction-file management",
@@ -233,14 +252,7 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
               : {}),
             transition: Effect.gen(function* () {
               if (configChanged && Option.isSome(previousConfig)) {
-                const agents = yield* ws.getConfiguredAgents();
-                yield* removeManagedInstructionTargets({
-                  workspaceRoot: ws.baseDir,
-                  scope: ws.scope,
-                  configuredAgents: agents,
-                  config: previousConfig.value,
-                  dryRun: false,
-                });
+                yield* removeInstructionTargetsFor({ ws, config: previousConfig.value });
               }
               yield* ws.setInstructionsConfig(config);
               yield* applyPlannedProjections(ruleManager);
@@ -301,7 +313,8 @@ export const handleInstructionsDisable = Effect.fn("Instructions.disable")(funct
   }
 
   const config = resolveInstructionsConfig(current.value);
-  const readiness = yield* instructionReconciliationReadiness({ ws, config });
+  const snapshot = yield* observeInstructions({ ws, config });
+  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot });
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Disable instruction-file management",

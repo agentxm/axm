@@ -7,6 +7,7 @@ import {
   markerForFile,
   serializeMarker,
   type FileCommentStyle,
+  type ManagedMarker,
 } from "../projection/marker-grammar.js";
 import { parseFrontmatterSync } from "./frontmatter.js";
 
@@ -77,10 +78,17 @@ const markdownBodyStart = (content: string): number => {
   return parsed.frontmatter === undefined ? 0 : content.length - parsed.body.length;
 };
 
-const hasFileMarker = (content: string, format: ManagedFileFormat): boolean => {
+/** The `axm:file` ownership marker a managed file carries, when it has one. */
+export const managedFileMarker = (
+  content: string,
+  format: ManagedFileFormat,
+): Option.Option<Extract<ManagedMarker, { readonly kind: typeof MARKER_KIND_FILE }>> => {
   const body = format === "markdown" ? content.slice(markdownBodyStart(content)) : content;
-  return Option.isSome(markerForFile(body, styleFor(format)));
+  return markerForFile(body, styleFor(format));
 };
+
+const hasFileMarker = (content: string, format: ManagedFileFormat): boolean =>
+  Option.isSome(managedFileMarker(content, format));
 
 const insertMarkdownBanner = (content: string, options: ManagedFileBannerOptions): string => {
   const insertAt = markdownBodyStart(content);

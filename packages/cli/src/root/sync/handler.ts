@@ -18,8 +18,8 @@ import {
   CodingAgentRepository,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
-  getInstructionsGitignoreStatus,
-  getInstructionsStatus,
+  instructionProjectionIsCurrent,
+  observeInstructionProjection,
   pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
   syncInlineMcpServerToAgents,
@@ -1408,50 +1408,24 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
       },
     });
   }
-  const status = yield* getInstructionsStatus({
+  const snapshot = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
     configuredAgents,
     config: resolvedConfig,
   });
-  const gitignore = yield* getInstructionsGitignoreStatus({
-    workspaceRoot: ws.baseDir,
-    scope: ws.scope,
-    configuredAgents,
-    config: resolvedConfig,
-  });
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const manager = yield* RuleManager;
-  const sourcesExist = yield* Effect.forEach(
-    status.roots,
-    (root) =>
-      fs
-        .exists(path.join(root, resolvedConfig.fileName))
-        .pipe(Effect.catch(() => Effect.succeed(false))),
-    { concurrency: "unbounded" },
-  );
   const regionCurrent = !projectionFactsNeedReconciliation(projectionFacts);
   const current =
-    sourcesExist.every(Boolean) &&
-    gitignore.current &&
+    snapshot.status.missingSources.length === 0 &&
     regionCurrent &&
-    status.items.every(
-      (item) => (item.mechanism !== "symlink" && item.mechanism !== "copy") || item.health === "ok",
-    );
+    instructionProjectionIsCurrent(snapshot);
   if (current) return Option.none<PlannedJobStep<SyncPlanRequirements>>();
 
   const readiness = yield* Effect.result(
     Effect.all(
-      [
-        assertInstructionTargetsSafe({
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
-          configuredAgents,
-          config: resolvedConfig,
-        }),
-        assertInstructionsGitignoreSafe(ws.baseDir),
-      ],
+      [assertInstructionTargetsSafe(snapshot.status), assertInstructionsGitignoreSafe(ws.baseDir)],
       { concurrency: 1, discard: true },
     ),
   );
@@ -1464,11 +1438,18 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     });
   }
 
+  // Stale residue the apply will remove is named up front so the preview and
+  // the applied result list the same paths.
+  const staleTargets = snapshot.status.staleTargets.map((item) => ({
+    path: path.relative(ws.baseDir, item.targetFile),
+    change: "removed" as const,
+  }));
   const artifact = {
     path: resolvedConfig.fileName,
     scope: ws.scope,
     change: "updated",
     managedRegions: managedRegionsForFacts(projectionFacts),
+    ...(staleTargets.length === 0 ? {} : { targets: staleTargets }),
   } satisfies JobStepArtifact;
 
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({

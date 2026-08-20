@@ -6,7 +6,7 @@ import {
   AGENTS,
   CONFIGURABLE_AGENT_IDS,
   detectAgentsForScope,
-  getInstructionsStatus,
+  observeInstructionProjection,
   resolveInstructionsConfig,
 } from "@agentxm/client-core/unstable/agents";
 import {
@@ -90,13 +90,15 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
   const instructionsConfig = yield* ws.getInstructionsConfig();
   const instructionStatuses =
     Option.isSome(instructionsConfig) && instructionsConfig.value !== false
-      ? yield* getInstructionsStatus({
+      ? yield* observeInstructionProjection({
           workspaceRoot: ws.baseDir,
           scope: ws.scope,
           configuredAgents: configured,
           config: resolveInstructionsConfig(instructionsConfig.value),
         }).pipe(
-          Effect.map((status) => new Map(status.items.map((item) => [item.agentId, item.health]))),
+          Effect.map(
+            ({ status }) => new Map(status.items.map((item) => [item.agentId, item.health])),
+          ),
         )
       : new Map<string, string>();
 

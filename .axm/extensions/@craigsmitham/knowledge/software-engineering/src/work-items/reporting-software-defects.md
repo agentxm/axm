@@ -16,7 +16,7 @@ sources:
     title: GitHub Docs — Syntax for issue forms
 generated:
   by: codex/gpt-5
-  at: 2026-08-16T00:17:02Z
+  at: 2026-08-20T16:05:37Z
 ---
 
 # Reporting software defects
@@ -88,12 +88,25 @@ Label suspected causes and attempted diagnostics. Record eliminated conditions
 so another investigator does not repeat them, but do not rewrite the title or
 actual behavior around an unconfirmed theory.
 
-## 7. Define verification conditions
+## 7. Preserve existing design and delivery context
+
+When investigation has already produced findings, constraints, decisions or
+proposals, architecture or code sketches, an implementation sequence, a
+testing strategy, tradeoffs, or open questions, preserve that material in the
+report or link its authoritative home. Label its status and provenance; do not
+invent missing design merely to complete a template. See
+[Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md).
+
+## 8. Define verification conditions
 
 State what evidence will demonstrate that the discrepancy is resolved. Include
 the original failing case and important adjacent or regression cases. Do not
 make one proposed implementation the acceptance condition unless that
 mechanism is itself an authoritative constraint.
+
+Keep these behavioral conditions distinct from any supplied testing strategy,
+which describes how the evidence will be gathered across test layers,
+boundaries, fixtures, environments, and negative cases.
 
 ## Tracker-ready template
 
@@ -133,9 +146,20 @@ Who or what is affected, how, and to what extent?
 
 Logs, screenshots, minimal example, timestamps, hypotheses, and eliminated conditions.
 
+## Technical design and delivery context
+
+Optional existing findings, constraints, decision or proposal state,
+architecture and code sketches, implementation sequence, tradeoffs, and open
+questions. Link a longer authoritative artifact when appropriate.
+
 ## Verification conditions
 
 What observable evidence will confirm the chosen resolution?
+
+## Testing strategy
+
+Optional supplied plan for gathering that evidence, kept distinct from the
+behavioral conditions above.
 ```
 
 ## Final check
@@ -146,7 +170,10 @@ What observable evidence will confirm the chosen resolution?
 - Reproduction or occurrence evidence preserves the relevant context.
 - Impact supports severity; severity is not used as priority.
 - Suspected causes remain distinguishable from facts.
+- Existing technical context is preserved or linked with its authority state;
+  absent context was not invented.
 - Verification conditions test the behavior, not merely the implementation.
+- Testing strategy remains distinct from verification conditions.
 
 [^github-issue-form]: GitHub Docs, “Syntax for issue forms,” bug-report example.
 [^istqb-foundation]: ISTQB Certified Tester Foundation Level Syllabus v4.0.1, defect-report contents.

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "pack",
+    "name": "software-engineering",
+    "version": "0.5.0",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-lhHl4MpvGuiP+Iey/G/OwCgPjBw85v8Uto9zZn2JqfDwe/uMOTykS4JKmtnww+64JNbS9ma8eAtss0AppcgByQ=="
+  }
+}

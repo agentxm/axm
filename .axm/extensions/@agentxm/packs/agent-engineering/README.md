@@ -25,7 +25,7 @@ axm install @agentxm/packs/agent-engineering
 | `@agentxm/skills/author-agent-skill`        | Create or revise a portable Agent Skill                             |
 | `@agentxm/skills/audit-agent-skill`         | Audit an Agent Skill against the knowledge                          |
 
-After installation, browse the workspace Knowledge Bundles or search for concepts
+After installation, browse the workspace Knowledge Base or search for concepts
 such as agency choice, control loops, tool-use policy, memory policy, handoffs,
 human oversight, instruction files, agent threats, and agent-specific
 evaluation.

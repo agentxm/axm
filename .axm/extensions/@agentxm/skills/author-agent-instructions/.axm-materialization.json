@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@agentxm",
+    "type": "skill",
+    "name": "author-agent-instructions",
+    "version": "0.1.1",
+    "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+    "integrity": "sha512-hZWzZHpiYy1VaUi16ruJJEg6UzjLCm/IR302gdYhNJdmczndlnFq9aE2ofcebC6VLv8bbVvL3/cs//ebkCPtdg=="
+  }
+}

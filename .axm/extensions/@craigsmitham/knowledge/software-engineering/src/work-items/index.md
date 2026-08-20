@@ -2,8 +2,9 @@
 
 Tool-neutral concepts and authoring guides for work items that preserve an
 operational event, an observed discrepancy, or a request for functionality.
-Use the explainers to choose and understand the artifact; use the paired guide
-to write one in a tracker such as Linear, GitHub, Jira, or Azure Boards.
+Use the explainers to choose and understand the artifact; use the guides to
+write one and preserve existing context in a tracker such as Linear, GitHub,
+Jira, or Azure Boards.
 
 ## Titles and summaries
 
@@ -11,6 +12,13 @@ Applies to every type below.
 
 - [Work item titles and summaries](work-item-titles-and-summaries.md) - Why a work item's title and summary form a derived brief that serves the reading surfaces where items are scanned rather than opened, and why restating that brief changes nothing else about the item.
 - [Titling and summarizing work items](titling-and-summarizing-work-items.md) - How to write and re-derive a work item's title and one- or two-sentence summary so it is understandable at a glance, traceable to the item, and safe to update without changing anything else.
+
+## Existing design and delivery context
+
+Applies when source material already contains technical investigation, design,
+planning, or testing detail.
+
+- [Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md) - How to retain supplied findings, constraints, decisions, architecture and code sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
 
 ## Operational incidents
 

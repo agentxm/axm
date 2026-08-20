@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "skill",
+    "name": "improve-whatever",
+    "version": "0.0.6",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-u+i1Zw2zOUgCE9AV/ZScg/eiphCqtVmQUQviIWohg5JK5D1ODG7WFIa8ocGxD4tUxUi4Yxf14Jsw47vb25FDxg=="
+  }
+}

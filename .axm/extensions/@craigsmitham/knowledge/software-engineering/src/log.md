@@ -1,5 +1,12 @@
 # Software engineering update log
 
+## 2026-08-20
+
+- **Work items**: Added [Preserving design and delivery context in software
+  work items](work-items/preserving-design-and-delivery-context.md), connected
+  it to defect and feature-request authoring, and clarified that brief limits
+  never justify trimming supplied technical context.
+
 ## 2026-08-15
 
 - **Architecture documentation**: Added the candidate [Just Enough Architecture

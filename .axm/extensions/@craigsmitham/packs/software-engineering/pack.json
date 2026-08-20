@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Software engineering guidance and authoring workflows for durable architecture docs, evidence-rich work items, YAGNI, and Tidy First",
   "keywords": [
     "software-engineering",
@@ -27,7 +27,7 @@
   "type": "pack",
   "name": "software-engineering",
   "dependencies": {
-    "@craigsmitham/knowledge/software-engineering": "^0.4.0",
+    "@craigsmitham/knowledge/software-engineering": ">=0.5.0",
     "@craigsmitham/rules/yagni": "^0.1.0",
     "@craigsmitham/rules/tidy-first": "^0.1.0",
     "@craigsmitham/skills/author-architecture-docs": ">=0.0.1",

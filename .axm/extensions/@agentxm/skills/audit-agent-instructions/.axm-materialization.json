@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@agentxm",
+    "type": "skill",
+    "name": "audit-agent-instructions",
+    "version": "0.1.1",
+    "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+    "integrity": "sha512-Tvfm9a+nry9s6REM+cO/qyAtt1v6c3fpfs8ondJ90EkXLby0k6gngQIdeG6U4Nt4j1JfA/TJzD4Vpo7sAVZw/g=="
+  }
+}

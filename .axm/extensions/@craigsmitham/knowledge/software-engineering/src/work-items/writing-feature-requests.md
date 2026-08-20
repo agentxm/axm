@@ -16,7 +16,7 @@ sources:
     title: Linear Method — Manage design projects
 generated:
   by: codex/gpt-5
-  at: 2026-08-16T00:17:02Z
+  at: 2026-08-20T16:05:37Z
 ---
 
 # Writing feature requests
@@ -90,14 +90,28 @@ identity. Include tradeoffs or rejected alternatives only when evidence
 already exists. GitHub’s own issue-management example similarly separates the
 problem, proposed solution, use cases, and success criteria.[^github-issue-manager]
 
-## 8. Define success signals
+## 8. Preserve existing design and delivery context
+
+When the source already contains findings, constraints, option tradeoffs,
+architecture or code sketches, an implementation sequence, a testing strategy,
+or open questions, preserve that material or link its authoritative home. Mark
+whether each element is illustrative, proposed, recommended, accepted,
+rejected, or unresolved. Existing detail does not itself approve the solution
+or authorize delivery. See
+[Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md).
+
+If both desired behavior and delivery are already accepted, use the host's
+delivery artifact and link this request as provenance rather than disguising
+accepted work as intake.
+
+## 9. Define success signals
 
 Describe the observable change that would show the need was addressed. At
 intake, this may be a qualitative user outcome rather than a delivery-ready
 acceptance test. Do not use “feature shipped” as the only signal when the
 request exists to improve an external outcome.
 
-## 9. Preserve the triage result
+## 10. Preserve the triage result
 
 Triage may merge the request with related demand, decline it, defer it, request
 research, or accept it for delivery. Record that decision and link any accepted
@@ -144,6 +158,12 @@ What must an acceptable response respect? What is deliberately outside this requ
 
 Optional proposal, clearly distinguished from the need.
 
+## Technical design and delivery context
+
+Optional supplied findings, constraints, decision status, architecture and
+code sketches, implementation sequence, testing strategy, tradeoffs, and open
+questions. Omit when absent; link longer or independently reviewed artifacts.
+
 ## Success signals
 
 What observable change would indicate that the need was addressed?
@@ -162,6 +182,8 @@ Duplicates, related requests, research, or accepted delivery items.
 - The desired outcome can survive a different implementation.
 - Constraints are real; speculative edge cases have not taken over the item.
 - A proposal is visibly optional until a product or design decision accepts it.
+- Existing technical context is preserved or linked with its authority state;
+  absent context was not invented.
 - The request can remain linked to later delivery work without becoming it.
 
 [^github-issue-manager]: GitHub Docs, “Issue manager customization example.”

@@ -15,8 +15,8 @@ sources:
     resource: https://linear.app/method/write-issues-not-user-stories
     title: Linear Method — Write issues, not user stories
 generated:
-  by: claude/opus-5
-  at: 2026-08-16T01:42:06Z
+  by: codex/gpt-5
+  at: 2026-08-20T16:05:37Z
 ---
 
 # Titling and summarizing work items
@@ -77,7 +77,9 @@ Operational incident, written for the current moment:
 > mitigated by a rollback and impact is ongoing.
 
 Stop at two sentences. Prefer familiar words and direct sentences, and leave
-out procedural history, repetition, and implementation detail.
+out procedural history, repetition, and implementation detail. This limit
+applies only to the derived brief; never shorten the body or discard linked
+technical context to meet it.
 
 ## 3. Keep every claim traceable to the item
 
@@ -134,6 +136,7 @@ points at a stale summary.
 - The current problem stays distinguishable from the desired outcome.
 - Every claim in the brief is supported by the item.
 - No decision, commitment, or boundary exists only in the brief.
+- No body context was removed to satisfy the brief's length limit.
 - Nothing outside the title and summary changed.
 
 [^jira-issue-fields]: Atlassian, "Issue fields and statuses."

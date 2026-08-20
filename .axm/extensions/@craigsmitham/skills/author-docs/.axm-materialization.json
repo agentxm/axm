@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "skill",
+    "name": "author-docs",
+    "version": "0.3.1",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-fe2Z7Wqhc91yYee5XqiO6fBfuoggW8baZbYABBu0FKjRrqPShtzWoeojXjUY7YgrIF7Swd61L7sL26jmujwNaA=="
+  }
+}

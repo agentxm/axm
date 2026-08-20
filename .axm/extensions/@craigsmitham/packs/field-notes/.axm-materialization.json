@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "pack",
+    "name": "field-notes",
+    "version": "0.2.0",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-hGUwsqYhLo0lWhPSwiwmb0onj4MkoH/r4RKEkKtTq44cCCPfua3UymVQ9Kcsb3sS9d3E1D8JVvmAa7hyWmZUTg=="
+  }
+}

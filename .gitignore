@@ -60,6 +60,5 @@ test-results/
 .nx/self-healing
 .nx/migrate-runs
 # axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases
-/CLAUDE.md
-/docs/CLAUDE.md
+**/CLAUDE.md
 # axm:end v=1 region=instruction-aliases

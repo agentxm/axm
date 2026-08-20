@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-software-work-items",
-  "version": "0.0.1",
-  "description": "Create and revise evidence-rich software feature requests, defect reports, incident records, and work-item briefs",
+  "version": "0.1.0",
+  "description": "Create and revise evidence-rich software work items while preserving supplied technical design and delivery context",
   "keywords": [
     "work-items",
     "issue-tracker",
@@ -14,7 +14,10 @@
     "incident-record",
     "issue-title",
     "issue-summary",
-    "backlog"
+    "backlog",
+    "technical-design",
+    "implementation-plan",
+    "testing-strategy"
   ],
   "repository": {
     "type": "git",

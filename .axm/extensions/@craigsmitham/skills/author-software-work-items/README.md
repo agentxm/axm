@@ -7,8 +7,9 @@ legible in a tracker.
 Use it to draft tracker-ready content or, when explicitly requested and the
 host is available, to file or update the item. It preserves the boundary
 between request intake, accepted expectations, live incident response, and
-delivery work. It does not manage backlogs, invent priority, produce an
-implementation plan, or implement the requested change.
+delivery work. It faithfully carries supplied findings, architecture and code
+sketches, implementation plans, and testing strategies without inventing or
+approving missing design. It does not manage backlogs or implement the change.
 
 This skill is a non-standalone member of the software-engineering pack because
 it loads that pack's software-work-item knowledge.

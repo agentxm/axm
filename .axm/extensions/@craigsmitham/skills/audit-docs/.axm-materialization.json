@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "skill",
+    "name": "audit-docs",
+    "version": "0.1.0",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-xzZcJE/qRuhl7fP7SLVbH+y1KsEdAraRj70esZRkkxdtqrtdNOZXqoItxjc/5XSLczCgMe2O0R1yz1FxH0HAKQ=="
+  }
+}

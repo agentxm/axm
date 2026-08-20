@@ -9,9 +9,10 @@ Use it for conceptual guidance about responsibilities, boundaries,
 changeability, invariants, architectural communication, functional and quality
 concerns, and a just-enough architecture corpus; for YAGNI and Tidy First; and
 for tool-neutral guides to writing incident records, defect reports, feature
-requests, and the titles and summaries that make them legible at a glance. It
-is not a language or framework reference, a repository-specific architecture,
-a tracker administration manual, or an incident-response runbook.
+requests, preserving their supplied design and delivery context, and deriving
+titles and summaries that make them legible at a glance. It is not a language
+or framework reference, a repository-specific architecture, a tracker
+administration manual, or an incident-response runbook.
 
 Install it with:
 

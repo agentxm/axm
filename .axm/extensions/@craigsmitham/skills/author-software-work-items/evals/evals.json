@@ -55,6 +55,39 @@
         "No file-by-file tasks, estimates, priority, or implementation authorization are produced.",
         "The response identifies the next decision or workflow needed without inventing it."
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "Draft one defect report and capture all supplied context. An artifact preview receives a 422 application/problem+json response, but the CLI replaces it with a generic error and exit code 1. Investigation confirmed that the generated HTTP client throws before its response reaches the command. Accepted design: a transport adapter extracts status and body from the foreign failure and decodes it once into ServiceProblem; the command adapter preserves the status and chooses the exit code. Illustrative interface sketch: ServiceFailure = { status: number; problem: ServiceProblem }. Accepted sequence: add the extraction helper, fix preview and publish adapters, then audit the remaining service endpoints. Testing strategy: unit cases for valid and malformed problem bodies, adapter contract tests for status and fields, CLI output snapshots, and an end-to-end service response. Behavioral verification: the CLI exposes the service status plus problem type, title, and detail. Open question: whether invalid non-problem JSON should be logged.",
+      "expected_output": "A tracker-ready defect report that retains the complete confirmed investigation, accepted adapter design, illustrative interface sketch, accepted implementation sequence, layered testing strategy, behavioral verification conditions, and unresolved logging question without confusing any of their authority states.",
+      "assertions": [
+        "The item remains a defect report and states the 422-to-generic-error discrepancy and confirmed foreign-client boundary.",
+        "The accepted transport and command adapter responsibilities, illustrative interface sketch, and three-step sequence are all preserved rather than compressed into a generic proposed fix.",
+        "The four testing layers remain distinct from the behavioral verification conditions.",
+        "The logging question remains unresolved, and no supplied design detail is treated as authorization to implement or create child tasks."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Write a defect report. In version 3.4, saving a profile with a two-character family name clears the display name. The accepted profile contract requires the display name to remain unchanged. It reproduces every time. We have no root cause, design, implementation plan, or testing strategy yet.",
+      "expected_output": "A focused defect report with expected and actual behavior, reproduction and version evidence, honest unknown impact, and behavioral verification conditions, without fabricated technical design or empty planning sections.",
+      "assertions": [
+        "The accepted expectation, actual result, version, and deterministic reproduction are preserved.",
+        "No root cause, architecture, code sketch, implementation sequence, testing strategy, tradeoff, or decision is invented.",
+        "The report does not add empty technical-context headings merely because the guide permits them.",
+        "Behavioral verification conditions cover the original failing case without prescribing a mechanism."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Draft a defect report from the supplied evidence. The investigation and behavioral verification conditions are accepted. A cross-cutting error-translation design affecting six commands is still proposed and is authoritative at docs/design/error-translation.md. Option A duplicates decoding in commands and is simpler locally but can drift; option B centralizes decoding in adapters and is recommended for consistency, but no decision has been made. Keep only the design status synopsis and link in the issue.",
+      "expected_output": "A defect report that preserves accepted investigation and verification evidence while summarizing and linking the proposed cross-cutting design, both options, their tradeoffs, the recommendation, and the still-open decision.",
+      "assertions": [
+        "The item keeps the accepted investigation and behavioral verification conditions separate from the proposed design.",
+        "The issue contains a concise design-status synopsis and the authoritative document link rather than a divergent copy.",
+        "Both options and tradeoffs are retained, option B remains a recommendation, and no accepted decision is claimed.",
+        "The presence of a detailed external design does not silently create implementation tasks or delivery approval."
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 ---
 name: author-software-work-items
-description: Creates and revises software work items and tracker-ready issue content for feature requests, bug or defect reports, operational incidents, and work-item titles and summaries. Use when asked to write, file, draft, rewrite, or improve a software issue, ticket, bug report, feature or enhancement request, incident record, issue title, or issue summary. Not for converting unaccepted requests into requirements or implementation tasks, planning an approved codebase change, managing a backlog, writing post-incident reviews, or implementing fixes and features.
+description: Creates and revises software work items and tracker-ready issue content for feature requests, bug or defect reports, operational incidents, and work-item titles and summaries, including faithful capture of supplied technical design and delivery context. Use when asked to write, file, draft, rewrite, or improve a software issue, ticket, bug report, feature or enhancement request, incident record, issue title, or issue summary. Not for independently designing or approving requirements, architecture, or implementation plans; faithfully transferring existing context is in scope. Not for backlog management, post-incident reviews, or implementation.
 ---
 
 # Author software work items
@@ -16,6 +16,7 @@ scope root, use the guides under
 | Job | Read | Add when the artifact boundary is uncertain |
 | --- | --- | --- |
 | Any title or summary | `titling-and-summarizing-work-items.md` | `work-item-titles-and-summaries.md` |
+| Existing technical design or delivery context | `preserving-design-and-delivery-context.md` | — |
 | Operational incident | `recording-operational-incidents.md` | `operational-incident-records.md` |
 | Suspected software defect | `reporting-software-defects.md` | `software-defects-and-defect-reports.md` |
 | Requested new or changed functionality | `writing-feature-requests.md` | `feature-requests-and-delivery-work.md` |
@@ -41,6 +42,9 @@ type.
 If the artifact is an implementation task, accepted delivery item,
 investigation, post-incident review, architecture decision, or general project
 record, use its governing workflow rather than stretching these templates.
+Classification sets the item's primary meaning and minimum content, not a body
+ceiling: a defect or request may preserve supplied design and delivery context
+without becoming the artifact that approves or executes it.
 
 ## Workflow
 
@@ -57,26 +61,33 @@ record, use its governing workflow rather than stretching these templates.
    invent affected users, demand, expected behavior, reproduction, timestamps,
    severity, priority, ownership, environment, or success measures. Mark an
    important unknown explicitly and say what would establish it.
-4. **Preserve type-specific meaning.** Apply the selected guide and local host
+4. **Preserve before prescribing.** When the source already contains findings,
+   constraints, decisions or proposals, architecture or code sketches,
+   implementation sequence, testing strategy, tradeoffs, or open questions,
+   include or link them with provenance and authority state. Do not trim them
+   to fit a shorter type template or invent what is absent; apply
+   `preserving-design-and-delivery-context.md`.
+5. **Preserve type-specific meaning.** Apply the selected guide and local host
    fields. Keep facts distinct from hypotheses, need distinct from proposed
    solution, severity distinct from priority, and current mitigation distinct
    from permanent correction. Link related artifacts instead of merging their
    lifecycles.
-5. **Derive the brief last.** Write a discriminating title and a one- or
+6. **Derive the brief last.** Write a discriminating title and a one- or
    two-sentence summary from the authoritative body and structured fields.
-   Nothing material may exist only in the brief. Re-derive an incident brief at
-   every material state change.
-6. **Apply only the authorized external change.** Before filing or updating,
+   Nothing material may exist only in the brief, and its length limit never
+   limits the body. Re-derive an incident brief at every material state change.
+7. **Apply only the authorized external change.** Before filing or updating,
    verify the exact tracker, repository or project, item, fields, and content.
    Do not assign, prioritize, label, close, comment, or change workflow state
    unless requested or required by an established local process in scope.
-7. **Verify and hand off.** Confirm the item satisfies its guide's final check,
-   the brief matches the body, evidence is attributed without overstatement,
-   unknowns remain visible, and links preserve neighboring lifecycles. Return
-   the final content or the created or updated item identity and name any field
-   the host could not represent.
+8. **Verify and hand off.** Compare the final item with all source material.
+   Confirm the guide's final check, an accurate brief, attributed evidence,
+   visible unknowns and authority states, preserved or linked technical
+   context, and distinct verification conditions and testing strategy. Return
+   the final content or external item identity and name any material the host
+   could not represent.
 
 Completion means the requested draft or external item exists in the right
 artifact class, another reader can understand and act on its evidence without
-interviewing the author, and no unaccepted product, delivery, or priority
-decision has been smuggled into it.
+interviewing the author, supplied context has not been lost, and no unaccepted
+product, design, delivery, or priority decision has been smuggled into it.

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@agentxm",
+    "type": "pack",
+    "name": "agent-engineering",
+    "version": "0.5.0",
+    "publisherBindingId": "hbnd_01ks5vvdf0efz9m4w5qsv4q5qp",
+    "integrity": "sha512-krj7aoVGqnqERew7v6rlL0FkG4TMyPYcNVKjrFoZflb5lT8s8JgDec/gMb1feCE39UrMjuGkspvNWmzXj1g/yA=="
+  }
+}

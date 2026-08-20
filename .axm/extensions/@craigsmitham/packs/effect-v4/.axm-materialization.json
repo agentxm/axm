@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "refType": "registry",
+    "owner": "@craigsmitham",
+    "type": "pack",
+    "name": "effect-v4",
+    "version": "0.4.0",
+    "publisherBindingId": "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7",
+    "integrity": "sha512-5LsUbXfsA4U479d/E4KsuPLO7kAIy/7dUyogvr0kliCZw4rSyTZbUGuU5Lo8xONMxesoTVt2aQUJRAYVAjXTzw=="
+  }
+}

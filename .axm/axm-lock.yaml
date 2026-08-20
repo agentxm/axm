@@ -68,8 +68,8 @@ skills:
     type: registry
     owner: "@craigsmitham"
     name: author-software-work-items
-    resolvedVersion: 0.0.1
-    integrity: sha512-0hBh5E+6clnSgP4AWZQewCAg72/AJP7G1Y17jQlWUSQyS41Momk+16VU4bC7OBUfxWJk7cOmcCf0OB6upnlA0w==
+    resolvedVersion: 0.1.0
+    integrity: sha512-6INh+AufM0EJvcPoSgkCarY8WIwQ3bfukXFSjmEPFltEVFD50ZHdU/sXGNShkLgSWd7a4iNbmaFCTmNMvkoFvA==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   audit-docs:
@@ -174,8 +174,8 @@ knowledge:
     type: registry
     owner: "@craigsmitham"
     name: software-engineering
-    resolvedVersion: 0.4.0
-    integrity: sha512-2rfXwwhTB6RRAW0kr/1lwyT6FYjBCqqe2HheeVrPps9MkrJjC81yVLusdk32TbwNyl3COORrVI60MjhTTFfMww==
+    resolvedVersion: 0.5.0
+    integrity: sha512-yMTe6SzYZPOb/H+nyuRYxhmu2v07xqhB4R0OPNTuttyFqu5dB71ThPC/+/78Af1vyjnVHziHjmQpqh1SAB8d7w==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   docs:
@@ -218,9 +218,9 @@ packs:
     type: registry
     owner: "@craigsmitham"
     name: software-engineering
-    resolvedVersion: 0.4.0
-    integrity: sha512-HCTBwogBSJrUiKtKne0lRtKGqj7J5qULaDHX/FdWhrjYvVA0FLRqhbqotY2R38jHoB19l+Zp+vT8TogMB7PfGA==
-    manifestContentIdentity: e0cee7601bc362335d769598e6616942c418dcf870aac43438bcef6602c653ac
+    resolvedVersion: 0.5.0
+    integrity: sha512-lhHl4MpvGuiP+Iey/G/OwCgPjBw85v8Uto9zZn2JqfDwe/uMOTykS4JKmtnww+64JNbS9ma8eAtss0AppcgByQ==
+    manifestContentIdentity: cf96ea9bc00c86dc97c92dc398c6b03508614cfe86fe4baaed74e73831cc65dc
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   docs:

@@ -376,14 +376,10 @@ const handleResolvedView = (args: {
       { successMessage: `Loaded ${subject}` },
     );
 
-    const visibility = yield* client.getExtensionVisibility({ ...args.parts, intent: null });
-    if (visibility.actual === null) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Extension ${args.handle} has no established visibility.`,
-      });
-    }
-    const data = toDocumentData(index, visibility.actual.value);
+    // Public index responses already carry the visibility the caller is
+    // authorized to observe. Do not follow an anonymous read with the
+    // protected visibility-management endpoint.
+    const data = toDocumentData(index, index.visibility ?? "public");
 
     if (Option.isSome(args.field)) {
       const field = args.field.value;

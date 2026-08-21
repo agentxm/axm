@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -279,6 +281,69 @@ describe("view handler", () => {
       }),
     );
   });
+
+  for (const testCase of [
+    { label: "human output", machine: false },
+    { label: "machine output", machine: true },
+  ]) {
+    it.effect(`reads a public extension anonymously in ${testCase.label}`, () => {
+      fs.rmSync(path.join(tempDir, ".axm"), { recursive: true, force: true });
+      const requests: Array<string> = [];
+      const httpClient = HttpClient.make((request) =>
+        Effect.sync(() => {
+          requests.push(request.url);
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify({
+                name: "code-review",
+                owner: "@test",
+                type: "skill",
+                publisher_binding_id: "hbnd_test",
+                description: "Review code",
+                visibility: "public",
+                deprecation: null,
+                versions: [
+                  {
+                    version: "1.2.3",
+                    published: "2026-01-01T00:00:00.000Z",
+                    integrity: "sha512-test",
+                  },
+                ],
+              }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            ),
+          );
+        }),
+      );
+      const ctx = makeCliTestContext({ machine: testCase.machine, httpClient });
+      const provide = makeEffectProvide(ctx.baseLayer);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleView({
+            handle: "@test/skills/code-review",
+            field: Option.none(),
+            registry: Option.none(),
+          });
+
+          expect(requests).toEqual([
+            "https://registry.example.com/v1/extensions/@test/skills/code-review",
+          ]);
+          if (testCase.machine) {
+            expect(ctx.rendererState.results[0]?.data).toMatchObject({
+              handle: "@test/skills/code-review",
+              visibility: "public",
+            });
+          } else {
+            expect(ctx.rendererState.tables[0]?.items).toEqual(
+              expect.arrayContaining([{ field: "Visibility", value: "public" }]),
+            );
+          }
+        }),
+      );
+    });
+  }
 
   it.effect("fails with supported fields for an unknown field", () => {
     const { provide } = makeWorkspaceHandlerTestContext();

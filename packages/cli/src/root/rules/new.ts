@@ -10,6 +10,8 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildNewExtensionStep,
   computeSourceHash,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
@@ -77,7 +79,7 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
     subject: "Rule",
     name,
     configured: Object.hasOwn(configuredRules, name),
-    destinations: [targetDir],
+    destinations: [],
   });
 
   const title = Option.getOrElse(args.title, () => name);
@@ -103,27 +105,41 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
       { path: ".axm (config/lockfile)", change: "created" as const },
     ],
   };
-  const scaffold = Effect.gen(function* () {
-    yield* fs.makeDirectory(path.dirname(bodyPath), { recursive: true }).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create rule directory: ${targetDir}`,
-          cause,
-        }),
-      ),
-    );
-    yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    yield* fs.writeFileString(
-      bodyPath,
-      `# ${title}\n\nDescribe the behavior this rule asks agents to follow.\n`,
-    );
+  const scaffold = createCanonicalDirectory({
+    baseDir: ws.baseDir,
+    canonicalPath: targetDir,
+    subject: "Rule",
+    requiredFiles: [RULE_MANIFEST_FILENAME, `${RULE_SOURCE_DIR}/${RULE_BODY_FILENAME}`],
+    populate: (stagingPath) => {
+      const stagedManifestPath = path.join(stagingPath, RULE_MANIFEST_FILENAME);
+      const stagedBodyPath = path.join(stagingPath, RULE_SOURCE_DIR, RULE_BODY_FILENAME);
+      return Effect.gen(function* () {
+        yield* fs.makeDirectory(path.dirname(stagedBodyPath), { recursive: true }).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to create rule directory: ${stagingPath}`,
+              cause,
+            }),
+          ),
+        );
+        yield* fs.writeFileString(stagedManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        yield* fs.writeFileString(
+          stagedBodyPath,
+          `# ${title}\n\nDescribe the behavior this rule asks agents to follow.\n`,
+        );
+      }).pipe(
+        Effect.mapError((cause) =>
+          cause._tag === "AppError"
+            ? cause
+            : makeAppError({ code: "internal", detail: `Failed to scaffold ${fqn}`, cause }),
+        ),
+      );
+    },
   }).pipe(
-    Effect.mapError((cause) =>
-      cause._tag === "AppError"
-        ? cause
-        : makeAppError({ code: "internal", detail: `Failed to scaffold ${fqn}`, cause }),
-    ),
+    Effect.asVoid,
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
   );
 
   const plan: Plan = {
@@ -154,6 +170,13 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
             plannedArtifact: artifact,
             preflight: Effect.gen(function* () {
               const current = yield* ws.getConfiguredRuleEntries();
+              yield* recoverCanonicalDirectory({
+                baseDir: ws.baseDir,
+                canonicalPath: targetDir,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              );
               yield* preflightCreateOnly({
                 subject: "Rule",
                 name,

@@ -21,8 +21,30 @@ import {
 } from "./instructions.js";
 import { AGENTS } from "./registry.js";
 
-const git = (root: string, args: ReadonlyArray<string>) =>
-  spawnSync("git", args, { cwd: root, encoding: "utf8" });
+const gitLocalEnvironmentVariables = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_INTERNAL_SUPER_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+] as const;
+
+const git = (root: string, args: ReadonlyArray<string>) => {
+  const environment = { ...process.env };
+  for (const name of gitLocalEnvironmentVariables) delete environment[name];
+  return spawnSync("git", args, { cwd: root, encoding: "utf8", env: environment });
+};
 
 const isGitIgnored = (root: string, relativePath: string): boolean =>
   git(root, ["check-ignore", "--quiet", "--no-index", relativePath]).status === 0;

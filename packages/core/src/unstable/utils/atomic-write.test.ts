@@ -15,7 +15,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 
-import { writeFileAtomic, type AtomicWriteFailure } from "./atomic-write.js";
+import {
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+  type AtomicWriteFailure,
+} from "./atomic-write.js";
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -171,6 +175,26 @@ describe("writeFileAtomic", () => {
         expect(failure.targetPath).toBe(targetDir);
         expect(failure.tempPath.startsWith(`${targetDir}.tmp.`)).toBe(true);
         expect(nodeFs.readdirSync(tempDir)).toEqual(["target-dir"]);
+      }),
+    ),
+  );
+
+  it.effect("sweeps only temp siblings owned by the exact target", () =>
+    withContext(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const stale = `${target}.tmp.crashed`;
+        const otherTargetTemp = nodePath.join(tempDir, "target.txt.backup.tmp.keep");
+        const unknownSibling = nodePath.join(tempDir, "target.txt.tmp-not-owned");
+        nodeFs.writeFileSync(stale, "partial");
+        nodeFs.writeFileSync(otherTargetTemp, "keep");
+        nodeFs.writeFileSync(unknownSibling, "keep");
+
+        yield* sweepStaleAtomicWriteTemps(fs, target);
+
+        expect(nodeFs.existsSync(stale)).toBe(false);
+        expect(nodeFs.readFileSync(otherTargetTemp, "utf8")).toBe("keep");
+        expect(nodeFs.readFileSync(unknownSibling, "utf8")).toBe("keep");
       }),
     ),
   );

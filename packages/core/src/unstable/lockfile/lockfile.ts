@@ -15,7 +15,11 @@ import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { writeFileAtomic, type AtomicWriteFailure } from "../utils/index.js";
+import {
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+  type AtomicWriteFailure,
+} from "../utils/index.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -29,10 +33,6 @@ import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
  */
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
-// Matches temp files produced by `writeFileAtomic` for the lockfile target
-// (`<target>.tmp.<unique>`), so the stale-temp sweep stays in sync with the
-// shared helper's naming scheme.
-const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
 // eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by lockfiles touched during this one CLI invocation.
 const lockSemaphores = new Map<string, Semaphore.Semaphore>();
 
@@ -70,18 +70,6 @@ const ensureAxmDir = (axmDir: string) =>
           cause: error,
         }),
       ),
-    );
-  });
-
-const sweepStaleLockfileTemps = (axmDir: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const entries = yield* fs.readDirectory(axmDir).pipe(Effect.orElseSucceed(() => []));
-    yield* Effect.forEach(
-      entries.filter((entry) => entry.startsWith(TEMP_PREFIX)),
-      (entry) => fs.remove(path.join(axmDir, entry), { force: true }).pipe(Effect.ignore),
-      { concurrency: "unbounded", discard: true },
     );
   });
 
@@ -248,6 +236,7 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
     const path = yield* Path.Path;
     const lockfilePath = lockfilePathFor(path, axmDir);
     const yamlContent = yield* encodeLockfileYaml(lockfile);
+    yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
     yield* writeFileAtomic(fs, {
       targetPath: lockfilePath,
       content: yamlContent,
@@ -290,7 +279,6 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
     yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
-        yield* sweepStaleLockfileTemps(axmDir);
         yield* writeLockfileUnlocked(axmDir, lockfile);
       }),
     );
@@ -324,7 +312,6 @@ export const commitLockfileUpdates = (
     const updated = yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
-        yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
         yield* writeLockfileUnlocked(axmDir, updated);
@@ -351,7 +338,6 @@ export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, nex
     const updated = yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
-        yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
         yield* writeLockfileUnlocked(axmDir, updated);

@@ -13,6 +13,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 
 /**
@@ -62,11 +63,30 @@ export interface WriteFileAtomicOptions<E> {
 /** In-process sequence so concurrent fibers never share a temp path. */
 let tempSequence = 0;
 
+export const atomicWriteTempPrefix = (targetPath: string): string => `${targetPath}.tmp.`;
+
+/** Remove only stale temp siblings belonging to one atomic-write target. */
+export const sweepStaleAtomicWriteTemps = (
+  fs: FileSystem.FileSystem,
+  targetPath: string,
+): Effect.Effect<void, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const parent = path.dirname(targetPath);
+    const filenamePrefix = `${path.basename(targetPath)}.tmp.`;
+    const entries = yield* fs.readDirectory(parent).pipe(Effect.orElseSucceed(() => []));
+    yield* Effect.forEach(
+      entries.filter((entry) => entry.startsWith(filenamePrefix)),
+      (entry) => fs.remove(path.join(parent, entry), { force: true }).pipe(Effect.ignore),
+      { discard: true },
+    );
+  });
+
 const makeTempPath = (targetPath: string): string => {
   tempSequence += 1;
   const pid = typeof process === "object" ? process.pid.toString(36) : "x";
   const random = Math.random().toString(36).slice(2, 8);
-  return `${targetPath}.tmp.${pid}.${tempSequence.toString(36)}.${random}`;
+  return `${atomicWriteTempPrefix(targetPath)}${pid}.${tempSequence.toString(36)}.${random}`;
 };
 
 const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>

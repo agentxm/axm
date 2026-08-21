@@ -6,6 +6,8 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
   computeSourceHash,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
@@ -15,7 +17,6 @@ import {
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
-  computeSubagentPaths,
   subagentScaffoldArtifact,
   subagentSourcePath,
   subagentContentPath,
@@ -91,7 +92,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     subject: "Subagent",
     name: args.name,
     configured: Object.hasOwn(configuredSubagents, args.name),
-    destinations: [canonicalPath],
+    destinations: [],
   });
   const ref: WorkspaceSubagentRef = {
     type: "subagent",
@@ -130,6 +131,10 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     message: `Created subagent ${fqn}`,
     preflight: Effect.gen(function* () {
       const current = yield* ws.getConfiguredSubagentEntries();
+      yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
       yield* preflightCreateOnly({
         subject: "Subagent",
         name: args.name,
@@ -143,65 +148,56 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     }),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
-    scaffold: Effect.gen(function* () {
-      const extensionName = decodeExtensionNameSync(args.name);
-
-      // Compute paths
-      const { canonicalPath, subagentSrcPath } = computeSubagentPaths(
-        path.join,
-        base,
-        { refType: "registry", owner },
-        args.name,
-      );
-
-      // Create subagent directory (src/ implies canonicalPath is also created)
-      yield* fs.makeDirectory(subagentSrcPath, { recursive: true }).pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to create subagent directory: ${subagentSrcPath}`,
-            cause: e,
-          }),
-        ),
-      );
-
-      // Write manifest
-      const manifest: SubagentManifest = {
-        $schema: MANIFEST_SCHEMA_URL,
-        owner,
-        type: "subagent",
-        name: extensionName,
-        version: INITIAL_VERSION,
-      };
-
-      yield* fs
-        .writeFileString(
-          path.join(canonicalPath, MANIFEST_FILENAME),
-          JSON.stringify(manifest, null, 2) + "\n",
-        )
-        .pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "validation",
-              detail: `Subagent manifest could not be written`,
-              cause: e,
-            }),
-          ),
-        );
-
-      // Write starter content file
-      const subagentMdContent = makeSubagentMd(args.name);
-      const contentPath = subagentContentPath(path.join, subagentSrcPath, args.name);
-
-      yield* fs.writeFileString(contentPath, subagentMdContent).pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to write subagent content`,
-            cause: e,
-          }),
-        ),
-      );
+    scaffold: createCanonicalDirectory({
+      baseDir: base,
+      canonicalPath,
+      subject: "Subagent",
+      requiredFiles: [MANIFEST_FILENAME, `src/${args.name}.md`],
+      populate: (stagingPath) =>
+        Effect.gen(function* () {
+          const extensionName = decodeExtensionNameSync(args.name);
+          const subagentSrcPath = path.join(stagingPath, "src");
+          yield* fs.makeDirectory(subagentSrcPath, { recursive: true }).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: `Failed to create subagent directory: ${subagentSrcPath}`,
+                cause: e,
+              }),
+            ),
+          );
+          const manifest: SubagentManifest = {
+            $schema: MANIFEST_SCHEMA_URL,
+            owner,
+            type: "subagent",
+            name: extensionName,
+            version: INITIAL_VERSION,
+          };
+          yield* fs
+            .writeFileString(
+              path.join(stagingPath, MANIFEST_FILENAME),
+              JSON.stringify(manifest, null, 2) + "\n",
+            )
+            .pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: "Subagent manifest could not be written",
+                  cause: e,
+                }),
+              ),
+            );
+          const contentPath = subagentContentPath(path.join, subagentSrcPath, args.name);
+          yield* fs.writeFileString(contentPath, makeSubagentMd(args.name)).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: "Failed to write subagent content",
+                cause: e,
+              }),
+            ),
+          );
+        }),
     }).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

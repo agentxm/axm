@@ -235,7 +235,7 @@ const probeAxmSkillCompatibility = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = yield* Effect.acquireRelease(
-      fs.makeTempDirectory().pipe(
+      fs.makeTempDirectory({ prefix: "axm-registry-compatibility-" }).pipe(
         Effect.mapError((cause) =>
           makeAppError({
             code: "network",
@@ -715,7 +715,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
 
     const fs = yield* FileSystem.FileSystem;
     const tmpDir = yield* Effect.acquireRelease(
-      fs.makeTempDirectory().pipe(
+      fs.makeTempDirectory({ prefix: "axm-registry-package-" }).pipe(
         Effect.mapError((e) =>
           makeAppError({
             code: "network",

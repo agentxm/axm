@@ -102,14 +102,31 @@ and preserve all surrounding content, owned and unowned.
 
 Abrupt process termination must not tear an authoritative file, publish an
 incomplete canonical directory, or lose workspace-authored or unowned content.
-AXM may use narrow markers identifying the affected closure and owned staging;
-markers do not journal command intent or preimages.
+The next mutation acquires the workspace lock, resolves owned transient state,
+then evaluates its requested transition. AXM restores validity; it does not
+promise to finish, resume, or roll back the interrupted command.
 
-The next mutation acquires the OS lock, converges any marked closure from
-surviving settings, lock state, canonical content, and ownership facts, then
-evaluates its requested transition. AXM restores validity; it does not promise
-to finish, resume, or roll back the interrupted command. Abandoned staging is
-removed only when AXM can prove ownership.
+File placement communicates ownership and lifetime without a transaction
+journal, command-intent marker, receipt, or recovery flag:
+
+| State                                     | Placement and lifecycle                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Durable workspace authority               | Canonical files and packages below `.axm/`                                                  |
+| Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock` |
+| Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                   |
+| Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                  |
+| Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                       |
+| Performance-only cache                    | The platform cache directory, including Registry archives and update-check state            |
+| Restricted user state                     | The user AXM home, including pending login, file credentials, and install metadata          |
+
+Package creation, import, fork, install, and replacement all populate and
+validate the complete sibling staging tree before a same-parent rename makes it
+canonical. On the next mutation, backup without canonical restores the prior
+tree; backup with canonical is superseded; stale staging is discarded. Recovery
+recognizes only these exact owned sibling names and preserves all unrelated
+content. Unique scratch children allow concurrent operations without deleting
+one another's work, and an empty `.axm/tmp/` is removed after its last owner
+finishes.
 
 ## Projection adapters
 

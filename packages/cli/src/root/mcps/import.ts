@@ -29,10 +29,12 @@ import {
 import {
   REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
+  createCanonicalDirectory,
   formatFqn,
   fqnInvalidErrorToAppError,
   parseFqn,
   preflightCreateOnly,
+  recoverCanonicalDirectory,
 } from "@agentxm/client-core/unstable/extensions";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import type {
@@ -548,7 +550,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     subject: "MCP package",
     name: target.name,
     configured: false,
-    destinations: [targetDir],
+    destinations: [],
   }).pipe(Effect.provideService(FileSystem.FileSystem, args.fs));
   const manifest: McpServerManifest = {
     $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
@@ -611,37 +613,46 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     message: `Imported ${fqn}`,
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
-    preflight: preflightCreateOnly({
+    preflight: Effect.gen(function* () {
+      yield* recoverCanonicalDirectory({
+        baseDir: args.ws.baseDir,
+        canonicalPath: targetDir,
+      });
+      yield* preflightCreateOnly({
+        subject: "MCP package",
+        name: target.name,
+        configured: false,
+        destinations: [targetDir],
+      });
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+    ),
+    scaffold: createCanonicalDirectory({
+      baseDir: args.ws.baseDir,
+      canonicalPath: targetDir,
       subject: "MCP package",
-      name: target.name,
-      configured: false,
-      destinations: [targetDir],
-    }).pipe(Effect.provideService(FileSystem.FileSystem, args.fs)),
-    scaffold: Effect.gen(function* () {
-      yield* args.fs.makeDirectory(targetDir, { recursive: true }).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `MCP package could not be created: ${targetDir}`,
-            cause,
-          }),
-        ),
-      );
-      yield* args.fs
-        .writeFileString(
-          args.path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME),
-          `${JSON.stringify(manifest, null, 2)}\n`,
-        )
-        .pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: "MCP package manifest could not be written",
-              cause,
-            }),
+      requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+      populate: (stagingPath) =>
+        args.fs
+          .writeFileString(
+            args.path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+            `${JSON.stringify(manifest, null, 2)}\n`,
+          )
+          .pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: "MCP package manifest could not be staged",
+                cause,
+              }),
+            ),
           ),
-        );
-    }),
+    }).pipe(
+      Effect.asVoid,
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+    ),
     markAuthored: args.ws.setMcpServerEntry(target.name, {
       source,
       enabled: true,

@@ -35,6 +35,24 @@ describe("settings", () => {
   });
 
   describe("writeSettings", () => {
+    it.effect("removes stale owned temps without touching unknown siblings", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          const settingsPath = path.join(axmDir, "settings.json");
+          const stale = `${settingsPath}.tmp.crashed`;
+          const unknown = path.join(axmDir, "settings.json.tmp-not-owned");
+          fs.writeFileSync(stale, "partial");
+          fs.writeFileSync(unknown, "keep");
+
+          yield* writeSettings(axmDir, createDefaultSettings());
+
+          expect(fs.existsSync(stale)).toBe(false);
+          expect(fs.readFileSync(unknown, "utf8")).toBe("keep");
+        }),
+      ),
+    );
+
     describe("byte-identity corpus", () => {
       const fixtures = [
         {

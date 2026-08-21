@@ -79,7 +79,8 @@ Preview, human display, JSON output, approval, and apply refer to that same
 candidate ID. AXM fingerprints material desired, lock, manifest, canonical, and
 target preimage state and rejects a stale candidate before its first write.
 
-Application holds one atomic process lock per workspace. Settings, accepted
+Application holds one atomic process lock per workspace at
+`.axm/tmp/workspace-transition.lock`. Settings, accepted
 lock state, canonical content, and owned outputs needed by one closure commit
 together. A handled failure or interruption restores protected targets. The
 lock is refreshed while its owner runs and reclaimed after abrupt process
@@ -90,6 +91,23 @@ publishes it into the canonical directory by rename, so a canonical directory
 only ever holds a whole tree. The next mutation removes stale staging content
 and recovers a prior tree left in the sibling backup by an interrupted
 replacement before reconciling again.
+
+## Transient files and caches
+
+Durable workspace state stays in canonical `.axm/` paths. AXM uses unique
+children of `.axm/tmp/` only for project-local scratch and removes that
+directory when it becomes empty. Invocation scratch and transaction rollback
+snapshots use uniquely prefixed operating-system temporary directories.
+
+Atomic file writes use exact `<target>.tmp.<unique>` siblings. Atomic package
+publication uses only exact `<package>.axm-staging` and
+`<package>.axm-backup` siblings. A later writer cleans only names it owns;
+unrelated neighboring files and scratch children are preserved. AXM does not
+persist command-intent journals, recovery markers, or receipts.
+
+Registry archives and update-check state are performance-only data in the
+platform cache directory. Invalid or corrupt cache data is ignored or removed
+and rebuilt; it is never workspace authority.
 
 ## Workspace files
 

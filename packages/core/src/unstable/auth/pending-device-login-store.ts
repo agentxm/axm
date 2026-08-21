@@ -65,6 +65,7 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const homeDir = resolveHomeDir([
+      yield* envOption("AXM_USER_HOME"),
       yield* envOption("HOME"),
       yield* envOption("USERPROFILE"),
       yield* envOption("HOMEPATH"),

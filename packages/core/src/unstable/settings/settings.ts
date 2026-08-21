@@ -11,7 +11,7 @@ import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { writeFileAtomic } from "../utils/index.js";
+import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   SETTINGS_KEY_ORDER,
@@ -271,6 +271,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
+    yield* sweepStaleAtomicWriteTemps(fs, settingsPath);
     yield* writeFileAtomic(fs, {
       targetPath: settingsPath,
       content,

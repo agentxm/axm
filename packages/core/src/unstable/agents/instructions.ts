@@ -417,23 +417,31 @@ const discoverInstructionTree = (
     };
   });
 
+let symlinkProbeSequence = 0;
+
 export const probeSymlinkSupport = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
-    const probeDir = path.join(tmpDir, "instructions-symlink-probe");
-    const target = path.join(probeDir, "target");
-    const link = path.join(probeDir, "link");
-    yield* fs.remove(probeDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+    yield* fs.makeDirectory(tmpDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+    symlinkProbeSequence += 1;
+    const probeDir = path.join(
+      tmpDir,
+      `instructions-symlink-probe-${process.pid.toString(36)}-${symlinkProbeSequence.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     const result = yield* Effect.gen(function* () {
       yield* fs.makeDirectory(probeDir, { recursive: true });
+      const target = path.join(probeDir, "target");
+      const link = path.join(probeDir, "link");
       yield* fs.writeFileString(target, "ok\n");
       yield* fs.symlink("target", link);
       const content = yield* fs.readFileString(link);
       return content === "ok\n";
-    }).pipe(Effect.catch(() => Effect.succeed(false)));
-    yield* fs.remove(probeDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+    }).pipe(
+      Effect.ensuring(fs.remove(probeDir, { recursive: true, force: true }).pipe(Effect.ignore)),
+      Effect.catch(() => Effect.succeed(false)),
+    );
     // Remove the tmp dir only if the probe left it empty, so we don't strip out
     // unrelated content that another flow may have placed there.
     yield* fs.readDirectory(tmpDir).pipe(

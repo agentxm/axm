@@ -10,6 +10,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
 import {
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
   decodeExtensionNameSync,
   preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
@@ -152,7 +154,7 @@ export const newHook: OperationHandler<
 
     const configuredHooks = yield* ws.getConfiguredHookEntries();
     const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, owner, HOOK_EXTENSION_DIR, name);
-    const srcDir = path.join(canonicalPath, "src");
+    yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath });
     yield* preflightCreateOnly({
       subject: "Hook",
       name,
@@ -160,18 +162,6 @@ export const newHook: OperationHandler<
       destinations: [canonicalPath],
     });
 
-    // 3. Create managed extension directories (src/ implies canonicalPath)
-    yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to create hook directory: ${srcDir}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    // 4. Write manifest
     const entrypointFile = entrypointFilename(runtime);
     const bindingMatcher = matcherForBinding(event, matcher);
     const manifest: HookManifest = {
@@ -187,31 +177,51 @@ export const newHook: OperationHandler<
       ],
     };
 
-    yield* fs
-      .writeFileString(
-        path.join(canonicalPath, HOOK_MANIFEST_FILENAME),
-        JSON.stringify(manifest, null, 2) + "\n",
-      )
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Hook manifest could not be written`,
-            cause: e,
-          }),
-        ),
-      );
-
-    // 5. Write starter entrypoint
-    yield* fs.writeFileString(path.join(srcDir, entrypointFile), makeEntrypoint(runtime, fqn)).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to write ${entrypointFile}`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* createCanonicalDirectory({
+      baseDir: base,
+      canonicalPath,
+      subject: "Hook",
+      requiredFiles: [HOOK_MANIFEST_FILENAME, `src/${entrypointFile}`],
+      populate: (stagingPath) => {
+        const srcDir = path.join(stagingPath, "src");
+        return Effect.gen(function* () {
+          yield* fs.makeDirectory(srcDir, { recursive: true }).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: `Failed to create hook directory: ${srcDir}`,
+                cause: e,
+              }),
+            ),
+          );
+          yield* fs
+            .writeFileString(
+              path.join(stagingPath, HOOK_MANIFEST_FILENAME),
+              JSON.stringify(manifest, null, 2) + "\n",
+            )
+            .pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: "Hook manifest could not be written",
+                  cause: e,
+                }),
+              ),
+            );
+          yield* fs
+            .writeFileString(path.join(srcDir, entrypointFile), makeEntrypoint(runtime, fqn))
+            .pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Failed to write ${entrypointFile}`,
+                  cause: e,
+                }),
+              ),
+            );
+        });
+      },
+    });
 
     return {
       result: "success",

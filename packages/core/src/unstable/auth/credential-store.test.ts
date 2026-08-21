@@ -13,10 +13,22 @@ import {
   CredentialStoreTest,
   type EnvironmentInfo,
   canUsePersistedCredentials,
+  resolveCredentialHomeDir,
   selectTier,
 } from "./credential-store.js";
 
 describe("CredentialStore", () => {
+  it("prefers AXM_USER_HOME for restricted file placement", () => {
+    expect(
+      resolveCredentialHomeDir({
+        axmUserHome: Option.some("/isolated"),
+        home: Option.some("/real-home"),
+        userProfile: Option.none(),
+        homePath: Option.none(),
+      }),
+    ).toBe("/isolated");
+  });
+
   describe("CredentialStoreTest (in-memory)", () => {
     const registryUrl = "https://registry.agentxm.ai";
     const credentials = {

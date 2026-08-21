@@ -97,15 +97,18 @@ const loadKeyringEntry = Effect.tryPromise({
 // Internal helpers (take fs/path as args to avoid context leakage)
 // -----------------------------------------------------------------------------
 
-const resolveHomeDir = (config: {
+export const resolveCredentialHomeDir = (config: {
+  readonly axmUserHome: Option.Option<string>;
   readonly home: Option.Option<string>;
   readonly userProfile: Option.Option<string>;
   readonly homePath: Option.Option<string>;
 }): string =>
   Option.getOrElse(
-    Option.orElse(
-      Option.orElse(config.home, () => config.userProfile),
-      () => config.homePath,
+    Option.orElse(config.axmUserHome, () =>
+      Option.orElse(
+        Option.orElse(config.home, () => config.userProfile),
+        () => config.homePath,
+      ),
     ),
     () => "/tmp",
   );
@@ -400,10 +403,11 @@ export const CredentialStoreLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const axmUserHome = yield* envOption("AXM_USER_HOME");
     const home = yield* envOption("HOME");
     const userProfile = yield* envOption("USERPROFILE");
     const homePath = yield* envOption("HOMEPATH");
-    const homeDir = resolveHomeDir({ home, userProfile, homePath });
+    const homeDir = resolveCredentialHomeDir({ axmUserHome, home, userProfile, homePath });
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     const persistedCredentialsAllowed = canUsePersistedCredentials(env);

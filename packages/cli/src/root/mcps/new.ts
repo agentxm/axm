@@ -6,10 +6,12 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  createCanonicalDirectory,
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
   REGISTRY_EXTENSIONS_DIR,
+  recoverCanonicalDirectory,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
@@ -121,7 +123,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     subject: "MCP server",
     name: args.name,
     configured: Object.hasOwn(configuredServers, args.name),
-    destinations: [targetDir],
+    destinations: [],
   });
 
   const manifest: McpServerManifest = {
@@ -188,29 +190,39 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
         targets: [targetDir],
         transition: Effect.gen(function* () {
           const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+          yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
           yield* preflightCreateOnly({
             subject: "MCP server",
             name: args.name,
             configured: Object.hasOwn(currentConfigured, args.name),
             destinations: [targetDir],
           }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-          yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to create MCP server directory: ${targetDir}`,
-                cause: error,
-              }),
-            ),
-          );
-          yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to write MCP server manifest: ${manifestPath}`,
-                cause: error,
-              }),
-            ),
+          yield* createCanonicalDirectory({
+            baseDir: ws.baseDir,
+            canonicalPath: targetDir,
+            subject: "MCP server",
+            requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+            populate: (stagingPath) =>
+              fs
+                .writeFileString(
+                  path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+                  `${JSON.stringify(manifest, null, 2)}\n`,
+                )
+                .pipe(
+                  Effect.mapError((error) =>
+                    makeAppError({
+                      code: "internal",
+                      detail: `Failed to stage MCP server manifest for ${targetDir}`,
+                      cause: error,
+                    }),
+                  ),
+                ),
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
           );
           yield* ws.setMcpServerEntry(args.name, {
             source: `workspace:${fqn}`,

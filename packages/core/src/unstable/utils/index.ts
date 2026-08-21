@@ -1,4 +1,9 @@
-export { writeFileAtomic, type AtomicWriteFailure } from "./atomic-write.js";
+export {
+  atomicWriteTempPrefix,
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+  type AtomicWriteFailure,
+} from "./atomic-write.js";
 export { buildZipArchive } from "./build-zip-archive.js";
 export {
   removeIfExists,

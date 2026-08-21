@@ -126,6 +126,11 @@ export type {
   ArchiveCacheVerifyResult,
 } from "./archive-cache.js";
 export {
+  resolveAxmCacheRoot,
+  resolveAxmCacheRootPure,
+  type AxmCacheEnvironment,
+} from "./cache-root.js";
+export {
   ARCHIVE_CACHE_MAX_AGE,
   ARCHIVE_CACHE_MAX_BYTES,
   makeArchiveCache,

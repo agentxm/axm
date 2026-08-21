@@ -10,7 +10,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeIntegrity } from "../utils/index.js";
-import { makeArchiveCache, resolveArchiveCacheRootPure } from "./archive-cache.js";
+import { makeArchiveCache } from "./archive-cache.js";
+import { resolveAxmCacheRootPure } from "./cache-root.js";
 
 const withCache = <A, E>(
   use: (cacheRoot: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
@@ -25,28 +26,28 @@ const withCache = <A, E>(
 
 describe("ArchiveCache", () => {
   it("resolves the platform-native cache root", () => {
-    expect(resolveArchiveCacheRootPure(nodePath.join, "darwin", "/Users/test", {})).toBe(
-      nodePath.join("/Users/test", "Library", "Caches", "axm", "archives"),
+    expect(resolveAxmCacheRootPure(nodePath.join, "darwin", "/Users/test", {})).toBe(
+      nodePath.join("/Users/test", "Library", "Caches", "axm"),
     );
     expect(
-      resolveArchiveCacheRootPure(nodePath.join, "linux", "/home/test", {
+      resolveAxmCacheRootPure(nodePath.join, "linux", "/home/test", {
         xdgCacheHome: "/var/cache/test",
       }),
-    ).toBe(nodePath.join("/var/cache/test", "axm", "archives"));
+    ).toBe(nodePath.join("/var/cache/test", "axm"));
     expect(
-      resolveArchiveCacheRootPure(nodePath.win32.join, "win32", "C:\\Users\\test", {
+      resolveAxmCacheRootPure(nodePath.win32.join, "win32", "C:\\Users\\test", {
         localAppData: "D:\\LocalData",
       }),
-    ).toBe(nodePath.win32.join("D:\\LocalData", "axm", "cache", "archives"));
+    ).toBe(nodePath.win32.join("D:\\LocalData", "axm", "cache"));
   });
 
   it("uses AXM_USER_HOME as a hermetic cache-home override", () => {
     expect(
-      resolveArchiveCacheRootPure(nodePath.join, "linux", "/home/test", {
+      resolveAxmCacheRootPure(nodePath.join, "linux", "/home/test", {
         axmUserHome: "/tmp/axm-home",
         xdgCacheHome: "/var/cache/test",
       }),
-    ).toBe(nodePath.join("/tmp/axm-home", ".cache", "axm", "archives"));
+    ).toBe(nodePath.join("/tmp/axm-home", ".cache", "axm"));
   });
 
   it.effect("writes atomically and returns verified archive bytes", () =>

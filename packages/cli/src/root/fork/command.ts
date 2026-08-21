@@ -30,6 +30,7 @@ import {
   buildAuthoredExtensionStep,
   computePackageContentHash,
   copyExtensionDirectory,
+  createCanonicalDirectory,
   extensionTypeFromPlural,
   extensionTypeToPlural,
   formatFqn,
@@ -38,6 +39,7 @@ import {
   parseFqn,
   parseRegistrySourcePatternParts,
   preflightCreateOnly,
+  recoverCanonicalDirectory,
   type ExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -156,7 +158,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
     subject: "Fork target",
     name: target.name,
     configured: false,
-    destinations: [targetDir],
+    destinations: [],
   });
 
   const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-fork-" }).pipe(
@@ -264,30 +266,45 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
     finalizeAuthored,
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
-    preflight: preflightCreateOnly({
-      subject: "Fork target",
-      name: target.name,
-      configured: false,
-      destinations: [targetDir],
-    }).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
-    scaffold: Effect.gen(function* () {
-      const currentHash = yield* computePackageContentHash(stagedPackage);
-      if (currentHash !== stagedHash) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: "Prepared fork content changed before it could be applied",
-        });
-      }
-      yield* copyExtensionDirectory(stagedPackage, targetDir).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Prepared fork could not be written to ${targetDir}`,
-            cause,
-          }),
-        ),
-      );
+    preflight: Effect.gen(function* () {
+      yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir });
+      yield* preflightCreateOnly({
+        subject: "Fork target",
+        name: target.name,
+        configured: false,
+        destinations: [targetDir],
+      });
     }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
+    scaffold: createCanonicalDirectory({
+      baseDir: ws.baseDir,
+      canonicalPath: targetDir,
+      subject: "Fork target",
+      populate: (publicationPath) =>
+        copyExtensionDirectory(stagedPackage, publicationPath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Prepared fork could not be staged for ${targetDir}`,
+              cause,
+            }),
+          ),
+        ),
+      validate: (publicationPath) =>
+        computePackageContentHash(publicationPath).pipe(
+          Effect.flatMap((currentHash) =>
+            currentHash === stagedHash
+              ? Effect.void
+              : makeAppError({
+                  code: "conflict",
+                  detail: "Prepared fork content changed before it could be applied",
+                }),
+          ),
+        ),
+    }).pipe(
+      Effect.asVoid,
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),

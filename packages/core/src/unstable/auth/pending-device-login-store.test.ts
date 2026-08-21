@@ -95,4 +95,33 @@ describe("PendingDeviceLoginStore", () => {
       Effect.provide(layer),
     );
   });
+
+  it.effect("uses AXM_USER_HOME without writing pending state under HOME", () => {
+    const realHome = mkdtempSync(join(tmpdir(), "axm-real-home-"));
+    const axmUserHome = mkdtempSync(join(tmpdir(), "axm-user-home-"));
+    const previousHome = process.env["HOME"];
+    const previousAxmUserHome = process.env["AXM_USER_HOME"];
+    process.env["HOME"] = realHome;
+    process.env["AXM_USER_HOME"] = axmUserHome;
+    const layer = PendingDeviceLoginStoreLive.pipe(Layer.provide(NodeServices.layer));
+
+    return Effect.gen(function* () {
+      const store = yield* PendingDeviceLoginStore;
+      yield* store.save(pending);
+      expect(existsSync(join(axmUserHome, ".axm", "pending-login.json"))).toBe(true);
+      expect(existsSync(join(realHome, ".axm"))).toBe(false);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (previousHome === undefined) delete process.env["HOME"];
+          else process.env["HOME"] = previousHome;
+          if (previousAxmUserHome === undefined) delete process.env["AXM_USER_HOME"];
+          else process.env["AXM_USER_HOME"] = previousAxmUserHome;
+          rmSync(realHome, { recursive: true, force: true });
+          rmSync(axmUserHome, { recursive: true, force: true });
+        }),
+      ),
+      Effect.provide(layer),
+    );
+  });
 });

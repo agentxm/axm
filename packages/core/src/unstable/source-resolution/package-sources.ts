@@ -32,7 +32,7 @@ const acquireClone = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const tempDir = yield* Effect.acquireRelease(
-      fs.makeTempDirectory().pipe(
+      fs.makeTempDirectory({ prefix: "axm-source-clone-" }).pipe(
         Effect.mapError((cause) =>
           makeAppError({
             code: "network",

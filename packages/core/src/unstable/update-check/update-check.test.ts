@@ -486,7 +486,7 @@ describe("UpdateCheck service via UpdateCheckTest layer", () => {
       const service = yield* UpdateCheck;
       yield* service.writeCache("1.0.0");
 
-      const cachePath = nodePath.join(tempDir, ".axm", "update-check.json");
+      const cachePath = nodePath.join(tempDir, ".cache", "axm", "update-check.json");
       expect(nodeFs.existsSync(cachePath)).toBe(true);
     }).pipe(
       Effect.provide(

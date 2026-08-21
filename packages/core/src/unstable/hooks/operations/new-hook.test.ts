@@ -86,6 +86,8 @@ describe("new-hook operation", () => {
       const entrypoint = fs.readFileSync(entrypointPath, "utf-8");
       expect(entrypoint).toContain("#!/usr/bin/env bash");
       expect(entrypoint).toContain("@acme/hooks/tool-audit");
+      expect(fs.existsSync(`${hookDir(tempDir, "tool-audit")}.axm-staging`)).toBe(false);
+      expect(fs.existsSync(`${hookDir(tempDir, "tool-audit")}.axm-backup`)).toBe(false);
     }).pipe(Effect.provide(testLayer())),
   );
 
@@ -142,6 +144,27 @@ describe("new-hook operation", () => {
       expect(result.result).toBe("error");
       expect(fs.readFileSync(markerPath, "utf8")).toBe("keep me\n");
       expect(fs.readdirSync(hookDir(tempDir, "existing"))).toEqual(["keep.txt"]);
+    }).pipe(Effect.provide(testLayer())),
+  );
+
+  it.effect("cleans owned interrupted siblings before reporting an existing destination", () =>
+    Effect.gen(function* () {
+      const canonicalPath = hookDir(tempDir, "existing");
+      const backupPath = `${canonicalPath}.axm-backup`;
+      const stagingPath = `${canonicalPath}.axm-staging`;
+      fs.mkdirSync(canonicalPath, { recursive: true });
+      fs.writeFileSync(path.join(canonicalPath, "keep.txt"), "keep me\n");
+      fs.mkdirSync(backupPath, { recursive: true });
+      fs.mkdirSync(stagingPath, { recursive: true });
+
+      const result = yield* newHook(makeOp("existing")).pipe(
+        Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),
+      );
+
+      expect(result.result).toBe("error");
+      expect(fs.readFileSync(path.join(canonicalPath, "keep.txt"), "utf8")).toBe("keep me\n");
+      expect(fs.existsSync(backupPath)).toBe(false);
+      expect(fs.existsSync(stagingPath)).toBe(false);
     }).pipe(Effect.provide(testLayer())),
   );
 });

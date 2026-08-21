@@ -8,7 +8,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, preflightCreateOnly } from "../../extensions/index.js";
+import {
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+  decodeExtensionNameSync,
+  preflightCreateOnly,
+} from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -82,12 +87,13 @@ export const newSkill: OperationHandler<
     const fqn = `${owner}/skills/${name}`;
 
     const configuredSkills = yield* ws.getConfiguredSkillEntries();
-    const { canonicalPath, skillSrcPath } = computeSkillPaths(
+    const { canonicalPath } = computeSkillPaths(
       path.join,
       base,
       { refType: "registry", owner },
       name,
     );
+    yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath });
     yield* preflightCreateOnly({
       subject: "Skill",
       name,
@@ -95,18 +101,6 @@ export const newSkill: OperationHandler<
       destinations: [canonicalPath],
     });
 
-    // 3. Create skill directory (src/ implies canonicalPath is also created)
-    yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to create skill directory: ${skillSrcPath}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    // 4. Write manifest
     const manifest: SkillManifest = {
       $schema: MANIFEST_SCHEMA_URL,
       owner,
@@ -115,31 +109,49 @@ export const newSkill: OperationHandler<
       version: INITIAL_SKILL_VERSION,
     };
 
-    yield* fs
-      .writeFileString(
-        path.join(canonicalPath, MANIFEST_FILENAME),
-        JSON.stringify(manifest, null, 2) + "\n",
-      )
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Skill manifest could not be written`,
-            cause: e,
-          }),
-        ),
-      );
-
-    // 5. Write starter SKILL.md
-    yield* fs.writeFileString(path.join(skillSrcPath, "SKILL.md"), makeSkillMd(name)).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to write SKILL.md`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* createCanonicalDirectory({
+      baseDir: base,
+      canonicalPath,
+      subject: "Skill",
+      requiredFiles: [MANIFEST_FILENAME, "src/SKILL.md"],
+      populate: (stagingPath) => {
+        const skillSrcPath = path.join(stagingPath, "src");
+        return Effect.gen(function* () {
+          yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: `Failed to create skill directory: ${skillSrcPath}`,
+                cause: e,
+              }),
+            ),
+          );
+          yield* fs
+            .writeFileString(
+              path.join(stagingPath, MANIFEST_FILENAME),
+              JSON.stringify(manifest, null, 2) + "\n",
+            )
+            .pipe(
+              Effect.mapError((e) =>
+                makeAppError({
+                  code: "validation",
+                  detail: "Skill manifest could not be written",
+                  cause: e,
+                }),
+              ),
+            );
+          yield* fs.writeFileString(path.join(skillSrcPath, "SKILL.md"), makeSkillMd(name)).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: "Failed to write SKILL.md",
+                cause: e,
+              }),
+            ),
+          );
+        });
+      },
+    });
 
     return {
       result: "success",

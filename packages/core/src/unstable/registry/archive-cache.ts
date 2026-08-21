@@ -4,8 +4,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as os from "node:os";
-import * as Config from "effect/Config";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
@@ -14,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeIntegrity, writeFileAtomic } from "../utils/index.js";
+import { resolveAxmCacheRoot } from "./cache-root.js";
 
 export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
@@ -83,52 +82,6 @@ const integrityFromFileName = (fileName: string): string | undefined => {
   const padding = remainder === 0 ? "" : "=".repeat(4 - remainder);
   return `sha512-${base64Url.replaceAll("-", "+").replaceAll("_", "/")}${padding}`;
 };
-
-export interface ArchiveCacheEnvironment {
-  readonly axmUserHome?: string;
-  readonly localAppData?: string;
-  readonly xdgCacheHome?: string;
-}
-
-// Load-bearing only for direct callers of `resolveArchiveCacheRootPure`, which
-// accept arbitrary strings. The Config path below cannot deliver "" — Config
-// treats empty env values as missing (effect beta.95).
-const nonEmpty = (value: string | undefined): string | undefined =>
-  value === undefined || value.length === 0 ? undefined : value;
-
-export const resolveArchiveCacheRootPure = (
-  pathJoin: (...segments: ReadonlyArray<string>) => string,
-  platform: string,
-  homeDir: string,
-  environment: ArchiveCacheEnvironment,
-): string => {
-  const overriddenHome = nonEmpty(environment.axmUserHome);
-  const home = overriddenHome ?? homeDir;
-
-  if (platform === "darwin") {
-    return pathJoin(home, "Library", "Caches", "axm", "archives");
-  }
-
-  if (platform === "win32") {
-    const cacheHome =
-      overriddenHome === undefined
-        ? (nonEmpty(environment.localAppData) ?? pathJoin(home, "AppData", "Local"))
-        : pathJoin(home, "AppData", "Local");
-    return pathJoin(cacheHome, "axm", "cache", "archives");
-  }
-
-  const cacheHome =
-    overriddenHome === undefined
-      ? (nonEmpty(environment.xdgCacheHome) ?? pathJoin(home, ".cache"))
-      : pathJoin(home, ".cache");
-  return pathJoin(cacheHome, "axm", "archives");
-};
-
-const archiveCacheEnvironmentConfig = Config.all({
-  axmUserHome: Config.option(Config.string("AXM_USER_HOME")),
-  localAppData: Config.option(Config.string("LOCALAPPDATA")),
-  xdgCacheHome: Config.option(Config.string("XDG_CACHE_HOME")),
-});
 
 export const makeArchiveCache = (
   fs: FileSystem.FileSystem,
@@ -322,23 +275,6 @@ export const makeUserArchiveCache = (): Effect.Effect<
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    // Every field is Config.option(string), so missing values are represented
-    // by Option and decoding cannot fail. A failure is a provider invariant.
-    // eslint-disable-next-line no-restricted-syntax -- All fields are optional strings, so failure means the Config provider violated its contract.
-    const environment = yield* Effect.orDie(archiveCacheEnvironmentConfig);
-    const axmUserHome = Option.getOrUndefined(environment.axmUserHome);
-    const localAppData = Option.getOrUndefined(environment.localAppData);
-    const xdgCacheHome = Option.getOrUndefined(environment.xdgCacheHome);
-    const cacheEnvironment = {
-      ...(axmUserHome === undefined ? {} : { axmUserHome }),
-      ...(localAppData === undefined ? {} : { localAppData }),
-      ...(xdgCacheHome === undefined ? {} : { xdgCacheHome }),
-    } satisfies ArchiveCacheEnvironment;
-    const root = resolveArchiveCacheRootPure(
-      path.join,
-      process.platform,
-      os.homedir(),
-      cacheEnvironment,
-    );
+    const root = path.join(yield* resolveAxmCacheRoot(), "archives");
     return makeArchiveCache(fs, path, root);
   });

@@ -8,7 +8,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, formatFqn, preflightCreateOnly } from "../../extensions/index.js";
+import {
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+  decodeExtensionNameSync,
+  formatFqn,
+  preflightCreateOnly,
+} from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PACK_MANIFEST_SCHEMA_URL } from "../manifest-schema.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -68,8 +74,11 @@ export const newPack: OperationHandler<
 
     // 1. Compute pack directory path
     const packDir = computePackPaths(path.join, base, owner, name);
-    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
     const configuredPacks = yield* ws.getConfiguredPackEntries();
+    yield* recoverCanonicalDirectory({
+      baseDir: base,
+      canonicalPath: packDir.canonicalPath,
+    });
     yield* preflightCreateOnly({
       subject: "Pack",
       name,
@@ -77,18 +86,6 @@ export const newPack: OperationHandler<
       destinations: [packDir.canonicalPath],
     });
 
-    // 3. Create pack directory
-    yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create pack directory: ${packDir.canonicalPath}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    // 4. Write manifest
     const manifest = {
       $schema: PACK_MANIFEST_SCHEMA_URL,
       owner,
@@ -98,15 +95,35 @@ export const newPack: OperationHandler<
       dependencies: {},
     };
 
-    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* createCanonicalDirectory({
+      baseDir: base,
+      canonicalPath: packDir.canonicalPath,
+      subject: "Pack",
+      requiredFiles: [PACK_MANIFEST_FILENAME],
+      populate: (stagingPath) => {
+        const manifestPath = path.join(stagingPath, PACK_MANIFEST_FILENAME);
+        return Effect.gen(function* () {
+          yield* fs.makeDirectory(stagingPath, { recursive: true }).pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to create pack directory: ${stagingPath}`,
+                cause: e,
+              }),
+            ),
+          );
+          yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to write pack manifest: ${manifestPath}`,
+                cause: e,
+              }),
+            ),
+          );
+        });
+      },
+    });
 
     return {
       result: "success",

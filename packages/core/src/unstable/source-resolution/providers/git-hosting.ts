@@ -62,7 +62,7 @@ export const createGitHostingSourceHostProvider = <
 
       // Acquire scoped temp directory (cleaned up when the scope closes)
       const tempDir = yield* Effect.acquireRelease(
-        fs.makeTempDirectory().pipe(
+        fs.makeTempDirectory({ prefix: "axm-source-discovery-" }).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "network",

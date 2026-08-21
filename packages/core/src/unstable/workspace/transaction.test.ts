@@ -251,8 +251,8 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toContain("Workspace recovery is required");
-            const marker = "Recovery backup retained at: ";
+            expect(error.detail).toContain("Workspace rollback failed");
+            const marker = "Rollback backup retained at: ";
             const backupPath = error.detail.slice(error.detail.indexOf(marker) + marker.length);
             expect(nodeFs.existsSync(backupPath.trim())).toBe(true);
           }),
@@ -285,6 +285,48 @@ describe("runWorkspaceTransaction", () => {
         });
         yield* Effect.all([transition, transition], { concurrency: "unbounded" });
         expect(yield* Ref.get(maximum)).toBe(1);
+      }),
+    ),
+  );
+
+  it.effect("holds the workspace lock in project scratch and removes empty scratch", () =>
+    withContext(
+      Effect.gen(function* () {
+        const scratchDir = nodePath.join(workspaceDir, "tmp");
+        const lockPath = nodePath.join(scratchDir, "workspace-transition.lock");
+        yield* runWorkspaceTransaction({
+          workspaceDir,
+          targets: [settingsPath],
+          transition: Effect.sync(() => {
+            expect(nodeFs.existsSync(lockPath)).toBe(true);
+            nodeFs.writeFileSync(settingsPath, '{"changed":true}\n');
+          }),
+          validate: () => Effect.void,
+        });
+        expect(nodeFs.existsSync(scratchDir)).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("preserves unrelated project scratch entries", () =>
+    withContext(
+      Effect.gen(function* () {
+        const scratchDir = nodePath.join(workspaceDir, "tmp");
+        const unrelated = nodePath.join(scratchDir, "another-operation-123");
+        nodeFs.mkdirSync(unrelated, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(unrelated, "keep.txt"), "keep\n");
+
+        yield* runWorkspaceTransaction({
+          workspaceDir,
+          targets: [settingsPath],
+          transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),
+          validate: () => Effect.void,
+        });
+
+        expect(nodeFs.readFileSync(nodePath.join(unrelated, "keep.txt"), "utf8")).toBe("keep\n");
+        expect(nodeFs.existsSync(nodePath.join(scratchDir, "workspace-transition.lock"))).toBe(
+          false,
+        );
       }),
     ),
   );

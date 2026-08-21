@@ -1,7 +1,8 @@
 import * as nodeFs from "node:fs";
+import { spawnSync } from "node:child_process";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -10,6 +11,7 @@ import {
   canReuseExternalPackage,
   canReuseInstalledPackage,
   canonicalMaterializationPaths,
+  createCanonicalDirectory,
   materializeExternalPackage,
   replaceCanonicalDirectory,
 } from "./index.js";
@@ -380,6 +382,168 @@ describe("package materialization helpers", () => {
           "fresh",
         );
         expect(nodeFs.existsSync(nodePath.join(canonicalPath, "stale.txt"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("publishes a create-only package after discarding stale staging", () =>
+    run(
+      Effect.gen(function* () {
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "rules",
+          "review",
+        );
+        const paths = canonicalMaterializationPaths(canonicalPath);
+        const unrelatedSibling = `${canonicalPath}.notes`;
+        nodeFs.mkdirSync(paths.stagingPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(paths.stagingPath, "partial.txt"), "partial");
+        nodeFs.mkdirSync(unrelatedSibling, { recursive: true });
+
+        yield* createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Rule",
+          requiredFiles: ["rule.json", "src/RULE.md"],
+          populate: (stagingPath) =>
+            Effect.sync(() => {
+              expect(nodeFs.existsSync(nodePath.join(stagingPath, "partial.txt"))).toBe(false);
+              nodeFs.mkdirSync(nodePath.join(stagingPath, "src"), { recursive: true });
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "rule.json"), "{}\n");
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "src", "RULE.md"), "complete\n");
+            }),
+        });
+
+        expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "src", "RULE.md"), "utf8")).toBe(
+          "complete\n",
+        );
+        expect(nodeFs.existsSync(paths.stagingPath)).toBe(false);
+        expect(nodeFs.existsSync(paths.backupPath)).toBe(false);
+        expect(nodeFs.existsSync(unrelatedSibling)).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("restores interrupted create state before reporting a collision", () =>
+    run(
+      Effect.gen(function* () {
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "skills",
+          "review",
+        );
+        const paths = canonicalMaterializationPaths(canonicalPath);
+        nodeFs.mkdirSync(paths.backupPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(paths.backupPath, "skill.json"), "prior\n");
+        nodeFs.mkdirSync(paths.stagingPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(paths.stagingPath, "partial.txt"), "partial\n");
+
+        const failure = yield* createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Skill",
+          populate: () => Effect.void,
+        }).pipe(Effect.flip);
+
+        expect(failure.code).toBe("conflict");
+        expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "skill.json"), "utf8")).toBe(
+          "prior\n",
+        );
+        expect(nodeFs.existsSync(paths.stagingPath)).toBe(false);
+        expect(nodeFs.existsSync(paths.backupPath)).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("keeps create-only destinations absent until required files validate", () =>
+    run(
+      Effect.gen(function* () {
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "hooks",
+          "review",
+        );
+        const paths = canonicalMaterializationPaths(canonicalPath);
+
+        const failure = yield* createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Hook",
+          requiredFiles: ["hook.json", "src/index.ts"],
+          populate: (stagingPath) =>
+            Effect.sync(() => nodeFs.writeFileSync(nodePath.join(stagingPath, "hook.json"), "{}")),
+        }).pipe(Effect.flip);
+
+        expect(failure.code).toBe("validation");
+        expect(nodeFs.existsSync(canonicalPath)).toBe(false);
+        expect(nodeFs.existsSync(paths.stagingPath)).toBe(false);
+
+        yield* createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Hook",
+          requiredFiles: ["hook.json", "src/index.ts"],
+          populate: (stagingPath) =>
+            Effect.sync(() => {
+              nodeFs.mkdirSync(nodePath.join(stagingPath, "src"), { recursive: true });
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "hook.json"), "{}");
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "src", "index.ts"), "export {};");
+            }),
+        });
+
+        expect(nodeFs.existsSync(nodePath.join(canonicalPath, "src", "index.ts"))).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("recovers after hard process death during create-only staging", () =>
+    run(
+      Effect.gen(function* () {
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "knowledge",
+          "review",
+        );
+        const fixture = fileURLToPath(
+          new URL("./__fixtures__/interrupted-package-create.mjs", import.meta.url),
+        );
+        const child = spawnSync(process.execPath, [fixture, canonicalPath]);
+        const paths = canonicalMaterializationPaths(canonicalPath);
+
+        expect(child.signal).toBe("SIGKILL");
+        expect(nodeFs.existsSync(canonicalPath)).toBe(false);
+        expect(nodeFs.existsSync(paths.stagingPath)).toBe(true);
+
+        yield* createCanonicalDirectory({
+          baseDir: workspaceRoot,
+          canonicalPath,
+          subject: "Knowledge bundle",
+          requiredFiles: ["package.json", "src/content.md"],
+          populate: (stagingPath) =>
+            Effect.sync(() => {
+              nodeFs.mkdirSync(nodePath.join(stagingPath, "src"), { recursive: true });
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "package.json"), "{}\n");
+              nodeFs.writeFileSync(nodePath.join(stagingPath, "src", "content.md"), "retried\n");
+            }),
+        });
+
+        expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "src", "content.md"), "utf8")).toBe(
+          "retried\n",
+        );
+        expect(nodeFs.existsSync(paths.stagingPath)).toBe(false);
+        expect(nodeFs.existsSync(paths.backupPath)).toBe(false);
       }),
     ),
   );

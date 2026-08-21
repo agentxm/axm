@@ -79,7 +79,11 @@ const errorCode = (cause: unknown): string | undefined =>
     ? cause.code
     : undefined;
 
-const acquireWorkspaceLock = (workspaceDir: string, lockPath: string) =>
+const acquireWorkspaceLock = (
+  workspaceDir: string,
+  lockPath: string,
+  afterRelease: Effect.Effect<void>,
+) =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function* () {
       let release: (() => Promise<void>) | undefined;
@@ -118,7 +122,7 @@ const acquireWorkspaceLock = (workspaceDir: string, lockPath: string) =>
                 cause,
               ),
           }),
-        ),
+        ).pipe(Effect.andThen(afterRelease)),
       );
     }),
   );
@@ -262,7 +266,23 @@ export const runWorkspaceTransaction = <A, E, R>(
               transactionError(`Failed to create workspace state directory ${workspaceDir}`, error),
             ),
           );
-        const lockPath = path.join(workspaceDir, TRANSACTION_LOCK_FILENAME);
+        const scratchDir = path.join(workspaceDir, "tmp");
+        yield* fs
+          .makeDirectory(scratchDir, { recursive: true })
+          .pipe(
+            Effect.mapError((error) =>
+              transactionError(`Failed to create workspace scratch directory ${scratchDir}`, error),
+            ),
+          );
+        const lockPath = path.join(scratchDir, TRANSACTION_LOCK_FILENAME);
+        const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
+          Effect.flatMap((entries) =>
+            entries.length === 0
+              ? fs.remove(scratchDir, { recursive: true, force: false })
+              : Effect.void,
+          ),
+          Effect.ignore,
+        );
         const removeNewEmptyWorkspace = workspaceExisted
           ? Effect.void
           : fs.readDirectory(workspaceDir).pipe(
@@ -275,12 +295,12 @@ export const runWorkspaceTransaction = <A, E, R>(
             );
         return yield* Effect.scoped(
           Effect.gen(function* () {
-            yield* acquireWorkspaceLock(workspaceDir, lockPath);
+            yield* acquireWorkspaceLock(workspaceDir, lockPath, removeEmptyScratch);
             const backupDir = yield* fs
-              .makeTempDirectory({ prefix: "axm-workspace-recovery-" })
+              .makeTempDirectory({ prefix: "axm-workspace-rollback-" })
               .pipe(
                 Effect.mapError((error) =>
-                  transactionError("Failed to create workspace recovery backup", error),
+                  transactionError("Failed to create workspace rollback backup", error),
                 ),
               );
             const context: WorkspaceTransactionContext = {
@@ -296,7 +316,7 @@ export const runWorkspaceTransaction = <A, E, R>(
               .pipe(
                 Effect.mapError((error) =>
                   transactionError(
-                    `Failed to remove workspace recovery backup ${backupDir}`,
+                    `Failed to remove workspace rollback backup ${backupDir}`,
                     error,
                   ),
                 ),
@@ -323,7 +343,7 @@ export const runWorkspaceTransaction = <A, E, R>(
                       onFailure: (rollbackCause) =>
                         Effect.fail(
                           transactionError(
-                            `Workspace recovery is required after rollback failed. Recovery backup retained at: ${backupDir}`,
+                            `Workspace rollback failed. Rollback backup retained at: ${backupDir}`,
                             { transition: Cause.pretty(cause), rollback: rollbackCause },
                           ),
                         ),
@@ -335,7 +355,7 @@ export const runWorkspaceTransaction = <A, E, R>(
               Effect.uninterruptible,
             );
           }),
-        ).pipe(Effect.ensuring(removeNewEmptyWorkspace));
+        ).pipe(Effect.ensuring(removeEmptyScratch), Effect.ensuring(removeNewEmptyWorkspace));
       }),
     );
   });

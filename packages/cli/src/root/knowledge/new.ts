@@ -10,6 +10,8 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildNewExtensionStep,
   computeSourceHash,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
@@ -67,7 +69,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     subject: "Knowledge bundle",
     name,
     configured: Object.hasOwn(configuredKnowledge, name),
-    destinations: [targetDir],
+    destinations: [],
   });
 
   const manifest: KnowledgeManifest = {
@@ -94,27 +96,41 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
       { path: ".axm (config/lockfile)", change: "created" as const },
     ],
   };
-  const scaffold = Effect.gen(function* () {
-    yield* fs.makeDirectory(path.dirname(indexPath), { recursive: true }).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create knowledge bundle directory: ${targetDir}`,
-          cause,
-        }),
-      ),
-    );
-    yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    yield* fs.writeFileString(
-      indexPath,
-      `---\nokf_version: "0.2"\n---\n# ${name}\n\n<!-- Discovery map: describe this bundle's scope, then group and annotate links to its concepts. -->\n`,
-    );
+  const scaffold = createCanonicalDirectory({
+    baseDir: ws.baseDir,
+    canonicalPath: targetDir,
+    subject: "Knowledge bundle",
+    requiredFiles: [KNOWLEDGE_MANIFEST_FILENAME, `${KNOWLEDGE_SOURCE_DIR}/index.md`],
+    populate: (stagingPath) => {
+      const stagedManifestPath = path.join(stagingPath, KNOWLEDGE_MANIFEST_FILENAME);
+      const stagedIndexPath = path.join(stagingPath, KNOWLEDGE_SOURCE_DIR, "index.md");
+      return Effect.gen(function* () {
+        yield* fs.makeDirectory(path.dirname(stagedIndexPath), { recursive: true }).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to create knowledge bundle directory: ${stagingPath}`,
+              cause,
+            }),
+          ),
+        );
+        yield* fs.writeFileString(stagedManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        yield* fs.writeFileString(
+          stagedIndexPath,
+          `---\nokf_version: "0.2"\n---\n# ${name}\n\n<!-- Discovery map: describe this bundle's scope, then group and annotate links to its concepts. -->\n`,
+        );
+      }).pipe(
+        Effect.mapError((cause) =>
+          cause._tag === "AppError"
+            ? cause
+            : makeAppError({ code: "internal", detail: `Failed to scaffold ${fqn}`, cause }),
+        ),
+      );
+    },
   }).pipe(
-    Effect.mapError((cause) =>
-      cause._tag === "AppError"
-        ? cause
-        : makeAppError({ code: "internal", detail: `Failed to scaffold ${fqn}`, cause }),
-    ),
+    Effect.asVoid,
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
   );
   const plan: Plan = {
     _tag: "Plan",
@@ -153,6 +169,13 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
             plannedArtifact: artifact,
             preflight: Effect.gen(function* () {
               const current = yield* ws.getConfiguredKnowledgeEntries();
+              yield* recoverCanonicalDirectory({
+                baseDir: ws.baseDir,
+                canonicalPath: targetDir,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              );
               yield* preflightCreateOnly({
                 subject: "Knowledge bundle",
                 name,

@@ -82,6 +82,43 @@ export interface ReplaceCanonicalDirectoryArgs<R> {
   readonly validate?: (stagingPath: string) => Effect.Effect<void, AppError, R>;
 }
 
+export interface CreateCanonicalDirectoryArgs<R> extends ReplaceCanonicalDirectoryArgs<R> {
+  /** Human-readable create-only subject used in collision diagnostics. */
+  readonly subject: string;
+  /** Type-defined files that must exist in the complete staged package. */
+  readonly requiredFiles?: ReadonlyArray<string>;
+}
+
+const validateRequiredPackageFiles = (stagingPath: string, requiredFiles: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* Effect.forEach(
+      requiredFiles,
+      (relativePath) =>
+        Effect.gen(function* () {
+          const filePath = path.join(stagingPath, relativePath);
+          yield* validatePathSafety(path, stagingPath, filePath);
+          const info = yield* fs.stat(filePath).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail: `Staged package is missing required file: ${relativePath}`,
+                cause,
+              }),
+            ),
+          );
+          if (info.type !== "File") {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Staged package path is not a file: ${relativePath}`,
+            });
+          }
+        }),
+      { discard: true },
+    );
+  });
+
 /**
  * Publish a complete canonical tree from a sibling staging directory. Recovery
  * restores a prior tree left in the sibling backup by abrupt process death;
@@ -107,6 +144,15 @@ export const replaceCanonicalDirectory = <R>(
     );
 
     const prepare = Effect.gen(function* () {
+      yield* fs.makeDirectory(stagingPath, { recursive: true }).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to prepare canonical package staging at ${stagingPath}`,
+            cause,
+          }),
+        ),
+      );
       yield* args.populate(stagingPath);
       if (args.validate !== undefined) yield* args.validate(stagingPath);
     }).pipe(
@@ -151,6 +197,45 @@ export const replaceCanonicalDirectory = <R>(
     );
 
     return args.canonicalPath;
+  });
+
+/**
+ * Publish one create-only authored package without ever populating its
+ * canonical directory in place. Interrupted sibling state is resolved before
+ * the collision check while the caller holds the workspace mutation lock.
+ */
+export const createCanonicalDirectory = <R>(
+  args: CreateCanonicalDirectoryArgs<R>,
+): Effect.Effect<string, AppError, FileSystem.FileSystem | Path.Path | R> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    yield* recoverCanonicalDirectory(args);
+    const exists = yield* fs.exists(args.canonicalPath).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect create-only destination: ${args.canonicalPath}`,
+          cause,
+        }),
+      ),
+    );
+    if (exists) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `${args.subject} destination already exists: ${args.canonicalPath}`,
+        recover: "Choose a different name or remove the existing directory first",
+      });
+    }
+
+    return yield* replaceCanonicalDirectory({
+      baseDir: args.baseDir,
+      canonicalPath: args.canonicalPath,
+      populate: args.populate,
+      validate: (stagingPath) =>
+        validateRequiredPackageFiles(stagingPath, args.requiredFiles ?? []).pipe(
+          Effect.andThen(args.validate === undefined ? Effect.void : args.validate(stagingPath)),
+        ),
+    });
   });
 
 const registryLocationForClient = (location: URL): string =>

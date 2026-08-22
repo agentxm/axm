@@ -1,5 +1,12 @@
 # Workflow Automation Update Log
 
+## 2026-08-21
+
+* **Practice boundaries**: Added [Continuous integration, delivery, and
+  deployment](practices/continuous-integration-delivery-and-deployment.md) as
+  the comparative authority for the three practices and removed the duplicated
+  delivery-versus-deployment section from the focused delivery explainer.
+
 ## 2026-08-14
 
 * **Agent boundary**: Distinguished deterministic automation, LLM workflows,

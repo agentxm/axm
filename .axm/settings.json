@@ -23,6 +23,7 @@
     "effect-v4": "@craigsmitham/packs/effect-v4",
     "agent-engineering": "@agentxm/packs/agent-engineering",
     "software-engineering": "@craigsmitham/packs/software-engineering",
-    "docs": "@craigsmitham/packs/docs"
+    "docs": "@craigsmitham/packs/docs",
+    "software-architecture": "@craigsmitham/packs/software-architecture"
   }
 }

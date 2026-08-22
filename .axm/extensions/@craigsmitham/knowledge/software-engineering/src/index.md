@@ -3,18 +3,11 @@ okf_version: "0.2"
 ---
 # Software engineering
 
-Portable principles and guides for reasoning about software structure, design,
-change, and the work artifacts used to manage delivery and operational
-response. Use this bundle for durable engineering judgment and tool-neutral
-work-item practice rather than language or framework APIs, repository-specific
-decisions, tracker administration, product prioritization, or incident-response
-runbooks.
-
-## Architecture
-
-- [Software architecture](architecture/) - Durable structural decisions and
-  the functional and quality concerns that give them meaning, including a
-  portable pattern and guide for a small architecture corpus.
+Portable principles and guides for timing software design change and authoring
+the work artifacts used to manage delivery and operational response. Use this
+bundle for evidence-timed engineering judgment and tool-neutral work-item
+practice rather than language or framework APIs, software architecture,
+tracker administration, product prioritization, or incident-response runbooks.
 
 ## Design and change
 

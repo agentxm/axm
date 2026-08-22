@@ -10,6 +10,7 @@ Read [Pattern explainer](../explainers/pattern.md) to understand the form and
 ## Library patterns
 
 * [Pattern library](pattern-library.md) - Maintain recurring guidance as a problem-indexed, evidence-bearing catalog with consistent anatomy, typed relationships, ownership, and lifecycle.
+* [Concept boundaries](concept-boundaries.md) - For a cohesive set of concepts readers repeatedly confuse, keep each positive definition canonical and give their comparative distinctions one explicit boundary document.
 
 ## Operational documentation patterns
 

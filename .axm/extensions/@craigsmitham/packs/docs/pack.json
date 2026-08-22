@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Portable craft for understanding, authoring, organizing, auditing, and improving documentation",
   "keywords": [
     "docs",
@@ -26,7 +26,7 @@
   "type": "pack",
   "name": "docs",
   "dependencies": {
-    "@craigsmitham/knowledge/docs": "^0.9.0",
+    "@craigsmitham/knowledge/docs": ">=0.10.0",
     "@craigsmitham/skills/author-docs": "^0.3.0",
     "@craigsmitham/skills/audit-docs": "^0.1.0"
   }

@@ -130,8 +130,8 @@ For the authoring procedure, read
 [Titling and summarizing work items](titling-and-summarizing-work-items.md).
 The type-specific titling steps live in
 [Recording operational incidents](recording-operational-incidents.md),
-[Reporting software defects](reporting-software-defects.md), and
-[Writing feature requests](writing-feature-requests.md).
+[Recording defect reports](recording-defect-reports.md), and
+[Recording feature requests](recording-feature-requests.md).
 
 [^azure-titles-descriptions]: Microsoft Azure Boards, "Query by title, ID, or rich-text fields," common fields table.
 [^google-sre-incidents]: Google SRE, "Managing Incidents."

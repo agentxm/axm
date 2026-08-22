@@ -4,10 +4,10 @@
     {
       "id": 1,
       "prompt": "Create an architecture document for reservations. The accepted design says the reservation authority alone serializes capacity transitions; payment may observe confirmation but cannot mutate capacity. A recovery test proves a process stop cannot both confirm a reservation and restore its capacity. Preserve that meaning and route exact mechanics to evidence.",
-      "expected_output": "A concise architecture document organized around reservation responsibility, functional and recovery concerns, authority and invariants, with an evidence route to the test rather than copied mechanics.",
+      "expected_output": "A concise architecture document organized around reservation responsibility, functional meaning, the accepted recoverability requirement, authority and invariants, with an evidence route to the test rather than copied mechanics.",
       "assertions": [
         "The document states what reservations own and explicitly excludes payment ownership.",
-        "The recovery concern is connected to the serialization boundary and invariant.",
+        "The recoverability requirement is connected to the serialization boundary and invariant.",
         "Exact transition cases remain owned by the recovery test rather than being transcribed into prose.",
         "No unrelated component inventory or empty template sections are added."
       ]
@@ -40,9 +40,154 @@
       "expected_output": "A refusal to create a prose mirror, paired with a smaller architecture-documentation approach centered on durable, consequential meaning and links to executable reference sources.",
       "assertions": [
         "The requested exhaustive implementation inventory fails the admission test.",
-        "The response proposes cohesive subjects or concerns rather than forced catalog symmetry.",
+        "The response proposes cohesive subjects or accepted requirements rather than forced catalog symmetry.",
         "Exact current facts remain with code, schemas, configuration, or generated references.",
         "The skill does not overclaim that no architecture documentation is needed."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Organize architecture docs for a system that has capabilities, individual feature documents, web and CLI surfaces, DDD bounded contexts, and C4 containers. Put every feature beneath its primary app so ownership is obvious.",
+      "expected_output": "A scale-neutral, view-oriented documentation set that gives each feature one canonical document and represents its many-to-many relationships to capabilities, surfaces, contexts, and structure explicitly instead of nesting it beneath an app.",
+      "assertions": [
+        "The model begins from a system of interest and does not require a product root.",
+        "Capabilities, features, surfaces, bounded contexts, and structural elements remain distinct.",
+        "Each feature has one canonical home and cross-view relationships are explicit.",
+        "Applications may be both surfaces and containers without owning all feature documents."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Create a C4 structure where platform components live in one global components folder, frontend containers contain smaller containers, and shared libraries are modeled as components of every app.",
+      "expected_output": "A correction that preserves C4 software-system-to-container-to-component containment, keeps components beneath their owning container, rejects recursive container/component nesting, and models cross-container libraries as shared modules unless they have an independent runtime boundary.",
+      "assertions": [
+        "Components are placed beneath one owning container.",
+        "Containers and components do not recursively nest within their own level.",
+        "Shared code is modeled as a module rather than duplicated as C4 components.",
+        "Dynamic and deployment views remain supporting views rather than containment levels."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Add a Wardley map to our architecture docs. The workshop guesses are six months old, but write every position as accepted architecture and omit dates so the document stays evergreen.",
+      "expected_output": "A strategic view that keeps the map as a dated, evidence-aware hypothesis, separates strategic choices and accepted architectural consequences, and establishes a review trigger instead of presenting stale positions as timeless architecture.",
+      "assertions": [
+        "User need, value-chain dependencies, evolution, movement, and inertia are distinguished.",
+        "Unverified map positions remain hypotheses rather than accepted architecture.",
+        "Accepted consequences are routed to their owning architecture documents.",
+        "Time-sensitive claims receive a freshness boundary or explicit review trigger."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Our feature list is growing. Create features.md with all descriptions and make every major architecture concern another single Markdown file at the architecture-doc root.",
+      "expected_output": "A progressively disclosed features/ collection with a navigational index.md and one stable named file per admitted Feature, while other collections appear only when they contain authorized admitted subjects.",
+      "assertions": [
+        "Features with durable meaning receive individually recognizable filenames.",
+        "Major collections use index.md for navigation rather than substantive explanation.",
+        "No plural features.md catch-all is created; each Feature has its canonical path from first admission.",
+        "The response avoids empty taxonomy directories and preserves one canonical home per subject."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Document our internal developer platform as a product. Put its engineering teams, jobs to be done, value propositions, use cases, capabilities, features, bounded contexts, and C4 containers underneath the product so everything has one obvious parent. Reuse the same text for architecture, sales, and public documentation.",
+      "expected_output": "A demand-and-value view anchored by a non-commercial Offering while keeping audiences, needs or jobs, propositions, use cases, capabilities, features, domain concepts, and structure as independently maintained views connected by explicit links and projected appropriately for each channel.",
+      "assertions": [
+        "The internal platform can be represented as an Offering without assuming a commercial product boundary.",
+        "Audiences, jobs, value propositions, use cases, capabilities, features, bounded contexts, and C4 elements are not physically nested into one universal hierarchy.",
+        "Demand, offered value, provider abilities, recognizable behavior, domain meaning, and structural realization remain distinct.",
+        "Architecture, public, product-management, and sales content share accepted semantic meaning without requiring identical channel copy.",
+        "Private people, customer records, tentative research, delivery state, pricing, and current availability remain outside the canonical architecture concepts."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Write a sales battlecard and campaign landing page for our new subscription, including current pricing, competitor claims, named customer quotes, and next quarter's roadmap. We do not need architecture documentation.",
+      "expected_output": "A routing boundary that does not use the architecture-doc authoring workflow or convert sales, customer, pricing, competitive, and roadmap material into accepted architecture concepts.",
+      "assertions": [
+        "The request is recognized as sales and marketing content rather than architecture documentation.",
+        "Named customer material and current commercial facts are not moved into the public architecture corpus.",
+        "Roadmap content remains proposed delivery state rather than accepted architecture.",
+        "The architecture-doc workflow is not invoked merely because the request concerns an offering or value proposition."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Create one Offering document for our internal analytics platform. It intentionally provides governed self-service analysis to operational teams. It excludes the source systems, departmental reporting services, and every application that contributes data. Do not create any other concepts yet.",
+      "expected_output": "One focused Offering concept in value/offerings/ that defines the coherent value boundary, intended audiences and circumstances, and exclusions without generating a product hierarchy or sibling concepts.",
+      "assertions": [
+        "The artifact uses the exact Offering type and canonical value/offerings/ path.",
+        "The offered value and material exclusions are explicit.",
+        "The platform is not treated as a commercial product or C4 hierarchy merely because it is an offering.",
+        "No Audience, Need, Capability, Feature, or C4 concept is created for symmetry."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Create one Job to Be Done document from accepted research: during an incident, an on-call engineer needs to determine whether customer impact is expanding before choosing a containment action. Preserve the circumstances and desired progress. Do not write a feature or use-case flow.",
+      "expected_output": "One evidence-aware Job to Be Done concept in value/jobs/ that describes the actor's sought progress in context while keeping solution behavior and exact interaction flow out of the job.",
+      "assertions": [
+        "The artifact uses the exact Job to Be Done type and canonical value/jobs/ path.",
+        "The circumstances and progress sought are central to the document.",
+        "Accepted research is linked or described truthfully without publishing private participant records.",
+        "No feature, use case, capability, or solution workflow is created or substituted."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Create one Bounded Context document for the accepted Entitlements model. It owns grant, revocation, and effective-access policy language; the current authorization service and schema realize it, but deployments may change. It models parts of two subdomains. Do not classify the context as core or supporting.",
+      "expected_output": "One Bounded Context concept in domains/contexts/ that owns coherent model, language, and policy authority, relates independently to both subdomains, and treats current code and schema as realization evidence.",
+      "assertions": [
+        "The artifact uses the exact Bounded Context type and canonical domains/contexts/ path.",
+        "Model, ubiquitous-language scope, authority, and exclusions are explicit.",
+        "The context carries no core, supporting, or generic classification.",
+        "The authorization service and schema are evidence of realization rather than the context definition."
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Create one C4 Container document for the accepted event archive inside the Observability software system. It is a data store with an independent runtime boundary, retention responsibility, and defined producer and query interactions. Do not create a component diagram or neighboring containers.",
+      "expected_output": "One C4 Container concept that names its containing system and states its data-store responsibility, runtime boundary, consequential technology, interactions, exclusions, and evidence without inventing adjacent structure.",
+      "assertions": [
+        "The artifact uses the exact C4 Container type and canonical structure/containers/ path.",
+        "The containing system, runtime boundary, data-store responsibility, and directional interactions are explicit.",
+        "The artifact does not nest another container or confuse deployment infrastructure with C4 containment.",
+        "No C4 Component, C4 View, or neighboring container is created for completeness."
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Create only the Confirm Reservation use case from the accepted actor goal and outcome. The repository also suggests a reusable notification feature and a capacity capability, but nobody asked to document those yet.",
+      "expected_output": "One named Use Case concept plus required use-cases navigation, with grounded recommendations for any adjacent Feature or Capability rather than unsolicited documents.",
+      "assertions": [
+        "The use case is created at use-cases/confirm-reservation.md with use-cases/index.md navigation, not in use-cases.md.",
+        "No Feature or Capability concept is created without explicit authoring intent.",
+        "Any adjacent recommendation states the evidence, risk addressed, maintenance cost, smallest safe change, and needed authority.",
+        "Repository evidence is not promoted into accepted architecture solely because it suggests a concept."
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Write the accepted architecture overview for a small maintained service. It is active, maintained through the repository's owner route, and reviewed when its public contract, responsibility, boundary, or support state changes. Keep it useful if the project later grows to several teams.",
+      "expected_output": "A concise human-readable overview that states or links lifecycle, stewardship, decision authority, and review triggers without copying a volatile roster or inventing lower-level ownership documents.",
+      "assertions": [
+        "System lifecycle is distinct from the document's OKF status.",
+        "The stable maintainer and decision-authority route is discoverable without named-person or roster duplication.",
+        "Review triggers are event-based and proportionate to the system.",
+        "No container or component ownership documents are added for anticipated scale."
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Create the accepted product quality requirement that interrupted imports resume after worker loss without accepting a record twice. It is architecture-significant because checkpoint authority must outlive a worker. Classify it under ISO/IEC 25010:2023 reliability/recoverability. Our SLO system owns the current recovery-time target and integration tests own exact failure cases. Also create documents for every other ISO quality characteristic and fill in reasonable targets so the quality view is complete.",
+      "expected_output": "One named Product Quality Requirement under quality/reliability/recoverability/ with earned navigation, explicit target, conditions, architectural consequences, and links to the SLO and tests, while refusing the quality catalog, invented targets, Quality Concern, and Product Quality View artifacts.",
+      "assertions": [
+        "The artifact uses the exact Product Quality Requirement type and canonical quality/reliability/recoverability/resume-interrupted-imports.md path.",
+        "The target, worker-loss condition, required outcome, and checkpoint-authority consequence are explicit.",
+        "The current numerical target and exact failure cases remain with the SLO and integration-test authorities rather than being copied or invented.",
+        "Only the quality/, reliability/, and recoverability/ indexes earned by the named requirement are created; no empty ISO taxonomy is generated.",
+        "No Quality Concern or Product Quality View concept is created."
       ]
     }
   ]

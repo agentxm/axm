@@ -3,14 +3,28 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-architecture-docs",
-  "version": "0.0.1",
-  "description": "Create and revise small, durable software architecture documentation grounded in accepted intent and executable evidence",
+  "version": "1.1.0",
+  "description": "Create concise human-first architecture docs as an authorized semantic delta over repository and runtime evidence",
   "keywords": [
     "software-architecture",
     "architecture-documentation",
-    "architecture-corpus",
+    "architecture-docs",
+    "c4-model",
+    "domain-driven-design",
+    "wardley-mapping",
+    "offerings",
+    "jobs-to-be-done",
+    "value-propositions",
+    "use-cases",
+    "human-comprehension",
+    "semantic-delta",
+    "stable-identity",
+    "capabilities",
+    "features",
+    "surfaces",
     "system-design",
     "quality-attributes",
+    "product-quality-requirements",
     "boundaries",
     "invariants",
     "documentation"
@@ -23,7 +37,7 @@
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
   "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
+    "@craigsmitham/packs/software-architecture"
   ],
   "standalone": false
 }

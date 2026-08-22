@@ -13,7 +13,7 @@ sources:
     title: Documentation craft guide
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T16:43:45Z
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Organizing and naming documentation
@@ -86,6 +86,12 @@ Use the strongest evidence at this scope:[^organization]
 A hybrid is coherent when different scopes have explicit rules—for example, a
 subject-first root with one bounded form-first collection. Do not alternate
 axes unpredictably among siblings at the same scope.
+
+When several adjacent concepts are repeatedly confused, do not expand their
+index entries into a substantive comparison or make every concept repeat the
+same matrix. Apply [Concept boundaries](../patterns/concept-boundaries.md): keep
+each positive definition canonical, give the comparative relationship one
+explicit document, and use the index only to route readers to both.
 
 ## 4. Make every folder earn its boundary
 
@@ -188,6 +194,7 @@ match their targets.
 - Every filename is stable and meaningful outside its directory.
 - Every title communicates the document's specific reader job.
 - Metadata and indexes expose useful secondary views without duplication.
+- Recurring cross-concept distinctions have one authority outside indexes.
 - Moves and renames preserve or deliberately migrate inbound references.
 - Browse, search, and raw-path discovery all work.
 
@@ -197,6 +204,7 @@ match their targets.
 - [Documentation craft](../explainers/documentation-craft.md) · [Documentation craft guide](documentation-craft.md)
 - [Documentation workflow](../explainers/documentation-workflow.md) · [Documentation workflow guide](documentation-workflow.md)
 - [Documentation quality](../explainers/documentation-quality.md)
+- [Concept boundaries](../patterns/concept-boundaries.md)
 
 [^organization]: Documentation organization and discovery defines form-first
     and subject-first grouping and treats semantic adjacency as the deciding

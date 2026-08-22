@@ -15,8 +15,8 @@ sources:
     resource: https://martinfowler.com/bliki/ContinuousDelivery.html
     title: Martin Fowler — Continuous Delivery
 generated:
-  by: openai/gpt-5
-  at: 2026-08-08T16:15:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Continuous delivery
@@ -33,6 +33,10 @@ target routine and keeps the system releasable rather than assembling a special
 release process at the end.[^fowler-cd] DORA frames the capability around being
 able to release changes of all kinds on demand in a safe, quick, and sustainable
 way.[^dora-cd]
+
+For the complete comparison with continuous integration and continuous
+deployment, use [Continuous integration, delivery, and
+deployment](continuous-integration-delivery-and-deployment.md).
 
 [^fowler-cd]: Martin Fowler — Continuous Delivery
 [^dora-cd]: DORA — Continuous delivery
@@ -95,14 +99,6 @@ automation.[^continuous-delivery-foundation]
 | Experience | Authors, reviewers, and operators can see where a candidate is, what evidence exists, what blocks it, and how to release or recover it. |
 | Safety | Permissions, approvals, rollout controls, and effects are proportionate to the target and change. |
 
-## Continuous delivery is not continuous deployment
-
-Continuous delivery preserves a release decision. Continuous deployment
-automates that routine decision for every qualifying change. A system can
-practice continuous delivery while releasing on a business schedule; it cannot
-claim the practice credibly if an ordinary release requires exceptional
-hardening, reconstruction, or manual deployment work.
-
 ## Signals that the name exceeds the practice
 
 * A separate stabilization phase is required before most releases.
@@ -116,6 +112,7 @@ hardening, reconstruction, or manual deployment work.
 
 ## Related
 
+* [Continuous integration, delivery, and deployment](continuous-integration-delivery-and-deployment.md)
 * [Continuous integration](continuous-integration-explainer.md)
 * [Continuous deployment](continuous-deployment-explainer.md)
 * [Pipeline](../patterns/pipeline-explainer.md)

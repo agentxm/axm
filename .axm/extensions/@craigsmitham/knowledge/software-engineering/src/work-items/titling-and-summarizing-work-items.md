@@ -41,8 +41,8 @@ What it names depends on the type:
 | Type | Title the | Example |
 | --- | --- | --- |
 | [Operational incident](recording-operational-incidents.md) | Affected service and observed impact | Checkout unavailable for some European customers |
-| [Defect](reporting-software-defects.md) | Affected behavior, observed result, and triggering condition | Invoice export omits zero-value lines when tax details are included |
-| [Feature request](writing-feature-requests.md) | Desired ability or outcome | Let account owners export invoice history for external reconciliation |
+| [Defect](recording-defect-reports.md) | Affected behavior, observed result, and triggering condition | Invoice export omits zero-value lines when tax details are included |
+| [Feature request](recording-feature-requests.md) | Desired ability or outcome | Let account owners export invoice history for external reconciliation |
 
 Cut whatever the reading surface already displays: the tracker identifier, the
 item type, and any team or component label that a structured field carries.

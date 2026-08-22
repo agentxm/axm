@@ -12,8 +12,8 @@ sources:
     resource: https://dora.dev/capabilities/continuous-integration/
     title: DORA — Continuous integration
 generated:
-  by: openai/gpt-5
-  at: 2026-08-08T16:15:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Continuous integration
@@ -28,6 +28,10 @@ describes developers integrating at least daily, with each integration
 verified by an automated build.[^fowler-ci] DORA likewise treats small,
 frequent merges, comprehensive automated testing, and rapid repair of a broken
 build as characteristics of the practice.[^dora-ci]
+
+For the boundary from continuous delivery and continuous deployment, use
+[Continuous integration, delivery, and
+deployment](continuous-integration-delivery-and-deployment.md).
 
 [^fowler-ci]: Martin Fowler — Continuous Integration
 [^dora-ci]: DORA — Continuous integration
@@ -100,6 +104,7 @@ while feedback remains too slow to act on does not sustain it either.
 
 ## Related
 
+* [Continuous integration, delivery, and deployment](continuous-integration-delivery-and-deployment.md)
 * [Workflow model](../workflow-model-explainer.md)
 * [Pipeline](../patterns/pipeline-explainer.md)
 * [Quality gate](../patterns/quality-gate-explainer.md)

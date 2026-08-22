@@ -88,6 +88,17 @@
         "Both options and tradeoffs are retained, option B remains a recommendation, and no accepted decision is claimed.",
         "The presence of a detailed external design does not silently create implementation tasks or delivery approval."
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "Draft the accepted delivery issue for this approved change and preserve every supplied detail. Replace generic `flow:point kind=policy` comments inside the existing managed Policies region with a contained `flow:policy source=<versioned-id>` marker. The enclosing region remains format v1 and is still the only ownership unit; the contained marker has no local version and extends to the next policy marker or region end. Accepted TypeScript sketch: `const MARKER_KIND_POLICY = \"flow:policy\" as const` and `type PolicyMarker = { readonly kind: typeof MARKER_KIND_POLICY; readonly source: string }`. Accepted parser flow: validate and extract the Policies region first, then recover contributors only from its body; a valid policy marker outside the region is ignored. Remove `MARKER_KIND_POINT`, `pointKind`, generic point parsing, and all current point fixtures. Do not add compatibility reads, migration, a generic contribution abstraction, or paired per-policy fences. Implementation surfaces: the shared marker codec and exports, policy rendering and observation, unit/property tests, graph-projection tests, CLI fixtures, generated help, architecture docs, and managed consumer projections. Behavioral verification: one versionless policy marker per active contribution, unchanged deterministic ordering and aggregate replacement, and no current point syntax. Testing strategy: codec round trips including IDs containing `@` and `/`, missing-source failure, outside-region observation, direct and bundle-contributed policies, CLI lifecycle coverage, and producer/consumer convergence. Open question: whether a supplied marker-local `v` should be rejected or ignored.",
+      "expected_output": "A tracker-ready accepted delivery item that preserves the complete ownership and containment design, exact TypeScript sketch, parser flow, removals, non-goals, implementation surfaces, behavioral verification conditions, layered testing strategy, and unresolved marker-local-version question without reclassifying the accepted work as intake or inventing further design.",
+      "assertions": [
+        "The item remains accepted delivery work under the host workflow rather than being rewritten as a feature request, defect, or unapproved proposal.",
+        "The unchanged v1 ownership region, versionless contained marker, implicit extent, exact TypeScript sketch, and region-first parser flow are all preserved rather than compressed into generic prose.",
+        "Every named removal, non-goal, implementation surface, behavioral verification condition, and testing layer remains present and distinct.",
+        "The marker-local-version question remains unresolved, and no compatibility path, generic abstraction, paired fence, priority, estimate, or additional implementation decision is invented."
+      ]
     }
   ]
 }

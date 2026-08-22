@@ -4,10 +4,11 @@ description: >-
   Author, convert, maintain, and validate Open Knowledge Format (OKF) v0.2 knowledge bundles —
   directory trees of markdown concept documents with YAML frontmatter. Use when creating an OKF
   bundle or concept document, converting existing docs / wiki pages / data-catalog metadata into
-  OKF, adding or updating concepts in an existing bundle, writing index.md or log.md, authoring an
-  Attested Computation, setting provenance / trust / lifecycle frontmatter (sources, generated,
-  verified, status, stale_after), or checking a bundle for conformance. Triggers on: OKF, Open
-  Knowledge Format, knowledge bundle, concept document, okf_version, attested computation.
+  OKF, defining or applying an OKF application profile, adding or updating concepts in an existing
+  bundle, writing index.md or log.md, authoring an Attested Computation, setting provenance / trust /
+  lifecycle frontmatter (sources, generated, verified, status, stale_after), or checking base and
+  profile conformance. Triggers on: OKF, Open Knowledge Format, knowledge bundle, concept document,
+  OKF application profile, profile conformance, okf_version, attested computation.
 ---
 
 # Authoring OKF bundles
@@ -33,6 +34,8 @@ the version this skill targets.
 5. **Never invent provenance.** `sources`, `generated.by`, and `verified` are trust claims. Record
    what actually happened; omit the field when you do not know. Absence is meaningful and always
    permitted — a fabricated `verified: { by: human:... }` entry is worse than no entry.
+6. **Keep conformance layers separate.** An application-profile failure does not make a bundle
+   non-conformant with OKF v0.2.
 
 ## Progressive discovery
 
@@ -113,8 +116,11 @@ conformance and bundle coherence, not the host repository's documentation taxono
 
 ### Extend or maintain an existing bundle
 
-**Read before writing.** Scan the bundle for its existing `type` values, directory conventions, and
-actor strings, and match them. The validator's `--summary` prints the type inventory:
+**Read before writing.** Discover any declared application profile, then scan the bundle for its
+existing `type` values, directory conventions, and actor strings. Follow the profile when one
+exists; otherwise match established bundle conventions. When a profile applies, read
+`references/application-profiles.md` before changing its types, metadata, paths, relationships, or
+validation rules. The validator's `--summary` prints the type inventory:
 
 ```bash
 python3 scripts/validate_okf.py <bundle> --summary
@@ -142,6 +148,13 @@ python3 scripts/validate_okf.py <bundle> --json       # machine-readable
 
 Report findings by severity and fix `error` findings before reporting done. Weigh `warn` findings
 on their merits — several are advisory by design (broken links are explicitly legal per §11).
+
+The bundled validator checks OKF v0.2 and general authoring hazards; it does not enforce arbitrary
+producer application profiles. When a profile applies, run its validator when one exists and
+report **OKF conformance** and **profile conformance** separately. Never classify a profile-only
+violation as an OKF specification error. If no executable profile validator exists, label the
+profile review as manual and name the rules checked. Read `references/application-profiles.md` when
+defining, applying, or validating a profile.
 
 ## Frontmatter reference
 

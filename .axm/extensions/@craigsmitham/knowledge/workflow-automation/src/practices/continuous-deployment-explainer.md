@@ -15,8 +15,8 @@ sources:
     resource: https://dora.dev/capabilities/continuous-delivery/
     title: DORA — Continuous delivery
 generated:
-  by: openai/gpt-5
-  at: 2026-08-08T16:15:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Continuous deployment
@@ -31,6 +31,10 @@ Continuous deployment therefore implies a continuous-delivery capability, but
 continuous delivery does not require continuous deployment. The distinction is
 whether the final production release is automatic or remains a deliberate
 business decision.[^delivery-vs-deployment][^fowler-cd]
+
+For the complete comparison with continuous integration and continuous
+delivery, use [Continuous integration, delivery, and
+deployment](continuous-integration-delivery-and-deployment.md).
 
 [^delivery-vs-deployment]: Continuous Delivery vs Continuous Deployment
 [^fowler-cd]: Martin Fowler — Continuous Delivery
@@ -121,6 +125,7 @@ work can be made to succeed*.
 
 ## Related
 
+* [Continuous integration, delivery, and deployment](continuous-integration-delivery-and-deployment.md)
 * [Continuous delivery](continuous-delivery-explainer.md)
 * [Continuous integration](continuous-integration-explainer.md)
 * [Quality gate](../patterns/quality-gate-explainer.md)

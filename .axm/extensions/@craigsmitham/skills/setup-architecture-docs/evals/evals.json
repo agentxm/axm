@@ -1,0 +1,93 @@
+{
+  "skill_name": "setup-architecture-docs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Set up Just Enough Architecture Docs in this repository. AGENTS.md already exists, the deployable application is the clear system boundary, and there are no architecture docs yet. Keep it minimal.",
+      "expected_output": "A minimal docs/architecture/index.md and concise AGENTS.md discovery route, without substantive architecture claims or empty collections.",
+      "assertions": [
+        "The deployable application is recorded as the documented system boundary.",
+        "The root index records local adoption, authority routes, and maintenance triggers without inventing architecture.",
+        "AGENTS.md points to the architecture-doc root and shared pack without copying the portable method.",
+        "No empty value, capability, feature, domain, structure, concern, or overview artifact is created."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Adopt the architecture-doc workflow for a repository that already uses architecture/index.md and has useful responsibility and boundary documents linked from it. Do not move them just to match a default path.",
+      "expected_output": "Setup preserves the established root and useful organization, records the material path deviation, and adds only missing adoption and discovery information.",
+      "assertions": [
+        "The existing architecture/index.md remains canonical rather than being duplicated under docs/architecture/.",
+        "Existing substantive documents are preserved and remain reachable.",
+        "The local path deviation is recorded without copying the shared guide.",
+        "No broad migration or rewrite is performed."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Initialize architecture docs in this monorepo. It contains three independently deployed products and shared libraries, but nobody has decided whether the docs should describe the whole platform or each product separately.",
+      "expected_output": "A bounded response that identifies the unresolved system-boundary choice and does not create competing or speculative documentation roots.",
+      "assertions": [
+        "The platform-versus-product system boundary is identified as material.",
+        "The skill requests that choice rather than inferring it from directory structure.",
+        "No architecture-doc root or substantive architecture claim is created before the choice is resolved.",
+        "The response does not choose an architecture for the monorepo."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Set up architecture docs and generate every recommended directory and a complete microservices architecture so the repository looks finished.",
+      "expected_output": "Minimal setup that refuses empty taxonomy generation and declines to invent a microservices architecture.",
+      "assertions": [
+        "The placement menu and graduated examples are treated as conditional guidance rather than mandatory scaffolding.",
+        "No empty documentation collections are created.",
+        "Microservices are not recorded as accepted architecture without authority.",
+        "The smallest valid adoption surface is still offered."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Connect our existing OKF v0.2 architecture docs to the software-architecture pack. They already declare the software architecture application profile and use docs/architecture/.",
+      "expected_output": "Setup preserves the existing OKF choice, links the applicable profile, and verifies base and profile discovery without reselecting the format.",
+      "assertions": [
+        "Existing OKF adoption is treated as repository authority.",
+        "The architecture root remains docs/architecture/.",
+        "The applicable software architecture profile is discoverable from the root.",
+        "Plain Markdown is not substituted for the accepted OKF convention."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Our Just Enough Architecture Docs setup already exists, but its links are broken and several documents look stale. Set it up again and clean everything up.",
+      "expected_output": "A routing boundary that recognizes established setup and leaves repair, freshness, and cleanup to maintain-architecture-docs.",
+      "assertions": [
+        "The existing setup is not recreated or duplicated.",
+        "Broken links and stale content are identified as maintenance work.",
+        "The response does not rewrite substantive architecture docs under setup authority.",
+        "Any genuinely missing setup choice is separated from the maintenance scope."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Set up architecture docs around the one existing accepted concept at docs/architecture/use-cases/confirm-reservation.md. There are no other architecture concepts yet. Keep the corpus ready to grow consistently.",
+      "expected_output": "Minimal setup that preserves the existing concept at its stable canonical named path and adds only required navigation and discovery, without scaffolding other collections or inferring new meaning.",
+      "assertions": [
+        "The accepted concept is routed to use-cases/confirm-reservation.md rather than a plural use-cases.md catch-all.",
+        "The use-cases collection appears because its first concept exists and includes index.md navigation.",
+        "No empty capability, feature, domain, structure, or concern collection is created.",
+        "Setup does not rewrite or add use-case semantics beyond the existing accepted document."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Set up architecture docs for an active project whose repository owner route is authoritative, but no accepted system lifecycle terminology or architecture decision route exists yet.",
+      "expected_output": "Minimal setup that links the accepted maintainer route and surfaces lifecycle and decision-authority gaps for bounded authoring without guessing from commit history or creating team documents.",
+      "assertions": [
+        "The repository owner route is linked rather than copied as a roster.",
+        "Missing lifecycle terminology and decision authority are reported as semantic gaps.",
+        "No lifecycle or authority is inferred from usernames, commits, or directory structure.",
+        "The setup remains usable for either a solo project or a later multi-team system."
+      ]
+    }
+  ]
+}

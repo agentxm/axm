@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "setup-architecture-docs",
+  "version": "0.2.0",
+  "description": "Set up minimal discoverable architecture docs with explicit scope, authority, lifecycle routes, and no inferred semantic expansion",
+  "keywords": [
+    "software-architecture",
+    "architecture-docs",
+    "architecture-documentation",
+    "setup",
+    "adoption",
+    "initialization",
+    "just-enough-architecture-docs",
+    "system-boundary",
+    "system-lifecycle",
+    "stable-identity",
+    "documentation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/setup-architecture-docs"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/software-architecture"
+  ],
+  "standalone": false
+}
